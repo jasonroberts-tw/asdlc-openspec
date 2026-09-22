@@ -113,9 +113,11 @@ does not apply to your platform is absent from its list, not marked optional.
 1. Install `bd`, the tracker's CLI, and check that `bd --version` answers.
 1. Clone, then `npm ci`. The hook runner's install script writes the git hooks; if your package
    manager blocks install scripts, run `npx lefthook install` once.
-1. Set `sync.remote` in `.beads/config.yaml` if it still holds a placeholder, then `bd bootstrap`.
-   Never `bd init`: it creates a new tracker instead of hydrating this one, and takes over the git
-   hooks directory.
+1. Set `sync.remote` in `.beads/config.yaml` if it still holds a placeholder (`<protocol>` is
+   `git+https` or `git+ssh`), run `chmod 700 .beads` (git does not carry the mode, and `bd` warns
+   on every command without it) and `git config beads.role maintainer` (`contributor` on a fork;
+   git config is per clone, so no tracked file can set it), then `bd bootstrap`. Never `bd init`:
+   it creates a new tracker instead of hydrating this one, and takes over the git hooks directory.
 1. Run `npm run gates` and read a green suite before the first change. Never the bare hook
    runner: with nothing to push it skips every job and exits 0 (`CLAUDE.md` § The gate ladder).
 
@@ -127,8 +129,9 @@ does not apply to your platform is absent from its list, not marked optional.
 1. Clone, then `npm ci`. If install scripts are blocked, run `npx lefthook install` once.
 1. Copy `lefthook-windows.yml` to `lefthook-local.yml` and do not commit the copy. Without it the
    pre-push suite finishes every job and then never returns; the file's header has the reason.
-1. Set `sync.remote` in `.beads/config.yaml` if it still holds a placeholder, then `bd bootstrap`.
-   Never `bd init`.
+1. Set `sync.remote` in `.beads/config.yaml` if it still holds a placeholder (`<protocol>` is
+   `git+https` or `git+ssh`), run `git config beads.role maintainer` (`contributor` on a fork),
+   then `bd bootstrap`. Never `bd init`.
 1. Run `npm run gates` and read a green suite before the first change.
 
 A clone that is built on Windows is not also built from Linux (a container, WSL): `node_modules`

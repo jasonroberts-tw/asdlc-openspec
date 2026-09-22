@@ -65,13 +65,13 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 ### Step 3 · § 1.12 Small hygiene worth copying (Brief)
 
 - [x] **adapt** — `.gitattributes` with `* text=auto eol=lf` moves line endings out of per-machine settings; before widening a pattern, measure with `git ls-files --eol` as its header did (11 of 2,133 tracked files were affected, none mixed), and carve imported bytes out with `-text`.
-  - overwritten; now adapt as the bullet says → `.gitattributes`
+  - unchanged; now adapt as the bullet says → `.gitattributes`
 - [x] **adapt** — `.git-blame-ignore-revs` lists only pure-formatting commits and explains the big reformat it deliberately omits, because the setting works per commit, not per file.
   - unchanged; now adapt as the bullet says → `.git-blame-ignore-revs`
 - [x] **adapt** — `NO_COLOR: '1'` on every job that runs a third-party CLI, with the reason (`lefthook.yml`): one tool probed the terminal and left its replies in the shell's input queue.
-  - authored (authored/lefthook.yml), overwritten; now adapt as the bullet says → `lefthook.yml`
+  - authored (authored/lefthook.yml), unchanged; now adapt as the bullet says → `lefthook.yml`
 - [x] **adapt** — `scripts/python.mjs` probes for a real interpreter instead of assuming a name; on one platform the obvious name is a store alias that exits with no output.
-  - overwritten; now adapt as the bullet says → `scripts/python.mjs`
+  - unchanged; now adapt as the bullet says → `scripts/python.mjs`
 - [x] **adapt** — `scripts/lib/bin-path.mjs` resolves a `node_modules/.bin` tool by walking up, never `npx`, because a linked worktree has an almost empty `node_modules` and "these scripts are gates; they must fail on a missing tool, not paper over it".
   - unchanged; now adapt as the bullet says → `scripts/lib/bin-path.mjs`
 - [x] **adapt** — `package.json` pins `engines` to the runtime feature it needs and allow-lists install scripts.
@@ -81,18 +81,18 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 - [x] **adapt** — `.gitignore` entries that are load-bearing carry a paragraph saying why.
   - authored (authored/gitignore), unchanged; now adapt as the bullet says → `.gitignore`
 - [x] **adapt** — A platform workaround lives in the committed file with the upstream issue number and the measurement (`lefthook.yml`; `lefthook-windows.yml` is the three-line local override for a platform where the runner hangs in parallel).
-  - authored (authored/lefthook.yml), unchanged, overwritten; now adapt as the bullet says → `lefthook.yml`, `lefthook-windows.yml`
+  - authored (authored/lefthook.yml), unchanged; now adapt as the bullet says → `lefthook.yml`, `lefthook-windows.yml`
 
 ### Step 4 · § 2.1 The decision register, and how things retire (Full)
 
 - [x] **write** — write `<register>`: one file of numbered decisions and risks, `<decision-id>` and `<risk-id>`, each entry with a fixed skeleton — a heading carrying the id and a title; a **Recorded** date with the issue that carried it; what it amends or builds on; the decision; why; the file-level record of what changed; and every figure with the command that re-derives it beside it; and, at the head of the file, a status line stating the recorded range and a summary table of ids and titles, which the gate below holds to the headings
-  - overwritten → `docs/decisions.md`
+  - unchanged → `docs/decisions.md`
 - [x] **write** — write the amendment rule: an entry is never rewritten; a later decision adds a dated `**Amended <date> by <id>.**` blockquote under each entry it changes and lists them in its own body; a superseded entry keeps its heading, marked superseded; a withdrawn risk keeps its id, which is never reused, and is never reported as closed or met
-  - overwritten → `docs/decisions.md`
+  - unchanged → `docs/decisions.md`
 - [x] **write** — write the precedence sentence into the documentation index — when a document and the register disagree, the register wins — and into `CLAUDE.md`: no agent re-litigates a recorded decision
-  - overwritten, unchanged → `docs/README.md`, `docs/decisions.md`, `CLAUDE.md`
+  - unchanged → `docs/README.md`, `docs/decisions.md`, `CLAUDE.md`
 - [x] **copy** — copy `scripts/check-register-status.mjs` → `<checks-dir>/` and adapt its anchors: the header's range, its summary table and the per-entry dates are held to the actual headings in both directions, and a file that cites the register without a bound must not grow one
-  - overwritten, unchanged → `scripts/check-register-status.mjs`, `package.json`, `package-lock.json`, `lefthook.yml`, `.github/workflows/verify.yml`
+  - unchanged → `scripts/check-register-status.mjs`, `package.json`, `package-lock.json`, `lefthook.yml`, `.github/workflows/verify.yml`
 - [x] **write** — write the three retirement dispositions into `<retired-dir>/README.md` — move a file there under a head banner naming the decision and what survived, when a live gate or citation still needs its lineage and no live reader reads any part of it; delete it outright under a register entry, with `git show` as the recovery, when nothing live reads it (a row in an index does not count); move the paragraph, not the file, when one paragraph is all that keeps it alive — and the rule over all three: moving a file out is a register decision with a checklist, not a tidy-up
   - unchanged → `docs/retired/README.md`
 - [x] **copy** — copy `.claude/skills/retire-asset/SKILL.md`
@@ -111,13 +111,13 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 ### Step 5 · § 3.1 Every directory and document says what it is, and who wins (Full)
 
 - [x] **write** — write a `README.md` in every directory that holds more than one file of one kind: a bolded one-sentence thesis of the directory's role, then a table with one row per file saying what it is or, for a gate, what it refuses
-  - overwritten → `scripts/README.md`, `scripts/hooks/README.md`, `tools/README.md`
+  - unchanged → `scripts/README.md`, `scripts/hooks/README.md`, `tools/README.md`
 - [x] **write** — write a documentation index at `<docs-dir>/README.md`: one row per document, and a Conventions block stating that a dated document stays true about its date and is superseded rather than refreshed, that numbers cite their source, and that the status of work lives in `<task-store>` and never in a document
-  - overwritten → `docs/README.md`
+  - unchanged → `docs/README.md`
 - [x] **write** — write, at the head of every dated document, a `**Written:**` line and, once something amends it, a `**Status:**` line naming what did
-  - overwritten, unchanged → `docs/README.md`, `CLAUDE.md`
+  - unchanged → `docs/README.md`, `CLAUDE.md`
 - [x] **write** — write, in every document that can disagree with another, one sentence saying which wins
-  - overwritten, unchanged → `docs/README.md`, `CLAUDE.md`
+  - unchanged → `docs/README.md`, `CLAUDE.md`
 - [x] **write** — write the root `README.md`'s setup numbered per platform, ending with a table of what runs automatically: trigger, effect, and the file that wires it
   - overwritten → `README.md`
 
@@ -146,8 +146,8 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
   - unchanged → `.gitignore`
 - [x] **write** — write into `CLAUDE.md`: every task is an issue there, never a markdown checklist or an in-session todo list; `bd ready` is the queue; every run of writes is bracketed by a pull before the first and a push after the last, and a rejected push is reported, never forced; long descriptions and notes go in by file
   - unchanged → `CLAUDE.md`
-- [x] **adapt** — adapt `.beads/config.yaml`: its remote. copy the `beads` jobs of `lefthook.yml` (one per git hook the tracker owns) into `<hook-runner>`'s configuration once 1.6 has installed it, so installing the hook runner does not silently turn the tracker's git integration off
-  - unchanged, authored (authored/lefthook.yml), overwritten; now adapt as the bullet says → `.beads/config.yaml`, `lefthook.yml`
+- [x] **adapt** — adapt `.beads/config.yaml`: its remote, whose protocol (`git+https` or `git+ssh`) and path are placeholders; `.beads/metadata.json` beside it names the database, and without it every `bd` command warns that it fell back to a default; `.beads/.gitignore` keeps the database and runtime files out of git. the bootstrap makes `.beads/` private (mode 700), which `bd` asks for and git does not carry, so a fresh clone runs `chmod 700 .beads` and `git config beads.role maintainer` (or `contributor`) before `bd bootstrap`. copy the `beads` jobs of `lefthook.yml` (one per git hook the tracker owns) into `<hook-runner>`'s configuration once 1.6 has installed it, so installing the hook runner does not silently turn the tracker's git integration off
+  - overwritten, written, authored (authored/lefthook.yml), unchanged; now adapt as the bullet says → `.beads/config.yaml`, `.beads/metadata.json`, `.beads/.gitignore`, `lefthook.yml`
 - [x] **copy** — copy `scripts/check-beads.mjs` → `<checks-dir>/` and adapt its label vocabulary: every open issue carries a label naming where its work lands; its second rule, that an id from a predecessor tracker resolves only in a frozen export committed in your repository, applies only when you have a predecessor and goes otherwise
   - unchanged → `scripts/check-beads.mjs`
 - [x] **adapt** — adapt `.beads/formulas/corpus-regen.formula.toml` only when you have a multi-step cycle worth templating: replace its steps and keep its header's two rules (cite headings, never line numbers; cite count keys, never numerals); a formula declares variables and dependent steps, and the instance is thrown away once the cycle's commits and closed issues are the record
@@ -174,7 +174,7 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 - [x] **write** — write the placement rule into `CLAUDE.md`: a check that reads only committed files is a pre-push job **and** a `<ci>` step; a check that reads something outside the repository (another checkout, a token, a network, a language model) runs in neither, and a digest gate stands in for it (a check that re-hashes the input's last accepted bytes and fails on drift; the last bullet is one); a legitimately absent input skips clean and prints why; a tool that is found and then fails is a failure, never a skip
   - unchanged → `CLAUDE.md`
 - [x] **install** — install `<hook-runner>` and adapt `lefthook.yml`: pre-commit `parallel: false` with the reason; pre-push `parallel: true`; every pre-push job with a `glob` re-derived from what its script reads and imports (wider when in doubt), launched as `node --run <name>`, with a comment stating its measured cost and the host it was measured on, re-measured on yours because the copied notes name another host; deliberately absent gates named at the site with the reason; retired jobs left as a comment carrying the rule text worth keeping and the shape the job would take if it came back
-  - authored (authored/lefthook.yml), unchanged, overwritten → `lefthook.yml`, `package-lock.json`
+  - authored (authored/lefthook.yml), unchanged → `lefthook.yml`, `package-lock.json`
 - [x] **write** — write `<gates-command>` as the hook runner's forced full suite (`lefthook run pre-push --force` for lefthook), and use only that by hand: the bare runner skips every job when the push file list is empty and exits 0 in a tenth of a second, which reads exactly like a clean run
   - unchanged → `package.json`, `package-lock.json`, `CLAUDE.md`
 - [x] **adapt** — adapt `.github/workflows/verify.yml` into `<ci>`: cheapest first, a concurrency group that cancels superseded runs, minimal permissions, a timeout, and retired steps kept as comments saying why a restored step would be wrong
@@ -195,7 +195,7 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 ### Step 10 · § 1.7 Gates on the gates: every script wired or declared, every gate negative-tested (Full)
 
 - [x] **copy** — copy `scripts/check-jobs.mjs` → `<checks-dir>/` and adapt its file names: every `run:` token in the hook runner's configuration and in `<ci>` resolves to a script in the package manifest; every script no job invokes is declared in the file's exception table with its kind and reason, and a gate-shaped name (`check:*`, `*:check`, `*:selftest`) is told to wire itself or name its exception; a declared exception that has since gained a job, or names a script that no longer exists, fails too; a script naming a path that is not on disk fails
-  - overwritten → `scripts/check-jobs.mjs`
+  - unchanged → `scripts/check-jobs.mjs`
 - [x] **write** — write a `--selftest` mode into every gate, a standing rule from the first gate: copy the gate's inputs under the temporary directory, break exactly one thing per case, assert the run fails **for that reason**, and keep one undoctored control case that must pass; expose it as `<name>:selftest` and run it as its own pre-push job
   - unchanged → `CLAUDE.md`
 - [x] **write** — write a root override (an environment variable naming a doctored copy) into each gate, so a by-hand run can point it at a fixture without editing it
@@ -223,13 +223,13 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 - [ ] **adapt** — adapt the refusal in the emitter shape for any emitter that walks a graph: compare the walk with a hand-ratified fixture (a decision record, 2.2) and refuse to write on disagreement, because a wrong walk returns a smaller answer and says nothing
   - read authored/reference/emitter-shape.mjs in the kit (the kit carries this file's shape, not the file)
 - [x] **copy** — copy `scripts/assert-not-hand-edited.mjs` → `<checks-dir>/` as a `<hook-runner>` pre-commit job over staged paths only, and adapt its table: one verifier per generator, chosen by path; a suspect nothing can verify is reported as unverified
-  - overwritten → `scripts/assert-not-hand-edited.mjs`
+  - unchanged → `scripts/assert-not-hand-edited.mjs`
 - [x] **copy** — copy `scripts/hooks/block-generated-edit.mjs` → `<hooks-dir>/` as a `PreToolUse` hook on Write and Edit, and adapt its redirect table: the refusal names where the change belongs
-  - overwritten → `scripts/hooks/block-generated-edit.mjs`
+  - unchanged → `scripts/hooks/block-generated-edit.mjs`
 - [x] **copy** — copy `scripts/hooks/check-emitted-drift.mjs` → `<hooks-dir>/` as a `PostToolUse` hook, and adapt its trigger table to your emitters' inputs and the emitters themselves: it re-runs the `:check` only for those, and never blocks
-  - overwritten → `scripts/hooks/check-emitted-drift.mjs`
+  - unchanged → `scripts/hooks/check-emitted-drift.mjs`
 - [x] **copy** — copy `.claude/skills/add-npm-script/SKILL.md` into your `.claude/skills/` and adapt the README section it names: the seven steps of adding, renaming or removing a script
-  - overwritten → `.claude/skills/add-npm-script/SKILL.md`
+  - unchanged → `.claude/skills/add-npm-script/SKILL.md`
 
   Verify (`node <kit>/tools/verify.mjs --target . --sections 1.5`):
 
@@ -262,9 +262,9 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 - [x] **write** — write `.claude/settings.json` with two things in it and nothing else: the enabled plugins (the tracker's, where you take 1.3) and the hook registrations, each with a `statusMessage` and an explicit `timeout` sized to the hook; write into `.claude/README.md` that machine-specific permissions go in `.claude/settings.local.json`, which is untracked
   - unchanged → `.claude/settings.json`, `.claude/README.md`
 - [x] **copy** — copy `scripts/hooks/_shared.mjs` → `<hooks-dir>/`: a stdin reader that returns null on a TTY, empty or unparseable input, so every hook can be run by hand; an edit-target reader that accepts both payload spellings; a repository-relative path helper that returns null outside the repository; a bounded header read; a spawn helper with a timeout
-  - overwritten → `scripts/hooks/_shared.mjs`
+  - unchanged → `scripts/hooks/_shared.mjs`
 - [x] **copy** — copy `scripts/hooks/gate-summary.mjs` → `<hooks-dir>/` as your `Stop` hook once 1.6 has given you gates, and adapt its gate list to the three fastest: it runs them concurrently, prints one verdict line into the transcript, and never blocks
-  - overwritten → `scripts/hooks/gate-summary.mjs`
+  - unchanged → `scripts/hooks/gate-summary.mjs`
 - [x] **write** — write into `.claude/README.md` that hook configuration is snapshotted at session start, so a session that began before a hook was added never sees it
   - unchanged → `.claude/README.md`
 
@@ -281,11 +281,11 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 ### Step 14 · § 1.8 The citations gate (Full)
 
 - [x] **copy** — copy `tools/citations/` → `<emitters-dir>/citations/` (TypeScript, run directly by Node; a multi-file check lives with the emitters, a single-file one under `<checks-dir>`) and adapt its exemption registries: every pointer of the forms `<file>.md:NN` and `<file>.md § <Name>` in every tracked text file must resolve — the file exists, the line is in range and not blank, the section exists, and a pointer into a retired file fails until it names the new path
-  - overwritten → `tools/citations/check.ts`, `tools/citations/memory.ts`, `tools/citations/scan.ts`, `tools/citations/selftest.ts`
+  - unchanged → `tools/citations/check.ts`, `tools/citations/memory.ts`, `tools/citations/scan.ts`, `tools/citations/selftest.ts`
 - [x] **write** — write the strip step this gate forces on day one: a copied file may carry header citations to sections, reviews, tracker ids and commits you do not have, and a copied prompt may end in a `Reviewed:` trailer naming reviews of runs that were not yours; replace each with your own or drop it before the gate's first run
   - unchanged → `CLAUDE.md`
 - [x] **write** — write it as a pre-push job with no glob and a `<ci>` step, scanning every tracked text file rather than an allowlist; take exemptions one at a time, each a line in a diff with a reason: quotations of what a stale claim said, frozen history directories, the retired root
-  - overwritten, unchanged → `lefthook.yml`, `.github/workflows/verify.yml`
+  - unchanged → `lefthook.yml`, `.github/workflows/verify.yml`
 - [x] **write** — write into `CLAUDE.md` that a section pointer is preferred over a line pointer, because a line pointer rots on every edit above it, and that a proposed widening of the gate is measured before it is adopted and, if refused, recorded as a decision
   - unchanged → `CLAUDE.md`
 
@@ -302,22 +302,22 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 ### Step 15 · § 1.11 Warning ratchet (Brief)
 
 - [x] **take** — Take `scripts/lint-ratchet.mjs` → `<checks-dir>/` with its `lint:ratchet` and `lint:ratchet:update` pair and a committed baseline file: warning counts in the pre-existing code may fall and never rise, and errors are never tolerated at any count.
-  - overwritten; now adapt as the bullet says → `scripts/lint-ratchet.mjs`
+  - unchanged; now adapt as the bullet says → `scripts/lint-ratchet.mjs`
 
 ## D. Knowledge
 
 ### Step 16 · § 3.3 The count index, Verification Before Claiming, and reporting honesty (Full)
 
 - [x] **write** — write `<count-index>`: a table of key, value and what it counts, for every figure that describes the current measured state of the thing you measure; a second table naming the command or file each value re-derives from; and a *How to use it* section carrying the rules below
-  - overwritten → `count-index.md`
+  - unchanged → `count-index.md`
 - [x] **write** — write the rules into that file and into `CLAUDE.md`: prose writes the backticked key where the numeral would go, never both; a key is admitted only for a count that moves when the source is re-measured **and** is restated in more than one hand-maintained file; a quotation keeps its numeral; a frozen or historical figure gets no key; a string an emitter writes interpolates what it measured at emit time or carries no figure; name the denominator when two exist
-  - overwritten, unchanged → `count-index.md`, `CLAUDE.md`
+  - unchanged → `count-index.md`, `CLAUDE.md`
 - [x] **adapt** — adapt `scripts/check-count-index.mjs` → `<checks-dir>/`: a check that re-derives every value from its source and fails when the table disagrees, with one deriver per key; update the table from what the check reports, never the check from the table
-  - authored (authored/check-count-index.mjs), unchanged, overwritten; now adapt as the bullet says → `scripts/check-count-index.mjs`, `package.json`, `package-lock.json`, `lefthook.yml`, `.github/workflows/verify.yml`
+  - authored (authored/check-count-index.mjs), unchanged; now adapt as the bullet says → `scripts/check-count-index.mjs`, `package.json`, `package-lock.json`, `lefthook.yml`, `.github/workflows/verify.yml`
 - [x] **write** — write into `CLAUDE.md` the rule behind it all: never state a count, a figure or a "resolved" status from titles, memory or inference; re-derive it at the time of writing and cite the source inline, or say it could not be verified
   - unchanged → `CLAUDE.md`
 - [x] **write** — write, for any rate a report computes, a declared sample size below which the report prints the count and no rate; define every metric once, in one hand-maintained file or one generated from a hand-maintained source, as what is counted, who counts it, where it is recorded, and the value that would mean the project is not viable
-  - overwritten, unchanged → `count-index.md`, `CLAUDE.md`
+  - unchanged → `count-index.md`, `CLAUDE.md`
 
   Verify (`node <kit>/tools/verify.mjs --target . --sections 3.3`):
 
@@ -334,17 +334,17 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 Adopt when: more than two generated artifacts feed each other, so that "regenerate in the right order" is a question somebody has to answer.
 
 - [x] **write** — write one machine-readable record per node in `<emitters-dir>/pipeline/graph.ts` (a name and a language that are defaults): id, kind (its lifecycle), the edges it depends on, named input groups, outputs, the generator and its check, and a detection field that names how staleness is detected or declares none with a reason the gate prints
-  - overwritten → `tools/pipeline/graph.ts`
+  - unchanged → `tools/pipeline/graph.ts`
 - [x] **write** — write the edges declared, not derived: a derived edge is silent about a node whose artifacts do not exist yet, and the point of the record is that it can be wrong in a way a check can catch
-  - overwritten → `tools/pipeline/graph.ts`
+  - unchanged → `tools/pipeline/graph.ts`
 - [x] **write** — write the prose page that describes the graph for a reader, a diagram block and a paragraph per node; the check below holds it to the record
-  - overwritten → `docs/pipeline.md`
+  - unchanged → `docs/pipeline.md`
 - [x] **copy** — copy `tools/pipeline/check.ts` and `tools/pipeline/stale.ts` beside it and adapt: the check asserts no cycle, no unknown edge, every input glob matches at least one file, every stamped path is one of the node's outputs, every script named exists, and every node id appears in the prose that describes the graph; the staleness gate re-folds each node's declared inputs into a digest and compares it with the stamp the node wrote into its own output, so forgetting to regenerate is visible without regenerating
-  - overwritten, unchanged, written → `tools/pipeline/check.ts`, `tools/pipeline/stale.ts`, `package.json`, `package-lock.json`, `lefthook.yml`, `.github/workflows/verify.yml`, `tools/pipeline/formulas.ts`, `tools/pipeline/selftest.ts`, `tools/lib/sibling-root.ts`, `tools/pipeline/example/emit.ts`, `tools/pipeline/example/entries.json`, `tools/pipeline/example/summary.json`
+  - unchanged → `tools/pipeline/check.ts`, `tools/pipeline/stale.ts`, `package.json`, `package-lock.json`, `lefthook.yml`, `.github/workflows/verify.yml`, `tools/pipeline/formulas.ts`, `tools/pipeline/selftest.ts`, `tools/lib/sibling-root.ts`, `tools/pipeline/example/emit.ts`, `tools/pipeline/example/entries.json`, `tools/pipeline/example/summary.json`
 - [x] **write** — write into the record's header that the prose copy is held to the record by a gate that is a floor: it catches a node added on one side and forgotten on the other and cannot catch a wrong edge, and the fix is to generate the prose from the record
-  - overwritten → `tools/pipeline/graph.ts`
+  - unchanged → `tools/pipeline/graph.ts`
 - [x] **write** — write the retirement rule: a node kind whose defining property is that nothing depends on it describes a tool, not a node; retire the kind with its last member, narrow the type, delete the assertion, and leave a do-not-re-add note
-  - overwritten → `tools/pipeline/graph.ts`
+  - unchanged → `tools/pipeline/graph.ts`
 
   Verify (`node <kit>/tools/verify.mjs --target . --sections 2.6`):
 
@@ -396,9 +396,9 @@ Adopt when: more than two generated artifacts feed each other, so that "regenera
 - [x] **copy** — copy `.claude/agents/continuous-prompt-improvement.md`: nine lines that turn a session's self-analysis into a recommendation for the prompt it ran
   - unchanged → `.claude/agents/continuous-prompt-improvement.md`
 - [x] **adapt** — adapt `.claude/agents/fan-out-work.md`: replace the files its examples name, and keep the steps — pre-flight the trunk with the full gate suite; partition ready work into lanes by four overlap kinds (two issues rewriting the same lines take one lane; two adding separate blocks to one file are siblings with named anchors; two regenerating the same generated file are accepted and regenerated after each merge; two appending numbered entries to the register are separate lanes and the second to merge renumbers), and write the partition down before claiming; pre-claim every issue in one tracker bracket; one fresh agent per lane in its own worktree; integrate on the dispatcher's own branch by merging lanes forward, never rebasing a pushed branch; poll the checks; report one table
-  - authored (authored/agent-fan-out-work.md), overwritten; now adapt as the bullet says → `.claude/agents/fan-out-work.md`
+  - authored (authored/agent-fan-out-work.md), unchanged; now adapt as the bullet says → `.claude/agents/fan-out-work.md`
 - [x] **write** — write, into that agent's brief for each lane, the three rules every lane states: never end a turn while a command runs; label every issue the lane creates at creation; an acceptance criterion that acts outside the repository becomes a follow-up issue labelled `human` (a default label name) and is never performed by the lane
-  - overwritten → `.claude/agents/fan-out-work.md`
+  - unchanged → `.claude/agents/fan-out-work.md`
 - [x] **write** — write, at the end of every substantial prompt once its first review exists, a `Reviewed:` line citing the review file (2.5 in part 2); until then none, and strip the trailers the copied prompts carry
   - unchanged → `CLAUDE.md`
 - [x] **copy** — copy `.claude/agents/adversarial-verifier.md`: an agent that tries to falsify every claim in a pull request, document or analysis by re-deriving each from primary sources, hunting the known failure modes (stale figures, claims taken from documentation, an `unused` that misses a dynamic caller, a partial test run reported as full, a `pre-existing` failure that is green on the base), and reporting a verdict table with the minimal patch; it modifies nothing
@@ -430,17 +430,17 @@ Adopt when: more than two generated artifacts feed each other, so that "regenera
 ### Step 20 · § 2.3 One record per work item, on every terminal path (Full)
 
 - [x] **write** — write, once the work runs per work item, one record per item under `<records-dir>/`, written on every terminal path — complete, failed and blocked alike — never only on success, and written after the last push so it names a commit that exists
-  - overwritten, unchanged → `tools/outcomes/run-outcome.schema.json`, `tools/outcomes/write-record.ts`
+  - unchanged → `tools/outcomes/run-outcome.schema.json`, `tools/outcomes/write-record.ts`
 - [x] **write** — write `<record-schema>` once and have the writer and every reader share it, with a version field the reader refuses when it does not know it, so a schema change is a version bump and never a silent edit; the record type is yours to choose, and a framework that already defines a per-change record (OpenSpec is one) can supply it, provided these invariants hold
-  - overwritten, unchanged → `tools/outcomes/run-outcome.schema.json`, `tools/outcomes/paths.ts`, `tools/outcomes/record.ts`
+  - unchanged → `tools/outcomes/run-outcome.schema.json`, `tools/outcomes/paths.ts`, `tools/outcomes/record.ts`
 - [x] **write** — write the writer to validate before it writes and to refuse an invalid record with one named reason; write a validator for the cross-field rules a schema cannot state (which fields are set for which terminal status; which pairs are null together)
-  - unchanged, overwritten → `tools/outcomes/record.ts`, `tools/outcomes/write-record.ts`, `tools/outcomes/record.selftest.ts`
+  - unchanged → `tools/outcomes/record.ts`, `tools/outcomes/write-record.ts`, `tools/outcomes/record.selftest.ts`
 - [x] **write** — write corrections as additions: a fact a later stage found wrong is superseded or retracted by a new entry, never deleted, so the record keeps both for the audit
-  - overwritten, unchanged → `tools/outcomes/run-outcome.schema.json`, `tools/outcomes/record.ts`, `tools/outcomes/write-record.ts`
+  - unchanged → `tools/outcomes/run-outcome.schema.json`, `tools/outcomes/record.ts`, `tools/outcomes/write-record.ts`
 - [x] **write** — write one committed fixture per terminal path, beside the record's reader and writer, and hold the validator to them
-  - unchanged, overwritten → `tools/outcomes/fixtures/complete.json`, `tools/outcomes/fixtures/failed.json`, `tools/outcomes/fixtures/blocked.json`, `tools/outcomes/selftest-lib.ts`, `tools/outcomes/record.selftest.ts`
+  - unchanged → `tools/outcomes/fixtures/complete.json`, `tools/outcomes/fixtures/failed.json`, `tools/outcomes/fixtures/blocked.json`, `tools/outcomes/selftest-lib.ts`, `tools/outcomes/record.selftest.ts`
 - [x] **write** — write into the record the two fields that make the loop in 2.4 possible, each an enum you define: the **stage** of the work that produced each correction (research, build, review, the environment, the reference it read), and the **asset** that would absorb it so the next run does not meet it (a reference page, a policy constant, a test oracle, a convention pin, or none)
-  - overwritten → `tools/outcomes/run-outcome.schema.json`
+  - unchanged → `tools/outcomes/run-outcome.schema.json`
 
   Adapt: Everything about the record's content is yours: its fields, its evidence forms, its status vocabulary. What the kit's outcomes emitter adds beyond the invariants — an evidence-token grammar, a check that every cited source line exists at the record's own base commit, a writer that deletes a file that fails re-validation — is worth reading and not required.
 
@@ -449,11 +449,11 @@ Adopt when: more than two generated artifacts feed each other, so that "regenera
 ### Step 21 · § 2.4 The learning loop: records, reports, proposals, promotion (Full)
 
 - [x] **write** — write a script that reads every record under `<records-dir>/`, validates and normalises it, and derives pure reports from the records and nothing else: what recurs across runs (the same stage and asset pair from 2.3 on distinct items), where runs disagree (the same kind of decision made two ways), what runs could not decide, and what looks dead or blocked, plus a proposal list keyed on subject and fact
-  - overwritten, unchanged → `tools/outcomes/run-outcome.schema.json`, `tools/outcomes/paths.ts`, `tools/outcomes/record.ts`, `tools/outcomes/fixtures/complete.json`, `tools/outcomes/fixtures/failed.json`, `tools/outcomes/fixtures/blocked.json`, `tools/outcomes/selftest-lib.ts`, `tools/outcomes/policy.json`, `tools/outcomes/policy.ts`, `tools/outcomes/reports.ts`, `tools/outcomes/emit.ts`, `tools/outcomes/index.ts`, `tools/outcomes/selftest.ts`, `artifacts/outcomes/dead-or-blocked.md`, `artifacts/outcomes/disagreements.md`, `artifacts/outcomes/proposals.json`, `artifacts/outcomes/proposals.md`, `artifacts/outcomes/recurring.md`, `artifacts/outcomes/undecided.md`
+  - unchanged → `tools/outcomes/run-outcome.schema.json`, `tools/outcomes/paths.ts`, `tools/outcomes/record.ts`, `tools/outcomes/fixtures/complete.json`, `tools/outcomes/fixtures/failed.json`, `tools/outcomes/fixtures/blocked.json`, `tools/outcomes/selftest-lib.ts`, `tools/outcomes/policy.json`, `tools/outcomes/policy.ts`, `tools/outcomes/reports.ts`, `tools/outcomes/emit.ts`, `tools/outcomes/index.ts`, `tools/outcomes/selftest.ts`, `artifacts/outcomes/dead-or-blocked.md`, `artifacts/outcomes/disagreements.md`, `artifacts/outcomes/proposals.json`, `artifacts/outcomes/proposals.md`, `artifacts/outcomes/recurring.md`, `artifacts/outcomes/undecided.md`
 - [x] **write** — write the filing step: every proposal becomes an issue in `<task-store>` whose idempotency key is a label carrying a hash of subject and fact, never the title, so a promoted or rejected proposal is never re-filed under new wording; the body carries the proposal's siblings on the same subject, so contradictions are read together, and its evidence classed and, where it cites a source line, checked to exist at the source commit the record names, before a human reads it
   - unchanged → `tools/outcomes/propose.ts`
 - [x] **write** — write the deduplication step: before filing, check whether the committed reference already names the proposal's subject; a strong match is printed, not filed; a weak match (the reference mentions the name in passing) or an absent one is filed with the disposition in the body; the list of generic words that count as a mention rather than a description is one list, held equal on the writer's side and the reader's by a selftest
-  - overwritten, unchanged → `tools/outcomes/policy.json`, `tools/outcomes/already-named.ts`, `tools/outcomes/propose.ts`, `tools/outcomes/selftest.ts`
+  - unchanged → `tools/outcomes/policy.json`, `tools/outcomes/already-named.ts`, `tools/outcomes/propose.ts`, `tools/outcomes/selftest.ts`
 - [x] **write** — write the promotion rule into `CLAUDE.md` and into the reference's own page: a program proposes; only a person promotes, by editing the hand-maintained source (2.2) and re-running the emitter; a proposal that does not hold is closed with its reason, and its key stays. Beside it, the one-act rule, standing from the first proposal: a document a program writes that relies on a fact of the reference names the fact by its key in the reference's index, and proposes in the same document any fact the reference lacks, so discovery and proposal are one act and a fact never lives only in the documents of the item that found it
   - unchanged → `CLAUDE.md`
 
