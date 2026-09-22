@@ -1,8 +1,99 @@
 # <repository>
 
 <!-- kit 4.1-5 · WRITE: a bolded one-sentence thesis of what this repository is and what it
-     produces, then at most a paragraph. The rules an agent follows are in `CLAUDE.md`, never here;
-     the status of work is in `bd`, never here. Delete this comment when done. -->
+     produces, then at most a paragraph: what is worth reading here, and where the places a real
+     subject goes are marked. The rules an agent follows are in `CLAUDE.md`, never here; the status
+     of work is in `bd`, never here. Delete this comment when done. -->
+
+This page describes and points; it holds no rule. The rules an agent follows are in `CLAUDE.md`.
+The status of work is in `bd`, never here.
+Where this page and a file it points at disagree, that file wins and this page is corrected.
+
+**On this page:** [Read in this order](#read-in-this-order)
+· [How it is laid out](#how-it-is-laid-out)
+· [The guardrails](#the-guardrails)
+· [Setup](#setup)
+· [Working here](#working-here)
+· [The npm scripts](#the-npm-scripts)
+· [The supervised workflow](#the-supervised-workflow-and-the-learning-loop)
+· [What is still a placeholder](#what-is-still-a-placeholder)
+· [Where to read next](#where-to-read-next)
+· [What runs automatically](#what-runs-automatically)
+
+## Read in this order
+
+1. This page, down to § The guardrails: what the repository is and how its parts fit.
+1. `CLAUDE.md`, whole. It is written for agents, and it is also the shortest complete statement of
+   how work is done here; every guardrail below is a rule there first.
+1. `docs/README.md`: the documentation index and the conventions every document follows.
+1. The `README.md` of whichever directory you are about to change. Each one is a thesis sentence
+   and a table with one row per file.
+
+## How it is laid out
+
+Every directory that holds more than one file of a kind has its own `README.md`; this table is the
+level above them.
+
+| Path | What it holds |
+|---|---|
+| `CLAUDE.md` | The only home for a rule an agent must follow. `AGENTS.md` is one line pointing at it, so a second home never grows. |
+| `.claude/` | What the agent harness loads at session start: `settings.json` (the plugins and the hook registrations, nothing else), the skills under `skills/`, the agents under `agents/`, and the template for a worktree's briefing. |
+| `scripts/` | Single-file gates, and the scripts a git hook or an operator calls. Each refuses one thing, and its header says which incident it exists to prevent. |
+| `scripts/hooks/` | The in-session hooks: the fastest tier of checks, run by the harness around an agent's tool calls. |
+| `tools/` | Emitters and multi-file checks, one directory each, TypeScript run directly by Node. |
+| `artifacts/` | Generated output. Nothing here is edited by hand; each file names the emitter that wrote it, and a correction goes into that emitter's hand-maintained source. |
+| `docs/` | What a person reads: the documentation index, and the documents it lists. |
+| `count-index.md` | Every count that more than one file restates, under a `CNT-*` key, with the source it re-derives from. |
+| `.beads/` | The configuration of `bd`, the issue tracker. Its database syncs through the git remote and is never committed; `bd bootstrap` hydrates it. |
+| `lefthook.yml` | The git-hook tiers: which gate runs at commit and at push, each with the glob that scopes it and a note of its measured cost. |
+| `lefthook-windows.yml` | A per-machine override of the hook runner's configuration, for the platform where it hangs in parallel. |
+| `.github/workflows/verify.yml` | The slowest tier: every gate that reads only committed files, on every pull request and every push to `main`. |
+| `.devcontainer/` | A container that needs nothing from the network at create time. |
+| `KIT-CHECKLIST.md` | What the starter kit's bootstrap laid down, step by step, and what is still to adapt. Deleted once it is worked through. |
+
+Some paths appear only on a working machine and are gitignored, each with its reason in
+`.gitignore`:
+
+- `.scratch/`: commit messages, pull-request bodies and tracker notes, passed to tools by file.
+- `.claude/worktrees/`: one checkout per parallel agent.
+- `.worktree/`: a worktree's rendered briefing.
+- `.claude/settings.local.json`: machine-specific permissions.
+- `lefthook-local.yml`: the hook runner's per-machine override.
+
+Every file is one of three kinds: hand-maintained source, a hand-authored decision record (JSON
+that emitters read and nothing writes) or generated output that nothing edits by hand
+(`CLAUDE.md` § Three kinds of file, and never a fourth). Knowing which kind you are looking at
+tells you whether to edit it.
+
+## The guardrails
+
+The same checks run at four latencies, and a slower tier never trusts a faster one: in-session
+hooks, pre-commit, pre-push, and `.github/workflows/verify.yml` (`CLAUDE.md` § The gate ladder). Where a check runs is
+decided by what it reads. § What runs automatically, at the foot of this page, lists each one by
+its trigger.
+
+Each row below is a failure this repository is built to refuse, what refuses it, and the home of
+the rule. The third column wins over the first two.
+
+| What it stops | What enforces it | The rule's home |
+|---|---|---|
+| A rule with two homes, one of them stale; a rule kept in an agent's memory store | The citations gate's memory rule (`tools/citations/memory.ts`), and review | `CLAUDE.md` § Rules for agents live in tracked files, and nowhere else |
+| A hand edit to generated output | `scripts/hooks/block-generated-edit.mjs` in session, `scripts/assert-not-hand-edited.mjs` at commit, and each emitter's `:check` twin at push and in CI | `CLAUDE.md` § The script suffix contract |
+| A green run that ran nothing | `npm run gates` forces the full suite; `check:jobs` refuses a gate no job runs unless it is declared, with its reason | `CLAUDE.md` § The gate ladder |
+| A gate that still passes with its guard deleted | Every gate's `:selftest`: one break per case, the refusal's reason asserted, one undoctored control | `CLAUDE.md` § Standing rules for prompts and gates |
+| An agent in a worktree pushing to, switching to or rewriting a protected branch | `scripts/hooks/guard-git.mjs`, and the worktree hooks that provision only through `scripts/new-worktree.sh` | `CLAUDE.md` § Git workflow |
+| A figure restated from memory that has since moved | `counts:check` re-derives every keyed count from its source | `count-index.md` § How to use it |
+| A pointer to a file or a section that is gone | `citations:check`, over every tracked text file | `CLAUDE.md` § Citations |
+| A recorded decision argued again, or a register whose summary drifts from its entries | `check:register` | `CLAUDE.md` § Decisions live in the register |
+| Work tracked in a checklist or a status table, or an issue that does not say where its work lands | `beads:check`, and the rule that status lives only in `bd` | `CLAUDE.md` § The task store |
+| A generated artifact left stale after its input moved | `pipeline:check` and `pipeline:stale:check` | `docs/pipeline.md` § The two gates |
+| A program that rewrites its own instructions from what it observed | `outcomes:propose` only files issues; a person promotes one by editing the source | `CLAUDE.md` § A program proposes; only a person promotes |
+| A chained shell command whose failing step cannot be told apart, or a workaround for a refused command | Convention, and a `RUN THESE YOURSELF` block at the end of the agent's report | `CLAUDE.md` § Bash command style |
+
+Every script opens with a header saying what it checks, **the failure it exists to prevent**, how
+to invoke it and what it needs, so read the header before weakening a gate that is in your way.
+Every decision nobody should re-argue is a numbered entry in `docs/decisions.md`, amended and never
+rewritten.
 
 ## Setup
 
@@ -53,17 +144,137 @@ holds platform-native binaries. Use one clone per platform.
 
 `.devcontainer/README.md` has the reasons and the mounts.
 
+## Working here
+
+<!-- kit 4.1-5 · ADAPT: one row per thing a person does here, and the skill, agent, command or
+     script that does it. The kit lists what it laid down; add yours as they appear, and delete a
+     row whose tool you retire. Delete this comment when done. -->
+
+| To do this | Use this | Notes |
+|---|---|---|
+| See what is ready to be worked | `bd ready` | The queue. There is no status table anywhere else, by rule. |
+| Have an agent work one issue end to end | the `bead` skill | Verifies the issue's premise first, then claims, implements, gates, opens the pull request and closes on green. |
+| Have agents work the ready issues in parallel | the `fan-out-work` agent | One fresh agent per lane, each in its own worktree, integrated on the dispatcher's branch. |
+| Research a topic before changing anything | the `explore` skill | Assumptions and guesses first, then an inventory of evidence with no recommendations. |
+| Draft what a person must do for an issue an agent cannot finish | the `human-plan` skill | |
+| Retire a file | the `retire-asset` skill | A register decision with a checklist, not a tidy-up. |
+| Add, rename or remove an npm script | the `add-npm-script` skill | It keeps § The npm scripts below, the hook runner and CI in step. |
+| Make a worktree by hand | `scripts/new-worktree.sh <task-ref> <slug>` | From the primary checkout. It cuts `agent/<name>` from `origin/main`; `npm ci` is the first command inside. |
+| Check your work before a pull request | `npm run gates` | Then fetch, rebase onto `origin/main`, and run it again. |
+| Improve a prompt after running it | the `continuous-prompt-improvement` agent | The review is kept under `docs/prompt-reviews/`, never beside the prompt. |
+
+## The npm scripts
+
+Every script in `package.json`, one sub-section per prefix. A name of the form `<group>:<verb>` is
+public: the bare name writes the artifact, `:check` re-derives it and writes nothing, `:selftest`
+proves the gate refuses what it should (`CLAUDE.md` § The script suffix contract). The **Gate**
+column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it disagrees with them, they win.
+
+<!-- kit 4.1-5 · ADAPT: one row per script, kept in step with `package.json` by the add-npm-script
+     skill where you took it. The kit lists the scripts it laid down. Delete this comment when
+     done. -->
+
+### beads
+
+| Script | What it does | Gate |
+|---|---|---|
+| `beads:check` | Refuses an open issue with no label naming where its work lands, and an issue citing an identifier that does not resolve here. It reads the tracker's database, which a fresh clone in CI does not have. | pre-push |
+
+### check
+
+| Script | What it does | Gate |
+|---|---|---|
+| `check:jobs` | Holds the hook runner's configuration, the CI workflow and `package.json` to each other: every job names a script that exists, and every script no job runs is declared with its reason. Without it a gate can be unwired and nothing says so. | pre-push + CI |
+| `check:jobs:selftest` | The job cross-check, negative-tested. | pre-push + CI |
+| `check:register` | Holds the register's status line, summary table and dates to its entries, in both directions. | pre-push + CI |
+| `check:register:selftest` | The register gate, negative-tested. | pre-push + CI |
+
+### citations
+
+| Script | What it does | Gate |
+|---|---|---|
+| `citations:check` | Resolves every line and section pointer in every tracked text file, and refuses a pointer into a memory store this repository does not use. Without it a renamed heading leaves pointers that still look authoritative. | pre-push + CI |
+
+### counts
+
+| Script | What it does | Gate |
+|---|---|---|
+| `counts:check` | Re-derives every value in `count-index.md` from the source the index names for it. The table is updated from what it reports, never the reverse. | pre-push + CI |
+| `counts:selftest` | The count-index gate, negative-tested. | pre-push + CI |
+
+### gates
+
+| Script | What it does | Gate |
+|---|---|---|
+| `gates` | The forced full pre-push suite, and the only way to run it by hand: the bare hook runner skips every job when there is nothing to push and exits 0. | |
+
+### outcomes
+
+| Script | What it does | Gate |
+|---|---|---|
+| `outcomes` | Reads every run record, re-serialises each to canonical bytes and writes the reports under `artifacts/outcomes/`, from the records and nothing else. | |
+| `outcomes:check` | The same in memory, byte-compared with what is committed. | pre-push + CI |
+| `outcomes:propose` | Files each proposal as an issue in `bd`, keyed by a hash so a closed proposal is never re-filed under new wording. Run by a person, `--dry-run` first; it reads and writes the tracker, so no tier runs it. | |
+| `outcomes:record:selftest` | The record's validator and writer, negative-tested against one committed fixture per terminal path. | pre-push + CI |
+| `outcomes:selftest` | The emitter and the filing step, negative-tested. | pre-push + CI |
+
+### pipeline
+
+| Script | What it does | Gate |
+|---|---|---|
+| `pipeline:check` | Holds the graph record (`tools/pipeline/graph.ts`) to the files it names, to the jobs that run its checks and to the prose page. | pre-push + CI |
+| `pipeline:example` | Emits the worked example node's output. To delete, with the node, once a node of your own exists. | |
+| `pipeline:selftest` | Both pipeline gates, negative-tested against a synthetic record. | pre-push + CI |
+| `pipeline:stale` | Reports which node's declared inputs have moved since it stamped its output, with no exit code; `-- --verbose` says why a node is not covered. | |
+| `pipeline:stale:check` | The same report as a gate. It runs no generator, so forgetting to regenerate is visible without regenerating. | pre-push + CI |
+
+### worktree
+
+| Script | What it does | Gate |
+|---|---|---|
+| `worktree:gc` | Removes checkouts nobody is using, and deletes an agent branch only on proof its content is in the trunk; `-- --dry-run` prints what it would do. | |
+| `worktree:selftest` | The worktree hooks, the git guard and the branch sweep, negative-tested against a scratch repository it builds. | pre-push |
+
+## The supervised workflow, and the learning loop
+
+Every run writes one record per work item under `artifacts/outcomes/records/`, on every terminal path (complete,
+failed and blocked alike), validated against `tools/outcomes/run-outcome.schema.json` before it is written; a fact a later
+stage found wrong is superseded by a new entry, never deleted.
+
+The loop reads those records and derives pure reports under `artifacts/outcomes/`: what recurs
+across runs, where runs disagree, what nobody decided. Each proposal is filed as an issue by
+`outcomes:propose`; a program proposes, and only a person promotes, by editing the hand-maintained
+source (`CLAUDE.md` § A program proposes; only a person promotes).
+
+## What is still a placeholder
+
+The kit laid down what does not depend on a subject and marked the rest. This section says how to
+find the marks, not how many remain.
+The work of clearing them is tracked in `bd`.
+
+- `KIT-CHECKLIST.md`: an unticked box is a step the bootstrap could not do for you.
+- A comment of the form `kit <section> · ADAPT` or `kit <section> · WRITE`, in any file, says what
+  to write there and when to delete the comment. List the files that carry one with
+  `git grep -l -E "kit [0-9.-]+ · (ADAPT|WRITE)"`.
+- `docs/decisions.md` D-01 is dated 1970-01-01 because the kit could not know the adoption date.
+- `count-index.md` § Rates and metrics has no row, and a metric with no row there is not reported.
+- The pipeline graph holds one worked example node, to delete when a real one exists.
+
 ## Where to read next
 
 | Path | What it is |
 |---|---|
 | `CLAUDE.md` | Read first. The only home for a rule an agent must follow here. |
 | `docs/README.md` | The documentation index, and the conventions every document follows. |
+| `docs/decisions.md` | The register of numbered decisions and risks. It wins a disagreement with any document. |
+| `docs/pipeline.md` | Which generated artifact is built from which, and what to regenerate when something moves. |
 | `count-index.md` | Every count describing the current measured state, under a key. |
 | `scripts/README.md` | The single-file gates and git-job scripts, one row each. |
 | `scripts/hooks/README.md` | The harness hooks, one row each. |
 | `tools/README.md` | The emitters and multi-file checks, one row each. |
 | `.claude/README.md` | What the harness loads when a session starts here. |
+| `.devcontainer/README.md` | The dev container's mounts, each with its failure mode. |
+| `KIT-CHECKLIST.md` | What the kit laid down, and what is still to adapt. |
 
 ## What runs automatically
 
