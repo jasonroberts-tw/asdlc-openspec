@@ -1,6 +1,6 @@
 /**
  * outcomes — reads every run-outcome record under `artifacts/outcomes/records/`, validates it against
- * `<workflow-name>/run-outcome.schema.json`, normalises it to canonical bytes, and derives the learning loop's reports under
+ * `tools/outcomes/run-outcome.schema.json`, normalises it to canonical bytes, and derives the learning loop's reports under
  * `artifacts/outcomes/` from the records and nothing else: what recurs, where runs disagree,
  * what they could not decide, what looks dead or blocked, and the proposal list.
  *
@@ -12,7 +12,7 @@
  * RE-ENTRY     idempotent: the same records write the same bytes. `--check` re-derives in memory,
  *              diffs against the tree, prints each differing path on its own line, exits 1 on any
  *              difference or stale file, and writes nothing.
- * STALE WHEN   `artifacts/outcomes/records/**`, `<workflow-name>/run-outcome.schema.json`, `tools/outcomes/**`.
+ * STALE WHEN   `artifacts/outcomes/records/**`, `tools/outcomes/run-outcome.schema.json`, `tools/outcomes/**`.
  *
  * THE FAILURE IT EXISTS TO PREVENT. On day one: a loop whose reports are written by hand after
  * reading a few records, which is a report of what its author remembered. Every figure here is

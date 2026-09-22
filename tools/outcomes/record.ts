@@ -1,5 +1,5 @@
 /**
- * The run-outcome record: the ONE reader of `<workflow-name>/run-outcome.schema.json`, the cross-field rules a schema cannot
+ * The run-outcome record: the ONE reader of `tools/outcomes/run-outcome.schema.json`, the cross-field rules a schema cannot
  * state, and the canonical serialiser. The writer (`write-record.ts`), the report emitter
  * (`index.ts`) and the filing step (`propose.ts`) all validate through `validateRecord` here, so
  * there is one answer to "is this a record".

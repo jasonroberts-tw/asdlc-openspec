@@ -151,9 +151,8 @@ pre-push:
     - name: outcomes-record-selftest
       glob:
         - 'tools/outcomes/**'
-        - '<workflow-name>/run-outcome.schema.json'
-        - '<workflow-name>/tests/fixtures/run-outcome/**'
-        - '<workflow-name>/workflow-policy.json'
+        - 'tools/outcomes/run-outcome.schema.json'
+        - 'tools/outcomes/fixtures/**'
       run: node --run outcomes:record:selftest
     # The learning loop's records re-validated and re-serialised, and its reports rebuilt in memory
     # from them, byte-compared with what is committed. `outcomes` and `outcomes:propose` have no job:
@@ -163,13 +162,13 @@ pre-push:
         - 'tools/outcomes/**'
         - 'artifacts/outcomes/**'
         - 'artifacts/outcomes/records/**'
-        - '<workflow-name>/run-outcome.schema.json'
+        - 'tools/outcomes/run-outcome.schema.json'
       run: node --run outcomes:check
     - name: outcomes-selftest
       glob:
         - 'tools/outcomes/**'
-        - '<workflow-name>/run-outcome.schema.json'
-        - '<workflow-name>/tests/fixtures/run-outcome/**'
+        - 'tools/outcomes/run-outcome.schema.json'
+        - 'tools/outcomes/fixtures/**'
       run: node --run outcomes:selftest
     # The graph record, held to the files it names, to this file, to `.github/workflows/verify.yml`, to the prose page and
     # to the tracker's formula. No glob, deliberately: the record's input, output and generator

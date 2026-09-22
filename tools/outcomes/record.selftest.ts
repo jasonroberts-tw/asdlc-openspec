@@ -3,14 +3,14 @@
  * fixtures and to one doctored copy per rule.
  *
  * WHAT IT HOLDS
- *   fixtures    one committed fixture per terminal path under `<workflow-name>/tests/fixtures/run-outcome/`
+ *   fixtures    one committed fixture per terminal path under `tools/outcomes/fixtures/`
  *               (complete, failed, blocked), each accepted by the validator as committed.
  *   validator   an unknown version refused by name and FIRST; one case per cross-field rule; a
  *               schema that outgrew its reader (an unknown keyword, a bumped version) refused.
  *   writer      validates before it writes and writes nothing on refusal; never drops or rewrites an
  *               entry an existing record carries, and accepts the same correction as an addition;
  *               refuses a commit no remote-tracking ref contains, asked of a real repository.
- *   the tie     the schema's intervention enum equals the exhaustive list in `<workflow-name>/workflow-policy.json`,
+ *   the tie     the schema's intervention enum equals the exhaustive list in the workflow's policy file, where one is declared,
  *               wherever that file is present.
  *
  * THE FAILURE IT EXISTS TO PREVENT. On day one: a validator nobody has ever seen refuse anything.
@@ -165,8 +165,9 @@ const cases: Case[] = [
     },
   },
   {
-    name: `the schema's intervention enum is the exhaustive list in ${WORKFLOW_POLICY_PATH}`,
+    name: `the schema's intervention enum is the exhaustive list in ${WORKFLOW_POLICY_PATH ?? 'the workflow policy file (none declared yet)'}`,
     run: () => {
+      if (WORKFLOW_POLICY_PATH === null) return 'skip'
       const path = join(REPO_ROOT, WORKFLOW_POLICY_PATH)
       return existsSync(path) ? interventionTie(schema, JSON.parse(readFileSync(path, 'utf8'))) : 'skip'
     },

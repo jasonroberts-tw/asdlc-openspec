@@ -55,12 +55,17 @@ export const RECORDS_DIR = 'artifacts/outcomes/records/'
 /** Everything the emitter owns. The records directory sits inside it and is normalised, not derived. */
 export const REPORTS_DIR = 'artifacts/outcomes/'
 /** The one schema the writer and every reader share. */
-export const SCHEMA_PATH = '<workflow-name>/run-outcome.schema.json'
+export const SCHEMA_PATH = 'tools/outcomes/run-outcome.schema.json'
 /** The loop's constants, each with its reason. */
 export const POLICY_PATH = 'tools/outcomes/policy.json'
-/** One committed fixture per terminal path, beside the workflow's tests. */
-export const FIXTURES_DIR = '<workflow-name>/tests/fixtures/run-outcome/'
-/** The workflow's policy file, whose exhaustive intervention list the schema's enum repeats. */
-export const WORKFLOW_POLICY_PATH = '<workflow-name>/workflow-policy.json'
+/** One committed fixture per terminal path, beside the record's reader and writer. */
+export const FIXTURES_DIR = 'tools/outcomes/fixtures/'
+/**
+ * The workflow's policy file, whose exhaustive intervention list the schema's enum repeats. Null
+ * until a workflow declares one (kit 2.2): the loop reads records and stands without a workflow,
+ * and the tie is checked wherever the file is present.
+ */
+let workflowPolicyPath: string | null = null
+export const WORKFLOW_POLICY_PATH: string | null = workflowPolicyPath
 /** How the emitter names itself in every banner. */
 export const EMITTER = 'tools/outcomes/index.ts'
