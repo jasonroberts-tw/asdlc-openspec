@@ -66,7 +66,7 @@
 # - github.token    → use GITHUB_TOKEN env var instead
 
 agent.profile: "team-maintainer"
-sync.remote: "git+https://github.com/jasonroberts-tw/asdlc-openspec.git"
+sync.remote: "git+ssh://git@github.com/jasonroberts-tw/asdlc-openspec.git"
 dolt:
     auto-commit: "on"
 validation:
