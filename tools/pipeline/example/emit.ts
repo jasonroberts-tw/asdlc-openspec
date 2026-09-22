@@ -28,7 +28,7 @@
  * the file stands (`../provenance.ts`), so to run it against a fixture, copy `tools/`
  * under a temp directory and run the copy.
  *
- * kit 3.6-4 · ADAPT: delete this directory with the node; `../graph.ts` lists what goes with it.
+ * kit 2.6-4 · ADAPT: delete this directory with the node; `../graph.ts` lists what goes with it.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'

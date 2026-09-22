@@ -10,7 +10,7 @@
  * decision renamed it, and nothing in the repository reported the dead citation. An input glob matching zero files is exactly that shape, so it is an
  * ERROR here rather than a warning.
  *
- * This check runs no generator and needs no `../estate` checkout.
+ * This check runs no generator and needs no `../sibling` checkout.
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'

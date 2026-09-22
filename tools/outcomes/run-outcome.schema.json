@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Run outcome record",
-  "description": "One record per work item, written on EVERY terminal path (complete, failed and blocked alike) after the run's last push, so the commit it names exists. The writer and every reader share this one file. A change to it is a `schemaVersion` bump and never a silent edit: a reader refuses a version it does not know. kit 3.3-2 · ADAPT: everything about the record's content is yours (its fields, its evidence forms, its status vocabulary); what must survive is the version field, a record on every terminal path, corrections as additions, and the `stage` and `asset` of every correction. The reader understands the subset of JSON Schema this file uses (type, enum, const, required, properties, additionalProperties, items, pattern, minLength, anyOf, $ref into $defs) and nothing else; widen `tools/outcomes/record.ts` before you use another keyword here.",
+  "description": "One record per work item, written on EVERY terminal path (complete, failed and blocked alike) after the run's last push, so the commit it names exists. The writer and every reader share this one file. A change to it is a `schemaVersion` bump and never a silent edit: a reader refuses a version it does not know. kit 2.3-2 · ADAPT: everything about the record's content is yours (its fields, its evidence forms, its status vocabulary); what must survive is the version field, a record on every terminal path, corrections as additions, and the `stage` and `asset` of every correction. The reader understands the subset of JSON Schema this file uses (type, enum, const, required, properties, additionalProperties, items, pattern, minLength, anyOf, $ref into $defs) and nothing else; widen `tools/outcomes/record.ts` before you use another keyword here.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "workflow", "item", "status", "finishedAt", "commit", "branch", "failure", "intervention", "facts", "corrections", "decisions", "undecided"],
@@ -29,11 +29,11 @@
   "$defs": {
     "evidence": { "type": "array", "items": { "type": "string", "minLength": 1 }, "description": "Each entry is one of: a source line (`path/to/file.ext:NN`), a path, a URL, or prose. The filing step classes each and checks a source line against the commit this record names." },
     "stage": {
-      "description": "kit 3.3-6 · ADAPT: the STAGE of your workflow that produced a correction. This vocabulary is a placeholder: replace it with your workflow's own stages before the first record is written. Once a record exists, a change here is a `schemaVersion` bump like any other.",
+      "description": "kit 2.3-6 · ADAPT: the STAGE of your workflow that produced a correction. This vocabulary is a placeholder: replace it with your workflow's own stages before the first record is written. Once a record exists, a change here is a `schemaVersion` bump like any other.",
       "enum": ["research", "build", "review", "environment", "reference"]
     },
     "asset": {
-      "description": "kit 3.3-6 · ADAPT: the ASSET that would absorb a correction so the next run does not meet it. A placeholder vocabulary, yours to replace on the same terms as `stage`; keep `none`, which means nothing durable would have prevented it, and which the proposal list skips.",
+      "description": "kit 2.3-6 · ADAPT: the ASSET that would absorb a correction so the next run does not meet it. A placeholder vocabulary, yours to replace on the same terms as `stage`; keep `none`, which means nothing durable would have prevented it, and which the proposal list skips.",
       "enum": ["reference-page", "policy-constant", "test-oracle", "convention-pin", "none"]
     },
     "failure": {
@@ -51,7 +51,7 @@
       "required": ["reasonCode", "detail"],
       "properties": {
         "reasonCode": {
-          "description": "kit 2.2-3 · ADAPT: the EXHAUSTIVE list of reasons a run may stop to ask a person: the same codes, in the same order, as block `intervention`, key `codes` of the workflow's policy file where a workflow declares one, which flags the list exhaustive, so a blocked run cannot record an unlisted reason. A starting vocabulary; change it in both files in one change (`npm run outcomes:selftest` holds the two lists equal wherever the policy file is present).",
+          "description": "kit 2.3-2 · ADAPT: the EXHAUSTIVE list of reasons a run of the work may stop to ask a person, which is yours to define. Where `tools/policy.json` (kit 2.2) carries block `intervention`, key `codes`, flagged exhaustive, this enum repeats the same codes in the same order, so a blocked run cannot record an unlisted reason. A starting vocabulary; change it in both files in one change (`npm run outcomes:record:selftest` holds the two lists equal wherever the policy file is present).",
           "enum": ["SOURCE_CONFLICT", "OUT_OF_SCOPE_MUTATION", "REQUIRED_SERVER_UNAVAILABLE", "HOST_PREREQUISITES_INCOMPLETE"]
         },
         "detail": { "type": "string", "minLength": 1 }

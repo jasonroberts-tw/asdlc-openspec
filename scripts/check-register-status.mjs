@@ -57,7 +57,7 @@
  *
  *   CHECK_REGISTER_ROOT=/tmp/doctored node scripts/check-register-status.mjs
  *
- * Reads only committed files; no `../estate` checkout, no network, milliseconds.
+ * Reads only committed files; no `../sibling` checkout, no network, milliseconds.
  */
 import {
   copyFileSync,

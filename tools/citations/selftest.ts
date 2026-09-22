@@ -12,7 +12,7 @@
  * cries wolf is deleted and then checks nothing at all. The repository-level assertion at the end is
  * the other half: the scan must still be finding citations to check.
  *
- * Needs no `../estate` checkout and no network.
+ * Needs no `../sibling` checkout and no network.
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -264,7 +264,7 @@ console.log('citation scanner selftest\n')
   )
   ok(
     'a live file citing a live file is untouched by this rule',
-    !retiredWithoutPath('tools/x.ts', 'portfolio-model.md', 'portfolio-model.md'),
+    !retiredWithoutPath('tools/x.ts', 'model.md', 'model.md'),
   )
   // Not `RETIRED_ROOTS.length === 2` -- `as const` makes that statically true, so it asserts
   // nothing. Exercise the predicate instead: every declared root must actually be recognised.
@@ -370,7 +370,7 @@ console.log('citation scanner selftest\n')
       else sections++
     }
   }
-  // The floors are "more than a handful", not a count of the estate. The line-citation floor read
+  // The floors are "more than a handful", not a count of any repository. The line-citation floor read
   // `> 50` until a later decision deleted the prompts and records that carried most of the
   // repository's `<file>.md:NN` pointers, and the count has only fallen since. The current figure is whatever
   // `npm run citations:check` prints today and is deliberately not written here, where it would
@@ -395,7 +395,7 @@ console.log('citation scanner selftest\n')
   const prompt = '.claude/skills/fixture/SKILL.md'
   const problemsIn = (file: string, text: string) => memoryProblemsIn(file, text).problems
 
-  // The spelling the 2026-09-11 reviews record for every key they name, and the three tokens.
+  // The spelling a prompt review records for every key it names, and the three tokens.
   const key = only(
     problemsIn(prompt, 'see memory `register-no-foreign-short-shas` for the remedy'),
     'problem',

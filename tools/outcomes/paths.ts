@@ -61,11 +61,10 @@ export const POLICY_PATH = 'tools/outcomes/policy.json'
 /** One committed fixture per terminal path, beside the record's reader and writer. */
 export const FIXTURES_DIR = 'tools/outcomes/fixtures/'
 /**
- * The workflow's policy file, whose exhaustive intervention list the schema's enum repeats. Null
- * until a workflow declares one (kit 2.2): the loop reads records and stands without a workflow,
- * and the tie is checked wherever the file is present.
+ * The policy file the work's tools and prompts cite (kit 2.2), whose exhaustive intervention list
+ * the schema's enum repeats where the file carries one. The loop reads records and stands without
+ * the file: the tie is checked only where the file is present.
  */
-let workflowPolicyPath: string | null = null
-export const WORKFLOW_POLICY_PATH: string | null = workflowPolicyPath
+export const WORKFLOW_POLICY_PATH: string | null = 'tools/policy.json'
 /** How the emitter names itself in every banner. */
 export const EMITTER = 'tools/outcomes/index.ts'

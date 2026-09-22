@@ -41,7 +41,7 @@
  *
  * THE HOLE: ESLint keys its cache on each file's own content and the config, NOT on the types that
  * file depends on. Measured: editing one component file -- outside the lint scope but
- * inside the type program -- left the cache fully warm and re-linted NOTHING. A design-system change
+ * inside the type program -- left the cache fully warm and re-linted NOTHING. A change elsewhere
  * that invalidates something `no-unnecessary-condition` concluded about a strict-tier file is silently
  * missed here until that file is next touched.
  *
@@ -56,7 +56,7 @@ import { npmRun, readHookInput } from './_shared.mjs'
 /**
  * The fast gates, in the order they are worth reading. All three read only committed files and none
  * runs an emitter. `pipeline:check` is here for the reason the header gives; `counts:check` and
- * `catalogue:check` were weighed and left to pre-push, where their `lefthook.yml` job comments state
+ * `outcomes:check` were weighed and left to pre-push, where their `lefthook.yml` job comments state
  * the cost of each.
  */
 const GATES = [

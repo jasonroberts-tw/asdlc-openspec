@@ -21,7 +21,7 @@
  *      store and the `bd`-generated block nobody can edit -- exempt by heading and by marker rather
  *      than the file as a whole.
  *
- * Needs no `../estate` checkout and no network; it reads tracked files and runs in about a
+ * Needs no `../sibling` checkout and no network; it reads tracked files and runs in about a
  * second.
  */
 import { readFileSync } from 'node:fs'
@@ -139,8 +139,8 @@ for (const file of tracked) {
           where,
           what:
             `cites ${c.target}:${c.first}, which is a BLANK line of ${resolved.path}. The passage` +
-            ' moved and the citation did not. Repoint it, or better, register it as an anchor in' +
-            ' `tools/portfolio/model-citations.ts` so it is resolved by content and cannot drift.',
+            ' moved and the citation did not. Repoint it, or better, cite the passage by a distinctive' +
+            ' phrase that is resolved by content and cannot drift.',
           context: c.context,
         })
       }

@@ -13,7 +13,7 @@ when this page and the record disagree about an edge, the record is right and th
 defect. The fix that ends the disagreement is to generate the diagram and the per-node sections from
 the record; until an emitter does, edit both in the same commit.
 
-kit 3.6-3 · ADAPT: replace the worked example below with your own nodes, one section each, as the
+kit 2.6-3 · ADAPT: replace the worked example below with your own nodes, one section each, as the
 record gains them. Delete this paragraph when done.
 
 ## The graph

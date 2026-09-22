@@ -28,10 +28,7 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 | `<count-index>` | `count-index.md` |
 | `<count-key-prefix>` | `CNT-` |
 | `<prompt-reviews-dir>` | `docs/prompt-reviews/` |
-| `<workflow-name>` | *(not set)* |
-| `<workflow-dir>` | `<workflow-name>/` |
-| `<run-dir>` | `.<workflow-name>/run/<item>/` |
-| `<policy-file>` | `<workflow-name>/workflow-policy.json` |
+| `<policy-file>` | `tools/policy.json` |
 | `<records-dir>` | `artifacts/outcomes/records/` |
 | `<record-schema>` | `tools/outcomes/run-outcome.schema.json` |
 
@@ -68,13 +65,13 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 ### Step 3 · § 1.12 Small hygiene worth copying (Brief)
 
 - [x] **adapt** — `.gitattributes` with `* text=auto eol=lf` moves line endings out of per-machine settings; before widening a pattern, measure with `git ls-files --eol` as its header did (11 of 2,133 tracked files were affected, none mixed), and carve imported bytes out with `-text`.
-  - unchanged; now adapt as the bullet says → `.gitattributes`
+  - overwritten; now adapt as the bullet says → `.gitattributes`
 - [x] **adapt** — `.git-blame-ignore-revs` lists only pure-formatting commits and explains the big reformat it deliberately omits, because the setting works per commit, not per file.
   - unchanged; now adapt as the bullet says → `.git-blame-ignore-revs`
 - [x] **adapt** — `NO_COLOR: '1'` on every job that runs a third-party CLI, with the reason (`lefthook.yml`): one tool probed the terminal and left its replies in the shell's input queue.
   - authored (authored/lefthook.yml), overwritten; now adapt as the bullet says → `lefthook.yml`
 - [x] **adapt** — `scripts/python.mjs` probes for a real interpreter instead of assuming a name; on one platform the obvious name is a store alias that exits with no output.
-  - unchanged; now adapt as the bullet says → `scripts/python.mjs`
+  - overwritten; now adapt as the bullet says → `scripts/python.mjs`
 - [x] **adapt** — `scripts/lib/bin-path.mjs` resolves a `node_modules/.bin` tool by walking up, never `npx`, because a linked worktree has an almost empty `node_modules` and "these scripts are gates; they must fail on a missing tool, not paper over it".
   - unchanged; now adapt as the bullet says → `scripts/lib/bin-path.mjs`
 - [x] **adapt** — `package.json` pins `engines` to the runtime feature it needs and allow-lists install scripts.
@@ -86,22 +83,22 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 - [x] **adapt** — A platform workaround lives in the committed file with the upstream issue number and the measurement (`lefthook.yml`; `lefthook-windows.yml` is the three-line local override for a platform where the runner hangs in parallel).
   - authored (authored/lefthook.yml), unchanged, overwritten; now adapt as the bullet says → `lefthook.yml`, `lefthook-windows.yml`
 
-### Step 4 · § 3.1 The decision register, and how things retire (Full)
+### Step 4 · § 2.1 The decision register, and how things retire (Full)
 
 - [x] **write** — write `<register>`: one file of numbered decisions and risks, `<decision-id>` and `<risk-id>`, each entry with a fixed skeleton — a heading carrying the id and a title; a **Recorded** date with the issue that carried it; what it amends or builds on; the decision; why; the file-level record of what changed; and every figure with the command that re-derives it beside it; and, at the head of the file, a status line stating the recorded range and a summary table of ids and titles, which the gate below holds to the headings
-  - unchanged → `docs/decisions.md`
+  - overwritten → `docs/decisions.md`
 - [x] **write** — write the amendment rule: an entry is never rewritten; a later decision adds a dated `**Amended <date> by <id>.**` blockquote under each entry it changes and lists them in its own body; a superseded entry keeps its heading, marked superseded; a withdrawn risk keeps its id, which is never reused, and is never reported as closed or met
-  - unchanged → `docs/decisions.md`
+  - overwritten → `docs/decisions.md`
 - [x] **write** — write the precedence sentence into the documentation index — when a document and the register disagree, the register wins — and into `CLAUDE.md`: no agent re-litigates a recorded decision
-  - unchanged → `docs/README.md`, `docs/decisions.md`, `CLAUDE.md`
+  - overwritten, unchanged → `docs/README.md`, `docs/decisions.md`, `CLAUDE.md`
 - [x] **copy** — copy `scripts/check-register-status.mjs` → `<checks-dir>/` and adapt its anchors: the header's range, its summary table and the per-entry dates are held to the actual headings in both directions, and a file that cites the register without a bound must not grow one
-  - unchanged, overwritten → `scripts/check-register-status.mjs`, `package.json`, `package-lock.json`, `lefthook.yml`, `.github/workflows/verify.yml`
+  - overwritten, unchanged → `scripts/check-register-status.mjs`, `package.json`, `package-lock.json`, `lefthook.yml`, `.github/workflows/verify.yml`
 - [x] **write** — write the three retirement dispositions into `<retired-dir>/README.md` — move a file there under a head banner naming the decision and what survived, when a live gate or citation still needs its lineage and no live reader reads any part of it; delete it outright under a register entry, with `git show` as the recovery, when nothing live reads it (a row in an index does not count); move the paragraph, not the file, when one paragraph is all that keeps it alive — and the rule over all three: moving a file out is a register decision with a checklist, not a tidy-up
   - unchanged → `docs/retired/README.md`
 - [x] **copy** — copy `.claude/skills/retire-asset/SKILL.md`
   - unchanged → `.claude/skills/retire-asset/SKILL.md`
 
-  Verify (`node <kit>/tools/verify.mjs --target . --sections 3.1`):
+  Verify (`node <kit>/tools/verify.mjs --target . --sections 2.1`):
 
   ```bash
   npm run check:register
@@ -111,28 +108,28 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 
   Skip when: Never. The first decision worth writing down arrives before the first gate.
 
-### Step 5 · § 4.1 Every directory and document says what it is, and who wins (Full)
+### Step 5 · § 3.1 Every directory and document says what it is, and who wins (Full)
 
 - [x] **write** — write a `README.md` in every directory that holds more than one file of one kind: a bolded one-sentence thesis of the directory's role, then a table with one row per file saying what it is or, for a gate, what it refuses
-  - unchanged → `scripts/README.md`, `scripts/hooks/README.md`, `tools/README.md`
+  - overwritten → `scripts/README.md`, `scripts/hooks/README.md`, `tools/README.md`
 - [x] **write** — write a documentation index at `<docs-dir>/README.md`: one row per document, and a Conventions block stating that a dated document stays true about its date and is superseded rather than refreshed, that numbers cite their source, and that the status of work lives in `<task-store>` and never in a document
-  - unchanged → `docs/README.md`
+  - overwritten → `docs/README.md`
 - [x] **write** — write, at the head of every dated document, a `**Written:**` line and, once something amends it, a `**Status:**` line naming what did
-  - unchanged → `docs/README.md`, `CLAUDE.md`
+  - overwritten, unchanged → `docs/README.md`, `CLAUDE.md`
 - [x] **write** — write, in every document that can disagree with another, one sentence saying which wins
-  - unchanged → `docs/README.md`, `CLAUDE.md`
+  - overwritten, unchanged → `docs/README.md`, `CLAUDE.md`
 - [x] **write** — write the root `README.md`'s setup numbered per platform, ending with a table of what runs automatically: trigger, effect, and the file that wires it
-  - unchanged → `README.md`
+  - overwritten → `README.md`
 
   Adapt: The thesis-plus-table shape is the whole convention; the wording is yours. The table of what runs automatically is only as long as your hooks.
 
   Skip when: A directory holds one file, or a repository has one document.
 
-### Step 6 · § 4.2 The tool-header convention (Full)
+### Step 6 · § 3.2 The tool-header convention (Full)
 
 - [x] **write** — write, at the top of every script under `<checks-dir>/` and every emitter under `<emitters-dir>/`, a header with four parts in this order: what it emits or checks; **the failure it exists to prevent**, as the incident that happened, dated, with the wrong fix tried first where there was one; the invocation with its flags; and what it needs (another checkout, a token, a network); on day one, with no incident yet, the paragraph says what the script would let through if it were wrong, and the first incident replaces it
   - unchanged → `CLAUDE.md`
-- [ ] **adapt** — adapt the header block of `tools/navigation/index.ts` for an emitter: four labelled lines, `KIND` (its lifecycle), `INVARIANTS` (what it never does), `RE-ENTRY` (whether a second run is idempotent and what `--check` does), `STALE WHEN` (the inputs whose change makes its output stale)
+- [ ] **adapt** — adapt the header block of the emitter shape for an emitter: four labelled lines, `KIND` (its lifecycle), `INVARIANTS` (what it never does), `RE-ENTRY` (whether a second run is idempotent and what `--check` does), `STALE WHEN` (the inputs whose change makes its output stale)
   - read authored/reference/emitter-shape.mjs in the kit (the kit carries this file's shape, not the file)
 - [x] **write** — write the same shape into every hook under `<hooks-dir>/`
   - unchanged → `CLAUDE.md`
@@ -150,8 +147,8 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 - [x] **write** — write into `CLAUDE.md`: every task is an issue there, never a markdown checklist or an in-session todo list; `bd ready` is the queue; every run of writes is bracketed by a pull before the first and a push after the last, and a rejected push is reported, never forced; long descriptions and notes go in by file
   - unchanged → `CLAUDE.md`
 - [x] **adapt** — adapt `.beads/config.yaml`: its remote. copy the `beads` jobs of `lefthook.yml` (one per git hook the tracker owns) into `<hook-runner>`'s configuration once 1.6 has installed it, so installing the hook runner does not silently turn the tracker's git integration off
-  - overwritten, authored (authored/lefthook.yml); now adapt as the bullet says → `.beads/config.yaml`, `lefthook.yml`
-- [x] **copy** — copy `scripts/check-beads.mjs` → `<checks-dir>/` and adapt its label vocabulary: every open issue carries a label naming where its work lands; its second rule, that an id from a predecessor tracker resolves only in a frozen export committed here, applies only when you have a predecessor and goes otherwise
+  - unchanged, authored (authored/lefthook.yml), overwritten; now adapt as the bullet says → `.beads/config.yaml`, `lefthook.yml`
+- [x] **copy** — copy `scripts/check-beads.mjs` → `<checks-dir>/` and adapt its label vocabulary: every open issue carries a label naming where its work lands; its second rule, that an id from a predecessor tracker resolves only in a frozen export committed in your repository, applies only when you have a predecessor and goes otherwise
   - unchanged → `scripts/check-beads.mjs`
 - [x] **adapt** — adapt `.beads/formulas/corpus-regen.formula.toml` only when you have a multi-step cycle worth templating: replace its steps and keep its header's two rules (cite headings, never line numbers; cite count keys, never numerals); a formula declares variables and dependent steps, and the instance is thrown away once the cycle's commits and closed issues are the record
   - authored (authored/corpus-regen.formula.toml), unchanged; now adapt as the bullet says → `.beads/formulas/corpus-regen.formula.toml`
@@ -176,9 +173,9 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
   - unchanged → `CLAUDE.md`
 - [x] **write** — write the placement rule into `CLAUDE.md`: a check that reads only committed files is a pre-push job **and** a `<ci>` step; a check that reads something outside the repository (another checkout, a token, a network, a language model) runs in neither, and a digest gate stands in for it (a check that re-hashes the input's last accepted bytes and fails on drift; the last bullet is one); a legitimately absent input skips clean and prints why; a tool that is found and then fails is a failure, never a skip
   - unchanged → `CLAUDE.md`
-- [x] **install** — install `<hook-runner>` and adapt `lefthook.yml`: pre-commit `parallel: false` with the reason; pre-push `parallel: true`; every pre-push job with a `glob` re-derived from what its script reads and imports (wider when in doubt), launched as `node --run <name>`, with a comment stating its measured cost and the host it was measured on, re-measured on yours because the copied notes are this host's; deliberately absent gates named at the site with the reason; retired jobs left as a comment carrying the rule text worth keeping and the shape the job would take if it came back
+- [x] **install** — install `<hook-runner>` and adapt `lefthook.yml`: pre-commit `parallel: false` with the reason; pre-push `parallel: true`; every pre-push job with a `glob` re-derived from what its script reads and imports (wider when in doubt), launched as `node --run <name>`, with a comment stating its measured cost and the host it was measured on, re-measured on yours because the copied notes name another host; deliberately absent gates named at the site with the reason; retired jobs left as a comment carrying the rule text worth keeping and the shape the job would take if it came back
   - authored (authored/lefthook.yml), unchanged, overwritten → `lefthook.yml`, `package-lock.json`
-- [x] **write** — write `<gates-command>` as the hook runner's forced full suite (`lefthook run pre-push --force` here), and use only that by hand: the bare runner skips every job when the push file list is empty and exits 0 in a tenth of a second, which reads exactly like a clean run
+- [x] **write** — write `<gates-command>` as the hook runner's forced full suite (`lefthook run pre-push --force` for lefthook), and use only that by hand: the bare runner skips every job when the push file list is empty and exits 0 in a tenth of a second, which reads exactly like a clean run
   - unchanged → `package.json`, `package-lock.json`, `CLAUDE.md`
 - [x] **adapt** — adapt `.github/workflows/verify.yml` into `<ci>`: cheapest first, a concurrency group that cancels superseded runs, minimal permissions, a timeout, and retired steps kept as comments saying why a restored step would be wrong
   - authored (authored/ci-verify.yml), unchanged; now adapt as the bullet says → `.github/workflows/verify.yml`
@@ -198,7 +195,7 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 ### Step 10 · § 1.7 Gates on the gates: every script wired or declared, every gate negative-tested (Full)
 
 - [x] **copy** — copy `scripts/check-jobs.mjs` → `<checks-dir>/` and adapt its file names: every `run:` token in the hook runner's configuration and in `<ci>` resolves to a script in the package manifest; every script no job invokes is declared in the file's exception table with its kind and reason, and a gate-shaped name (`check:*`, `*:check`, `*:selftest`) is told to wire itself or name its exception; a declared exception that has since gained a job, or names a script that no longer exists, fails too; a script naming a path that is not on disk fails
-  - unchanged → `scripts/check-jobs.mjs`
+  - overwritten → `scripts/check-jobs.mjs`
 - [x] **write** — write a `--selftest` mode into every gate, a standing rule from the first gate: copy the gate's inputs under the temporary directory, break exactly one thing per case, assert the run fails **for that reason**, and keep one undoctored control case that must pass; expose it as `<name>:selftest` and run it as its own pre-push job
   - unchanged → `CLAUDE.md`
 - [x] **write** — write a root override (an environment variable naming a doctored copy) into each gate, so a by-hand run can point it at a fixture without editing it
@@ -221,18 +218,18 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 
 - [x] **write** — write the contract into `CLAUDE.md` or a skill: a script named `<group>:<verb>` in the package manifest is a public name; the bare name writes the artifact; `:check` re-derives it in memory, diffs against what is committed, exits 1 on any difference or on a stale file a fresh run would not write, and writes nothing; `:selftest` asserts invariants from fixtures it builds under the temporary directory; `:update` moves a baseline
   - unchanged → `CLAUDE.md`
-- [x] **write** — write, beside the contract, the emitter rules, standing from the first emitter: no timestamp, no randomness, one canonical serialiser, every sort by code point so two runtimes agree, the `:check` twin in the same change; an emitted tree lives under `<generated-root>/` with a banner naming the emitter and is never edited by hand; a correction goes into the hand-maintained source (3.2 in part 3) and the next run carries it
+- [x] **write** — write, beside the contract, the emitter rules, standing from the first emitter: no timestamp, no randomness, one canonical serialiser, every sort by code point so two runtimes agree, the `:check` twin in the same change; an emitted tree lives under `<generated-root>/` with a banner naming the emitter and is never edited by hand; a correction goes into the hand-maintained source (2.2 in part 2) and the next run carries it
   - unchanged → `CLAUDE.md`
-- [ ] **adapt** — adapt the refusal in `tools/catalogue/index.mjs` for any emitter that walks a graph: compare the walk with a hand-ratified fixture (a decision record, 3.2) and refuse to write on disagreement, because a wrong walk returns a smaller answer and says nothing
+- [ ] **adapt** — adapt the refusal in the emitter shape for any emitter that walks a graph: compare the walk with a hand-ratified fixture (a decision record, 2.2) and refuse to write on disagreement, because a wrong walk returns a smaller answer and says nothing
   - read authored/reference/emitter-shape.mjs in the kit (the kit carries this file's shape, not the file)
 - [x] **copy** — copy `scripts/assert-not-hand-edited.mjs` → `<checks-dir>/` as a `<hook-runner>` pre-commit job over staged paths only, and adapt its table: one verifier per generator, chosen by path; a suspect nothing can verify is reported as unverified
-  - unchanged → `scripts/assert-not-hand-edited.mjs`
+  - overwritten → `scripts/assert-not-hand-edited.mjs`
 - [x] **copy** — copy `scripts/hooks/block-generated-edit.mjs` → `<hooks-dir>/` as a `PreToolUse` hook on Write and Edit, and adapt its redirect table: the refusal names where the change belongs
-  - unchanged → `scripts/hooks/block-generated-edit.mjs`
+  - overwritten → `scripts/hooks/block-generated-edit.mjs`
 - [x] **copy** — copy `scripts/hooks/check-emitted-drift.mjs` → `<hooks-dir>/` as a `PostToolUse` hook, and adapt its trigger table to your emitters' inputs and the emitters themselves: it re-runs the `:check` only for those, and never blocks
-  - unchanged → `scripts/hooks/check-emitted-drift.mjs`
+  - overwritten → `scripts/hooks/check-emitted-drift.mjs`
 - [x] **copy** — copy `.claude/skills/add-npm-script/SKILL.md` into your `.claude/skills/` and adapt the README section it names: the seven steps of adding, renaming or removing a script
-  - unchanged → `.claude/skills/add-npm-script/SKILL.md`
+  - overwritten → `.claude/skills/add-npm-script/SKILL.md`
 
   Verify (`node <kit>/tools/verify.mjs --target . --sections 1.5`):
 
@@ -245,29 +242,29 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 
   Skip when: Nothing in the repository is generated. The moment one file is, adopt all of it.
 
-### Step 12 · § 3.2 Hand-maintained source, decision records read and never written, and the policy file prompts cite (Full)
+### Step 12 · § 2.2 Hand-maintained source, decision records read and never written, and the policy file prompts cite (Full)
 
 - [x] **write** — write the split into `CLAUDE.md`: three kinds of file and never a fourth — hand-maintained source that a person edits; hand-authored decision records (JSON) that emitters read and nothing writes; and generated output under `<generated-root>/` that nothing edits by hand (1.5 in part 1)
   - unchanged → `CLAUDE.md`
 - [x] **write** — write every decision record self-describing, with keys that answer the questions a reader asks before the data: `describes`, `whyThisFileExists`, `gatedBy`, `whatItDoesNOTDo`, `provenance`, and for each constant a `<key>Means` sibling stating what the value decides and where it is changed
   - unchanged → `CLAUDE.md`
-- [ ] **write** — write `<policy-file>` for every workflow: every constant a tool or a prompt reads lives there under a key, with its reason, its source evidence and the date it was decided beside it; a prompt cites the block and the key and states no second number
-  - <policy-file>: needs-section (laid down with § 2.2)
-- [ ] **write** — write the placement rule, once a workflow exists (part 2), where its README explains its layers: a rule about how a run proceeds goes in the contract; a rule about what the written code looks like goes in the implementation skill; a constant a tool reads goes in `<policy-file>`, never inline; a fact owned by another team goes to that team
-  - <workflow-dir>README.md: needs-section (laid down with § 2.1)
+- [ ] **write** — write `<policy-file>`: every constant a tool or a prompt of the work reads lives there under a key, with its reason, its source evidence and the date it was decided beside it; a prompt cites the block and the key and states no second number
+  - write by hand
+- [ ] **write** — write the placement rule, once the work has a home of its own whose README explains its layers: a rule about how a run proceeds goes in the work's contract; a rule about what the written code looks like goes in the implementation skill; a constant a tool reads goes in `<policy-file>`, never inline; a fact owned by another team goes to that team
+  - write by hand
 
-  Adapt: The key names are a convention; the contract (every constant has one home and a stated meaning) is the value. A workflow without tools has no policy file yet; write it the day the first tool reads a constant.
+  Adapt: The key names are a convention; the contract (every constant has one home and a stated meaning) is the value. Work without tools has no policy file yet; write it the day the first tool reads a constant.
 
   Skip when: No emitter reads a hand-authored input. Keep the three-kinds rule anyway.
 
 ### Step 13 · § 1.4 Committed harness-hook configuration and a hook micro-runtime (Full)
 
-- [x] **write** — write `.claude/settings.json` with two things in it and nothing else: the enabled plugins (here the tracker's) and the hook registrations, each with a `statusMessage` and an explicit `timeout` sized to the hook; write into `.claude/README.md` that machine-specific permissions go in `.claude/settings.local.json`, which is untracked
+- [x] **write** — write `.claude/settings.json` with two things in it and nothing else: the enabled plugins (the tracker's, where you take 1.3) and the hook registrations, each with a `statusMessage` and an explicit `timeout` sized to the hook; write into `.claude/README.md` that machine-specific permissions go in `.claude/settings.local.json`, which is untracked
   - unchanged → `.claude/settings.json`, `.claude/README.md`
 - [x] **copy** — copy `scripts/hooks/_shared.mjs` → `<hooks-dir>/`: a stdin reader that returns null on a TTY, empty or unparseable input, so every hook can be run by hand; an edit-target reader that accepts both payload spellings; a repository-relative path helper that returns null outside the repository; a bounded header read; a spawn helper with a timeout
-  - unchanged → `scripts/hooks/_shared.mjs`
+  - overwritten → `scripts/hooks/_shared.mjs`
 - [x] **copy** — copy `scripts/hooks/gate-summary.mjs` → `<hooks-dir>/` as your `Stop` hook once 1.6 has given you gates, and adapt its gate list to the three fastest: it runs them concurrently, prints one verdict line into the transcript, and never blocks
-  - unchanged → `scripts/hooks/gate-summary.mjs`
+  - overwritten → `scripts/hooks/gate-summary.mjs`
 - [x] **write** — write into `.claude/README.md` that hook configuration is snapshotted at session start, so a session that began before a hook was added never sees it
   - unchanged → `.claude/README.md`
 
@@ -284,8 +281,8 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 ### Step 14 · § 1.8 The citations gate (Full)
 
 - [x] **copy** — copy `tools/citations/` → `<emitters-dir>/citations/` (TypeScript, run directly by Node; a multi-file check lives with the emitters, a single-file one under `<checks-dir>`) and adapt its exemption registries: every pointer of the forms `<file>.md:NN` and `<file>.md § <Name>` in every tracked text file must resolve — the file exists, the line is in range and not blank, the section exists, and a pointer into a retired file fails until it names the new path
-  - unchanged → `tools/citations/check.ts`, `tools/citations/memory.ts`, `tools/citations/scan.ts`, `tools/citations/selftest.ts`
-- [x] **write** — write the strip step this gate forces on day one: every file copied from this repository carries header citations to sections, reviews, tracker ids and commits you do not have, and every copied prompt ends in a `Reviewed:` trailer naming reviews of runs here; replace each with your own or drop it before the gate's first run
+  - overwritten → `tools/citations/check.ts`, `tools/citations/memory.ts`, `tools/citations/scan.ts`, `tools/citations/selftest.ts`
+- [x] **write** — write the strip step this gate forces on day one: a copied file may carry header citations to sections, reviews, tracker ids and commits you do not have, and a copied prompt may end in a `Reviewed:` trailer naming reviews of runs that were not yours; replace each with your own or drop it before the gate's first run
   - unchanged → `CLAUDE.md`
 - [x] **write** — write it as a pre-push job with no glob and a `<ci>` step, scanning every tracked text file rather than an allowlist; take exemptions one at a time, each a line in a diff with a reason: quotations of what a stale claim said, frozen history directories, the retired root
   - overwritten, unchanged → `lefthook.yml`, `.github/workflows/verify.yml`
@@ -305,24 +302,24 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 ### Step 15 · § 1.11 Warning ratchet (Brief)
 
 - [x] **take** — Take `scripts/lint-ratchet.mjs` → `<checks-dir>/` with its `lint:ratchet` and `lint:ratchet:update` pair and a committed baseline file: warning counts in the pre-existing code may fall and never rise, and errors are never tolerated at any count.
-  - unchanged; now adapt as the bullet says → `scripts/lint-ratchet.mjs`
+  - overwritten; now adapt as the bullet says → `scripts/lint-ratchet.mjs`
 
 ## D. Knowledge
 
-### Step 16 · § 4.3 The count index, Verification Before Claiming, and reporting honesty (Full)
+### Step 16 · § 3.3 The count index, Verification Before Claiming, and reporting honesty (Full)
 
 - [x] **write** — write `<count-index>`: a table of key, value and what it counts, for every figure that describes the current measured state of the thing you measure; a second table naming the command or file each value re-derives from; and a *How to use it* section carrying the rules below
-  - unchanged → `count-index.md`
+  - overwritten → `count-index.md`
 - [x] **write** — write the rules into that file and into `CLAUDE.md`: prose writes the backticked key where the numeral would go, never both; a key is admitted only for a count that moves when the source is re-measured **and** is restated in more than one hand-maintained file; a quotation keeps its numeral; a frozen or historical figure gets no key; a string an emitter writes interpolates what it measured at emit time or carries no figure; name the denominator when two exist
-  - unchanged → `count-index.md`, `CLAUDE.md`
+  - overwritten, unchanged → `count-index.md`, `CLAUDE.md`
 - [x] **adapt** — adapt `scripts/check-count-index.mjs` → `<checks-dir>/`: a check that re-derives every value from its source and fails when the table disagrees, with one deriver per key; update the table from what the check reports, never the check from the table
   - authored (authored/check-count-index.mjs), unchanged, overwritten; now adapt as the bullet says → `scripts/check-count-index.mjs`, `package.json`, `package-lock.json`, `lefthook.yml`, `.github/workflows/verify.yml`
 - [x] **write** — write into `CLAUDE.md` the rule behind it all: never state a count, a figure or a "resolved" status from titles, memory or inference; re-derive it at the time of writing and cite the source inline, or say it could not be verified
   - unchanged → `CLAUDE.md`
 - [x] **write** — write, for any rate a report computes, a declared sample size below which the report prints the count and no rate; define every metric once, in one hand-maintained file or one generated from a hand-maintained source, as what is counted, who counts it, where it is recorded, and the value that would mean the project is not viable
-  - unchanged → `count-index.md`, `CLAUDE.md`
+  - overwritten, unchanged → `count-index.md`, `CLAUDE.md`
 
-  Verify (`node <kit>/tools/verify.mjs --target . --sections 4.3`):
+  Verify (`node <kit>/tools/verify.mjs --target . --sections 3.3`):
 
   ```bash
   npm run counts:check
@@ -332,31 +329,31 @@ Written by the kit's `tools/bootstrap.mjs` from its templates. One line per Take
 
   Skip when: Nothing you measure is restated anywhere. The verification rule in `CLAUDE.md` is never skipped.
 
-### Step 17 · § 3.6 The graph as authority (Optional)
+### Step 17 · § 2.6 The graph as authority (Optional)
 
 Adopt when: more than two generated artifacts feed each other, so that "regenerate in the right order" is a question somebody has to answer.
 
 - [x] **write** — write one machine-readable record per node in `<emitters-dir>/pipeline/graph.ts` (a name and a language that are defaults): id, kind (its lifecycle), the edges it depends on, named input groups, outputs, the generator and its check, and a detection field that names how staleness is detected or declares none with a reason the gate prints
-  - unchanged → `tools/pipeline/graph.ts`
+  - overwritten → `tools/pipeline/graph.ts`
 - [x] **write** — write the edges declared, not derived: a derived edge is silent about a node whose artifacts do not exist yet, and the point of the record is that it can be wrong in a way a check can catch
-  - unchanged → `tools/pipeline/graph.ts`
+  - overwritten → `tools/pipeline/graph.ts`
 - [x] **write** — write the prose page that describes the graph for a reader, a diagram block and a paragraph per node; the check below holds it to the record
-  - unchanged → `docs/pipeline.md`
+  - overwritten → `docs/pipeline.md`
 - [x] **copy** — copy `tools/pipeline/check.ts` and `tools/pipeline/stale.ts` beside it and adapt: the check asserts no cycle, no unknown edge, every input glob matches at least one file, every stamped path is one of the node's outputs, every script named exists, and every node id appears in the prose that describes the graph; the staleness gate re-folds each node's declared inputs into a digest and compares it with the stamp the node wrote into its own output, so forgetting to regenerate is visible without regenerating
-  - unchanged, overwritten → `tools/pipeline/check.ts`, `tools/pipeline/stale.ts`, `package.json`, `package-lock.json`, `lefthook.yml`, `.github/workflows/verify.yml`, `tools/pipeline/formulas.ts`, `tools/pipeline/selftest.ts`, `tools/lib/estate-root.ts`, `tools/pipeline/example/emit.ts`, `tools/pipeline/example/entries.json`, `tools/pipeline/example/summary.json`
+  - overwritten, unchanged, written → `tools/pipeline/check.ts`, `tools/pipeline/stale.ts`, `package.json`, `package-lock.json`, `lefthook.yml`, `.github/workflows/verify.yml`, `tools/pipeline/formulas.ts`, `tools/pipeline/selftest.ts`, `tools/lib/sibling-root.ts`, `tools/pipeline/example/emit.ts`, `tools/pipeline/example/entries.json`, `tools/pipeline/example/summary.json`
 - [x] **write** — write into the record's header that the prose copy is held to the record by a gate that is a floor: it catches a node added on one side and forgotten on the other and cannot catch a wrong edge, and the fix is to generate the prose from the record
-  - unchanged → `tools/pipeline/graph.ts`
+  - overwritten → `tools/pipeline/graph.ts`
 - [x] **write** — write the retirement rule: a node kind whose defining property is that nothing depends on it describes a tool, not a node; retire the kind with its last member, narrow the type, delete the assertion, and leave a do-not-re-add note
-  - unchanged → `tools/pipeline/graph.ts`
+  - overwritten → `tools/pipeline/graph.ts`
 
-  Verify (`node <kit>/tools/verify.mjs --target . --sections 3.6`):
+  Verify (`node <kit>/tools/verify.mjs --target . --sections 2.6`):
 
   ```bash
   npm run pipeline:check
   npm run pipeline:stale:check
   ```
 
-  Adapt: The kinds are your lifecycles: here, one that re-runs whole whenever its source moves and one that is built once and grows on demand; two is the right number until a third proves itself. The staleness stamp needs every emitter to write its input digest into its output.
+  Adapt: The kinds are your lifecycles: for example one that re-runs whole whenever its source moves and one that is built once and grows on demand; two is the right number until a third proves itself. The staleness stamp needs every emitter to write its input digest into its output.
 
 ## E. Parallel agent work
 
@@ -366,7 +363,7 @@ Adopt when: more than two generated artifacts feed each other, so that "regenera
   - unchanged → `scripts/new-worktree.sh`
 - [x] **copy** — copy `scripts/hooks/worktree-create.mjs` and `scripts/hooks/worktree-remove.mjs` → `<hooks-dir>/` and register them as the `WorktreeCreate` and `WorktreeRemove` hooks, so the harness's worktree tool provisions through the one script and never natively
   - unchanged → `scripts/hooks/worktree-create.mjs`, `scripts/hooks/worktree-remove.mjs`
-- [x] **copy** — copy `scripts/render-worktree-context.mjs` → `<checks-dir>/` and `.claude/worktree-CONTEXT.md.tmpl` → `.claude/`, and adapt the briefing: branch, base, task, merge window; "you are not alone in this repository"; `npm ci` first; how to finish. It renders to `.worktree/CONTEXT.md` inside the worktree, which `CLAUDE.md` imports with an `@.worktree/CONTEXT.md` line that is harmless where the file is absent; the renderer is Node because `sed` and `date -d` each failed
+- [x] **copy** — copy `scripts/render-worktree-context.mjs` → `<checks-dir>/` and `.claude/worktree-CONTEXT.md.tmpl` → `.claude/`, and adapt the briefing: branch, base, task, merge window; "you are not alone in this repository"; `npm ci` first; how to finish. It renders to `.worktree/CONTEXT.md` inside the worktree, which `CLAUDE.md` imports with an `@.worktree/CONTEXT.md` line that is harmless where the file is absent; the renderer is Node because `sed` and `date -d` differ across hosts
   - unchanged → `scripts/render-worktree-context.mjs`, `.claude/worktree-CONTEXT.md.tmpl`
 - [x] **write** — write `.claude/worktrees/` into `.gitignore` with a comment saying the rule is load-bearing
   - unchanged → `.gitignore`
@@ -384,13 +381,13 @@ Adopt when: more than two generated artifacts feed each other, so that "regenera
   npm run worktree:gc -- --dry-run
   ```
 
-  Adapt: `<trunk>` and `<protected-branches>` are one constants block, which is what made the trunk rename cheap here. If your default branch is not your trunk, keep the guard's repository-wide rule that a pull request names its base explicitly. Delete the port probing unless something in your repository listens.
+  Adapt: `<trunk>` and `<protected-branches>` are one constants block, which is what makes a trunk rename cheap. If your default branch is not your trunk, keep the guard's repository-wide rule that a pull request names its base explicitly. Delete the port probing unless something in your repository listens.
 
   Skip when: One agent at a time and no parallel sessions. The gitignore rule and the guard cost nothing to keep anyway.
 
 ### Step 19 · § 1.10 The skills and agents (Full)
 
-- [x] **adapt** — adapt `.claude/skills/bead/SKILL.md`: drop the bullets that name a language toolchain, sibling checkouts or this repository's gates, and keep the spine — verify the premise before any work, with file and line citations, deciding whether the issue is still valid, already fixed or obsolete, and behaving differently with a live user (show and stop) and in an autonomous session (note it and leave the issue open); partition several issues before claiming; then claim, implement, regenerate, gate, rebase and gate again, open the pull request, poll its checks in the background, close on green with a reason naming the pull request, and report
+- [x] **adapt** — adapt `.claude/skills/bead/SKILL.md`: drop the bullets that name a language toolchain, sibling checkouts or gates you do not have, and keep the spine — verify the premise before any work, with file and line citations, deciding whether the issue is still valid, already fixed or obsolete, and behaving differently with a live user (show and stop) and in an autonomous session (note it and leave the issue open); partition several issues before claiming; then claim, implement, regenerate, gate, rebase and gate again, open the pull request, poll its checks in the background, close on green with a reason naming the pull request, and report
   - authored (authored/skill-bead.md), unchanged; now adapt as the bullet says → `.claude/skills/bead/SKILL.md`
 - [x] **copy** — copy `.claude/skills/explore/SKILL.md`: list every assumption and every fact to look up, with a current guess for each, and stop; then an evidence-only inventory, file paths and quotations, no recommendations
   - unchanged → `.claude/skills/explore/SKILL.md`
@@ -398,18 +395,22 @@ Adopt when: more than two generated artifacts feed each other, so that "regenera
   - unchanged → `.claude/skills/retire-asset/SKILL.md`, `.claude/skills/human-plan/SKILL.md`
 - [x] **copy** — copy `.claude/agents/continuous-prompt-improvement.md`: nine lines that turn a session's self-analysis into a recommendation for the prompt it ran
   - unchanged → `.claude/agents/continuous-prompt-improvement.md`
-- [x] **adapt** — adapt `.claude/agents/fan-out-work.md`: replace the files its examples name, and keep the steps — pre-flight the trunk with the full gate suite; partition ready work into lanes by three overlap kinds (two issues rewriting the same lines take one lane; two adding separate blocks to one file are siblings with named anchors; two regenerating the same generated file are accepted and regenerated after each merge); pre-claim every issue in one tracker bracket; one fresh agent per lane in its own worktree; integrate on the dispatcher's own branch by merging lanes forward, never rebasing a pushed branch; poll the checks; report one table
-  - authored (authored/agent-fan-out-work.md), unchanged; now adapt as the bullet says → `.claude/agents/fan-out-work.md`
+- [x] **adapt** — adapt `.claude/agents/fan-out-work.md`: replace the files its examples name, and keep the steps — pre-flight the trunk with the full gate suite; partition ready work into lanes by four overlap kinds (two issues rewriting the same lines take one lane; two adding separate blocks to one file are siblings with named anchors; two regenerating the same generated file are accepted and regenerated after each merge; two appending numbered entries to the register are separate lanes and the second to merge renumbers), and write the partition down before claiming; pre-claim every issue in one tracker bracket; one fresh agent per lane in its own worktree; integrate on the dispatcher's own branch by merging lanes forward, never rebasing a pushed branch; poll the checks; report one table
+  - authored (authored/agent-fan-out-work.md), overwritten; now adapt as the bullet says → `.claude/agents/fan-out-work.md`
 - [x] **write** — write, into that agent's brief for each lane, the three rules every lane states: never end a turn while a command runs; label every issue the lane creates at creation; an acceptance criterion that acts outside the repository becomes a follow-up issue labelled `human` (a default label name) and is never performed by the lane
-  - unchanged → `.claude/agents/fan-out-work.md`
-- [x] **write** — write, at the end of every substantial prompt once its first review exists, a `Reviewed:` line citing the review file (3.5 in part 3); until then none, and strip the trailers the copied prompts carry
+  - overwritten → `.claude/agents/fan-out-work.md`
+- [x] **write** — write, at the end of every substantial prompt once its first review exists, a `Reviewed:` line citing the review file (2.5 in part 2); until then none, and strip the trailers the copied prompts carry
   - unchanged → `CLAUDE.md`
+- [x] **copy** — copy `.claude/agents/adversarial-verifier.md`: an agent that tries to falsify every claim in a pull request, document or analysis by re-deriving each from primary sources, hunting the known failure modes (stale figures, claims taken from documentation, an `unused` that misses a dynamic caller, a partial test run reported as full, a `pre-existing` failure that is green on the base), and reporting a verdict table with the minimal patch; it modifies nothing
+  - unchanged → `.claude/agents/adversarial-verifier.md`
+- [x] **copy** — copy `.claude/skills/eli5/SKILL.md`: re-explain the last reply, or one term given as an argument, for a reader who is missing the background it took for granted — every term defined at first use, the why behind each step, one analogy at most, the facts and caveats of the original kept exactly, no new claims and no action taken
+  - unchanged → `.claude/skills/eli5/SKILL.md`
 
-  Adapt: About half of the `bead` skill's nested bullets name this repository's stack and go. The fan-out agent's partition examples name files here; the three overlap kinds do not.
+  Adapt: The bead skill's nested bullets that name a stack are the ones to replace with yours. The fan-out agent's partition examples name files; the four overlap kinds do not.
 
   Skip when: No autonomous sessions. `explore` and `retire-asset` are worth having on day one regardless.
 
-### Step 19 · § 3.5 Prompt reviews (Full)
+### Step 19 · § 2.5 Prompt reviews (Full)
 
 - [x] **write** — write into `CLAUDE.md`: after a prompt is executed from a file, an analysis of the run goes to the `continuous-prompt-improvement` agent (1.10 in part 1), and a retained review lands at `<prompt-reviews-dir>/<prompt-basename>.<run-date>.md`, never beside the prompt
   - unchanged → `CLAUDE.md`
@@ -424,53 +425,51 @@ Adopt when: more than two generated artifacts feed each other, so that "regenera
 
   Skip when: No prompt runs more than once. A prompt that runs twice deserves a review.
 
-## F. The supervised workflow
+## F. The work, and what it leaves behind
 
-### Step 22 · § 3.3 One record per work item, on every terminal path (Full)
+### Step 20 · § 2.3 One record per work item, on every terminal path (Full)
 
-- [x] **write** — write, for any workflow that runs per work item, one record per item under `<records-dir>/`, written on every terminal path — complete, failed and blocked alike — never only on success, and written after the last push so it names a commit that exists
-  - written, unchanged → `tools/outcomes/run-outcome.schema.json`, `tools/outcomes/write-record.ts`
+- [x] **write** — write, once the work runs per work item, one record per item under `<records-dir>/`, written on every terminal path — complete, failed and blocked alike — never only on success, and written after the last push so it names a commit that exists
+  - overwritten, unchanged → `tools/outcomes/run-outcome.schema.json`, `tools/outcomes/write-record.ts`
 - [x] **write** — write `<record-schema>` once and have the writer and every reader share it, with a version field the reader refuses when it does not know it, so a schema change is a version bump and never a silent edit; the record type is yours to choose, and a framework that already defines a per-change record (OpenSpec is one) can supply it, provided these invariants hold
-  - written, overwritten → `tools/outcomes/run-outcome.schema.json`, `tools/outcomes/paths.ts`, `tools/outcomes/record.ts`
+  - overwritten, unchanged → `tools/outcomes/run-outcome.schema.json`, `tools/outcomes/paths.ts`, `tools/outcomes/record.ts`
 - [x] **write** — write the writer to validate before it writes and to refuse an invalid record with one named reason; write a validator for the cross-field rules a schema cannot state (which fields are set for which terminal status; which pairs are null together)
-  - overwritten, unchanged → `tools/outcomes/record.ts`, `tools/outcomes/write-record.ts`, `tools/outcomes/record.selftest.ts`
+  - unchanged, overwritten → `tools/outcomes/record.ts`, `tools/outcomes/write-record.ts`, `tools/outcomes/record.selftest.ts`
 - [x] **write** — write corrections as additions: a fact a later stage found wrong is superseded or retracted by a new entry, never deleted, so the record keeps both for the audit
-  - written, overwritten, unchanged → `tools/outcomes/run-outcome.schema.json`, `tools/outcomes/record.ts`, `tools/outcomes/write-record.ts`
+  - overwritten, unchanged → `tools/outcomes/run-outcome.schema.json`, `tools/outcomes/record.ts`, `tools/outcomes/write-record.ts`
 - [x] **write** — write one committed fixture per terminal path, beside the record's reader and writer, and hold the validator to them
-  - written, unchanged, overwritten → `tools/outcomes/fixtures/complete.json`, `tools/outcomes/fixtures/failed.json`, `tools/outcomes/fixtures/blocked.json`, `tools/outcomes/selftest-lib.ts`, `tools/outcomes/record.selftest.ts`
-- [x] **write** — write into the record the two fields that make the loop in 3.4 possible, each an enum you define: the **stage** of your workflow that produced each correction (research, build, review, the environment, the reference it read), and the **asset** that would absorb it so the next run does not meet it (a reference page, a policy constant, a test oracle, a convention pin, or none)
-  - written → `tools/outcomes/run-outcome.schema.json`
+  - unchanged, overwritten → `tools/outcomes/fixtures/complete.json`, `tools/outcomes/fixtures/failed.json`, `tools/outcomes/fixtures/blocked.json`, `tools/outcomes/selftest-lib.ts`, `tools/outcomes/record.selftest.ts`
+- [x] **write** — write into the record the two fields that make the loop in 2.4 possible, each an enum you define: the **stage** of the work that produced each correction (research, build, review, the environment, the reference it read), and the **asset** that would absorb it so the next run does not meet it (a reference page, a policy constant, a test oracle, a convention pin, or none)
+  - overwritten → `tools/outcomes/run-outcome.schema.json`
 
-  Adapt: Everything about the record's content is yours: its fields, its evidence forms, its status vocabulary. What this repository adds beyond the invariants — an evidence-token grammar, a check that every cited source line exists at the record's own base commit, a writer that deletes a file that fails re-validation — is worth reading and not required.
+  Adapt: Everything about the record's content is yours: its fields, its evidence forms, its status vocabulary. What the kit's outcomes emitter adds beyond the invariants — an evidence-token grammar, a check that every cited source line exists at the record's own base commit, a writer that deletes a file that fails re-validation — is worth reading and not required.
 
-  Skip when: No workflow runs per work item. The moment one does, write the record before the reports that read it.
+  Skip when: The work does not run per work item. The moment it does, write the record before the reports that read it.
 
-### Step 26 · § 3.4 The learning loop: records, reports, proposals, promotion (Full)
+### Step 21 · § 2.4 The learning loop: records, reports, proposals, promotion (Full)
 
-- [x] **write** — write a script that reads every record under `<records-dir>/`, validates and normalises it, and derives pure reports from the records and nothing else: what recurs across runs (the same stage and asset pair from 3.3 on distinct items), where runs disagree (the same kind of decision made two ways), what runs could not decide, and what looks dead or blocked, plus a proposal list keyed on subject and fact
-  - written, overwritten, unchanged → `tools/outcomes/run-outcome.schema.json`, `tools/outcomes/paths.ts`, `tools/outcomes/record.ts`, `tools/outcomes/fixtures/complete.json`, `tools/outcomes/fixtures/failed.json`, `tools/outcomes/fixtures/blocked.json`, `tools/outcomes/selftest-lib.ts`, `tools/outcomes/policy.json`, `tools/outcomes/policy.ts`, `tools/outcomes/reports.ts`, `tools/outcomes/emit.ts`, `tools/outcomes/index.ts`, `tools/outcomes/selftest.ts`, `artifacts/outcomes/dead-or-blocked.md`, `artifacts/outcomes/disagreements.md`, `artifacts/outcomes/proposals.json`, `artifacts/outcomes/proposals.md`, `artifacts/outcomes/recurring.md`, `artifacts/outcomes/undecided.md`
+- [x] **write** — write a script that reads every record under `<records-dir>/`, validates and normalises it, and derives pure reports from the records and nothing else: what recurs across runs (the same stage and asset pair from 2.3 on distinct items), where runs disagree (the same kind of decision made two ways), what runs could not decide, and what looks dead or blocked, plus a proposal list keyed on subject and fact
+  - overwritten, unchanged → `tools/outcomes/run-outcome.schema.json`, `tools/outcomes/paths.ts`, `tools/outcomes/record.ts`, `tools/outcomes/fixtures/complete.json`, `tools/outcomes/fixtures/failed.json`, `tools/outcomes/fixtures/blocked.json`, `tools/outcomes/selftest-lib.ts`, `tools/outcomes/policy.json`, `tools/outcomes/policy.ts`, `tools/outcomes/reports.ts`, `tools/outcomes/emit.ts`, `tools/outcomes/index.ts`, `tools/outcomes/selftest.ts`, `artifacts/outcomes/dead-or-blocked.md`, `artifacts/outcomes/disagreements.md`, `artifacts/outcomes/proposals.json`, `artifacts/outcomes/proposals.md`, `artifacts/outcomes/recurring.md`, `artifacts/outcomes/undecided.md`
 - [x] **write** — write the filing step: every proposal becomes an issue in `<task-store>` whose idempotency key is a label carrying a hash of subject and fact, never the title, so a promoted or rejected proposal is never re-filed under new wording; the body carries the proposal's siblings on the same subject, so contradictions are read together, and its evidence classed and, where it cites a source line, checked to exist at the source commit the record names, before a human reads it
   - unchanged → `tools/outcomes/propose.ts`
 - [x] **write** — write the deduplication step: before filing, check whether the committed reference already names the proposal's subject; a strong match is printed, not filed; a weak match (the reference mentions the name in passing) or an absent one is filed with the disposition in the body; the list of generic words that count as a mention rather than a description is one list, held equal on the writer's side and the reader's by a selftest
   - overwritten, unchanged → `tools/outcomes/policy.json`, `tools/outcomes/already-named.ts`, `tools/outcomes/propose.ts`, `tools/outcomes/selftest.ts`
-- [x] **write** — write the promotion rule into `CLAUDE.md` and into the reference's own page: a program proposes; only a person promotes, by editing the hand-maintained source (3.2) and re-running the emitter; a proposal that does not hold is closed with its reason, and its key stays
+- [x] **write** — write the promotion rule into `CLAUDE.md` and into the reference's own page: a program proposes; only a person promotes, by editing the hand-maintained source (2.2) and re-running the emitter; a proposal that does not hold is closed with its reason, and its key stays. Beside it, the one-act rule, standing from the first proposal: a document a program writes that relies on a fact of the reference names the fact by its key in the reference's index, and proposes in the same document any fact the reference lacks, so discovery and proposal are one act and a fact never lives only in the documents of the item that found it
   - unchanged → `CLAUDE.md`
-- [ ] **write** — write the gate that closes the loop at the source: the plan a run writes lists every fact of the reference it relies on; the gate looks each up in the reference's index, and a fact found in neither the reference nor the plan's own proposals fails the plan, so discovery and proposal are one act
-  - write by hand
 
-  Verify (`node <kit>/tools/verify.mjs --target . --sections 3.4`):
+  Verify (`node <kit>/tools/verify.mjs --target . --sections 2.4`):
 
   ```bash
   npm run outcomes
   npm run outcomes:propose -- --dry-run
   ```
 
-  Adapt: The four report shapes are the general ones for any per-item workflow; their columns are yours. The reference the proposals target may be a skill, a document or a configuration file.
+  Adapt: The four report shapes are the general ones for any work that runs per item; their columns are yours. The reference the proposals target may be a skill, a document or a configuration file.
 
-  Skip when: Fewer than two runs have happened. Write the record (3.3) first; the loop is cheap once the records exist.
+  Skip when: Fewer than two runs have happened. Write the record (2.3) first; the loop is cheap once the records exist.
 
-### Step 27 · § 4.4 The two operator-facing documents (Brief)
+### Step 22 · § 3.4 The two operator-facing documents (Brief)
 
-- [ ] **take** — Take the shapes of `docs/playbook.md` and `docs/plain-language-guide.md`. The playbook is a route through one unit of work, dated, declared "a route, not an authority", where every step names the file or command that decides it, with a glossary of the words the reader will meet, a where-the-truth-lives table mapping questions to files, and a crib sheet of commands at the end. The plain-language guide is for a reader who runs nothing; it says up front that where it and a technical document disagree the technical document is right, and it still cites counts by key.
+- [ ] **take** — Take the two shapes: a playbook and a plain-language guide. The playbook is a route through one unit of work, dated, declared "a route, not an authority", where every step names the file or command that decides it, with a glossary of the words the reader will meet, a where-the-truth-lives table mapping questions to files, and a crib sheet of commands at the end. The plain-language guide is for a reader who runs nothing; it says up front that where it and a technical document disagree the technical document is right, and it still cites counts by key.
   - read authored/reference/playbook-shape.md in the kit (the kit carries this file's shape, not the file); read authored/reference/plain-language-guide-shape.md in the kit (the kit carries this file's shape, not the file)
 

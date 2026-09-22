@@ -4,8 +4,8 @@
  *   node scripts/assert-not-hand-edited.mjs <staged files...>
  *
  * It fails when a staged file is owned by a generator AND no longer matches what that generator
- * produces. The message names the manifest, the extraction document and the emitter, so the next move
- * is a redirect rather than a guess.
+ * produces. The message names the input and the emitter, so the next move is a redirect rather than
+ * a guess.
  *
  * WHY BOTH THIS AND CI. The `*:check` scripts are the authority and run in CI. They answer "do the
  * committed build products match their generators", which is the right question at merge time and
@@ -13,12 +13,11 @@
  * failure names a file, not a reason. This runs on the staged paths only, at commit time, and answers
  * "you changed a build product, here is where the change belongs".
  *
- * ONE VERIFIER PER GENERATOR, CHOSEN BY PATH. An earlier version ran the screen generator's
- * `generate:check` no matter what was staged and exited 0 when it passed. That gate only ever compared
- * `src/screens/**`, so a hand edit to any OTHER build product -- the generated API client, the parsed
- * design tokens, the correction log -- was detected as suspect and then silently cleared by a check
- * that had never looked at it. Verifiers are now selected by the path that made the file suspect, and
- * a suspect nothing can verify is REPORTED as unverified rather than waved through.
+ * ONE VERIFIER PER GENERATOR, CHOSEN BY PATH. An earlier version ran one generator's `:check` no
+ * matter what was staged and exited 0 when it passed. That gate only ever compared its own output
+ * tree, so a hand edit to any OTHER build product was detected as suspect and then silently cleared
+ * by a check that had never looked at it. Verifiers are now selected by the path that made the file
+ * suspect, and a suspect nothing can verify is REPORTED as unverified rather than waved through.
  */
 import { spawnSync } from 'node:child_process'
 import { resolve } from 'node:path'
@@ -53,43 +52,23 @@ if (suspect.length === 0) process.exit(0)
  * `names` pulls the offending paths out of a failing check's output when it prints them, so the
  * message can point at the file rather than at the whole corpus. It is optional: a verifier that
  * names nothing falls back to the staged suspects it claimed.
+ *
+ * kit 1.5-4 · ADAPT: one row per emitter of yours whose output is committed, in the same change as
+ * the emitter, and out with it: a verifier over a file nothing writes is a row that can never fire.
+ * The rows below cover the emitters the kit laid down. Delete this line when done.
  */
 const VERIFIERS = [
-  // A `graphql:merge:check` row over `artifacts/api/contract/schema.graphql` STOOD HERE -- node
-  // one node’s, and before that another’s, over a generated client. Both nodes were retired and
-  // the contract file with its emitter; a verifier over a file nothing writes is a row that can never
-  // fire.
-  //
-  // The correction log's row STOOD HERE (`corrections:log` over `tools/ledger/correction-log.md`),
-  // narrowed from a `throughput` row over two reports, and deleted with
-  // the emitter: the rendered log is frozen under `docs/retired/` and is nobody's build
-  // product now, so there is nothing to re-derive and no row.
-  // The catalogue. `catalogue:check` rebuilds the whole output root and
-  // byte-compares it, and prints each differing path on its own indented line, which `names` pulls
-  // out so the message points at the file rather than at the tree. Everything the emitter owns is
-  // under `artifacts/catalogue/`, but what makes a path there SUSPECT in the first place is the
-  // redirect table or the banner -- so a newly emitted file is claimed here only once `_shared.mjs`
-  // knows it (SKILL.md and source-manifest.json joined that table later), and until
-  // then is reported as unverified rather than waved through.
-  {
-    script: 'catalogue:check',
-    owns: (rel) => rel.startsWith('artifacts/catalogue/'),
-    names: (out) => [...out.matchAll(/^\s+(artifacts\/catalogue\/\S+)/gm)].map((m) => m[1]),
-  },
-  // The node that reads run records. The records under
-  // `artifacts/outcomes/records/` are written by the migration workflow's terminal step
-  // (`migration/skills/migration-contract/tools/Write-RunOutcome.ps1`) and normalised to
-  // canonical bytes by `npm run outcomes`; everything else under the root is derived from them.
-  // `outcomes:check` is still the verifier: it re-validates every record against the one schema under
-  // `migration/`, re-serialises it, rebuilds every report and byte-compares the whole tree, printing
-  // each differing path on its own indented line -- so a hand-edited record, or one the terminal
-  // step wrote and nobody normalised, fails here by name. Every input is a committed file, so the
-  // check runs whole here, in `pre-push` and in CI alike; there is no sibling clone and no half that
-  // skips.
+  // The learning loop. The records under `artifacts/outcomes/records/` are written by the
+  // step of the work that ends a run and normalised to canonical bytes by `npm run outcomes`;
+  // everything else under the root is derived from them. `outcomes:check` re-validates every record
+  // against the one schema, re-serialises it, rebuilds every report and byte-compares the whole
+  // tree, printing each differing path on its own indented line -- so a hand-edited record, or one
+  // the terminal step wrote and nobody normalised, fails here by name. Every input is a committed
+  // file, so the check runs whole here, in `pre-push` and in CI alike.
   {
     script: 'outcomes:check',
     owns: (rel) => rel.startsWith('artifacts/outcomes/'),
-    names: (out) => [...out.matchAll(/^\s+(artifacts\/outcomes\/\S+)/gm)].map((m) => m[1]),
+    names: (out) => [...out.matchAll(/^\s+(\S+)/gm)].map((m) => m[1]).filter((p) => p.startsWith('artifacts/outcomes/')),
   },
 ]
 

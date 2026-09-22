@@ -7,7 +7,7 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 <!-- kit 1.10-5 · ADAPT: the partition examples below name no file, because the files are yours.
      Replace each example with two real issues of your own the first time a sweep meets that overlap
-     kind, and keep the three kinds. Delete this comment when done. -->
+     kind, and keep the four kinds. Delete this comment when done. -->
 
 # Fan out ready work
 
@@ -29,8 +29,14 @@ each will touch, not the titles:
 | Same lines | two issues rewrite the same function, table or paragraph | one lane takes both, in order |
 | Same file, separate blocks | two issues each add a block to one file | sibling lanes; give each a named anchor (the heading or the entry it adds after) so the merges do not collide |
 | Same generated file | two issues each change an input of one emitter | accept it: separate lanes, and regenerate that file after each merge rather than merging its bytes |
+| Same numbered sequence | two issues each append a numbered entry to `docs/decisions.md` (a decision, a risk) | separate lanes; each takes the next number as it sees it, and the second to merge renumbers its entry, its table row and the range bound, because a named anchor cannot keep two lanes from taking the same number |
 
 An issue whose premise you cannot verify from the checkout is not dispatched; note why on the issue.
+
+Write the partition down before you claim anything: one row per lane, with its issues, the files
+each touches, the overlap kind and the anchor. Claiming is the first step another session or a
+watching user would want to catch, and the record is the brief of step 4 and the first columns of
+the report in step 7.
 
 ## 3. Pre-claim every issue in one tracker bracket
 
@@ -53,7 +59,7 @@ brief word for word:
 
 As each lane reports green, merge its branch into the dispatcher's branch. Never rebase a branch
 that has been pushed. After each merge, regenerate every generated file more than one lane touched,
-then run `npm run gates`.
+renumber any register entry that collided, then run `npm run gates`.
 
 ## 6. Open the pull request and poll its checks
 

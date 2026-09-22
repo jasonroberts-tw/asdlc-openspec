@@ -44,7 +44,7 @@
  * INVOCATION. Imported, never run: `import { NODES, byId, edges } from './graph.ts'`.
  * NEEDS. Nothing. No checkout, no network; importing it reads no file.
  *
- * kit 3.6-1 · ADAPT: the two kinds are yours to rename; two is the right number until a third
+ * kit 2.6-1 · ADAPT: the two kinds are yours to rename; two is the right number until a third
  * proves itself. `X-EXAMPLE` below is a worked example over three files under
  * `tools/pipeline/example/`, there so that both gates assert something on day one. It is
  * laid down UNSTAMPED, because a stamp folds the paths of your checkout and the kit cannot know
@@ -74,7 +74,7 @@ export type Staleness = 'inputs' | 'grows'
  * A NAMED group of inputs. The name is what a stale report cites: "X is stale because `<name>`
  * moved" is actionable and "X is stale" is not. A `files` group is digested by content; a
  * `checkout` group is the sibling checkout, recorded as a COMMIT ID and never as a digest (name it
- * `../estate@commit`: `assess.ts` reads that key from a stamp by name).
+ * `../sibling@commit`: `assess.ts` reads that key from a stamp by name).
  */
 export type InputGroup =
   | { name: string; kind: 'files'; globs: string[]; mayBeEmpty?: true; note?: string }
@@ -122,7 +122,7 @@ export interface PipelineNode {
   /** The `package.json` script that checks the output, or null. */
   check: string | null
   /** True where the generator reads the sibling checkout, so CI cannot run it. */
-  needsEstateCheckout: boolean
+  needsSiblingCheckout: boolean
 }
 
 /**
@@ -173,7 +173,7 @@ export const NODES: PipelineNode[] = [
     regenerate: 'npm run pipeline:example',
     regenerateScript: 'pipeline:example',
     check: null,
-    needsEstateCheckout: false,
+    needsSiblingCheckout: false,
   },
 
   /*
@@ -192,14 +192,14 @@ export const NODES: PipelineNode[] = [
    *     dependsOn: ['X-EXAMPLE'],
    *     inputs: [
    *       { name: 'example summary', kind: 'files', globs: ['tools/pipeline/example/summary.json'] },
-   *       { name: '../estate@commit', kind: 'checkout' },
+   *       { name: '../sibling@commit', kind: 'checkout' },
    *     ],
    *     outputs: ['artifacts/measure/**'],
    *     generator: ['tools/measure/**', ...STAMP_SOURCES],
    *     regenerate: 'npm run measure',
    *     regenerateScript: 'measure',
    *     check: 'measure:check',
-   *     needsEstateCheckout: true,
+   *     needsSiblingCheckout: true,
    *   },
    *
    * A stamped output is committed by the run that stamps it. Never write a stamp by hand: it folds

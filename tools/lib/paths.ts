@@ -23,11 +23,6 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 /** The repository root. Every other path here is relative to this. */
 export const ROOT = resolve(HERE, '../..')
 
-export const FORMS_DIR = join(ROOT, 'artifacts/forms')
-
-/** A DECISION, hand-maintained -- not an artifact. `scripts/check-dispositions.mjs` gates it. */
-export const DISPOSITIONS_PATH = join(ROOT, 'tools/archetypes/dispositions.json')
-
 export function readJson<T>(path: string): T {
   return JSON.parse(readFileSync(path, 'utf8')) as T
 }

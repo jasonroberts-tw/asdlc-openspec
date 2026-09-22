@@ -28,8 +28,8 @@ The job is to supply that background, not to say the same thing again in shorter
 1. **Open with the point in one or two plain sentences.** What happened, or what the thing is,
    and why the reader should care. No preamble and no "great question".
 2. **Define every term the first time it appears**, in words that do not need defining
-   themselves. A project name (`bd`, a gate, an emitter, a `CNT-*` key) counts as a term: say
-   what it is here before using it.
+   themselves. A project name (`bd`, a gate, an emitter, a `CNT-*` key) counts as a
+   term: say what it is here before using it.
 3. **Give the why behind each step.** The dense version said what; this one says what it is for
    and what would go wrong without it.
 4. **Use one concrete analogy or worked example** where it carries the idea, and say where the

@@ -4,10 +4,10 @@
  *   npm run lint:ratchet           compare against eslint.baseline.json, exit 1 on any increase
  *   npm run lint:ratchet:update    rewrite the baseline to the current counts
  *
- * WHY THIS EXISTS instead of `--max-warnings 0`. `src/design-system/` is 29,712 lines written before
- * any linter existed. Demanding zero warnings on day one forces a single enormous cleanup commit
- * that nobody reviews properly; demanding nothing lets the count drift up forever. A ratchet gives
- * the design system a monotonic path to clean without either.
+ * WHY THIS EXISTS instead of `--max-warnings 0`. A large tree written before any linter existed
+ * carries thousands of warnings. Demanding zero warnings on day one forces a single enormous cleanup
+ * commit that nobody reviews properly; demanding nothing lets the count drift up forever. A ratchet
+ * gives such a tree a monotonic path to clean without either.
  *
  * ERRORS are never tolerated, in any area, at any count. Only warnings ratchet.
  */

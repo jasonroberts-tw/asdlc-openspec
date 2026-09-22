@@ -3,7 +3,7 @@
   "whyThisFileExists": "A threshold stated in a tool and again in a prompt is two numbers, and the copy is the one that goes stale. The report emitter, the filing step and their selftest read these keys and state none of them inline.",
   "gatedBy": "npm run outcomes:selftest (the shape of this file, and that the generic-word list the report side reads is the one the filing side reads); npm run outcomes:check (a report built from a different value no longer matches what is committed).",
   "whatItDoesNOTDo": "It does not decide what is promoted. Nothing here filters a proposal out of a person's sight: a strong match is PRINTED with where it matched, and everything else is filed. It does not hold the workflow's own constants; those are in the workflow's own policy file.",
-  "provenance": "kit 3.4 · ADAPT: written from the pattern catalogue's bullets, with no run of yours behind any value. Replace each value the first time your own records argue for another, and put the date and the evidence in its `Means` sibling.",
+  "provenance": "kit 2.4 · ADAPT: written from the pattern catalogue's bullets, with no run of yours behind any value. Replace each value the first time your own records argue for another, and put the date and the evidence in its `Means` sibling.",
 
   "minimumSampleSize": 5,
   "minimumSampleSizeMeans": "A rate (a share of records, as a percentage) is printed only when at least this many records stand behind it; below it the reports print the counts and say the rate is withheld. Two runs that both met one problem are a 100% rate and no evidence. Five is a floor chosen before any run existed; raise it when your first misleading rate teaches you what it should be. Changed here and nowhere else.",

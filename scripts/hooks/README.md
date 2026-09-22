@@ -11,7 +11,7 @@ The settings file registers `CNT-HOOKS` hooks.
 Every hook carries the same four-part header as a gate (`CLAUDE.md` § Standing rules for prompts and
 gates), and every one can be run by hand with empty input, where it exits clean with nothing to do.
 
-<!-- kit 4.1-1 · WRITE: one row per file, added in the same change as the file and its
+<!-- kit 3.1-1 · WRITE: one row per file, added in the same change as the file and its
      registration. The kit lists only what it laid down. -->
 
 | File | Event | Blocks? | What it is, or what it refuses |

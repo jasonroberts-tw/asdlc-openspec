@@ -1,30 +1,23 @@
 /**
  * The uniform provenance stamp: what a node was built FROM, written into what it built.
  *
- * The convention half-existed already and in four incompatible shapes -- `classification.json` and
- * `coverage.json` open with `node` + `estateHead`, `routes.json` has a `source` block,
- * `control-map.json` has `generatedFrom`. All four are keyed on the wrong thing.
- * The design note measured why:
- *
- *   > **`estateHead` cannot detect the change that actually happened.** The pinned commit is
- *   > the same today as it was weeks ago. It did not move. What moved was
- *   > one input group, from 1,205 documents to 1,257.
- *
- * So the stamp is over CONTENT. The existing `estateHead` / `source` blocks are left exactly
- * where they are: they are cited in prose and read by `tools/portfolio/coverage.ts` and
- * `tools/navigation/spec-routes.ts`, and this block is additive rather than a replacement.
+ * The convention it replaces half-existed in several incompatible shapes, each keyed on the wrong
+ * thing: a pinned commit of the sibling checkout, or a `source` block naming a file. A pinned commit
+ * cannot detect the change that actually happens: the pin is the same today as it was weeks ago,
+ * and what moved was one input group, by some fifty documents. So the stamp is over CONTENT, and it
+ * is additive rather than a replacement, so that an older block an emitter still writes can stay
+ * where a reader cites it.
  *
  * ---------------------------------------------------------------------------------------------
  * `generatedAtUtc` IS STICKY, AND THAT IS NOT A ROUNDING OF THE TRUTH.
  *
- * `tools/portfolio/index.ts` states the rule this repository runs on, beside `estateHead`:
+ * The rule every emitter here runs on:
  *
  *   > NOT a timestamp: a committed artifact carrying a wall clock makes two runs of an unchanged
  *   > repo differ and breaks every `git diff --exit-code` gate downstream.
  *
  * That rule is right and every `--check` in this repository is a byte-exact compare that depends on
- * it. A naive `new Date().toISOString()` here would turn `archetypes:check`, `portfolio:check` and
- * `navigation:check` permanently red.
+ * it. A naive `new Date().toISOString()` here would turn every one of them permanently red.
  *
  * The field is kept because the design note asks for it and because it answers a real question --
  * *when was this content last justified?* -- and it is made deterministic by CARRYING IT FORWARD:
@@ -37,7 +30,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { gitEnv, resolveEstateRoot } from '../lib/estate-root.ts'
+import { gitEnv, resolveSiblingRoot } from '../lib/sibling-root.ts'
 import { digestGlobs, foldGroups, stringDigest, type Digest } from './digest.ts'
 import { byId, type PipelineNode } from './graph.ts'
 
@@ -69,9 +62,9 @@ export interface ProvenanceStamp {
  *                   are meaningful.
  *  - `'ahead'`    — the pin is an ANCESTOR of HEAD: somebody pulled. This is the ordinary state of a
  *                   working checkout and is NOT a defect. The corpus is a deliberate snapshot, and
- *                   `layout-extraction.md` says so outright: *"every downstream artifact is pinned to
+ *                   its own documentation says so outright: every downstream artifact is pinned to
  *                   the commit in provenance.json, so a re-run invalidates comparisons across the
- *                   boundary."* Moving to the newer commit is a DECISION, not a repair.
+ *                   boundary. Moving to the newer commit is a DECISION, not a repair.
  *  - `'diverged'` — the pin is not reachable from HEAD. That one IS suspicious: the artifacts cite a
  *                   commit this checkout cannot produce, which is the shape of a resurrected or
  *                   force-pushed branch.
@@ -83,7 +76,7 @@ export function commitRelation(pinned: string, live: string, root: string = ROOT
   if (live === UNKNOWN_COMMIT || pinned === UNKNOWN_COMMIT) return 'unknown'
   if (live === pinned) return 'same'
   try {
-    const bo = resolveEstateRoot(root)
+    const bo = resolveSiblingRoot(root)
     execFileSync('git', ['-C', bo, 'merge-base', '--is-ancestor', pinned, live], {
       stdio: 'ignore',
       env: gitEnv(),
@@ -97,7 +90,7 @@ export function commitRelation(pinned: string, live: string, root: string = ROOT
 /** How many commits the checkout has moved past the pin. `null` where git cannot say. */
 export function commitsAhead(pinned: string, live: string, root: string = ROOT): number | null {
   try {
-    const bo = resolveEstateRoot(root)
+    const bo = resolveSiblingRoot(root)
     const n = execFileSync('git', ['-C', bo, 'rev-list', '--count', `${pinned}..${live}`], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
@@ -109,10 +102,10 @@ export function commitsAhead(pinned: string, live: string, root: string = ROOT):
   }
 }
 
-/** The live `../estate` HEAD, or `'unknown'` where there is no checkout (CI, a fresh clone). */
-export function estateCommit(root: string = ROOT): string {
+/** The live `../sibling` HEAD, or `'unknown'` where there is no checkout (CI, a fresh clone). */
+export function siblingCommit(root: string = ROOT): string {
   try {
-    const bo = resolveEstateRoot(root)
+    const bo = resolveSiblingRoot(root)
     if (!existsSync(bo)) return UNKNOWN_COMMIT
     return execFileSync('git', ['-C', bo, 'rev-parse', 'HEAD'], {
       encoding: 'utf8',
@@ -140,7 +133,7 @@ export function computeInputs(node: PipelineNode, root: string = ROOT): Computed
   const unhashable: string[] = []
   for (const g of node.inputs) {
     if (g.kind === 'checkout') {
-      inputs[g.name] = estateCommit(root)
+      inputs[g.name] = siblingCommit(root)
       unhashable.push(g.name)
       continue
     }
@@ -174,7 +167,7 @@ export function computeInputs(node: PipelineNode, root: string = ROOT): Computed
  *                 sticky `generatedAtUtc` is carried forward from.
  *
  * Everything else in a `PipelineNode` -- `kind`, `title`, `prompt`, `staleness`, `dependsOn`,
- * `advisoryOn`, `outputs`, `regenerate`, `check`, `needsEstateCheckout` -- cannot alter a byte of
+ * `advisoryOn`, `outputs`, `regenerate`, `check`, `needsSiblingCheckout` -- cannot alter a byte of
  * the emitted stamp, so folding it in would restamp three artifacts to record a prose edit. That is
  * the same argument that keeps `stale.ts` and `check.ts` out of `STAMP_SOURCES`.
  *
@@ -227,9 +220,9 @@ export const computeGeneratorDigest = (node: PipelineNode, root: string = ROOT):
  *
  * `priorPath` names the file to read the stamp from, defaulting to the node's declared stamp path
  * under `root`. An emitter writing under an OUTPUT OVERRIDE passes the file it is about to overwrite
- * (a node under `ARCHETYPES_OUT`, `tools/archetypes/paths.ts`): the sticky timestamp has to be carried
+ * (a node that emits under a scratch root for its selftest): the sticky timestamp has to be carried
  * forward from the output being replaced, or a scratch emit and the scratch `--check` a second later
- * differ on `generatedAtUtc` alone -- which is how `archetypes:selftest` found this.
+ * differ on `generatedAtUtc` alone -- which is how one node's selftest found this.
  * In production the two paths are the same file, so nothing about the committed bytes moves.
  */
 export function readStamp(
@@ -273,10 +266,9 @@ const nowUtc = (): string => new Date().toISOString().replace(/\.\d{3}Z$/, 'Z')
  *
  * Call this from the emitter and splice the result into its output document. The prior stamp is read
  * from that emitter's OWN committed output, which is the only place a sticky timestamp can come
- * from -- so this is one of the two functions in this repository that reads an artifact in order to
- * write it. The other is `tools/archetypes/index.ts`, which reads the prior classification to report
- * the delta, and for the same underlying reason: some facts about an artifact are only knowable by
- * comparison with its predecessor.
+ * from -- so this is one of the few places that reads an artifact in order to write it. An emitter
+ * that reports the delta against its own prior output does the same, and for the same underlying
+ * reason: some facts about an artifact are only knowable by comparison with its predecessor.
  */
 export function stampFor(nodeId: string, root: string = ROOT, priorPath?: string): ProvenanceStamp {
   const node = byId(nodeId)
@@ -289,7 +281,7 @@ export function stampFor(nodeId: string, root: string = ROOT, priorPath?: string
  *
  * Exported so `tools/pipeline/selftest.ts` can drive the sticky-timestamp rule against a synthetic
  * node under a temp root. Asserting that rule against a REAL node would need the real corpus and the
- * real `../estate` checkout, which is exactly the coupling that makes a test unrunnable in CI --
+ * real `../sibling` checkout, which is exactly the coupling that makes a test unrunnable in CI --
  * and this is the rule that, if it breaks, turns three `--check` gates permanently red.
  */
 export function buildStamp(

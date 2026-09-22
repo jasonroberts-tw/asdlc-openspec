@@ -8,7 +8,7 @@ Each file's header is the authority on it: what it checks, the failure it exists
 invocation and what it needs (`CLAUDE.md` § Standing rules for prompts and gates). Where a row here
 and a header disagree, the header wins and the row is corrected.
 
-<!-- kit 4.1-1 · WRITE: one row per file, added in the same change as the file. For a gate, say
+<!-- kit 3.1-1 · WRITE: one row per file, added in the same change as the file. For a gate, say
      what it refuses. The kit lists only what it laid down. -->
 
 | File | Kind | What it is, or what it refuses |

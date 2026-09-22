@@ -40,7 +40,7 @@
  * is not a TOML parser; a formula written outside that subset fails assertion 3 out loud rather
  * than passing quietly, because its steps are not found.
  *
- * kit 3.6-4 · ADAPT: list your own formulas in `FORMULAS`. Add an assertion here when a formula of
+ * kit 2.6-4 · ADAPT: list your own formulas in `FORMULAS`. Add an assertion here when a formula of
  * yours is found wrong in a way none of these five would have caught, with the instance in this
  * header.
  */

@@ -3,19 +3,18 @@
  *
  * WHAT THIS IS FOR. Every other staleness gate here works by regenerating a node's whole output and
  * diffing it, so automated detection reaches exactly as far as the nodes whose inputs all live in
- * this repository. a node, a node and a node are the three it cannot reach: each one's `--check`
- * needs the sibling `../estate` checkout, so it is wired into neither `lefthook.yml` nor
- * `.github/workflows/verify.yml` and runs only when somebody remembers to type it. CI does not clone
- * that checkout and should not -- one node's deepest walk is minutes cold over the
- * whole estate.
+ * this repository. A node that reads the sibling `../sibling` checkout is one it cannot reach: that
+ * node's `--check` is wired into neither `lefthook.yml` nor `.github/workflows/verify.yml` and
+ * runs only when somebody remembers to type it. CI does not clone that checkout and should not: a
+ * deep walk over a whole sibling repository is minutes cold.
  *
  * This gate does not run a generator. It re-folds each node's declared inputs and compares the fold
  * against the stamp the node wrote into its own output. That is a hash walk over `artifacts/**` --
  * milliseconds, no checkout -- which is what puts those three nodes behind an automated gate for the
  * first time.
  *
- * WHAT THIS IS NOT FOR. It does not replace `archetypes:check` / `portfolio:check` /
- * `navigation:check`, and those must NOT move into CI. They regenerate the whole output and diff it,
+ * WHAT THIS IS NOT FOR. It does not replace a corpus node's own `--check`, and those must NOT
+ * move into CI. They regenerate the whole output and diff it,
  * which catches strictly more than a digest can; they stay the deep local gate, run before quoting a
  * number out of their output. This gate is what makes FORGETTING to run them visible.
  *
@@ -69,8 +68,8 @@ const fixLines = (r: Report): void => {
   }
   console.log(`      run: ${r.node.regenerate}`)
   if (r.node.check) console.log(`      then verify: npm run ${r.node.check}`)
-  if (r.node.needsEstateCheckout) {
-    console.log('      NEEDS the sibling ../estate checkout; cannot be done in CI.')
+  if (r.node.needsSiblingCheckout) {
+    console.log('      NEEDS the sibling ../sibling checkout; cannot be done in CI.')
   }
 }
 
@@ -78,9 +77,8 @@ if (debt.length) {
   console.log('\nREPORTED, NOT GATED')
   console.log('-------------------')
   // Said once, up front, because it invalidates the `then verify:` line printed against three of the
-  // nodes below. With the checkout ahead of the pin, `archetypes:check` / `portfolio:check` /
-  // `navigation:check` rebuild from newer source than the artifacts were built from and report a
-  // correct artifact as stale.
+  // nodes below. With the checkout ahead of the pin, a corpus node's own `--check` rebuilds from
+  // newer source than the artifacts were built from and reports a correct artifact as stale.
   if (debt.some((r) => r.verdict === 'pin-drift')) {
     console.log(
       '\n  NOTE: the checkout is ahead of the pinned corpus commit, so any `npm run <node>:check`\n' +
@@ -95,7 +93,7 @@ if (debt.length) {
         : r.node.staleness === 'grows'
           ? 'ASSET, `grows`: reopens because a run asked for something absent, not because time passed. Worth a bead, not worth failing a push.'
           : r.node.detection.via === 'legacy-commit'
-            ? 'The sibling ../estate checkout has diverged from the pin. No commit in THIS repository caused it and none can fix it without a supervised re-extraction, so it is not a push gate.'
+            ? 'The sibling ../sibling checkout has diverged from the pin. No commit in THIS repository caused it and none can fix it without a supervised re-extraction, so it is not a push gate.'
             : 'This artifact predates the provenance stamp, so there is nothing to compare it against. This node becomes gated the first time its emitter runs.'
     console.log(`\n  ${r.node.id} -- ${r.detail}`)
     console.log(`      why not gated: ${why}`)
@@ -109,8 +107,8 @@ if (failing.length) {
     console.error(`  ${r.node.id} -- ${r.detail}`)
     console.error(`      run: ${r.node.regenerate}`)
     if (r.node.check) console.error(`      then verify: npm run ${r.node.check}`)
-    if (r.node.needsEstateCheckout) {
-      console.error('      NEEDS the sibling ../estate checkout; this cannot be done in CI.')
+    if (r.node.needsSiblingCheckout) {
+      console.error('      NEEDS the sibling ../sibling checkout; this cannot be done in CI.')
     }
   }
   console.error(

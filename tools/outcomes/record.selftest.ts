@@ -165,7 +165,7 @@ const cases: Case[] = [
     },
   },
   {
-    name: `the schema's intervention enum is the exhaustive list in ${WORKFLOW_POLICY_PATH ?? 'the workflow policy file (none declared yet)'}`,
+    name: `the schema's intervention enum is the exhaustive list in ${WORKFLOW_POLICY_PATH ?? 'the policy file (none declared yet)'}`,
     run: () => {
       if (WORKFLOW_POLICY_PATH === null) return 'skip'
       const path = join(REPO_ROOT, WORKFLOW_POLICY_PATH)

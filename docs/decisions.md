@@ -5,7 +5,7 @@ written down is re-argued from the losing side the next time an agent meets it; 
 here is not re-litigated by any agent (`CLAUDE.md` § Decisions live in the register). **When a
 document and this register disagree, the register wins**, and the document is what needs correcting.
 
-<!-- kit 3.1-1 · ADAPT: the one entry below is true of any repository bootstrapped from the starter
+<!-- kit 2.1-1 · ADAPT: the one entry below is true of any repository bootstrapped from the starter
      kit. It is dated 1970-01-01 because the kit cannot know the day you adopted it. Replace that
      date with yours in BOTH places it appears (the status line's parenthetical and the entry's
      Recorded line; `npm run check:register` holds the two to each other), name the issue that

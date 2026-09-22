@@ -2,15 +2,15 @@
 # (`CLAUDE.md` § The gate ladder). `.github/workflows/verify.yml` runs every gate again; a slower tier never trusts a
 # faster one.
 #
-# kit 1.6-3 · ADAPT: every cost note below that gives a figure was measured in the repository this
-# kit was extracted from, on its owner's host, and says so. Re-measure on yours (`time npm run
+# kit 1.6-3 · ADAPT: every cost note below that gives a figure was measured on the kit author's
+# host, and says so. Re-measure on yours (`time npm run
 # <name>`) and replace the note, naming the host: the same job costs several times more behind
 # endpoint security on native Windows than on Linux. Delete this paragraph when done.
 
 pre-commit:
   # `parallel: false` IS DELIBERATE. With `parallel: true` the runner hangs on Windows after every
   # job has finished: it never prints its summary or returns, and only killing the process helps
-  # (evilmartians/lefthook#1256, open; measured in the source repository on 2.1.10 from Windows
+  # (evilmartians/lefthook#1256, open; measured on 2.1.10 from Windows
   # Terminal with pwsh). Disabling parallel is the only workaround the issue records. Pre-commit
   # cannot leave that to a local override file, because it would hang a bare `git commit` for
   # everyone who has not copied one, and its jobs cost seconds in sequence.
@@ -61,8 +61,8 @@ pre-push:
   # RUN THIS SUITE BY HAND WITH `npm run gates`, NEVER THE BARE RUNNER.
   #
   # The runner builds a pre-push file list by diffing local against the remote, and when that list
-  # is empty it skips EVERY job and exits 0, which reads exactly like a clean run. Measured in the
-  # source repository: "36 jobs skipped, 0.11s, exit 0" against "36 of 36 green, ~19s". The runtime
+  # is empty it skips EVERY job and exits 0, which reads exactly like a clean run. Measured once:
+  # "36 jobs skipped, 0.11s, exit 0" against "36 of 36 green, ~19s". The runtime
   # is the only tell. `--force` is the sole lever, and `npm run gates` is that flag with a name.
   # It bites exactly when someone checks their work by hand: just after a push, on a freshly rebased
   # branch, or on the trunk right after a merge.
@@ -186,7 +186,7 @@ pre-push:
     - name: pipeline-selftest
       glob:
         - 'tools/pipeline/**'
-        - 'tools/lib/estate-root.ts'
+        - 'tools/lib/sibling-root.ts'
       run: node --run pipeline:selftest
     # The tracker's own pre-push hook, preserved, and the label and foreign-id rules over its open
     # issues. Neither carries a glob: both read the tracker's database, not the push.

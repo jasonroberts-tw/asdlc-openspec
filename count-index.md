@@ -5,7 +5,7 @@ Every other hand-maintained file cites the key, so a figure has one home and can
 two. This table is a cache of its sources: where the table and a source disagree, the source wins,
 `npm run counts:check` says so, and the table is updated from what the check reports.
 
-<!-- kit 4.3-1 · WRITE: one row per figure that describes the current measured state of the thing
+<!-- kit 3.3-1 · WRITE: one row per figure that describes the current measured state of the thing
      you measure, added in the same change as its row in the second table. The kit seeds the
      tables with what it laid down and can re-derive on the first day; replace or extend it with
      the counts your own documents restate. Delete this comment when your first key has landed. -->
@@ -66,7 +66,7 @@ shown has one row below, and every other file points at the row rather than rede
 definitions move to a generated file, this section names the hand-maintained source it is
 generated from and keeps nothing else.
 
-<!-- kit 4.3-5 · WRITE: one row per metric you report. The kit cannot know what you measure, so
+<!-- kit 3.3-5 · WRITE: one row per metric you report. The kit cannot know what you measure, so
      the table is empty; a metric with no row here is not reported. Delete this comment when the
      first row has landed. -->
 

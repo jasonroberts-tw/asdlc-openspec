@@ -1,6 +1,6 @@
 # <repository>
 
-<!-- kit 4.1-5 · WRITE: a bolded one-sentence thesis of what this repository is and what it
+<!-- kit 3.1-5 · WRITE: a bolded one-sentence thesis of what this repository is and what it
      produces, then at most a paragraph: what is worth reading here, and where the places a real
      subject goes are marked. The rules an agent follows are in `CLAUDE.md`, never here; the status
      of work is in `bd`, never here. Delete this comment when done. -->
@@ -15,7 +15,7 @@ Where this page and a file it points at disagree, that file wins and this page i
 · [Setup](#setup)
 · [Working here](#working-here)
 · [The npm scripts](#the-npm-scripts)
-· [The supervised workflow](#the-supervised-workflow-and-the-learning-loop)
+· [The work, and the learning loop](#the-work-and-the-learning-loop)
 · [What is still a placeholder](#what-is-still-a-placeholder)
 · [Where to read next](#where-to-read-next)
 · [What runs automatically](#what-runs-automatically)
@@ -100,7 +100,7 @@ rewritten.
 Numbered per platform. Every step is a command to run or a file to write, in order; a step that
 does not apply to your platform is absent from its list, not marked optional.
 
-<!-- kit 4.1-5 · ADAPT: these are the steps the kit's own files need. Add yours (a second checkout,
+<!-- kit 3.1-5 · ADAPT: these are the steps the kit's own files need. Add yours (a second checkout,
      a token, a toolchain) at the position where a fresh machine needs them, on every platform's
      list, and re-run the lists on a fresh machine before trusting them. Every item is written
      `1.` so each list stays numbered for any selection of the kit; number them literally once
@@ -146,7 +146,7 @@ holds platform-native binaries. Use one clone per platform.
 
 ## Working here
 
-<!-- kit 4.1-5 · ADAPT: one row per thing a person does here, and the skill, agent, command or
+<!-- kit 3.1-5 · ADAPT: one row per thing a person does here, and the skill, agent, command or
      script that does it. The kit lists what it laid down; add yours as they appear, and delete a
      row whose tool you retire. Delete this comment when done. -->
 
@@ -156,12 +156,14 @@ holds platform-native binaries. Use one clone per platform.
 | Have an agent work one issue end to end | the `bead` skill | Verifies the issue's premise first, then claims, implements, gates, opens the pull request and closes on green. |
 | Have agents work the ready issues in parallel | the `fan-out-work` agent | One fresh agent per lane, each in its own worktree, integrated on the dispatcher's branch. |
 | Research a topic before changing anything | the `explore` skill | Assumptions and guesses first, then an inventory of evidence with no recommendations. |
+| Have the last reply, or one term, explained in plain words | the `eli5` skill | It supplies the missing background and changes nothing; the original's facts and caveats survive exactly. |
 | Draft what a person must do for an issue an agent cannot finish | the `human-plan` skill | |
 | Retire a file | the `retire-asset` skill | A register decision with a checklist, not a tidy-up. |
 | Add, rename or remove an npm script | the `add-npm-script` skill | It keeps § The npm scripts below, the hook runner and CI in step. |
 | Make a worktree by hand | `scripts/new-worktree.sh <task-ref> <slug>` | From the primary checkout. It cuts `agent/<name>` from `origin/main`; `npm ci` is the first command inside. |
 | Check your work before a pull request | `npm run gates` | Then fetch, rebase onto `origin/main`, and run it again. |
 | Improve a prompt after running it | the `continuous-prompt-improvement` agent | The review is kept under `docs/prompt-reviews/`, never beside the prompt. |
+| Check a pull request, report or analysis before trusting it | the `adversarial-verifier` agent | Pass it the pull request number or file path. Every claim is re-derived from source; it reports a verdict table and changes nothing. |
 
 ## The npm scripts
 
@@ -170,7 +172,7 @@ public: the bare name writes the artifact, `:check` re-derives it and writes not
 proves the gate refuses what it should (`CLAUDE.md` § The script suffix contract). The **Gate**
 column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it disagrees with them, they win.
 
-<!-- kit 4.1-5 · ADAPT: one row per script, kept in step with `package.json` by the add-npm-script
+<!-- kit 3.1-5 · ADAPT: one row per script, kept in step with `package.json` by the add-npm-script
      skill where you took it. The kit lists the scripts it laid down. Delete this comment when
      done. -->
 
@@ -235,7 +237,15 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 | `worktree:gc` | Removes checkouts nobody is using, and deletes an agent branch only on proof its content is in the trunk; `-- --dry-run` prints what it would do. | |
 | `worktree:selftest` | The worktree hooks, the git guard and the branch sweep, negative-tested against a scratch repository it builds. | pre-push |
 
-## The supervised workflow, and the learning loop
+## The work, and the learning loop
+
+<!-- kit 2.3-1 · WRITE: one paragraph saying what this repository's work is, in the three words the
+     kit uses and never defines. The WORK is whatever this repository does to a WORK ITEM, one unit
+     `bd` holds; a RUN is one execution of the work on one item. Name the skill, command
+     or job that starts a run, and where a run keeps its own files. Delete this comment when done. -->
+The **work** is what this repository does to a **work item**, one unit of the queue; a **run** is one
+execution of the work on one item. What the work is, and how a run is started, is this repository's
+own to say here.
 
 Every run writes one record per work item under `artifacts/outcomes/records/`, on every terminal path (complete,
 failed and blocked alike), validated against `tools/outcomes/run-outcome.schema.json` before it is written; a fact a later
@@ -283,7 +293,7 @@ wires it, and where this table and that file disagree, the file wins and the row
 The settings file registers `CNT-HOOKS` session hooks, and a session reads it once,
 at its start: restart the session after changing it.
 
-<!-- kit 4.1-5 · WRITE: one row per hook, job or workflow, added in the same change as its wiring.
+<!-- kit 3.1-5 · WRITE: one row per hook, job or workflow, added in the same change as its wiring.
      The kit lists only what it wired. -->
 
 | Trigger | Effect | Wired in |

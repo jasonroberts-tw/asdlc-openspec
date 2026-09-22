@@ -16,7 +16,7 @@
  * WHAT IS A FINDING. Two shapes, taken exactly as written:
  *
  *   - a backticked span preceded by the word `memory` -- `` memory `bd-deps-blocks-direction` ``,
- *     the spelling the 2026-09-11 reviews use for every key they name, including the line-wrapped
+ *     the spelling a prompt review uses for every key it names, including the line-wrapped
  *     form where the word ends one line and the key opens the next (the review's `(memory` on one
  *     line and `` `bd-deps-blocks-direction` `` on the one below);
  *   - the tokens `bd recall`, `bd remember` and `bd memories`, backticked or bare.
@@ -59,11 +59,11 @@
  *
  * `docs/prompt-reviews/` is exempt as history (`MEMORY_HISTORY`), the way `scan.ts` exempts
  * `docs/retired/`: a review's purpose is to record what a prompt said, memory keys included, and
- * the 2026-09-11 reviews quote five of them. The directory is outside the roster today; the entry
+ * a review may quote several of them. The directory is outside the roster today; the entry
  * is stated anyway so that widening the roster to `docs/` cannot put the reviews in the gate by
  * accident, and `check.ts` counts the reviews as exempt by name rather than silently passing them by.
  *
- * Reads only this repository, needs no `../estate` checkout and no network.
+ * Reads only this repository, needs no `../sibling` checkout and no network.
  */
 
 /** The prompt homes the rule covers: a directory prefix (trailing `/`) or one exact file. */
@@ -87,9 +87,9 @@ export const MEMORY_HISTORY: ReadonlyArray<{ path: string; why: string }> = [
   {
     path: 'docs/prompt-reviews/',
     why:
-      'A prompt review records what the prompt said on the day. The 2026-09-11 reviews of the bead' +
-      ' skill quote the five memory keys it cited in order to record that none of them resolved;' +
-      ' rewriting them would erase the finding this rule exists because of.',
+      'A prompt review records what the prompt said on the day. A review of a skill quotes the' +
+      ' memory keys it cited in order to record that none of them resolved; rewriting them would' +
+      ' erase the finding this rule exists because of.',
   },
 ]
 

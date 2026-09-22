@@ -34,7 +34,7 @@ launcher until it was measured at ~6 s per start on Windows and removed.
 
 Open the file with the header the neighbours use: what it emits, **the failure it exists to
 prevent** (in this repository that is the paragraph readers actually need), the `npm run <name>`
-invocation with its flags, and whether it needs the sibling `../estate` checkout. Node emitters
+invocation with its flags, and whether it needs the sibling `../sibling` checkout. Node emitters
 carry the `KIND / INVARIANTS / RE-ENTRY / STALE WHEN` block.
 
 ## 3. If it writes an artifact, make it deterministic
@@ -46,7 +46,7 @@ output. That is what makes the artifact diffable in review, and it is the precon
 ## 4. Decide gating from what it reads, not from how much you trust it
 
 - **Reads only committed files** → it can be a `pre-push` job *and* a CI step.
-- **Reads `../estate`** → it can be neither. CI does not clone that checkout, so a `--check`
+- **Reads `../sibling`** → it can be neither. CI does not clone that checkout, so a `--check`
   there would compare a real artifact against one with every source-derived signal zeroed. Say so
   in the header, and rely on
   `npm run pipeline:stale` to keep the node behind an automated gate.

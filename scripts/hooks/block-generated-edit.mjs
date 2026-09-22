@@ -10,8 +10,7 @@
  * agent. The reason is not "don't do that" -- it is the list of files the change could legitimately
  * belong to, so the next move is a redirect rather than a guess.
  *
- * Deliberately NOT blocked: the emitters themselves, which is where fixes go -- `tools/catalogue/`,
- * `tools/outcomes/` and the rest.
+ * Deliberately NOT blocked: the emitters themselves, under `tools/`, which is where fixes go.
  */
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'

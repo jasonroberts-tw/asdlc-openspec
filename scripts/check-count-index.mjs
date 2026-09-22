@@ -5,7 +5,7 @@
  *   npm run counts:check       the gate; prints every key with its derived value on every run
  *   npm run counts:selftest    its fixtures: every refusal exercised on a doctored copy
  *
- * kit 4.3-3 · ADAPT: a key's source is written in the index's second table, in one of the four
+ * kit 3.3-3 · ADAPT: a key's source is written in the index's second table, in one of the four
  * spellings below, in the same change as the key. Most keys need no code here. A count no spelling
  * reaches gets the spelling `deriver` and one function in `DERIVERS`, one per key. Delete this
  * paragraph when the first key of your own has landed.

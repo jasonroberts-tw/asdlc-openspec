@@ -15,14 +15,14 @@
  *     the text was at `:76`.
  *   - That same file had ZERO markdown headings while FIVE places cited a `§S-BASELINE` section of
  *     it. The anchor had never existed at any point in the file's life.
- *   - Roughly twenty `portfolio-model.md:NN` citations drifted twice; by the time a tracked issue was
+ *   - Roughly twenty `model.md:NN` citations into one document drifted twice; by the time a tracked issue was
  *     worked, 17 of the 18 distinct ones resolved to unrelated prose -- a horizontal rule, a blank
  *     line, the header row of the wrong table.
  *
- * THIS IS THE FLOOR, NOT THE CEILING. `tools/portfolio/model-citations.ts` is the strong form: a
- * citation is a registered key whose value is a distinctive PHRASE, so `cite()` recomputes the line
- * on every run and the passage is checked by content. That is better and should keep spreading. But
- * it only covers citations that have adopted it, and the estate holds hundreds that have not. This
+ * THIS IS THE FLOOR, NOT THE CEILING. The strong form is a citation as a registered key whose value
+ * is a distinctive PHRASE, so that the line is recomputed on every run and the passage is checked by
+ * content. That is better and should keep spreading. But it only covers citations that have adopted
+ * it, and a repository holds many that have not. This
  * takes citations exactly as they are WRITTEN, anywhere in the repository, and asserts the cheap
  * thing: that a reader following the pointer arrives somewhere real.
  *
@@ -73,7 +73,7 @@
  *     names the one mechanical shape worth fixing on sight: a source attribution, "per `X.md`",
  *     with no locator.
  *
- * Reads only this repository, needs no `../estate` checkout and no network.
+ * Reads only this repository, needs no `../sibling` checkout and no network.
  */
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
@@ -343,7 +343,7 @@ function sharedPrefixLength(a: string, b: string): number {
 }
 
 /**
- * AN `isDeliveredPackage(file)` PREDICATE STOOD HERE, matching `artifacts/slices/<id>/handoff/**`,
+ * AN `isDeliveredPackage(file)` PREDICATE STOOD HERE, matching a delivered package's directory,
  * and a later decision deleted it with the packages. The argument is kept because the SHAPE will recur the next
  * time this repository copies documents under new paths.
  *
@@ -509,7 +509,7 @@ export function namesSection(section: string, lines: readonly string[]): boolean
  *
  * Section names in this repository are capitalised (`§ Closure`, `§ INVARIANTS`, `§ a later decision`), quoted
  * (`§ "Measured state"`) or numbered (`§5`). A lowercase first word means the `§` was used as a
- * preposition in a sentence -- `` `artifacts/extraction-report.md` § header, "Runtime" line `` means
+ * preposition in a sentence -- `` `artifacts/report.md` § header, "Runtime" line `` means
  * the document's header block, not a heading called "header" -- and asserting a heading exists for
  * it would be the gate inventing a claim the author never made.
  */

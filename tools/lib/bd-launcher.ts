@@ -41,7 +41,7 @@
  *
  * `resolveBd()` takes the platform, the environment and the PATH delimiter as OPTIONS, defaulting to
  * the process's own, so `bd-launcher.selftest.ts` can walk the win32 branch on a Linux host with a
- * fixture directory in place of `%APPDATA%\npm`. Nothing here reads `../estate`.
+ * fixture directory in place of `%APPDATA%\npm`. Nothing here reads `../sibling`.
  */
 import { spawnSync } from 'node:child_process'
 import { accessSync, constants, statSync } from 'node:fs'

@@ -8,9 +8,9 @@
  *
  *  1. **Computing it never runs the generator.** A sorted walk and a fold of per-file SHA-256s. For
  *     every node except the two roots the inputs are committed files in THIS repository, so the
- *     digest is computable in CI with no `../estate` checkout -- which is what puts a node,
- *     a node and a node behind an automated gate for the first time. Their own `--check`s cannot
- *     move into CI and are not being asked to.
+ *     digest is computable in CI with no `../sibling` checkout -- which is what puts a node behind
+ *     an automated gate for the first time. A node's own `--check` cannot move into CI and is not
+ *     being asked to.
  *  2. **Per-group granularity.** "a node is stale because `artifacts/forms/**` moved" is actionable;
  *     "a node is stale" is not. So a group digest is a first-class value, not an intermediate.
  *  3. **Reproducible byte-for-byte across machines.** Anything that varies with filesystem order,
@@ -32,8 +32,8 @@ const sha256 = (data: string | Buffer): Digest =>
  * The digest of one file's bytes.
  *
  * Read as a Buffer, never as a string. Decoding to UTF-8 and re-encoding would normalise nothing
- * useful and would corrupt the two committed artifacts that are not UTF-8 -- `procedures.json` is
- * explicitly cp1252-hostile per its extraction prompt, and a PNG baseline is not text at all.
+ * useful and would corrupt a committed artifact that is not UTF-8: a data file kept in its source
+ * encoding on purpose, or a PNG baseline, which is not text at all.
  */
 export const fileDigest = (abs: string): Digest => sha256(readFileSync(abs))
 
@@ -51,8 +51,7 @@ export const stringDigest = (s: string): Digest => sha256(s)
  * Fold a set of files into one digest, keyed by path so a RENAME registers as a change.
  *
  * Hashing content alone would make `git mv a.json b.json` invisible, and a renamed input is exactly
- * the change a later decision made when `artifacts/pilot-scope.json` became `artifacts/slices/<id>/scope.json` --
- * the rename that left `control-map.json` citing a file that no longer exists. Path and content are
+ * the change that once left a generated record citing a file that no longer existed. Path and content are
  * separated by a NUL, which cannot occur in either, so no path can be constructed that folds to the
  * same bytes as a different path plus content.
  */

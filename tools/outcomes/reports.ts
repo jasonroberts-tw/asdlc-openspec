@@ -8,7 +8,7 @@
  *   dead-or-blocked.md   runs that failed, runs that stopped to ask, and why
  *   proposals.md/.json   the proposal list, keyed on subject and fact
  *
- * kit 3.4-1 · ADAPT: the four shapes are the general ones for any per-item workflow; the COLUMNS are
+ * kit 2.4-1 · ADAPT: the four shapes are the general ones for any per-item workflow; the COLUMNS are
  * yours. Add one by reading another field of the record here; never by reading anything else.
  *
  * THE FAILURE IT EXISTS TO PREVENT. On day one, two of them. A report that reads anything but the

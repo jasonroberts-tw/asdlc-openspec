@@ -13,7 +13,7 @@ import type { PipelineNode } from './graph.ts'
 import {
   ROOT,
   UNKNOWN_COMMIT,
-  estateCommit,
+  siblingCommit,
   commitRelation,
   commitsAhead,
   computeGeneratorDigest,
@@ -106,7 +106,7 @@ function assessDigest(node: PipelineNode, root: string): Report {
     if (unhashable.includes(name)) {
       if (value === UNKNOWN_COMMIT) {
         // No checkout here. The stamped commit cannot be confirmed OR refuted, and reporting it as
-        // moved would fail CI on every node that reads `../estate` -- the exact false red this
+        // moved would fail CI on every node that reads `../sibling` -- the exact false red this
         // whole design exists to avoid.
         sawUnverifiable = true
         continue
@@ -151,7 +151,7 @@ function assessDigest(node: PipelineNode, root: string): Report {
       moved: [],
       generatorMoved: false,
       detail: sawUnverifiable
-        ? `inputs match; ../estate@${stamp.inputs['../estate@commit']?.slice(0, 8) ?? '?'} not verifiable without a checkout`
+        ? `inputs match; ../sibling@${stamp.inputs['../sibling@commit']?.slice(0, 8) ?? '?'} not verifiable without a checkout`
         : `inputsDigest ${short(inputsDigest)}`,
     }
   }
@@ -200,14 +200,14 @@ function assessLegacyCommit(node: PipelineNode, root: string): Report {
       detail: `${det.stamp.path} has no "${det.stamp.key}"`,
     }
   }
-  const live = estateCommit(root)
+  const live = siblingCommit(root)
   if (live === UNKNOWN_COMMIT) {
     return {
       node,
       verdict: 'unverifiable',
       moved: [],
       generatorMoved: false,
-      detail: `pinned at ${recorded.slice(0, 8)}; no ../estate checkout to compare against`,
+      detail: `pinned at ${recorded.slice(0, 8)}; no ../sibling checkout to compare against`,
     }
   }
   const relation = commitRelation(recorded, live, root)
@@ -217,23 +217,23 @@ function assessLegacyCommit(node: PipelineNode, root: string): Report {
       verdict: 'current',
       moved: [],
       generatorMoved: false,
-      detail: `../estate@${live.slice(0, 8)}`,
+      detail: `../sibling@${live.slice(0, 8)}`,
     }
   }
 
   // THE CHECKOUT BEING AHEAD OF THE PIN IS NOT STALENESS. The corpus is a deliberate snapshot;
-  // `layout-extraction.md` is explicit that every downstream artifact is pinned to the commit in
-  // `provenance.json` and that a re-run invalidates comparisons across the boundary. Somebody
+  // the corpus's own documentation is explicit that every downstream artifact is pinned to the
+  // commit in `provenance.json` and that a re-run invalidates comparisons across the boundary. Somebody
   // pulling the sibling checkout does not make the committed artifacts wrong -- it makes them
   // un-CHECKABLE, which is a different and far more useful thing to report.
   //
-  // It is worth reporting because of what it does to the three deep gates: run `archetypes:check`
+  // It is worth reporting because of what it does to the deep gates: run a corpus node's `--check`
   // with the checkout ahead of the pin and it rebuilds behavioural signals from the NEWER source,
   // diffs them against an artifact built from the older one, and reports the real artifact as stale.
   // That is the same false red `docs/pipeline.md` documents for a MISSING checkout -- "compare
   // a real artifact against one with every behavioural signal zeroed and report the real one as
-  // stale" -- reached by the opposite route. A tracked issue covers guarding the three
-  // checks themselves; this only reports the condition.
+  // stale" -- reached by the opposite route. Guarding the deep checks themselves is a separate
+  // change; this only reports the condition.
   if (relation === 'ahead') {
     const n = commitsAhead(recorded, live, root)
     return {
@@ -253,7 +253,7 @@ function assessLegacyCommit(node: PipelineNode, root: string): Report {
   return {
     node,
     verdict: 'stale',
-    moved: ['../estate@commit'],
+    moved: ['../sibling@commit'],
     generatorMoved: false,
     detail: `pinned ${recorded.slice(0, 8)} is NOT an ancestor of checkout ${live.slice(0, 8)} -- they have diverged`,
   }
@@ -308,16 +308,16 @@ export function assess(node: PipelineNode, root: string = ROOT): Report {
  *    once -- and until then the report says so on every push.
  *
  *  - PIN-DRIFT IS NOT STALENESS AT ALL. The corpus is a deliberate snapshot pinned at one
- *    `../estate` commit; a working checkout moves past that pin the moment anyone pulls, and
- *    `layout-extraction.md` already says every downstream artifact is pinned to it. Nothing in this
+ *    `../sibling` commit; a working checkout moves past that pin the moment anyone pulls, and
+ *    the corpus's own documentation says every downstream artifact is pinned to it. Nothing in this
  *    repository caused the move and no commit here repairs it -- moving the pin is a decision, taken
  *    through `corpus-regen`. Failing a push on it would block work that has nothing to do with the
  *    corpus, on a condition the pusher did not create. Reported, because it silently invalidates the
  *    three deep `--check`s; never failed.
  *
- *  - LEGACY-COMMIT DIVERGENCE, by contrast, DOES fail nothing here only because the two nodes that parse the sibling checkout
- *    cannot be fixed by any commit in this repository either -- their re-extraction needs a toolchain
- *    and 2-4 minutes. It is the loudest report this gate produces.
+ *  - LEGACY-COMMIT DIVERGENCE, by contrast, fails nothing here only because the nodes that parse the
+ *    sibling checkout cannot be fixed by any commit in this repository either -- their re-extraction
+ *    needs a toolchain and minutes. It is the loudest report this gate produces.
  *
  * What DOES fail: a node that carried a valid stamp and whose declared inputs have since moved. That
  * is a change someone made in this repository, to files this repository owns, and the fix is to

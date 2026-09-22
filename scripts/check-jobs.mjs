@@ -28,7 +28,7 @@
  *   3. an `UNJOBBED_BY_KIND` entry that names no script, names one twice, names one that HAS a job
  *      (a stale exception is a hole in the gate -- `check-register-status.mjs`'s allowlist rule), or
  *      names one whose spelling contradicts the kind's shape.
- *   4. a script whose command names a `tools/`, `scripts/` or `migration/` path that does not exist
+ *   4. a script whose command names a `tools/` or `scripts/` path that does not exist
  *      on disk.
  *
  * WHAT IS NOT CHECKED, deliberately: WHERE a jobbed script runs (pre-push, CI or both) -- that is
@@ -42,7 +42,7 @@
  * against the real tree in every case, since a copy of three files has no `tools/`. By hand, point
  * `CHECK_JOBS_ROOT` at a copy, as `check-register-status.mjs` does with `CHECK_REGISTER_ROOT`.
  *
- * Reads only committed files; no `../estate` checkout, no network, milliseconds. `pre-push` and
+ * Reads only committed files; no `../sibling` checkout, no network, milliseconds. `pre-push` and
  * CI both, by the add-npm-script skill's step on where a gate runs.
  */
 import {
@@ -71,17 +71,17 @@ const JOB_FILES = [LEFTHOOK, VERIFY]
  * An invocation token inside a `run:` string: group 1 the launcher, group 2 the script. `npm run` is
  * CI's spelling and `--silent` is how `scripts/hooks/_shared.mjs` spells it; `node --run` is the
  * pre-push hook's (node_modules/.bin on PATH, no npm start-up -- measured at
- * 2.1-3.1s for `npm run` against 0.9-1.2s for `node --run` on the owner's Windows host).
+ * 2.1-3.1s for `npm run` against 0.9-1.2s for `node --run` on one Windows host).
  */
 const NPM_RUN_RE = /\b(npm run|node --run) (?:--silent )?([A-Za-z0-9][A-Za-z0-9:._-]*)/g
 /** The spellings this repository gives a gate: `check:<noun>`, and the `:check` / `:selftest` / `:selfcheck` twins. */
 const GATE_SHAPED_RE = /^check:|:(?:check|selftest|selfcheck)$/
 /**
- * A repo-relative `tools/`, `scripts/` or `migration/` path on a script's command line. `migration/`
- * joined with a later decision: `migration:test` names the plugin's test runner there, and a moved or misspelled
- * runner would otherwise pass this gate and fail at the next push.
+ * A repo-relative `tools/` or `scripts/` path on a script's command line: a moved or misspelled
+ * script would otherwise pass this gate and fail at the next push. Add a root here the day a script
+ * of yours lives under a third one.
  */
-const REPO_PATH_RE = /(?:^|\s)((?:tools|scripts|migration)\/[^\s"'&|;]+)/g
+const REPO_PATH_RE = /(?:^|\s)((?:tools|scripts)\/[^\s"'&|;]+)/g
 
 /**
  * Every script that has no job, BY KIND, each kind with the reason its members are ungated. A name
@@ -339,8 +339,8 @@ function describe(report) {
     `jobs: ${files} carry an \`npm run\` token; ${report.tokens} tokens name ${report.distinct}` +
       ` distinct scripts, ${report.unresolved} unresolved.`,
     `scripts: ${report.scripts} in ${PACKAGE} -- ${report.jobbed} jobbed, ${report.unjobbed}` +
-      ` un-jobbed and declared by kind (${kinds}). ${report.pathNaming} name a tools/, scripts/ or` +
-      ` migration/ path.`,
+      ` un-jobbed and declared by kind (${kinds}). ${report.pathNaming} name a tools/ or scripts/` +
+      ` path.`,
   ]
 }
 
@@ -526,17 +526,6 @@ function cases() {
         }),
       expect:
         /^`check:provenance` names scripts\/check-provenance-renamed\.mjs, which does not exist/,
-    },
-    {
-      // a later decision: the plugin's test runner lives under migration/, the third root the path check reads.
-      name: 'a script names a migration/ file that was moved',
-      doctor: (dir) =>
-        editScripts(dir, (scripts) => {
-          scripts['migration:test'] =
-            'pwsh -NoProfile -File migration/tests/Invoke-MigrationTests-renamed.ps1'
-        }),
-      expect:
-        /^`migration:test` names migration\/tests\/Invoke-MigrationTests-renamed\.ps1, which does not exist/,
     },
     {
       name: 'a job file is missing',

@@ -4,7 +4,7 @@
 follow is not here: it lives in `CLAUDE.md`, a skill, an agent or the header of the gate that
 enforces it, and a document points at that home rather than restating it.
 
-<!-- kit 4.1-2 · WRITE: one row per document, added in the same change as the document. The kit
+<!-- kit 3.1-2 · WRITE: one row per document, added in the same change as the document. The kit
      lists only what it laid down. Delete this comment when your first row has landed. -->
 
 ## The documents in this folder

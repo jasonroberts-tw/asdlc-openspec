@@ -3,7 +3,7 @@
  * sibling-checkout resolver, each watched failing for the reason it exists.
  *
  * CHECKS. It copies the engine (`check.ts`, `stale.ts`, `assess.ts`, `digest.ts`, `glob.ts`,
- * `provenance.ts`, `formulas.ts`, `../lib/estate-root.ts`) under the temp directory beside a
+ * `provenance.ts`, `formulas.ts`, `../lib/sibling-root.ts`) under the temp directory beside a
  * SYNTHETIC record of two nodes, breaks ONE thing per case, runs the copy, and asserts the run
  * fails FOR THAT REASON. One undoctored control per group: without it every case could be failing
  * on the copy. The record is synthetic on purpose: the selftest must keep working when your own
@@ -23,7 +23,7 @@
  * NEEDS. Nothing outside the repository but the temp directory; no tracker, no sibling checkout, no
  * network. The engine derives its root from where it stands, so copying it IS the root override.
  *
- * kit 3.6-4 · ADAPT: group 4 exercises the worked example and skips, saying so, once
+ * kit 2.6-4 · ADAPT: group 4 exercises the worked example and skips, saying so, once
  * `example/emit.ts` is gone; delete the group with the example. Add a case here with every
  * assertion you add to `check.ts` or `formulas.ts`.
  */
@@ -41,7 +41,7 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { gitEnv, resolveEstateRoot } from '../lib/estate-root.ts'
+import { gitEnv, resolveSiblingRoot } from '../lib/sibling-root.ts'
 import { checkFormulas, FORMULAS } from './formulas.ts'
 import { relPosix } from './glob.ts'
 import { ROOT } from './provenance.ts'
@@ -76,7 +76,7 @@ const FIXTURE_NODES = [
     regenerate: 'npm run fixture:root',
     regenerateScript: 'fixture:root',
     check: null,
-    needsEstateCheckout: false,
+    needsSiblingCheckout: false,
   },
   {
     id: 'F-LEAF',
@@ -92,7 +92,7 @@ const FIXTURE_NODES = [
     regenerate: 'npm run fixture:leaf',
     regenerateScript: 'fixture:leaf',
     check: 'fixture:leaf:check',
-    needsEstateCheckout: false,
+    needsSiblingCheckout: false,
   },
 ]
 
@@ -159,7 +159,7 @@ const setNodes = (root: string, change: (nodes: typeof FIXTURE_NODES) => void): 
 
 function copyEngine(root: string): void {
   for (const f of ENGINE) write(root, `${PIPE}/${f}`, readFileSync(join(HERE, f), 'utf8'))
-  write(root, `${LIB}/estate-root.ts`, readFileSync(join(HERE, '../lib/estate-root.ts'), 'utf8'))
+  write(root, `${LIB}/sibling-root.ts`, readFileSync(join(HERE, '../lib/sibling-root.ts'), 'utf8'))
 }
 
 function buildPristine(root: string): void {
@@ -430,21 +430,21 @@ try {
     record('example: --check writes nothing', before === readFileSync(join(root, PIPE, 'example/summary.json'), 'utf8'), 'summary.json compared before and after')
   }
 
-  /* ---------------------------------------------------------------------- 5. estate-root.ts ---- */
+  /* ---------------------------------------------------------------------- 5. sibling-root.ts ---- */
 
   {
-    const saved = { dir: process.env['GIT_DIR'], root: process.env['ESTATE_ROOT'] }
+    const saved = { dir: process.env['GIT_DIR'], root: process.env['SIBLING_ROOT'] }
     process.env['GIT_DIR'] = join(base, 'not-a-git-dir')
     const leaked = Object.keys(gitEnv()).filter((k) => k.startsWith('GIT_'))
-    record('estate-root: gitEnv() carries no GIT_* key out of a hook', leaked.length === 0, leaked.join(', ') || 'none leaked')
+    record('sibling-root: gitEnv() carries no GIT_* key out of a hook', leaked.length === 0, leaked.join(', ') || 'none leaked')
     if (saved.dir === undefined) delete process.env['GIT_DIR']
     else process.env['GIT_DIR'] = saved.dir
 
-    process.env['ESTATE_ROOT'] = join(base, 'elsewhere')
-    record('estate-root: ESTATE_ROOT overrides the sibling path', resolveEstateRoot(base) === resolve(base, 'elsewhere'), resolveEstateRoot(base))
-    delete process.env['ESTATE_ROOT']
-    record('estate-root: outside a repository, the sibling is resolved beside the directory asked about', resolveEstateRoot(base) === resolve(base, '..', 'estate'), resolveEstateRoot(base))
-    if (saved.root !== undefined) process.env['ESTATE_ROOT'] = saved.root
+    process.env['SIBLING_ROOT'] = join(base, 'elsewhere')
+    record('sibling-root: SIBLING_ROOT overrides the sibling path', resolveSiblingRoot(base) === resolve(base, 'elsewhere'), resolveSiblingRoot(base))
+    delete process.env['SIBLING_ROOT']
+    record('sibling-root: outside a repository, the sibling is resolved beside the directory asked about', resolveSiblingRoot(base) === resolve(base, '..', 'sibling'), resolveSiblingRoot(base))
+    if (saved.root !== undefined) process.env['SIBLING_ROOT'] = saved.root
   }
 } finally {
   rmSync(base, { recursive: true, force: true })
