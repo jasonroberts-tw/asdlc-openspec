@@ -466,3 +466,223 @@ are **not applied**. The findings stay below as the evidence of this run.
 - Whether an agent launched with `isolation: "worktree"` can be given a descriptive worktree name.
 - The review agent was itself launched isolated in its own worktree, and its edits to this one were
   refused; the session applied them as the agent returned them, with one wording change to step 3.
+
+## Fourth review of 2026-09-23
+
+### How this review relates to the second and third
+
+The run reviewed here read the same prompt as the second and third, at `fad7da8`, and ran alongside
+them. Its review was drafted at the time by an agent whose edits never landed (finding 3). This
+review was written afresh against `053e51c`, after the second and third had landed, and does not
+use that draft. It makes one change, on the maintainer's instruction of 2026-09-23
+(`asdlc-openspec-5c7`): the rule for a defect found on the way. That instruction overrides the
+first review's "Filing an out-of-scope discovery" and the second's "A general rule for widening
+scope", both under *Deliberately not changed*. The change builds on the third review's search before
+filing (its finding 2) rather than adding a second rule beside it: step 7's two sentences on
+follow-ups move to step 4 and are extended there, and step 7 points at them. This run's other
+findings, on closing before merge and on where the review lands, are recorded with their evidence
+and **not applied**.
+
+### The prompt and the run reviewed
+
+- **Prompt:** `.claude/skills/bead/SKILL.md` as it stood at commit `fad7da8`, with the changes of
+  § Review of 2026-09-23 applied. The second and third reviews' changes were not in it. They landed
+  as `78d235e` (pull request 11, merged 16:56:37Z) and `b546990` (pull request 4, merged 17:05:04Z),
+  after this run's pull request opened (`gh pr list --state all --json number,mergedAt,mergeCommit`).
+- **Run:** 2026-09-23, a background session, on `asdlc-openspec-npe`: give `tools/pipeline/stale.ts`
+  the four-part gate header and strip the names copied in from another repository. The issue was
+  claimed at 15:57:13Z (`started_at` in `bd show asdlc-openspec-npe --json`).
+- **Output:** pull request 7 on `agent/asdlc-openspec-npe-stale-header`, opened 16:03:26Z.
+  - Its one commit, `4d7fada`, on `fad7da8`, changes only `tools/pipeline/stale.ts`, +58 −34
+    (`git show --stat 4d7fada`, `git rev-parse 4d7fada^`).
+  - `verify` passed on it in 26s (run 35886065691, job 16:03:34Z to 16:04:00Z,
+    `gh run view 35886065691 --json jobs`).
+  - The head was later rebased to `7e9df1d` (committed 17:11:10Z). `verify` passed again in 25s,
+    and the pull request merged at 17:12:47Z as `0746ef4` (`gh pr view 7`).
+- **Tracker:** `npe` was held open with a note, then closed at 17:19:34Z, after the merge, with a
+  reason naming pull request 7 and `0746ef4`. One follow-up, `asdlc-openspec-1i1`: created at
+  16:03:19Z, `discovered-from` npe, labelled `repo:asdlc-openspec`, not closed
+  (`bd show asdlc-openspec-1i1 --json`).
+- **Input:** the parent session's account of the run, passed with this review's request. No
+  transcript was available. It is an input, not a verdict.
+
+### What the earlier reviews' changes did in this run
+
+Only the first review's changes were in the prompt this run read. The findings named here are that
+review's; the pointers at the end of a line are to this review's findings below.
+
+- **Finding 4 (claim first, `EnterWorktree`, `npm ci`):** held, in that order, by the account.
+- **Finding 5 (the bracket commands spelled):** not reported.
+- **Findings 6 and 7 (regenerate after the last edit; a first stamp binds the gate):** exercised,
+  and held. Pull request 7's body says nothing was regenerated, because `stale.ts` is not one of
+  X-EXAMPLE's generator inputs. It also reports `npm run pipeline:stale` at 1 current and 0 stale,
+  and `npm run outcomes:check` green.
+- **Finding 8 (`npm run gates` is the build check):** held. 18/18 jobs, in 4.13 s before the rebase
+  and 4.19 s after it (pull request 7's body). No typecheck is reported.
+- **Finding 9 (one watcher):** held, by the account.
+- **Finding 10 (the review lands on this branch, in this pull request):** did not hold; finding 3.
+- **Finding 3 (recording a re-scope with a live user):** not exercised.
+- **The third review's search before filing** was not in this prompt, and no search was run;
+  finding 2.
+
+### What the run cost that the prompt did not prevent
+
+1. **No rule said which defect found on the way is fixed in the branch and which is filed.**
+   - The run found copied-in names inside `stale.ts`'s own body ("three of the nodes below", "the
+     extractor command", "rebase the corpus", "the design note"), and the same kind in
+     `tools/pipeline/assess.ts`, `provenance.ts`, `digest.ts` and `check.ts`.
+   - It fixed the first in the branch, as pull request 7's body lists. It filed the second as
+     `asdlc-openspec-1i1`, seven seconds before the pull request opened (created 16:03:19Z, opened
+     16:03:26Z), so the body names it. That was the right boundary, reached by judgement: the prompt
+     said nothing on it, and `.claude/skills/change-build/SKILL.md` § 5. What the build turns up
+     states it for that skill's stage only.
+   - The leftovers are still on `main` at `053e51c`; pull request 12, open, works 1i1
+     (`gh pr list --state open`). `git grep -c -i -e "design note" -e corpus` counts 11 lines in
+     `assess.ts`, 4 in `provenance.ts`, 1 in `digest.ts` and 2 in `check.ts`. The 3 lines it counts
+     in `stale.ts` all name `corpus-regen`, which pull request 7 kept on purpose.
+   - The first review declined a filing rule for want of a second run; the second declined a general
+     widening rule for the same reason. The maintainer asked for the rule on 2026-09-23.
+   - **Fix, applied on the maintainer's word,** in step 4: a defect is fixed in the branch only when
+     it sits in a file the issue already changes. Anything else is filed before the pull request
+     opens, so its body names the new id: `discovered-from` the issue, carrying the `repo:` label
+     (`CLAUDE.md` § The task store), its body from a file under `.scratch/`, in the command shape
+     change-build gives.
+
+2. **No search was run before filing, and the search step 7 prescribed reads titles only.**
+   - This run's prompt had no search rule; the third review added one afterwards. Re-run for this
+     review, `bd search "corpus"` returns 1i1 alone, and `bd list --all --desc-contains "corpus"`
+     returns 1i1 and npe, the issue that found it. So 1i1 is not a duplicate.
+   - `bd search` matches titles only (`bd search --help`: "Text queries search titles. Use
+     --desc-contains for description search."). With `--desc-contains` and no query it fails with
+     "search query is required". An issue that names a defect only in its description is invisible
+     to it: `bd search "gate-summary"` finds nothing, though iko and qxz both name
+     `gate-summary.mjs` in their descriptions.
+   - The candidates, measured read-only with bd 1.3.0 (`bd version`):
+     - `bd search "hook" --desc-contains "gate-summary"` returns iko and qxz, but
+       `bd search "corpus" --desc-contains "gate-summary"` returns nothing, though `bd search
+       "corpus"` alone returns 1i1. The query and the filter are ANDed: together they narrow a
+       search, they do not widen it.
+     - `bd list --desc-contains "gate-summary"` returns nothing, because `bd list` hides closed
+       issues by default. `bd list --all --desc-contains "gate-summary"` returns iko and qxz, both
+       closed.
+     - `bd list --all --desc-contains "lint:ratchet"` returns 1i1, which `bd search "lint:ratchet"`
+       misses. `bd list --all --desc-contains "Stop hook docs"`, a phrase only in qxz's title,
+       returns nothing: the filter reads descriptions only. Titles and descriptions take one
+       command each.
+     - `bd list --all --desc-contains "Stop hook that runs"` returns qxz alone, because iko writes
+       `` `Stop` hook ``. `"hook that runs"` returns both. That is the third review's finding 4
+       again, in the tracker instead of in `grep`.
+   - **Fix,** in step 4, where step 7's two sentences on follow-ups now live: `bd search "<words>"`
+     for titles and `bd list --all --desc-contains "<words>"` for descriptions, then both again with
+     a second phrasing. The third review left finding 4 unchanged, calling it step 1's rule applied
+     to a search string. A string search that the skill itself prescribes is the skill's gap, and the
+     maintainer asked for the advice.
+
+3. **The review did not land where step 8 says, for the second run in a row.**
+   - Step 8 puts the review "on this branch, in this pull request". The session started
+     `continuous-prompt-improvement` before closing npe. Its reason: step 8 comes after step 7's
+     close, so the close would be on a head that is not the pull request's last.
+   - The review agent was pinned to its own worktree, and its `git -C` and Edit calls on the
+     session's worktree were refused. It wrote into its own worktree instead. One edit, this
+     discovery rule, was refused by the permission classifier ("Modify Shared Resources") and not
+     retried. The session did not apply it on the agent's behalf (`CLAUDE.md` § Guards). The agent's
+     branch, `agent/agent-a831cf3194baea757`, still points at `fad7da8`, with no commit of its own
+     (`git branch --list`).
+   - Pull request 7 merged at 17:12:47Z without the review, which lands here, in a pull request of
+     its own.
+   - The third review's *What this review could not verify* records the same refusal for its own
+     review agent; that session applied the returned edits by hand.
+   - **Not applied.** Two shapes are open: the session applies the returned edits itself, as the
+     third run did, or step 8 lets the review land in a pull request of its own. That choice is the
+     maintainer's.
+
+4. **Issues were closed while their pull requests were open, and a concurrent worktree still read
+   the defect one of them closed.**
+   - Six issues were closed with reasons naming unmerged pull requests: iko and qxz at 15:57:51Z
+     (pull request 4), is0 and u77 at 15:59:47Z (5 and 6), bls at 16:05:31Z (8) and f60 at
+     16:07:47Z (9) (`closed_at` in `bd show <id> --json`). 44p and 4gp closed the same way, at
+     16:12:14Z and 16:21:24Z (pull requests 10 and 11).
+   - Those five pull requests merged between 16:52:52Z and 17:10:07Z (`gh pr list --state all
+     --json number,mergedAt`), 47 to 68 minutes after their issues closed. None closed unmerged, so
+     the risk the first review names under *Deliberately not changed* did not occur.
+   - A different cost did. The template at `fad7da8` told every new worktree that the Stop hook runs
+     `typecheck` / `lint:strict:cached` / `pipeline:check` (`git show
+     fad7da8:.claude/worktree-CONTEXT.md.tmpl`, its Environment section). That is the briefing npe's
+     worktree was given, while iko and qxz, the issues for that defect, read as closed. The third
+     review's *Corrections* notes the same.
+   - The session held npe open against step 7, with a note naming the six, and closed it at
+     17:19:34Z after the maintainer said pull request 7 had merged.
+   - **Not applied.** The second review's *Corrections* calls closing on green settled, because its
+     run added no new evidence. This run does add evidence: a closed issue whose fix is not yet on
+     `main` reads as fixed to every worktree cut in the gap. Step 7's close rule stands until the
+     maintainer decides.
+
+5. **Outside the skill, named and not fixed.**
+   - **No file says how a gate header's four parts are labelled.** `CLAUDE.md` § Standing rules for
+     prompts and gates spells the emitter's four labelled lines but describes a gate's four parts in
+     prose. `git grep` over `*.md` finds neither `INVOCATION` nor `THE FAILURE IT EXISTS TO
+     PREVENT`, though files under `scripts/` and `tools/` carry both. The session read four sibling
+     headers (`graph.ts`, `example/emit.ts`, `selftest.ts`, `check.ts`) to infer CHECKS / THE
+     FAILURE IT EXISTS TO PREVENT / INVOCATION / NEEDS. `bd list --all --desc-contains "invocation"`
+     returns npe and v6m, both closed, and neither is about the spelling.
+   - **The briefing still chains the rebase and inlines the body.** On `main` at `053e51c`, the
+     Finishing section of `.claude/worktree-CONTEXT.md.tmpl` gives `git fetch origin && git rebase
+     origin/main` as one command and `gh pr create ... --body "..."` with an inline body, against
+     `CLAUDE.md` § Bash command style. `CLAUDE.md` § Worktree-local context gives the briefing
+     precedence. The first review named this with no issue, and there is still none:
+     `bd list --all --desc-contains` finds nothing for "Finishing" or "rebase origin/main", and for
+     "worktree-CONTEXT" finds only iko, qxz and `asdlc-openspec-iy4`. iy4 covers the template's
+     trunk-based sentence.
+
+6. **Minor, and not the skill's.**
+   - An unquoted `--include=*.ts` in a `grep` was expanded by zsh and failed once.
+   - `awk 'length > 100'` counts bytes on this machine. Over `tools/pipeline/stale.ts` it reports 7
+     lines, where counting characters with `node` gives 5, so two lines with a multi-byte character
+     show as false positives.
+   - No tracked file sets a line width: `git ls-files` finds no `.editorconfig` and no Prettier,
+     markdownlint, Biome or ESLint config. The rewrap to 100 was self-imposed. `stale.ts`'s comments
+     wrap at 100; its lines past 100 are four printed strings and one 101-character divider.
+
+### Corrections to the run's own analysis
+
+- **The six closes came earlier than "around 16:10Z".** They fell between 15:57:51Z and 16:07:47Z
+  (finding 4).
+- **Pull request 7 merged on a rebased head, not on `4d7fada`.** `4d7fada` is the head `verify`
+  passed in 26s. The head that merged is `7e9df1d`, rebased at 17:11:10Z onto `8e614a5`, which is
+  `main` after pull requests 4, 5, 6, 8, 9, 10 and 11 had merged (`git rev-parse 7e9df1d^`). It
+  passed `verify` again in 25s and landed as `0746ef4`. The session's two gate runs tested
+  `4d7fada` on `fad7da8`. Only CI's second run tested the tree that merged.
+
+### Deliberately not changed
+
+- **Step 7's close rule.** Finding 4's evidence is recorded; the decision is the maintainer's.
+- **Reviewing before closing (steps 7 and 8 reordered).** The earlier review agent proposed it from
+  this run. It is not applied: it does not help when the review cannot be written into the branch
+  at all (finding 3), and it waits on the same decisions as findings 3 and 4.
+- **Where the review lands (finding 3).** Two runs now show that an isolated review agent cannot
+  write into the session's worktree. The third review's fix for its finding 5 was not applied
+  either.
+- **The `repo:` label's value in the command.** The skill keeps change-build's placeholder,
+  `<the repo: label>`. The value belongs to the repository, and `CLAUDE.md` § The task store holds
+  the rule.
+- **Step 7's `human` follow-up.** It stays in step 7. Only the two sentences on searching and body
+  sections moved to step 4, and step 7 points at them.
+- **The briefing template, the header-label spelling and the minor items (findings 5 and 6).** This
+  review writes only the skill and this file, and files nothing: the session that asked for it makes
+  every tracker write.
+
+### What this review could not verify
+
+- No transcript was available. These rest on the account alone: the premise check by file and line;
+  the claim, `EnterWorktree` and `npm ci` order; the single watcher; that no search was run before
+  filing; the review agent's pinning and its refused `git -C` and Edit calls; the classifier's
+  "Modify Shared Resources" refusal; the session's reason for starting the review before closing;
+  the four sibling headers read; the zsh glob failure; and the earlier review agent's remark on line
+  width.
+- The briefing actually rendered into npe's worktree. This review read no other worktree. It read
+  the template at `fad7da8`, and that `4d7fada`'s parent is `fad7da8`.
+- Who rebased pull request 7's head to `7e9df1d`, and whether any gate ran locally on it.
+- The earlier review agent's uncommitted edits. They were not read, by instruction; only its
+  branch's position was checked.
+- That `bd list --all --desc-contains` stays under its default limit of 50 rows for a common word.
+  No phrase tested here came near it.
