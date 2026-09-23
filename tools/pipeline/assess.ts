@@ -32,7 +32,8 @@ export type Verdict =
   | 'unverifiable'
   /**
    * The sibling checkout has moved PAST the commit the artifacts were pinned at. Ordinary, and not a
-   * defect -- but it makes the three corpus `--check`s report false STALE, so it is reported.
+   * defect -- but it makes any `--check` that rebuilds from the sibling checkout report false STALE,
+   * so it is reported.
    */
   | 'pin-drift'
   /**
@@ -73,12 +74,9 @@ function assessDigest(node: PipelineNode, root: string): Report {
   const stamp = readStamp(node, root)
   if (!stamp) {
     // ONE pass, reused. `computeInputs` is the expensive call in this module -- a walk and a
-    // SHA-256 of every declared input, measured in the low hundreds of milliseconds per node
-    // (the same corpus each, plus one node's own index). It was called twice here,
-    // once destructured and once inline in the detail string below, and this is the branch EVERY
-    // digest node takes until the first stamps are written -- so the pre-push
-    // gate `lefthook.yml` advertises as sub-second and `verify.yml` as "Milliseconds" was doing
-    // ~1.06 s of hashing to report the same number twice.
+    // SHA-256 of every file a node's input groups match, so its cost grows with the inputs -- and
+    // this is the branch EVERY digest node takes until its first stamp is written. Calling it a
+    // second time for the detail string below would double the hashing to report the same number.
     const { inputs, inputsDigest } = computeInputs(node, root)
     const groups = Object.keys(inputs).length
     return {
@@ -164,8 +162,9 @@ function assessDigest(node: PipelineNode, root: string): Report {
 }
 
 /**
- * The two nodes that parse the sibling checkout. Their `provenance.json` records the commit they parsed, so their signal is a
- * commit comparison rather than a digest -- coarser than everyone else's, and correctly so.
+ * A node that parses the sibling checkout and records in its output only the commit it parsed
+ * (`detection.via: 'legacy-commit'`). Its signal is a commit comparison rather than a digest --
+ * coarser than a digest node's, and correctly so.
  *
  * The distinction that carries the weight is AHEAD versus DIVERGED. A checkout ahead of the pin is
  * the ordinary state of a working clone the moment anyone pulls; a checkout that cannot produce the
@@ -221,19 +220,17 @@ function assessLegacyCommit(node: PipelineNode, root: string): Report {
     }
   }
 
-  // THE CHECKOUT BEING AHEAD OF THE PIN IS NOT STALENESS. The corpus is a deliberate snapshot;
-  // the corpus's own documentation is explicit that every downstream artifact is pinned to the
-  // commit in `provenance.json` and that a re-run invalidates comparisons across the boundary. Somebody
-  // pulling the sibling checkout does not make the committed artifacts wrong -- it makes them
-  // un-CHECKABLE, which is a different and far more useful thing to report.
+  // THE CHECKOUT BEING AHEAD OF THE PIN IS NOT STALENESS. The output was built from the pinned
+  // commit on purpose and describes that commit; a rebuild from a later one breaks every comparison
+  // across the boundary, so moving the pin is a decision. Somebody pulling the sibling checkout does
+  // not make the committed output wrong -- it makes it un-CHECKABLE, which is a different and far
+  // more useful thing to report.
   //
-  // It is worth reporting because of what it does to the deep gates: run a corpus node's `--check`
-  // with the checkout ahead of the pin and it rebuilds behavioural signals from the NEWER source,
-  // diffs them against an artifact built from the older one, and reports the real artifact as stale.
-  // That is the same false red `docs/pipeline.md` documents for a MISSING checkout -- "compare
-  // a real artifact against one with every behavioural signal zeroed and report the real one as
-  // stale" -- reached by the opposite route. Guarding the deep checks themselves is a separate
-  // change; this only reports the condition.
+  // It is worth reporting because of what it does to the node's own `--check`: run with the
+  // checkout ahead of the pin, a `--check` that rebuilds from the sibling checkout rebuilds from the
+  // NEWER source, diffs the result against an output built from the older one, and reports a correct
+  // output as stale. Guarding that `--check` itself is the node's business; this only reports the
+  // condition.
   if (relation === 'ahead') {
     const n = commitsAhead(recorded, live, root)
     return {
@@ -242,14 +239,13 @@ function assessLegacyCommit(node: PipelineNode, root: string): Report {
       moved: [],
       generatorMoved: false,
       detail:
-        `corpus pinned at ${recorded.slice(0, 8)}; checkout is ${n === null ? 'some commits' : `${n} commit(s)`} ahead at ${live.slice(0, 8)}. ` +
-        'NOT staleness -- the pin is deliberate. But the corpus --checks report false STALE here until the checkout returns to the pin or the corpus is deliberately rebased.',
+        `pinned at ${recorded.slice(0, 8)}; checkout is ${n === null ? 'some commits' : `${n} commit(s)`} ahead at ${live.slice(0, 8)}. ` +
+        "NOT staleness -- the pin is deliberate. But this node's --check reports false STALE here until the checkout returns to the pin or the pin is deliberately moved.",
     }
   }
 
   // Not reachable from HEAD. The artifacts cite a commit this checkout cannot produce, which is the
-  // shape of a resurrected or force-pushed branch -- the case `scripts/check-provenance.mjs` exists
-  // to catch from the other side.
+  // shape of a resurrected or force-pushed branch.
   return {
     node,
     verdict: 'stale',
@@ -291,15 +287,14 @@ export function assess(node: PipelineNode, root: string = ROOT): Report {
 /**
  * Whether a verdict should FAIL the gate, as opposed to being reported.
  *
- * This gate is a RATCHET, in the sense `lint:ratchet` already uses in this repository: pre-existing
- * debt may improve and must never regress. Every category below but the last is reported loudly and
- * does not fail, and each exclusion is a decision rather than a softening.
+ * This gate is a RATCHET, in the sense the header of `scripts/lint-ratchet.mjs` gives warning
+ * counts: pre-existing debt may improve and must never regress. Every category below but the last
+ * is reported loudly and does not fail, and each exclusion is a decision rather than a softening.
  *
  *  - `'grows'` NODES NEVER FAIL. The single most important line in this file. A push blocked on
- *    "a node should be reconciled" is a push people send with `--no-verify`, and `lefthook.yml`
- *    is already explicit that a bypassed hook is worse than no hook. (`'never'` nodes -- delivered
- *    cuts -- were not assessed at all, until that node kind was retired and the value with it; the
- *    `staleness !== 'inputs'` test below is unchanged and now means `'grows'` alone.)
+ *    "a node should be reconciled" is a push people send with `--no-verify`, which skips every
+ *    pre-push job and not only this one. `'grows'` is the only `Staleness` value `graph.ts` allows
+ *    besides `'inputs'`, so the `staleness !== 'inputs'` test below means `'grows'` alone.
  *
  *  - AN UNSTAMPED ARTIFACT PREDATES THIS MECHANISM. It was built before anything wrote a provenance
  *    block, so there is no record of what it was justified against and this gate has nothing to
@@ -307,17 +302,16 @@ export function assess(node: PipelineNode, root: string = ROOT): Report {
  *    which is how a gate gets deleted. It becomes binding for that node the moment its emitter runs
  *    once -- and until then the report says so on every push.
  *
- *  - PIN-DRIFT IS NOT STALENESS AT ALL. The corpus is a deliberate snapshot pinned at one
- *    `../sibling` commit; a working checkout moves past that pin the moment anyone pulls, and
- *    the corpus's own documentation says every downstream artifact is pinned to it. Nothing in this
- *    repository caused the move and no commit here repairs it -- moving the pin is a decision, taken
- *    through `corpus-regen`. Failing a push on it would block work that has nothing to do with the
- *    corpus, on a condition the pusher did not create. Reported, because it silently invalidates the
- *    three deep `--check`s; never failed.
+ *  - PIN-DRIFT IS NOT STALENESS AT ALL. An output pinned at one `../sibling` commit was built from
+ *    that commit on purpose, and a working checkout moves past the pin the moment anyone pulls.
+ *    Nothing in this repository caused the move and no commit here repairs it -- moving the pin is
+ *    a decision, taken through the `corpus-regen` formula. Failing a push on it would block work
+ *    that has nothing to do with the pinned node, on a condition the pusher did not create.
+ *    Reported, because it silently invalidates that node's own `--check`; never failed.
  *
- *  - LEGACY-COMMIT DIVERGENCE, by contrast, fails nothing here only because the nodes that parse the
- *    sibling checkout cannot be fixed by any commit in this repository either -- their re-extraction
- *    needs a toolchain and minutes. It is the loudest report this gate produces.
+ *  - LEGACY-COMMIT DIVERGENCE, by contrast, fails nothing here only because a node that parses the
+ *    sibling checkout cannot be fixed by any commit in this repository either -- its rebuild needs
+ *    that checkout, which CI does not have. It is the loudest report this gate produces.
  *
  * What DOES fail: a node that carried a valid stamp and whose declared inputs have since moved. That
  * is a change someone made in this repository, to files this repository owns, and the fix is to

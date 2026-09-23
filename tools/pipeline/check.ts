@@ -1,16 +1,34 @@
 /**
  * `npm run pipeline:check` -- does `tools/pipeline/graph.ts` still describe this repository?
  *
- * The manifest is a hand-maintained record of a graph that moves. Every other consumer of it -- the
- * staleness gate, the generated mermaid block, and the `bd dep add` wiring that comes later -- is
- * only as good as the record, and the failure mode of a wrong record is the quiet one: an input
- * group that matches nothing folds to a constant digest and reports CURRENT forever.
+ * CHECKS. The record's shape (no node declared twice, no edge to an unknown node, no cycle over the
+ * blocking edges), that every input, output and generator glob matches a file, that every `prompt`
+ * and every `package.json` script a node names exists, that a `regeneration` node's gate runs where
+ * it says, that no file edge goes undeclared, that every node id appears in `docs/pipeline.md`, and
+ * that the tracker's formula agrees with the record (`formulas.ts`). The manifest is a
+ * hand-maintained record of a graph that moves, and every other consumer of it -- the staleness
+ * gate, the prose page, the formula -- is only as good as the record.
  *
- * That is not hypothetical. One hand-maintained record cited an artifact for three days after a
- * decision renamed it, and nothing in the repository reported the dead citation. An input glob matching zero files is exactly that shape, so it is an
- * ERROR here rather than a warning.
+ * THE FAILURE IT EXISTS TO PREVENT. None recorded in this repository yet (2026-09-23). On day one,
+ * this is what it would let through if it were wrong: an input group whose glob matches nothing,
+ * which folds to a constant digest and reports CURRENT forever, so that the staleness gate stays
+ * green over a node whose input was renamed out from under it. That is the quiet failure, and it is
+ * why an input glob matching zero files is an ERROR here rather than a warning. Behind it come the
+ * louder ones: a file edge nobody declared, which lets a change cascade through the staleness gate
+ * without one line of output, and a node that says a gate covers it when no tier runs that gate.
+ * The first incident replaces this paragraph.
  *
- * This check runs no generator and needs no `../sibling` checkout.
+ * INVOCATION.
+ *   npm run pipeline:check
+ * No flags. It is the `pipeline-check` pre-push job in `lefthook.yml` and a step of
+ * `.github/workflows/verify.yml`: one run took 0.08 s wall clock over the record as it stood on
+ * 2026-09-23 (`/usr/bin/time -p node tools/pipeline/check.ts`). Its negative tests are
+ * `npm run pipeline:selftest`.
+ *
+ * NEEDS. Nothing outside this repository: it runs no generator and needs no `../sibling` checkout.
+ * There is no root override variable because the root is derived from where the file stands
+ * (`provenance.ts`): to run it against a fixture, copy the engine under a temp directory and run
+ * the copy, as `npm run pipeline:selftest` does.
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -280,16 +298,13 @@ for (const n of NODES) {
 /* ----------------------------------------------------------------------------------------------- *
  * The manifest against the prose
  *
- * The design note is blunt about the risk this record itself carries:
- *
- *   > **Do not add a fifth prose copy of the graph.** If the manifest does not *generate* the
- *   > mermaid block and the STALE WHEN lines, it is one more thing to keep in sync.
- *
- * Generating them is the right answer and is a tracked issue. Until then this is the floor: every
- * node id here must appear in `docs/pipeline.md`, and every node id drawn in that file's
- * mermaid block must exist here. It cannot catch a wrong EDGE, but it does catch the failure that
- * actually happens -- a node added or renamed on one side and forgotten on the other -- which is how
- * the four existing copies came to disagree in the first place.
+ * The risk this record carries is that it is one more copy of the graph to keep in sync: the
+ * header of `graph.ts` calls the prose page "a second copy", and says the real fix is to GENERATE
+ * the page's mermaid block and per-node lines from this record. Until an emitter does, this is the
+ * floor: every node id here must appear in `docs/pipeline.md`, and every node id drawn in that
+ * file's mermaid block must exist here. It cannot catch a wrong EDGE, but it does catch the failure
+ * that actually happens to two hand-kept copies -- a node added or renamed on one side and
+ * forgotten on the other.
  * ----------------------------------------------------------------------------------------------- */
 
 {
@@ -323,8 +338,8 @@ for (const n of NODES) {
  * The manifest against the `bd` formula
  *
  * The prose check above closes the loop with `docs/pipeline.md`. This one closes it with
- * `.beads/formulas/corpus-regen.formula.toml`, which the header of `graph.ts` calls "another copy"
- * of the graph.
+ * `.beads/formulas/corpus-regen.formula.toml`: the header of `formulas.ts` calls a formula "one
+ * more copy of the graph".
  *
  * The assertions, why each is a failure or a note, and the things deliberately NOT asserted are all
  * documented in `tools/pipeline/formulas.ts`. It lives in its own module for two reasons: this file

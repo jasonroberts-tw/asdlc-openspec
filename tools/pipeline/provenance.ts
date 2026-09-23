@@ -1,12 +1,11 @@
 /**
  * The uniform provenance stamp: what a node was built FROM, written into what it built.
  *
- * The convention it replaces half-existed in several incompatible shapes, each keyed on the wrong
- * thing: a pinned commit of the sibling checkout, or a `source` block naming a file. A pinned commit
- * cannot detect the change that actually happens: the pin is the same today as it was weeks ago,
- * and what moved was one input group, by some fifty documents. So the stamp is over CONTENT, and it
- * is additive rather than a replacement, so that an older block an emitter still writes can stay
- * where a reader cites it.
+ * A stamp keyed on the wrong thing -- a pinned commit of the sibling checkout, or a `source` block
+ * naming a file -- cannot detect the change that actually happens: the pin stays where it was while
+ * one input group moves under it. So the stamp is over CONTENT, and it is additive: it sits under
+ * its own key beside whatever else an emitter writes, so a block a reader already cites need not
+ * move.
  *
  * ---------------------------------------------------------------------------------------------
  * `generatedAtUtc` IS STICKY, AND THAT IS NOT A ROUNDING OF THE TRUTH.
@@ -19,7 +18,7 @@
  * That rule is right and every `--check` in this repository is a byte-exact compare that depends on
  * it. A naive `new Date().toISOString()` here would turn every one of them permanently red.
  *
- * The field is kept because the design note asks for it and because it answers a real question --
+ * The field is kept because it answers a real question --
  * *when was this content last justified?* -- and it is made deterministic by CARRYING IT FORWARD:
  * when the freshly-computed digests equal the ones already on disk, the prior timestamp is reused
  * verbatim. Two runs of an unchanged repository are byte-identical. A run whose inputs or generator
@@ -58,13 +57,13 @@ export interface ProvenanceStamp {
 /**
  * How the live checkout stands relative to the commit an artifact was pinned at.
  *
- *  - `'same'`     — the checkout is at the pin. The only state in which the three corpus `--check`s
- *                   are meaningful.
+ *  - `'same'`     — the checkout is at the pin. The only state in which a node's `--check` that
+ *                   rebuilds from the sibling checkout is meaningful.
  *  - `'ahead'`    — the pin is an ANCESTOR of HEAD: somebody pulled. This is the ordinary state of a
- *                   working checkout and is NOT a defect. The corpus is a deliberate snapshot, and
- *                   its own documentation says so outright: every downstream artifact is pinned to
- *                   the commit in provenance.json, so a re-run invalidates comparisons across the
- *                   boundary. Moving to the newer commit is a DECISION, not a repair.
+ *                   working checkout and is NOT a defect. An output built from a pinned commit
+ *                   describes that commit and no other, so rebuilding it from the newer one breaks
+ *                   every comparison across the boundary. Moving to the newer commit is a DECISION,
+ *                   not a repair.
  *  - `'diverged'` — the pin is not reachable from HEAD. That one IS suspicious: the artifacts cite a
  *                   commit this checkout cannot produce, which is the shape of a resurrected or
  *                   force-pushed branch.
@@ -147,20 +146,20 @@ export function computeInputs(node: PipelineNode, root: string = ROOT): Computed
 /**
  * The node's OWN declared record, canonicalised for hashing.
  *
- * `tools/pipeline/graph.ts` used to be listed in `STAMP_SOURCES`, which made this a byte digest of
- * the entire 21-node manifest: appending one comment moved every stamped node's `generatorDigest`,
- * turning `pipeline:stale:check` red for a node, a node and a node together, in `pre-push` and
- * in CI, with the only printed remedy being a generator run CI cannot perform. See the note on
- * `STAMP_SOURCES`.
+ * Not a byte digest of `tools/pipeline/graph.ts`. Listing that file in `STAMP_SOURCES` would make
+ * every stamped node's `generatorDigest` a digest of the whole manifest: appending one comment would
+ * turn `pipeline:stale:check` red for every stamped node at once, in `pre-push` and in CI, with the
+ * only printed remedy a generator run that CI cannot perform for a node reading the sibling
+ * checkout. See the note on `STAMP_SOURCES`.
  *
- * The claim it was reaching for is real and is kept here: `stampFor(nodeId)` reads this node's
- * record, so the record decides what the stamp SAYS. Only these four fields do, and each is here for
- * a reason rather than for completeness:
+ * The worry that listing would answer is real, and is answered here instead: `stampFor(nodeId)`
+ * reads this node's record, so the record decides what the stamp SAYS. Only these four fields do,
+ * and each is here for a reason rather than for completeness:
  *
  *  - `id`      -> written to the stamp verbatim as `node`.
  *  - `inputs`  -> the group NAMES and GLOBS become the stamp's `inputs` keys and values. This is the
  *                 field that matters: adding, renaming, re-globbing or dropping a group changes the
- *                 stamp even when not one byte under `artifacts/**` has moved.
+ *                 stamp even when not one byte of the matched files has moved.
  *  - `generator` -> the glob LIST, so widening or narrowing it is visible even where the resolved
  *                 file set happens to be unchanged.
  *  - `detection.stamp` -> which file and key the prior stamp is read from, and therefore what the
@@ -168,13 +167,14 @@ export function computeInputs(node: PipelineNode, root: string = ROOT): Computed
  *
  * Everything else in a `PipelineNode` -- `kind`, `title`, `prompt`, `staleness`, `dependsOn`,
  * `advisoryOn`, `outputs`, `regenerate`, `check`, `needsSiblingCheckout` -- cannot alter a byte of
- * the emitted stamp, so folding it in would restamp three artifacts to record a prose edit. That is
- * the same argument that keeps `stale.ts` and `check.ts` out of `STAMP_SOURCES`.
+ * the emitted stamp, so folding it in would restamp every stamped output to record a prose edit.
+ * That is the same argument that keeps `stale.ts` and `check.ts` out of `STAMP_SOURCES`.
  *
  * NAMES AND GLOBS ARE SORTED, so re-ordering a record in the manifest is inert -- `foldGroups`
  * already sorts the computed groups for the same reason, and a reviewer expects a moved record to be
- * a no-op. This makes the check strictly STRONGER than the byte digest it replaces: reformatting the
- * file no longer registers, and a changed glob registers even when the file's length is unchanged.
+ * a no-op. This makes the check strictly STRONGER than a byte digest of the file would be:
+ * reformatting the file does not register, and a changed glob registers even when the file's length
+ * is unchanged.
  */
 export function nodeRecordDigest(node: PipelineNode): Digest {
   const canonical = {
@@ -280,9 +280,10 @@ export function stampFor(nodeId: string, root: string = ROOT, priorPath?: string
  * `stampFor` by node rather than by id.
  *
  * Exported so `tools/pipeline/selftest.ts` can drive the sticky-timestamp rule against a synthetic
- * node under a temp root. Asserting that rule against a REAL node would need the real corpus and the
- * real `../sibling` checkout, which is exactly the coupling that makes a test unrunnable in CI --
- * and this is the rule that, if it breaks, turns three `--check` gates permanently red.
+ * node under a temp root. Asserting that rule against a REAL node would couple the test to that
+ * node's real inputs and, for a node that reads the sibling checkout, to a `../sibling` that CI
+ * does not have -- and this is the rule that, if it breaks, turns every byte-exact `--check` of a
+ * stamped output permanently red.
  */
 export function buildStamp(
   node: PipelineNode,
