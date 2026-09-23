@@ -52,6 +52,9 @@ jobs:
       # Every tracked text file, no allowlist.
       - name: every citation resolves
         run: npm run citations:check
+      # Synthetic fixtures, and scratch git trees under the temporary directory for the end-to-end cases.
+      - name: the citations gate, negative-tested
+        run: npm run citations:selftest
       # Committed fixtures and scratch copies of them; one scratch repository for the push question.
       - name: the run-outcome record's validator and writer, negative-tested
         run: npm run outcomes:record:selftest

@@ -125,6 +125,19 @@ pre-push:
     # No glob: the citations gate reads every tracked text file, so any push can change its verdict.
     - name: citations
       run: node --run citations:check
+    # The citations gate held to its fixtures, and run end to end through `CITATIONS_ROOT` over a
+    # synthetic git tree: nine gate runs and eighteen git calls, 1.2s wall on a macOS laptop
+    # (`time npm run citations:selftest`, 2026-09-23). The glob is the gate and what it imports,
+    # plus the prompt roster and CLAUDE.md, which its last cases read live.
+    - name: citations-selftest
+      glob:
+        - 'tools/citations/**'
+        - 'tools/lib/**'
+        - 'CLAUDE.md'
+        - 'README.md'
+        - '.claude/**'
+        - '.beads/formulas/**'
+      run: node --run citations:selftest
     # The worktree hooks and the guard, negative-tested: each case asserts the REASON a refusal
     # reports. About a hundred git spawns, so re-measure it on your host before trusting the suite's
     # total.

@@ -204,6 +204,7 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 | Script | What it does | Gate |
 |---|---|---|
 | `citations:check` | Resolves every line and section pointer in every tracked text file, and refuses a pointer into a memory store this repository does not use. Without it a renamed heading leaves pointers that still look authoritative. | pre-push + CI |
+| `citations:selftest` | The citations gate, negative-tested: its scanner held to fixtures, and the gate run end to end over a synthetic tree through `CITATIONS_ROOT`, with exact counts in the control and one break per doctored copy. Without it the gate can go quietly green over a repository it has stopped reading. | pre-push + CI |
 
 ### counts
 
@@ -326,6 +327,7 @@ at its start: restart the session after changing it.
 | `git push` that changes `package.json`, `lefthook.yml`, `.github/workflows/verify.yml` or the gate | `check:jobs` and its selftest: every job names a script that exists, and every script no job runs is declared. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes a skill, an agent, `CLAUDE.md` or the gate | `check:prompts`: every skill and agent opens with the line `CLAUDE.md` requires; `check:prompts:selftest` holds the gate. | `lefthook.yml` (`pre-push`) |
 | `git push` | `citations:check`: every line and section pointer in every tracked text file resolves. | `lefthook.yml` (`pre-push`) |
+| `git push` that changes the citations gate, `tools/lib/`, `CLAUDE.md` or a prompt file | `citations:selftest`: the citations gate, negative-tested. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes a hook or a worktree script | `worktree:selftest`: the worktree hooks and the guard, negative-tested. | `lefthook.yml` (`pre-push`) |
 | `git push` | `counts:check` re-derives every value in `count-index.md` from the source the index names for it; `counts:selftest` holds the gate to its fixtures when the gate changes. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes the register, `CLAUDE.md` or the gate | `check:register` holds the register's header, summary table and dates to its entries, and its selftest holds the gate. | `lefthook.yml` (`pre-push`) |

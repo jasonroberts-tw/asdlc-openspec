@@ -80,6 +80,14 @@ import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { ROOT } from '../lib/paths.ts'
 
+/**
+ * The checkout this gate reads: the repository, or the doctored copy `CITATIONS_ROOT` names. The
+ * selftest points the gate at a synthetic tree under the temporary directory through it, and a
+ * by-hand run can do the same without editing anything (`CLAUDE.md` § Standing rules for prompts
+ * and gates). Every path below is relative to it.
+ */
+export const SCAN_ROOT = process.env.CITATIONS_ROOT ? resolve(process.env.CITATIONS_ROOT) : ROOT
+
 /** Text files worth scanning. Anything else is either binary or has no citations in it. */
 const SCANNED_EXTENSIONS = /\.(ts|tsx|js|mjs|cjs|md|json|ya?ml|cs|sql)$/
 
@@ -252,7 +260,7 @@ const SECTION_RE = /`([A-Za-z0-9._][A-Za-z0-9._/-]*\.md)`[^\S\n]*§[^\S\n]*([^`\
 /** Every git-tracked path, repository-relative. */
 export function trackedFiles(): string[] {
   return execFileSync('git', ['ls-files', '-z'], {
-    cwd: ROOT,
+    cwd: SCAN_ROOT,
     encoding: 'utf8',
     maxBuffer: 1 << 28,
   })
@@ -324,20 +332,20 @@ export function resolveTarget(
 }
 
 const normalise = (p: string): string =>
-  resolve(ROOT, p)
-    .slice(ROOT.length + 1)
+  resolve(SCAN_ROOT, p)
+    .slice(SCAN_ROOT.length + 1)
     .split('\\')
     .join('/')
 
 /**
  * `<this-checkout>/docs/foo.md` -> `docs/foo.md`: the prefix is the name of the checkout's
- * own directory, read from `ROOT` rather than written here.
+ * own directory, read from `SCAN_ROOT` rather than written here.
  *
  * A handful of citations name the repository directory as well as the path inside it, usually
  * written by someone working across both checkouts at once. It resolves to the same file either way,
  * and reporting it as a dead reference would be false.
  */
-const REPO_PREFIX = `${ROOT.split(/[\\/]/).pop() as string}/`
+const REPO_PREFIX = `${SCAN_ROOT.split(/[\\/]/).pop() as string}/`
 const stripRepoPrefix = (p: string): string =>
   p.startsWith(REPO_PREFIX) ? p.slice(REPO_PREFIX.length) : p
 
@@ -532,7 +540,7 @@ export function lineReader(): (path: string) => string[] {
   return (path) => {
     let lines = cache.get(path)
     if (!lines) {
-      lines = readFileSync(join(ROOT, path), 'utf8').split('\n')
+      lines = readFileSync(join(SCAN_ROOT, path), 'utf8').split('\n')
       cache.set(path, lines)
     }
     return lines

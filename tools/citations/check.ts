@@ -17,18 +17,21 @@
  *   5. The cited target is a MEMORY KEY, or the sentence tells its reader to `bd recall` one. The
  *      store is not used here (CLAUDE.md § *Rules for agents live in tracked files, and nowhere
  *      else*), so the pointer can never resolve. `tools/citations/memory.ts` carries the rule: its
- *      roster of prompt homes, and the two regions of CLAUDE.md -- the section that forbids the
- *      store and the `bd`-generated block nobody can edit -- exempt by heading and by marker rather
- *      than the file as a whole.
+ *      roster of prompt homes, and the regions of CLAUDE.md registered in `MEMORY_EXEMPT_REGIONS`
+ *      -- the section that forbids the store, and the `bd`-generated block once it exists -- exempt
+ *      by heading and by marker rather than the file as a whole.
+ *
+ *   npm run citations:check                        the gate, over this checkout
+ *   CITATIONS_ROOT=<dir> npm run citations:check   the same gate over a doctored copy (a git tree)
  *
  * Needs no `../sibling` checkout and no network; it reads tracked files and runs in about a
  * second.
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { ROOT } from '../lib/paths.ts'
 import {
   HISTORY,
+  SCAN_ROOT,
   SCANNED_EXTENSIONS,
   citationsIn,
   headingsOf,
@@ -77,7 +80,7 @@ for (const file of tracked) {
 
   let text: string
   try {
-    text = readFileSync(join(ROOT, file), 'utf8')
+    text = readFileSync(join(SCAN_ROOT, file), 'utf8')
   } catch {
     continue
   }
@@ -176,8 +179,8 @@ for (const file of tracked) {
  * A second pass rather than a fifth branch of the loop above, because that loop is filtered by
  * `SCANNED_EXTENSIONS` and this rule covers every tracked file in its roster whatever the
  * extension: the formulas are `.toml` and the plugin's tools carry their prompts in `.ps1` headers.
- * `tools/citations/memory.ts` is the whole rule -- roster, history, the two CLAUDE.md regions and
- * the two shapes -- and `memoryProblemsIn` is the one function the selftest holds to fixtures, so
+ * `tools/citations/memory.ts` is the whole rule -- roster, history, the registered CLAUDE.md regions
+ * and the two shapes -- and `memoryProblemsIn` is the one function the selftest holds to fixtures, so
  * what fails there fails here and nothing in between can drift.
  * ----------------------------------------------------------------------------------------------- */
 
@@ -190,7 +193,7 @@ for (const file of tracked) {
   if (!inMemoryScope(file) && memoryHistoryReason(file) === null) continue
   let text: string
   try {
-    text = readFileSync(join(ROOT, file), 'utf8')
+    text = readFileSync(join(SCAN_ROOT, file), 'utf8')
   } catch {
     continue
   }

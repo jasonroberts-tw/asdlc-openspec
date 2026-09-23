@@ -11,6 +11,7 @@
     "check:prompts": "node scripts/check-prompts.mjs",
     "check:prompts:selftest": "node scripts/check-prompts.mjs --selftest",
     "citations:check": "node tools/citations/check.ts",
+    "citations:selftest": "node tools/citations/selftest.ts",
     "counts:check": "node scripts/check-count-index.mjs",
     "counts:selftest": "node scripts/check-count-index.mjs --selftest",
     "worktree:gc": "node scripts/prune-worktree-branches.mjs",
