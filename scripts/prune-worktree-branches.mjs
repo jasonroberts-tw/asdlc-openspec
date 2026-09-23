@@ -66,7 +66,7 @@
  *   - the primary checkout, the worktree it runs from, a locked worktree, a worktree outside
  *     `.claude/worktrees/`, or any worktree with a change or a process in it;
  *   - any branch a kept worktree has checked out;
- *   - `main`, `main`, `release`, and anything not named `agent/*` or `worktree-*`. Human branches are
+ *   - `main`, `release`, and anything not named `agent/*` or `worktree-*`. Human branches are
  *     not this script's business and prefix is how it knows.
  *
  * Deletions are logged to `<git-common-dir>/worktree-gc.log` as `<sha> <branch>` with a timestamp,
@@ -112,10 +112,11 @@ for (let i = 0; i < argv.length; i += 1) {
   }
 }
 
-/** Branches this script must never delete, whatever the proof says. */
-const PROTECTED = new Set(['main', ...'main, release'.split(', '), 'HEAD'])
+/** Branches this script must never delete, whatever the proof says: the protected branches
+ *  CLAUDE.md § Git workflow names, and a detached HEAD. */
+const PROTECTED = new Set(['main', 'release', 'HEAD'])
 /** Only worktree-provisioned branch names are in scope. `worktree-*` is EnterWorktree's native
- *  fallback shape, documented in CLAUDE.md, and leaks the same two config keys. */
+ *  fallback shape, described in `scripts/hooks/guard-git.mjs`, and leaks the same two config keys. */
 const OWNED = (name) => name.startsWith('agent/') || name.startsWith('worktree-')
 
 /* ============================================================================================= *

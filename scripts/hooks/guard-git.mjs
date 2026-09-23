@@ -7,10 +7,11 @@
  * work an agent cannot see and did not consent to. `.worktree/CONTEXT.md` asks the agent not to do
  * this, but context is advice; this is the part that holds.
  *
- * THE GIT RULES ARE A NO-OP IN THE PRIMARY CHECKOUT. Committing and pushing `main` from the primary
- * checkout is this repository's normal workflow (see CLAUDE.md), so the guard asks git whether it
- * is in a linked worktree and skips every git rule if not. The PR-base rule below is the one
- * exception and applies everywhere, because what it guards is not worktree isolation.
+ * THE GIT RULES ARE A NO-OP IN THE PRIMARY CHECKOUT. CLAUDE.md § Git workflow forbids pushing to,
+ * switching to or rewriting a protected branch from a worktree; the primary checkout is where a
+ * person works, and what they commit or push there is theirs to decide. So the guard asks git
+ * whether it is in a linked worktree and skips every git rule if not. The PR-base rule below is the
+ * one exception and applies everywhere, because what it guards is not worktree isolation.
  *
  * IT FAILS CLOSED, unlike the three advisory hooks beside it. A guard that allows the command when
  * it cannot read the payload is not a guard: the shell version of this file needed `jq`, which is
@@ -91,32 +92,38 @@ function inLinkedWorktree() {
  * port pair and a rendered briefing. Since the tool and the script now agree on WHERE, location
  * carries no information and this guard does not look at it.
  *
- * What the tool and the script still disagree about is the BASE, and that is the half that hurt.
- * Claude Code snapshots hook configuration at session start, so a session that began before the
- * hook was added carries a config without it and `EnterWorktree` silently falls back to its native
- * behaviour: branch `worktree-<name>` cut from `origin/<default branch>`. The default branch here is
- * `main`, which CLAUDE.md warns twice is the wrong trunk, and no `worktree.baseRef` setting can
- * express `origin/main` -- it offers only `fresh` and `head`. Measured on 2026-08-23: the fallback
- * produced a base eight commits behind `origin/main`. The worktree did not contain the
- * fix the agent had been sent there to verify, and nothing said so.
+ * What the tool and the script still disagree about is everything the script does after choosing
+ * the path. Claude Code snapshots hook configuration at session start, so a session that began
+ * before the hook was added carries a config without it and `EnterWorktree` silently falls back to
+ * its native behaviour: branch `worktree-<name>`, cut from whatever `worktree.baseRef` names
+ * (`fresh`, the default, takes `origin/<default branch>`; `head` takes the local HEAD), and no
+ * `.worktree/CONTEXT.md`, so the briefing CLAUDE.md @-imports is absent and the agent never reads
+ * the rules of a shared repository. No `worktree.baseRef` value names `origin/main` itself: the
+ * default branch is a GitHub setting outside this repository, `main` when checked on 2026-09-23,
+ * which is the same reason the PR-base rule below will not infer it.
+ *
+ * No incident here yet. Were this check wrong, it would let an agent do real work in a worktree with
+ * no briefing, on a branch CLAUDE.md § Git workflow does not provide for, cut from a base no file in
+ * this repository chose.
  *
  * A WorktreeCreate hook cannot cover this, because the failure is that no WorktreeCreate hook ran.
  * This one is a PreToolUse Bash hook, so it fires on the agent's first command whatever the
  * session's hook snapshot contains -- the only place left to catch it.
  *
- * THE SIGNAL IS THE BRANCH NAME, corroborated by the base. `new-worktree.sh` always names the branch
- * `agent/<name>`; the native fallback always names it `worktree-<name>`. That is a clean, cheap
- * discriminator that does not depend on the network or on how far `origin/main` has moved since. The
- * base distance is measured only to put a number in the message, and never on its own decides,
- * because a legitimately long-lived `agent/*` branch may sit far behind `origin/main` for good
- * reasons.
+ * THE SIGNAL IS THE BRANCH NAME. `new-worktree.sh` always names the branch `agent/<name>`; the
+ * native fallback always names it `worktree-<name>`. The base cannot be the signal: while the
+ * default branch is `main`, a `fresh` fallback starts from the same `origin/main` the script does,
+ * and the two differ at most by how recently it was fetched. The name is cheap, needs no network,
+ * and does not move as `origin/main` does. The base distance is measured only to put a number in
+ * the message when there is one, and never decides, because a legitimately long-lived `agent/*`
+ * branch may sit far behind `origin/main` for good reasons.
  */
 function unprovisionedWorktree() {
   const branch = gitOut(['rev-parse', '--abbrev-ref', 'HEAD'])
   if (branch === null || branch === 'HEAD') return null // detached; not a shape we judge
   if (branch.startsWith('agent/')) return null
 
-  // Corroboration only. `null` whenever git cannot answer -- offline, no origin/main, a shallow
+  // For the message only. `null` whenever git cannot answer -- offline, no origin/main, a shallow
   // clone -- because the branch name has already decided and this must never be what blocks.
   let behind = null
   const counts = gitOut(['rev-list', '--left-right', '--count', `origin/${TRUNK}...HEAD`])
@@ -330,12 +337,13 @@ const TRUNK = 'main'
 const TRUNK_REMOTE = `origin/${TRUNK}`
 
 /**
- * Every long-lived branch, not just the trunk. `main` and `release` outlived the trunk rename and
- * are still shared with the primary checkout and with humans, so a task agent has no more business
- * pushing them than pushing `main` -- the rename must not quietly hand back the branches the guard
- * already protected.
+ * Every long-lived branch, not just the trunk: the protected branches CLAUDE.md § Git workflow
+ * names, the trunk and `release`. No `release` branch existed on 2026-09-23 (`git ls-remote --heads
+ * origin`); naming it now means the day one is cut it is guarded from its first push, rather than
+ * from the first time an agent has already written it. The trunk is spelled through `TRUNK`, so a
+ * trunk rename cannot quietly drop it from this set.
  */
-const PROTECTED = new Set([TRUNK, ...'main, release'.split(', ')])
+const PROTECTED = new Set([TRUNK, 'release'])
 const protectedNames = [...PROTECTED].join(', ')
 
 /** Does this ref token land on a branch a task agent must not write? */
@@ -499,21 +507,19 @@ const linked = inLinkedWorktree()
 const unprovisioned = linked ? unprovisionedWorktree() : null
 if (unprovisioned !== null) {
   const { branch, behind } = unprovisioned
-  const distance =
-    behind === null
-      ? `and its base was not taken from ${TRUNK_REMOTE}`
-      : behind > 0
-        ? `and it is ${behind} commit(s) behind ${TRUNK_REMOTE}`
-        : `and its base was not taken from ${TRUNK_REMOTE}`
+  // A distance of 0 or an unanswerable one says nothing: while the default branch is the trunk, a
+  // native fallback can start from the same commit the script would have.
+  const distance = behind !== null && behind > 0 ? `, ${behind} commit(s) behind ${TRUNK_REMOTE}` : ''
   deny(
-    `this worktree is on '${branch}', not an agent/* branch, ${distance}. Every worktree here is ` +
-      `provisioned by scripts/new-worktree.sh, which cuts agent/<name> from ${TRUNK_REMOTE}. A ` +
-      "'worktree-*' branch is the EnterWorktree tool's native fallback, which it uses when the " +
-      'WorktreeCreate hook is not registered -- Claude Code snapshots hook config at session start, ' +
-      'so a session that began before the hook was added never sees it and bases the worktree off ' +
-      'origin/main instead. Do not work here; the checkout may not contain what you were sent to ' +
-      'see. Leave with ExitWorktree (action: "remove"), then re-enter -- restarting an old session ' +
-      're-reads the hook configuration.',
+    `this worktree is on '${branch}', not an agent/* branch${distance}. Every worktree here is ` +
+      `provisioned by scripts/new-worktree.sh, which cuts agent/<name> from ${TRUNK_REMOTE} and ` +
+      "renders the briefing .worktree/CONTEXT.md. A 'worktree-*' branch is the EnterWorktree " +
+      "tool's native fallback, which it uses when the WorktreeCreate hook is not registered -- " +
+      'Claude Code snapshots hook config at session start, so a session that began before the hook ' +
+      'was added never sees it, takes its base from the worktree.baseRef setting instead, and ' +
+      'renders no briefing. Do not work here; the checkout may not contain what you were sent to ' +
+      "see, and nothing in it states this repository's rules. Leave with ExitWorktree (action: " +
+      '"remove"), then re-enter -- restarting an old session re-reads the hook configuration.',
   )
 }
 

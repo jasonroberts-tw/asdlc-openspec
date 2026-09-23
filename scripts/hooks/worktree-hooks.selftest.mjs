@@ -205,6 +205,13 @@ check(
   native.stderr.includes("'worktree-native'"),
   JSON.stringify(native.stderr.slice(0, 200)),
 )
+// The scratch worktree starts at origin/main, as a `fresh` fallback does while the default branch is
+// the trunk, so the refusal must claim neither a distance nor a base other than origin/main.
+check(
+  'at distance 0 the refusal makes no claim about the base',
+  !/behind origin\/main|not taken from origin\/main/.test(native.stderr),
+  JSON.stringify(native.stderr.slice(0, 200)),
+)
 // Both controls matter: a tripwire that fires everywhere would block the whole repository. The
 // agent/* worktree sits at the SAME path shape as the refused one, so this also proves the check
 // keys on provenance rather than on location.
