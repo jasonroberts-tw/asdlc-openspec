@@ -17,12 +17,19 @@ than forcing it.
 
 ## 1. Verify the premise before any work
 
-An issue's title is not evidence. Read the issue, then read the code it talks about, and decide
-which of three things is true, citing file and line for each claim:
+An issue's title is not evidence, and nor is a "blocked on" line in its prose: `bd show` lists the
+dependencies the tracker records. Read the issue, then read the code it talks about, and decide
+which of four things is true, citing file and line for each claim:
 
 - **still valid**: the defect or the gap is there, as described;
 - **already fixed**: name the commit or the pull request that fixed it;
-- **obsolete**: what it asks for no longer applies, and why.
+- **obsolete**: what it asks for no longer applies, and why;
+- **blocked**: the work needs something that is in neither the repository nor the issue's own
+  scope; name it, and the open issue that carries it, if one does.
+
+Name, too, any entry in the decision register an acceptance criterion implies. An amendment is made
+by a new decision (`docs/decisions.md` § How an entry changes), and no agent re-litigates a
+recorded one, so the person reviewing the pull request reads it first (step 6).
 
 An issue that asks for a change to what the product does, stated as requirements, is not worked
 here: it seeds a change, and `change-propose` takes it.
@@ -35,17 +42,31 @@ What happens next depends on who is listening:
   it is never re-filed, and file any part split out as its own issue.
 - **In an autonomous session:** write the evidence into the issue as a note, leave the issue open,
   and move to the next one. Never close an issue on your own reading of its premise.
+- **Blocked:** with a live user, taking on the prerequisite is the user's call on scope. In an
+  autonomous session, take it on only when no open issue carries it and the acceptance criteria
+  cannot be met without it: write its smallest form, and open the pull request's body with it
+  (step 6). Otherwise it is a premise that does not hold, handled as above.
 
 ## 2. Partition before claiming
 
-With several issues, decide before claiming any of them which can share a branch and which cannot:
-two issues that rewrite the same lines belong together; two that touch nothing in common do not.
-Claim only what this session will finish.
+With several issues, decide before claiming any of them which can share a branch and which cannot,
+by the overlap kinds in `.claude/agents/fan-out-work.md` § 2. Partition the ready work into lanes,
+read from the files each issue will touch, not from its title. Two issues that rewrite the same
+lines share a branch. Two branches that each add a row beside the same anchor, such as neighbouring
+rows of a README table or jobs in `lefthook.yml`, stay separate and conflict when the second merges;
+step 6 finds that. Claim only what this session will finish.
+
+Separate branches are worked one after another, never interleaved. Take one through step 6, its
+watcher running in the background, then leave its worktree with `ExitWorktree` (action `keep`) and
+make the next with `EnterWorktree`, which creates no worktree from inside another. Step 7 closes
+each issue as its own checks go green. A request to sweep or parallelise ready work goes to the
+`fan-out-work` agent instead.
 
 ## 3. Claim, then work in a worktree
 
-Claim the issue in the tracker (`bd update <id> --claim`). Make the worktree with the one worktree
-script, never natively: `EnterWorktree`, whose hook runs `scripts/new-worktree.sh`. Run `npm ci`
+Claim the issue in the tracker (`bd update <id> --claim`); with several, claim every one step 2
+kept, in one bracket, before the first worktree. Make the worktree with the one worktree script,
+never natively: `EnterWorktree`, whose hook runs `scripts/new-worktree.sh`. Run `npm ci`
 first inside it. Read `.worktree/CONTEXT.md` there: it names the branch, the base and the rules of a
 shared repository. Tracker writes that carry a body, such as step 1's re-scoping, are made from
 here, with the body file under this worktree's `.scratch/`.
@@ -60,7 +81,9 @@ first run that stamps an output which had none makes `pipeline:stale:check` bind
 (`docs/pipeline.md` § The two gates): say so in the pull request.
 
 Run `npm run gates`: the forced full suite, never the bare hook runner, and the build check here.
-Run no script name `package.json` does not list. A red gate is fixed or reported, never bypassed.
+There is no `tsc` to run: the repository has no `tsconfig.json` and no TypeScript package, and
+`package.json` runs its `.ts` files with `node` directly. Run no script name `package.json` does not
+list. A red gate is fixed or reported, never bypassed.
 
 ## 5. Rebase and gate again
 
@@ -69,10 +92,22 @@ the second proves it against what landed meanwhile.
 
 ## 6. Open the pull request and watch its checks
 
+Before opening, list the open pull requests:
+
+    gh pr list --state open --json number,headRefName,files
+
+For each one that touches a file this branch touches, test the merge:
+
+    git merge-tree --write-tree --name-only origin/<its branch> HEAD
+
+A shared file is not a conflict; a conflict this reports is.
+
 Push the branch and open the pull request with its base named explicitly (`main`), its body passed
-from a file under `.scratch/`. Watch the checks with one `gh pr checks <number> --watch` in the
-background, and no second watcher; never end the turn while it runs. A failing check is read, fixed
-on the same branch and pushed again.
+from a file under `.scratch/`. The body opens with any register entry or prerequisite step 1 named,
+then any conflict found above, with the pull request it is against. If `gh pr create` fails, run
+`gh pr list --head <branch>` before retrying: a create can land after its client gives up. Watch the
+checks with one `gh pr checks <number> --watch` in the background, and no second watcher; never end
+the turn while it runs. A failing check is read, fixed on the same branch and pushed again.
 
 ## 7. Close on green, with a reason
 
@@ -87,6 +122,7 @@ gate runs as measured, the pull request, the issue's final state, every follow-u
 `RUN THESE YOURSELF` block for any command that was refused (`CLAUDE.md` § Guards).
 
 Then hand the run's analysis to the `continuous-prompt-improvement` agent (`CLAUDE.md` § Prompt
-reviews). The review it writes lands on this branch, in this pull request.
+reviews). The review it writes lands on this branch, in this pull request; with several, in the one
+that already edits this skill, or else the last one opened.
 
-Reviewed: `docs/prompt-reviews/bead.2026-09-23.md` § Review of 2026-09-23 (run of 2026-09-23 on asdlc-openspec-v6m, pull request 3).
+Reviewed: `docs/prompt-reviews/bead.2026-09-23.md` § Second review of 2026-09-23 (runs of 2026-09-23 on asdlc-openspec-v6m, pull request 3, and on asdlc-openspec-bls, -44p and -4gp, pull requests 8, 10 and 11).
