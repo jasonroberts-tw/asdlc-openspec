@@ -9,14 +9,31 @@
  *
  * So this holds the scanner to synthetic fixtures where the answer is known: every failure it is
  * supposed to catch, and -- just as important -- every shape it must NOT report, because a gate that
- * cries wolf is deleted and then checks nothing at all. The repository-level assertion at the end is
- * the other half: the scan must still be finding citations to check.
+ * cries wolf is deleted and then checks nothing at all. Section 6 is the other half: the gate itself,
+ * run end to end through `CITATIONS_ROOT` over a git tree built under the temporary directory, must
+ * find exactly the citations that tree holds, and each doctored copy of the tree must fail for the
+ * one reason it was doctored for.
  *
- * Needs no `../sibling` checkout and no network.
+ * THE FAILURE THIS FILE HAD, dated 2026-09-23: nothing ran it. `package.json` had no
+ * `citations:selftest`, so no pre-push job or CI step did, and run by hand it failed on a repository
+ * the gate passed. Its repository-level floor asserted more than twenty `<file>.md:NN` citations in a
+ * repository that legitimately has none, and its memory-rule fixtures asserted an exemption for the
+ * tracker's generated block, which `MEMORY_EXEMPT_REGIONS` registers only once the block exists. A
+ * floor on the repository's own content fails for a reason no commit repairs, and a fixture held to
+ * the live registry breaks whenever the registry legitimately changes. Section 6 now counts a tree
+ * whose answer is known by construction, and section 7 holds the region shapes to its own registry.
+ *
+ *   npm run citations:selftest
+ *
+ * Needs `git` on PATH, to build the synthetic tree; no `../sibling` checkout and no network.
  */
-import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { ROOT } from '../lib/paths.ts'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { gitEnv } from '../lib/sibling-root.ts'
+import type { ExemptRegion } from './memory.ts'
 import {
   MEMORY_EXEMPT_REGIONS,
   MEMORY_HISTORY,
@@ -40,6 +57,7 @@ import {
   resolveTarget,
   retiredWithoutPath,
   RETIRED_ROOTS,
+  SCAN_ROOT,
   trackedFiles,
 } from './scan.ts'
 
@@ -213,7 +231,7 @@ console.log('citation scanner selftest\n')
     'path' in k ? k.path : k.error,
   )
 
-  const repo = at('anywhere.md', `${ROOT.split(/[\\/]/).pop() as string}/docs/retired/fixture-overview.md`)
+  const repo = at('anywhere.md', `${SCAN_ROOT.split(/[\\/]/).pop() as string}/docs/retired/fixture-overview.md`)
   ok(
     'a path over-qualified with the repository name still resolves',
     'path' in repo && repo.path === 'docs/retired/fixture-overview.md',
@@ -343,42 +361,220 @@ console.log('citation scanner selftest\n')
 }
 
 /* --------------------------------------------------------------------------------------------- *
- * 6. The scan still has subjects
+ * 6. The gate still has subjects: `check.ts`, end to end, over a synthetic tree
  *
- * Every assertion above runs on fixtures, so all of them pass over an empty repository. This is what
- * says the gate is pointed at something: if a regex change silently stopped matching, the check
- * would go green and only this would notice.
+ * Every assertion above holds a function to a fixture, so all of them pass over an empty repository.
+ * This is what says the gate is pointed at something: if a regex change silently stopped matching,
+ * or the file walk stopped reaching files, the check would go green and only this would notice.
+ *
+ * THIS SECTION ONCE COUNTED THE REPOSITORY. It asserted floors on this repository's own citations --
+ * more than twenty `<file>.md:NN` pointers, more than fifty section pointers, more than a hundred
+ * tracked files -- and failed on 2026-09-23 over a repository with no line citation at all, which is
+ * a legitimate state. A floor on the repository's content is a gate that fails for a reason no commit
+ * repairs. So the gate now runs over a tree built here, through its `CITATIONS_ROOT` override, and the
+ * counts are exact because the answer is known by construction.
+ *
+ * The tree's CLAUDE.md is derived from the LIVE `MEMORY_EXEMPT_REGIONS`, one mention inside each
+ * registered region, because `check.ts` applies the live registry: a hand-written one would break the
+ * control the day the tracker block is registered.
  * --------------------------------------------------------------------------------------------- */
 
 {
-  const tracked = trackedFiles()
-  ok('the repository has tracked files to scan', tracked.length > 100, `${tracked.length} files`)
+  const CHECK = join(dirname(fileURLToPath(import.meta.url)), 'check.ts')
+  const MENTION = '`bd remember` is not used here.'
 
-  let lines = 0
-  let sections = 0
-  for (const f of tracked) {
-    if (!f.endsWith('.ts') && !f.endsWith('.md')) continue
-    if (historyReason(f)) continue
-    let text: string
+  const claudeRegions = MEMORY_EXEMPT_REGIONS.filter((r) => r.file === 'CLAUDE.md')
+  const claude = ['# Fixture', '']
+  for (const r of claudeRegions) {
+    if ('section' in r) claude.push(`## ${r.section}`, MENTION, '')
+    else claude.push(r.between[0], MENTION, r.between[1], '')
+  }
+  claude.push('## After the regions', 'prose', '')
+  const liveSection = claudeRegions.find((r) => 'section' in r)
+
+  // Three line citations (two in a markdown file, one in a source comment), three section citations,
+  // one dead citation inside a history directory, one inside an extension the gate does not scan.
+  const TREE: Readonly<Record<string, string>> = {
+    'docs/target.md': [
+      '# Target',
+      '',
+      '## Alpha section',
+      'the passage a line citation points at',
+      '## Beta',
+      'the last line',
+      '',
+    ].join('\n'),
+    'docs/citer.md': [
+      '# Citer',
+      'The rule is at `docs/target.md:4`, and the range `target.md:3-4` holds it too.',
+      'Its home is `docs/target.md` § Alpha section, and `target.md` § Beta follows it.',
+      '',
+    ].join('\n'),
+    'tools/code.ts': [
+      '// The last word is at docs/target.md:6,',
+      '// and `docs/target.md` § Beta has the rest.',
+      'export {}',
+      '',
+    ].join('\n'),
+    'docs/retired/old.md': [
+      '# Old',
+      'It once cited docs/target.md:999, which this record keeps as written.',
+      '',
+    ].join('\n'),
+    'notes.txt': 'docs/target.md:999 is not read here: .txt is not a scanned extension.\n',
+    'CLAUDE.md': claude.join('\n'),
+    '.claude/skills/fixture/SKILL.md': ['# Fixture skill', 'Run `bd ready`, then `bd show <id>`.', ''].join('\n'),
+  }
+
+  interface Run {
+    status: number | null
+    out: string
+    err: string
+  }
+  const runGate = (tree: Readonly<Record<string, string>>): Run => {
+    const dir = mkdtempSync(join(tmpdir(), 'citations-selftest-'))
     try {
-      text = readFileSync(f, 'utf8')
-    } catch {
-      continue
-    }
-    for (const c of citationsIn(f, text)) {
-      if (c.kind === 'line') lines++
-      else sections++
+      for (const [path, text] of Object.entries(tree)) {
+        mkdirSync(dirname(join(dir, path)), { recursive: true })
+        writeFileSync(join(dir, path), text)
+      }
+      // Without any GIT_* key: inside a pre-push hook git exports GIT_DIR, which outranks `cwd`, and
+      // the gate would list THIS repository's files while claiming to read the tree.
+      const env = gitEnv()
+      execFileSync('git', ['init', '-q'], { cwd: dir, env, stdio: 'ignore' })
+      execFileSync('git', ['add', '-A'], { cwd: dir, env, stdio: 'ignore' })
+      const r = spawnSync(process.execPath, [CHECK], {
+        cwd: dir,
+        env: { ...env, CITATIONS_ROOT: dir },
+        encoding: 'utf8',
+      })
+      return { status: r.status, out: r.stdout, err: r.stderr }
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
     }
   }
-  // The floors are "more than a handful", not a count of any repository. The line-citation floor read
-  // `> 50` until a later decision deleted the prompts and records that carried most of the
-  // repository's `<file>.md:NN` pointers, and the count has only fallen since. The current figure is whatever
-  // `npm run citations:check` prints today and is deliberately not written here, where it would
-  // drift like every other numeral. A floor a legitimate deletion can cross is a gate that fails
-  // for a reason no commit repairs, so it sits well below the measured value while still refusing
-  // an empty scan.
-  ok('the scan finds line citations to resolve', lines > 20, `${lines} found`)
-  ok('the scan finds section citations to resolve', sections > 50, `${sections} found`)
+  const firstLine = (s: string): string => s.trim().split('\n')[0] ?? ''
+
+  const SUMMARY =
+    /(\d+) line citations and (\d+) section citations across (\d+) files \((\d+) files and (\d+) citations exempt as history\); memory rule over (\d+) prompt files \((\d+) mentions exempt/
+  const control = runGate(TREE)
+  const m = SUMMARY.exec(control.out)
+  ok(
+    'control: the undoctored tree passes the gate',
+    control.status === 0 && m !== null,
+    `exit ${control.status}; ${firstLine(control.err) || firstLine(control.out)}`,
+  )
+  const n = (i: number): number => Number(m?.[i] ?? Number.NaN)
+  ok('the scan finds line citations to resolve -- exactly the three the tree holds', n(1) === 3, `${n(1)} found`)
+  ok('the scan finds section citations to resolve -- exactly the three the tree holds', n(2) === 3, `${n(2)} found`)
+  ok(
+    'the gate reads the tracked text files, five, and skips the extension it does not scan',
+    n(3) === 5,
+    `${n(3)} files`,
+  )
+  ok('the dead citation inside a history directory is exempt, and counted', n(4) === 1, `${n(4)} files`)
+  ok('the roster has prompt files to scan -- exactly the two the tree holds', n(6) === 2, `${n(6)} files`)
+  ok(
+    'a mention inside each registered CLAUDE.md region is exempted rather than absent',
+    n(7) === claudeRegions.length && n(7) > 0,
+    `${n(7)} exempt of ${claudeRegions.length} regions`,
+  )
+
+  // ONE BREAK PER COPY, and each must fail for the reason it was doctored for and for no other: the
+  // problem count is asserted too, so a copy failing for an unrelated reason cannot pass as a bite.
+  const edit =
+    (file: string, from: string, to: string) =>
+    (tree: Record<string, string>): void => {
+      const text = tree[file]
+      if (text === undefined || !text.includes(from)) {
+        throw new Error(`fixture: ${file} has no ${JSON.stringify(from)} to doctor`)
+      }
+      tree[file] = text.replace(from, to)
+    }
+  const cases: ReadonlyArray<{
+    what: string
+    doctor: (tree: Record<string, string>) => void
+    where: string
+    reason: string
+    problems: number
+  }> = [
+    {
+      what: 'a line citation past the end of its file',
+      doctor: edit('docs/citer.md', '`docs/target.md:4`', '`docs/target.md:40`'),
+      where: 'docs/citer.md:2',
+      reason: 'The pointer is past the end of the file.',
+      problems: 1,
+    },
+    {
+      what: 'a line citation onto a blank line',
+      doctor: edit('docs/citer.md', '`docs/target.md:4`', '`docs/target.md:2`'),
+      where: 'docs/citer.md:2',
+      reason: 'which is a BLANK line of docs/target.md',
+      problems: 1,
+    },
+    {
+      what: 'a citation to a file that is not tracked',
+      doctor: edit('tools/code.ts', 'docs/target.md:6', 'docs/gone.md:6'),
+      where: 'tools/code.ts:1',
+      reason: 'names "docs/gone.md", which is not a tracked file',
+      problems: 1,
+    },
+    {
+      what: 'a section citation to a heading that is not there',
+      doctor: edit('docs/citer.md', '§ Beta', '§ Gamma'),
+      where: 'docs/citer.md:3',
+      reason: 'but no section of docs/target.md is named that',
+      problems: 1,
+    },
+    {
+      what: 'a live file citing a retired file by its bare name',
+      doctor: edit('docs/citer.md', '`docs/target.md:4`', '`old.md:2`'),
+      where: 'docs/citer.md:2',
+      reason: 'which was RETIRED to docs/retired/old.md',
+      problems: 1,
+    },
+    {
+      what: 'the same dead citation, moved out of the history directory',
+      doctor: (tree) => {
+        tree['docs/old.md'] = tree['docs/retired/old.md'] ?? ''
+        delete tree['docs/retired/old.md']
+      },
+      where: 'docs/old.md:2',
+      reason: 'The pointer is past the end of the file.',
+      problems: 1,
+    },
+    {
+      what: 'a prompt citing a memory key',
+      doctor: edit('.claude/skills/fixture/SKILL.md', 'Run `bd ready`', 'See memory `fixture-key`, then run `bd ready`'),
+      where: '.claude/skills/fixture/SKILL.md:2',
+      reason: 'cites memory `fixture-key`',
+      problems: 1,
+    },
+    {
+      // The renamed heading is one problem and the mention it covered goes live: two.
+      what: 'the registered CLAUDE.md section renamed, so its exemption matches nothing',
+      doctor:
+        liveSection && 'section' in liveSection
+          ? edit('CLAUDE.md', `## ${liveSection.section}`, '## A heading the registry does not name')
+          : () => {
+              throw new Error('fixture: the live registry has no CLAUDE.md section region to rename')
+            },
+      where: 'CLAUDE.md',
+      reason: 'but no such region is in the file',
+      problems: 2,
+    },
+  ]
+  for (const c of cases) {
+    const tree = { ...TREE }
+    c.doctor(tree)
+    const r = runGate(tree)
+    const count = Number(/(\d+) unresolvable citation/.exec(r.err)?.[1] ?? Number.NaN)
+    ok(
+      `${c.what} -- fails for that reason`,
+      r.status === 1 && r.err.includes(c.where) && r.err.includes(c.reason) && count === c.problems,
+      `exit ${r.status}; ${count} problem(s); ${firstLine(r.err.split('\n').slice(2).join('\n'))}`,
+    )
+  }
 }
 
 /* --------------------------------------------------------------------------------------------- *
@@ -499,6 +695,25 @@ console.log('citation scanner selftest\n')
     MEMORY_EXEMPT_REGIONS.every((r) => r.why.trim().length > 20 && r.file === 'CLAUDE.md'),
   )
 
+  // A SYNTHETIC REGISTRY, one region of each shape. These cases once ran against the live
+  // `MEMORY_EXEMPT_REGIONS` and asserted an exempt generated block, which the live registry does not
+  // hold until the tracker writes the block into CLAUDE.md (`memory.ts` says why); on 2026-09-23 they
+  // found 3 exempt where they expected 4, and 2 problems where they expected 1. The gate was right and
+  // the fixture was not. Held to its own registry, the fixture exercises both shapes whatever the
+  // live one holds; the live registry is held to the live CLAUDE.md at the end of this section.
+  const REGIONS: ReadonlyArray<ExemptRegion> = [
+    {
+      file: 'CLAUDE.md',
+      section: 'Rules for agents live in tracked files, and nowhere else',
+      why: 'The fixture forbidding section, keyed on its heading text.',
+    },
+    {
+      file: 'CLAUDE.md',
+      between: ['<!-- BEGIN BEADS INTEGRATION', '<!-- END BEADS INTEGRATION -->'],
+      why: 'The fixture generated block, keyed on the markers around it.',
+    },
+  ]
+
   // THE TWO CLAUDE.md REGIONS, on a fixture shaped like the file: the forbidding section runs from
   // its heading to the next heading; the generated block runs between bd's markers; a mention after
   // both is live. Four mentions inside, one outside.
@@ -515,7 +730,7 @@ console.log('citation scanner selftest\n')
     '## After the block',
     'see memory `late-key` here',
   ]
-  const shaped = memoryProblemsIn('CLAUDE.md', claude.join('\n'))
+  const shaped = memoryProblemsIn('CLAUDE.md', claude.join('\n'), REGIONS)
   ok(
     'mentions inside the forbidding section and the generated block are exempt',
     shaped.exempted === 4,
@@ -525,11 +740,8 @@ console.log('citation scanner selftest\n')
   ok('a mention after both regions is a finding', late.where === 'CLAUDE.md:11', late.where)
 
   // The exemption is keyed on the FILE as well as the delimiter: the heading cannot be copied.
-  ok(
-    'the same heading and markers in a skill exempt nothing',
-    problemsIn(prompt, claude.join('\n')).length === 5,
-    `${problemsIn(prompt, claude.join('\n')).length} problems`,
-  )
+  const copied = memoryProblemsIn(prompt, claude.join('\n'), REGIONS).problems.length
+  ok('the same heading and markers in a skill exempt nothing', copied === 5, `${copied} problems`)
 
   // A registered region that is not in the file is a FINDING, not a silent pass: the renamed
   // heading is reported, the absent markers are reported, and the mention the section covered goes
@@ -537,6 +749,7 @@ console.log('citation scanner selftest\n')
   const renamed = memoryProblemsIn(
     'CLAUDE.md',
     ['## Rules for agents live somewhere else', '`bd remember` is not used.'].join('\n'),
+    REGIONS,
   )
   ok(
     'a renamed heading is reported as a missing region and its mention goes live',
@@ -545,36 +758,35 @@ console.log('citation scanner selftest\n')
     renamed.problems.map((p) => p.where).join(', '),
   )
 
-  // THE LIVE TREE. Both registered regions are present in CLAUDE.md -- an exemption matching
-  // nothing is a hole -- and the roster is clean.
-  const liveClaude = readFileSync(join(ROOT, 'CLAUDE.md'), 'utf8')
+  // THE LIVE TREE. Every registered region is present in CLAUDE.md -- an exemption matching
+  // nothing is a hole -- and the roster is clean. No count of the live tree is asserted: this read
+  // "with its mentions exempted rather than absent" until 2026-09-23, when the live CLAUDE.md named
+  // the store without the forbidden spelling and so had none to exempt, which is a legitimate state.
+  // That the registered regions exempt what they cover is asserted on the synthetic tree in § 6.
+  const liveClaude = readFileSync(join(SCAN_ROOT, 'CLAUDE.md'), 'utf8')
   const regions = exemptRegionsIn('CLAUDE.md', liveClaude.split('\n'))
   ok(
-    'both registered regions are found in the live CLAUDE.md',
+    'every registered region is found in the live CLAUDE.md',
     regions.missing.length === 0 && regions.found.length === MEMORY_EXEMPT_REGIONS.length,
     regions.missing.map(describeRegion).join('; '),
   )
   const live = memoryProblemsIn('CLAUDE.md', liveClaude)
   ok(
-    'the live CLAUDE.md passes, with its mentions exempted rather than absent',
-    live.problems.length === 0 && live.exempted > 0,
+    'the live CLAUDE.md passes the memory rule',
+    live.problems.length === 0,
     live.problems.map((p) => p.where).join(', '),
   )
-  let scanned = 0
   const liveProblems: string[] = []
   for (const f of trackedFiles()) {
     if (!inMemoryScope(f)) continue
     let text: string
     try {
-      text = readFileSync(join(ROOT, f), 'utf8')
+      text = readFileSync(join(SCAN_ROOT, f), 'utf8')
     } catch {
       continue
     }
-    const s = memoryProblemsIn(f, text)
-    if (s.skipped === null) scanned++
-    liveProblems.push(...s.problems.map((p) => p.where))
+    liveProblems.push(...memoryProblemsIn(f, text).problems.map((p) => p.where))
   }
-  ok('the roster has prompt files to scan', scanned > 10, `${scanned} files`)
   ok(
     'no tracked prompt cites a memory key or names the store',
     liveProblems.length === 0,

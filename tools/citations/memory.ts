@@ -167,14 +167,19 @@ function markerSpan(
  * The registered regions of `file`, located in its `lines` -- and the registered regions that
  * could NOT be located, which the caller must report. An exemption matching nothing is a hole
  * dressed as an exemption, and here it would be a hole over the one file that matters most.
+ *
+ * `regions` is the registry, and the gate always passes the live one by default. The selftest
+ * passes a synthetic one, so that both region shapes stay exercised whichever of them this
+ * repository has registered today.
  */
 export function exemptRegionsIn(
   file: string,
   lines: readonly string[],
+  regions: ReadonlyArray<ExemptRegion> = MEMORY_EXEMPT_REGIONS,
 ): { found: FoundRegion[]; missing: ExemptRegion[] } {
   const found: FoundRegion[] = []
   const missing: ExemptRegion[] = []
-  for (const r of MEMORY_EXEMPT_REGIONS) {
+  for (const r of regions) {
     if (r.file !== file) continue
     const span = 'section' in r ? sectionSpan(r.section, lines) : markerSpan(r.between, lines)
     if (span) found.push({ ...span, why: r.why })
@@ -270,9 +275,14 @@ const RULE = 'CLAUDE.md § *Rules for agents live in tracked files, and nowhere 
  *
  * ONE FUNCTION rather than a pipeline the gate assembles, so that the selftest exercises the exact
  * derivation `check.ts` runs: a fixture that fails here fails the gate, and a fixture that passes
- * here passes it, with nothing in between to drift.
+ * here passes it, with nothing in between to drift. `regions` defaults to the live registry, which
+ * is what `check.ts` uses; only the selftest passes another (see `exemptRegionsIn`).
  */
-export function memoryProblemsIn(file: string, text: string): MemoryScan {
+export function memoryProblemsIn(
+  file: string,
+  text: string,
+  regions: ReadonlyArray<ExemptRegion> = MEMORY_EXEMPT_REGIONS,
+): MemoryScan {
   // History before scope, so a review is skipped WITH its reason whether or not the roster reaches
   // it, and the gate can count it as exempt rather than as merely elsewhere.
   const history = memoryHistoryReason(file)
@@ -288,7 +298,7 @@ export function memoryProblemsIn(file: string, text: string): MemoryScan {
   if (text.includes('\0')) return { skipped: 'binary', problems: [], exempted: 0 }
 
   const lines = text.split('\n')
-  const { found, missing } = exemptRegionsIn(file, lines)
+  const { found, missing } = exemptRegionsIn(file, lines, regions)
   const problems: MemoryProblem[] = []
   for (const r of missing) {
     problems.push({
