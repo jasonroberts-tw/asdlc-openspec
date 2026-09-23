@@ -43,7 +43,7 @@ npm ci
 ```
 
 **before the first `npm run` of the session**, and before anything that shells out to one: the gates,
-the emitters, `npx lefthook`, and the `Stop` hook that runs `typecheck` / `lint:strict:cached` / `pipeline:check`.
+the emitters, `npx lefthook`, and the `Stop` hook, whose `GATES` list in `scripts/hooks/gate-summary.mjs` names what it runs.
 Skip it and they fail on a missing binary rather than on anything you changed,
 which reads as a broken repository and is not one.
 

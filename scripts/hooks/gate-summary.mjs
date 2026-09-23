@@ -10,54 +10,36 @@
  * accountability mechanism is that the verdict is in the transcript where both the user and the agent
  * can see it, not that the agent is held hostage to it.
  *
- * Budget: the gates run CONCURRENTLY, so the wall clock is the slowest one and not their sum. MEASURED
- * on a 4-core box, warm: 4-6s wall, against a serial sum of about 8s. The first run after `npm ci` is
- * a cold one at roughly 24s, because both caches below are empty. `build-storybook` is deliberately
- * absent -- tens of seconds, and CI is the right place for it.
+ * WHAT IT RUNS is `GATES` below, and nothing else: `check:jobs` (every script a `lefthook.yml` or
+ * `.github/workflows/verify.yml` job names exists, and every script no job names is declared) and
+ * `citations:check` (every citation in a tracked text file resolves, and no prompt cites a memory
+ * key). Both read only committed files, neither runs an emitter, and both also run at pre-push and in
+ * CI, which are the tiers that decide anything (`CLAUDE.md` § The gate ladder).
  *
- * `generate:check` was the second of these gates until the screen generator was retired and deleted,
- * and `spec:validate` -- a node's behaviour-manifest validator -- was the second until a later decision
- * deleted that node with the SLICE kind. `pipeline:check` took the vacated third
- * place in the gate prune that followed: it reads only committed files, runs no
- * emitter, costs 0.55s (`time npm run pipeline:check`, real 0.549s, measured 2026-09-06), and it is
- * the gate a session most plausibly turns red without noticing -- a `tools/pipeline/graph.ts` edit,
- * an input glob emptied by a deletion, a job removed from `lefthook.yml` or `verify.yml` while a
- * node's `detection` still claims it -- so a verdict at end of turn is worth more here than at push.
- * The wall-clock note above predates all three changes and stays pessimistic: `pipeline:check`
- * costs less than the validator it replaced, and it runs concurrently with the other two.
+ * Budget: the gates run CONCURRENTLY, so the wall clock is the slower one and not their sum. MEASURED
+ * 2026-09-23 on a macOS laptop: 0.30s wall for the whole hook (`time node
+ * scripts/hooks/gate-summary.mjs`), against 0.16s for `npm run check:jobs` and 0.21s for
+ * `npm run citations:check` alone. Neither keeps a cache, so there is no cold first run to budget for.
  *
- * That 4-6s used to be 19s, and the two changes that bought it are worth knowing about because ONE OF
- * THEM IS A DELIBERATE TRADE, not a free win.
+ * THIS HEADER ONCE DESCRIBED GATES THE HOOK NEVER RAN. Until 2026-09-23 it explained `typecheck`,
+ * `lint:strict:cached` and `pipeline:check` at length, and the worktree briefing
+ * (`.claude/worktree-CONTEXT.md.tmpl`) named the same three, while `GATES` held the two above. The
+ * prose arrived with the files this repository was bootstrapped from and was never true here: there
+ * is no `typecheck` or `lint:strict:cached` script, so an agent that trusted the briefing went
+ * looking for a gate that does not exist. A gate joins `GATES`, this paragraph's list and its
+ * measured cost in one change, or none of them.
  *
- * `typecheck` is `incremental` (see tsconfig.json). Sound: TypeScript's buildinfo tracks the real
- * dependency graph, so this is the same verdict, faster. 11.4s -> 3.4-4.2s.
+ *   node scripts/hooks/gate-summary.mjs    no flags; registered as the `Stop` hook in
+ *                                          `.claude/settings.json`, and safe to run by hand
  *
- * `lint:strict:cached` is NOT SOUND, and this hook is the only place in the repository allowed to use
- * it. The strict tier is 31 files, but linting them costs 8.5s because four TYPE-AWARE rules
- * (`no-unnecessary-condition`, `no-floating-promises`, `no-unnecessary-type-assertion`,
- * `react-hooks/exhaustive-deps`) make typescript-eslint build a whole second TypeScript program --
- * 5.1s of the 8.5s, duplicating what `typecheck` is doing in the next process along. `--cache` takes
- * that to 1.5s by skipping files whose own bytes have not changed.
- *
- * THE HOLE: ESLint keys its cache on each file's own content and the config, NOT on the types that
- * file depends on. Measured: editing one component file -- outside the lint scope but
- * inside the type program -- left the cache fully warm and re-linted NOTHING. A change elsewhere
- * that invalidates something `no-unnecessary-condition` concluded about a strict-tier file is silently
- * missed here until that file is next touched.
- *
- * Which is acceptable HERE and nowhere else, because this hook is an early-warning device that never
- * blocks, and it runs many times per session where a stale verdict is corrected minutes later. The
- * gates that actually decide anything run the uncached `lint:strict`: `.github/workflows/verify.yml`
- * on every push, and `lefthook.yml`'s pre-push hook before the code leaves the machine. Do not
- * "optimise" either of those to match this one.
+ * Needs `npm` on PATH and `npm ci` in this checkout, and nothing outside it.
  */
 import { npmRun, readHookInput } from './_shared.mjs'
 
 /**
- * The fast gates, in the order they are worth reading. All three read only committed files and none
- * runs an emitter. `pipeline:check` is here for the reason the header gives; `counts:check` and
- * `outcomes:check` were weighed and left to pre-push, where their `lefthook.yml` job comments state
- * the cost of each.
+ * The fast gates, in the order they are worth reading. Both read only committed files and neither
+ * runs an emitter. Every other gate runs at pre-push and in CI; one that moves here brings its
+ * measured cost into the header's budget in the same change.
  */
 const GATES = [
   'check:jobs',
