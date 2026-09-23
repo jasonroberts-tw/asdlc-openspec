@@ -5,6 +5,21 @@
  * names sorted, and under `provenance` the stamp that says what the summary was built FROM
  * (`stampFor('X-EXAMPLE')`: a digest of each declared input group and of the generator source).
  *
+ * KIND         `DERIVED` in `../graph.ts`: re-runs whole whenever an input or its own source moves.
+ * INVARIANTS   never writes anything but `summary.json` beside this file; never edits `entries.json`;
+ *              writes nothing when an entry lacks a string name or state, or is listed twice; keys and
+ *              names sorted by code point, one serialiser, and the stamp taken last.
+ * RE-ENTRY     idempotent: the same inputs write the same bytes, and a second run over an unchanged
+ *              repository writes nothing. The stamp's `generatedAtUtc` is the one field that is not a
+ *              function of the inputs, and `../provenance.ts` makes it sticky: while the digests equal
+ *              the ones already on disk, the prior value is carried forward. `--check` re-derives in
+ *              memory, byte-compares with `summary.json`, exits 1 when it differs or is absent, and
+ *              writes nothing; it has no package script of its own, and INVOCATION says why.
+ * STALE WHEN   `tools/pipeline/example/entries.json`, the record's one input group; the generator,
+ *              this file and `../glob.ts`, `../digest.ts`, `../provenance.ts`; and the `X-EXAMPLE`
+ *              record itself (its group names and globs, generator list and stamp path), which the
+ *              stamp folds.
+ *
  * THE FAILURE IT EXISTS TO PREVENT. None of its own: it exists to show the one thing every emitter
  * behind the staleness gate has to do, which is write its input digest into its own output. On day
  * one, this is what an emitter that skipped it would let through: its node reports UNSTAMPED for
@@ -20,13 +35,9 @@
  * this node; `npm run pipeline:selftest` runs the twin against a doctored copy while this
  * directory exists.
  *
- * NEEDS. Nothing outside this repository. Deterministic: keys and names sorted by code point, one
- * serialiser. The stamp's `generatedAtUtc` is the one field that is not a function of the inputs,
- * and `provenance.ts` makes it sticky: when the digests equal the ones already on disk the prior
- * value is carried forward, so two runs over an unchanged repository are byte-identical. There is
- * no root override variable because there is nothing to override: the root is derived from where
- * the file stands (`../provenance.ts`), so to run it against a fixture, copy `tools/`
- * under a temp directory and run the copy.
+ * NEEDS. Nothing outside this repository. There is no root override variable because there is
+ * nothing to override: the root is derived from where the file stands (`../provenance.ts`), so to
+ * run it against a fixture, copy `tools/` under a temp directory and run the copy.
  *
  * kit 2.6-4 · ADAPT: delete this directory with the node; `../graph.ts` lists what goes with it.
  */
