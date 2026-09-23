@@ -23,11 +23,17 @@
  *   4. A generated `openspec-*` skill written back by `openspec init` or `openspec update`, which
  *      rewrite them from each machine's global configuration. They were retired by D-02 because their
  *      tracking model (a `tasks.md` checklist) contradicts `CLAUDE.md` § The task store.
+ *   5. The change label spelled in a skill or agent that does not cite `specChangeLabel` in
+ *      `tools/policy.json`, its one home (`docs/decisions.md` § D-03), or one that cites the key and
+ *      still spells an old value after the label moved. The label decides what the general queue
+ *      offers, so a prompt spelling a stale one sweeps a change's tasks into it. Before D-03 the
+ *      spelling sat in eight files, the register and seven prompts, and nothing held them together.
  *
  * WHAT IS NOT CHECKED, deliberately: an archived change under `openspec/changes/archive/` (the CLI
  * does not list it, and it records what a change proposed on its day); the proposal's prose, beyond
- * what the CLI validates; and the change's epic in `bd`, which a fresh clone does not have
- * (`change-verify` checks it in session).
+ * what the CLI validates; the change's epic in `bd`, which a fresh clone does not have
+ * (`change-verify` checks it in session); and a spelling of the label outside the skills and agents,
+ * such as the register's, which records what was decided on its day.
  *
  * The CLI never reaches the network: telemetry is turned off in the environment of every spawn. It
  * resolves its root as the nearest `openspec/` above its working directory, so the gate refuses a
@@ -56,6 +62,10 @@ const ROOT = process.env.OPENSPEC_CHECK_ROOT ?? REPO_ROOT
 
 const OPENSPEC_DIR = 'openspec'
 const SKILLS_DIR = '.claude/skills'
+const AGENTS_DIR = '.claude/agents'
+/** The workflow's policy file, and the key under which it spells the change label (D-03). */
+const POLICY_FILE = 'tools/policy.json'
+const LABEL_KEY = 'specChangeLabel'
 /** The directory prefix `openspec init` and `openspec update` write skills under. */
 const RETIRED_SKILL_PREFIX = 'openspec-'
 /** The opening of the Purpose `openspec archive` writes into a living spec it creates. */
@@ -87,7 +97,32 @@ export function runCheck(root, bin) {
     }
   }
 
-  /* ------------------------------------------------- 2. the tree the CLI reads ------------------ */
+  /* ------------------------------------------------- 2. the change label has one home ----------- */
+
+  const label = changeLabel(root, fail)
+  if (label !== null) {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const spelled = new RegExp(`(?<![\\w-])${escaped}(?![\\w-])`)
+    for (const path of promptFiles(root)) {
+      const text = readFileSync(join(root, path), 'utf8')
+      const spells = spelled.test(text)
+      const cites = text.includes(LABEL_KEY)
+      if (spells && !cites) {
+        fail(
+          `${path} spells the change label \`${label}\` without citing \`${LABEL_KEY}\` in` +
+            ` ${POLICY_FILE}, its one home (\`docs/decisions.md\` § D-03). Cite the key where the` +
+            ` prompt first spells the label.`,
+        )
+      } else if (cites && !spells) {
+        fail(
+          `${path} cites \`${LABEL_KEY}\` but never spells its value \`${label}\`: the label moved in` +
+            ` ${POLICY_FILE} and this prompt still spells the old one. Respell it here.`,
+        )
+      }
+    }
+  }
+
+  /* ------------------------------------------------- 3. the tree the CLI reads ------------------ */
 
   const openspecDir = join(root, OPENSPEC_DIR)
   if (!existsSync(openspecDir) || !statSync(openspecDir).isDirectory()) {
@@ -106,7 +141,7 @@ export function runCheck(root, bin) {
     return { failures, specs: 0, changes: 0 }
   }
 
-  /* ------------------------------------------------- 3. strict validation, per item ------------- */
+  /* ------------------------------------------------- 4. strict validation, per item ------------- */
 
   const run = spawnSync(bin, ['validate', '--all', '--strict', '--no-interactive', '--json'], {
     cwd: root,
@@ -141,7 +176,7 @@ export function runCheck(root, bin) {
     fail(`\`openspec validate\` exited ${run.status} but reported no invalid item.`)
   }
 
-  /* ------------------------------------------------- 4. no archive placeholder left behind ------ */
+  /* ------------------------------------------------- 5. no archive placeholder left behind ------ */
 
   const specsDir = join(openspecDir, 'specs')
   if (existsSync(specsDir)) {
@@ -158,7 +193,7 @@ export function runCheck(root, bin) {
     }
   }
 
-  /* ------------------------------------------------- 5. every active change applies ------------- */
+  /* ------------------------------------------------- 6. every active change applies ------------- */
 
   const changes = items.filter((item) => item.type === 'change' && item.valid).map((item) => item.id)
   for (const id of changes) {
@@ -190,6 +225,60 @@ export function runCheck(root, bin) {
   }
 }
 
+/** The change label as the policy file spells it, or null after reporting why it cannot be read. */
+function changeLabel(root, fail) {
+  const path = join(root, POLICY_FILE)
+  if (!existsSync(path)) {
+    fail(
+      `${POLICY_FILE} is missing under ${root}. It is the one home of the change label` +
+        ` (\`docs/decisions.md\` § D-03), which the change-* skills and the general sweeps spell.`,
+    )
+    return null
+  }
+  let policy
+  try {
+    policy = JSON.parse(readFileSync(path, 'utf8'))
+  } catch (error) {
+    fail(`${POLICY_FILE} does not parse as JSON: ${error.message}`)
+    return null
+  }
+  const label = policy?.[LABEL_KEY]
+  if (typeof label !== 'string' || label.trim() === '') {
+    fail(
+      `${POLICY_FILE} carries no \`${LABEL_KEY}\` string. D-03 moved the change label's spelling` +
+        ` there; restore the key rather than spelling the label in the prompts alone.`,
+    )
+    return null
+  }
+  const means = policy[`${LABEL_KEY}Means`]
+  if (typeof means !== 'string' || means.trim() === '') {
+    fail(
+      `${POLICY_FILE} carries \`${LABEL_KEY}\` with no \`${LABEL_KEY}Means\` sibling saying what it` +
+        ` decides and where it is changed (\`CLAUDE.md\` § Three kinds of file, and never a fourth).`,
+    )
+  }
+  return label
+}
+
+/** Every skill and agent under `root`, as repository-relative paths in code-point order. */
+function promptFiles(root) {
+  const found = []
+  const skills = join(root, SKILLS_DIR)
+  if (existsSync(skills)) {
+    for (const name of readdirSync(skills)) {
+      const path = join(skills, name, 'SKILL.md')
+      if (existsSync(path) && statSync(path).isFile()) found.push(`${SKILLS_DIR}/${name}/SKILL.md`)
+    }
+  }
+  const agents = join(root, AGENTS_DIR)
+  if (existsSync(agents)) {
+    for (const name of readdirSync(agents)) {
+      if (name.endsWith('.md') && name !== 'README.md') found.push(`${AGENTS_DIR}/${name}`)
+    }
+  }
+  return found.sort(byCodePoint)
+}
+
 function firstLine(text) {
   return (text ?? '').split('\n').map((line) => line.trim()).find((line) => line !== '') ?? ''
 }
@@ -214,12 +303,14 @@ function main() {
     if (specs === 0 && changes === 0) {
       console.log(
         `openspec: nothing to validate yet (no living spec under ${OPENSPEC_DIR}/specs/, no active` +
-          ` change under ${OPENSPEC_DIR}/changes/); no retired skill under ${SKILLS_DIR}/.`,
+          ` change under ${OPENSPEC_DIR}/changes/); no retired skill under ${SKILLS_DIR}/; every` +
+          ` prompt that spells the change label cites ${LABEL_KEY} in ${POLICY_FILE}.`,
       )
     } else {
       console.log(
         `openspec: ${specs} living spec(s) and ${changes} active change(s) validate strictly; every` +
-          ` active change applies to the living spec; no retired skill under ${SKILLS_DIR}/.`,
+          ` active change applies to the living spec; no retired skill under ${SKILLS_DIR}/; every` +
+          ` prompt that spells the change label cites ${LABEL_KEY} in ${POLICY_FILE}.`,
       )
     }
     process.exit(0)
@@ -264,12 +355,16 @@ The system SHALL bid every departing reader a polite farewell.
 - **THEN** the system bids them farewell
 `
 
+const POLICY = `${JSON.stringify({ specChangeLabel: 'spec-change', specChangeLabelMeans: 'The label on a change.' }, null, 2)}\n`
+
 const FIXTURE = {
   'openspec/config.yaml': 'schema: spec-driven\n',
   'openspec/specs/greeting/spec.md': LIVING_SPEC,
   'openspec/changes/add-farewell/proposal.md': PROPOSAL,
   'openspec/changes/add-farewell/specs/greeting/spec.md': DELTA,
-  '.claude/skills/change-propose/SKILL.md': '---\nname: change-propose\n---\n',
+  'tools/policy.json': POLICY,
+  '.claude/skills/change-propose/SKILL.md':
+    '---\nname: change-propose\n---\n\nLabel the epic `spec-change` (`specChangeLabel` in `tools/policy.json`).\n',
 }
 
 function selftest() {
@@ -342,6 +437,7 @@ function edit(dir, relative, transform) {
 function cases() {
   const delta = 'openspec/changes/add-farewell/specs/greeting/spec.md'
   const living = 'openspec/specs/greeting/spec.md'
+  const skill = '.claude/skills/change-propose/SKILL.md'
   return [
     {
       name: 'control: the undoctored fixture passes',
@@ -400,6 +496,38 @@ function cases() {
       doctor: (dir) =>
         writeTree(dir, { '.claude/skills/openspec-propose/SKILL.md': '---\nname: openspec-propose\n---\n' }),
       expect: /^\.claude\/skills\/openspec-propose\/ is a generated OpenSpec skill, retired by D-02/,
+    },
+    {
+      name: 'the policy file is missing',
+      doctor: (dir) => rmSync(join(dir, 'tools/policy.json')),
+      expect: /^tools\/policy\.json is missing under /,
+    },
+    {
+      name: 'the policy file carries the label with no Means sibling',
+      doctor: (dir) =>
+        edit(dir, 'tools/policy.json', (t) => t.replace(/,\n\s*"specChangeLabelMeans": "[^"]*"/, '')),
+      expect: /^tools\/policy\.json carries `specChangeLabel` with no `specChangeLabelMeans` sibling/,
+    },
+    {
+      name: 'a skill spells the label without citing its key',
+      doctor: (dir) => edit(dir, skill, (t) => t.replace(' (`specChangeLabel` in `tools/policy.json`)', '')),
+      expect: /^\.claude\/skills\/change-propose\/SKILL\.md spells the change label `spec-change` without citing `specChangeLabel`/,
+    },
+    {
+      name: 'an agent spells the label without citing its key',
+      doctor: (dir) =>
+        writeTree(dir, {
+          '.claude/agents/sweep.md': '---\nname: sweep\n---\n\nRun `bd ready --exclude-label spec-change`.\n',
+        }),
+      expect: /^\.claude\/agents\/sweep\.md spells the change label `spec-change` without citing/,
+    },
+    {
+      name: 'the label moves in the policy file and a skill still spells the old one',
+      doctor: (dir) =>
+        edit(dir, 'tools/policy.json', (t) =>
+          t.replace('"specChangeLabel": "spec-change"', '"specChangeLabel": "product-change"'),
+        ),
+      expect: /^\.claude\/skills\/change-propose\/SKILL\.md cites `specChangeLabel` but never spells its value `product-change`/,
     },
     {
       name: 'no openspec/ directory',

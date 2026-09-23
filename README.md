@@ -222,7 +222,7 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 
 | Script | What it does | Gate |
 |---|---|---|
-| `openspec:check` | Validates every living spec and active change under `openspec/` strictly with the pinned CLI, trial-archives each active change into a scratch copy so a delta that cannot merge is refused before Finalize, refuses a living spec still carrying the archive's placeholder Purpose, and refuses a retired `openspec-*` skill that `openspec init` or `openspec update` wrote back. | pre-push + CI |
+| `openspec:check` | Validates every living spec and active change under `openspec/` strictly with the pinned CLI, trial-archives each active change into a scratch copy so a delta that cannot merge is refused before Finalize, refuses a living spec still carrying the archive's placeholder Purpose, refuses a retired `openspec-*` skill that `openspec init` or `openspec update` wrote back, and refuses a skill or agent that spells the change label without citing its one home, `specChangeLabel` in `tools/policy.json`. | pre-push + CI |
 | `openspec:selftest` | The OpenSpec gate, negative-tested against a fixture tree it builds. | pre-push + CI |
 
 ### outcomes
@@ -329,7 +329,7 @@ at its start: restart the session after changing it.
 | `git push` that changes a hook or a worktree script | `worktree:selftest`: the worktree hooks and the guard, negative-tested. | `lefthook.yml` (`pre-push`) |
 | `git push` | `counts:check` re-derives every value in `count-index.md` from the source the index names for it; `counts:selftest` holds the gate to its fixtures when the gate changes. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes the register, `CLAUDE.md` or the gate | `check:register` holds the register's header, summary table and dates to its entries, and its selftest holds the gate. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes `openspec/`, a skill, the gate or the pinned CLI | `openspec:check` validates the living spec and every active change, and proves each change applies; `openspec:selftest` holds the gate. | `lefthook.yml` (`pre-push`) |
+| `git push` that changes `openspec/`, a skill, an agent, `tools/policy.json`, the gate or the pinned CLI | `openspec:check` validates the living spec and every active change, proves each change applies, and holds every prompt that spells the change label to `tools/policy.json`; `openspec:selftest` holds the gate. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes a record, the schema or the writer | `outcomes:record:selftest`: the record validator and writer, negative-tested against one fixture per terminal path. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes a record or the learning loop | `outcomes:check` rebuilds every report from the records and byte-compares it; `outcomes:selftest` holds the emitter and the filing step. Filing itself (`outcomes:propose`) is run by a person, never by a hook. | `lefthook.yml` (`pre-push`) |
 | `git push` | `pipeline:check` holds the graph record to the files it names and to the prose page; `pipeline:stale:check` refuses an output whose stamp no longer matches its declared inputs; `pipeline:selftest` holds both gates. Neither carries a glob: the record's globs may name any file. | `lefthook.yml` (`pre-push`) |

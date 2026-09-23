@@ -11,7 +11,7 @@
  *               entry an existing record carries, and accepts the same correction as an addition;
  *               refuses a commit no remote-tracking ref contains, asked of a real repository.
  *   the tie     the schema's intervention enum equals the exhaustive list in the workflow's policy file, where one is declared,
- *               wherever that file is present.
+ *               wherever that file is present. A file that declares no `intervention` block skips the tie.
  *
  * THE FAILURE IT EXISTS TO PREVENT. On day one: a validator nobody has ever seen refuse anything.
  * Every rule in `record.ts` is a few lines a refactor can turn into a no-op, and a record gate that
@@ -41,10 +41,15 @@ function doctoredSchema(name: string, change: (doc: any) => void): string {
   return root
 }
 
-/** The intervention enum against the workflow policy's exhaustive list. Null when they are the same list. */
-function interventionTie(recordSchema: any, workflowPolicy: any): Outcome {
+/**
+ * The intervention enum against the workflow policy's exhaustive list. Null when they are the same
+ * list; `skip` when the policy file declares no `intervention` block, because the tie binds only a
+ * list the file declares (`paths.ts`, and the schema's own description of the enum).
+ */
+function interventionTie(recordSchema: any, workflowPolicy: any): Outcome | 'skip' {
   const inSchema: unknown = recordSchema?.$defs?.intervention?.properties?.reasonCode?.enum
   const block = workflowPolicy?.intervention
+  if (block === undefined) return 'skip'
   if (block?.exhaustive !== true) return 'block `intervention` of the policy file is not flagged `exhaustive: true`'
   const inPolicy: unknown = Array.isArray(block.codes) ? block.codes.map((c: any) => c?.code) : null
   return JSON.stringify(inSchema) === JSON.stringify(inPolicy)
@@ -162,6 +167,13 @@ const cases: Case[] = [
       if (interventionTie(schema, policyOf(codes)) !== null) return 'the control (the same list) does not tie'
       if (interventionTie(schema, policyOf(codes, false)) === null) return 'a list not flagged exhaustive ties'
       return interventionTie(schema, policyOf(codes.slice(1))) === null ? 'a shorter list ties' : null
+    },
+  },
+  {
+    name: 'a policy file that declares no intervention list is not held to the schema, and one that declares a null block is',
+    run: () => {
+      if (interventionTie(schema, { specChangeLabel: 'x' }) !== 'skip') return 'a file with no `intervention` block was tied'
+      return interventionTie(schema, { intervention: null }) === 'skip' ? 'a null `intervention` block was skipped as if absent' : null
     },
   },
   {

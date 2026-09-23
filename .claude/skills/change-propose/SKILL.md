@@ -40,7 +40,8 @@ With `<change>` the confirmed name:
   `bd create "<change>: <what changes, in a line>" -t epic -l spec-change,<the repo: label open issues here carry> --spec-id openspec/changes/<change> --metadata '{"change":"<change>"}' --body-file .scratch/<change>-epic.md --silent`.
 
 The `spec-change` label keeps the epic and every child out of the general queue, and the later
-stages find the epic by its `change` metadata.
+stages find the epic by its `change` metadata. The spelling's one home is `specChangeLabel` in
+`tools/policy.json`; this skill spells it only to run the commands above.
 
 ## 4. Cut the worktree
 

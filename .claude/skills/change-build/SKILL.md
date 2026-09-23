@@ -9,7 +9,8 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 The fourth of the six `change-*` stages (`docs/decisions.md` § D-02). It runs in the change's
 worktree until no child of the change's epic is open. The general queue never offers these tasks,
-because their `spec-change` label keeps them out, so this stage is the only one that works them.
+because their `spec-change` label (`specChangeLabel` in `tools/policy.json`) keeps them out, so
+this stage is the only one that works them.
 Every tracker write below sits inside the bracket `CLAUDE.md` § The task store describes.
 
 ## 1. Find the change and its epic

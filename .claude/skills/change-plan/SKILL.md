@@ -16,8 +16,9 @@ below sits inside the bracket `CLAUDE.md` § The task store describes.
 - **The change.** The branch is `agent/<change>` (`git branch --show-current`). From the primary
   checkout, enter the worktree with `EnterWorktree` and the path `.claude/worktrees/<change>`.
 - **The epic.** It is the one issue that
-  `bd list --label spec-change --type epic --metadata-field change=<change> --json` returns. If none
-  or several come back, stop and say what was found.
+  `bd list --label spec-change --type epic --metadata-field change=<change> --json` returns (the
+  label is `specChangeLabel` in `tools/policy.json`). If none or several come back, stop and say
+  what was found.
 
 Read the proposal, every delta spec, and the design where there is one.
 
