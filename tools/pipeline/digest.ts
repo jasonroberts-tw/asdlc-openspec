@@ -1,18 +1,17 @@
 /**
  * Content digests over a declared set of files.
  *
- * This is the primitive the design note identifies as the one thing missing
- * from this repository: a stamp on each artifact recording WHAT IT WAS BUILT FROM, cheap enough to
- * recompute anywhere. Three properties are the whole point, and each one is a constraint on the code
- * below rather than a nice-to-have:
+ * This is the primitive the provenance stamp is built on: a record, in each artifact, of WHAT IT WAS
+ * BUILT FROM, cheap enough to recompute anywhere. Three properties are the whole point, and each one
+ * is a constraint on the code below rather than a nice-to-have:
  *
- *  1. **Computing it never runs the generator.** A sorted walk and a fold of per-file SHA-256s. For
- *     every node except the two roots the inputs are committed files in THIS repository, so the
- *     digest is computable in CI with no `../sibling` checkout -- which is what puts a node behind
- *     an automated gate for the first time. A node's own `--check` cannot move into CI and is not
- *     being asked to.
- *  2. **Per-group granularity.** "a node is stale because `artifacts/forms/**` moved" is actionable;
- *     "a node is stale" is not. So a group digest is a first-class value, not an intermediate.
+ *  1. **Computing it never runs the generator.** A sorted walk and a fold of per-file SHA-256s.
+ *     Wherever a node's inputs are committed files in THIS repository, the digest is computable in
+ *     CI with no `../sibling` checkout -- which puts a node whose own `--check` cannot run in CI
+ *     behind an automated gate all the same. That `--check` is not being asked to move into CI.
+ *  2. **Per-group granularity.** "a node is stale because its input group `<name>` moved" is
+ *     actionable; "a node is stale" is not. So a group digest is a first-class value, not an
+ *     intermediate.
  *  3. **Reproducible byte-for-byte across machines.** Anything that varies with filesystem order,
  *     path separator, mtime or locale is excluded. The fold below reads file CONTENT and nothing
  *     else -- no size, no mode, no timestamp.
