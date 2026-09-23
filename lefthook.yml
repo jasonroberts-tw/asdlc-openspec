@@ -107,6 +107,21 @@ pre-push:
         - '.github/workflows/verify.yml'
         - 'scripts/check-jobs.mjs'
       run: node --run check:jobs:selftest
+    # Every skill and agent opens with the line CLAUDE.md requires, read out of CLAUDE.md itself.
+    # Reads CLAUDE.md and the prompts; milliseconds.
+    - name: check-prompts
+      glob:
+        - 'CLAUDE.md'
+        - '.claude/skills/**'
+        - '.claude/agents/**'
+        - 'scripts/check-prompts.mjs'
+      run: node --run check:prompts
+    # Its refusals against a fixture tree it builds under the temporary directory, with one
+    # undoctored control. Reads nothing but the gate itself.
+    - name: check-prompts-selftest
+      glob:
+        - 'scripts/check-prompts.mjs'
+      run: node --run check:prompts:selftest
     # No glob: the citations gate reads every tracked text file, so any push can change its verdict.
     - name: citations
       run: node --run citations:check
