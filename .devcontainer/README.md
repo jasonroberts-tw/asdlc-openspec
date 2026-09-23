@@ -13,7 +13,7 @@ tracker's plugin marketplace, plus whatever toolchain you add to the image.
 
 | File | What it holds |
 |---|---|
-| `Dockerfile` | Every tool, as a layer. Versions are `ARG`s at the top and match the ones the root `README.md` and CI already name — bump them here when you bump them there. |
+| `Dockerfile` | Every tool, as a layer. Versions are `ARG`s at the top, each with a comment saying where it is re-derived from — bump one when its source moves. |
 | `devcontainer.json` | Almost nothing: a pointer at the Dockerfile, the `remoteUser`, three bind mounts and one passthrough env var. |
 | `entrypoint.sh` | The three setup steps that read the repository, which is a bind mount and does not exist at build time. |
 

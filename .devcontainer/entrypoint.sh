@@ -65,8 +65,8 @@ setup() {
     fi
   fi
 
-  # Both installers, and both are required. lefthook runs the format/lint gates on commit and the
-  # heavier gates on push; `bd hooks install` restores beads' own git integration, which installing
+  # Both installers, and both are required. lefthook runs the generated-file check on commit and the
+  # gates on push; `bd hooks install` restores beads' own git integration, which installing
   # lefthook otherwise turns off without telling anyone (see the comment in lefthook.yml).
   if [ -x node_modules/.bin/lefthook ]; then
     node_modules/.bin/lefthook install >/dev/null 2>&1 || warn 'lefthook install failed'
@@ -134,6 +134,6 @@ setup || true
 credentials || true
 
 # Last, so that anything above it reads as a warning about a container that is otherwise ready.
-log 'ready: bd ready | npm run lint | npm run typecheck | claude'
+log 'ready: bd ready | npm run gates | claude'
 
 exec "$@"
