@@ -107,4 +107,5 @@ skipped whenever HEAD matches the tracking remote and exits 0. Then confirm your
 job actually fired rather than silently matching nothing: check that its name appears in the run's
 output. A job that never fires is worse than no job, because you will now defend the green result.
 
-Run each command as a separate Bash call — the guard hook rejects `&&`, `;` and `|` chains.
+Run each command as a separate Bash call, as `CLAUDE.md` § Bash command style asks, so a red
+result names the step that produced it.

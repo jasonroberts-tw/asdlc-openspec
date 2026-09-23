@@ -49,8 +49,10 @@ is not viable; every other file points at that row.
 
 ## Bash command style
 
-Run each gate, test and git command as its own Bash call. No `&&`, `;` or `|` chains and no
-heredocs; use the Edit and Write tools for file content. Never `cd`, and never name a directory:
+Run each gate, test, or git command as a SEPARATE Bash call. Do not chain with `&&`, `;`, or `|`: 
+a chain's failure does not say which step failed, and the permission classifier judges a compound 
+command as a unit (below). Do not use heredocs to write files; 
+use the Edit/Write tools for file content instead of `cat <<EOF`. Never `cd`, and never name a directory:
 every call starts at the checkout root, so name the file as an explicit repository-relative
 argument. Keep long prose out of the command line and pass it from a file under `.scratch/`
 with `-F`, `--body-file` or the tool's equivalent. Prefer the Read, Edit and Write tools over `cat`,
