@@ -87,6 +87,18 @@ There is no `tsc` to run: the repository has no `tsconfig.json` and no TypeScrip
 `package.json` runs its `.ts` files with `node` directly. Run no script name `package.json` does not
 list. A red gate is fixed or reported, never bypassed.
 
+A defect found on the way is fixed in this branch only when it sits in a file the issue already
+changes. Anything else is filed as its own issue, never folded in, and before the pull request
+opens, so the pull request's body names the new id. File it from a body file under `.scratch/`,
+with the command `.claude/skills/change-build/SKILL.md` § 5. What the build turns up gives:
+`bd create "<title>" -l <the repo: label> --deps discovered-from:<id> --body-file <file> --silent`.
+
+Before filing this or any follow-up, search for it. `bd search "<words>"` matches titles only and
+`bd list --all --desc-contains "<words>"` matches descriptions; both include closed issues. Run
+both, then again with a second phrasing, because a string can miss: `Stop hook` does not match
+`` `Stop` hook ``. A match gets a note (`bd note`), not a second issue. A follow-up's body carries
+the sections `bd lint --help` lists for its type.
+
 ## 5. Rebase and gate again
 
 Fetch, rebase onto `origin/main`, and run `npm run gates` again: the first run proved the change,
@@ -115,11 +127,8 @@ the turn while it runs. A failing check is read, fixed on the same branch and pu
 
 When every check is green, close the issue with a reason that names the pull request. An acceptance
 criterion that acts outside the repository is not performed: it becomes a follow-up issue labelled
-`human`, created with its label at creation.
-
-Before filing any follow-up, search for it: `bd search <words>` covers closed issues too, and a
-match gets a note (`bd note`), not a second issue. A follow-up's body carries the sections
-`bd lint --help` lists for its type.
+`human`, created with its label at creation; step 4 says how to search for it and what its body
+carries.
 
 ## 8. Report
 
@@ -131,4 +140,4 @@ Then hand the run's analysis to the `continuous-prompt-improvement` agent (`CLAU
 reviews). The review it writes lands on this branch, in this pull request; with several, in the one
 that already edits this skill, or else the last one opened.
 
-Reviewed: `docs/prompt-reviews/bead.2026-09-23.md` § Third review of 2026-09-23 (runs of 2026-09-23 on asdlc-openspec-v6m, pull request 3; on asdlc-openspec-bls, -44p and -4gp, pull requests 8, 10 and 11; and on asdlc-openspec-u77, -f60, -iko, -is0 and -qxz, pull requests 4, 5, 6 and 9).
+Reviewed: `docs/prompt-reviews/bead.2026-09-23.md` § Fourth review of 2026-09-23 (runs of 2026-09-23 on asdlc-openspec-v6m, pull request 3; on asdlc-openspec-bls, -44p and -4gp, pull requests 8, 10 and 11; on asdlc-openspec-u77, -f60, -iko, -is0 and -qxz, pull requests 4, 5, 6 and 9; and on asdlc-openspec-npe, pull request 7).
