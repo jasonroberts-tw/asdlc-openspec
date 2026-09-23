@@ -69,6 +69,11 @@ jobs:
         run: npm run check:register
       - name: the register gate, negative-tested
         run: npm run check:register:selftest
+      # Seconds: the pinned OpenSpec CLI, one start per run plus one per active change; no network.
+      - name: every living spec and active change is valid, and every change applies
+        run: npm run openspec:check
+      - name: the OpenSpec gate, negative-tested
+        run: npm run openspec:selftest
       #
       # DELIBERATELY ABSENT, each with its reason. Add to this list rather than deleting from it:
       #   * the tracker's checks: they read the tracker's database, which a fresh clone does not have.

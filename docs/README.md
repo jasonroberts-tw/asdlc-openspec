@@ -24,6 +24,7 @@ enforces it, and a document points at that home rather than restating it.
 | `AGENTS.md` | The pointer for a harness that reads that name: it sends the reader to `CLAUDE.md` and holds no rule of its own. |
 | `README.md` | Setup, numbered per platform, and the table of what runs automatically. |
 | `count-index.md` | Every count describing the current measured state, under a key, with the source each value re-derives from. |
+| `openspec/README.md` | The product's requirements: the living spec of each capability, the changes in flight, the archive, and which of them wins. |
 | `.claude/README.md` | What the harness loads when a session starts here: the settings, the hooks, the skills and the agents. |
 
 ## Conventions
