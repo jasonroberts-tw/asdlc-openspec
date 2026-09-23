@@ -87,7 +87,7 @@ the rule. The third column wins over the first two.
 | A figure restated from memory that has since moved | `counts:check` re-derives every keyed count from its source | `count-index.md` § How to use it |
 | A pointer to a file or a section that is gone | `citations:check`, over every tracked text file | `CLAUDE.md` § Citations |
 | A recorded decision argued again, or a register whose summary drifts from its entries | `check:register` | `CLAUDE.md` § Decisions live in the register |
-| Work tracked in a checklist or a status table, or an issue that does not say where its work lands | `beads:check`, and the rule that status lives only in `bd` | `CLAUDE.md` § The task store |
+| Work tracked in a checklist or a status table, or an issue that does not say where its work lands | The issue: `beads:check`, at push, refuses an open issue with no `repo:` label. The checklist or status table: review alone, because no gate scans a file for one | `CLAUDE.md` § The task store |
 | A generated artifact left stale after its input moved | `pipeline:check` and `pipeline:stale:check` | `docs/pipeline.md` § The two gates |
 | A program that rewrites its own instructions from what it observed | `outcomes:propose` only files issues; a person promotes one by editing the source | `CLAUDE.md` § A program proposes; only a person promotes |
 | A chained shell command whose failing step cannot be told apart, or a workaround for a refused command | Convention, and a `RUN THESE YOURSELF` block at the end of the agent's report | `CLAUDE.md` § Bash command style |
