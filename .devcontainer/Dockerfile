@@ -19,8 +19,11 @@ FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 # 22 LTS, matching .github/workflows/verify.yml. Development happens on 26 and nothing in this
 # toolchain is version-sensitive, so the container matches CI rather than any one desk.
 ARG NODE_MAJOR=22
-# Matches .beads/.local_version.
-ARG BD_VERSION=1.2.2
+# The version of the bd that owns the tracker's database, so the container never runs an older client
+# against a newer schema. Re-derive it from `bd version` on the maintainer's machine, or from
+# .beads/.local_version there: bd writes that file itself and it is gitignored, so a fresh clone does
+# not have it. Read 1.3.0 from both on 2026-09-23.
+ARG BD_VERSION=1.3.0
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -30,10 +33,11 @@ ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
     DOTNET_NOLOGO=1 \
     DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
 
-# bd 1.2.2 sniffs terminal capability by writing OSC 11 to the tty and exiting without reading the
-# reply; the terminal's answer lands in the shell's input queue and is executed as if typed
-# (`11: command not found`). NO_COLOR makes it skip the probe entirely. Same reason as the NO_COLOR
-# on every bd job in lefthook.yml -- CI=1 and BD_NO_COLOR=1 do not work.
+# Observed on bd 1.2.2, and not re-measured since the pin moved to 1.3.0: bd sniffs terminal
+# capability by writing OSC 11 to the tty and exiting without reading the reply; the terminal's answer
+# lands in the shell's input queue and is executed as if typed (`11: command not found`). NO_COLOR
+# makes it skip the probe entirely. Same reason as the NO_COLOR on every bd job in lefthook.yml --
+# CI=1 and BD_NO_COLOR=1 do not work.
 ENV NO_COLOR=1
 
 # --- base packages ------------------------------------------------------------------------------
