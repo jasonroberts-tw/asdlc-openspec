@@ -5,13 +5,13 @@
  * THE DEFECT THIS PREVENTS: two unrelated ways to get a worktree in one repository. What the harness
  * tool and the script disagree about, after the script was moved to the tool's own location:
  *
- *   |            | new-worktree.sh              | EnterWorktree, unhooked           |
- *   |------------|------------------------------|-----------------------------------|
- *   | location   | .claude/worktrees/<name>     | .claude/worktrees/<name> -- AGREE |
- *   | base       | origin/main, the real trunk   | origin/<default branch> = main    |
- *   | branch     | agent/<name>                 | worktree-<name>                   |
- *   | ports      | probed, written to ports.env | none; every agent binds the same  |
- *   | briefing   | .worktree/CONTEXT.md         | none; CLAUDE.md's @-import is dead|
+ *   |            | new-worktree.sh              | EnterWorktree, unhooked                  |
+ *   |------------|------------------------------|------------------------------------------|
+ *   | location   | .claude/worktrees/<name>     | .claude/worktrees/<name> -- AGREE        |
+ *   | base       | origin/main, fetched first   | worktree.baseRef: origin/<default>, HEAD |
+ *   | branch     | agent/<name>                 | worktree-<name>                          |
+ *   | ports      | probed, written to ports.env | none; every agent binds the same         |
+ *   | briefing   | .worktree/CONTEXT.md         | none; CLAUDE.md's @-import is dead       |
  *
  * LOCATION USED TO BE THE FIRST ROW AND IS NOW SETTLED. The script provisioned outside the working
  * tree at `../worktrees/<name>` and the tool insisted on `.claude/worktrees/<name>`, so the two
@@ -24,12 +24,13 @@
  * recognises, which it refuses for any path outside `.claude/worktrees/`, and there is no longer a
  * placement an agent can reach by accident.
  *
- * The base is now the whole argument for this hook, and it was always the worse half. CLAUDE.md is
- * emphatic that `main` is the trunk and that "tooling that guesses a trunk from the default branch is
- * guessing wrong here" -- and `worktree.baseRef` only offers `fresh` (origin/<default branch>) or
- * `head`, so no setting expresses "origin/main". A hook does. When this hook does NOT run, the
- * fallback is silent and the branch name is the only surviving evidence, which is what
- * `guard-git.mjs` keys its unprovisioned-worktree tripwire on.
+ * What is left is the base, the branch and the briefing, and the base is why no setting will do.
+ * CLAUDE.md § Git workflow cuts agent work from `origin/main` by the one worktree script, and
+ * `worktree.baseRef` offers only `fresh` (origin/<default branch>) or `head`, so no setting
+ * expresses "origin/main". The default branch is a GitHub setting outside this repository: `main`
+ * when checked on 2026-09-23, and free to change without a commit here. A hook names the trunk
+ * itself. When this hook does NOT run, the fallback is silent and the branch name is the only
+ * surviving evidence, which is what `guard-git.mjs` keys its unprovisioned-worktree tripwire on.
  *
  * CONTRACT (verified against the CLI, 2.1.241). stdin is JSON:
  *   { "hook_event_name": "WorktreeCreate", "name": "<worktree name>", "cwd": ..., "session_id": ... }
