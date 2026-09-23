@@ -131,11 +131,11 @@ any error.
 - **THEN** the display shows `0`
 - **AND** when the person then presses `2`, `=`, the display shows `2`
 
-### Requirement: Division by zero
+### Requirement: Division by zero and overflow
 
-An operation that divides by zero SHALL show `Error` in the display, never a number, `Infinity` or
-`NaN`. While `Error` is shown, an operator or equals SHALL change nothing, and a digit or the decimal
-point SHALL start a new calculation.
+An operation that divides by zero, or whose result is too large to be a finite number, SHALL show
+`Error` in the display, never a number, `Infinity` or `NaN`. While `Error` is shown, an operator or
+equals SHALL change nothing, and a digit or the decimal point SHALL start a new calculation.
 
 #### Scenario: Dividing by zero shows an error
 
@@ -157,18 +157,29 @@ point SHALL start a new calculation.
 - **WHEN** a person presses `5`, `÷`, `0`, `=`, `3`, `+`, `4`, `=`
 - **THEN** the display shows `7`
 
+#### Scenario: A result too large to be a finite number shows an error
+
+- **WHEN** a person presses `9` ten times, then thirty times presses `×` followed by `9` ten times, then presses `=`
+- **THEN** the display shows `Error`
+
 ### Requirement: Results are rounded for display
 
 A result SHALL be shown rounded to at most ten significant digits, with any trailing zeros after the
 decimal point, and a decimal point left trailing, removed, so that the error of binary
 floating-point arithmetic does not reach the display. A result whose magnitude is at least 10^10, or
 that is not zero and below 10^-6, SHALL be shown in exponent notation, its mantissa rounded and
-trimmed the same way. A number being entered is shown as typed and is not rounded.
+trimmed the same way. A number being entered is shown as typed and is not rounded. A result carried
+into a later operation SHALL be the rounded result the display shows, not the unrounded one.
 
 #### Scenario: Floating-point error is not shown
 
 - **WHEN** a person presses `0`, `.`, `1`, `+`, `0`, `.`, `2`, `=`
 - **THEN** the display shows `0.3`
+
+#### Scenario: A chain carries the rounded result
+
+- **WHEN** a person presses `0`, `.`, `1`, `+`, `0`, `.`, `2`, `−`, `0`, `.`, `3`, `=`
+- **THEN** the display shows `0`
 
 #### Scenario: A repeating result is cut to ten significant digits
 
