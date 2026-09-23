@@ -9,7 +9,8 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 The argument is one issue id, several, or nothing (then take the top of
 `bd ready --exclude-label spec-change`: a product change's tasks are worked in its own worktree by
-`change-build`, `docs/decisions.md` § D-02). Every tracker
+`change-build`, `docs/decisions.md` § D-02, and the label is `specChangeLabel` in
+`tools/policy.json`). Every tracker
 write below sits inside the bracket `CLAUDE.md` § The task store describes: pull before the first
 write (`bd dolt pull`), push after the last (`bd dolt push`), and report a rejected push rather
 than forcing it.

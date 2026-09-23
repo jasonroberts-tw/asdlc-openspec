@@ -152,13 +152,16 @@ pre-push:
         - 'scripts/check-register-status.mjs'
       run: node --run check:register:selftest
     # Every living spec and active change under `openspec/` validated strictly by the pinned CLI,
-    # every active change trial-archived into a scratch copy, and no retired `openspec-*` skill. The
-    # lockfile is in the glob because a new CLI version can change the verdict. One CLI start per run
-    # plus one per active change; measured at 0.6 s with no active change, on the author's macOS host.
+    # every active change trial-archived into a scratch copy, no retired `openspec-*` skill, and every
+    # skill and agent that spells the change label held to `tools/policy.json`. The lockfile is in the
+    # glob because a new CLI version can change the verdict. One CLI start per run plus one per active
+    # change; measured at 0.6 s with no active change, on the author's macOS host.
     - name: openspec
       glob:
         - 'openspec/**'
         - '.claude/skills/**'
+        - '.claude/agents/**'
+        - 'tools/policy.json'
         - 'scripts/check-openspec.mjs'
         - 'scripts/lib/bin-path.mjs'
         - 'package.json'
@@ -184,10 +187,12 @@ pre-push:
         - 'scripts/check-count-index.mjs'
       run: node --run counts:selftest
     # The run-outcome record's validator and writer, negative-tested against the committed fixtures
-    # (one per terminal path), and the schema's intervention enum held to the policy file's list.
+    # (one per terminal path), and the schema's intervention enum held to the policy file's list
+    # where that file declares one.
     - name: outcomes-record-selftest
       glob:
         - 'tools/outcomes/**'
+        - 'tools/policy.json'
         - 'tools/outcomes/run-outcome.schema.json'
         - 'tools/outcomes/fixtures/**'
       run: node --run outcomes:record:selftest
