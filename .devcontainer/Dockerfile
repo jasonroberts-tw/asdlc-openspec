@@ -11,13 +11,15 @@
 # Those live in entrypoint.sh, which this file copies in and wires to ENTRYPOINT -- so the setup is
 # still owned by the image, and devcontainer.json still has no lifecycle command in it.
 #
-# Versions are the ARGs below, and they are the ones README.md and CI already name. Bump them here
-# when you bump them there.
+# Versions are the ARGs below, and the comment above each one says where it is re-derived from.
+# Bump one here when its source moves.
 
 FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 
-# 22 LTS, matching .github/workflows/verify.yml. Development happens on 26 and nothing in this
-# toolchain is version-sensitive, so the container matches CI rather than any one desk.
+# 22, the major of the floor package.json `engines` sets (>=22.18), which README.md restates. CI
+# does not pin a major: .github/workflows/verify.yml reads that same range, and setup-node took
+# 24.21.0 for it on 2026-09-23. The container runs the floor, so code that needs anything newer
+# than the repository claims to support fails here first.
 ARG NODE_MAJOR=22
 # The version of the bd that owns the tracker's database, so the container never runs an older client
 # against a newer schema. Re-derive it from `bd version` on the maintainer's machine, or from
@@ -63,8 +65,8 @@ RUN curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - \
     && npm -v
 
 # --- GitHub CLI ---------------------------------------------------------------------------------
-# Every pull request here is `gh pr create --base dev` (CLAUDE.md), and in a linked worktree a pull
-# request is the only route to trunk.
+# Every pull request here is `gh pr create --base main` (CLAUDE.md § Git workflow), and in a linked
+# worktree a pull request is the only route to trunk.
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
         -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
     && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
