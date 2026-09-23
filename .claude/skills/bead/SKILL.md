@@ -5,17 +5,14 @@ description: Work one or more issues from the task store end to end - verify the
 
 Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
 
-<!-- kit 1.10-1 · ADAPT: this is the spine only. Add, under the step it belongs to, what your
-     repository needs that the spine cannot know: the toolchain a change must build with, the
-     artifacts a change must regenerate, the gates that are yours. Delete this comment when done. -->
-
 # Work an issue
 
 The argument is one issue id, several, or nothing (then take the top of
 `bd ready --exclude-label spec-change`: a product change's tasks are worked in its own worktree by
 `change-build`, `docs/decisions.md` § D-02). Every tracker
 write below sits inside the bracket `CLAUDE.md` § The task store describes: pull before the first
-write, push after the last, and report a rejected push rather than forcing it.
+write (`bd dolt pull`), push after the last (`bd dolt push`), and report a rejected push rather
+than forcing it.
 
 ## 1. Verify the premise before any work
 
@@ -32,7 +29,9 @@ here: it seeds a change, and `change-propose` takes it.
 What happens next depends on who is listening:
 
 - **With a live user:** when the premise does not hold, show the evidence and stop. The user decides
-  whether the issue closes, changes or stands.
+  whether the issue closes, changes or stands. When it changes, record that in the issue before any
+  work: rewrite its title and description, with a dated section naming what was dropped and why so
+  it is never re-filed, and file any part split out as its own issue.
 - **In an autonomous session:** write the evidence into the issue as a note, leave the issue open,
   and move to the next one. Never close an issue on your own reading of its premise.
 
@@ -44,15 +43,23 @@ Claim only what this session will finish.
 
 ## 3. Claim, then work in a worktree
 
-Claim the issue in the tracker. Make the worktree with the one worktree script, never natively, and
-run `npm ci` first inside it. Read `.worktree/CONTEXT.md` there: it names the branch, the base and
-the rules of a shared repository.
+Claim the issue in the tracker (`bd update <id> --claim`). Make the worktree with the one worktree
+script, never natively: `EnterWorktree`, whose hook runs `scripts/new-worktree.sh`. Run `npm ci`
+first inside it. Read `.worktree/CONTEXT.md` there: it names the branch, the base and the rules of a
+shared repository. Tracker writes that carry a body, such as step 1's re-scoping, are made from
+here, with the body file under this worktree's `.scratch/`.
 
 ## 4. Implement, regenerate, gate
 
 Make the change. Regenerate every derived artifact the change touches, with its emitter, never by
-hand. Run `npm run gates`: the forced full suite, never the bare hook runner. A red gate is fixed
-or reported, never bypassed.
+hand, and only after the last edit to the emitter or its inputs: an emitter's own source is one of
+its inputs, so even a comment edit stales its output. `npm run pipeline:stale` names each stale
+node and the command that rebuilds it; `npm run outcomes:check` covers the learning loop's tree. A
+first run that stamps an output which had none makes `pipeline:stale:check` bind it from then on
+(`docs/pipeline.md` § The two gates): say so in the pull request.
+
+Run `npm run gates`: the forced full suite, never the bare hook runner, and the build check here.
+Run no script name `package.json` does not list. A red gate is fixed or reported, never bypassed.
 
 ## 5. Rebase and gate again
 
@@ -62,8 +69,9 @@ the second proves it against what landed meanwhile.
 ## 6. Open the pull request and watch its checks
 
 Push the branch and open the pull request with its base named explicitly (`main`), its body passed
-from a file under `.scratch/`. Poll the checks in the background and never end the turn while
-they run. A failing check is read, fixed on the same branch and pushed again.
+from a file under `.scratch/`. Watch the checks with one `gh pr checks <number> --watch` in the
+background, and no second watcher; never end the turn while it runs. A failing check is read, fixed
+on the same branch and pushed again.
 
 ## 7. Close on green, with a reason
 
@@ -76,3 +84,8 @@ criterion that acts outside the repository is not performed: it becomes a follow
 One short report: what was verified in step 1 and where, what changed, what was regenerated, both
 gate runs as measured, the pull request, the issue's final state, every follow-up filed, and a
 `RUN THESE YOURSELF` block for any command that was refused (`CLAUDE.md` § Guards).
+
+Then hand the run's analysis to the `continuous-prompt-improvement` agent (`CLAUDE.md` § Prompt
+reviews). The review it writes lands on this branch, in this pull request.
+
+Reviewed: `docs/prompt-reviews/bead.2026-09-23.md` § Review of 2026-09-23 (run of 2026-09-23 on asdlc-openspec-v6m, pull request 3).
