@@ -1,20 +1,6 @@
+# The OpenSpec CLI's project configuration. It names the schema the CLI parses changes and specs
+# with, and nothing else: this repository uses the CLI for `openspec validate` and `openspec archive`
+# only, and never asks it for instructions, so `context:` and `rules:` would reach no one. The rules
+# for writing a proposal, a delta spec or a design live in the `change-*` skills under
+# `.claude/skills/`, and the decision is `docs/decisions.md` § D-02.
 schema: spec-driven
-
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
-
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours

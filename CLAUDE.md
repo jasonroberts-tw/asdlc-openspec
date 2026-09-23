@@ -74,6 +74,14 @@ bracketed: pull before the first write and push after the last, and a rejected p
 with its exact command and error, never forced. Long descriptions and notes go in by file. Every
 open issue carries a label naming where its work lands.
 
+## Product work runs as OpenSpec-format changes
+
+A change to what the product does, stated as requirements, runs through the `change-*` skills in
+order: `change-propose`, `change-design`, `change-plan`, `change-build`, `change-verify`,
+`change-finalize`. One change is one worktree, one pull request and one `bd` epic whose tasks are its
+children; the shape and its reasons are `docs/decisions.md` § D-02. Never track a change's tasks in a
+`tasks.md`, and never run `openspec init` or `openspec update` here.
+
 ## Decisions live in the register
 
 `docs/decisions.md` holds the numbered decisions (`D-NN`) and risks (`R-NN`) that no agent
@@ -189,7 +197,8 @@ worktree. Rebase onto `origin/main` rather than merging the trunk into a branch,
 
 After a prompt is executed from a file, an analysis of the run goes to the
 `continuous-prompt-improvement` agent, and a retained review lands at
-`docs/prompt-reviews/<prompt-basename>.<run-date>.md`, never beside the prompt. A second review of
+`docs/prompt-reviews/<prompt-basename>.<run-date>.md`, never beside the prompt; a skill's file is
+always `SKILL.md`, so its basename is its directory's name. A second review of
 the same prompt is appended to its file under a dated heading, so the prompt keeps one live
 `Reviewed:` citation: every substantial prompt ends in a `Reviewed:` line citing its review file
 once its first review exists, and carries none until then. A review is not obsolete once applied: it is the evidence for why the prompt

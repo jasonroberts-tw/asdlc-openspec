@@ -25,13 +25,17 @@
     "pipeline:stale:check": "node tools/pipeline/stale.ts --check",
     "check:register": "node scripts/check-register-status.mjs",
     "check:register:selftest": "node scripts/check-register-status.mjs --selftest",
+    "openspec:check": "node scripts/check-openspec.mjs",
+    "openspec:selftest": "node scripts/check-openspec.mjs --selftest",
     "gates": "lefthook run pre-push --force"
   },
   "devDependencies": {
+    "@fission-ai/openspec": "1.6.0",
     "js-yaml": "^5.3.0",
     "lefthook": "2.1.12"
   },
   "allowScripts": {
-    "lefthook@2.1.12": true
+    "lefthook@2.1.12": true,
+    "@fission-ai/openspec": false
   }
 }

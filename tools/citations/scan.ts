@@ -101,7 +101,7 @@ const SCANNED_EXTENSIONS = /\.(ts|tsx|js|mjs|cjs|md|json|ya?ml|cs|sql)$/
  * Spelling `docs/retired/verify-layout.md:96` is fine and stays fine. That citation is honest about
  * where it points, which is all this asks for.
  */
-export const RETIRED_ROOTS = ['docs/retired/', 'history/'] as const
+export const RETIRED_ROOTS = ['docs/retired/', 'history/', 'openspec/changes/archive/'] as const
 
 /** Whether `path` is a retired or historical document. */
 export const isRetired = (path: string): boolean => RETIRED_ROOTS.some((r) => path.startsWith(r))
@@ -144,6 +144,14 @@ export const HISTORY: ReadonlyArray<{ path: string; why: string }> = [
   {
     path: 'tools/citations/',
     why: 'This gate and its selftest. Both quote the citations they exist to catch.',
+  },
+  {
+    path: 'openspec/changes/archive/',
+    why:
+      'An archived OpenSpec change records what the change proposed, on the day it was archived' +
+      ' (`docs/decisions.md` § D-02). Its citations name the living spec as it stood then; the' +
+      ' living spec moves on with every later change, and repointing an archived proposal would' +
+      ' rewrite the record of what was decided.',
   },
   // ADD YOUR OWN ENTRIES HERE, one at a time, each with its reason: a retest log that quotes the
   // defective citations it records, the working behind a decision whose subject was deleted, an

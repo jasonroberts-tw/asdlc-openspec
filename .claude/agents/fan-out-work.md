@@ -21,8 +21,9 @@ is red, stop and report the failing gate; do not dispatch.
 
 ## 2. Partition the ready work into lanes
 
-Read the queue (`bd ready`) and, for every pair of issues, decide the overlap by reading the files
-each will touch, not the titles:
+Read the queue (`bd ready --exclude-label spec-change`: a product change's tasks are worked in its
+own worktree by `change-build`, `docs/decisions.md` § D-02) and, for every pair of issues, decide
+the overlap by reading the files each will touch, not the titles:
 
 | Overlap kind | What it looks like | What to do |
 |---|---|---|

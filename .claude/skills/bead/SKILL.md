@@ -11,7 +11,9 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 # Work an issue
 
-The argument is one issue id, several, or nothing (then take the top of `bd ready`). Every tracker
+The argument is one issue id, several, or nothing (then take the top of
+`bd ready --exclude-label spec-change`: a product change's tasks are worked in its own worktree by
+`change-build`, `docs/decisions.md` § D-02). Every tracker
 write below sits inside the bracket `CLAUDE.md` § The task store describes: pull before the first
 write, push after the last, and report a rejected push rather than forcing it.
 
@@ -23,6 +25,9 @@ which of three things is true, citing file and line for each claim:
 - **still valid**: the defect or the gap is there, as described;
 - **already fixed**: name the commit or the pull request that fixed it;
 - **obsolete**: what it asks for no longer applies, and why.
+
+An issue that asks for a change to what the product does, stated as requirements, is not worked
+here: it seeds a change, and `change-propose` takes it.
 
 What happens next depends on who is listening:
 
