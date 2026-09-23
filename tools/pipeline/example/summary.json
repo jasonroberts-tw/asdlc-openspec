@@ -11,5 +11,14 @@
     "reports",
     "sign-in"
   ],
+  "provenance": {
+    "generatedAtUtc": "2026-09-23T14:21:31Z",
+    "generatorDigest": "sha256:8ef7c2e10b58649a54078a8da7b31fa6ef7246a93aea2a4f997a42800d5314c0",
+    "inputs": {
+      "example entries": "sha256:8da0ede9352d64148dbb61fd380b07fd7f893cf4c9d4e5584da5ffea1d01ae9e"
+    },
+    "inputsDigest": "sha256:6ab365ed6c5d825c9ab0e365697c5673fcd65fb8a2bd027c779263b60f7953c1",
+    "node": "X-EXAMPLE"
+  },
   "total": 4
 }
