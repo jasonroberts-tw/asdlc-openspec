@@ -344,3 +344,125 @@ None: this is the skill's first review, and it carried no `Reviewed:` trailer be
 - That node strips types in every `.ts` file the gates run. What was checked: no `tsconfig.json`,
   no TypeScript package in `package-lock.json`, and every `.ts` script in `package.json` run with
   `node`.
+
+## Third review of 2026-09-23
+
+### How this review merged with the second
+
+This review was written in parallel with the second, against the same prompt at commit `fad7da8`,
+and landed after it. The two gave different fixes for the same gap. For several lanes, the second
+works the branches one after another, leaving each with `ExitWorktree` (action `keep`), and sends a
+sweep to `fan-out-work`. It also lists sending lanes out by default under *Deliberately not
+changed*. This review's finding 1 sends each lane after the first to an agent launched with
+`isolation: "worktree"`. The second landed first, so the skill keeps its steps 2, 3 and 8. From this
+review, the skill takes only what the second did not cover:
+
+- **Step 2 (finding 2):** two issues describing one defect are one lane.
+- **Step 7 (findings 2 and 3):** search before filing a follow-up, and give it the sections
+  `bd lint --help` lists for its type.
+
+The fixes proposed for finding 1 (lanes to isolated agents) and finding 5 (where the review lands)
+are **not applied**. The findings stay below as the evidence of this run.
+
+### The prompt and the run reviewed
+
+- **Prompt:** `.claude/skills/bead/SKILL.md` as it stood at commit `fad7da8`, with the changes of
+  § Review of 2026-09-23 applied.
+- **Run:** 2026-09-23, a background session with no visible user. The user said "Fix all the ready
+  bugs"; `bd ready --type bug` listed `asdlc-openspec-u77`, `-f60`, `-iko`, `-is0` and `-qxz`, and
+  the skill was invoked with all five.
+- **Output:** four pull requests, open against `main` (`gh pr list --state all`, read 2026-09-23):
+  4 on `agent/stop-hook-docs` (iko and qxz), 5 (is0), 6 (u77) and 9 (f60), the last three on
+  `agent/agent-<hex>` branches. `verify` passed on each, in 31s, 20s, 20s and 26s (`gh pr checks 4`,
+  `5`, `6` and `9`).
+- **Tracker:** all five closed with a reason naming their pull request (`bd show` on each). Two
+  follow-ups: `asdlc-openspec-80c` (bug, open, one note appended) and `asdlc-openspec-zp0` (task,
+  labelled `human`).
+- **Input:** the session's own analysis of the run, passed with this review's request. It is an
+  input, not a verdict.
+
+### What the first review's changes did in this run
+
+- **Finding 4 (claim first, name `EnterWorktree`):** the claim held; all five were claimed in one
+  bracket before any worktree existed. `EnterWorktree` served the first lane only, which is where
+  finding 1 below starts.
+- **Finding 5 (the bracket commands spelled):** every tracker push succeeded first try, and the
+  analysis reports no command found by trial.
+- **Finding 8 (`npm run gates` is the build check):** held. No typecheck was attempted.
+- **Finding 10 (the review lands on this branch):** held, on pull request 4; with four pull requests,
+  "this branch" named none of them, finding 5 below.
+- **Findings 3, 6, 7 and 9:** not exercised or not reported. Finding 3 applies to a live user and
+  there was none; the analysis records no regeneration and does not say how the checks were watched.
+
+### What the run cost that the prompt did not prevent
+
+1. **A second lane had no route.** Step 2 partitions several issues into branches; step 3 makes "the
+   worktree" with `EnterWorktree`, whose own description refuses a new worktree while the session is
+   in one, and `ExitWorktree`'s description says to call it only when the user asks. The session
+   forked one agent per remaining lane with `isolation: "worktree"`, and kept every `bd` write in
+   the parent, so no two sessions pushed Dolt at once; the analysis says that choice was its own,
+   not the skill's. **Fix,** in step 3: the lanes after the first go to agents launched with
+   `isolation: "worktree"`, briefed with the three rules of `.claude/agents/fan-out-work.md` § 4.
+   One fresh agent per lane and barred from `bd` writes, and this session makes every tracker write.
+2. **Two issues describing one defect, with conflicting criteria, and the earlier run filed the
+   second.** `asdlc-openspec-iko` was created at 2026-09-23T12:16:37Z; `asdlc-openspec-qxz` at
+   14:25:13Z, by the `asdlc-openspec-v6m` run this file's first review covers (its description:
+   "Found 2026-09-23 while working asdlc-openspec-v6m"). `bd search "Stop hook" --created-before
+   2026-09-23T14:25:00Z` returns iko alone, so one search before filing would have found it. iko
+   allows the briefing to "name no script and point at the hook"; qxz requires the template to name
+   the gates. The first review declined a filing rule for want of a second run; this is that run.
+   **Fix,** in step 7: search before filing, and a match gets a note, not a second issue. In step 2:
+   duplicates are one lane, and a conflict between their criteria is recorded in the pull-request
+   body and both close reasons.
+3. **A follow-up bug lacked the sections `bd` expects.** `bd create --type bug` warned of a missing
+   `## Steps to Reproduce`, costing a read, an edit and a `bd update`. `bd lint --help` lists the
+   sections per type (bug: Steps to Reproduce and Acceptance Criteria; task: Acceptance Criteria).
+   **Fix,** in step 7: a follow-up's body carries the sections `bd lint --help` lists for its type.
+4. **A search string missed.** `grep "Stop hook"` found nothing, because the template writes
+   `` `Stop` hook `` (`.claude/worktree-CONTEXT.md.tmpl` line 46). It is step 1's "a title is not
+   evidence" applied to a search string, not a gap in the skill. **Not changed.**
+5. **Where the review lands, with several pull requests.** Step 8 says "this branch, in this pull
+   request". **Fix,** in step 8: the branch of the lane this session worked, in its pull request.
+
+### Corrections to the run's own analysis
+
+- **Step 1's rewrite rule did not apply.** The analysis faults itself for not rewriting qxz's
+  criteria first. That rule sits under step 1's live-user bullet, and the session had no live user;
+  both premises held, so the autonomous bullet (a note, the issue left open) did not apply either.
+  The skill had no rule for duplicates at all, which is finding 2.
+- **The deviation is in the pull-request body, not the close reasons.** Pull request 4's body says
+  "This deviates from qxz's acceptance criterion" and why (`gh pr view 4`). The close reasons of iko
+  and qxz are identical and state what the briefing now does, not that a criterion was departed from
+  (`bd show asdlc-openspec-qxz`). Finding 2's fix asks for both. The session added the deviation to
+  qxz as a note after this review.
+- **`fan-out-work` does not match what the run did.** The analysis says the skill names neither it
+  nor subagent lanes, which is true. But `.claude/agents/fan-out-work.md` § 5. Integrate on your own
+  branch merges every lane into one dispatcher branch and one pull request, where this run opened
+  four, and its § 4 briefs each lane to follow this skill, which makes a lane claim and close its own
+  issues, against the central tracker writes this run used and finding 1 adopts.
+- **The briefing fix is not on `main` yet.** The analysis says lane A fixed the briefing line that
+  invited the typecheck attempt. It did, on `agent/stop-hook-docs`
+  (`.claude/worktree-CONTEXT.md.tmpl` line 46 now points at `GATES`), and it reaches other worktrees
+  only when pull request 4 merges.
+
+### Deliberately not changed
+
+- **One integrated pull request or one per lane.** `fan-out-work` produces the first and this run
+  the second. Which the user wants is theirs to say; finding 1 routes the lanes and leaves that open.
+- **`fan-out-work`'s lane brief.** Its § 4 conflicts with finding 1's central tracker writes; this
+  review writes only the skill and this file, and no issue is filed for it yet.
+- **Descriptive lane branch names.** The forks' `agent/agent-<hex>` branches meet `CLAUDE.md` § Git
+  workflow's `agent/<name>`; a descriptive name is cosmetic.
+- **`bd duplicate` at closure.** Closing both issues with the reason naming pull request 4 is
+  truthful and links them; finding 2's search stops the duplicate at the source.
+- **Narration.** The harness nudged once during step 1, in a background job with no visible user;
+  nothing measured came of it.
+
+### What this review could not verify
+
+- The session's own steps: the `bd create` warning and the calls it cost, the missed `grep`, the
+  harness's nudge, and the gate counts of lanes B, C and D (18/18, 18/18, 19/19). Lane A's 18/18
+  before and after the rebase is in pull request 4's body. No transcript was available.
+- Whether an agent launched with `isolation: "worktree"` can be given a descriptive worktree name.
+- The review agent was itself launched isolated in its own worktree, and its edits to this one were
+  refused; the session applied them as the agent returned them, with one wording change to step 3.

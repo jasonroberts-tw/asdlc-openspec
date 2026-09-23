@@ -54,7 +54,9 @@ by the overlap kinds in `.claude/agents/fan-out-work.md` § 2. Partition the rea
 read from the files each issue will touch, not from its title. Two issues that rewrite the same
 lines share a branch. Two branches that each add a row beside the same anchor, such as neighbouring
 rows of a README table or jobs in `lefthook.yml`, stay separate and conflict when the second merges;
-step 6 finds that. Claim only what this session will finish.
+step 6 finds that. Two issues that describe one defect are one lane; where their acceptance criteria
+conflict, the choice and its reason go in the pull-request body and in both close reasons. Claim
+only what this session will finish.
 
 Separate branches are worked one after another, never interleaved. Take one through step 6, its
 watcher running in the background, then leave its worktree with `ExitWorktree` (action `keep`) and
@@ -115,6 +117,10 @@ When every check is green, close the issue with a reason that names the pull req
 criterion that acts outside the repository is not performed: it becomes a follow-up issue labelled
 `human`, created with its label at creation.
 
+Before filing any follow-up, search for it: `bd search <words>` covers closed issues too, and a
+match gets a note (`bd note`), not a second issue. A follow-up's body carries the sections
+`bd lint --help` lists for its type.
+
 ## 8. Report
 
 One short report: what was verified in step 1 and where, what changed, what was regenerated, both
@@ -125,4 +131,4 @@ Then hand the run's analysis to the `continuous-prompt-improvement` agent (`CLAU
 reviews). The review it writes lands on this branch, in this pull request; with several, in the one
 that already edits this skill, or else the last one opened.
 
-Reviewed: `docs/prompt-reviews/bead.2026-09-23.md` § Second review of 2026-09-23 (runs of 2026-09-23 on asdlc-openspec-v6m, pull request 3, and on asdlc-openspec-bls, -44p and -4gp, pull requests 8, 10 and 11).
+Reviewed: `docs/prompt-reviews/bead.2026-09-23.md` § Third review of 2026-09-23 (runs of 2026-09-23 on asdlc-openspec-v6m, pull request 3; on asdlc-openspec-bls, -44p and -4gp, pull requests 8, 10 and 11; and on asdlc-openspec-u77, -f60, -iko, -is0 and -qxz, pull requests 4, 5, 6 and 9).
