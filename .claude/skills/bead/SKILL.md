@@ -140,4 +140,4 @@ Then hand the run's analysis to the `continuous-prompt-improvement` agent (`CLAU
 reviews). The review it writes lands on this branch, in this pull request; with several, in the one
 that already edits this skill, or else the last one opened.
 
-Reviewed: `docs/prompt-reviews/bead.2026-09-23.md` § Fourth review of 2026-09-23 (runs of 2026-09-23 on asdlc-openspec-v6m, pull request 3; on asdlc-openspec-bls, -44p and -4gp, pull requests 8, 10 and 11; on asdlc-openspec-u77, -f60, -iko, -is0 and -qxz, pull requests 4, 5, 6 and 9; and on asdlc-openspec-npe, pull request 7).
+Reviewed: `docs/prompt-reviews/bead.2026-09-23.md` § Fifth review of 2026-09-23 (runs of 2026-09-23 on asdlc-openspec-v6m, pull request 3; on asdlc-openspec-bls, -44p and -4gp, pull requests 8, 10 and 11; on asdlc-openspec-u77, -f60, -iko, -is0 and -qxz, pull requests 4, 5, 6 and 9; on asdlc-openspec-npe, pull request 7; and on asdlc-openspec-1i1, -iy4 and -80c, pull requests 12, 14 and 15).

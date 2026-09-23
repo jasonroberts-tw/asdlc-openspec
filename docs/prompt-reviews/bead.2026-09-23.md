@@ -686,3 +686,227 @@ review's; the pointers at the end of a line are to this review's findings below.
   branch's position was checked.
 - That `bd list --all --desc-contains` stays under its default limit of 50 rows for a common word.
   No phrase tested here came near it.
+
+## Fifth review of 2026-09-23
+
+### How this review relates to the fourth
+
+The fourth review of 2026-09-23 is pull request 13's (`agent/agent-a3687add2dda1f30c`). It was
+open and unmerged when this review was drafted, and it merged at 17:55Z the same day, before this
+review was committed (`gh pr list --state all`). In the skill it rewrites step 4, trims step 7's
+sentence on follow-ups and changes the `Reviewed:` line. This review was drafted against `053e51c`,
+where the fourth did not exist yet, and edits neither step. A finding here that belongs in one of
+them is recorded as proposed, not applied, and points at pull request 13. Both reviews appended
+after the same last line of this file, and the conflict was resolved by keeping both, the fourth
+first. The `Reviewed:` line moves to this review in the same pull request.
+
+### The prompt and the run reviewed
+
+- **Prompt:** `.claude/skills/bead/SKILL.md` as it stood at `053e51c`, with the changes of the first,
+  second and third reviews applied and the fourth's not.
+- **Run:** 2026-09-23, with a live user. The request was "Fix asdlc-openspec-1i1 and
+  asdlc-openspec-iy4", and "Also fix asdlc-openspec-80c" was added mid-run. All three are about prose
+  copied in from the kit's source repository that is untrue here. The session worked three lanes,
+  one after another.
+- **Output:** three pull requests against `main`, all rebase-merged between 17:55Z and 17:56Z on
+  2026-09-23, before this review was committed (`gh pr list --state all`).
+  - `1i1`: pull request 12, `agent/asdlc-openspec-1i1-pipeline-names`, commit `f3f5ae3`. It touches
+    `tools/pipeline/assess.ts`, `check.ts`, `digest.ts`, `provenance.ts` and
+    `example/summary.json` (`git diff --stat 053e51c agent/asdlc-openspec-1i1-pipeline-names`).
+    `verify` passed in 22s (`gh pr checks 12`). Follow-up: `asdlc-openspec-egt`.
+  - `iy4`: pull request 14, `agent/asdlc-openspec-iy4-context-trunk`, commit `855a5e0`. `verify`
+    passed in 25s (`gh pr checks 14`). Follow-ups: `asdlc-openspec-uc2` and `asdlc-openspec-pb2`.
+  - `80c`: pull request 15, `agent/asdlc-openspec-80c-devcontainer-names`, commit `a855570`.
+    `verify` passed in 26s (`gh pr checks 15`). Follow-ups: `asdlc-openspec-opg`, a P2 bug, and
+    `asdlc-openspec-pkn`.
+- **Tracker:** all three are closed, each with a reason that names its pull request. `80c` was
+  closed last, by the form finding 4 describes.
+- **Input:** the parent session's account of the run, with figures it measured in-session. No
+  transcript was available. It is an input, not a verdict.
+
+### What the earlier reviews' changes did in this run
+
+- **Sequential lanes, `ExitWorktree` then `EnterWorktree` (second review, finding 1):** held. Each
+  lane's single watcher reported back while the next lane was running, and its issue was closed
+  promptly.
+- **All claims in one bracket before the first worktree (second review, finding 1):** held, for the
+  issue added mid-run as well. The session re-partitioned into a third lane before claiming
+  anything. The skill does not cover a mid-run addition, and nothing went wrong.
+- **Regenerate after the last edit; `pipeline:stale` names the command (first review, finding 6):**
+  exercised, and it worked as written. `digest.ts` and `provenance.ts` are in `STAMP_SOURCES`
+  (`tools/pipeline/graph.ts`), so comment-only edits moved X-EXAMPLE's `generatorDigest`.
+  `npm run pipeline:stale` reported the node STALE and named `npm run pipeline:example`. Pull
+  request 12's body says so.
+- **`npm run gates` is the build check; there is no `tsc` (first review finding 8, second review
+  finding 6):** held. All six runs were 21/21, as the three pull-request bodies report.
+- **List open pull requests and test the merge; the body opens with register entries (second
+  review, findings 2 and 4):** held. Each body opens by saying whether a register entry is implied,
+  and names the other open pull requests. The test does not reach the review commit (finding 5).
+- **Search before filing (third review, finding 2):** run, with `bd search` only, which matches
+  titles (finding 3).
+- **Where the review lands (step 8):** none of the three pull requests edits this skill, so the
+  review was meant for the last one opened, 15. The review agent could not write into it
+  (finding 7), and pull request 15 merged before the session had committed the review there
+  (finding 8), so the review lands in a pull request of its own.
+
+### What the run cost that the prompt did not prevent
+
+1. **An acceptance criterion's named proof was wrong twice, and step 1 checks only the premise.**
+   - `iy4`'s criteria name `npm run worktree:selftest` as proof that a new worktree's rendered
+     briefing carries the change. `package.json` runs `scripts/hooks/worktree-hooks.selftest.mjs`
+     for it. That file names neither the template nor the renderer, nor `CONTEXT.md`: a
+     case-insensitive `grep` for `tmpl`, `render` or `CONTEXT.md` finds nothing. The session used a
+     direct render with `scripts/render-worktree-context.mjs` instead. It said so at the top of
+     pull request 14's body and filed the gap as `pb2`.
+   - `80c`'s criterion `git grep -n "npm run lint\|npm run typecheck\|base dev"` still matches seven
+     lines on pull request 15's branch, all in `scripts/lint-ratchet.mjs`, on `npm run lint:ratchet`.
+     That is a different script, which `scripts/README.md` lists as "not wired until you choose a
+     linter". The session held the search to the bare names and said so at the top of pull
+     request 15's body.
+   - Both calls were right, and both were the session's own. These are two cases of the same kind
+     in one run. The earlier reviews waited for a second case before writing a rule; this run has
+     one.
+   - **Not applied:** the permission classifier refused the skill edit in the review agent's
+     session; proposed to the maintainer, with the exact text, in the session's report. The
+     proposal, for step 1, after the paragraph on register entries: "A proof an acceptance criterion
+     names, such as a selftest or a `grep`, is checked the same way: read what it runs or matches.
+     One that cannot show the criterion, or matches what the criterion does not mean, is replaced
+     with one that can, and the pull request says so first (step 6)." In step 6, the body would
+     open with "any register entry, prerequisite or replaced proof step 1 named".
+
+2. **How far to fix inside a named issue: evidence for pull request 13's rule.**
+   - `1i1` listed specific lines. The comment blocks around them had more of the same defect: a
+     quote of `docs/pipeline.md` that the page no longer carries, a reference to
+     `scripts/check-provenance.mjs`, which does not exist, a claim that `lefthook.yml` does not
+     make, and figures measured in another repository (pull request 12's body). The session set its
+     own boundary. It left every block that holds a listed item entirely true, and filed what lay
+     outside those blocks as `egt`.
+   - `egt` lists nine passages (`bd show asdlc-openspec-egt`). Eight are in `assess.ts`, `check.ts`,
+     `digest.ts` and `provenance.ts`, all four files pull request 12 changes. The ninth is
+     `stale.ts`, which it does not change. Under pull request 13's rule, a found defect may be fixed
+     only in a file the issue already changes. By that rule the eight could have gone into pull
+     request 12, beside the `summary.json` regeneration it already made. `egt` would then hold only
+     `stale.ts`'s printed string, and would lose its criterion to regenerate.
+   - **Recorded, not applied:** the rule is pull request 13's, in step 4, and it is not
+     re-litigated here. This run is a case where a block-level boundary filed work that the
+     file-level rule allows in the branch.
+
+3. **The search before filing read titles only.** Four follow-ups were searched with `bd search`:
+   `egt`, `uc2`, `pb2` and `opg`. After reading pull request 13's body, the session ran
+   `bd list --all --desc-contains` for each, and found no duplicates. That cost a second search pass
+   per follow-up. **Recorded, not applied:** pull request 13's step 4 prescribes both searches, and
+   this run is a second case for it.
+
+4. **One close was refused twice with its reason inline, then went through by file.**
+   - The harness's worktree-isolation guard refused `bd close asdlc-openspec-80c --reason "..."`
+     twice. By the account, its message was: "this command runs bd with the text Fixed in pull
+     request 15… in a plain command, so what it runs cannot be shown not to be git. Refusing…".
+     The closes of `1i1` and `iy4` went through, from their lanes' worktrees, with reasons of
+     similar length. Under `CLAUDE.md` § Guards the inline form was not tried a third time.
+   - The cause is not known. Three things are:
+     - The refusal quotes the reason text.
+     - `bd close --help` lists `--reason-file`, which reads the reason from a file.
+     - `CLAUDE.md` § The task store puts long notes in by file, and `CLAUDE.md` § Bash command style
+       keeps long prose off the command line.
+   - The two reasons that were accepted are multi-sentence (`bd show asdlc-openspec-1i1` and `-iy4`).
+     So all three closes went against those rules, whatever the guard does.
+   - The session then closed `80c` with `bd close asdlc-openspec-80c --reason-file
+     .scratch/close-80c.txt`, once, after reading `bd close --help`, and it went through. That is
+     one case and names no cause.
+   - **Proposed, not applied, because step 7 is pull request 13's:** step 7 closes with
+     `bd close <id> --reason-file <file under .scratch/>`. The reason names the pull request and
+     leaves the detail to its body. It is what `CLAUDE.md` asks for, whatever the guard does.
+
+5. **The review commit is never merge-tested, and another session's pull request edits the same
+   file.**
+   - Step 6 tests the merge before the pull request opens. Step 8's review is committed after that.
+     Pull request 13 appends to this file and edits the skill.
+     `git merge-tree --write-tree --name-only origin/agent/agent-a3687add2dda1f30c
+     agent/asdlc-openspec-80c-devcontainer-names` reported no conflict before this review was
+     committed, because pull request 15 touched neither file until then. Once the review was
+     committed as `31ac8ba`, the same test reported `CONFLICT (content)` in this file, and in no
+     other. By then pull requests 13 and 15 had both merged, so the review was cherry-picked onto
+     `main` at `ac307b6` and the conflict resolved there.
+   - Step 8's "the one that already edits this skill" chooses among the session's own pull
+     requests. It says nothing about one from another session.
+   - **Not applied:** the permission classifier refused the skill edit in the review agent's
+     session; proposed to the maintainer, with the exact text, in the session's report. The
+     proposal, for step 6, after "a conflict this reports is": "A commit made after this test, such
+     as step 8's review, is tested the same way before it is pushed."
+
+6. **The second gate run after a no-op rebase proved nothing new.** None of the three rebases moved
+   anything: `origin/main` stayed at `053e51c` (the three pull-request bodies). The second runs
+   took 5.39 s, 6.68 s and 5.36 s. **Not applied:** `CLAUDE.md` § The gate ladder asks for the
+   second run without condition, and the skill cannot relax that. If it should change, the change
+   belongs there: skip the second run when the fetch leaves `origin/main` at the first run's base,
+   and say so. The cost is small.
+
+7. **The review agent could not write the review, for the third run in a row.**
+   - This review's agent was launched isolated in a worktree of its own. The harness refused its
+     Edit on the session's worktree ("Edit the worktree copy of this file instead of the
+     shared-checkout path"), and refused `git -C` on it.
+   - In its own worktree, the permission classifier refused two of the three skill edits
+     ("Modify Shared Resources"). The third went through, and was undone so no half-applied change
+     was left. All three go to the maintainer as proposals, with their exact text, in the session's
+     report.
+   - The third review's *What this review could not verify* records the same for its agent, and
+     pull request 13's fourth review does too, as its finding 3.
+   - **Not applied:** the fourth review sets out the two shapes, and the choice is the
+     maintainer's. The runs differ. The third run's session applied the returned edits. The
+     fourth's did not, and neither does this one's, because applying an edit the classifier refused
+     would get around the refusal. So a review agent's edit to the skill reaches it only through
+     the maintainer.
+
+8. **The pull requests merged before the review existed.** Pull requests 12, 13, 14 and 15 were
+   rebase-merged between 17:55Z and 17:56Z (`gh pr list --state all`). The review agent was still
+   running, and its text reached the session after that. Step 8's "the review it writes lands on
+   this branch, in this pull request" could not hold, and the review needed a branch and pull
+   request of its own. The fourth review records the same for pull request 7, which merged without
+   its review. **Recorded, not applied:** the fourth review's *Deliberately not changed* records the
+   proposal to review before closing (steps 7 and 8 reordered) as not applied, and why. This run is
+   a second case of a pull request merging before its review, and the choice stays the
+   maintainer's.
+
+### Outside the skill, named and filed
+
+- **`.devcontainer/Dockerfile` still carries two leftovers outside `80c`'s criteria, in a file
+  `80c` changes.** One is the `DOTNET_*` environment block, under the comment "The extractors are
+  console apps". On pull request 15's branch, `git grep -i "extractor\|dotnet"` finds these names
+  only in that file. The other is the toolchain comment's "a change once bumped every project's
+  target framework", an incident from elsewhere told as history here. `bd list --all
+  --desc-contains` found no issue for "DOTNET", "extractors" or "target framework". The session
+  filed it after this review was drafted, as `asdlc-openspec-pkn`.
+
+### Corrections to the run's own analysis
+
+- **The CI log read was pull request 12's run, not 15's.** Run 35897814860, job 107306027291, is pull
+  request 12's `verify` (`gh pr checks 12`). Its setup-node step logs "Resolved package.json as
+  >=22.18", then "Found in cache @ /opt/hostedtoolcache/node/24.21.0/x64". So the version comes from
+  the runner image's tool cache, and it can change with no commit here. Pull request 15's Dockerfile
+  comment gives the date it was read ("on 2026-09-23"), which keeps it true.
+- **The two accepted closes were not clean either.** They went through, but with their reasons
+  inline, against the by-file rule (finding 4).
+
+### Deliberately not changed
+
+- **Steps 4 and 7.** They are pull request 13's. The `Reviewed:` line is the one edit to the skill
+  in this review's pull request: it cites this section and adds the runs on asdlc-openspec-1i1,
+  -iy4 and -80c, pull requests 12, 14 and 15, as `CLAUDE.md` § Prompt reviews requires.
+- **Reading a claim about CI from a run's log rather than the workflow file.** That is step 1's rule
+  that a claim is checked against the code, applied to CI. One run is no case for a new sentence.
+- **A mid-run addition to the issue list.** The session handled it inside the existing steps.
+- **The gate-ladder repetition (finding 6).** It is `CLAUDE.md`'s rule, not this skill's.
+
+### What this review could not verify
+
+- No transcript was available. These rest on the account alone:
+  - the two refused closes and the guard's wording;
+  - that `1i1` and `iy4` were closed from their lanes' worktrees;
+  - the titles-only first search pass and the re-run;
+  - the claim bracket;
+  - when the watchers reported.
+  The gate counts and timings match the three pull-request bodies.
+- Why the inline closes were refused. The one `--reason-file` close went through, which is one case
+  and names no cause.
+- The briefing pull request 14 rendered into `.scratch/render-iy4/`, which is untracked and was not
+  read.
