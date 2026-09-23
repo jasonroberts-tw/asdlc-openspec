@@ -3,6 +3,8 @@ name: add-npm-script
 description: use this skill when adding, renaming or removing an npm script in package.json — including a new emitter, gate, check or selftest that will be run as `npm run <name>`.
 ---
 
+Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
+
 A script in `package.json` is a public name. Prompts, tool headers, `lefthook.yml`, the CI workflow
 and `README.md` all cite it as prose, and **nothing in this repository gates those citations** — a
 renamed script leaves dead `npm run` references behind that stay green forever. Treat the name and

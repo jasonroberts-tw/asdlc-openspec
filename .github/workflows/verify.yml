@@ -39,6 +39,11 @@ jobs:
         run: npm run check:jobs
       - name: the job cross-check, negative-tested
         run: npm run check:jobs:selftest
+      # Milliseconds: CLAUDE.md and the prompts.
+      - name: every skill and agent opens with the line CLAUDE.md requires
+        run: npm run check:prompts
+      - name: the prompt gate, negative-tested
+        run: npm run check:prompts:selftest
       # Milliseconds: the count index held to the committed files its own second table names.
       - name: every count in the index re-derives from its source
         run: npm run counts:check

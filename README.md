@@ -82,6 +82,7 @@ the rule. The third column wins over the first two.
 | A hand edit to generated output | `scripts/hooks/block-generated-edit.mjs` in session, `scripts/assert-not-hand-edited.mjs` at commit, and each emitter's `:check` twin at push and in CI | `CLAUDE.md` § The script suffix contract |
 | A green run that ran nothing | `npm run gates` forces the full suite; `check:jobs` refuses a gate no job runs unless it is declared, with its reason | `CLAUDE.md` § The gate ladder |
 | A gate that still passes with its guard deleted | Every gate's `:selftest`: one break per case, the refusal's reason asserted, one undoctored control | `CLAUDE.md` § Standing rules for prompts and gates |
+| A skill or agent that does not defer to `CLAUDE.md` | `check:prompts` refuses one whose first line is not the line `CLAUDE.md` requires | `CLAUDE.md` § Standing rules for prompts and gates |
 | An agent in a worktree pushing to, switching to or rewriting a protected branch | `scripts/hooks/guard-git.mjs`, and the worktree hooks that provision only through `scripts/new-worktree.sh` | `CLAUDE.md` § Git workflow |
 | A figure restated from memory that has since moved | `counts:check` re-derives every keyed count from its source | `count-index.md` § How to use it |
 | A pointer to a file or a section that is gone | `citations:check`, over every tracked text file | `CLAUDE.md` § Citations |
@@ -193,6 +194,8 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 |---|---|---|
 | `check:jobs` | Holds the hook runner's configuration, the CI workflow and `package.json` to each other: every job names a script that exists, and every script no job runs is declared with its reason. Without it a gate can be unwired and nothing says so. | pre-push + CI |
 | `check:jobs:selftest` | The job cross-check, negative-tested. | pre-push + CI |
+| `check:prompts` | Refuses a skill or agent whose first line after its frontmatter is not the sentence `CLAUDE.md` requires, read out of `CLAUDE.md` so the sentence has one home. Without it a prompt copied in or written fresh loses the line and nothing says so. | pre-push + CI |
+| `check:prompts:selftest` | The prompt gate, negative-tested against a fixture tree it builds. | pre-push + CI |
 | `check:register` | Holds the register's status line, summary table and dates to its entries, in both directions. | pre-push + CI |
 | `check:register:selftest` | The register gate, negative-tested. | pre-push + CI |
 
@@ -321,6 +324,7 @@ at its start: restart the session after changing it.
 | `git commit`, `git checkout`, `git merge`, `git push` | The tracker's own git hooks, preserved as hook-runner jobs, so installing the hook runner does not turn the tracker's git integration off. | `lefthook.yml` (`pre-commit`, `prepare-commit-msg`, `post-checkout`, `post-merge`, `pre-push`) |
 | `git push` | `beads:check` holds the open issues to the label and identifier rules. It reads the tracker's database, so it is not a `.github/workflows/verify.yml` step. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes `package.json`, `lefthook.yml`, `.github/workflows/verify.yml` or the gate | `check:jobs` and its selftest: every job names a script that exists, and every script no job runs is declared. | `lefthook.yml` (`pre-push`) |
+| `git push` that changes a skill, an agent, `CLAUDE.md` or the gate | `check:prompts`: every skill and agent opens with the line `CLAUDE.md` requires; `check:prompts:selftest` holds the gate. | `lefthook.yml` (`pre-push`) |
 | `git push` | `citations:check`: every line and section pointer in every tracked text file resolves. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes a hook or a worktree script | `worktree:selftest`: the worktree hooks and the guard, negative-tested. | `lefthook.yml` (`pre-push`) |
 | `git push` | `counts:check` re-derives every value in `count-index.md` from the source the index names for it; `counts:selftest` holds the gate to its fixtures when the gate changes. | `lefthook.yml` (`pre-push`) |

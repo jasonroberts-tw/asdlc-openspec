@@ -8,6 +8,8 @@
     "beads:check": "node scripts/check-beads.mjs",
     "check:jobs": "node scripts/check-jobs.mjs",
     "check:jobs:selftest": "node scripts/check-jobs.mjs --selftest",
+    "check:prompts": "node scripts/check-prompts.mjs",
+    "check:prompts:selftest": "node scripts/check-prompts.mjs --selftest",
     "citations:check": "node tools/citations/check.ts",
     "counts:check": "node scripts/check-count-index.mjs",
     "counts:selftest": "node scripts/check-count-index.mjs --selftest",

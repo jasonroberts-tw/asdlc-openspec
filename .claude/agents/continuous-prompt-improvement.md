@@ -7,4 +7,6 @@ effort: high
 isolation: worktree
 ---
 
+Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
+
 Make a recommendation for updating the prompt to execute more efficiently the next time it runs. Look for long running tasks, large amounts of cycles, incorrect statements and/or assumptions, contradictions, etc. Pass this recommendation to a planning agent, so that I can review the session and plan later.

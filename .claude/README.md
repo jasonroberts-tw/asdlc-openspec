@@ -6,8 +6,8 @@
 |---|---|
 | `settings.json` | Tracked. Two things and nothing else: the enabled plugins and the hook registrations, each with a `statusMessage` and an explicit `timeout` sized to the hook. |
 | `settings.local.json` | Untracked (`.gitignore`). Machine-specific permissions: the allow-list that pre-empts the permission classifier on command shapes it cannot resolve. Never a hook, never a plugin. |
-| `skills/<name>/SKILL.md` | Skills a session can invoke. Each opens with "Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it." |
-| `agents/<name>.md` | Agent definitions the harness can spawn, under the same opening line. |
+| `skills/<name>/SKILL.md` | Skills a session can invoke. Each opens, on the first line after its frontmatter, with the line `CLAUDE.md` § Standing rules for prompts and gates requires. No skill is judged too small to carry it, and `check:prompts` refuses one that does not. |
+| `agents/<name>.md` | Agent definitions the harness can spawn, under the same opening line and the same gate. |
 | `worktree-CONTEXT.md.tmpl` | The briefing `scripts/render-worktree-context.mjs` renders into a new worktree as `.worktree/CONTEXT.md`, which `CLAUDE.md` imports. |
 | `worktrees/` | Where the harness provisions worktrees. Gitignored; the rule is load-bearing (see `.gitignore`). |
 
