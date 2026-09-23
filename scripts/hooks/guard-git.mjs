@@ -24,11 +24,13 @@
  * quote-aware, and matched on the git SUBCOMMAND and the resolved REF.
  *
  * IT ALSO GUARDS THE PR BASE, EVERYWHERE. `gh pr create` with no `--base` uses the repository's
- * DEFAULT branch, which is `main` here -- unchangeable, and protected by rules an agent cannot
- * satisfy. Whoever omits the flag opens the PR against a branch that will reject it, and the
- * mistake is invisible until a human looks. That trap has nothing to do with worktrees, so unlike
- * the git rules it is enforced in the primary checkout too. The trunk is `main`; the base is typed,
- * never inferred.
+ * DEFAULT branch: a GitHub setting that lives outside this repository, that this guard cannot read,
+ * and that need not be the trunk. Whoever omits the flag gets whatever that setting says when the
+ * command runs, and the mistake is invisible until a human looks. The rule does not rest on `main`
+ * being protected on GitHub, and it is not: on 2026-09-23 the branch-protection endpoint answered
+ * 404 and the rulesets applying to `main` were empty. The trunk is `main`; the base is typed, never
+ * inferred (CLAUDE.md § Git workflow). That has nothing to do with worktrees, so unlike the git
+ * rules it is enforced in the primary checkout too.
  *
  * Exit 2 is the documented way for a PreToolUse hook to block, and stderr becomes the reason shown
  * to the agent -- which is what turns a blocked attempt into a course correction rather than a
@@ -404,17 +406,17 @@ function denialFor({ sub, rest }) {
 
 const PR_BASE =
   `a pull request must name \`${TRUNK}\` as its base: \`gh pr create --base ${TRUNK} ...\`. ` +
-  `This repository's GitHub default branch is \`main\`, it cannot be changed, and it is protected ` +
-  `by rules a task agent cannot satisfy -- so an omitted or wrong \`--base\` opens the PR against a ` +
-  `branch that will reject it.`
+  `The base is typed, never inferred: with no \`--base\`, gh takes the repository's GitHub default ` +
+  `branch, a setting outside this repository that need not be the trunk.`
 const PR_MERGE = `merging is the orchestrator's call, not a task agent's. Open the PR and stop.`
 
 /**
  * Does this `gh pr create` explicitly target the trunk?
  *
  * FALSE WHEN THE FLAG IS ABSENT, which is the whole point: `gh pr create` with no `--base` silently
- * uses the repository's default branch. That default is `main` here and cannot be changed, so
- * "unspecified" is the exact failure this rule exists to catch -- not a case to wave through.
+ * uses the repository's default branch. That default is a GitHub setting this guard cannot read, so
+ * "unspecified" is the exact failure this rule exists to catch -- not a case to wave through, even
+ * while the default happens to be the trunk.
  */
 function basesTrunk(rest) {
   for (let i = 0; i < rest.length; i++) {
@@ -428,11 +430,11 @@ function basesTrunk(rest) {
 /**
  * The reason to deny this `gh` call, or `null` to allow it. Only `gh pr` is judged.
  *
- * `linked` separates two different kinds of rule that happen to share a command. The BASE rule is a
- * fact about this repository's GitHub configuration -- the default branch is `main`, protected, and
- * not ours to change -- so it is just as true in the primary checkout and applies everywhere. The
- * MERGE rule is about worktree isolation: merging is the orchestrator's call, and in the primary
- * checkout the orchestrator is the person typing, so blocking them there would be wrong.
+ * `linked` separates two different kinds of rule that happen to share a command. The BASE rule is
+ * about where an omitted `--base` falls back to -- a default branch set on GitHub, not here -- so it
+ * is just as true in the primary checkout and applies everywhere. The MERGE rule is about worktree
+ * isolation: merging is the orchestrator's call, and in the primary checkout the orchestrator is the
+ * person typing, so blocking them there would be wrong.
  */
 function denialForGh({ group, sub, rest }, linked) {
   if (group !== 'pr') return null
