@@ -4,17 +4,18 @@
  * prompts and gates requires. The sentence is read out of `CLAUDE.md` on every run, so it has one
  * home and this file states it nowhere.
  *
- *   npm run check:prompts             the gate
- *   npm run check:prompts:selftest    its fixtures -- every refusal exercised on a doctored copy
- *
  * THE FAILURE IT EXISTS TO PREVENT. On 2026-09-23 six of the fifteen skills and agents tracked at
  * commit fad7da8 (`git ls-files .claude/skills .claude/agents`) did not open with the line, while
  * `.claude/README.md` said every one did (asdlc-openspec-44p). All six were copied in from the
  * starter kit, which `KIT-CHECKLIST.md` records as `unchanged`, and nothing refused any of them. A
- * prompt without the line
- * does not tell the model that `CLAUDE.md` wins where the two disagree, and the prompts that lacked
- * it included the one that tells an agent how to retire a file, which `CLAUDE.md` makes a register
- * decision with a checklist.
+ * prompt without the line does not tell the model that `CLAUDE.md` wins where the two disagree, and
+ * the prompts that lacked it included the one that tells an agent how to retire a file, which
+ * `CLAUDE.md` makes a register decision with a checklist.
+ *
+ * INVOCATION.
+ *
+ *   npm run check:prompts             the gate
+ *   npm run check:prompts:selftest    its fixtures -- every refusal exercised on a doctored copy
  *
  * NO EXEMPTION. `CLAUDE.md` asks the line of every *substantial* prompt. This gate asks it of every
  * prompt, because the line costs one line and deciding what is substantial is how six were skipped.
