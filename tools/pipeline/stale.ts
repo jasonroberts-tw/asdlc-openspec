@@ -1,25 +1,48 @@
 /**
- * `npm run pipeline:stale` / `pipeline:stale:check` -- the cheap universal staleness gate.
+ * stale.ts — `npm run pipeline:stale` and `pipeline:stale:check`: has a declared input moved since
+ * a node stamped its output?
  *
- * WHAT THIS IS FOR. Every other staleness gate here works by regenerating a node's whole output and
- * diffing it, so automated detection reaches exactly as far as the nodes whose inputs all live in
- * this repository. A node that reads the sibling `../sibling` checkout is one it cannot reach: that
- * node's `--check` is wired into neither `lefthook.yml` nor `.github/workflows/verify.yml` and
- * runs only when somebody remembers to type it. CI does not clone that checkout and should not: a
- * deep walk over a whole sibling repository is minutes cold.
+ * CHECKS. Every node of `graph.ts` whose detection is `digest` or `legacy-commit`. For a `digest`
+ * node it re-folds the declared input groups and the generator source into a digest and compares it
+ * with the stamp the node wrote into its own output; for a `legacy-commit` node it compares the
+ * sibling checkout's commit with the one the output recorded. It runs no generator and needs no
+ * checkout, so a `digest` node whose own `--check` cannot run in CI still sits behind an automated
+ * gate: this is the digest gate `CLAUDE.md` § The gate ladder says stands in for it. Which verdicts
+ * fail and which are only reported is decided in `assess.ts` (`fails`, `isDebt`); this file
+ * renders the report and owns the exit code. A node detected by `regeneration` or `none` is not
+ * assessed here, and `--verbose` says why for each.
  *
- * This gate does not run a generator. It re-folds each node's declared inputs and compares the fold
- * against the stamp the node wrote into its own output. That is a hash walk over `artifacts/**` --
- * milliseconds, no checkout -- which is what puts those three nodes behind an automated gate for the
- * first time.
+ * It does not replace a node's own `--check` twin, which regenerates the whole output and diffs it
+ * and so catches strictly more than a digest can; that stays the deep gate, run before quoting a
+ * number out of the output. This gate is what makes FORGETTING to run it visible. Nor does it queue
+ * work: `--queue` is deliberately absent, and the note at the foot of this file says why.
  *
- * WHAT THIS IS NOT FOR. It does not replace a corpus node's own `--check`, and those must NOT
- * move into CI. They regenerate the whole output and diff it,
- * which catches strictly more than a digest can; they stay the deep local gate, run before quoting a
- * number out of their output. This gate is what makes FORGETTING to run them visible.
+ * THE FAILURE IT EXISTS TO PREVENT. None recorded in this repository yet (2026-09-23). On day one,
+ * this is what it would let through if it were wrong: an edit to a declared input, or to an
+ * emitter's own source, pushed without a re-run, so that a committed output describes inputs that
+ * no longer exist while every tier stays green. `tools/pipeline/example/entries.json` edited
+ * without `npm run pipeline:example` is that shape, and this gate is the only one over that node
+ * (the INVOCATION paragraph of `example/emit.ts` says so). Wrong the other way, it would fail a
+ * push on a condition the pusher did not cause, such as an unstamped output or a sibling checkout
+ * pulled past its pin; a push blocked on that is sent with `--no-verify`, which skips every
+ * pre-push job and not only this one. The first incident replaces this paragraph.
  *
- * IT ALSO DOES NOT QUEUE WORK. `--queue` is deliberately absent -- see the note at the foot of this
- * file.
+ * INVOCATION.
+ *   npm run pipeline:stale                 the report; exits 0 whatever it finds
+ *   npm run pipeline:stale:check           the same report; exits 1 when a gated node is STALE
+ *   npm run pipeline:stale -- --verbose    adds the nodes not assessed here, and why for each
+ * `--check` and `--verbose` combine. `pipeline:stale:check` is the `pipeline-stale` pre-push job in
+ * `lefthook.yml` and a step of `.github/workflows/verify.yml`: one run took 0.08 s wall clock over
+ * the record as it stood on 2026-09-23 (`/usr/bin/time -p node tools/pipeline/stale.ts --check`).
+ * Its negative tests are `npm run pipeline:selftest`.
+ *
+ * NEEDS. Nothing outside this repository for a node whose inputs are all committed files. A node
+ * with a `checkout` input group, or detected by `legacy-commit`, asks the sibling checkout for its
+ * HEAD (`../lib/sibling-root.ts`, where `SIBLING_ROOT` overrides the path); where there is none, as
+ * in CI, that node reports SKIPPED and never fails. No token, no network. There is no root override
+ * variable because the root is derived from where the file stands (`provenance.ts`): to run it
+ * against a fixture, copy the engine under a temp directory and run the copy, as
+ * `npm run pipeline:selftest` does.
  */
 import { assess, fails, isDebt, type Report, type Verdict } from './assess.ts'
 import { NODES } from './graph.ts'
@@ -57,10 +80,11 @@ if (!VERBOSE) {
 }
 
 const fixLines = (r: Report): void => {
-  // PIN-DRIFT HAS NO "run this" LINE, deliberately. Printing the extractor command beside it would
-  // read as an instruction to rebase the corpus, which is the single most expensive thing this
-  // pipeline can be talked into doing casually -- `.beads/formulas/corpus-regen.formula.toml` is
-  // four paragraphs of failure modes that all look like success. The choice is a human's.
+  // PIN-DRIFT HAS NO "run this" LINE, deliberately. Printing the node's `regenerate` command beside
+  // it would read as an instruction to rebuild from the newer sibling commit, which is a decision
+  // and not a repair. Moving a pin is the cycle in `.beads/formulas/corpus-regen.formula.toml`,
+  // which carries the change through everything downstream, and its WHAT MUST NOT HAPPEN list is
+  // why that is not one command. The choice is a human's.
   if (r.verdict === 'pin-drift') {
     console.log('      to CHECK this node: return the checkout to the pinned commit first.')
     console.log('      to MOVE the pin: bd mol wisp corpus-regen --var reason="<new commit>"')
@@ -76,20 +100,21 @@ const fixLines = (r: Report): void => {
 if (debt.length) {
   console.log('\nREPORTED, NOT GATED')
   console.log('-------------------')
-  // Said once, up front, because it invalidates the `then verify:` line printed against three of the
-  // nodes below. With the checkout ahead of the pin, a corpus node's own `--check` rebuilds from
-  // newer source than the artifacts were built from and reports a correct artifact as stale.
+  // Said once, up front, because it invalidates the `then verify:` line printed against any node
+  // below whose `--check` rebuilds from the sibling checkout. With the checkout ahead of the pin,
+  // that `--check` rebuilds from newer source than the output was built from and reports a correct
+  // output as stale.
   if (debt.some((r) => r.verdict === 'pin-drift')) {
     console.log(
-      '\n  NOTE: the checkout is ahead of the pinned corpus commit, so any `npm run <node>:check`\n' +
-        '  below will report STALE whether or not the artifact is. Return the checkout to the pin\n' +
-        '  before trusting one.',
+      '\n  NOTE: the sibling checkout is ahead of the commit an output below was pinned at,\n' +
+        '  so any `npm run <node>:check` below that reads it will report STALE whether or\n' +
+        '  not the output is. Return the checkout to the pin before trusting one.',
     )
   }
   for (const r of debt) {
     const why =
       r.verdict === 'pin-drift'
-        ? 'NOT A DEFECT. The corpus is a deliberate snapshot and the checkout has simply been pulled past it. Returning the checkout to the pin, or rebasing the corpus onto the newer commit, are both decisions -- neither is a repair.'
+        ? 'NOT A DEFECT. The output was built from a pinned sibling commit and the checkout has simply been pulled past it. Returning the checkout to the pin, or rebuilding the output from the newer commit, are both decisions -- neither is a repair.'
         : r.node.staleness === 'grows'
           ? 'ASSET, `grows`: reopens because a run asked for something absent, not because time passed. Worth a bead, not worth failing a push.'
           : r.node.detection.via === 'legacy-commit'
@@ -127,12 +152,11 @@ console.log(
 /* ----------------------------------------------------------------------------------------------- *
  * `--queue` IS NOT HERE, AND ITS ABSENCE IS DELIBERATE.
  *
- * The design note places queueing on `post-merge`, never on `pre-push`: a
- * hook that writes to the issue tracker on every push is a hook that gets bypassed, and staleness
- * becomes WORK when a change lands on trunk rather than when somebody is trying to push. It also
- * branches -- an in-repo artifact digest gets per-node beads, but the upstream commit moving gets
- * `bd mol wisp corpus-regen`, because that formula already encodes invariants a generic
- * "regenerate a node" bead would lose.
+ * Queueing belongs on `post-merge`, never on `pre-push`: a hook that writes to the issue tracker on
+ * every push is a hook that gets bypassed, and staleness becomes WORK when a change lands on trunk
+ * rather than when somebody is trying to push. It also branches -- an in-repo artifact digest gets
+ * per-node beads, but the upstream commit moving gets `bd mol wisp corpus-regen`, because that
+ * formula already encodes invariants a generic "regenerate a node" bead would lose.
  *
  * Neither belongs in a file wired into `pre-push`.
  * ----------------------------------------------------------------------------------------------- */
