@@ -211,32 +211,33 @@ calculation.
 - **WHEN** a person presses `5`, `÷`, `1`, then `0` three hundred and nine times, then `×`
 - **THEN** the display shows `Error`
 
-#### Scenario: A result that rounds past the largest number shows an error
+#### Scenario: A result just under the largest number is shown
 
 - **WHEN** a person presses `1`, `7`, `9`, `7`, `6`, `9`, `3`, `1`, `3`, `4`, `8`, then `0` two hundred and ninety-eight times, then `×`, `1`, `=`
-- **THEN** the display shows `Error`
+- **THEN** the display shows `1.797693135e+308`
 
 ### Requirement: Results are rounded for display
 
-A result SHALL be computed from the exact decimal values of its operands and rounded once, to at
-most ten significant digits, a tie rounding away from zero. Any trailing zeros after the decimal
+A result SHALL be computed exactly from its operands, and shown rounded once, to at most ten
+significant digits, a tie rounding away from zero. Any trailing zeros after the decimal
 point, and a decimal point left trailing, SHALL be removed, and the zeros of a whole number kept. The
 error of binary floating-point arithmetic SHALL NOT reach the display, including when an addition or
 a subtraction cancels the leading digits of its operands. A result whose magnitude is at least
 10^10, or that is not zero and below 10^-6, SHALL be shown in exponent notation, its mantissa rounded
 and trimmed the same way. A number being entered is shown as typed and is not rounded. A result
-carried into a later operation SHALL be the rounded result the display shows, not the unrounded one.
+carried into a later operation SHALL be its exact value, not the rounded one the display shows: only
+the display is rounded.
 
 #### Scenario: Floating-point error is not shown
 
 - **WHEN** a person presses `0`, `.`, `1`, `+`, `0`, `.`, `2`, `=`
 - **THEN** the display shows `0.3`
 
-#### Scenario: A chain carries the rounded result
+#### Scenario: A chain carries the exact result
 
 - **WHEN** a person presses `1`, `÷`, `3`, `×`
 - **THEN** the display shows `0.3333333333`
-- **AND** when the person then presses `3`, `=`, the display shows `0.9999999999`
+- **AND** when the person then presses `3`, `=`, the display shows `1`
 
 #### Scenario: A subtraction that cancels shows no floating-point error
 
