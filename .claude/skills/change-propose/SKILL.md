@@ -21,12 +21,24 @@ not a change. Say so and hand it to the `bead` skill.
 With a seeding issue, verify its premise first, exactly as the `bead` skill's step 1 does, and stop
 with the evidence if it does not hold.
 
+The worktree is cut from `origin/main`, and the primary checkout's `main` can trail it. Run
+`git fetch origin main` first, and read what this step and the next check at `origin/main`
+(`git ls-tree -r --name-only origin/main openspec/`, `git show origin/main:<path>`), not in the
+checkout.
+
 ## 2. Name it, and ask
 
 Propose one kebab-case name, a verb and its object (`add-farewell`, `require-login-for-export`),
 at most 64 characters: it names the branch and the worktree too. It must not already exist under
 `openspec/changes/`, nor under `openspec/changes/archive/` with any date prefix. Ask the user to
 confirm it. It cannot change once the worktree exists.
+
+Before asking, read the worktree briefing's template as the trunk has it,
+`git show origin/main:.claude/worktree-CONTEXT.md.tmpl`. The briefing takes precedence where it
+conflicts (`CLAUDE.md` § Worktree-local context), and it names things this repository does not
+contain. If the change needs one of them, put the conflict in the same question as the name, for the
+user to decide. If they go ahead, the proposal's `## Impact` names the template and the
+`docs/decisions.md` entry the reversal needs.
 
 ## 3. Open the epic
 
@@ -101,3 +113,5 @@ because every capability has one.
 
 The user reviews the proposal and the specs before anything else happens. Revisions happen here, in
 this stage. The next stage is `change-design`.
+
+Reviewed: `docs/prompt-reviews/change-propose.2026-09-23.md` § Review of 2026-09-23 (run of 2026-09-23 proposing add-calculator-web-app, epic asdlc-openspec-zgh, commit aa7f050).
