@@ -12,8 +12,8 @@ worktree, after the user has reviewed the proposal and its delta specs.
 
 ## 1. Find the change
 
-The branch is `agent/<change>` (`git branch --show-current`). From the primary checkout, enter the
-worktree with `EnterWorktree` and the path `.claude/worktrees/<change>`.
+The branch is `agent/<change>` (`git branch --show-current`). If the session is not already in the
+worktree, enter it with `EnterWorktree` and the path `.claude/worktrees/<change>`.
 
 Read the following before writing anything:
 
@@ -47,16 +47,26 @@ Write `openspec/changes/<change>/design.md` with these sections, in this order:
 A design says how, never what:
 
 - **A behaviour the design needs that no scenario states** belongs in a delta spec. Revise the spec
-  with the user; never hide the requirement here.
+  with the user; never hide the requirement here. Bring the proposal's `## What Changes` into line
+  with the revised spec in the same commit, or the proposal restates the old behaviour.
 - **A decision that binds the repository beyond this change**, such as a rule or a convention, is a
   register entry (`CLAUDE.md` § Decisions live in the register), not a line of this design. Propose
-  it to the user.
+  it to the user. An entry the user accepts is written by a build task, not in this stage; until it
+  exists, the design names it by its number with no `§` pointer, which the citations gate would
+  refuse as unresolved.
 - **A design that relies on an existing decision** cites that decision's register entry by
   section, as `CLAUDE.md` § Citations describes.
 
 ## 4. Commit it, and stop
 
-Commit the design, with its message passed from a file under `.scratch/`. Report what it decides and
+Stage the design and every file this stage revised with `git add`, then run `npm run openspec:check`
+and `npm run citations:check`, each as its own call. Stage first: the citations gate reads only
+tracked files, so a design not yet added passes without being read.
+
+Commit, with the message passed from a file under `.scratch/`. Report what the design decides and
 what it leaves open, then stop.
 
 The user reviews it before `change-plan` turns it into tasks.
+
+Reviewed: `docs/prompt-reviews/change-design.2026-09-23.md` § Review of 2026-09-23 (the run of
+2026-09-23 on change `add-calculator-web-app`, epic `asdlc-openspec-zgh`, commit `7ba59c4`).
