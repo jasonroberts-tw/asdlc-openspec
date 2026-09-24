@@ -4,14 +4,12 @@
 local server that hands them to the browser and the tests that hold both to their specs.** There is
 no build step: the browser and Node's test runner load the same files.
 
-What the calculator does is capability `calculator`'s spec, and what its server does is capability
-`calculator-local-server`'s; each wins over this page and over the code. While the change that adds
-the calculator is open, those are its delta specs,
-`openspec/changes/add-calculator-web-app/specs/calculator/spec.md` and
-`openspec/changes/add-calculator-web-app/specs/calculator-local-server/spec.md`; once the change is
-archived, they are the living specs, `openspec/specs/calculator/spec.md` and
-`openspec/specs/calculator-local-server/spec.md`. Where a row here and a file disagree, the file
-wins and the row is corrected.
+What the calculator does is capability `calculator`'s living spec, `openspec/specs/calculator/spec.md`,
+and what its server does is capability `calculator-local-server`'s,
+`openspec/specs/calculator-local-server/spec.md`; each wins over this page and over the code. The
+change that added them, with its design, is archived under
+`openspec/changes/archive/2026-09-24-add-calculator-web-app/`. Where a row here and a file
+disagree, the file wins and the row is corrected.
 
 | Path | What it is |
 |---|---|
