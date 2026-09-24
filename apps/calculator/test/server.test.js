@@ -6,8 +6,9 @@
  * capability `calculator-local-server`'s spec, so a scenario traces to its test by exact string. A
  * scenario's expected values are literals copied from the spec. The last `describe` is named so
  * that it cannot be taken for a requirement: its tests hold what the change's design says about
- * every response, and the methods other than POST that the spec refuses, none of which has a
- * scenario of its own.
+ * every response the server writes, and the methods other than POST that the spec refuses, none of
+ * which has a scenario of its own. Node's own answers to protocol errors, which the design accepts
+ * without the policy, are not tested here.
  *
  * Every request goes through `http.request` with an explicit `path`, which Node's client sends as
  * written. `fetch`, like a browser, would resolve `/../package.json` to `/package.json` before

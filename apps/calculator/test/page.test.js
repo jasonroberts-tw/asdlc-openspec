@@ -166,6 +166,7 @@ describe('Keyboard input', () => {
     assert.equal(page.display.textContent, '4')
     // The change's design reads a key held with Ctrl, Meta or Alt as one of the requirement's "any
     // other key", so that browser shortcuts keep working: a digit so held changes nothing either.
+    // AltGr is the design's one exception, held by the wiring test below.
     for (const modifier of ['ctrlKey', 'metaKey', 'altKey']) {
       assert.equal(type(page, '5', { [modifier]: true }), false, `${modifier} with 5 not taken`)
     }

@@ -27,8 +27,10 @@ const CONTENT_TYPE_OF = new Map([
 ])
 
 /**
- * Sent with every response, not only the page, so that a browser refuses any other origin a later
- * edit adds, whichever response that edit rides on.
+ * Sent with every response this file writes, not only the page, so that a browser refuses any
+ * other origin a later edit adds, whichever response that edit rides on. Node answers some protocol
+ * errors itself, before this file runs (400, 417, 431), and those carry no policy: they carry no
+ * page either, and the design accepts it.
  */
 const POLICY = "default-src 'self'"
 

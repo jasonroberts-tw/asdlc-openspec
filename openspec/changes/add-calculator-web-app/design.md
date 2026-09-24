@@ -211,7 +211,12 @@ every key it sets the display's `textContent` to `displayText(state)`.
   `Escape` to `C`. Every mapped key calls `preventDefault()`. That stops `/` opening a browser's
   quick-find, and stops `Enter` also clicking a focused button, which would press it twice. A
   keydown with Ctrl, Meta or Alt held is ignored, so browser shortcuts keep working. That falls
-  under the spec's "Any other key SHALL change nothing".
+  under the spec's "Any other key SHALL change nothing". There is one exception: when the browser
+  reports the AltGraph modifier, the key is taken whatever else is held. Windows reports AltGr as
+  Ctrl+Alt, some layouts need AltGr to type a calculator key, and the spec says those keys work
+  "whatever modifier the keyboard layout needs". So a key held with Meta is also taken while
+  AltGraph is set. That combination is accepted, not narrowed away (the maintainer's decision at
+  change-verify, 2026-09-24).
 - **`main.js`** exists because the page's policy forbids an inline `<script>`. It is two lines:
   import `mount`, call it on `document`.
 
@@ -229,7 +234,12 @@ descend into subdirectories. For each request:
   arithmetic exists to get wrong.
 - **A hit** is read from disk on every request, so an edit shows on reload without a restart. A file
   that has vanished since startup is `404`.
-- **Every response,** including `404` and `405`, carries `Content-Security-Policy: default-src 'self'`.
+- **Every response the calculator's code writes,** including `404`, `405` and the `405` it writes
+  to a CONNECT, carries `Content-Security-Policy: default-src 'self'`. Node answers some protocol
+  errors itself, before any of the calculator's code runs: a malformed request gets `400`, an
+  unsupported `Expect` header gets `417`, and oversized headers get `431`. Those answers carry no
+  policy. That is accepted (the maintainer's decision at change-verify, 2026-09-24): they carry no
+  page and no content a browser would load.
 
 *Lost:* resolving the path under `publicDir` and checking the result stays inside it. That is the
 usual static-server shape and the usual source of traversal bugs: decoding order, separators on
