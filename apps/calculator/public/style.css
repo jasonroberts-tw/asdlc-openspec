@@ -1,0 +1,171 @@
+/*
+ * The calculator page's only styling. The page's policy (`default-src 'self'`) refuses inline
+ * style attributes and `data:` URLs, so every rule lives here, and nothing is loaded from another
+ * origin: the fonts are the system's own.
+ */
+
+:root {
+  color-scheme: light dark;
+  --page: #eef0f3;
+  --panel: #ffffff;
+  --text: #1b1f24;
+  --display: #f6f7f9;
+  --key: #e3e6ea;
+  --key-hover: #d5d9df;
+  --operator: #d7e3f4;
+  --operator-hover: #c3d4ee;
+  --equals: #1f5fbf;
+  --equals-hover: #184c99;
+  --equals-text: #ffffff;
+  --clear: #f3dcdc;
+  --clear-hover: #eac6c6;
+  --focus: #b35c00;
+  --radius: 0.75rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #111418;
+    --panel: #1b1f24;
+    --text: #eef0f3;
+    --display: #0b0d10;
+    --key: #2b3138;
+    --key-hover: #37404a;
+    --operator: #25364f;
+    --operator-hover: #2f4566;
+    --equals: #4b8ae6;
+    --equals-hover: #6a9ff0;
+    --equals-text: #0b0d10;
+    --clear: #4a2a2a;
+    --clear-hover: #5c3434;
+    --focus: #ffb057;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--page);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.calculator {
+  width: min(100%, 22rem);
+  padding: 1rem;
+  border-radius: calc(var(--radius) * 1.5);
+  background: var(--panel);
+  box-shadow: 0 0.5rem 2rem rgb(0 0 0 / 0.15);
+}
+
+/* Present for a screen reader's list of headings, and not drawn. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/*
+ * Entry has no digit limit, so a number can be longer than the display is wide: it wraps at any
+ * digit, and past a few lines the display scrolls rather than pushing the keypad off the screen.
+ */
+.display {
+  display: block;
+  min-height: 4.5rem;
+  max-height: 9rem;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  background: var(--display);
+  font-size: 2.5rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * Four columns. `+` and `=` are two rows tall and `0` two columns wide, all placed by the grid's own
+ * flow from the buttons' order in the page, which is also the order a keyboard's Tab visits them.
+ */
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: minmax(3.5rem, auto);
+  gap: 0.5rem;
+}
+
+.key {
+  /* Transparent, not absent: a forced-colors (high-contrast) mode drops the backgrounds and draws
+     this border instead, so each key keeps a visible edge. */
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: var(--key);
+  color: var(--text);
+  font: inherit;
+  font-size: 1.5rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.key:hover {
+  background: var(--key-hover);
+}
+
+.key:active {
+  transform: translateY(1px);
+}
+
+.key:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.key-operator {
+  background: var(--operator);
+}
+
+.key-operator:hover {
+  background: var(--operator-hover);
+}
+
+.key-clear {
+  background: var(--clear);
+}
+
+.key-clear:hover {
+  background: var(--clear-hover);
+}
+
+.key-equals {
+  background: var(--equals);
+  color: var(--equals-text);
+}
+
+.key-equals:hover {
+  background: var(--equals-hover);
+}
+
+.key-tall {
+  grid-row: span 2;
+}
+
+.key-wide {
+  grid-column: span 2;
+}
