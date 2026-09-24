@@ -9,6 +9,7 @@ left beside a prompt reads as a second prompt or a stale draft.
 | File | What it reviews |
 |---|---|
 | `bead.2026-09-23.md` | `.claude/skills/bead/SKILL.md`, which works one issue from the task store end to end |
+| `change-build.2026-09-24.md` | `.claude/skills/change-build/SKILL.md`, which builds a planned change's tasks one at a time in its worktree |
 | `change-design.2026-09-23.md` | `.claude/skills/change-design/SKILL.md`, which writes a change's `design.md` or records that it needs none |
 | `change-plan.2026-09-23.md` | `.claude/skills/change-plan/SKILL.md`, the stage that turns a reviewed change into tasks |
 
