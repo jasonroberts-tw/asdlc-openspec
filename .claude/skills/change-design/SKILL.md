@@ -60,3 +60,7 @@ Commit the design, with its message passed from a file under `.scratch/`. Report
 what it leaves open, then stop.
 
 The user reviews it before `change-plan` turns it into tasks.
+
+When `change-verify` sends a design gap here (`.claude/skills/change-verify/SKILL.md` § 6. Verdict), the design already exists. Amend the
+decision it names, and any comment and README row that repeats it. Commit, and hand back to
+`change-verify`, which runs again from step 2.
