@@ -10,7 +10,8 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 The argument is one issue id, several, or nothing (then take the top of
 `bd ready --exclude-label spec-change`: a product change's tasks are worked in its own worktree by
 `change-build`, `docs/decisions.md` § D-02, and the label is `specChangeLabel` in
-`tools/policy.json`). Every tracker
+`tools/policy.json`). Work agreed in conversation that no issue carries yet is filed before it is
+worked, in step 3. Every tracker
 write below sits inside the bracket `CLAUDE.md` § The task store describes: pull before the first
 write (`bd dolt pull`), push after the last (`bd dolt push`), and report a rejected push rather
 than forcing it.
@@ -39,7 +40,9 @@ What happens next depends on who is listening:
 - **With a live user:** when the premise does not hold, show the evidence and stop. The user decides
   whether the issue closes, changes or stands. When it changes, record that in the issue before any
   work: rewrite its title and description, with a dated section naming what was dropped and why so
-  it is never re-filed, and file any part split out as its own issue.
+  it is never re-filed, and file any part split out as its own issue. The same holds when the user
+  changes the scope once work has begun: record it before the work it adds, and rewrite any
+  follow-up already filed from the issue to match, so neither still describes the old scope.
 - **In an autonomous session:** write the evidence into the issue as a note, leave the issue open,
   and move to the next one. Never close an issue on your own reading of its premise.
 - **Blocked:** with a live user, taking on the prerequisite is the user's call on scope. In an
@@ -71,7 +74,9 @@ kept, in one bracket, before the first worktree. Make the worktree with the one 
 never natively: `EnterWorktree`, whose hook runs `scripts/new-worktree.sh`. Run `npm ci`
 first inside it. Read `.worktree/CONTEXT.md` there: it names the branch, the base and the rules of a
 shared repository. Tracker writes that carry a body, such as step 1's re-scoping, are made from
-here, with the body file under this worktree's `.scratch/`.
+here, with the body file under this worktree's `.scratch/`. Work agreed in conversation has no issue
+to claim yet, so the order turns round: make the worktree, search for an issue that already carries
+the work as step 4 says, then file it from here and claim it.
 
 ## 4. Implement, regenerate, gate
 
