@@ -90,7 +90,8 @@ function hash(text) {
 }
 
 /**
- * Two adjacent free ports, reserved for the worktree. Nothing listens on them today.
+ * Two adjacent free ports, reserved for the worktree. The first, APP_PORT, is the one to pass as
+ * `PORT` to `npm run calculator:serve` there (`docs/decisions.md` § D-04); the second is unused.
  *
  * The hash picks where to start looking; availability decides where it stops. 900 blocks of ten in
  * 20000-28990, walked in order from the hashed start, so a collision costs one step rather than a

@@ -18,8 +18,8 @@ These constraints bind the design:
   that no job runs unless it is declared by kind, with its reason.
 - **One change, one pull request** (`docs/decisions.md` § D-02). The app, its tests, its gate
   wiring, the register entry and the amended worktree briefing land together.
-- **The accepted register entry.** On 2026-09-23 the maintainer accepted a new register entry, to be
-  written in this change as D-04. It says: `apps/calculator/` is a demo product that listens on
+- **The accepted register entry.** On 2026-09-23 the maintainer accepted a new register entry,
+  written in this change as `docs/decisions.md` § D-04. It says: `apps/calculator/` is a demo product that listens on
   `127.0.0.1` only, and only when a person starts it. A test that starts that server from committed
   files and talks to it over a temporary loopback port reads only committed files, so it is a
   pre-push job and a CI step. The worktree briefing's "Nothing in this repository serves a port"
@@ -310,8 +310,8 @@ parsing HTML with regular expressions, which is fragile and cannot check that th
   `PORT=<the worktree's APP_PORT>` keeps two worktrees from colliding. They also say that wanting a
   port for anything else still means stop. The `worktree-hooks` job's glob already covers the
   template.
-- **`docs/decisions.md`.** D-04 as accepted, with the status line, the range bounds and the summary
-  table updated in the same commit, as the register's own header requires.
+- **`docs/decisions.md`.** `docs/decisions.md` § D-04 as accepted, with the status line, the range
+  bounds and the summary table updated in the same commit, as the register's own header requires.
 - **`README.md`.**
   - § How it is laid out: a row for `apps/`.
   - § Working here: a row for running the calculator.
