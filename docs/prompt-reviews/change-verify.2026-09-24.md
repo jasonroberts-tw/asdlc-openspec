@@ -21,6 +21,10 @@ skill says, the skill wins; this file is the evidence for why it says it. Where 
   `.scratch/add-calculator-web-app-trace.md`, which is gitignored, so this review has not read it.
 - **Input:** the executing session's own analysis of the run. It is an input, not a verdict; the
   corrections below say where it is wrong.
+- **Commit ids:** `ce70200` is the change branch's commit before the rebase that
+  `change-finalize` ran, and it was never pushed. PR #17 merged the same commit to `main` as
+  `fe1360a`. The change's design is now
+  `openspec/changes/archive/2026-09-24-add-calculator-web-app/design.md`.
 
 ### What the earlier reviews' changes did in this run
 
@@ -30,8 +34,8 @@ None: this is the skill's first review, and it carried no `Reviewed:` trailer be
 
 1. **A design gap where the code is right had no route.** Step 6 sent a gap to `change-build` (fix
    the code) or `change-propose` (revise the spec). Both gaps of this run were the third case: the
-   code was right and `design.md` § Decisions items 4 and 5 said something narrower or wider than
-   the code. The session had to leave the skill to route them: the maintainer chose to amend the
+   code was right, and items 4 and 5 of the Decisions section of the change's design said something
+   narrower or wider than the code. The session had to leave the skill to route them: the maintainer chose to amend the
    design, and the verify session committed `ce70200` itself, although the skill says the stage
    "only reads".
    **Fix, applied:** step 6 names three routes and says the user picks one. The third is the design,
