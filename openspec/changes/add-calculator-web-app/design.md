@@ -96,7 +96,7 @@ A key is one of `0`–`9`, `.`, `+`, `-`, `*`, `/`, `=` and `C`. The state is:
 | Field | Meaning |
 |---|---|
 | `entry` | the number being typed, as a string (so `1.50` and `0.` show as typed), or `null` when none is |
-| `value` | the last completed number or result, and the left operand of `op`. A result is stored rounded. A typed number is stored as typed: the spec rounds results, not what a person enters. |
+| `value` | the last completed number or result, and the left operand of `op`: an exact fraction, a `BigInt` numerator over a positive `BigInt` denominator, in lowest terms. A typed number is read into one exactly, whatever its length. A result is kept exact, and only the display rounds. |
 | `op` | the pending operator, or `null` |
 | `error` | `true` while `Error` is shown |
 
@@ -113,63 +113,70 @@ otherwise `value` formatted. The transitions:
 | `.` | `entry` has a `.` | nothing |
 | `.` | otherwise | append `.` |
 | operator | `error` | nothing |
-| operator | `entry` set, `op` set | `value` = round(`value` `op` `entry`), or `error`; `entry` = `null`; `op` = key |
-| operator | `entry` set, no `op` | `value` = `entry` as a number, or `error` if that number is not finite; `entry` = `null`; `op` = key |
+| operator | `entry` set, `op` set | `value` = `value` `op` `entry`, exactly, or `error`; `entry` = `null`; `op` = key |
+| operator | `entry` set, no `op` | `value` = `entry`, read exactly, or `error` if it is too large to be finite; `entry` = `null`; `op` = key |
 | operator | `entry` is `null` | `op` = key (replaces a pending operator, or continues from a result) |
 | `=` | `error`, or no `op`, or `entry` is `null` | nothing |
-| `=` | otherwise | `value` = round(`value` `op` `entry`), or `error`; `entry` = `null`; `op` = `null` |
+| `=` | otherwise | `value` = `value` `op` `entry`, exactly, or `error`; `entry` = `null`; `op` = `null` |
 | `C` | always | `initialState()` |
 
-"Or `error`" covers two cases:
+"Or `error`" covers three cases:
 
-- any operation whose result is not a finite number, which is how both division by zero and
-  overflow set `error`;
-- a typed number too large to be finite (`1` followed by 309 zeros), on every row that takes one.
-  That means an operator with or without a pending operation, and `=`. The check comes before any
-  operation reads the number: `Infinity` has no decimal form (`BigInt` throws on it), and the spec
-  wants `Error`, not a key that throws.
+- a division by zero;
+- a result too large to be finite: its magnitude, compared exactly, is more than the largest finite
+  double, `(2^53 − 1) · 2^971`. That is how overflow sets `error`;
+- a typed number too large to be finite (`1` followed by 309 zeros), on every row that takes one:
+  an operator with or without a pending operation, and `=`.
 
-**Every operation is exact in decimal, and rounded once.** No arithmetic runs on binary doubles:
+**Every value is an exact fraction, and only the display rounds.** No arithmetic runs on binary
+doubles, and no result is rounded before it is carried:
 
-- **Decimal form.** Each operand is written with `String(n)`, the shortest decimal that reads back
-  as the same double. It is split into a sign, a `BigInt` magnitude of its digits and a scale: its
-  fraction digits minus any exponent, so `1.5e-7` is `15n` at scale 8. Only a *leading* `-` is a
-  sign; the `-` of a negative exponent is not.
-- **The four operations** work on those parts:
-  - `+` and `−` bring both to the larger scale and add or subtract as integers.
-  - `×` multiplies the magnitudes and adds the scales.
-  - `÷` refuses a zero divisor. Otherwise it divides the magnitudes as `BigInt`s, after scaling the
-    dividend so that the truncated quotient has at least eleven significant digits.
-- **Rounding.** The exact result, or the truncated quotient, is rounded once to ten significant
-  digits, a tie away from zero. With truncated digits in hand, that rule needs only the first
-  dropped digit: 5 or more rounds the magnitude up.
-- **Reading back.** The rounded decimal is read back with `Number()`, and a `-0` becomes `0`. That
-  value is `round(n)`, so the value carried forward is the value shown. A result too large to be
-  finite reads back as `Infinity`, and the finiteness check turns it into `error`. The check runs
-  on the rounded value, because a finite exact result can round up past the largest double.
+- **A typed number** is read from the entry's text: its digits with the point removed, over a power of
+  ten, so `1.50` is `150/100`, that is `3/2`. No digit is lost, whatever the entry's length.
+- **The four operations** work on fractions: `a/b + c/d = (ad + cb)/bd`, and `−` likewise;
+  `(a/b) × (c/d) = ac/bd`; `(a/b) ÷ (c/d) = ad/bc`, refusing `c = 0`. Every result is reduced to
+  lowest terms by the greatest common divisor, and its denominator kept positive, so a fraction is
+  never `-0`.
+- **Carrying.** The value carried into the next operation is the exact result. So `1 ÷ 3 × 3` is
+  `(1/3) × 3 = 1`, although the display showed `0.3333333333` in between. The maintainer decided
+  this on 2026-09-24.
+- **Rounding for display**, once, to ten significant digits, a tie away from zero. The power of ten
+  of the leading digit, `e`, comes from the digit counts of numerator and denominator, corrected by
+  one exact comparison. The ten digits are `floor(|n| · 10^(9−e) / d)`, and the remainder decides
+  the rounding: twice the remainder at or above the denominator rounds the magnitude up. A carry to
+  `10^10` moves `e` up by one.
 
 The consequences, each a scenario in the spec:
 - `1.000001 − 1` shows `0.000001`, where binary arithmetic gives `9.999999999e-7`.
 - `1e-150 + 1e-150` shows `2e-150`, with no limit on decimal places.
-- `3.000000003 × 0.5` shows `1.500000002`: the tie goes away from zero, not in whichever direction
-  the binary double happened to fall.
-- `1 + 0.0000000004999999999` shows `1`, with no second rounding.
-- `1 ÷ 3 × 3` shows `0.9999999999`, because the carried value is the displayed `0.3333333333`.
+- `3.000000003 × 0.5` shows `1.500000002`: the tie goes away from zero.
+- `1 + 0.0000000004999999999` shows `1`, rounded once from its exact value.
+- `1 ÷ 3 × 3` shows `1`, since the carried value is exactly `1/3`.
+- `17976931348` followed by 298 zeros, `× 1 =`, shows `1.797693135e+308`. The exact result is under
+  the largest double, so it is a result and not an error. That its rounded display reads above the
+  largest double is only text.
 
-**Formatting works from the decimal form too.** `String(n)` is split into digits and a scale as
-above, and rounded to ten significant digits by the same rule. The power of ten of the leading digit
-decides the notation: exponent notation (`1e+10`, `2e-7`, `-1.5e+21`) when it is 10 or more, or
-below −6; otherwise plain digits. Trailing zeros after the decimal point are trimmed, the zeros of a
-whole number are kept, and zero shows as `0`. Formatting from the decimal is what lets a very small
-double such as `1e-320` show its decimal digits rather than its binary ones.
+**Formatting works from the fraction.** The rounded digits and `e` pick the notation: exponent
+notation (`1e+10`, `2e-7`, `-1.5e+21`) when `e` is 10 or more, or below −6; otherwise plain digits.
+Trailing zeros after the decimal point are trimmed, the zeros of a whole number are kept, and zero
+shows as `0`. A taken typed number, shown after an operator, is formatted the same way.
 
 **Checked.** On 2026-09-24 a scratch reference of this arithmetic and the transition table
-(`.scratch/verify-exact-decimal.mjs`) gave the expected display for every T1 scenario that computes
-or formats a number, and for eleven more probes from the build's reviews, 52 checks in all. Among
-the probes: a negative tie → `-1.500000002`; `1234567.8915 + 0` and `1234567.8935 + 0` → `…892`
-and `…894`; `9999999999 + 0.5` → `1e+10`; `3 − 3 = × 5 =` → `0`; `0 ÷ 0` → `Error`.
+(`.scratch/verify-rational.mjs`) gave the expected display for every T1 scenario that computes or
+formats a number, and for fifteen more probes, 62 checks in all. Among the probes:
+- `0.1 × 3 − 0.3` → `0`, `2 ÷ 3 × 3` → `2` and `1 ÷ 7 × 7` → `1`;
+- a negative tie → `-1.500000002`, and an even-digit tie, `3.000000005 × 0.5` → `1.500000003`;
+- `1e-200 × 1e-200` → `1e-400`, and a typed 17-digit difference kept exact;
+- the largest double, typed, shown as `1.797693135e+308`, and that number `+ 1` → `Error`.
 
 *Lost:*
+- **Carrying the rounded result the display shows.** The maintainer chose it on 2026-09-23 and
+  reversed it on 2026-09-24. Once arithmetic was exact, its only visible effect was
+  `1 ÷ 3 × 3` showing `0.9999999999`, not `1`.
+- **Exact decimal arithmetic on each double's shortest form (`String(n)`), rounded at every step.**
+  It needed the rounded carry, since `1/3` has no finite decimal. It also left typed numbers limited
+  to a double's range and precision: more than about 16 digits lost, below `5e-324` zero, and
+  subnormal results short of ten digits.
 - **Binary arithmetic with `Number(n.toPrecision(10))` as the rounding.** The third review of the
   build found that ties went in whichever direction the double fell (`1234567.8915` → `…891` but
   `1234567.8935` → `…894`), and that reading an exact sum back as a double before rounding rounded
@@ -341,21 +348,16 @@ parsing HTML with regular expressions, which is fragile and cannot check that th
 - **A consequence of the accepted spec.** "Equals with no operation pending … SHALL change nothing"
   means `5`, `=`, `3` shows `53`: equals never closed the entry, so the digit extends it. This is
   consistent, but unlike some pocket calculators.
-- **Binary doubles have a range and a precision, and entry has no digit limit.**
-  - A typed number with more than about 16 significant digits loses its later digits, because it is
-    stored as a double before any operation reads it.
-  - A non-zero typed number or result below about 5e-324 counts as zero. So `0 ÷ 0.(400 zeros)1`
-    shows `Error`, and a product such as `1e-200 × 1e-200` shows `0`, not `1e-400`.
-  - Between about 5e-324 and 2.2e-308, a double is subnormal and holds fewer than ten significant
-    digits. A typed number or result there keeps fewer, so `1 ÷ 3 × 1e-315` shows `3.33333334e-316`.
-    The fourth review of the build found this.
-  - A typed number or result too large to be finite shows `Error`, as the spec requires.
+- **Exact fractions grow, and entry has no digit limit.** A long chain of divisions by numbers with
+  no common factor grows the numerator and the denominator (`1 ÷ 7 ÷ 11 ÷ 13 …`), and a typed
+  number is kept at every digit it has. *Mitigation:* every result is reduced to lowest terms, and
+  `BigInt` has no fixed width. A chain a person types stays within hundreds of digits, which costs
+  microseconds. *Accepted:* a chain long enough to slow the page takes more key presses than anyone
+  makes.
 
-  *Accepted:* reaching any of these takes more key presses than a calculator's display could show.
-  The alternatives are a digit limit on entry, which is behaviour the spec does not ask for, or
-  keeping `value` as a decimal rather than a double, which is a larger state machine for no
-  scenario. The arithmetic itself is exact in decimal (Decisions, item 3), so none of these arises
-  from binary rounding.
+  The limits of the earlier binary designs are gone: typed digits past the sixteenth, results below
+  `5e-324`, and subnormal results short of ten digits (Decisions, item 3, *Lost*). What remains is
+  the spec's own bound: a typed number or result too large to be finite shows `Error`.
 - **A new supply-chain surface.** jsdom brings transitive devDependencies. *Mitigation:* an exact pin,
   the lockfile, `npm ci` everywhere, and nothing of it served to the browser.
 - **A stale briefing in new worktrees.** The amended template reaches a new worktree only after the
