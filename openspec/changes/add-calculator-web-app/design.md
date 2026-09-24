@@ -67,7 +67,8 @@ apps/calculator/
     README.md
     calculator.test.js   the calculator scenarios, driven through the pure logic
     page.test.js         keypad, display, names for assistive technology, keyboard: a DOM in Node
-    server.test.js       the local-server scenarios: in-process HTTP, and spawned processes
+    server.test.js       the request scenarios: in-process HTTP against server.js
+    serve.test.js        the command's scenarios: PORT, loopback, refusals and signals, spawned
 ```
 
 `apps/` rather than a top-level `calculator/` or `demo/`: the directory names what kind of thing it
@@ -265,7 +266,9 @@ which is fast and needs no spawn. Only the scenarios that concern the process ar
   `src` and `href` attributes and each script's static `import` specifiers, then asserts each is
   relative and answers `200`. The raw `/../` and `%2e%2e` paths go through `http.request` with an
   explicit `path`, which Node's client sends unchanged.
-- **`server.test.js`, spawned.** Runs `process.execPath` on `serve.js`, with a free port found by
+- **`serve.test.js`, spawned.** The command's scenarios live in a file of their own, since they
+  test `serve.js` rather than the handler (decided during the build of `zgh.4`, 2026-09-24). It
+  runs `process.execPath` on `serve.js`, with a free port found by
   binding port `0` on `127.0.0.1` and closing it.
   - *The default port* runs with `PORT` removed from the environment. It accepts either outcome that
     proves the default is `8080`: the URL printed with `8080`, or a refusal naming `8080` when
@@ -328,8 +331,9 @@ parsing HTML with regular expressions, which is fragile and cannot check that th
   "everything the page references is served locally" test fails on the first such reference, and
   names it.
 - **Port races in tests.** A free port found by binding `0` and closing it can be taken before the
-  child binds it. *Mitigation:* the window is milliseconds, and only `server.test.js` binds ports.
-  The default-port test tolerates `8080` being in use by design.
+  child binds it. *Mitigation:* the window is milliseconds, and only `server.test.js` and
+  `serve.test.js` bind ports. The default-port test tolerates `8080` being in use by design, and
+  holds it for a moment only when it is free.
 - **Signals on Windows.** `child.kill('SIGINT')` on Windows ends the process without running its
   handler, so the interrupt test cannot pass there. *Mitigation:* that one test is skipped on
   `win32`, printing why (`CLAUDE.md` § The gate ladder allows a skip that prints why). CI runs it on
