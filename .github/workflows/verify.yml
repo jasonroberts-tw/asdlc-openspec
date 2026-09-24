@@ -77,6 +77,10 @@ jobs:
         run: npm run check:register
       - name: the register gate, negative-tested
         run: npm run check:register:selftest
+      # Under a second: Node's own test runner over `apps/calculator/test/`, each scenario a test
+      # named for it.
+      - name: the calculator's scenarios pass
+        run: npm run calculator:test
       # Seconds: the pinned OpenSpec CLI, one start per run plus one per active change; no network.
       - name: every living spec and active change is valid, and every change applies
         run: npm run openspec:check
