@@ -291,8 +291,9 @@ carried into a later operation SHALL be the rounded result the display shows, no
 ### Requirement: Keyboard input
 
 While the calculator page has focus, the keys `0` to `9`, `.`, `+`, `-`, `*` and `/` SHALL act as
-the matching buttons, `Enter` and `=` SHALL act as equals, and `Escape` SHALL act as clear. Any other
-key SHALL change nothing.
+the matching buttons, `Enter` and `=` SHALL act as equals, and `Escape` SHALL act as clear, whatever
+modifier the keyboard layout needs to type them. Any other key SHALL change nothing, except that
+`Space` SHALL press a keypad button that has focus, as a browser does for any button.
 
 #### Scenario: A calculation typed on the keyboard
 
@@ -308,3 +309,8 @@ key SHALL change nothing.
 
 - **WHEN** a person types `4`, `a`
 - **THEN** the display shows `4`
+
+#### Scenario: Space presses the focused button
+
+- **WHEN** a person clicks `7`, then presses `Space` while that button still has focus
+- **THEN** the display shows `77`
