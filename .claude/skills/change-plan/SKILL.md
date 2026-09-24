@@ -36,7 +36,11 @@ Then check the draft as a whole:
 
 - **Every scenario in every delta spec is covered** by at least one task, or is marked manual,
   saying who verifies it and how.
-- **Each task is small enough** to finish and prove in one sitting.
+- **Each task is small enough** to finish and prove in one sitting, **and whole**: what must land
+  together is one task. A new npm script comes with its job or its `UNJOBBED_BY_KIND` entry in
+  `scripts/check-jobs.mjs` (the `add-npm-script` skill), never in a later task. `change-build`
+  commits each task on its own and runs `npm run gates` once, at the end, and no pre-commit job runs
+  `check:jobs` (`lefthook.yml`), so nothing would catch the split.
 - **Nothing is left out:** regenerating any artifact whose input the change moves, and adding the
   `README.md` row for any new file (`CLAUDE.md` § Every directory and document says what it is, and
   who wins).
@@ -56,7 +60,9 @@ already exist:
   and what done means.
 - **Create the child:**
   `bd create "<title>" --parent <epic> --body-file <that file> --deps blocked-by:<predecessor id> --silent`.
-  Leave out `--deps` for a task that waits on nothing.
+  Several predecessors go in the one flag, comma-separated:
+  `--deps blocked-by:<id>,blocked-by:<id>` (`bd create --help`). Leave out `--deps` for a task that
+  waits on nothing.
 - **Keep the labels it inherits.** Each child inherits the epic's labels, `spec-change` and the
   `repo:` label, and must keep both. The first keeps it out of the general queue, and the second is
   where its work lands.
@@ -67,3 +73,5 @@ Afterwards, `bd ready --parent <epic>` lists exactly the tasks that wait on noth
 
 Report the epic, each task's id with the scenarios it covers, what was marked manual, and the first
 ready task. The next stage is `change-build`.
+
+Reviewed: `docs/prompt-reviews/change-plan.2026-09-23.md` § Review of 2026-09-23 (run of 2026-09-23 on add-calculator-web-app, epic asdlc-openspec-zgh).
