@@ -193,9 +193,10 @@ pre-push:
     # requirement, run by Node's own test runner over `apps/calculator/test/`. The manifest is in
     # the glob for two reasons: it holds the runner's file pattern, and its `"type": "module"` is
     # what makes these `.js` files ES modules. The lockfile is in it because it pins any package a
-    # test imports, jsdom among them. 0.42 s wall through `node --run` and 0.46 s through
-    # `npm run calculator:test` (`/usr/bin/time -p`), most of it loading jsdom, on a macOS 26.7
-    # laptop (Apple M3 Max), 2026-09-24.
+    # test imports, jsdom among them. The server's tests bind a free port on `127.0.0.1` in-process.
+    # 0.45-0.47 s wall through `node --run` and 0.53-0.54 s through `npm run calculator:test`
+    # (`/usr/bin/time -p`, two runs each), on a macOS 26.7 laptop (Apple M3 Max) with
+    # Node 26.8.1, 2026-09-24.
     - name: calculator-test
       glob:
         - 'apps/calculator/**'

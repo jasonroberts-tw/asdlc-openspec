@@ -224,7 +224,7 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 
 | Script | What it does | Gate |
 |---|---|---|
-| `calculator:test` | Runs the test files directly in `apps/calculator/test/` (its `README.md` lists them) with Node's own test runner: each of the calculator's scenarios is a test named for it, under a suite named for its requirement. Without it nothing holds the calculator to its spec. A pattern that matches no file runs nothing and still exits 0, so read the test names in its output, never the exit code alone. | pre-push + CI |
+| `calculator:test` | Runs the test files directly in `apps/calculator/test/` (its `README.md` lists them) with Node's own test runner: each scenario of the calculator and of its local server is a test named for it, under a suite named for its requirement, except the few a browser alone can show, which `apps/calculator/test/README.md` names. Without it nothing holds the calculator to its specs. A pattern that matches no file runs nothing and still exits 0, so read the test names in its output, never the exit code alone. | pre-push + CI |
 
 ### check
 
@@ -336,7 +336,7 @@ The work of clearing them is tracked in `bd`.
 | `scripts/README.md` | The single-file gates and git-job scripts, one row each. |
 | `scripts/hooks/README.md` | The harness hooks, one row each. |
 | `tools/README.md` | The emitters and multi-file checks, one row each. |
-| `apps/calculator/README.md` | The calculator demo app: what each directory holds, and which spec wins over it. |
+| `apps/calculator/README.md` | The calculator demo app: what each file and directory holds, and which specs win over it. |
 | `.claude/README.md` | What the harness loads when a session starts here. |
 | `.devcontainer/README.md` | The dev container's mounts, each with its failure mode. |
 | `KIT-CHECKLIST.md` | What the kit laid down, and what is still to adapt. |
