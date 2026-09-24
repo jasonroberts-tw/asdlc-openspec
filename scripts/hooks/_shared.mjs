@@ -107,9 +107,9 @@ export function hasGeneratedBanner(text) {
  * Is the content heuristic even worth running on this path?
  *
  * NOT ON PROSE. A document that quotes the banner in order to explain it is normal and expected,
- * and the heuristic once refused to let such a document be edited. Generated Markdown, such as the
- * learning loop's reports, is covered by `generatedFileRedirect` below, by path, with a better
- * message than the catch-all could give. So the catch-all covers code and data only.
+ * and the heuristic once refused to let such a document be edited. Generated Markdown is covered by
+ * `generatedFileRedirect` below, by path, with a better message than the catch-all could give. So
+ * the catch-all covers code and data only.
  */
 export function bannerCheckApplies(rel) {
   return !/\.(?:md|mdx|txt|rst|adoc)$/i.test(rel)
@@ -138,23 +138,12 @@ function redirect(rel, what, where, command) {
  * a command that no longer exists is worse than none, because the reader runs it. A row never claims
  * a path that a different emitter owns.
  *
- * kit 1.5-5 · ADAPT: the rows below cover the emitters the kit laid down. Add a row the day an
- * emitter of yours owns a path, and delete this line.
+ * kit 1.5-5 · ADAPT: the kit's one row left with the learning loop. Add a row the day an emitter of
+ * yours owns a path, and delete this line.
  */
 const REDIRECTS = [
-  // The learning loop's tree is emitter-owned whole. A record is written by the step of the work
-  // that ends a run and normalised to canonical bytes by `npm run outcomes`; everything else under
-  // the root is derived from the records. A PATTERN over the root rather than path-exact rows,
-  // because the record set is decided by what runs wrote and not by this file; the Markdown reports
-  // bypass the banner heuristic and need the row, and the JSON files carry a banner but get a
-  // better message here.
-  {
-    owns: (rel) => rel.startsWith('artifacts/outcomes/'),
-    what: 'by `npm run outcomes` (tools/outcomes/)',
-    where:
-      'the source it was written or derived from -- for a record, the step of the work that wrote it (never the file by hand; `npm run outcomes` normalises it); tools/outcomes/*.ts or tools/outcomes/policy.json for a report',
-    command: 'npm run outcomes',
-  },
+  // Empty. Its one row was the learning loop's tree, `artifacts/outcomes/`, re-emitted by
+  // `npm run outcomes`, and left with the loop (`docs/decisions.md` § D-06).
 ]
 
 /** `null` when nothing generates this path, otherwise the message to hand back. */

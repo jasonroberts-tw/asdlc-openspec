@@ -46,14 +46,17 @@ Run `bd close <id> --reason "<short commit id>: <what now exists>"`.
   task. A behaviour the code gets right but no scenario proves is out of scope, filed as below, so
   review does not loop on coverage.
 - **Out of scope**, such as a defect nearby or a gap somewhere else: file it with
-  `bd create "<title>" -l <the repo: label> --deps discovered-from:<epic> --body-file <file> --silent`.
+  `bd create "<title>" -l <the repo: label>,<its found-at label>,<its asset: labels> --deps discovered-from:<epic> --body-file <file> --silent`,
+  with the labels `CLAUDE.md` § The task store names; here the found-at label is build's.
   Give it no `spec-change` label, so it joins the general queue, and carry on. Never fold it into
   this change unannounced.
-- **In scope but missing from the plan:** add it as a new child of the epic, once the user agrees.
+- **In scope but missing from the plan:** add it as a new child of the epic, once the user agrees,
+  and label the epic for plan (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
 - **A spec that is wrong**, meaning a scenario that cannot hold as written or a requirement that is
   missing: stop and tell the user. Revise the delta spec first, under the grammar `change-propose`
   gives, then the design where it is affected, then the plan, and commit that revision on its own,
-  before the code it allows. The code never outruns the spec.
+  before the code it allows. The code never outruns the spec. Label the epic for each stage whose
+  file the revision changed (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
 
 ## 6. Repeat, then hand over
 

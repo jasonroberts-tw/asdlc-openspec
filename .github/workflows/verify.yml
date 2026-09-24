@@ -55,14 +55,6 @@ jobs:
       # Synthetic fixtures, and scratch git trees under the temporary directory for the end-to-end cases.
       - name: the citations gate, negative-tested
         run: npm run citations:selftest
-      # Committed fixtures and scratch copies of them; one scratch repository for the push question.
-      - name: the run-outcome record's validator and writer, negative-tested
-        run: npm run outcomes:record:selftest
-      # Every input is a committed file: the records, the one schema, the emitter.
-      - name: the learning loop's records are canonical and its reports are current
-        run: npm run outcomes:check
-      - name: the learning loop's emitter and filing step, negative-tested
-        run: npm run outcomes:selftest
       # Milliseconds: the graph record held to the files it names, to the hook runner's
       # configuration, to this file, to the prose page and to the tracker's formula.
       - name: the graph record describes the repository
@@ -92,10 +84,12 @@ jobs:
       #   * the tracker's checks: they read the tracker's database, which a fresh clone does not have.
       #   * the worktree hooks' selftest: about a hundred git spawns against a scratch repository it
       #     builds; it is a pre-push job, and nothing it reads differs in CI.
-      #   * the learning loop's filing step (`outcomes:propose`): it reads and writes the tracker, so
-      #     it is a job in neither file; a person runs it, `--dry-run` first.
       #
       # A RETIRED STEP stays here as a comment saying why a restored step would be wrong, so the next
       # person does not restore it:
-      #   * <name of the step> — <what it checked, the decision that retired it, and what would be
-      #     wrong about bringing it back>
+      #   * `outcomes:record:selftest`, `outcomes:check` and `outcomes:selftest`: the run-outcome
+      #     record's writer, the learning loop's reports and its filing step, and each one's
+      #     negative test. `docs/decisions.md` § D-06 retired the loop with `tools/outcomes/` and
+      #     `artifacts/outcomes/`, which no longer exist, so a restored step fails on a missing
+      #     script. The loop's filing step, `outcomes:propose`, was never a step: it read and wrote
+      #     the tracker.

@@ -76,6 +76,11 @@ bracketed: pull before the first write and push after the last, and a rejected p
 with its exact command and error, never forced. Long descriptions and notes go in by file. Every
 open issue carries a label naming where its work lands.
 
+An issue a run files `discovered-from` the issue or epic it ran on also carries, from
+`tools/policy.json`, the `foundAtLabels` label for the stage that found it and one `assetLabels`
+label for each kind of file it would change. Those pairs are what `bd count` reads across runs
+(`.claude/skills/change-finalize/SKILL.md` § 9. Report).
+
 ## Product work runs as OpenSpec-format changes
 
 A change to what the product does, stated as requirements, runs through the `change-*` skills in
@@ -83,6 +88,12 @@ order: `change-propose`, `change-design`, `change-plan`, `change-build`, `change
 `change-finalize`. One change is one worktree, one pull request and one `bd` epic whose tasks are its
 children; the shape and its reasons are `docs/decisions.md` § D-02. Never track a change's tasks in a
 `tasks.md`, and never run `openspec init` or `openspec update` here.
+
+When a later stage sends a change back, the epic gets the `rerouteLabels` label, from
+`tools/policy.json`, for each earlier stage whose work it reopens: the proposal or a delta spec
+revised, the design revised, a task added to the epic, or work `change-verify` sends back to
+`change-build`. It is a tracker write like any other, in the same bracket. That rework lands as
+commits inside the change and never becomes an issue, so without the label no count sees it.
 
 ## Decisions live in the register
 
@@ -200,7 +211,9 @@ worktree. Rebase onto `origin/main` rather than merging the trunk into a branch,
 After a prompt is executed from a file, the session that ran it launches the
 `continuous-prompt-improvement` agent on the run and does not wait for it. First it writes its
 analysis of the run to `.scratch/review.md` in its own worktree, where it can write: the harness
-refuses a background session's edit in the shared checkout. Then it leaves the worktree
+refuses a background session's edit in the shared checkout. The analysis ends with the counts across
+runs that `.claude/skills/change-finalize/SKILL.md` § 9. Report prints, so the reviewer can tell a
+finding that recurs from one seen once. Then it leaves the worktree
 (`ExitWorktree`, action `keep`, so the file stays): a background session starts in the directory it
 was launched from, and one launched inside a linked worktree writes on that worktree's branch. From
 the primary checkout it launches the reviewer as a background session, which agent view
@@ -226,10 +239,11 @@ recover the review files it deleted.
 
 ## A program proposes; only a person promotes
 
-The learning loop files every proposal it derives from run records as an issue in `bd`;
-nothing it derives filters or instructs until a person has read the evidence and promoted it by
-editing the hand-maintained source and re-running the emitter. A proposal that does not hold is
-closed with its reason, and its key stays, so it is never re-filed under new wording.
+Nothing a program derives from its runs filters or instructs until a person has read the evidence
+and promoted it by editing the hand-maintained source. The prompt reviewer proposes a change to a
+prompt as a pull request, and a person decides whether it merges (§ Prompt reviews). The label
+counts across runs are evidence for a person to read, never a rule. A proposal that does not hold
+is closed with its reason, so the next one to raise it finds why.
 
 ## Worktree-local context
 

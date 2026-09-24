@@ -121,4 +121,15 @@ Report:
 - the living spec files and the archive path;
 - both gate runs, as measured;
 - every issue filed along the way;
+- the counts across runs, as each command prints them, with the number of changes behind them.
+  They are the evidence a person reads for what keeps needing a fix (`CLAUDE.md` § A program
+  proposes; only a person promotes), and the end of the analysis a prompt review is handed
+  (`CLAUDE.md` § Prompt reviews). Report the counts, never a rate:
+  - `bd count -t epic -l <the change label> --by-label`, where the label is `specChangeLabel` in
+    `tools/policy.json`: its total is the number of changes, and its `rerouteLabels` rows are how
+    many of them were sent back to each stage;
+  - `bd count --by-label`: its `foundAtLabels` and `assetLabels` rows count the issues runs have
+    filed, by where each was found and by what it would fix;
+  - `bd count -l <label> --by-label`, once for each `foundAtLabels` label the previous command
+    lists: the `assetLabels` rows are the pairs, the recurrence signal;
 - a `RUN THESE YOURSELF` block for any command that was refused (`CLAUDE.md` § Guards).

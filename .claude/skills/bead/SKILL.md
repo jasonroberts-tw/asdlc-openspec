@@ -78,7 +78,7 @@ here, with the body file under this worktree's `.scratch/`.
 Make the change. Regenerate every derived artifact the change touches, with its emitter, never by
 hand, and only after the last edit to the emitter or its inputs: an emitter's own source is one of
 its inputs, so even a comment edit stales its output. `npm run pipeline:stale` names each stale
-node and the command that rebuilds it; `npm run outcomes:check` covers the learning loop's tree. A
+node and the command that rebuilds it. A
 first run that stamps an output which had none makes `pipeline:stale:check` bind it from then on
 (`docs/pipeline.md` § The two gates): say so in the pull request.
 
@@ -91,7 +91,8 @@ A defect found on the way is fixed in this branch only when it sits in a file th
 changes. Anything else is filed as its own issue, never folded in, and before the pull request
 opens, so the pull request's body names the new id. File it from a body file under `.scratch/`,
 with the command `.claude/skills/change-build/SKILL.md` § 5. What the build turns up gives:
-`bd create "<title>" -l <the repo: label> --deps discovered-from:<id> --body-file <file> --silent`.
+`bd create "<title>" -l <the repo: label>,<its found-at label>,<its asset: labels> --deps discovered-from:<id> --body-file <file> --silent`,
+with the labels `CLAUDE.md` § The task store names; here the found-at label is bead's.
 
 Before filing this or any follow-up, search for it. `bd search "<words>"` matches titles only and
 `bd list --all --desc-contains "<words>"` matches descriptions; both include closed issues. Run

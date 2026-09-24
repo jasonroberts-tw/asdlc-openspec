@@ -33,7 +33,9 @@ raised again unless this run shows something that review did not have. Reviews w
 Look for what made the run slower or wrong: long-running steps, repeated cycles, incorrect
 statements or assumptions, and contradictions, within the prompt or between it and `CLAUDE.md`. The
 analysis is an input, not a verdict: check each claim it makes against the run's own evidence (its
-commits, its pull request, the tracker) before building on it.
+commits, its pull request, the tracker) before building on it. It ends with the counts across runs
+(`CLAUDE.md` § Prompt reviews). A finding of a kind those counts show recurring weighs more than one
+seen once, but a count alone is never the reason to change a prompt.
 
 If nothing should change, stop here. Edit no file, make no worktree and open no pull request. A
 review that proposes nothing leaves nothing behind, and no run is counted anywhere.

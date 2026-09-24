@@ -1,10 +1,42 @@
 {
-  "describes": "The constants the workflow's prompts and tools read that belong to no one tool. Today there is one: the spelling of the tracker label that marks a product change's epic and every one of its tasks.",
+  "describes": "The constants the workflow's prompts and tools read that belong to no one tool: the spelling of the tracker label that marks a product change's epic and every one of its tasks, and the three label vocabularies a run leaves in the tracker so that `bd count` can show what recurs across runs.",
   "whyThisFileExists": "A constant spelled in a register entry, six skills and an agent is eight copies, and the stale one is the one a reader finds. CLAUDE.md § Three kinds of file, and never a fourth puts every constant a tool or a prompt reads in a policy file under a key, with its reason beside it. `docs/decisions.md` § D-02 held the label's spelling only until this file existed; § D-03 moved it here.",
-  "gatedBy": "npm run openspec:check (this file carries `specChangeLabel` and its `Means` sibling; every skill and agent that spells the label cites the key, and every one that cites the key spells its current value); npm run outcomes:record:selftest (an `intervention` block, where this file declares one, is held equal to the run-outcome schema's enum).",
-  "whatItDoesNOTDo": "It does not hold the learning loop's constants, which are in tools/outcomes/policy.json, nor a rule about how a run proceeds, which lives in CLAUDE.md or in the skill that runs it. It declares no `intervention` block: the run-outcome schema's intervention enum is still the starter kit's starting vocabulary, and nothing but the schema reads it.",
+  "gatedBy": "npm run openspec:check (this file carries `specChangeLabel` and its `Means` sibling; every skill and agent that spells the label cites the key, and every one that cites the key spells its current value). No gate yet holds `assetLabels`, `foundAtLabels` or `rerouteLabels`: the prompts cite the keys and spell none of their values, and asdlc-openspec-dzi asks `beads:check` to refuse a found issue without them.",
+  "whatItDoesNOTDo": "It does not hold a rule about how a run proceeds, which lives in CLAUDE.md or in the skill that runs it: when a label is applied is CLAUDE.md § The task store and § Product work runs as OpenSpec-format changes, and who reads the counts is `.claude/skills/change-finalize/SKILL.md` § 9. Report. It computes nothing: `bd count` does the counting.",
   "provenance": "Written 2026-09-23 under D-03 (asdlc-openspec-4gp), which moved the label's spelling here out of D-02. Each later key carries its date and its evidence in its `Means` sibling.",
 
   "specChangeLabel": "spec-change",
-  "specChangeLabelMeans": "The tracker label on a product change's epic and on every one of its tasks (docs/decisions.md § D-02, item 3). change-propose puts it on the epic and the children inherit it; the general sweeps of the queue exclude it (`bd ready --exclude-label` in the bead skill and the fan-out-work agent), and change-plan, change-build, change-verify and change-finalize find the epic by it. Changing it here strands every open change: relabel their epics and tasks in the same change, and respell the label in every skill and agent that cites this key, which `npm run openspec:check` names. Decided 2026-09-23 with D-02; moved here 2026-09-23 by D-03."
+  "specChangeLabelMeans": "The tracker label on a product change's epic and on every one of its tasks (docs/decisions.md § D-02, item 3). change-propose puts it on the epic and the children inherit it; the general sweeps of the queue exclude it (`bd ready --exclude-label` in the bead skill and the fan-out-work agent), and change-plan, change-build, change-verify and change-finalize find the epic by it. Changing it here strands every open change: relabel their epics and tasks in the same change, and respell the label in every skill and agent that cites this key, which `npm run openspec:check` names. Decided 2026-09-23 with D-02; moved here 2026-09-23 by D-03.",
+
+  "assetLabels": {
+    "asset:docs": "a document that is neither the register nor the living spec: a README, a page under docs/, count-index.md",
+    "asset:environment": "what a session runs on: the worktree script and its briefing template, the toolchain's versions, the harness's settings, the dev container",
+    "asset:gate": "a gate, a hook, a test runner, or a job that runs one (lefthook.yml, .github/workflows/verify.yml)",
+    "asset:product": "the product's code and its tests, under apps/",
+    "asset:prompt": "CLAUDE.md, a skill, an agent, or a workflow script a skill runs",
+    "asset:register": "docs/decisions.md",
+    "asset:spec": "the living spec under openspec/specs/, or a change's proposal and delta specs",
+    "asset:tool": "an emitter or a helper under tools/ or scripts/ that is not a gate"
+  },
+  "assetLabelsMeans": "What an issue a run files `discovered-from` would fix: one label for each kind of file it would change, each key the label and each value what it covers (CLAUDE.md § The task store says when). Paired with its `foundAtLabels` label it is the recurrence signal the retired learning loop was to derive (docs/decisions.md § D-06): `bd count -l <a found-at label> --by-label` counts the pairs. An issue that fits none of these gets the label it needs added here first, with its date, in the change that files it. Renaming a label strands every issue that carries it: relabel them in the same change. Decided 2026-09-24 with D-06 (asdlc-openspec-6dn); the eight values were fitted to the issues discovered from asdlc-openspec-zgh.",
+
+  "foundAtLabels": {
+    "found:bead": "while an issue was worked through the bead skill, or a lane of the fan-out-work agent",
+    "found:build": "during change-build",
+    "found:design": "during change-design",
+    "found:finalize": "during change-finalize",
+    "found:plan": "during change-plan",
+    "found:propose": "during change-propose",
+    "found:review": "by looking back at a run after it ended: a prompt review, or a person or session reviewing a finished change",
+    "found:verify": "during change-verify"
+  },
+  "foundAtLabelsMeans": "Where an issue a run files `discovered-from` was found: exactly one label, the stage that was running, each key the label and each value when it applies (CLAUDE.md § The task store says when). `found:review` is the count of what got through every stage and was caught only looking back. An issue filed before D-06 carries one only where its own text says which stage found it. Decided 2026-09-24 with D-06 (asdlc-openspec-6dn), after a second opinion on the retirement pointed out that the loop's recurrence signal is the pair of where a correction was found and what it would fix.",
+
+  "rerouteLabels": {
+    "reroute:build": "change-verify sent work back to change-build: a gap in the code, or a finding the user made a new task",
+    "reroute:design": "a later stage revised the design",
+    "reroute:plan": "a later stage added a task to the epic",
+    "reroute:propose": "a later stage revised the proposal or a delta spec"
+  },
+  "rerouteLabelsMeans": "Labels on a product change's epic, one for each earlier stage a later stage sent the change back to, each key the label and each value when it applies (CLAUDE.md § Product work runs as OpenSpec-format changes says when). A label is a set: it records that the change went back, not how often. `bd count -t epic -l <specChangeLabel> --by-label` then answers how many changes needed their spec, design or plan reworked after the stage that wrote it, the rework a label on a found issue never sees because it lands as commits inside the change. Decided 2026-09-24 with D-06 (asdlc-openspec-6dn), after the same second opinion showed that the calculator change's largest corrections, its spec revised during build and its design amended at verify, became no issue."
 }
