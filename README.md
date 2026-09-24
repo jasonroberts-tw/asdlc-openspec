@@ -1,27 +1,4 @@
-# <repository>
-
-<!-- kit 3.1-5 · WRITE: a bolded one-sentence thesis of what this repository is and what it
-     produces, then at most a paragraph: what is worth reading here, and where the places a real
-     subject goes are marked. The rules an agent follows are in `CLAUDE.md`, never here; the status
-     of work is in `bd`, never here. Delete this comment when done. -->
-
-This page describes and points; it holds no rule. The rules an agent follows are in `CLAUDE.md`.
-The status of work is in `bd`, never here.
-Where this page and a file it points at disagree, that file wins and this page is corrected.
-
-**On this page:** [Why this repository exists](#why-this-repository-exists)
-· [Read in this order](#read-in-this-order)
-· [How it is laid out](#how-it-is-laid-out)
-· [The guardrails](#the-guardrails)
-· [Setup](#setup)
-· [Working here](#working-here)
-· [The npm scripts](#the-npm-scripts)
-· [The work, and the learning loop](#the-work-and-the-learning-loop)
-· [What is still a placeholder](#what-is-still-a-placeholder)
-· [Where to read next](#where-to-read-next)
-· [What runs automatically](#what-runs-automatically)
-
-## Why this repository exists
+# Agentic SDLC Harness (Spec-driven)
 
 **This repository is where agents do product work under rules a person can check: what the product
 should do is agreed before code is written, every rule has one home, and every claim is re-derived
@@ -57,6 +34,21 @@ does not meet it again.
 
 Why the product does what it does is not on this page. It is in `openspec/`: the living spec of
 each capability, and the proposal of each change that shaped it.
+
+This page describes and points; it holds no rule. The rules an agent follows are in `CLAUDE.md`.
+The status of work is in `bd`, never here.
+Where this page and a file it points at disagree, that file wins and this page is corrected.
+
+**On this page:** [Read in this order](#read-in-this-order)
+· [How it is laid out](#how-it-is-laid-out)
+· [The guardrails](#the-guardrails)
+· [Setup](#setup)
+· [Working here](#working-here)
+· [The npm scripts](#the-npm-scripts)
+· [The work, and the learning loop](#the-work-and-the-learning-loop)
+· [What is still a placeholder](#what-is-still-a-placeholder)
+· [Where to read next](#where-to-read-next)
+· [What runs automatically](#what-runs-automatically)
 
 ## Read in this order
 
