@@ -220,32 +220,6 @@ pre-push:
       glob:
         - 'scripts/check-count-index.mjs'
       run: node --run counts:selftest
-    # The run-outcome record's validator and writer, negative-tested against the committed fixtures
-    # (one per terminal path), and the schema's intervention enum held to the policy file's list
-    # where that file declares one.
-    - name: outcomes-record-selftest
-      glob:
-        - 'tools/outcomes/**'
-        - 'tools/policy.json'
-        - 'tools/outcomes/run-outcome.schema.json'
-        - 'tools/outcomes/fixtures/**'
-      run: node --run outcomes:record:selftest
-    # The learning loop's records re-validated and re-serialised, and its reports rebuilt in memory
-    # from them, byte-compared with what is committed. `outcomes` and `outcomes:propose` have no job:
-    # the first is this check's bare emitter, the second reads and writes the tracker.
-    - name: outcomes-check
-      glob:
-        - 'tools/outcomes/**'
-        - 'artifacts/outcomes/**'
-        - 'artifacts/outcomes/records/**'
-        - 'tools/outcomes/run-outcome.schema.json'
-      run: node --run outcomes:check
-    - name: outcomes-selftest
-      glob:
-        - 'tools/outcomes/**'
-        - 'tools/outcomes/run-outcome.schema.json'
-        - 'tools/outcomes/fixtures/**'
-      run: node --run outcomes:selftest
     # The graph record, held to the files it names, to this file, to `.github/workflows/verify.yml`, to the prose page and
     # to the tracker's formula. No glob, deliberately: the record's input, output and generator
     # globs may name any file in the repository, so a push that deletes or renames any file can

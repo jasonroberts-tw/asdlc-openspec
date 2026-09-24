@@ -121,7 +121,7 @@ const UNMATCHED_GLOB_RE = /\*\*|\[/
  * its entry must go; add an un-jobbed script and an entry must come.
  *
  * `shape` is a regex the kind's names must match, where the kind HAS a mechanical shape. Bare
- * emitters do not (`captures:recover`, `outcomes`), so that kind is a list and nothing more.
+ * emitters do not (`worktree:gc`, `pipeline:example`), so that kind is a list and nothing more.
  */
 const UNJOBBED_BY_KIND = [
   {
@@ -131,8 +131,6 @@ const UNJOBBED_BY_KIND = [
       ' the gate and the job runs that.',
     names: [
       'worktree:gc',
-      'outcomes',
-      'outcomes:propose',
       'pipeline:example',
       'pipeline:stale',
     ],

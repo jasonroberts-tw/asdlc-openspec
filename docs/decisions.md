@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-05 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04 and D-05 added 2026-09-24).**
+**Status: every decision from D-01 to D-06 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-05` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-06` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -61,6 +61,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-03** | The workflow's constants live in `tools/policy.json`, starting with the change label | `tools/policy.json`, the key cited by every prompt that spells the label, and `openspec:check` holding them to it |
 | **D-04** | The repository carries a demo product, a calculator served on loopback only | `apps/calculator/`, served by `npm run calculator:serve` on `127.0.0.1` alone; its tests as the `calculator-test` pre-push job and a CI step; and the worktree briefing's port paragraphs |
 | **D-05** | A prompt review runs in the background, and lives in its own pull request rather than in a file | `CLAUDE.md` § Prompt reviews, the `continuous-prompt-improvement` agent, and `docs/prompt-reviews/` and every `Reviewed:` trailer deleted |
+| **D-06** | The learning loop is retired; a run's labels in the tracker show what recurs | `tools/outcomes/` and `artifacts/outcomes/` deleted with their scripts and jobs; three label vocabularies in `tools/policy.json`; `CLAUDE.md` § The task store and § Product work runs as OpenSpec-format changes; `change-finalize`'s report and the prompt reviewer's analysis read the counts |
 
 ## Risks
 
@@ -90,6 +91,8 @@ once it is worked through, and the commit that added these files is the lasting 
 **Figures.** None.
 
 > **Amended 2026-09-24 by D-05.** `CLAUDE.md` § Prompt reviews, as the kit laid it down, no longer holds. A review is no longer kept in a file under `docs/prompt-reviews/` and appended to on every run, and a prompt no longer carries a `Reviewed:` trailer. The reviewer runs in the background, nobody waits for it, and a review that proposes a change is the description of its own pull request.
+
+> **Amended 2026-09-24 by D-06.** The kit's learning loop, its sections 2.3 and 2.4, is retired: `tools/outcomes/`, `artifacts/outcomes/` and their scripts and jobs are deleted. `CLAUDE.md` § A program proposes; only a person promotes keeps its principle and no longer names the loop. What recurs across runs is read from labels in the tracker instead.
 
 ### D-02 · Product work runs as OpenSpec-format changes, tracked in bd
 
@@ -209,6 +212,8 @@ Retirement checklist for the deleted skills, each item done in this change:
 
 **Figures.** Seven prompts spell the label: `git grep -l -w spec-change -- .claude` lists them.
 
+> **Amended 2026-09-24 by D-06.** Item 3 and the first alternative no longer apply: the run-outcome schema, `tools/outcomes/record.selftest.ts` and `tools/outcomes/policy.json` are deleted, so no intervention enum exists to tie to, and `outcomes-record-selftest` is no longer a job. `tools/policy.json` now also carries `assetLabels`, `foundAtLabels` and `rerouteLabels`, which no gate holds yet.
+
 ### D-04 · The repository carries a demo product, a calculator served on loopback only
 
 **Recorded 2026-09-24**, carried by `asdlc-openspec-zgh`. The maintainer accepted it on 2026-09-23, during the `change-design` stage of the change `add-calculator-web-app`.
@@ -286,3 +291,65 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 - **Their return is not refused by a gate.** Review holds it, as it holds a trailer's return.
 
 **Figures.** Seven review files and the directory's README deleted: `git log -1 --diff-filter=D --name-only --format= -- docs/prompt-reviews/` lists them. Seven `Reviewed:` trailers dropped: `git grep -n "^Reviewed:" <the deleting commit>^ -- .claude` lists them.
+
+### D-06 · The learning loop is retired; a run's labels in the tracker show what recurs
+
+**Recorded 2026-09-24**, carried by `asdlc-openspec-6dn`. The maintainer chose each part below on 2026-09-24, first from the recommendation that answered whether `asdlc-openspec-ri0` had happened for `add-calculator-web-app`, then from a second opinion on that recommendation.
+
+**Builds on / amends:** amends D-01, whose conventions included the starter kit's learning loop (its sections 2.3 and 2.4) and `CLAUDE.md` § A program proposes; only a person promotes as the kit laid it down. Amends D-03, whose item 3 and first alternative rest on files this entry deletes. Builds on D-02, whose epics carry the send-back labels below, and on D-05, whose reviewer is one of the two readers of the counts.
+
+**Decision.** The kit's learning loop, one record per run and reports derived from the records, is retired. What recurs across runs is read from labels a run leaves in the tracker.
+
+1. **The loop is deleted outright** (`docs/retired/README.md` § The three dispositions, *Delete it outright*): `tools/outcomes/` and `artifacts/outcomes/`; the scripts `outcomes`, `outcomes:check`, `outcomes:selftest`, `outcomes:record:selftest` and `outcomes:propose`; their three pre-push jobs and three CI steps; and their rows in the hooks' tables of emitter-owned paths. `tools/lib/bd-launcher.ts` stays: `scripts/check-beads.mjs` imports it.
+2. **An issue a run finds carries where it was found and what it would fix.** An issue filed `discovered-from` the issue or epic a run was working carries, beside its `repo:` label, the `foundAtLabels` label for the stage that found it and one `assetLabels` label for each kind of file it would change. The pair is the kit's recurrence signal (`KIT-CHECKLIST.md` § Step 21), and `bd count -l <found-at label> --by-label` counts it. `CLAUDE.md` § The task store holds the rule.
+3. **A change's epic carries each stage it was sent back to.** When a later stage revises the proposal or a delta spec, the design, or the epic's tasks, or `change-verify` sends work back to `change-build`, the epic gets that stage's `rerouteLabels` label. That rework lands as commits inside the change and never becomes an issue, so rule 2 cannot see it. `CLAUDE.md` § Product work runs as OpenSpec-format changes holds the rule, and each skill that sends a change back points at it.
+4. **The three vocabularies live in `tools/policy.json`**, each with its `Means` sibling (D-03). Prompts cite the keys and spell none of the values. No gate holds them yet; `asdlc-openspec-dzi` asks `beads:check` to refuse a found issue without them.
+5. **The counts have two readers.** `change-finalize`'s report prints them (`.claude/skills/change-finalize/SKILL.md` § 9. Report), for the person who decides what is promoted; and the analysis a prompt review is handed ends with them (`CLAUDE.md` § Prompt reviews), so the reviewer can tell a finding that recurs from one seen once. Both report counts, never a rate.
+6. **The first change is labelled after the fact, from evidence only.** Each of the 25 issues discovered from `asdlc-openspec-zgh` carries its asset labels. Fourteen carry a found-at label because their own text says which stage found them: nine the build, one the proposal, and four a review after the change ended. `asdlc-openspec-kce` is among the four: its text says it was observed while proposing and came to light in the prompt review of that run. The other eleven carry none: six can be placed only by inference from what they cite, four never say, and one names two stages. The epic carries all four send-back labels:
+   - its spec was revised at design and during the build (`9e8f56e`, `d00e197`);
+   - its design was revised during the build and at verify (`d00e197`, `fe1360a`);
+   - two tasks were added after planning (`asdlc-openspec-zgh.8`, `asdlc-openspec-zgh.9`);
+   - the re-run of `change-verify` sent `asdlc-openspec-zgh.9` back to the build.
+7. **`asdlc-openspec-ri0` is closed, not done.** It asked `change-finalize` to write a record on every terminal path, complete, failed and blocked. `change-finalize` lands only a verified change, so no failed or blocked change reaches it, and the criterion could not have been met from there.
+
+**Why.** The maintainer asked on 2026-09-24 whether `asdlc-openspec-ri0` had happened for `add-calculator-web-app`. It had not: `change-finalize` wrote no record, nothing called `tools/outcomes/write-record.ts`, and `artifacts/outcomes/records/` held no file, so every report had been derived from nothing. The loop's two jobs were covered elsewhere: prompts by the review of each run (D-05), and product behaviour by `change-verify` and the living spec (D-02). Defects a run found outside its own files were already issues in the tracker, filed by hand. The one thing only the loop offered was a view across runs, which, with one change archived and a floor of five records before a rate, it could not yet give. A second opinion then showed that labels on found issues alone would miss the calculator change's largest corrections. Its spec went from 30 scenarios to 47 during the build, and its design was amended twice at verify. Both landed as commits and neither became an issue. Five alternatives lost:
+
+- **Wiring `ri0` as filed.** The criterion could not be met from `change-finalize` (item 7), `bead` and `fan-out-work` wrote no record either, and the schema's stage and asset lists were still the kit's placeholders.
+- **Moving the loop to `docs/retired/`.** `retire-asset` moves a retired asset there, but nothing live reads TypeScript tools once their jobs go, and `git show` recovers them, as D-05 chose for the review files.
+- **Asset labels alone,** the first recommendation. They count what a run files and miss the rework inside a change, which is what the send-back labels count.
+- **The prompt reviewer as the only reader.** It proposes changes to prompts; a count of gate, environment or product fixes needs a person to read it.
+- **A tool that tabulates the pairs.** `bd count -l <label> --by-label` gives them, and a tool would be the loop again in miniature.
+
+**What changed.**
+
+- **This register:** this entry; the status line, the blockquote's bound and the decisions table carry D-06; D-01 and D-03 carry the amendments above.
+- **`tools/outcomes/` and `artifacts/outcomes/`:** deleted.
+- **`package.json`:** the five `outcomes` scripts are removed.
+- **`lefthook.yml`:** the jobs `outcomes-record-selftest`, `outcomes-check` and `outcomes-selftest` are removed.
+- **`.github/workflows/verify.yml`:** the three `outcomes` steps are removed. Its list of retired steps says why a restored one would be wrong, and its list of deliberately absent steps no longer names the filing step.
+- **`scripts/assert-not-hand-edited.mjs`, `scripts/hooks/_shared.mjs` and `scripts/hooks/check-emitted-drift.mjs`:** each table's one row, the loop's, is removed, and the table says so.
+- **`scripts/check-jobs.mjs`:** `outcomes` and `outcomes:propose` leave the list of scripts with no job.
+- **`tools/lib/bd-launcher.ts`:** its header marks the filing step as a retired caller.
+- **`tools/policy.json`:** `assetLabels`, `foundAtLabels` and `rerouteLabels`, each with its `Means` sibling; its `gatedBy` and `whatItDoesNOTDo` no longer name the loop.
+- **`CLAUDE.md`:** § The task store gains the found-issue labels; § Product work runs as OpenSpec-format changes gains the send-back label; § Prompt reviews ends the analysis with the counts; § A program proposes; only a person promotes is rewritten without the loop.
+- **`.claude/skills/bead/SKILL.md` and `.claude/skills/change-build/SKILL.md`:** the filing command carries the labels. `bead` no longer names `outcomes:check`, and `change-build` labels the epic when it revises the spec, the design or the plan.
+- **`.claude/skills/change-design/SKILL.md` and `.claude/skills/change-verify/SKILL.md`:** each labels the epic where it sends a change back.
+- **`.claude/skills/change-finalize/SKILL.md`:** § 9. Report prints the counts.
+- **`.claude/agents/continuous-prompt-improvement.md`:** says how to weigh the counts at the end of the analysis.
+- **`README.md` and `tools/README.md`:** the loop's section, scripts and rows are gone; the guardrail row names the prompt reviewer.
+- **Left as it is:** `KIT-CHECKLIST.md`, the bootstrap's record of what it laid down on the day, still names the loop's files, as D-05 left it naming the review files.
+
+Retirement checklist, the disposition *Delete it outright* of `docs/retired/README.md` § The three dispositions:
+
+- **Nothing live reads them.** `git grep -n -i -E "outcomes|learning loop|run-outcome"` finds this entry and the amendments above, D-03's own text, `KIT-CHECKLIST.md`, and comments that say the loop is retired: `.github/workflows/verify.yml`, the three hooks' tables, `tools/lib/bd-launcher.ts` and `tools/policy.json`, plus the pointer in `README.md` § The work, and what its runs leave behind. It also finds "outcomes" as a plain word in the header of `scripts/check-beads.mjs`, which is about something else.
+- **The recovery.** `git log -1 --diff-filter=D --format=%H -- tools/outcomes/index.ts` names the deleting commit, and `git show <that commit>^:<path>` recovers any of its files. The kit's own `tools/bootstrap.mjs`, which wrote `KIT-CHECKLIST.md`, lays down a fresh copy unadapted to this repository; how it selects only sections 2.3 and 2.4 was not checked from here.
+- **Their return is not refused by a gate.** Review holds it, and `.github/workflows/verify.yml` says why a restored step would be wrong.
+
+**Figures.**
+
+- 23 files deleted, 17 under `tools/outcomes/` and 6 under `artifacts/outcomes/`: `git log -1 --diff-filter=D --name-only --format= -- tools/outcomes/ artifacts/outcomes/` lists them.
+- 2,197 lines in the 12 TypeScript files: `git grep -c "" <that commit>^ -- "tools/outcomes/*.ts"` gives each file's count.
+- No record: `git ls-tree -r --name-only <that commit>^ -- artifacts/outcomes/records` prints nothing.
+- One archived change: `git ls-tree --name-only <that commit>^ openspec/changes/archive/`.
+- The calculator spec's scenarios, 30 before the build's revision and 47 after: `git grep -c "#### Scenario:" d00e197^ -- openspec/changes/add-calculator-web-app/specs/calculator/spec.md`, and the same at `d00e197`.
+- The 25 issues discovered from the first change, and the labels each was given on 2026-09-24: `bd show asdlc-openspec-zgh` lists them under DISCOVERED, with the epic's own labels, and `bd show <id>` gives each one's. `bd count -l <found-at label> --by-label` counts them with every issue filed since, so it grows after this date.

@@ -1,10 +1,12 @@
 /**
  * Where `bd`, the issue tracker's CLI, is on THIS machine, and how to start it without a shell.
  *
- * TWO CALLERS spawn `bd` and each used to resolve it on its own: `scripts/check-beads.mjs` with
+ * TWO CALLERS spawned `bd` and each used to resolve it on its own: `scripts/check-beads.mjs` with
  * `execFileSync('bd', ...)` and a catch-all that turned every error into "bd is not installed", and
- * `tools/outcomes/propose.ts` with `spawnSync('bd', args, { shell: process.platform === 'win32' })`
- * and Node's DEP0190 warning on every run.
+ * the learning loop's filing step, `tools/outcomes/propose.ts`, with
+ * `spawnSync('bd', args, { shell: process.platform === 'win32' })` and Node's DEP0190 warning on
+ * every run. That step is retired with the loop (`docs/decisions.md` § D-06); `check-beads.mjs` is
+ * the one caller left.
  *
  * THE FAILURE THIS EXISTS TO PREVENT. On native Windows `bd` is the npm package `@beads/bd`, and what
  * `where bd` finds is `%APPDATA%\npm\bd` -- a `#!/bin/sh` shim, beside `bd.cmd` and `bd.ps1`, all

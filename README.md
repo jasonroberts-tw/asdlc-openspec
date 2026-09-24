@@ -21,12 +21,13 @@ failure it prevents.
   `bd`.
 
 **A person decides; agents propose and build.** A person reviews each change's proposal before its
-build starts, says when its pull request merges, and promotes what the learning loop proposes by
-editing the source; nothing the loop derives instructs an agent until then (`CLAUDE.md` § A program
+build starts, says when its pull request merges, and decides whether each change a prompt review
+proposes merges; nothing a program proposes instructs an agent until then (`CLAUDE.md` § A program
 proposes; only a person promotes).
 
 **It is built to learn from its own runs.** A defect a run finds outside the files its issue
-changes is filed as an issue of its own; a prompt that has run is reviewed in the background, and a
+changes is filed as an issue of its own, labelled with the kind of file it would change, so the
+tracker shows what recurs across runs; a prompt that has run is reviewed in the background, and a
 review that finds something opens a pull request fixing it in the prompt; a gate's header names the
 incident it exists to prevent.
 What a run shows lands in the skill, gate or decision that should have caught it, so the next run
@@ -45,7 +46,7 @@ Where this page and a file it points at disagree, that file wins and this page i
 · [Setup](#setup)
 · [Working here](#working-here)
 · [The npm scripts](#the-npm-scripts)
-· [The work, and the learning loop](#the-work-and-the-learning-loop)
+· [The work, and what its runs leave behind](#the-work-and-what-its-runs-leave-behind)
 · [What is still a placeholder](#what-is-still-a-placeholder)
 · [Where to read next](#where-to-read-next)
 · [What runs automatically](#what-runs-automatically)
@@ -121,7 +122,7 @@ the rule. The third column wins over the first two.
 | A recorded decision argued again, or a register whose summary drifts from its entries | `check:register` | `CLAUDE.md` § Decisions live in the register |
 | Work tracked in a checklist or a status table, or an issue that does not say where its work lands | The issue: `beads:check`, at push, refuses an open issue with no `repo:` label. The checklist or status table: review alone, because no gate scans a file for one | `CLAUDE.md` § The task store |
 | A generated artifact left stale after its input moved | `pipeline:check` and `pipeline:stale:check` | `docs/pipeline.md` § The two gates |
-| A program that rewrites its own instructions from what it observed | `outcomes:propose` only files issues; a person promotes one by editing the source | `CLAUDE.md` § A program proposes; only a person promotes |
+| A program that rewrites its own instructions from what it observed | The prompt reviewer only opens a pull request, and a person decides whether it merges | `CLAUDE.md` § A program proposes; only a person promotes |
 | A chained shell command whose failing step cannot be told apart, or a workaround for a refused command | Convention, and a `RUN THESE YOURSELF` block at the end of the agent's report | `CLAUDE.md` § Bash command style |
 
 Every script opens with a header saying what it checks, **the failure it exists to prevent**, how
@@ -266,16 +267,6 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 | `openspec:check` | Validates every living spec and active change under `openspec/` strictly with the pinned CLI, trial-archives each active change into a scratch copy so a delta that cannot merge is refused before Finalize, refuses a living spec still carrying the archive's placeholder Purpose, refuses a retired `openspec-*` skill that `openspec init` or `openspec update` wrote back, and refuses a skill or agent that spells the change label without citing its one home, `specChangeLabel` in `tools/policy.json`. | pre-push + CI |
 | `openspec:selftest` | The OpenSpec gate, negative-tested against a fixture tree it builds. | pre-push + CI |
 
-### outcomes
-
-| Script | What it does | Gate |
-|---|---|---|
-| `outcomes` | Reads every run record, re-serialises each to canonical bytes and writes the reports under `artifacts/outcomes/`, from the records and nothing else. | |
-| `outcomes:check` | The same in memory, byte-compared with what is committed. | pre-push + CI |
-| `outcomes:propose` | Files each proposal as an issue in `bd`, keyed by a hash so a closed proposal is never re-filed under new wording. Run by a person, `--dry-run` first; it reads and writes the tracker, so no tier runs it. | |
-| `outcomes:record:selftest` | The record's validator and writer, negative-tested against one committed fixture per terminal path. | pre-push + CI |
-| `outcomes:selftest` | The emitter and the filing step, negative-tested. | pre-push + CI |
-
 ### pipeline
 
 | Script | What it does | Gate |
@@ -293,7 +284,7 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 | `worktree:gc` | Removes checkouts nobody is using, and deletes an agent branch only on proof its content is in the trunk; `-- --dry-run` prints what it would do. | |
 | `worktree:selftest` | The worktree hooks, the git guard and the branch sweep, negative-tested against a scratch repository it builds. | pre-push |
 
-## The work, and the learning loop
+## The work, and what its runs leave behind
 
 <!-- kit 2.3-1 · WRITE: one paragraph saying what this repository's work is, in the three words the
      kit uses and never defines. The WORK is whatever this repository does to a WORK ITEM, one unit
@@ -303,14 +294,15 @@ The **work** is what this repository does to a **work item**, one unit of the qu
 execution of the work on one item. What the work is, and how a run is started, is this repository's
 own to say here.
 
-Every run writes one record per work item under `artifacts/outcomes/records/`, on every terminal path (complete,
-failed and blocked alike), validated against `tools/outcomes/run-outcome.schema.json` before it is written; a fact a later
-stage found wrong is superseded by a new entry, never deleted.
+A run leaves behind its commits and pull request, and an issue in `bd` for each defect it found
+outside its own files, linked `discovered-from` the issue or epic it ran on. Each of those issues
+carries one or more of the labels `assetLabels` in `tools/policy.json` lists, one per kind of file
+it would change, so `bd count --by-label` shows which kind keeps needing a fix after a run. A prompt
+that has run is reviewed as `CLAUDE.md` § Prompt reviews says. A program proposes, and only a person
+promotes (`CLAUDE.md` § A program proposes; only a person promotes).
 
-The loop reads those records and derives pure reports under `artifacts/outcomes/`: what recurs
-across runs, where runs disagree, what nobody decided. Each proposal is filed as an issue by
-`outcomes:propose`; a program proposes, and only a person promotes, by editing the hand-maintained
-source (`CLAUDE.md` § A program proposes; only a person promotes).
+`docs/decisions.md` § D-06 retired the kit's learning loop, which wrote a record per run and
+derived reports from the records; it never had a record to read.
 
 ## What is still a placeholder
 
@@ -374,8 +366,6 @@ at its start: restart the session after changing it.
 | `git push` that changes the register, `CLAUDE.md` or the gate | `check:register` holds the register's header, summary table and dates to its entries, and its selftest holds the gate. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes `openspec/`, a skill, an agent, `tools/policy.json`, the gate or the pinned CLI | `openspec:check` validates the living spec and every active change, proves each change applies, and holds every prompt that spells the change label to `tools/policy.json`; `openspec:selftest` holds the gate. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes `apps/calculator/`, `package.json` or the lockfile | `calculator:test`: the calculator's scenarios, each a test named for it, under Node's own test runner. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes a record, the schema or the writer | `outcomes:record:selftest`: the record validator and writer, negative-tested against one fixture per terminal path. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes a record or the learning loop | `outcomes:check` rebuilds every report from the records and byte-compares it; `outcomes:selftest` holds the emitter and the filing step. Filing itself (`outcomes:propose`) is run by a person, never by a hook. | `lefthook.yml` (`pre-push`) |
 | `git push` | `pipeline:check` holds the graph record to the files it names and to the prose page; `pipeline:stale:check` refuses an output whose stamp no longer matches its declared inputs; `pipeline:selftest` holds both gates. Neither carries a glob: the record's globs may name any file. | `lefthook.yml` (`pre-push`) |
 | A pull request, or a push to `main` | Every gate that reads only committed files, cheapest first. It trusts none of the faster tiers. | `.github/workflows/verify.yml` |
 | The dev container starts | `npm ci` when the lockfile moved, the git hooks, and the tracker's hydration; each step warns and carries on. | `.devcontainer/entrypoint.sh` |

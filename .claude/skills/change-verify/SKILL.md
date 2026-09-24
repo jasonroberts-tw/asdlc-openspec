@@ -8,8 +8,8 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 # Verify a change
 
 The fifth of the six `change-*` stages (`docs/decisions.md` § D-02). It runs in the change's worktree
-and changes no tracked file: it writes only the trace under `.scratch/` and any issue the user has it
-file in step 4. When it finds a gap, the gap is fixed in the stage that owns it (step 6), and verification then
+and changes no tracked file: it writes only the trace under `.scratch/`, any issue the user has it
+file in step 4, and the epic's label for a send-back (steps 4 and 6). When it finds a gap, the gap is fixed in the stage that owns it (step 6), and verification then
 runs again from step 2.
 
 ## 1. Find the change and its epic
@@ -54,7 +54,9 @@ than its code does, where no scenario and no design decision states the claim. N
 report and ask the user where it goes. The routes are the ones for what the build turns up
 (`.claude/skills/change-build/SKILL.md` § 5. What the build turns up). It becomes a new child of the
 epic, which reopens step 2 until `change-build` closes it, or a follow-up filed outside the change.
-File it as the user decides, inside the bracket `CLAUDE.md` § The task store describes.
+File it as the user decides, inside the bracket `CLAUDE.md` § The task store describes: a new child
+labels the epic for plan and for build (`CLAUDE.md` § Product work runs as OpenSpec-format
+changes), and a follow-up carries the labels § The task store names, with verify's found-at label.
 
 **Running again.** The trace's first line names the commit it was taken at. On a run from step 2
 after a fix or a rebase, read `git diff <that commit>`. A row keeps its reading when the diff changes
@@ -72,7 +74,8 @@ way, and each row carries the new result.
   believe is wrong and why, then stop. The user picks the route: the code is fixed in `change-build`;
   the spec is revised with the user in `change-propose`; or, where the code is right and the design
   is not, the design is revised with the user in `change-design`, with every comment and README row
-  that repeated its claim. Verification then runs again from step 2.
+  that repeated its claim. Label the epic for the stage the user picks (`CLAUDE.md` § Product work
+  runs as OpenSpec-format changes). Verification then runs again from step 2.
 - **No gap:** report the trace, the gates as measured and each finding below a gap, with where
   it went. The trace goes into
   the pull request's body. The next stage is `change-finalize`.

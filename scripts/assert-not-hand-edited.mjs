@@ -55,21 +55,11 @@ if (suspect.length === 0) process.exit(0)
  *
  * kit 1.5-4 · ADAPT: one row per emitter of yours whose output is committed, in the same change as
  * the emitter, and out with it: a verifier over a file nothing writes is a row that can never fire.
- * The rows below cover the emitters the kit laid down. Delete this line when done.
+ * The kit's one row left with the learning loop. Delete this line when done.
  */
 const VERIFIERS = [
-  // The learning loop. The records under `artifacts/outcomes/records/` are written by the
-  // step of the work that ends a run and normalised to canonical bytes by `npm run outcomes`;
-  // everything else under the root is derived from them. `outcomes:check` re-validates every record
-  // against the one schema, re-serialises it, rebuilds every report and byte-compares the whole
-  // tree, printing each differing path on its own indented line -- so a hand-edited record, or one
-  // the terminal step wrote and nobody normalised, fails here by name. Every input is a committed
-  // file, so the check runs whole here, in `pre-push` and in CI alike.
-  {
-    script: 'outcomes:check',
-    owns: (rel) => rel.startsWith('artifacts/outcomes/'),
-    names: (out) => [...out.matchAll(/^\s+(\S+)/gm)].map((m) => m[1]).filter((p) => p.startsWith('artifacts/outcomes/')),
-  },
+  // Empty. Its one row was the learning loop's `outcomes:check`, over `artifacts/outcomes/`, and
+  // left with the loop (`docs/decisions.md` § D-06).
 ]
 
 /**

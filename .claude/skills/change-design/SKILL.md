@@ -48,7 +48,8 @@ A design says how, never what:
 
 - **A behaviour the design needs that no scenario states** belongs in a delta spec. Revise the spec
   with the user; never hide the requirement here. Bring the proposal's `## What Changes` into line
-  with the revised spec in the same commit, or the proposal restates the old behaviour.
+  with the revised spec in the same commit, or the proposal restates the old behaviour. Label the
+  epic for propose (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
 - **A decision that binds the repository beyond this change**, such as a rule or a convention, is a
   register entry (`CLAUDE.md` § Decisions live in the register), not a line of this design. Propose
   it to the user. An entry the user accepts is written by a build task, not in this stage; until it
