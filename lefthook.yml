@@ -93,12 +93,15 @@ pre-push:
   jobs:
     # Every `run:` token here and in `.github/workflows/verify.yml` resolves to a package script, and every script no job
     # invokes is declared by kind in the gate's own table. Reads three committed files; milliseconds.
+    # `apps/**` is in both globs because moving or emptying a file a calculator script names changes
+    # the verdict (the path and glob checks), and its selftest's control reads those same files.
     - name: check-jobs
       glob:
         - 'package.json'
         - 'lefthook.yml'
         - '.github/workflows/verify.yml'
         - 'scripts/check-jobs.mjs'
+        - 'apps/**'
       run: node --run check:jobs
     - name: check-jobs-selftest
       glob:
@@ -106,6 +109,7 @@ pre-push:
         - 'lefthook.yml'
         - '.github/workflows/verify.yml'
         - 'scripts/check-jobs.mjs'
+        - 'apps/**'
       run: node --run check:jobs:selftest
     # Every skill and agent opens with the line CLAUDE.md requires, read out of CLAUDE.md itself.
     # Reads CLAUDE.md and the prompts; milliseconds.
