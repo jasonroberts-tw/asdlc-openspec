@@ -113,5 +113,3 @@ because every capability has one.
 
 The user reviews the proposal and the specs before anything else happens. Revisions happen here, in
 this stage. The next stage is `change-design`.
-
-Reviewed: `docs/prompt-reviews/change-propose.2026-09-23.md` § Review of 2026-09-23 (run of 2026-09-23 proposing add-calculator-web-app, epic asdlc-openspec-zgh, commit aa7f050).

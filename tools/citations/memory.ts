@@ -16,7 +16,7 @@
  * WHAT IS A FINDING. Two shapes, taken exactly as written:
  *
  *   - a backticked span preceded by the word `memory` -- `` memory `bd-deps-blocks-direction` ``,
- *     the spelling a prompt review uses for every key it names, including the line-wrapped
+ *     the spelling a prompt review used for every key it named, including the line-wrapped
  *     form where the word ends one line and the key opens the next (the review's `(memory` on one
  *     line and `` `bd-deps-blocks-direction` `` on the one below);
  *   - the tokens `bd recall`, `bd remember` and `bd memories`, backticked or bare.
@@ -57,11 +57,10 @@
  *     found in its file is a FINDING, not a silent pass: rename the heading or lose the markers and
  *     the gate says so on the next run, rather than going quietly green over the whole file.
  *
- * `docs/prompt-reviews/` is exempt as history (`MEMORY_HISTORY`), the way `scan.ts` exempts
- * `docs/retired/`: a review's purpose is to record what a prompt said, memory keys included, and
- * a review may quote several of them. The directory is outside the roster today; the entry
- * is stated anyway so that widening the roster to `docs/` cannot put the reviews in the gate by
- * accident, and `check.ts` counts the reviews as exempt by name rather than silently passing them by.
+ * NOTHING IS EXEMPT AS HISTORY. The rule once exempted `docs/prompt-reviews/`, whose reviews quoted
+ * the memory keys a skill cited in order to record that none resolved. `docs/decisions.md` § D-05
+ * deleted the directory, and the exemption went with it. Widen the roster to `docs/` and
+ * `docs/retired/` needs one, on the argument `HISTORY` in `scan.ts` makes for it.
  *
  * Reads only this repository, needs no `../sibling` checkout and no network.
  */
@@ -77,26 +76,6 @@ export const MEMORY_SCOPE: ReadonlyArray<string> = [
 /** Whether the rule covers `file` at all. */
 export function inMemoryScope(file: string): boolean {
   return MEMORY_SCOPE.some((s) => (s.endsWith('/') ? file.startsWith(s) : file === s))
-}
-
-/**
- * Files whose memory mentions are HISTORY -- a record of what a prompt said, not a live pointer.
- * Every entry states why, on the same bar as `HISTORY` in `scan.ts`.
- */
-export const MEMORY_HISTORY: ReadonlyArray<{ path: string; why: string }> = [
-  {
-    path: 'docs/prompt-reviews/',
-    why:
-      'A prompt review records what the prompt said on the day. A review of a skill quotes the' +
-      ' memory keys it cited in order to record that none of them resolved; rewriting them would' +
-      ' erase the finding this rule exists because of.',
-  },
-]
-
-/** Whether `file` is exempt as history, and the reason if so. */
-export function memoryHistoryReason(file: string): string | null {
-  for (const h of MEMORY_HISTORY) if (file === h.path || file.startsWith(h.path)) return h.why
-  return null
 }
 
 /**
@@ -271,7 +250,7 @@ export interface MemoryScan {
 const RULE = 'CLAUDE.md § *Rules for agents live in tracked files, and nowhere else*'
 
 /**
- * Scope, history, registered regions and the two shapes, in that order, over one file's text.
+ * Scope, registered regions and the two shapes, in that order, over one file's text.
  *
  * ONE FUNCTION rather than a pipeline the gate assembles, so that the selftest exercises the exact
  * derivation `check.ts` runs: a fixture that fails here fails the gate, and a fixture that passes
@@ -283,10 +262,6 @@ export function memoryProblemsIn(
   text: string,
   regions: ReadonlyArray<ExemptRegion> = MEMORY_EXEMPT_REGIONS,
 ): MemoryScan {
-  // History before scope, so a review is skipped WITH its reason whether or not the roster reaches
-  // it, and the gate can count it as exempt rather than as merely elsewhere.
-  const history = memoryHistoryReason(file)
-  if (history !== null) return { skipped: history, problems: [], exempted: 0 }
   if (!inMemoryScope(file)) {
     return {
       skipped: `outside MEMORY_SCOPE (${MEMORY_SCOPE.join(', ')})`,

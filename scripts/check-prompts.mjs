@@ -22,8 +22,9 @@
  * A prompt that should go without it is named in `.claude/README.md` with its reason and added to a
  * table here in the same change; there is none today.
  *
- * WHAT IS NOT CHECKED: the rest of a prompt, its `Reviewed:` trailer, and a `README.md` under
- * `.claude/agents/`, which describes the agents and is not one.
+ * WHAT IS NOT CHECKED: the rest of a prompt, and a `README.md` under `.claude/agents/`, which
+ * describes the agents and is not one. A `Reviewed:` trailer is not refused here: prompts carry
+ * none since `docs/decisions.md` § D-05, and review is what holds that.
  *
  * NEGATIVE TESTING. `--selftest` builds a fixture tree under `os.tmpdir()`, doctors ONE thing per
  * case and asserts the run fails FOR THAT REASON, plus an undoctored control that must pass. By

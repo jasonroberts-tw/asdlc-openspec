@@ -132,12 +132,9 @@ carries.
 
 ## 8. Report
 
-One short report: what was verified in step 1 and where, what changed, what was regenerated, both
-gate runs as measured, the pull request, the issue's final state, every follow-up filed, and a
-`RUN THESE YOURSELF` block for any command that was refused (`CLAUDE.md` § Guards).
+First launch the review of this run as `CLAUDE.md` § Prompt reviews says, and do not wait for it.
 
-Then hand the run's analysis to the `continuous-prompt-improvement` agent (`CLAUDE.md` § Prompt
-reviews). The review it writes lands on this branch, in this pull request; with several, in the one
-that already edits this skill, or else the last one opened.
-
-Reviewed: `docs/prompt-reviews/bead.2026-09-23.md` § Fourth review of 2026-09-23 (runs of 2026-09-23 on asdlc-openspec-v6m, pull request 3; on asdlc-openspec-bls, -44p and -4gp, pull requests 8, 10 and 11; on asdlc-openspec-u77, -f60, -iko, -is0 and -qxz, pull requests 4, 5, 6 and 9; and on asdlc-openspec-npe, pull request 7).
+Then one short report: what was verified in step 1 and where, what changed, what was regenerated,
+both gate runs as measured, the pull request, the issue's final state, every follow-up filed, the
+reviewer's session, and a `RUN THESE YOURSELF` block for any command that was refused
+(`CLAUDE.md` § Guards).

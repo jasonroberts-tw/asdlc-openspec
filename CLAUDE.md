@@ -197,14 +197,28 @@ worktree. Rebase onto `origin/main` rather than merging the trunk into a branch,
 
 ## Prompt reviews
 
-After a prompt is executed from a file, an analysis of the run goes to the
-`continuous-prompt-improvement` agent, and a retained review lands at
-`docs/prompt-reviews/<prompt-basename>.<run-date>.md`, never beside the prompt; a skill's file is
-always `SKILL.md`, so its basename is its directory's name. A second review of
-the same prompt is appended to its file under a dated heading, so the prompt keeps one live
-`Reviewed:` citation: every substantial prompt ends in a `Reviewed:` line citing its review file
-once its first review exists, and carries none until then. A review is not obsolete once applied: it is the evidence for why the prompt
-says what it says, and is deleted only with the prompt it reviews.
+After a prompt is executed from a file, the session that ran it launches the
+`continuous-prompt-improvement` agent on the run and does not wait for it. First it leaves its
+worktree (`ExitWorktree`, action `keep`): a background session starts in the directory it was
+launched from, and one launched inside a linked worktree writes on that worktree's branch. From the
+primary checkout it writes its analysis of the run to `.scratch/review-<name>.md`, under a name no
+other session is using, such as the worktree it left, and launches the reviewer as a background
+session, which agent view (`claude agents`) lists and its supervisor keeps running after the
+launcher ends:
+
+    claude --bg --agent continuous-prompt-improvement --name review-<prompt-basename> "Review the run of <prompt path>. The run's analysis is .scratch/review-<name>.md."
+
+A skill's file is always `SKILL.md`, so its basename is its directory's name. The launcher neither
+waits for the reviewer nor relays what it finds: its report names the session the launch printed,
+and nothing more. A refused launch goes in the report's `RUN THESE YOURSELF` block (§ Guards), with
+the analysis file left in place for it.
+
+A review is not a file in this repository, and a prompt carries no `Reviewed:` trailer. A reviewer
+that proposes a change to the prompt opens a pull request of its own, and the review is that pull
+request's description; one that proposes nothing edits no file and opens no pull request. The
+earlier reviews of a prompt are the descriptions of the pull requests that changed it, and the
+agent's file says how to find them. `docs/decisions.md` § D-05 records the change, and how to
+recover the review files it deleted.
 
 ## A program proposes; only a person promotes
 

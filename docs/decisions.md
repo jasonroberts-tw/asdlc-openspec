@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-04 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04 added 2026-09-24).**
+**Status: every decision from D-01 to D-05 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04 and D-05 added 2026-09-24).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-04` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-05` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -60,6 +60,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-02** | Product work runs as OpenSpec-format changes, tracked in `bd` | The `change-*` skills, `openspec/`, the `openspec:check` gate, and the generated `openspec-*` skills deleted |
 | **D-03** | The workflow's constants live in `tools/policy.json`, starting with the change label | `tools/policy.json`, the key cited by every prompt that spells the label, and `openspec:check` holding them to it |
 | **D-04** | The repository carries a demo product, a calculator served on loopback only | `apps/calculator/`, served by `npm run calculator:serve` on `127.0.0.1` alone; its tests as the `calculator-test` pre-push job and a CI step; and the worktree briefing's port paragraphs |
+| **D-05** | A prompt review runs in the background, and lives in its own pull request rather than in a file | `CLAUDE.md` § Prompt reviews, the `continuous-prompt-improvement` agent, and `docs/prompt-reviews/` and every `Reviewed:` trailer deleted |
 
 ## Risks
 
@@ -87,6 +88,8 @@ an amendment here, with its reason, rather than a quiet edit to a prompt.
 once it is worked through, and the commit that added these files is the lasting record.
 
 **Figures.** None.
+
+> **Amended 2026-09-24 by D-05.** `CLAUDE.md` § Prompt reviews, as the kit laid it down, no longer holds. A review is no longer kept in a file under `docs/prompt-reviews/` and appended to on every run, and a prompt no longer carries a `Reviewed:` trailer. The reviewer runs in the background, nobody waits for it, and a review that proposes a change is the description of its own pull request.
 
 ### D-02 · Product work runs as OpenSpec-format changes, tracked in bd
 
@@ -241,3 +244,45 @@ The server reading `.worktree/ports.env` itself also lost: the spec names `PORT`
 - **To come, in `change-finalize`:** the archive, run on this branch before the merge (D-02, item 5), writes the living specs `openspec/specs/calculator/spec.md` and `openspec/specs/calculator-local-server/spec.md` and moves the change under `openspec/changes/archive/`.
 
 **Figures.** None.
+
+### D-05 · A prompt review runs in the background, and lives in its own pull request rather than in a file
+
+**Recorded 2026-09-24**, carried by `asdlc-openspec-64b`. The maintainer chose each part below on 2026-09-24, when the issue was worked.
+
+**Builds on / amends:** amends D-01, whose conventions included `CLAUDE.md` § Prompt reviews as the starter kit laid it down. Builds on D-02, whose `change-*` skills are among the prompts this entry strips of a trailer.
+
+**Decision.** How a run of a prompt is reviewed, and what the review leaves behind.
+
+1. **The reviewer runs in the background, and nobody waits for it.** The session that ran the prompt leaves its worktree, writes its analysis of the run under `.scratch/` in the primary checkout, and launches `continuous-prompt-improvement` with `claude --bg --agent`. Agent view lists that session, and its supervisor keeps it running after the launcher ends. The launcher neither waits for the review nor relays it. `CLAUDE.md` § Prompt reviews holds the command, and every caller points there.
+2. **A review that proposes a change is a pull request.** The reviewer makes the change in its own worktree and opens a pull request against `main`. The review is that pull request's description, and a person decides whether it merges.
+3. **A review that proposes nothing leaves nothing.** It edits no file, makes no worktree and opens no pull request, and no run is counted anywhere.
+4. **No review is a file in this repository, and no prompt carries a `Reviewed:` trailer.** The earlier reviews of a prompt are the descriptions of the pull requests that changed it, and the agent's file says how to find them.
+5. **`docs/prompt-reviews/` is deleted outright**, with its README and every review in it. `git show` recovers them (below).
+
+**Why.** The maintainer asked for three things on 2026-09-23, after the review of the `change-propose` run on `add-calculator-web-app`: to "launch it as a background fire and forget managed by the agent view supervisor"; "if no changes are suggested, don't make edits just to track number of runs"; and to "stop adding extra markdown files with the content of the [review], that can live in the PR description". Under the kit's rule, every review edited two files even when the prompt did not change: it appended a dated section to the review file, and it extended the trailer's list of runs. The launching session also waited for the reviewer and relayed its report. Four alternatives lost:
+
+- **An in-process subagent, started in the background by the Agent tool.** Agent view shows no row for it, and it ends with the session that started it, so the supervisor does not manage it.
+- **Moving the review files to `docs/retired/`.** They would have stayed findable in the tree. Nothing live reads them once the trailers go, and `git show` recovers them, so the maintainer chose to delete them.
+- **A trailer citing the pull request of the latest review.** It would change with every applied review. `git log` on the prompt finds the same pull requests, so the maintainer chose to drop trailers.
+- **Deleting the directory while review pull requests were still open.** Each would have re-created it on merge. This change waited for them to land, and deletes the reviews they added.
+
+**What changed.**
+
+- **This register:** this entry; the status line, the blockquote's bound and the decisions table carry D-05; D-01 carries the amendment above.
+- **`CLAUDE.md`:** § Prompt reviews is rewritten: the launch, from the primary checkout, and what a review leaves behind.
+- **`.claude/agents/continuous-prompt-improvement.md`:** rewritten. It says what the reviewer reads first and when it stops, how it finds earlier reviews, and the pull request it opens. The shape of a review moves here from `docs/prompt-reviews/README.md`.
+- **`.claude/skills/bead/SKILL.md`:** § 8 launches the review as `CLAUDE.md` § Prompt reviews says, before the report, and the report names the reviewer's session. Its `Reviewed:` trailer is dropped.
+- **`.claude/skills/change-{propose,design,plan,build,verify,finalize}/SKILL.md`:** each `Reviewed:` trailer is dropped.
+- **`docs/prompt-reviews/`:** deleted: `README.md`, and the reviews of `bead` and of every `change-*` skill.
+- **`tools/citations/memory.ts`, `check.ts` and `selftest.ts`:** the memory rule's history exemption for `docs/prompt-reviews/` goes with the directory. So do `MEMORY_HISTORY`, which held nothing else, and the selftest's case for it. The gate's summary names what the memory pass skips as binary, the one reason left for skipping a file in its roster.
+- **`scripts/check-prompts.mjs`:** its header no longer names a `Reviewed:` trailer among what it does not check, and says why none is refused.
+- **`README.md` and `docs/README.md`:** the sentence and the rows that named `docs/prompt-reviews/`.
+- **Left as it is:** `KIT-CHECKLIST.md`, the bootstrap's record of what it laid down on the day, still names `docs/prompt-reviews/` and the trailer rule.
+
+Retirement checklist, the disposition *Delete it outright* of `docs/retired/README.md` § The three dispositions:
+
+- **Nothing live reads them.** `git grep -n prompt-reviews` finds this entry, the header of `tools/citations/memory.ts` saying the exemption is gone, and `KIT-CHECKLIST.md`.
+- **The recovery.** `git log -1 --diff-filter=D --format=%H -- docs/prompt-reviews/README.md` names the deleting commit, and `git show <that commit>^:docs/prompt-reviews/<file>` recovers any of them.
+- **Their return is not refused by a gate.** Review holds it, as it holds a trailer's return.
+
+**Figures.** Seven review files and the directory's README deleted: `git log -1 --diff-filter=D --name-only --format= -- docs/prompt-reviews/` lists them. Seven `Reviewed:` trailers dropped: `git grep -n "^Reviewed:" <the deleting commit>^ -- .claude` lists them.

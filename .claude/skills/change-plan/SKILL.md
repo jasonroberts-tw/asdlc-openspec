@@ -73,5 +73,3 @@ Afterwards, `bd ready --parent <epic>` lists exactly the tasks that wait on noth
 
 Report the epic, each task's id with the scenarios it covers, what was marked manual, and the first
 ready task. The next stage is `change-build`.
-
-Reviewed: `docs/prompt-reviews/change-plan.2026-09-23.md` § Review of 2026-09-23 (run of 2026-09-23 on add-calculator-web-app, epic asdlc-openspec-zgh).
