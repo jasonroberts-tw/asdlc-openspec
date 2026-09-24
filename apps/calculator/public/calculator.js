@@ -3,51 +3,60 @@
  * touches no DOM and does no I/O, so this one file runs unchanged as a module in the browser and
  * under Node's test runner, with no build step between them.
  *
+ * Every value it computes with is an exact fraction of two `BigInt`s, and only the display rounds.
+ * A typed number is read from its text, the four operations are exact, and a result is carried
+ * into the next operation exactly, so `1 ÷ 3 × 3` is `1`. Nothing runs on binary doubles: their
+ * error would reach the display (`0.1 + 0.2`), and a tie at the tenth digit would go whichever way
+ * the double fell. The values are fractions rather than exact decimals because a third has no
+ * finite decimal to carry.
+ *
  * What it must do is capability `calculator`'s spec under `openspec/`, which wins over this file.
  * `press` and its helpers follow the transition table in the design of the change that added it,
  * row by row.
  */
 
-/** How many significant digits a result keeps, and the display shows: the spec's ten. */
+/** How many significant digits the display shows: the spec's ten. Nothing else is rounded. */
 const SIGNIFICANT_DIGITS = 10
+
+/**
+ * The largest finite double, `(2^53 - 1) · 2^971`: every bit of the significand set, at the largest
+ * exponent. The spec's "too large to be a finite number" is a magnitude above it, compared exactly
+ * with the fraction, so a result just under it is a result however its ten-digit display reads.
+ */
+const LARGEST_FINITE = (2n ** 53n - 1n) * 2n ** 971n
+
+/** Zero in the one form `fraction` gives it: the value of a fresh state and of the error state. */
+const ZERO = Object.freeze({ num: 0n, den: 1n })
 
 const DIGITS = new Set('0123456789')
 
-/**
- * The four operations on the operands' decimal forms: exact, or for `÷` a truncated quotient with a
- * digit to spare, so that `calculate` can round the result once and get the exact result's rounding.
- * None of them runs on binary doubles. A binary operation rounds to a double
- * before the ten-digit rounding sees it: a tie at the tenth digit then went whichever way the
- * double fell (`3.000000003 × 0.5` showed `1.500000001`), and a sum was rounded twice. A
- * difference is the sum with its second operand negated, which is exact.
- */
+/** The four operations, each exact on fractions. `divide` returns null for a zero divisor. */
 const OPERATORS = {
   '+': add,
-  '-': (a, b) => add(a, negate(b)),
+  '-': subtract,
   '*': multiply,
   '/': divide,
 }
 
 /**
+ * @typedef {object} Fraction an exact rational number, `num / den`, in lowest terms
+ * @property {bigint} num the numerator, which carries the sign
+ * @property {bigint} den the denominator, always positive
+ */
+
+/**
  * @typedef {object} State
  * @property {string | null} entry the number being typed, exactly as typed (`0.`, `1.50`), or null
  *   when none is
- * @property {number} value the last completed number or result: the left operand of `op`
+ * @property {Fraction} value the last completed number or result, exact and never rounded: the left
+ *   operand of `op`
  * @property {'+' | '-' | '*' | '/' | null} op the pending operator, or null
  * @property {boolean} error true while `Error` is shown
  */
 
-/**
- * @typedef {object} Decimal an exact decimal, `sign × magnitude × 10^-scale`
- * @property {1n | -1n} sign
- * @property {bigint} magnitude the digits, never negative
- * @property {number} scale how far the point sits left of the magnitude's last digit, negative when
- *   the number has zeros past its digits: `1.5e-7` is `15n` at scale 8, `1.5e+21` is `15n` at -20
- */
-
 /** @returns {State} */
 export function initialState() {
-  return { entry: null, value: 0, op: null, error: false }
+  return { entry: null, value: ZERO, op: null, error: false }
 }
 
 /**
@@ -72,7 +81,7 @@ export function press(state, key) {
 
 /**
  * What the display shows: `Error`, the number being typed exactly as typed, or else `value`
- * formatted, which is the last result or a typed number an operator took.
+ * rounded for display, which is the last result or a typed number an operator took.
  *
  * @param {State} state
  * @returns {string}
@@ -114,152 +123,113 @@ function pressEquals(state) {
  * typed number is written once and none of them can skip it.
  */
 function takeEntry(state, next) {
-  const typed = Number(state.entry)
-  // Entry has no digit limit, so `1` and 309 zeros is typed as a string and only becomes Infinity
-  // here. It is refused at once, before `calculate` or `format` reads it: neither can take Infinity
-  // (`BigInt` throws on it), and the spec wants `Error`, not a thrown key.
-  if (!Number.isFinite(typed)) return errorState()
+  const typed = fromEntry(state.entry)
+  // Entry has no digit limit, so `1` and 309 zeros can be typed. It is refused here, where it is
+  // first taken as a number, and before any operation runs: as the divisor in `5 ÷`, it would make a
+  // tiny result rather than an error.
+  if (tooLarge(typed)) return errorState()
   if (state.op === null) return { entry: null, value: typed, op: next, error: false }
-  const result = calculate(state.value, state.op, typed)
-  // Checked last, after the rounding: a finite exact result just under the largest double rounds
-  // up past it at ten digits, and reads back as Infinity. A division by zero arrives as NaN.
-  if (!Number.isFinite(result)) return errorState()
+  const result = OPERATORS[state.op](state.value, typed)
+  // A division by zero has no result. Overflow is judged on the exact result, never on the rounded
+  // display, so a result just under the largest double is shown although its display reads above.
+  if (result === null || tooLarge(result)) return errorState()
   return { entry: null, value: result, op: next, error: false }
 }
 
 /** The one error state. It holds nothing else: every key that leaves it starts from a reset. */
 function errorState() {
-  return { entry: null, value: 0, op: null, error: true }
+  return { entry: null, value: ZERO, op: null, error: true }
 }
 
 /**
- * `a op b` on the operands' decimal forms, rounded once and read back as a double. The
- * rounded value is what is carried forward, so the value used next is the value shown: `1 ÷ 3 × 3`
- * is `0.3333333333 × 3`.
- */
-function calculate(a, op, b) {
-  const exact = OPERATORS[op](toDecimal(a), toDecimal(b))
-  // `divide` has no result for a zero divisor. NaN is not finite, so the caller's one check turns
-  // it into Error, as it does an overflow.
-  return exact === null ? NaN : toNumber(round(exact))
-}
-
-/**
- * A finite `n` as an exact decimal, read from `String(n)`: the shortest decimal that reads back as
- * the same double, so it is what a person typed or saw, not the double's binary expansion. Every
- * `n` here is finite: `takeEntry` refuses a typed Infinity first, and no state stores one.
- * `BigInt` throws on `Infinity`, which would surface a break in that rule rather than hide it.
+ * The typed entry as an exact fraction, read from its text: its digits with the point removed, over
+ * ten to the number of digits after the point, so `1.50` is `150/100`, that is `3/2`. No digit is
+ * lost, whatever the entry's length; a double keeps about sixteen.
  *
- * @returns {Decimal}
+ * @param {string} entry digits with at most one point, never leading (`typePoint` writes `0.`)
+ * @returns {Fraction}
  */
-function toDecimal(n) {
-  const text = String(n)
-  // Only a leading `-` is a sign. The `-` of a negative exponent is not: read as one, `1e-7` would
-  // lose its digits and add as zero.
-  const negative = text.startsWith('-')
-  const [mantissa, exponent = '0'] = (negative ? text.slice(1) : text).split('e')
-  const [whole, fraction = ''] = mantissa.split('.')
-  return {
-    sign: negative ? -1n : 1n,
-    magnitude: BigInt(whole + fraction),
-    scale: fraction.length - Number(exponent),
-  }
+function fromEntry(entry) {
+  const [whole, decimals = ''] = entry.split('.')
+  return fraction(BigInt(whole + decimals), 10n ** BigInt(decimals.length))
 }
 
 /**
- * A decimal read back as the nearest double: `Number` rounds a decimal string correctly, to
- * Infinity past the largest double and to zero below about half the smallest.
+ * `num / den` in lowest terms with a positive denominator. The positive denominator lets the sign
+ * be read from the numerator alone and a magnitude be compared by cross-multiplying; lowest terms
+ * keep a chain's numbers no longer than its value needs, and make zero `0/1`. `BigInt` has no
+ * negative zero, so no state can hold one. Frozen, because a copy of a state is shallow and the
+ * copies share their fractions. `den` is never zero: `divide` refuses a zero divisor first.
+ *
+ * @param {bigint} num
+ * @param {bigint} den
+ * @returns {Fraction}
  */
-function toNumber(decimal) {
-  const n = Number(`${decimal.sign < 0n ? '-' : ''}${decimal.magnitude}e${-decimal.scale}`)
-  // The sign is kept apart from the magnitude, so a zero product of a negative (`-3 × 0`) reads
-  // back as -0. It becomes 0, so no state ever holds one.
-  return n === 0 ? 0 : n
+function fraction(num, den) {
+  const divisor = den < 0n ? -gcd(num, den) : gcd(num, den)
+  return Object.freeze({ num: num / divisor, den: den / divisor })
 }
 
-/** `a + b`, both brought to the larger scale and added as integers. */
+/** The greatest common divisor, never negative, by Euclid's algorithm. */
+function gcd(a, b) {
+  let [x, y] = [abs(a), abs(b)]
+  while (y !== 0n) [x, y] = [y, x % y]
+  return x
+}
+
+function abs(n) {
+  return n < 0n ? -n : n
+}
+
+/** `a + b`, over the common denominator `a.den · b.den`. */
 function add(a, b) {
-  const scale = Math.max(a.scale, b.scale)
-  const aligned = (d) => d.sign * d.magnitude * 10n ** BigInt(scale - d.scale)
-  const sum = aligned(a) + aligned(b)
-  return { sign: sum < 0n ? -1n : 1n, magnitude: sum < 0n ? -sum : sum, scale }
+  return fraction(a.num * b.den + b.num * a.den, a.den * b.den)
 }
 
-function negate(d) {
-  return { ...d, sign: -d.sign }
+/** `a - b`, over the common denominator `a.den · b.den`. */
+function subtract(a, b) {
+  return fraction(a.num * b.den - b.num * a.den, a.den * b.den)
 }
 
-/** `a × b`: the magnitudes multiply and the scales add. */
+/** `a × b`: numerators times numerators, denominators times denominators. */
 function multiply(a, b) {
-  return { sign: a.sign * b.sign, magnitude: a.magnitude * b.magnitude, scale: a.scale + b.scale }
+  return fraction(a.num * b.num, a.den * b.den)
 }
 
 /**
- * `a ÷ b`, or null when `b` is zero. The magnitudes divide as integers, which truncates, so the
- * dividend is first scaled until the quotient has at least eleven significant digits: the ten a
- * result keeps and the first dropped one that `round` reads. The remainder the division drops is
- * less than one in that eleventh digit, so it cannot move the quotient across a tie.
+ * `a ÷ b`, that is `a` times `b` turned over, or null when `b` is zero: a division by zero has no
+ * result, and the caller turns the null into Error. `fraction` moves the sign of a negative `b.num`,
+ * now in the denominator, back to the numerator.
  */
 function divide(a, b) {
-  if (b.magnitude === 0n) return null
-  // With `shift` at 11 + digitCount(b) - digitCount(a), the scaled dividend is at least
-  // 10^(digitCount(b) + 10) and the divisor below 10^digitCount(b), so the quotient is more than
-  // 10^10: eleven digits. A dividend already longer is never scaled down, which would drop digits
-  // before the division.
-  const shift = Math.max(
-    0,
-    SIGNIFICANT_DIGITS + 1 + digitCount(b.magnitude) - digitCount(a.magnitude),
-  )
-  return {
-    sign: a.sign * b.sign,
-    magnitude: (a.magnitude * 10n ** BigInt(shift)) / b.magnitude,
-    scale: a.scale - b.scale + shift,
-  }
-}
-
-function digitCount(magnitude) {
-  return magnitude.toString().length
+  if (b.num === 0n) return null
+  return fraction(a.num * b.den, a.den * b.num)
 }
 
 /**
- * `decimal` rounded once to ten significant digits, a tie away from zero. Its digits are exact, or
- * a truncated quotient with at least one digit to spare, so the first dropped digit decides: 5 or
- * more rounds the magnitude up, whatever follows. A carry can give the magnitude an eleventh digit
- * (`99999999995` at scale 1 becomes `10000000000` at scale 0), which is still the same number.
+ * Whether `value` is too large to be a finite number: `|num / den|` above the largest finite
+ * double, as `|num| > LARGEST_FINITE · den`, which needs no division since `den` is positive.
+ */
+function tooLarge(value) {
+  return abs(value.num) > LARGEST_FINITE * value.den
+}
+
+/**
+ * A number as the display shows it: rounded once, from its exact value, to ten significant digits,
+ * then written out. The power of ten of the rounded value's leading digit picks the notation, at the
+ * magnitudes the spec names for the value the display shows: exponent notation at 10 or more, or
+ * below -6.
  *
- * @param {Decimal} decimal
- * @returns {Decimal}
+ * @param {Fraction} value
+ * @returns {string}
  */
-function round(decimal) {
-  const dropped = digitCount(decimal.magnitude) - SIGNIFICANT_DIGITS
-  if (dropped <= 0) return decimal
-  const kept = decimal.magnitude / 10n ** BigInt(dropped)
-  const firstDropped = (decimal.magnitude / 10n ** BigInt(dropped - 1)) % 10n
-  return {
-    sign: decimal.sign,
-    magnitude: firstDropped >= 5n ? kept + 1n : kept,
-    scale: decimal.scale - dropped,
-  }
-}
-
-/**
- * A number as the display shows it, worked from its decimal form rather than the double's binary
- * digits, so a double as small as `1e-320` still shows `1e-320`. It is rounded by the same rule as
- * a result: that changes nothing for a result, which is stored rounded, and cuts a typed number an
- * operator took, which is stored as typed. The power of ten of the leading digit picks the
- * notation, at the magnitudes the spec names: exponent notation at 10 or more, or below -6.
- */
-function format(n) {
-  // `-0 === 0`, so a -0 that ever reached here would still show `0`.
-  if (n === 0) return '0'
-  const { sign, magnitude, scale } = round(toDecimal(n))
-  const digits = magnitude.toString()
-  // The power of ten of the leading digit, which a carry in `round` has already moved if it had to.
-  const exponent = digits.length - 1 - scale
-  // Trailing zeros of the digits are padding in a fraction and in a mantissa; in a whole number
+function format(value) {
+  if (value.num === 0n) return '0'
+  const { digits, exponent } = roundToSignificant(abs(value.num), value.den)
+  // Trailing zeros of the digits are padding after a decimal point and in a mantissa; in a whole number
   // they come back below, from the exponent, so `1000000000` keeps its zeros.
   const significant = digits.replace(/0+$/, '')
-  const minus = sign < 0n ? '-' : ''
+  const minus = value.num < 0n ? '-' : ''
   if (exponent >= 10 || exponent < -6) {
     const mantissa =
       significant.length > 1 ? `${significant[0]}.${significant.slice(1)}` : significant
@@ -268,6 +238,44 @@ function format(n) {
   if (exponent < 0) return `${minus}0.${'0'.repeat(-exponent - 1)}${significant}`
   const padded = significant.padEnd(exponent + 1, '0')
   const whole = padded.slice(0, exponent + 1)
-  const fraction = padded.slice(exponent + 1)
-  return fraction === '' ? `${minus}${whole}` : `${minus}${whole}.${fraction}`
+  const decimals = padded.slice(exponent + 1)
+  return decimals === '' ? `${minus}${whole}` : `${minus}${whole}.${decimals}`
+}
+
+/**
+ * The positive `n / d` rounded once to ten significant digits, a tie away from zero: the ten
+ * digits, and the power of ten of the leading one.
+ *
+ * With `n` of p digits and `d` of q, `n / d` lies strictly between 10^(p-q-1) and 10^(p-q+1), so
+ * the leading power is p - q or one less, and one exact comparison says which. Scaled by 10^(9 -
+ * that power), the quotient has exactly ten digits before the point, and the integer division
+ * keeps them. Its remainder decides the rounding, once and exactly: twice the remainder at or
+ * above the divisor is at or past the half, so the digits go up. That can carry them to 10^10,
+ * which is 10^9 at the next power up (`9999999999.5` shows `1e+10`).
+ *
+ * @param {bigint} n the magnitude's numerator, positive
+ * @param {bigint} d the denominator, positive
+ * @returns {{ digits: string, exponent: number }}
+ */
+function roundToSignificant(n, d) {
+  let exponent = digitCount(n) - digitCount(d)
+  if (!atLeastPowerOfTen(n, d, exponent)) exponent -= 1
+  const shift = SIGNIFICANT_DIGITS - 1 - exponent
+  const dividend = shift >= 0 ? n * 10n ** BigInt(shift) : n
+  const divisor = shift >= 0 ? d : d * 10n ** BigInt(-shift)
+  let kept = dividend / divisor
+  if (2n * (dividend % divisor) >= divisor) kept += 1n
+  if (kept === 10n ** BigInt(SIGNIFICANT_DIGITS)) {
+    return { digits: (kept / 10n).toString(), exponent: exponent + 1 }
+  }
+  return { digits: kept.toString(), exponent }
+}
+
+/** Whether `n / d` is at least 10^k, both sides kept as integers. */
+function atLeastPowerOfTen(n, d, k) {
+  return k >= 0 ? n >= d * 10n ** BigInt(k) : n * 10n ** BigInt(-k) >= d
+}
+
+function digitCount(magnitude) {
+  return magnitude.toString().length
 }
