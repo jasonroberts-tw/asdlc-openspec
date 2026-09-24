@@ -132,6 +132,12 @@ const UNJOBBED_BY_KIND = [
     why: 'gate-shaped, or shaped like nothing above, and ungated for its own reason, each stated.',
     names: [
       {
+        name: 'calculator:serve',
+        why:
+          'serves the calculator until a person stops it, so a job running it would never return;' +
+          ' `calculator:test` runs `apps/calculator/serve.js` itself and proves its behaviour.',
+      },
+      {
         name: 'gates',
         why: 'the suite itself (`lefthook run pre-push --force`); a job invoking it would recurse.',
       },

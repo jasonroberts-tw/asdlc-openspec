@@ -192,6 +192,7 @@ holds platform-native binaries. Use one clone per platform.
 | See what is ready to be worked | `bd ready` | The queue. There is no status table anywhere else, by rule. |
 | Have an agent work one issue end to end | the `bead` skill | Verifies the issue's premise first, then claims, implements, gates, opens the pull request and closes on green. |
 | Change what the product does | the `change-*` skills, in order: `change-propose`, `change-design`, `change-plan`, `change-build`, `change-verify`, `change-finalize` | One worktree, one pull request and one `bd` epic per change. The proposal and the delta specs are reviewed before any code is written, and the archive merges them into the living spec under `openspec/` before the merge. |
+| Run the calculator on your machine | `npm run calculator:serve` | It prints the URL to open, on `127.0.0.1` only, and serves until Ctrl-C. Set `PORT` to serve on another port, such as when its default is taken. |
 | Have agents work the ready issues in parallel | the `fan-out-work` agent | One fresh agent per lane, each in its own worktree, integrated on the dispatcher's branch. |
 | Research a topic before changing anything | the `explore` skill | Assumptions and guesses first, then an inventory of evidence with no recommendations. |
 | Have the last reply, or one term, explained in plain words | the `eli5` skill | It supplies the missing background and changes nothing; the original's facts and caveats survive exactly. |
@@ -224,6 +225,7 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 
 | Script | What it does | Gate |
 |---|---|---|
+| `calculator:serve` | Serves the calculator page on `127.0.0.1` alone, at the port `PORT` names or at the default `apps/calculator/serve.js` holds, and prints the URL; it runs until Ctrl-C, and a port in use or an invalid `PORT` is refused in one line. Without it the calculator can be tested but not used. No job runs it, since it never returns: `calculator:test` runs the same file and proves what it does. | |
 | `calculator:test` | Runs the test files directly in `apps/calculator/test/` (its `README.md` lists them) with Node's own test runner: each scenario of the calculator and of its local server is a test named for it, under a suite named for its requirement, except the few a browser alone can show, which `apps/calculator/test/README.md` names. Without it nothing holds the calculator to its specs. A pattern that matches no file runs nothing and still exits 0, so read the test names in its output, never the exit code alone. | pre-push + CI |
 
 ### check
