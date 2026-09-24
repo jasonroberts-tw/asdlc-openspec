@@ -18,7 +18,15 @@
  * response, so it is written to a socket as raw bytes.
  */
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { request } from 'node:http'
 import { connect } from 'node:net'
 import { tmpdir } from 'node:os'
@@ -301,7 +309,7 @@ describe('The page needs no other origin', () => {
 })
 
 describe('Every response (not a spec scenario)', () => {
-  test('Carries the policy, a type and a length, whatever its status', async () => {
+  test('The page, a miss and a refused method carry the policy, a type and a length', async () => {
     const answers = {
       200: await ask(calculator.port, '/'),
       404: await ask(calculator.port, '/no-such-file'),
@@ -451,7 +459,45 @@ describe('Every response (not a spec scenario)', () => {
     t.after(() => stopServer(local.server))
     assert.equal((await ask(local.port, '/linked.js')).status, 404)
   })
+
+  test('A file that is there and cannot be read is a 500, with the policy, a type and a length', async (t) => {
+    const dir = scratchDir(t)
+    writeFileSync(join(dir, 'index.html'), '<!doctype html><title>t</title>\n')
+    writeFileSync(join(dir, 'locked.css'), 'p {}\n')
+    const local = await startServer(dir)
+    t.after(() => stopServer(local.server))
+
+    const locked = join(dir, 'locked.css')
+    chmodSync(locked, 0o000)
+    try {
+      if (canRead(locked)) {
+        // Root reads a file whatever its mode, and Windows maps a mode only to its read-only flag.
+        t.skip('this host still reads a file with no permissions, so none can fail to be read')
+        return
+      }
+      const answer = await ask(local.port, '/locked.css')
+      assert.equal(answer.status, 500)
+      assert.equal(answer.headers['content-security-policy'], POLICY)
+      assert.equal(answer.headers['content-type'], 'text/plain; charset=utf-8')
+      assert.equal(Number(answer.headers['content-length']), answer.bytes)
+      // One unreadable file does not stop the server for the others.
+      assert.equal((await ask(local.port, '/')).status, 200)
+    } finally {
+      chmodSync(locked, 0o644)
+    }
+  })
 })
+
+/** Whether this process can read `file`; a refusal for want of permission is `false`. */
+function canRead(file) {
+  try {
+    readFileSync(file)
+    return true
+  } catch (error) {
+    if (error.code === 'EACCES') return false
+    throw error
+  }
+}
 
 /** A fresh directory under the temporary directory, removed when the test ends. */
 function scratchDir(t) {

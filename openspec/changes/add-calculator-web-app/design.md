@@ -233,11 +233,14 @@ descend into subdirectories. For each request:
   and `/%2e%2e/package.json` fail for the same reason as `/no-such-file`: they are not keys. No path
   arithmetic exists to get wrong.
 - **A hit** is read from disk on every request, so an edit shows on reload without a restart. A file
-  that has vanished since startup is `404`.
-- **Every response the calculator's code writes,** including `404`, `405` and the `405` it writes
-  to a CONNECT, carries `Content-Security-Policy: default-src 'self'`. Node answers some protocol
-  errors itself, before any of the calculator's code runs: a malformed request gets `400`, an
-  unsupported `Expect` header gets `417`, and oversized headers get `431`. Those answers carry no
+  that has vanished since startup is `404`. A file that is there and cannot be read is `500`. The
+  server sends that as an answer rather than throwing, so one unreadable file does not stop it
+  serving the others.
+- **Every response the calculator's code writes,** including `404`, `405`, `500` and the `405` it
+  writes to a CONNECT, carries `Content-Security-Policy: default-src 'self'`. Node answers some
+  protocol errors itself, before any of the calculator's code runs: a malformed request gets `400`,
+  headers not finished in time get `408`, an unsupported `Expect` header gets `417`, and oversized
+  headers get `431`. Those answers carry no
   policy. That is accepted (the maintainer's decision at change-verify, 2026-09-24): they carry no
   page and no content a browser would load.
 
