@@ -7,7 +7,10 @@ wiring takes the document it works on as an argument, so the tests mount it on a
 builds from `index.html`.
 
 The page's policy refuses inline scripts, inline style attributes and `data:` URLs, so every script
-and every style here is a file of its own.
+and every style here is a file of its own. The server, `../server.js`, serves only the `.html`,
+`.css` and `.js` files that sit directly in this directory. So this README is never served, a file
+of another kind answers `404` until the server learns its type, and a file in a subdirectory
+answers `404` because the server does not look in one.
 
 Each file's opening comment is the authority on it. Where a row here and a file disagree, the file
 wins and the row is corrected.
