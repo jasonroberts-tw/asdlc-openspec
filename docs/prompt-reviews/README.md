@@ -11,7 +11,10 @@ left beside a prompt reads as a second prompt or a stale draft.
 | `bead.2026-09-23.md` | `.claude/skills/bead/SKILL.md`, which works one issue from the task store end to end |
 | `change-build.2026-09-24.md` | `.claude/skills/change-build/SKILL.md`, which builds a planned change's tasks one at a time in its worktree |
 | `change-design.2026-09-23.md` | `.claude/skills/change-design/SKILL.md`, which writes a change's `design.md` or records that it needs none |
+| `change-finalize.2026-09-24.md` | `.claude/skills/change-finalize/SKILL.md`, which archives a verified change into the living spec, opens its pull request, and cleans up after the merge |
 | `change-plan.2026-09-23.md` | `.claude/skills/change-plan/SKILL.md`, the stage that turns a reviewed change into tasks |
+| `change-propose.2026-09-23.md` | `.claude/skills/change-propose/SKILL.md`, which opens a change's epic and worktree and writes its proposal and delta specs |
+| `change-verify.2026-09-24.md` | `.claude/skills/change-verify/SKILL.md`, which traces every scenario of a built change to a proof and refuses on any gap |
 
 ## The shape of a review
 
