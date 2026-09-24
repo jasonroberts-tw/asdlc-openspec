@@ -42,6 +42,9 @@ Run `bd close <id> --reason "<short commit id>: <what now exists>"`.
 
 ## 5. What the build turns up
 
+- **A review finding** blocks the task only when the code contradicts the spec, the design or the
+  task. A behaviour the code gets right but no scenario proves is out of scope, filed as below, so
+  review does not loop on coverage.
 - **Out of scope**, such as a defect nearby or a gap somewhere else: file it with
   `bd create "<title>" -l <the repo: label> --deps discovered-from:<epic> --body-file <file> --silent`.
   Give it no `spec-change` label, so it joins the general queue, and carry on. Never fold it into
@@ -49,7 +52,8 @@ Run `bd close <id> --reason "<short commit id>: <what now exists>"`.
 - **In scope but missing from the plan:** add it as a new child of the epic, once the user agrees.
 - **A spec that is wrong**, meaning a scenario that cannot hold as written or a requirement that is
   missing: stop and tell the user. Revise the delta spec first, under the grammar `change-propose`
-  gives, then the plan. The code never outruns the spec.
+  gives, then the design where it is affected, then the plan, and commit that revision on its own,
+  before the code it allows. The code never outruns the spec.
 
 ## 6. Repeat, then hand over
 
@@ -58,3 +62,5 @@ Go back to step 2 until
 
 Then run `npm run gates` and report each task closed with its commit, every issue filed along the
 way, and the gates as measured. The next stage is `change-verify`.
+
+Reviewed: `docs/prompt-reviews/change-build.2026-09-24.md` § Review of 2026-09-24 (the run of 2026-09-23 to 2026-09-24 on add-calculator-web-app, epic asdlc-openspec-zgh).
