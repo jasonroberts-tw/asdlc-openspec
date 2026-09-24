@@ -8,7 +8,8 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 # Verify a change
 
 The fifth of the six `change-*` stages (`docs/decisions.md` § D-02). It runs in the change's worktree
-and only reads. When it finds a gap, the gap is fixed in the stage that owns it, and verification then
+and changes no tracked file: it writes only the trace under `.scratch/` and the follow-up issues step 4
+files. When it finds a gap, the gap is fixed in the stage that owns it (step 6), and verification then
 runs again from step 2.
 
 ## 1. Find the change and its epic
@@ -45,7 +46,20 @@ A row is a gap when:
 - the proof does not exercise what the scenario states. Read the test; never trust its name;
 - the proof fails.
 
-Where there is a `design.md`, read it too: a decision the code does not follow is a gap.
+Where there is a `design.md`, read it too: a decision the code does not follow is a gap, whichever of
+the two turns out to be wrong.
+
+A finding that is none of these is not a gap and does not block: a test name, a comment or a README
+row that claims more than its code does, where no scenario and no design decision states the claim.
+File each one as `.claude/skills/change-build/SKILL.md` § 5. What the build turns up files an
+out-of-scope finding, inside the bracket `CLAUDE.md` § The task store describes, and name it in the
+report.
+
+**Running again.** The trace's first line names the commit it was taken at. On a run from step 2
+after a fix or a rebase, read `git diff <that commit>`. A row keeps its reading when the diff changes
+its scenario, its proof and the code the proof exercises only in comments or prose; every other row
+is traced again, and so is every design decision the diff changes. Every proof is run again either
+way, and each row carries the new result.
 
 ## 5. The gates are green
 
@@ -53,8 +67,12 @@ Where there is a `design.md`, read it too: a decision the code does not follow i
 
 ## 6. Verdict
 
-- **Any gap:** report each one with its file and scenario, then stop. The code is fixed in
-  `change-build`, or the spec is revised with the user in `change-propose`, and verification runs again
-  from step 2.
-- **No gap:** report the trace and the gates as measured. The trace goes into the pull request's body.
-  The next stage is `change-finalize`.
+- **Any gap:** report each one with its file and its scenario or design decision, and which side you
+  believe is wrong and why, then stop. The user picks the route: the code is fixed in `change-build`;
+  the spec is revised with the user in `change-propose`; or, where the code is right and the design
+  is not, the design is revised with the user in `change-design`, with every comment and README row
+  that repeated its claim. Verification then runs again from step 2.
+- **No gap:** report the trace, the gates as measured and the follow-ups filed. The trace goes into
+  the pull request's body. The next stage is `change-finalize`.
+
+Reviewed: `docs/prompt-reviews/change-verify.2026-09-24.md` § Review of 2026-09-24 (run of 2026-09-24 on `add-calculator-web-app`, epic `asdlc-openspec-zgh`).
