@@ -6,6 +6,11 @@ it.** After a prompt is executed from a file, an analysis of the run goes to the
 `<prompt-basename>.<run-date>.md`, never beside the prompt (`CLAUDE.md` § Prompt reviews): a review
 left beside a prompt reads as a second prompt or a stale draft.
 
+| File | What it reviews |
+|---|---|
+| `bead.2026-09-23.md` | `.claude/skills/bead/SKILL.md`, which works one issue from the task store end to end |
+| `change-design.2026-09-23.md` | `.claude/skills/change-design/SKILL.md`, which writes a change's `design.md` or records that it needs none |
+
 ## The shape of a review
 
 In this order. The section names are a default; the two closing sections are the value.
