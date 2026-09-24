@@ -61,13 +61,20 @@ None: this is the skill's first review, and it carried no `Reviewed:` trailer be
    making the same claim, and a list of Node's protocol errors that leaves out 408. The skill knew
    only "gap" and "no gap". The session listed them for the maintainer to route. The stop rule that
    decided they were not gaps lived only in the session.
-   **Fix, applied:** step 4 says such a finding is not a gap and does not block. It is filed the way
-   `.claude/skills/change-build/SKILL.md` § 5. What the build turns up files an out-of-scope
-   finding (no `spec-change` label, `discovered-from` the epic), inside the tracker bracket, and it
-   is named in the report. `CLAUDE.md` § The task store is why the finding is filed rather than only
-   listed: work is an issue in `bd`, not a line in a report. The opening paragraph now says the stage
-   changes no tracked file and writes only the trace and these issues, which replaces "only reads".
-   The old wording was already false for the trace under `.scratch/`.
+   The maintainer routed all three into the change: `asdlc-openspec-zgh.9`, a new child of the epic
+   with the `spec-change` label, to be "fixed before change-finalize" (`bd show asdlc-openspec-zgh.9`).
+   **Fix, applied:** step 4 says such a finding is not a gap. The verifier names it in the report and
+   asks the user where it goes. The routes are those of `.claude/skills/change-build/SKILL.md` § 5.
+   What the build turns up: a new child of the epic, which reopens step 2 until it is closed, or a
+   follow-up filed outside the change. It is filed inside the tracker bracket. `CLAUDE.md` § The task
+   store is why it is filed rather than only listed: work is an issue in `bd`, not a line in a
+   report. The opening paragraph now says the stage changes no tracked file and writes only the
+   trace and the issues the user has it file. That replaces "only reads", which was already false
+   for the trace under `.scratch/`. A first draft of this fix always filed the finding outside the
+   change, which the maintainer's own choice of zgh.9 contradicts, so the choice is left to the user.
+   `.claude/skills/change-design/SKILL.md` § 4. Commit it, and stop gains a sentence for fix 1's
+   route. When verify sends a design gap there, the design already exists: it is amended, and the
+   stage hands back to verify, not to `change-plan`.
 
 ### Corrections to the run's own analysis
 
@@ -110,10 +117,12 @@ None: this is the skill's first review, and it carried no `Reviewed:` trailer be
 
 ### What this review could not verify
 
-- The trace itself (`.scratch/add-calculator-web-app-trace.md`) and the three wording notes. Both are
-  in the executing worktree's gitignored `.scratch/`, outside this reviewer's worktree.
+- The trace itself (`.scratch/add-calculator-web-app-trace.md`). It is in the executing worktree's
+  gitignored `.scratch/`, outside this reviewer's worktree.
 - The gates result (22 of 22 jobs, two selftest skips) and the test-suite rerun, which rest on the
   session's analysis.
 - How long the first trace took, and how long the rerun saved. Fix 2 rests on the trace being the
   run's longest step, which is the session's account.
-- Whether the three wording notes have been filed. `bd` was not searched for them.
+- The three wording notes, as the session first worded them. `asdlc-openspec-zgh.9` holds them as
+  filed. It also adds a missing test of the server's 500 and a README sentence about AltGr, and it
+  is closed at `2943645`, which this reviewer has not read.
