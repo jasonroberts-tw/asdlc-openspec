@@ -16,10 +16,12 @@ MODIFIED, REMOVED and RENAMED paths of the archive have something to act on.
   operators, equals and clear, also driven from the keyboard.
 - Arithmetic as a basic pocket calculator does it: each operation applies to the running result
   when the next operator or equals is pressed, left to right, with no operator precedence.
-- Division by zero, or a result too large to be a finite number, shows `Error` instead of a number,
-  and the next digit or clear starts over.
-- Results are rounded to ten significant digits, so `0.1 + 0.2` shows `0.3`, and a chain carries
-  the rounded result, so `0.1 + 0.2 − 0.3` shows `0`.
+- Division by zero, or a result or a typed number too large to be a finite number, shows `Error`
+  instead of a number, and the next digit, decimal point or clear starts over.
+- Results are computed exactly in decimal and rounded once, to ten significant digits, with a tie
+  rounding away from zero. So `0.1 + 0.2` shows `0.3`, `1.000001 − 1` shows `0.000001`, and
+  `3.000000003 × 0.5` shows `1.500000002`. A chain carries the rounded result the display shows, so
+  `1 ÷ 3 × 3` shows `0.9999999999`.
 - One npm script, `calculator:serve`, starts a local server for the page on the loopback interface
   only, prints its URL, and stops cleanly on an interrupt. There is no deployment, no
   infrastructure, and nothing that is reachable from another machine.

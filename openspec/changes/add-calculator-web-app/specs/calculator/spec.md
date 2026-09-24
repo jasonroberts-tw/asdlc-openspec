@@ -44,8 +44,14 @@ decimal point before any digit SHALL start the number as `0.`.
 
 #### Scenario: A number can start with the decimal point
 
-- **WHEN** a person presses `.`, `5`
-- **THEN** the display shows `0.5`
+- **WHEN** a person presses `.`
+- **THEN** the display shows `0.`
+- **AND** when the person then presses `5`, the display shows `0.5`
+
+#### Scenario: A number is shown as typed
+
+- **WHEN** a person presses `1`, `.`, `5`, `0`
+- **THEN** the display shows `1.50`
 
 ### Requirement: Arithmetic operations
 
@@ -78,7 +84,8 @@ negative result SHALL be shown with a leading `-`.
 When an operator is pressed while an operation is pending and its second number has been entered,
 the calculator SHALL first complete the pending operation, show its result, and use that result as
 the first number of the new operation. It SHALL NOT apply operator precedence. Pressing an operator
-again before any digit of the second number SHALL replace the pending operator.
+again before the second number is started, by a digit or the decimal point, SHALL replace the
+pending operator.
 
 #### Scenario: A chain ignores operator precedence
 
@@ -95,14 +102,19 @@ again before any digit of the second number SHALL replace the pending operator.
 
 Equals SHALL complete the pending operation. After a result is shown, a digit or the decimal point
 SHALL start a new calculation, and an operator SHALL continue from the result. Equals with no
-operation pending, or before any digit of the pending operation's second number, SHALL change
-nothing.
+operation pending, or before the pending operation's second number is started by a digit or the
+decimal point, SHALL change nothing.
 
 #### Scenario: A digit after a result starts a new calculation
 
 - **WHEN** a person presses `2`, `+`, `3`, `=`, `4`
 - **THEN** the display shows `4`
 - **AND** when the person then presses `+`, `1`, `=`, the display shows `5`
+
+#### Scenario: A decimal point after a result starts a new calculation
+
+- **WHEN** a person presses `2`, `+`, `3`, `=`, `.`, `5`
+- **THEN** the display shows `0.5`
 
 #### Scenario: An operator after a result continues from it
 
@@ -113,6 +125,11 @@ nothing.
 
 - **WHEN** a person presses `2`, `+`, `3`, `=`, `=`
 - **THEN** the display shows `5`
+
+#### Scenario: Equals with only a number typed changes nothing
+
+- **WHEN** a person presses `5`, `=`, `3`
+- **THEN** the display shows `53`
 
 #### Scenario: Equals before the second number changes nothing
 
@@ -127,15 +144,22 @@ any error.
 
 #### Scenario: Clear discards a pending operation
 
-- **WHEN** a person presses `7`, `+`, `8`, `C`
+- **WHEN** a person presses `7`, `×`, `8`, `C`
 - **THEN** the display shows `0`
 - **AND** when the person then presses `2`, `=`, the display shows `2`
 
+#### Scenario: Clear discards an error
+
+- **WHEN** a person presses `5`, `÷`, `0`, `=`, `C`
+- **THEN** the display shows `0`
+
 ### Requirement: Division by zero and overflow
 
-An operation that divides by zero, or whose result is too large to be a finite number, SHALL show
-`Error` in the display, never a number, `Infinity` or `NaN`. While `Error` is shown, an operator or
-equals SHALL change nothing, and a digit or the decimal point SHALL start a new calculation.
+An operation that divides by zero, an operation whose result is too large to be a finite number,
+and a typed number too large to be a finite number, once an operator or equals takes it, SHALL each
+show `Error` in the display, never a number, `Infinity` or `NaN`. While `Error` is shown, an
+operator or equals SHALL change nothing, and a digit or the decimal point SHALL start a new
+calculation.
 
 #### Scenario: Dividing by zero shows an error
 
@@ -152,24 +176,56 @@ equals SHALL change nothing, and a digit or the decimal point SHALL start a new 
 - **WHEN** a person presses `5`, `÷`, `0`, `=`, `+`
 - **THEN** the display shows `Error`
 
+#### Scenario: Equals after an error changes nothing
+
+- **WHEN** a person presses `5`, `÷`, `0`, `=`, `=`
+- **THEN** the display shows `Error`
+
 #### Scenario: A digit after an error starts a new calculation
 
 - **WHEN** a person presses `5`, `÷`, `0`, `=`, `3`, `+`, `4`, `=`
 - **THEN** the display shows `7`
+
+#### Scenario: A decimal point after an error starts a new calculation
+
+- **WHEN** a person presses `5`, `÷`, `0`, `=`, `.`, `5`
+- **THEN** the display shows `0.5`
 
 #### Scenario: A result too large to be a finite number shows an error
 
 - **WHEN** a person presses `9` ten times, then thirty times presses `×` followed by `9` ten times, then presses `=`
 - **THEN** the display shows `Error`
 
+#### Scenario: A typed number too large to be a finite number shows an error
+
+- **WHEN** a person presses `1`, then `0` three hundred and nine times, then `+`
+- **THEN** the display shows `Error`
+
+#### Scenario: A typed divisor too large to be a finite number shows an error
+
+- **WHEN** a person presses `5`, `÷`, `1`, then `0` three hundred and nine times, then `=`
+- **THEN** the display shows `Error`
+
+#### Scenario: A typed divisor taken by an operator shows an error
+
+- **WHEN** a person presses `5`, `÷`, `1`, then `0` three hundred and nine times, then `×`
+- **THEN** the display shows `Error`
+
+#### Scenario: A result that rounds past the largest number shows an error
+
+- **WHEN** a person presses `1`, `7`, `9`, `7`, `6`, `9`, `3`, `1`, `3`, `4`, `8`, then `0` two hundred and ninety-eight times, then `×`, `1`, `=`
+- **THEN** the display shows `Error`
+
 ### Requirement: Results are rounded for display
 
-A result SHALL be shown rounded to at most ten significant digits, with any trailing zeros after the
-decimal point, and a decimal point left trailing, removed, so that the error of binary
-floating-point arithmetic does not reach the display. A result whose magnitude is at least 10^10, or
-that is not zero and below 10^-6, SHALL be shown in exponent notation, its mantissa rounded and
-trimmed the same way. A number being entered is shown as typed and is not rounded. A result carried
-into a later operation SHALL be the rounded result the display shows, not the unrounded one.
+A result SHALL be computed from the exact decimal values of its operands and rounded once, to at
+most ten significant digits, a tie rounding away from zero. Any trailing zeros after the decimal
+point, and a decimal point left trailing, SHALL be removed, and the zeros of a whole number kept. The
+error of binary floating-point arithmetic SHALL NOT reach the display, including when an addition or
+a subtraction cancels the leading digits of its operands. A result whose magnitude is at least
+10^10, or that is not zero and below 10^-6, SHALL be shown in exponent notation, its mantissa rounded
+and trimmed the same way. A number being entered is shown as typed and is not rounded. A result
+carried into a later operation SHALL be the rounded result the display shows, not the unrounded one.
 
 #### Scenario: Floating-point error is not shown
 
@@ -178,8 +234,44 @@ into a later operation SHALL be the rounded result the display shows, not the un
 
 #### Scenario: A chain carries the rounded result
 
-- **WHEN** a person presses `0`, `.`, `1`, `+`, `0`, `.`, `2`, `−`, `0`, `.`, `3`, `=`
-- **THEN** the display shows `0`
+- **WHEN** a person presses `1`, `÷`, `3`, `×`
+- **THEN** the display shows `0.3333333333`
+- **AND** when the person then presses `3`, `=`, the display shows `0.9999999999`
+
+#### Scenario: A subtraction that cancels shows no floating-point error
+
+- **WHEN** a person presses `1`, `.`, `0`, `0`, `0`, `0`, `0`, `1`, `−`, `1`, `=`
+- **THEN** the display shows `0.000001`
+
+#### Scenario: An addition that cancels shows no floating-point error
+
+- **WHEN** a person presses `0`, `−`, `1`, `=`, `+`, `1`, `.`, `0`, `0`, `0`, `0`, `0`, `1`, `=`
+- **THEN** the display shows `0.000001`
+
+#### Scenario: Small numbers add in exponent form
+
+- **WHEN** a person presses `.`, then `0` six times, then `1`, `+`, `.`, then `0` six times, then `1`, `=`
+- **THEN** the display shows `2e-7`
+
+#### Scenario: Numbers past a hundred decimal places add exactly
+
+- **WHEN** a person presses `.`, then `0` one hundred and forty-nine times, then `1`, `+`, `.`, then `0` one hundred and forty-nine times, then `1`, `=`
+- **THEN** the display shows `2e-150`
+
+#### Scenario: A tie at the tenth significant digit rounds away from zero
+
+- **WHEN** a person presses `3`, `.`, then `0` eight times, then `3`, `×`, `0`, `.`, `5`, `=`
+- **THEN** the display shows `1.500000002`
+
+#### Scenario: A result is rounded once, from its exact value
+
+- **WHEN** a person presses `1`, `+`, `.`, then `0` nine times, then `4`, then `9` nine times, then `=`
+- **THEN** the display shows `1`
+
+#### Scenario: A whole-number result keeps its zeros
+
+- **WHEN** a person presses `1`, `0`, `0`, `0`, `0`, `0`, `×`, `1`, `0`, `0`, `0`, `0`, `=`
+- **THEN** the display shows `1000000000`
 
 #### Scenario: A repeating result is cut to ten significant digits
 
