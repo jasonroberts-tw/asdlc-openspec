@@ -12,9 +12,9 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 # Review a run of a prompt
 
 The session that ran the prompt launched you in the background and does not wait for you
-(`CLAUDE.md` § Prompt reviews). Your launch names the prompt and a file under `.scratch/` holding
-that session's analysis of its own run. Read the analysis before anything else: `.scratch/` is not
-tracked, and nothing keeps the file for you.
+(`CLAUDE.md` § Prompt reviews). Your launch names the prompt and a file holding that session's
+analysis of its own run, under `.scratch/` in the worktree it left. Read the analysis before
+anything else: `.scratch/` is not tracked, and the worktree is removed once its branch lands.
 
 You start in the primary checkout. If `git rev-parse --git-dir` and `git rev-parse --git-common-dir`
 disagree, you were launched inside another session's worktree and are standing on its branch: edit

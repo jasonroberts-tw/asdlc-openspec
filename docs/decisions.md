@@ -253,7 +253,7 @@ The server reading `.worktree/ports.env` itself also lost: the spec names `PORT`
 
 **Decision.** How a run of a prompt is reviewed, and what the review leaves behind.
 
-1. **The reviewer runs in the background, and nobody waits for it.** The session that ran the prompt leaves its worktree, writes its analysis of the run under `.scratch/` in the primary checkout, and launches `continuous-prompt-improvement` with `claude --bg --agent`. Agent view lists that session, and its supervisor keeps it running after the launcher ends. The launcher neither waits for the review nor relays it. `CLAUDE.md` § Prompt reviews holds the command, and every caller points there.
+1. **The reviewer runs in the background, and nobody waits for it.** The session that ran the prompt writes its analysis of the run under `.scratch/` in its own worktree, since the harness refuses a background session's edit in the shared checkout. It then leaves the worktree, keeping it, and from the primary checkout launches `continuous-prompt-improvement` with `claude --bg --agent`, naming the analysis by its path. Agent view lists that session, and its supervisor keeps it running after the launcher ends. The launcher neither waits for the review nor relays it. `CLAUDE.md` § Prompt reviews holds the command, and every caller points there.
 2. **A review that proposes a change is a pull request.** The reviewer makes the change in its own worktree and opens a pull request against `main`. The review is that pull request's description, and a person decides whether it merges.
 3. **A review that proposes nothing leaves nothing.** It edits no file, makes no worktree and opens no pull request, and no run is counted anywhere.
 4. **No review is a file in this repository, and no prompt carries a `Reviewed:` trailer.** The earlier reviews of a prompt are the descriptions of the pull requests that changed it, and the agent's file says how to find them.
@@ -269,7 +269,7 @@ The server reading `.worktree/ports.env` itself also lost: the spec names `PORT`
 **What changed.**
 
 - **This register:** this entry; the status line, the blockquote's bound and the decisions table carry D-05; D-01 carries the amendment above.
-- **`CLAUDE.md`:** § Prompt reviews is rewritten: the launch, from the primary checkout, and what a review leaves behind.
+- **`CLAUDE.md`:** § Prompt reviews is rewritten: the analysis written in the launcher's worktree, the launch from the primary checkout, and what a review leaves behind. The first draft had the launcher write the analysis in the primary checkout; the harness refused that edit from this change's own background session, so the file stays in the worktree it came from.
 - **`.claude/agents/continuous-prompt-improvement.md`:** rewritten. It says what the reviewer reads first and when it stops, how it finds earlier reviews, and the pull request it opens. The shape of a review moves here from `docs/prompt-reviews/README.md`.
 - **`.claude/skills/bead/SKILL.md`:** § 8 launches the review as `CLAUDE.md` § Prompt reviews says, before the report, and the report names the reviewer's session. Its `Reviewed:` trailer is dropped.
 - **`.claude/skills/change-{propose,design,plan,build,verify,finalize}/SKILL.md`:** each `Reviewed:` trailer is dropped.

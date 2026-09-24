@@ -198,15 +198,16 @@ worktree. Rebase onto `origin/main` rather than merging the trunk into a branch,
 ## Prompt reviews
 
 After a prompt is executed from a file, the session that ran it launches the
-`continuous-prompt-improvement` agent on the run and does not wait for it. First it leaves its
-worktree (`ExitWorktree`, action `keep`): a background session starts in the directory it was
-launched from, and one launched inside a linked worktree writes on that worktree's branch. From the
-primary checkout it writes its analysis of the run to `.scratch/review-<name>.md`, under a name no
-other session is using, such as the worktree it left, and launches the reviewer as a background
-session, which agent view (`claude agents`) lists and its supervisor keeps running after the
-launcher ends:
+`continuous-prompt-improvement` agent on the run and does not wait for it. First it writes its
+analysis of the run to `.scratch/review.md` in its own worktree, where it can write: the harness
+refuses a background session's edit in the shared checkout. Then it leaves the worktree
+(`ExitWorktree`, action `keep`, so the file stays): a background session starts in the directory it
+was launched from, and one launched inside a linked worktree writes on that worktree's branch. From
+the primary checkout it launches the reviewer as a background session, which agent view
+(`claude agents`) lists and its supervisor keeps running after the launcher ends, naming the file
+by its path from there:
 
-    claude --bg --agent continuous-prompt-improvement --name review-<prompt-basename> "Review the run of <prompt path>. The run's analysis is .scratch/review-<name>.md."
+    claude --bg --agent continuous-prompt-improvement --name review-<prompt-basename> "Review the run of <prompt path>. The run's analysis is .claude/worktrees/<worktree>/.scratch/review.md."
 
 A skill's file is always `SKILL.md`, so its basename is its directory's name. The launcher neither
 waits for the reviewer nor relays what it finds: its report names the session the launch printed,
