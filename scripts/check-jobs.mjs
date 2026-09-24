@@ -4,6 +4,9 @@
  *
  *   npm run check:jobs             the gate; prints the re-derived breakdown on every run
  *   npm run check:jobs:selftest    its fixtures -- every assertion exercised on a doctored copy
+ *   CHECK_JOBS_ROOT=<dir> npm run check:jobs
+ *                                  the same gate over a copy of the tree, with the paths the copy's
+ *                                  scripts name resolved inside the copy too
  *
  * THE JOB THIS EXISTS FOR. A `package.json` script is a public name and nothing gates its citations
  * (the add-npm-script skill opens with that sentence). Two failures follow, and both
@@ -14,6 +17,15 @@
  * past, and a `:check` went red for six weeks before anything wired it. The same cross-check, run
  * by hand and quoted in a note, was found false at the next verification. A cross-check quoted in
  * a note measures one commit. This is the gate.
+ *
+ * `apps/` IS THE THIRD ROOT since 2026-09-24, when `calculator:serve` and `calculator:test` became
+ * the first scripts to name a file there. Wrong here, the gate would pass a `calculator:serve`
+ * repointed at a file that is not there, a dead public name found only when a person runs it; and a
+ * `calculator:test` whose quoted glob matches nothing, which the old expression never read at all.
+ * The glob half answers a measurement: on 2026-09-23 (asdlc-openspec-frm) `node --test` over a
+ * quoted glob that matched no file printed `tests 0` and exited 0, so the job and the CI step would
+ * read green over a suite that ran nothing. This gate refuses the empty match at push. A matched
+ * file with no test in it still passes, so it narrows that bug rather than closing it.
  *
  * WHAT FAILS THE JOB:
  *   1. an `npm run <name>` or `node --run <name>` token in a `run:` of `lefthook.yml` or
@@ -28,8 +40,14 @@
  *   3. an `UNJOBBED_BY_KIND` entry that names no script, names one twice, names one that HAS a job
  *      (a stale exception is a hole in the gate -- `check-register-status.mjs`'s allowlist rule), or
  *      names one whose spelling contradicts the kind's shape.
- *   4. a script whose command names a `tools/` or `scripts/` path that does not exist
- *      on disk.
+ *   4. a script whose command names a `tools/`, `scripts/` or `apps/` path that does not exist on
+ *      disk. A path opens at the start of the command, after whitespace or after a quote, and the
+ *      quotes are not part of it.
+ *   5. a script whose command names such a path with a glob character (`*`, `?`, `[`) that matches
+ *      no file. Existence cannot check a glob, so it is checked by what it matches: its fixed leading
+ *      directories are listed, and each later segment matched within one directory, `*` and `?` as a
+ *      shell reads them. A glob with `**` or `[...]` is refused as a form this gate does not match,
+ *      rather than passed unread; extend `globMatchesAFile` the day a script needs one.
  *
  * WHAT IS NOT CHECKED, deliberately: WHERE a jobbed script runs (pre-push, CI or both) -- that is
  * `pipeline:check`'s question for the graph's regeneration nodes and the README's Gate column for
@@ -38,12 +56,15 @@
  *
  * NEGATIVE TESTING. `--selftest` copies the three files under `os.tmpdir()` and doctors ONE thing
  * per case, asserting the run fails FOR THAT REASON -- plus a control that the undoctored copy
- * passes, without which every other case could be failing on the copy. Path existence is resolved
- * against the real tree in every case, since a copy of three files has no `tools/`. By hand, point
+ * passes, without which every other case could be failing on the copy. Paths and globs are resolved
+ * against the real tree in every case, since a copy of three files has no `tools/` or `apps/`: a
+ * path case doctors the copy's command line to name what the real tree lacks. The control must read
+ * at least one `apps/` path and one glob, or the apps cases have no passing twin. By hand, point
  * `CHECK_JOBS_ROOT` at a copy, as `check-register-status.mjs` does with `CHECK_REGISTER_ROOT`.
  *
- * Reads only committed files; no `../sibling` checkout, no network, milliseconds. `pre-push` and
- * CI both, by the add-npm-script skill's step on where a gate runs.
+ * Reads only committed files, and lists the directories a glob names; no `../sibling` checkout, no
+ * network, milliseconds. `pre-push` and CI both, by the add-npm-script skill's step on where a gate
+ * runs.
  */
 import {
   copyFileSync,
@@ -51,7 +72,9 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -77,11 +100,18 @@ const NPM_RUN_RE = /\b(npm run|node --run) (?:--silent )?([A-Za-z0-9][A-Za-z0-9:
 /** The spellings this repository gives a gate: `check:<noun>`, and the `:check` / `:selftest` / `:selfcheck` twins. */
 const GATE_SHAPED_RE = /^check:|:(?:check|selftest|selfcheck)$/
 /**
- * A repo-relative `tools/` or `scripts/` path on a script's command line: a moved or misspelled
- * script would otherwise pass this gate and fail at the next push. Add a root here the day a script
- * of yours lives under a third one.
+ * A repo-relative `tools/`, `scripts/` or `apps/` path on a script's command line: a moved or
+ * misspelled script would otherwise pass this gate and fail at the next push. `apps/` is the third
+ * root, for the calculator's two scripts. A path may open after a quote as well as after whitespace,
+ * because a glob is quoted so that the shell leaves it for Node to expand (`calculator:test`); the
+ * quotes fall outside group 1, so the path is read without them. Add a root here the day a script of
+ * yours lives under a fourth one.
  */
-const REPO_PATH_RE = /(?:^|\s)((?:tools|scripts)\/[^\s"'&|;]+)/g
+const REPO_PATH_RE = /(?:^|[\s"'])((?:tools|scripts|apps)\/[^\s"'&|;]+)/g
+/** A path with one of these is a glob, which existence cannot check (assertion 5). */
+const GLOB_CHAR_RE = /[*?[]/
+/** The glob forms `globMatchesAFile` does not match, refused rather than passed unread. */
+const UNMATCHED_GLOB_RE = /\*\*|\[/
 
 /**
  * Every script that has no job, BY KIND, each kind with the reason its members are ungated. A name
@@ -147,6 +177,56 @@ const UNJOBBED_BY_KIND = [
 
 const entryName = (entry) => (typeof entry === 'string' ? entry : entry.name)
 
+/** One glob segment as an anchored expression: `*` any run of characters, `?` exactly one. */
+function segmentPattern(segment) {
+  const body = segment
+    .replace(/[.+^${}()|\\\]]/g, '\\$&')
+    .replace(/\*/g, '.*')
+    .replace(/\?/g, '.')
+  return new RegExp(`^${body}$`)
+}
+
+/**
+ * Whether `pattern`, relative to `root`, names at least one file. Segments with no glob character
+ * are fixed and joined as they stand; each other segment is matched against one directory's
+ * listing. A name opening with `.` is matched only by a segment that opens with one too, as a
+ * shell leaves dot files out of what `*` expands. It matches `*` and `?` and nothing more, the
+ * forms the scripts use, so its verdict is the same on every Node this repository runs on; `**` and
+ * `[...]` are refused before they reach it. `fs.globSync`, marked stable in Node 22.17.0 and so
+ * inside the engines floor, matches every form the test runner expands, and is the way to widen
+ * this the day a script needs one of them.
+ */
+function globMatchesAFile(root, pattern) {
+  const segments = pattern.split('/')
+  const kind = (path) => statSync(path, { throwIfNoEntry: false })
+  const walk = (dir, index) => {
+    const segment = segments[index]
+    const last = index === segments.length - 1
+    const candidates = []
+    if (GLOB_CHAR_RE.test(segment)) {
+      let names
+      try {
+        names = readdirSync(dir)
+      } catch {
+        return false
+      }
+      const matches = segmentPattern(segment)
+      for (const name of names) {
+        if (name.startsWith('.') && !segment.startsWith('.')) continue
+        if (matches.test(name)) candidates.push(join(dir, name))
+      }
+    } else {
+      candidates.push(join(dir, segment))
+    }
+    return candidates.some((path) => {
+      const stat = kind(path)
+      if (!stat) return false
+      return last ? stat.isFile() : stat.isDirectory() && walk(path, index + 1)
+    })
+  }
+  return walk(root, 0)
+}
+
 /** Lines of a `run:` string that are not YAML-block comments. */
 function withoutComments(run) {
   return run
@@ -186,8 +266,8 @@ function runBlocks(file, doc) {
 
 /**
  * Run every assertion against the tree at `root`. Returns the failures and the breakdown rather
- * than exiting, so the selftest can run it against doctored copies. `pathsRoot` is where assertion
- * 4 looks for the named files -- the real tree, when `root` is a three-file copy.
+ * than exiting, so the selftest can run it against doctored copies. `pathsRoot` is where assertions
+ * 4 and 5 look for the named files and globs -- the real tree, when `root` is a three-file copy.
  */
 export function runCheck(root, { pathsRoot = root } = {}) {
   const failures = []
@@ -301,17 +381,37 @@ export function runCheck(root, { pathsRoot = root } = {}) {
     }
   }
 
-  /* ------------------------------------------------- 4. every named path exists ---------------- */
+  /* ------------------------------------------------- 4-5. every path exists, every glob matches */
 
   let pathNaming = 0
+  let appsPaths = 0
+  let globs = 0
   for (const [name, command] of Object.entries(scripts)) {
     const paths = [...command.matchAll(REPO_PATH_RE)].map((m) => m[1])
     if (paths.length > 0) pathNaming++
     for (const path of paths) {
-      if (!existsSync(join(pathsRoot, path))) {
+      if (path.startsWith('apps/')) appsPaths++
+      if (!GLOB_CHAR_RE.test(path)) {
+        if (!existsSync(join(pathsRoot, path))) {
+          fail(
+            `\`${name}\` names ${path}, which does not exist. A script over a file that was moved or` +
+              ` deleted is a dead public name; repoint it or retire the script with its README row.`,
+          )
+        }
+        continue
+      }
+      globs++
+      if (UNMATCHED_GLOB_RE.test(path)) {
         fail(
-          `\`${name}\` names ${path}, which does not exist. A script over a file that was moved or` +
-            ` deleted is a dead public name; repoint it or retire the script with its README row.`,
+          `\`${name}\` names the glob ${path}, which uses \`**\` or \`[...]\`, a form this gate does` +
+            ` not match. Spell it with \`*\` and \`?\` within one directory, or extend` +
+            ` globMatchesAFile in scripts/check-jobs.mjs, rather than let an unread glob pass.`,
+        )
+      } else if (!globMatchesAFile(pathsRoot, path)) {
+        fail(
+          `\`${name}\` names the glob ${path}, which matches no file. A runner handed a glob that` +
+            ` matches nothing can run nothing and still exit 0 (\`node --test\` does); repoint the` +
+            ` glob or restore the files it named.`,
         )
       }
     }
@@ -331,6 +431,8 @@ export function runCheck(root, { pathsRoot = root } = {}) {
     unjobbed: unjobbed.length,
     byKind,
     pathNaming,
+    appsPaths,
+    globs,
   }
   return { failures, report }
 }
@@ -345,8 +447,9 @@ function describe(report) {
     `jobs: ${files} carry an \`npm run\` token; ${report.tokens} tokens name ${report.distinct}` +
       ` distinct scripts, ${report.unresolved} unresolved.`,
     `scripts: ${report.scripts} in ${PACKAGE} -- ${report.jobbed} jobbed, ${report.unjobbed}` +
-      ` un-jobbed and declared by kind (${kinds}). ${report.pathNaming} name a tools/ or scripts/` +
-      ` path.`,
+      ` un-jobbed and declared by kind (${kinds}). ${report.pathNaming} name a tools/, scripts/ or` +
+      ` apps/ path; ${report.appsPaths} of those paths under apps/, and ${report.globs} a glob,` +
+      ` held to matching a file rather than to existing.`,
   ]
 }
 
@@ -357,7 +460,8 @@ function main() {
   if (report) for (const line of describe(report)) console.log(line)
   if (failures.length === 0) {
     console.log(
-      'jobs: every token resolves, every un-jobbed script is declared, every path exists.',
+      'jobs: every token resolves, every un-jobbed script is declared, every path exists, every' +
+        ' glob matches a file.',
     )
     process.exit(0)
   }
@@ -385,6 +489,16 @@ function selftest() {
         'selftest: the undoctored copy does not pass, so no case below can be trusted:\n',
       )
       for (const failure of control.failures) console.error(`  - ${failure}\n`)
+      process.exit(1)
+    }
+    // The apps/ cases below break a path or a glob the control reads. A control that read neither
+    // would pass without ever proving that a quoted apps/ glob which does match is let through.
+    if (control.report.appsPaths === 0 || control.report.globs === 0) {
+      console.error(
+        `selftest: the undoctored copy reads ${control.report.appsPaths} apps/ path(s) and` +
+          ` ${control.report.globs} glob(s); the apps/ cases need at least one of each to have a` +
+          ` passing twin. If the calculator's scripts were retired, retire those cases with them.\n`,
+      )
       process.exit(1)
     }
 
@@ -495,10 +609,12 @@ function cases() {
       expect: 'pass',
     },
     {
+      // The doctored script names this gate, a file that exists whenever the selftest runs, so the
+      // missing job is the one thing wrong with it.
       name: 'a new gate-shaped script with no job',
       doctor: (dir) =>
         editScripts(dir, (scripts) => {
-          scripts['doctored:check'] = 'node scripts/check-provenance.mjs --doctored'
+          scripts['doctored:check'] = 'node scripts/check-jobs.mjs --doctored'
         }),
       expect: /^`doctored:check` is gate-shaped and no job runs it/,
     },
@@ -506,7 +622,7 @@ function cases() {
       name: 'a new script of no declared kind, with no job',
       doctor: (dir) =>
         editScripts(dir, (scripts) => {
-          scripts.doctored = 'node scripts/check-provenance.mjs --doctored'
+          scripts.doctored = 'node scripts/check-jobs.mjs --doctored'
         }),
       expect: /^`doctored` has no job and is of no declared kind/,
     },
@@ -525,13 +641,73 @@ function cases() {
         /^UNJOBBED_BY_KIND lists `gates` \(named exception\) but package\.json has no such script/,
     },
     {
+      // A jobbed script repointed, not a new one added: a new gate-shaped name would also fail for
+      // having no job.
       name: 'a script names a file that was moved',
       doctor: (dir) =>
         editScripts(dir, (scripts) => {
-          scripts['check:provenance'] = 'node scripts/check-provenance-renamed.mjs'
+          scripts['check:jobs'] = 'node scripts/check-jobs-renamed.mjs'
+        }),
+      expect: /^`check:jobs` names scripts\/check-jobs-renamed\.mjs, which does not exist/,
+    },
+    {
+      name: 'a script names a missing apps/ path',
+      doctor: (dir) =>
+        editScripts(dir, (scripts) => {
+          scripts['calculator:serve'] = 'node apps/calculator/serve-renamed.js'
+        }),
+      expect: /^`calculator:serve` names apps\/calculator\/serve-renamed\.js, which does not exist/,
+    },
+    {
+      // The message must name the path without its quotes, so the expression pins both the read
+      // and the strip.
+      name: 'a script names a missing quoted apps/ path',
+      doctor: (dir) =>
+        editScripts(dir, (scripts) => {
+          scripts['calculator:serve'] = 'node "apps/calculator/serve-renamed.js"'
+        }),
+      expect: /^`calculator:serve` names apps\/calculator\/serve-renamed\.js, which does not exist/,
+    },
+    {
+      name: 'a quoted apps/ glob matches no file in its directory',
+      doctor: (dir) =>
+        editScripts(dir, (scripts) => {
+          scripts['calculator:test'] = 'node --test "apps/calculator/test/*.missing.js"'
         }),
       expect:
-        /^`check:provenance` names scripts\/check-provenance-renamed\.mjs, which does not exist/,
+        /^`calculator:test` names the glob apps\/calculator\/test\/\*\.missing\.js, which matches no file/,
+    },
+    {
+      // asdlc-openspec-frm's own reproduction: the test directory renamed, so a fixed leading
+      // directory is missing and nothing is listed at all.
+      name: 'a quoted apps/ glob whose directory was renamed matches no file',
+      doctor: (dir) =>
+        editScripts(dir, (scripts) => {
+          scripts['calculator:test'] = 'node --test "apps/calculator/tests/*.test.js"'
+        }),
+      expect:
+        /^`calculator:test` names the glob apps\/calculator\/tests\/\*\.test\.js, which matches no file/,
+    },
+    {
+      // Node's own `fs.globSync` expands this to the calculator's tests; the gate refuses it because
+      // it does not read `**`, not because nothing matches.
+      name: 'a glob in a form the gate does not match is refused, not passed',
+      doctor: (dir) =>
+        editScripts(dir, (scripts) => {
+          scripts['calculator:test'] = 'node --test "apps/calculator/**/*.test.js"'
+        }),
+      expect:
+        /^`calculator:test` names the glob apps\/calculator\/\*\*\/\*\.test\.js, which uses `\*\*` or `\[\.\.\.\]`/,
+    },
+    {
+      // `?` stands for exactly one character, so `serve?` reaches server.test.js; read as a literal
+      // `?`, the glob would match nothing and this case would fail.
+      name: 'a quoted apps/ glob with `?` that matches a file passes',
+      doctor: (dir) =>
+        editScripts(dir, (scripts) => {
+          scripts['calculator:test'] = 'node --test "apps/calculator/test/serve?.test.js"'
+        }),
+      expect: 'pass',
     },
     {
       name: 'a job file is missing',
