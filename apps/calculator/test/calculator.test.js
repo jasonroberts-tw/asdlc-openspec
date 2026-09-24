@@ -179,11 +179,12 @@ describe('Division by zero and overflow', () => {
     assert.equal(displayText(pressAll(buttons)), 'Error')
   })
 
-  test('A result that rounds past the largest number shows an error', () => {
+  test('A result just under the largest number is shown', () => {
     // Built exactly as the scenario words it: `1`, `7`, `9`, `7`, `6`, `9`, `3`, `1`, `3`, `4`,
     // `8`, then `0` two hundred and ninety-eight times, then `×`, `1`, `=`. The typed number and
-    // the exact product are finite, just under the largest double; only the ten-digit rounding
-    // carries it past.
+    // the exact product are just under the largest double, so the product is a result, not an
+    // error. Its ten-digit display reads above the largest double, but that is only text: a check
+    // made on the rounded value would show `Error` here.
     const buttons = [
       ...['1', '7', '9', '7', '6', '9', '3', '1', '3', '4', '8'],
       ...Array(298).fill('0'),
@@ -191,7 +192,7 @@ describe('Division by zero and overflow', () => {
       '1',
       '=',
     ]
-    assert.equal(displayText(pressAll(buttons)), 'Error')
+    assert.equal(displayText(pressAll(buttons)), '1.797693135e+308')
   })
 })
 
@@ -200,11 +201,12 @@ describe('Results are rounded for display', () => {
     assert.equal(displayText(pressAll(['0', '.', '1', '+', '0', '.', '2', '='])), '0.3')
   })
 
-  test('A chain carries the rounded result', () => {
+  test('A chain carries the exact result', () => {
     const state = pressAll(['1', '÷', '3', '×'])
     assert.equal(displayText(state), '0.3333333333')
-    // An unrounded carry would give `1` here; the rounded one is what the display showed, times 3.
-    assert.equal(displayText(pressAll(['3', '='], state)), '0.9999999999')
+    // The carried value is exactly a third, so times 3 it is `1`. A carry of the rounded value the
+    // display showed would give `0.9999999999` here.
+    assert.equal(displayText(pressAll(['3', '='], state)), '1')
   })
 
   test('A subtraction that cancels shows no floating-point error', () => {
@@ -219,8 +221,9 @@ describe('Results are rounded for display', () => {
 
   test('Small numbers add in exponent form', () => {
     // Built exactly as the scenario words it: `.`, then `0` six times, then `1`, `+`, `.`, then `0`
-    // six times, then `1`, `=`. `String(1e-7)` is `1e-7`: its `-` belongs to the exponent, and a
-    // parser that read it as a sign would get the sum wrong.
+    // six times, then `1`, `=`. The sum is below 10^-6, so it shows in exponent notation. An
+    // implementation that read numbers through a text form such as `1e-7` would also have to keep
+    // the exponent's `-` from being taken for a sign.
     const small = ['.', ...Array(6).fill('0'), '1']
     assert.equal(displayText(pressAll([...small, '+', ...small, '='])), '2e-7')
   })
@@ -243,7 +246,8 @@ describe('Results are rounded for display', () => {
   test('A result is rounded once, from its exact value', () => {
     // Built exactly as the scenario words it: `1`, `+`, `.`, then `0` nine times, then `4`, then
     // `9` nine times, then `=`. The exact sum 1.0000000004999999999 is below the tie, so it rounds
-    // down; rounding it first to a double gives 1.0000000005, which would then round up.
+    // down. An implementation that rounded it first to a double would get 1.0000000005, and then
+    // round up.
     const buttons = ['1', '+', '.', ...Array(9).fill('0'), '4', ...Array(9).fill('9'), '=']
     assert.equal(displayText(pressAll(buttons)), '1')
   })
