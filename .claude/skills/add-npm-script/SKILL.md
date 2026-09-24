@@ -5,23 +5,18 @@ description: use this skill when adding, renaming or removing an npm script in p
 
 Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
 
-A script in `package.json` is a public name. Prompts, tool headers, `lefthook.yml`, the CI workflow
-and `README.md` all cite it as prose, and **nothing in this repository gates those citations** — a
-renamed script leaves dead `npm run` references behind that stay green forever. Treat the name and
-the documentation as part of the change, not as follow-up.
+A script in `package.json` is a public name. Prompts, tool headers, the READMEs and policy files
+cite it as prose, and **nothing in this repository gates those citations** — a renamed script
+leaves dead references behind that stay green forever. `npm run check:jobs` holds only the `run:`
+lines of `lefthook.yml` and the CI workflow, and its own list of the scripts no job runs. Treat the
+name and the documentation as part of the change, not as follow-up.
 
 ## 1. Name it
 
 `<group>:<verb>`. Reuse an existing prefix wherever one fits; a new prefix means a new README
-sub-section, which is a decision, not a side effect. Four conventions are load-bearing — an
-emitter's `:check` twin in particular is how a reviewer trusts a committed artifact:
-
-| Suffix | Contract |
-|---|---|
-| *(bare)* | writes the artifact |
-| `:check` | re-derives it, diffs against what is committed, exits 1 on any difference, **writes nothing** |
-| `:selftest` / `:selfcheck` | asserts invariants; builds its own fixtures, ideally under `os.tmpdir()` |
-| `:update` | rewrites a baseline or golden |
+sub-section, which is a decision, not a side effect. The suffixes are the bare name, `:check`,
+`:selftest` and `:update`, and what each one must do is `CLAUDE.md` § The script suffix contract.
+An emitter's `:check` twin in particular is how a reviewer trusts a committed artifact.
 
 A third segment only when it names a sub-artifact rather than a variation
 (`pipeline:stale:check`, `lint:ratchet:update`).
@@ -41,9 +36,9 @@ carry the `KIND / INVARIANTS / RE-ENTRY / STALE WHEN` block.
 
 ## 3. If it writes an artifact, make it deterministic
 
-No timestamps, no randomness, stable key ordering; an unchanged input produces byte-identical
-output. That is what makes the artifact diffable in review, and it is the precondition for a
-`:check` twin. Write the twin at the same time.
+An unchanged input produces byte-identical output. That is what makes the artifact diffable in
+review, and it is the precondition for a `:check` twin. The rules that get there, the twin landing
+in the same change among them, are `CLAUDE.md` § The script suffix contract.
 
 ## 4. Decide gating from what it reads, not from how much you trust it
 
@@ -61,7 +56,9 @@ imports (the pre-push header there states the rule; when in doubt, wider — a t
 gate that silently stops running on a real push, and `npm run gates` runs every job regardless) —
 a step in `.github/workflows/verify.yml`, or both. If it is a pipeline node's emitter or check, register it
 in `tools/pipeline/graph.ts` — `npm run pipeline:check` will tell you if the manifest no longer
-describes the repository.
+describes the repository. A script that no job runs, such as a bare emitter or an operator command,
+gets an entry in `UNJOBBED_BY_KIND` in `scripts/check-jobs.mjs`, under its kind, in the same
+change; `check:jobs` refuses it otherwise.
 
 ## 5. Update `README.md` § The npm scripts — this is not optional
 
@@ -79,17 +76,28 @@ The section documents **every** script in `package.json`, and its structure is m
   while the table it wrote carried 201, and every gate was green, because a numeral in a comment is
   not an input to anything.
 
-Also update the **What runs automatically once you're set up** table if you touched a hook.
+Also update `README.md` § What runs automatically when you add, change or remove a hook, a job or
+a CI step, and any row of `README.md` § The guardrails that names the script.
 
 ## 6. Renaming or removing one
 
-Do all five, in any order, and none of them is discoverable later:
+Do all five, in any order. Steps 3 and 5 are held by gates, `check:jobs` and `pipeline:check`; a
+miss anywhere else stays green.
 
 1. Delete or rewrite the `package.json` entry.
-2. Delete or rewrite the README row — and the sub-section if it is now empty.
-3. Remove the `lefthook.yml` job and the `verify.yml` step.
-4. `grep -rn 'npm run <old-name>' --include='*.ts' --include='*.mjs' --include='*.md' .` and fix
-   every hit. Tool headers, prompt files and `claude-code-prompts.md` cite script names in prose.
+2. Delete or rewrite its rows in `README.md`: § The npm scripts, and the sub-section if it is now
+   empty, and § The guardrails and § What runs automatically wherever they name it.
+3. Remove the `lefthook.yml` job and the `verify.yml` step. If no job ran it, remove its entry from
+   `UNJOBBED_BY_KIND` in `scripts/check-jobs.mjs`, which `check:jobs` refuses once the script is
+   gone.
+4. Search tracked files of every type for the bare name, one call per name:
+   `git grep -n -w -F <old-name>`. Fix every live hit. Most citations carry no `npm run`:
+   `lefthook.yml` launches through `node --run`, the READMEs cite the name in backticks,
+   `tools/policy.json` in a `gatedBy` string, and a gate keeps it as a quoted string in a list. A
+   recursive `grep` also walks `node_modules/` and, from the primary checkout, every worktree under
+   `.claude/worktrees/`. Two files keep their hits: `docs/decisions.md`, whose entries are never
+   rewritten (`CLAUDE.md` § Decisions live in the register), and `KIT-CHECKLIST.md`, left as
+   `docs/decisions.md` § D-05 left it.
 5. If it was a pipeline node's check, update `tools/pipeline/graph.ts`.
 
 A retired script's references are worth leaving *only* as an explicit comment saying it is retired
