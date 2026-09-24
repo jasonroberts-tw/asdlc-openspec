@@ -9,7 +9,8 @@ This page describes and points; it holds no rule. The rules an agent follows are
 The status of work is in `bd`, never here.
 Where this page and a file it points at disagree, that file wins and this page is corrected.
 
-**On this page:** [Read in this order](#read-in-this-order)
+**On this page:** [Why this repository exists](#why-this-repository-exists)
+· [Read in this order](#read-in-this-order)
 · [How it is laid out](#how-it-is-laid-out)
 · [The guardrails](#the-guardrails)
 · [Setup](#setup)
@@ -20,9 +21,47 @@ Where this page and a file it points at disagree, that file wins and this page i
 · [Where to read next](#where-to-read-next)
 · [What runs automatically](#what-runs-automatically)
 
+## Why this repository exists
+
+**This repository is where agents do product work under rules a person can check: what the product
+should do is agreed before code is written, every rule has one home, and every claim is re-derived
+rather than remembered.** Its name, `asdlc-openspec`, is short for an agentic software development
+lifecycle run on OpenSpec. It puts two things together to get there, and each was taken for the
+failure it prevents.
+
+- **The starter kit's conventions** (`docs/decisions.md` § D-01). An agent here keeps nothing
+  between sessions, may run beside other agents, and can state a figure it never checked. So a rule
+  lives in a tracked file and never in a memory store, the work lives in `bd` and never in a
+  checklist, a settled decision lives in the register and is not argued again, and the same checks
+  run from a hook inside the session to CI, with no tier trusting a faster one. § The guardrails
+  pairs each failure with what refuses it.
+- **OpenSpec's format for requirements** (`docs/decisions.md` § D-02). Product work needs a record
+  of what the product does that outlives the change that set it, and a proposal a person reviews
+  before the build starts. OpenSpec's living spec and delta specs are that record, and its pinned
+  CLI merges a landed change into the living spec deterministically. OpenSpec's own workflow is not
+  used: its skills track tasks in a `tasks.md` checklist, and `openspec update` rewrites them from
+  each machine's global configuration. The `change-*` skills run the same stages with the tasks in
+  `bd`.
+
+**A person decides; agents propose and build.** A person reviews each change's proposal before its
+build starts, says when its pull request merges, and promotes what the learning loop proposes by
+editing the source; nothing the loop derives instructs an agent until then (`CLAUDE.md` § A program
+proposes; only a person promotes).
+
+**It is built to learn from its own runs.** A defect a run finds outside the files its issue
+changes is filed as an issue of its own; a prompt that has run gets a retained review under
+`docs/prompt-reviews/`, and what the review finds is fixed in the prompt; a gate's header names the
+incident it exists to prevent.
+What a run shows lands in the skill, gate or decision that should have caught it, so the next run
+does not meet it again.
+
+Why the product does what it does is not on this page. It is in `openspec/`: the living spec of
+each capability, and the proposal of each change that shaped it.
+
 ## Read in this order
 
-1. This page, down to § The guardrails: what the repository is and how its parts fit.
+1. This page, down to § The guardrails: why the repository exists, what it is and how its parts
+   fit.
 1. `CLAUDE.md`, whole. It is written for agents, and it is also the shortest complete statement of
    how work is done here; every guardrail below is a rule there first.
 1. `docs/README.md`: the documentation index and the conventions every document follows.
