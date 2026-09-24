@@ -1,0 +1,41 @@
+<!doctype html>
+<!--
+  The calculator page: one display and a keypad, nothing else. Its behaviour is in app.js and
+  calculator.js, loaded through main.js, because the page's policy (default-src 'self') refuses an
+  inline script; its styling is all in style.css for the same reason. What the page must show is
+  capability calculator's spec under openspec/, which wins over this file.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Calculator</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="module" src="main.js"></script>
+  </head>
+  <body>
+    <main class="calculator">
+      <h1 class="visually-hidden">Calculator</h1>
+      <output id="display" class="display" aria-live="polite">0</output>
+      <div id="keypad" class="keypad" role="group" aria-label="Keypad">
+        <button type="button" class="key key-clear" data-key="C" aria-label="clear">C</button>
+        <button type="button" class="key key-operator" data-key="/" aria-label="divide">÷</button>
+        <button type="button" class="key key-operator" data-key="*" aria-label="multiply">×</button>
+        <button type="button" class="key key-operator" data-key="-" aria-label="subtract">−</button>
+        <button type="button" class="key" data-key="7">7</button>
+        <button type="button" class="key" data-key="8">8</button>
+        <button type="button" class="key" data-key="9">9</button>
+        <button type="button" class="key key-operator key-tall" data-key="+" aria-label="add">+</button>
+        <button type="button" class="key" data-key="4">4</button>
+        <button type="button" class="key" data-key="5">5</button>
+        <button type="button" class="key" data-key="6">6</button>
+        <button type="button" class="key" data-key="1">1</button>
+        <button type="button" class="key" data-key="2">2</button>
+        <button type="button" class="key" data-key="3">3</button>
+        <button type="button" class="key key-equals key-tall" data-key="=" aria-label="equals">=</button>
+        <button type="button" class="key key-wide" data-key="0">0</button>
+        <button type="button" class="key" data-key="." aria-label="decimal point">.</button>
+      </div>
+    </main>
+  </body>
+</html>
