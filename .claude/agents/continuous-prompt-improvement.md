@@ -2,7 +2,6 @@
 name: continuous-prompt-improvement
 description: Reviews one run of a prompt against the prompt that drove it, and proposes changes to the prompt. The session that ran the prompt launches it in the background (CLAUDE.md § Prompt reviews), naming the prompt's path and the file holding its own analysis of the run. It opens a pull request when it proposes a change, and edits nothing when it does not.
 model: opus
-permissionMode: auto
 effort: high
 isolation: worktree
 ---

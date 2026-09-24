@@ -207,9 +207,12 @@ the primary checkout it launches the reviewer as a background session, which age
 (`claude agents`) lists and its supervisor keeps running after the launcher ends, naming the file
 by its path from there:
 
-    claude --bg --agent continuous-prompt-improvement --name review-<prompt-basename> "Review the run of <prompt path>. The run's analysis is .claude/worktrees/<worktree>/.scratch/review.md."
+    claude --bg --agent continuous-prompt-improvement --permission-mode auto --name review-<prompt-basename> "Review the run of <prompt path>. The run's analysis is .claude/worktrees/<worktree>/.scratch/review.md."
 
-A skill's file is always `SKILL.md`, so its basename is its directory's name. The launcher neither
+The mode is passed on the command line because a session started this way does not apply an agent
+file's `permissionMode`: without the flag the reviewer takes the machine's default mode, and on a
+machine whose default is not `auto` it stops at its first permission prompt, with nobody waiting on
+it. A skill's file is always `SKILL.md`, so its basename is its directory's name. The launcher neither
 waits for the reviewer nor relays what it finds: its report names the session the launch printed,
 and nothing more. A refused launch goes in the report's `RUN THESE YOURSELF` block (§ Guards), with
 the analysis file left in place for it.
