@@ -75,6 +75,7 @@ level above them.
 | `artifacts/` | Generated output. Nothing here is edited by hand; each file names the emitter that wrote it, and a correction goes into that emitter's hand-maintained source. |
 | `docs/` | What a person reads: the documentation index, and the documents it lists. |
 | `openspec/` | The product's requirements, in OpenSpec's on-disk format: the living spec of each capability, the changes in flight against it, and the archive of those that landed. |
+| `apps/` | The product's code, one directory per app, each with its own `README.md` and its tests beside it. `calculator/` is the first: plain ES modules, run as committed in a browser and under Node's test runner, with no build step. |
 | `count-index.md` | Every count that more than one file restates, under a `CNT-*` key, with the source it re-derives from. |
 | `.beads/` | The configuration of `bd`, the issue tracker. Its database syncs through the git remote and is never committed; `bd bootstrap` hydrates it. |
 | `lefthook.yml` | The git-hook tiers: which gate runs at commit and at push, each with the glob that scopes it and a note of its measured cost. |
@@ -219,6 +220,12 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 |---|---|---|
 | `beads:check` | Refuses an open issue with no label naming where its work lands, and an issue citing an identifier that does not resolve here. It reads the tracker's database, which a fresh clone in CI does not have. | pre-push |
 
+### calculator
+
+| Script | What it does | Gate |
+|---|---|---|
+| `calculator:test` | Runs the test files directly in `apps/calculator/test/` (its `README.md` lists them) with Node's own test runner: each of the calculator's scenarios is a test named for it, under a suite named for its requirement. Without it nothing holds the calculator to its spec. A pattern that matches no file runs nothing and still exits 0, so read the test names in its output, never the exit code alone. | pre-push + CI |
+
 ### check
 
 | Script | What it does | Gate |
@@ -329,6 +336,7 @@ The work of clearing them is tracked in `bd`.
 | `scripts/README.md` | The single-file gates and git-job scripts, one row each. |
 | `scripts/hooks/README.md` | The harness hooks, one row each. |
 | `tools/README.md` | The emitters and multi-file checks, one row each. |
+| `apps/calculator/README.md` | The calculator demo app: what each directory holds, and which spec wins over it. |
 | `.claude/README.md` | What the harness loads when a session starts here. |
 | `.devcontainer/README.md` | The dev container's mounts, each with its failure mode. |
 | `KIT-CHECKLIST.md` | What the kit laid down, and what is still to adapt. |
@@ -363,6 +371,7 @@ at its start: restart the session after changing it.
 | `git push` | `counts:check` re-derives every value in `count-index.md` from the source the index names for it; `counts:selftest` holds the gate to its fixtures when the gate changes. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes the register, `CLAUDE.md` or the gate | `check:register` holds the register's header, summary table and dates to its entries, and its selftest holds the gate. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes `openspec/`, a skill, an agent, `tools/policy.json`, the gate or the pinned CLI | `openspec:check` validates the living spec and every active change, proves each change applies, and holds every prompt that spells the change label to `tools/policy.json`; `openspec:selftest` holds the gate. | `lefthook.yml` (`pre-push`) |
+| `git push` that changes `apps/calculator/`, `package.json` or the lockfile | `calculator:test`: the calculator's scenarios, each a test named for it, under Node's own test runner. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes a record, the schema or the writer | `outcomes:record:selftest`: the record validator and writer, negative-tested against one fixture per terminal path. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes a record or the learning loop | `outcomes:check` rebuilds every report from the records and byte-compares it; `outcomes:selftest` holds the emitter and the filing step. Filing itself (`outcomes:propose`) is run by a person, never by a hook. | `lefthook.yml` (`pre-push`) |
 | `git push` | `pipeline:check` holds the graph record to the files it names and to the prose page; `pipeline:stale:check` refuses an output whose stamp no longer matches its declared inputs; `pipeline:selftest` holds both gates. Neither carries a glob: the record's globs may name any file. | `lefthook.yml` (`pre-push`) |
