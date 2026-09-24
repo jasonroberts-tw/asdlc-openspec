@@ -62,5 +62,3 @@ Go back to step 2 until
 
 Then run `npm run gates` and report each task closed with its commit, every issue filed along the
 way, and the gates as measured. The next stage is `change-verify`.
-
-Reviewed: `docs/prompt-reviews/change-build.2026-09-24.md` § Review of 2026-09-24 (the run of 2026-09-23 to 2026-09-24 on add-calculator-web-app, epic asdlc-openspec-zgh).

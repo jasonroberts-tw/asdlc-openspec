@@ -72,6 +72,3 @@ When `change-verify` sends a design gap here (`.claude/skills/change-verify/SKIL
 the design already exists. Amend the decision it names, and any comment and README row that repeats
 it. Stage, check and commit as above, then hand back to `change-verify`, which runs again from
 step 2.
-
-Reviewed: `docs/prompt-reviews/change-design.2026-09-23.md` § Review of 2026-09-23 (the run of
-2026-09-23 on change `add-calculator-web-app`, epic `asdlc-openspec-zgh`, commit `7ba59c4`).

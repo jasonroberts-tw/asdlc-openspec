@@ -36,11 +36,9 @@ import { gitEnv } from '../lib/sibling-root.ts'
 import type { ExemptRegion } from './memory.ts'
 import {
   MEMORY_EXEMPT_REGIONS,
-  MEMORY_HISTORY,
   describeRegion,
   exemptRegionsIn,
   inMemoryScope,
-  memoryHistoryReason,
   memoryProblemsIn,
 } from './memory.ts'
 import {
@@ -591,7 +589,7 @@ console.log('citation scanner selftest\n')
   const prompt = '.claude/skills/fixture/SKILL.md'
   const problemsIn = (file: string, text: string) => memoryProblemsIn(file, text).problems
 
-  // The spelling a prompt review records for every key it names, and the three tokens.
+  // The spelling a prompt review recorded for every key it named, and the three tokens.
   const key = only(
     problemsIn(prompt, 'see memory `register-no-foreign-short-shas` for the remedy'),
     'problem',
@@ -673,23 +671,6 @@ console.log('citation scanner selftest\n')
     outside.skipped ?? 'scanned',
   )
   ok('`docs/` is outside the roster', !inMemoryScope('docs/decisions.md'))
-
-  // EXEMPT AS HISTORY: the same line, in a prompt review, passes with the reason stated.
-  const line = 'Fixed by one sentence pointing at memory `sibling-repo-runs-from-worktree-session`.'
-  ok('the fixture line fails in a prompt', problemsIn(prompt, line).length === 1)
-  const reviewPath = 'docs/prompt-reviews/fixture.2026-01-01.md'
-  const review = memoryProblemsIn(reviewPath, line)
-  ok(
-    'the same line in docs/prompt-reviews/ passes as history, with its reason',
-    review.problems.length === 0 &&
-      review.skipped !== null &&
-      review.skipped === memoryHistoryReason(reviewPath),
-    review.skipped ?? 'scanned',
-  )
-  ok(
-    'every MEMORY_HISTORY entry states a reason',
-    MEMORY_HISTORY.every((h) => h.why.trim().length > 20),
-  )
   ok(
     'every exempt region states a reason and names CLAUDE.md',
     MEMORY_EXEMPT_REGIONS.every((r) => r.why.trim().length > 20 && r.file === 'CLAUDE.md'),

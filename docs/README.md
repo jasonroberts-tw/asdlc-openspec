@@ -14,7 +14,6 @@ enforces it, and a document points at that home rather than restating it.
 | `docs/decisions.md` | The register: the numbered decisions (`D-NN`) and risks (`R-NN`) that nobody re-litigates. An entry is never rewritten; a later decision adds a dated amendment under each entry it changes. |
 | `docs/retired/README.md` | What has been retired, each file under a banner naming the decision that retired it. Kept as the evidence a decision was recorded from, never as guidance. |
 | `docs/pipeline.md` | The pipeline graph in prose: which generated artifact is built from which, and what to regenerate, in what order, when something moves. A copy; the record under `tools/pipeline/graph.ts` wins a disagreement. |
-| `docs/prompt-reviews/README.md` | The retained reviews of executed prompts, one file per prompt, each the evidence for why its prompt says what it says. |
 
 ## The documents that live elsewhere
 

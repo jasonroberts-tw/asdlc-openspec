@@ -76,5 +76,3 @@ way, and each row carries the new result.
 - **No gap:** report the trace, the gates as measured and each finding below a gap, with where
   it went. The trace goes into
   the pull request's body. The next stage is `change-finalize`.
-
-Reviewed: `docs/prompt-reviews/change-verify.2026-09-24.md` § Review of 2026-09-24 (run of 2026-09-24 on `add-calculator-web-app`, epic `asdlc-openspec-zgh`).

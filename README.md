@@ -26,8 +26,8 @@ editing the source; nothing the loop derives instructs an agent until then (`CLA
 proposes; only a person promotes).
 
 **It is built to learn from its own runs.** A defect a run finds outside the files its issue
-changes is filed as an issue of its own; a prompt that has run gets a retained review under
-`docs/prompt-reviews/`, and what the review finds is fixed in the prompt; a gate's header names the
+changes is filed as an issue of its own; a prompt that has run is reviewed in the background, and a
+review that finds something opens a pull request fixing it in the prompt; a gate's header names the
 incident it exists to prevent.
 What a run shows lands in the skill, gate or decision that should have caught it, so the next run
 does not meet it again.
@@ -201,7 +201,7 @@ holds platform-native binaries. Use one clone per platform.
 | Add, rename or remove an npm script | the `add-npm-script` skill | It keeps § The npm scripts below, the hook runner and CI in step. |
 | Make a worktree by hand | `scripts/new-worktree.sh <task-ref> <slug>` | From the primary checkout. It cuts `agent/<name>` from `origin/main`; `npm ci` is the first command inside. |
 | Check your work before a pull request | `npm run gates` | Then fetch, rebase onto `origin/main`, and run it again. |
-| Improve a prompt after running it | the `continuous-prompt-improvement` agent | The review is kept under `docs/prompt-reviews/`, never beside the prompt. |
+| Improve a prompt after running it | the `continuous-prompt-improvement` agent | Launched in the background by the session that ran the prompt, which does not wait for it (`CLAUDE.md` § Prompt reviews). A review that proposes a change is the description of its own pull request; one that proposes nothing leaves nothing. |
 | Check a pull request, report or analysis before trusting it | the `adversarial-verifier` agent | Pass it the pull request number or file path. Every claim is re-derived from source; it reports a verdict table and changes nothing. |
 
 ## The npm scripts

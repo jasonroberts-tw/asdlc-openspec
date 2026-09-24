@@ -122,5 +122,3 @@ Report:
 - both gate runs, as measured;
 - every issue filed along the way;
 - a `RUN THESE YOURSELF` block for any command that was refused (`CLAUDE.md` § Guards).
-
-Reviewed: `docs/prompt-reviews/change-finalize.2026-09-24.md` § Review of 2026-09-24 (run of 2026-09-24 on `add-calculator-web-app`, epic `asdlc-openspec-zgh`, pull request 17).

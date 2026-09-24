@@ -44,7 +44,7 @@ import {
   resolveTarget,
   trackedFiles,
 } from './scan.ts'
-import { inMemoryScope, memoryHistoryReason, memoryProblemsIn } from './memory.ts'
+import { inMemoryScope, memoryProblemsIn } from './memory.ts'
 
 interface Problem {
   where: string
@@ -179,9 +179,9 @@ for (const file of tracked) {
  * A second pass rather than a fifth branch of the loop above, because that loop is filtered by
  * `SCANNED_EXTENSIONS` and this rule covers every tracked file in its roster whatever the
  * extension: the formulas are `.toml` and the plugin's tools carry their prompts in `.ps1` headers.
- * `tools/citations/memory.ts` is the whole rule -- roster, history, the registered CLAUDE.md regions
- * and the two shapes -- and `memoryProblemsIn` is the one function the selftest holds to fixtures, so
- * what fails there fails here and nothing in between can drift.
+ * `tools/citations/memory.ts` is the whole rule -- roster, the registered CLAUDE.md regions and the
+ * two shapes -- and `memoryProblemsIn` is the one function the selftest holds to fixtures, so what
+ * fails there fails here and nothing in between can drift.
  * ----------------------------------------------------------------------------------------------- */
 
 let memoryFiles = 0
@@ -189,8 +189,8 @@ let memoryExempt = 0
 const memorySkipped: string[] = []
 
 for (const file of tracked) {
-  // The files the rule has an opinion about: its roster, and the history it exempts by name.
-  if (!inMemoryScope(file) && memoryHistoryReason(file) === null) continue
+  // The files the rule has an opinion about: its roster.
+  if (!inMemoryScope(file)) continue
   let text: string
   try {
     text = readFileSync(join(SCAN_ROOT, file), 'utf8')
@@ -217,7 +217,7 @@ console.log(
     ` memory rule over ${memoryFiles} prompt files (${memoryExempt} mentions exempt inside` +
     " CLAUDE.md's registered regions" +
     (memorySkipped.length
-      ? `; ${memorySkipped.length} files exempt as history: ${memorySkipped.join(', ')}`
+      ? `; ${memorySkipped.length} files skipped as binary: ${memorySkipped.join(', ')}`
       : '') +
     ')\n',
 )
