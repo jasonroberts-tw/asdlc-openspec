@@ -10,6 +10,7 @@ left beside a prompt reads as a second prompt or a stale draft.
 |---|---|
 | `bead.2026-09-23.md` | `.claude/skills/bead/SKILL.md`, the skill that works issues from the task store end to end |
 | `change-plan.2026-09-23.md` | `.claude/skills/change-plan/SKILL.md`, the stage that turns a reviewed change into tasks |
+| `change-design.2026-09-23.md` | `.claude/skills/change-design/SKILL.md`, which writes a change's `design.md` or records that it needs none |
 
 ## The shape of a review
 

@@ -2,14 +2,15 @@
 # scripts/new-worktree.sh <task-ref> <slug>
 #
 # Creates one isolated worktree per agent task: a branch off origin/main, a checked pair of
-# dev-server ports, and a rendered .worktree/CONTEXT.md briefing that the committed CLAUDE.md
-# @-imports.
+# ports, and a rendered .worktree/CONTEXT.md briefing that the committed CLAUDE.md @-imports.
 #
 # There is no database, container stack or .env to provision -- this repository is a Node/TypeScript
-# toolchain with no dev server. An earlier version of this script copied .env, certs and
-# appsettings.Development.json and wrote COMPOSE_PROJECT_NAME/DB_NAME/DB_PORT into .env; none of
-# those files or services exist here, so every line of it was inert. The port pair is still reserved
-# so provisioning stays collision-free, and scripts/render-worktree-context.mjs owns it.
+# toolchain whose one server is the calculator demo's, which a person starts by hand. An earlier
+# version of this script copied .env, certs and appsettings.Development.json and wrote
+# COMPOSE_PROJECT_NAME/DB_NAME/DB_PORT into .env; none of those files or services exist here, so
+# every line of it was inert. The port pair is reserved so that two worktrees never collide: the
+# first is the PORT to give `npm run calculator:serve` there (docs/decisions.md § D-04), the second
+# is unused. scripts/render-worktree-context.mjs owns the pair.
 #
 # It also does not install dependencies. node_modules is gitignored and platform-native, so the new
 # checkout has none; `npm ci` is the first command inside the worktree, and both the summary printed
@@ -85,7 +86,7 @@ value_of() { printf '%s\n' "$RENDER" | sed -n "s/^$1=//p"; }
 
 echo "worktree: $WORKTREE_PATH"
 echo "branch:   $BRANCH (from $BASE_SHA, $BASE_DATE)"
-echo "ports:    $(value_of APP_PORT) / $(value_of SB_PORT) (reserved, unused)"
+echo "ports:    $(value_of APP_PORT) / $(value_of SB_PORT) (reserved: the first is PORT for npm run calculator:serve, the second unused)"
 echo "deadline: $(value_of DEADLINE)"
 echo
 echo "start the agent with:  cd '$WORKTREE_PATH' && claude"

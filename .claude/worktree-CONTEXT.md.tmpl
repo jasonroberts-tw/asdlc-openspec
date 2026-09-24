@@ -50,17 +50,30 @@ which reads as a broken repository and is not one.
 `npm ci`, not `npm install` — `package-lock.json` is authoritative and CI installs the same way.
 Once per worktree is enough unless the lockfile changes under you in a rebase.
 
-**Nothing in this repository serves a port.** It is a Node/TypeScript toolchain: emitters that read
-committed inputs and write artifacts, plus the gates that keep them honest. There is no database, no
-container stack, no dev server and no browser in the loop.
+**One thing in this repository serves a port: `npm run calculator:serve`.** The repository is still
+a Node/TypeScript toolchain: emitters that read committed inputs and write artifacts, plus the gates
+that keep them honest. It also carries one demo product, the calculator under `apps/calculator/`.
+There is no database and no container stack. `npm run calculator:serve` listens on `127.0.0.1`
+alone, only when a person starts it, and until they stop it; nothing else here serves a port,
+though the calculator's tests open short-lived loopback listeners of their own, below
+(`docs/decisions.md` § D-04).
 
-Two ports (`{{APP_PORT}}`, `{{SB_PORT}}`) are still probed and reserved for this worktree at
-provisioning time, and recorded in `.worktree/ports.env`. They are **unused**: nothing in this repository listens on a port. The reservation is kept so that provisioning stays collision-free if anything
-here ever needs a port again — not because something is listening.
+Two ports (`{{APP_PORT}}`, `{{SB_PORT}}`) are probed and reserved for this worktree at provisioning
+time, and recorded in `.worktree/ports.env`. The first, `APP_PORT`, is the calculator's port in this
+worktree. The server does not read that file, so pass it as `PORT`, and two worktrees serving at once
+do not collide:
 
-If you find yourself wanting a port, stop: it means you are about to build something this repository
-deliberately does not contain. Do not edit `package.json` or `.worktree/ports.env` to get something
-running.
+```bash
+PORT={{APP_PORT}} npm run calculator:serve
+```
+
+The second, `SB_PORT`, is unused. The calculator's tests (`npm run calculator:test`) need neither:
+they bind free loopback ports of their own, and the server's default port only for a moment while it
+is free.
+
+If you find yourself wanting a port for anything else, stop: it means you are about to build
+something this repository deliberately does not contain. Do not edit `package.json` or
+`.worktree/ports.env` to get something else running.
 
 ## Finishing
 

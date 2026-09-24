@@ -6,6 +6,8 @@
   },
   "scripts": {
     "beads:check": "node scripts/check-beads.mjs",
+    "calculator:serve": "node apps/calculator/serve.js",
+    "calculator:test": "node --test \"apps/calculator/test/*.test.js\"",
     "check:jobs": "node scripts/check-jobs.mjs",
     "check:jobs:selftest": "node scripts/check-jobs.mjs --selftest",
     "check:prompts": "node scripts/check-prompts.mjs",
@@ -35,6 +37,7 @@
   "devDependencies": {
     "@fission-ai/openspec": "1.6.0",
     "js-yaml": "^5.3.0",
+    "jsdom": "29.1.1",
     "lefthook": "2.1.12"
   },
   "allowScripts": {

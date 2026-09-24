@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-03 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23).**
+**Status: every decision from D-01 to D-04 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04 added 2026-09-24).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-03` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-04` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -59,6 +59,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-01** | This repository adopts the starter kit's conventions | `CLAUDE.md`, this register, and the files the kit's bootstrap laid down |
 | **D-02** | Product work runs as OpenSpec-format changes, tracked in `bd` | The `change-*` skills, `openspec/`, the `openspec:check` gate, and the generated `openspec-*` skills deleted |
 | **D-03** | The workflow's constants live in `tools/policy.json`, starting with the change label | `tools/policy.json`, the key cited by every prompt that spells the label, and `openspec:check` holding them to it |
+| **D-04** | The repository carries a demo product, a calculator served on loopback only | `apps/calculator/`, served by `npm run calculator:serve` on `127.0.0.1` alone; its tests as the `calculator-test` pre-push job and a CI step; and the worktree briefing's port paragraphs |
 
 ## Risks
 
@@ -204,3 +205,39 @@ Retirement checklist for the deleted skills, each item done in this change:
 - **`tools/README.md`, `scripts/README.md` and `README.md`:** one row added or reworded each.
 
 **Figures.** Seven prompts spell the label: `git grep -l -w spec-change -- .claude` lists them.
+
+### D-04 · The repository carries a demo product, a calculator served on loopback only
+
+**Recorded 2026-09-24**, carried by `asdlc-openspec-zgh`. The maintainer accepted it on 2026-09-23, during the `change-design` stage of the change `add-calculator-web-app`.
+
+**Builds on / amends:** amends nothing. Builds on D-01, whose gate ladder (`CLAUDE.md` § The gate ladder) it reads without amending: a test that starts a server from committed files and talks to it over loopback is not "a network" in that section's sense. Builds on D-02, whose lifecycle runs the change that carries this entry.
+
+**Decision.** `apps/calculator/` is a demo product: a calculator page, the local server that hands it to a browser, and the tests that hold both to their specs.
+
+1. **`npm run calculator:serve` is the one thing in this repository that listens on a port.** It listens on `127.0.0.1` alone, never on another interface, and only when a person starts it; it serves until that person stops it. No hook, job or CI step runs the script.
+2. **The calculator's tests may bind loopback ports.** They bind free ports on `127.0.0.1`, and the server's default port for a moment while it is free. A test that starts that server from committed files and talks to it over a temporary loopback port reads only committed files in the sense of `CLAUDE.md` § The gate ladder, so `calculator:test` is a pre-push job and a `.github/workflows/verify.yml` step.
+3. **The worktree briefing says so.** `.claude/worktree-CONTEXT.md.tmpl` names `calculator:serve` as the one listener. In a worktree, `.worktree/ports.env`'s `APP_PORT` is the port to pass as `PORT` (`PORT=<APP_PORT> npm run calculator:serve`), so two worktrees serving at once do not collide. The server does not read that file: `PORT` is the only way a port reaches it. `SB_PORT` stays reserved and unused, and wanting a port for anything else still means stop.
+
+**Why.** D-02's lifecycle had its skills and its gate and nothing to act on: `openspec/specs/` was empty, and no change had yet run through every stage. `asdlc-openspec-zgh` asked for one small, real change run end to end. A calculator run on one's own machine is small enough to finish in one pass and still has behaviour worth specifying, and it leaves a product that later changes can modify. Three alternatives lost:
+
+- **A static page opened from disk, with no server.** Browsers block ES modules loaded from `file://`, so the page would need a bundler, which the change's spec rules out by requiring no build step, or classic scripts, which export nothing for Node's test runner to import, so the tests could no longer load the files the browser runs.
+- **Treating loopback as network.** Under the gate ladder that would keep every server test out of pre-push and CI, the loopback-only and path-containment scenarios among them. Those tests bind nothing but `127.0.0.1` and read nothing but committed files, and they are the scenarios a server meant for one machine most needs held on every push.
+- **No register entry.** The briefing called a port-serving application something this repository "deliberately does not contain". Reversing that is a decision, and a quiet edit to the briefing would have left the next reader to re-argue it.
+
+The server reading `.worktree/ports.env` itself also lost: the spec names `PORT` and a default, and nothing else, so a worktree passes `APP_PORT` through `PORT`.
+
+**What changed.**
+
+- **This register:** this entry; the status line, the blockquote's bound and the decisions table carry D-04.
+- **`apps/calculator/`:** added. `public/` holds the page and its logic (`index.html`, `style.css`, `main.js`, `app.js`, `calculator.js`); `server.js` is the request handler and `serve.js` the command; `test/` holds `calculator.test.js`, `page.test.js`, `server.test.js` and `serve.test.js`. `apps/calculator/`, `public/` and `test/` each have a `README.md`.
+- **`package.json` and `package-lock.json`:** the scripts `calculator:serve` and `calculator:test`; `jsdom` pinned exactly as a devDependency, with the packages it pulls in.
+- **`lefthook.yml`:** the pre-push job `calculator-test`, with its measured cost; `apps/**` added to the globs of `check-jobs` and `check-jobs-selftest`.
+- **`.github/workflows/verify.yml`:** a step running `npm run calculator:test`.
+- **`scripts/check-jobs.mjs`:** `apps/` is a third root for the paths a script names; a path is read after a quote as well as after whitespace; a glob is held to matching a file, and one written with `**` or `[...]` is refused as a form the gate does not read; and `calculator:serve` is a named exception, since it never returns. Its selftest gains a case for each path and glob rule: a missing `apps/` path, bare and quoted; a glob that matches no file in its directory, and one whose directory was renamed; a `**` glob, refused; and a `?` glob that matches a file, passed. Its control must now read at least one `apps/` path and one glob. No case was added for the `calculator:serve` exception: the control holds it, since the undoctored copy fails without the entry. Its older cases no longer name a fixture file this repository does not have.
+- **`README.md`:** rows in § How it is laid out, § Working here, § Where to read next and § What runs automatically, where the `check:jobs` row also names `apps/`; and the `calculator` sub-section of § The npm scripts.
+- **`openspec/changes/add-calculator-web-app/`:** added: the proposal, the design, and the delta specs of `calculator` and `calculator-local-server`.
+- **`.claude/worktree-CONTEXT.md.tmpl`:** the port paragraphs, which said nothing here serves a port, name `calculator:serve` as the one thing that does and `APP_PORT` as its port in a worktree, and cite this entry.
+- **`scripts/new-worktree.sh` and `scripts/render-worktree-context.mjs`:** the printed ports line and the allocator's comment no longer call both ports unused.
+- **To come, in `change-finalize`:** the archive, run on this branch before the merge (D-02, item 5), writes the living specs `openspec/specs/calculator/spec.md` and `openspec/specs/calculator-local-server/spec.md` and moves the change under `openspec/changes/archive/`.
+
+**Figures.** None.

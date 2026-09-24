@@ -80,6 +80,11 @@ jobs:
       # Seconds: the pinned OpenSpec CLI, one start per run plus one per active change; no network.
       - name: every living spec and active change is valid, and every change applies
         run: npm run openspec:check
+      # Seconds, more than the OpenSpec check and less than its selftest (the cost note on
+      # lefthook.yml's `calculator-test` job has the measurement): Node's own test runner over
+      # `apps/calculator/test/`, each scenario a test named for it.
+      - name: the calculator's scenarios pass
+        run: npm run calculator:test
       - name: the OpenSpec gate, negative-tested
         run: npm run openspec:selftest
       #
