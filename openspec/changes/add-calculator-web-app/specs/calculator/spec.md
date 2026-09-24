@@ -222,9 +222,10 @@ A result SHALL be computed exactly from its operands, and shown rounded once, to
 significant digits, a tie rounding away from zero. Any trailing zeros after the decimal
 point, and a decimal point left trailing, SHALL be removed, and the zeros of a whole number kept. The
 error of binary floating-point arithmetic SHALL NOT reach the display, including when an addition or
-a subtraction cancels the leading digits of its operands. A result whose magnitude is at least
-10^10, or that is not zero and below 10^-6, SHALL be shown in exponent notation, its mantissa rounded
-and trimmed the same way. A number being entered is shown as typed and is not rounded. A result
+a subtraction cancels the leading digits of its operands. A result whose rounded value, the one the
+display shows, has a magnitude of at least 10^10, or is not zero and below 10^-6, SHALL be shown in
+exponent notation, its mantissa trimmed the same way. A number being entered is shown as typed and is
+not rounded. A result
 carried into a later operation SHALL be its exact value, not the rounded one the display shows: only
 the display is rounded.
 

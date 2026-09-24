@@ -161,9 +161,11 @@ notation (`1e+10`, `2e-7`, `-1.5e+21`) when `e` is 10 or more, or below −6; ot
 Trailing zeros after the decimal point are trimmed, the zeros of a whole number are kept, and zero
 shows as `0`. A taken typed number, shown after an operator, is formatted the same way.
 
-**Checked.** On 2026-09-24 a scratch reference of this arithmetic and the transition table
-(`.scratch/verify-rational.mjs`) gave the expected display for every T1 scenario that computes or
-formats a number, and for fifteen more probes, 62 checks in all. Among the probes:
+**Checked.** On 2026-09-24, before the code changed, a throwaway reference of this arithmetic and the
+transition table was run in the change's worktree (under the gitignored `.scratch/`, so it is not
+committed). It gave the expected display for every T1 scenario that computes or formats a number, and
+for fifteen more probes: 62 checks in all, a figure of that day. The committed proof is
+`npm run calculator:test`. Among the probes:
 - `0.1 × 3 − 0.3` → `0`, `2 ÷ 3 × 3` → `2` and `1 ÷ 7 × 7` → `1`;
 - a negative tie → `-1.500000002`, and an even-digit tie, `3.000000005 × 0.5` → `1.500000003`;
 - `1e-200 × 1e-200` → `1e-400`, and a typed 17-digit difference kept exact;
