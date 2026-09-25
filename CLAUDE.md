@@ -47,6 +47,18 @@ prints the count and no rate. Every metric is defined once, in `count-index.md` 
 as what is counted, who counts it, where it is recorded, and the value that would mean the project
 is not viable; every other file points at that row.
 
+## A question shows where its recommendation loses
+
+A question put to the user that recommends an option shows, for that option, at least one concrete
+case where it gives the worse result: the input or the situation, what the recommended option gives
+there, and what the other option gives. With `AskUserQuestion`, the case goes in the recommended
+option's description or preview. A person answers from the case in front of them, and an example
+on which the recommendation wins, or on which every option agrees, answers the question for them.
+The calculator change's design asked which value a chain carries forward, and illustrated it only
+with 0.1 + 0.2 − 0.3, where carrying the displayed value looks right. The maintainer took that
+option and reversed it a day later on 1 ÷ 3 × 3, which it turns into 0.9999999999
+(`asdlc-openspec-asv`).
+
 ## Bash command style
 
 Run each gate, test, or git command as a SEPARATE Bash call. Do not chain with `&&`, `;`, or `|`: 

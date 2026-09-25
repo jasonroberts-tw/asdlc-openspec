@@ -9,7 +9,9 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 The third of the six `change-*` stages (`docs/decisions.md` § D-02). It runs in the change's
 worktree. A change's tasks are issues in `bd` under its epic, never a `tasks.md`. Every tracker write
-below sits inside the bracket `CLAUDE.md` § The task store describes.
+below sits inside the bracket `CLAUDE.md` § The task store describes. Every question below that
+recommends an option takes the form `CLAUDE.md` § A question shows where its recommendation loses
+gives.
 
 ## 1. Find the change and its epic
 

@@ -11,7 +11,9 @@ The fourth of the six `change-*` stages (`docs/decisions.md` § D-02). It runs i
 worktree until no child of the change's epic is open. The general queue never offers these tasks,
 because their `spec-change` label (`specChangeLabel` in `tools/policy.json`) keeps them out, so
 this stage is the only one that works them.
-Every tracker write below sits inside the bracket `CLAUDE.md` § The task store describes.
+Every tracker write below sits inside the bracket `CLAUDE.md` § The task store describes. Every
+question below that recommends an option takes the form
+`CLAUDE.md` § A question shows where its recommendation loses gives.
 
 ## 1. Find the change and its epic
 
