@@ -10,7 +10,8 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 The first of the six `change-*` stages (`docs/decisions.md` § D-02). The argument is a description
 of the change, or the id of an issue that seeds it. It starts in the primary checkout and ends in the
 change's worktree, stopped for the user's review. Every tracker write below sits inside the bracket
-`CLAUDE.md` § The task store describes.
+`CLAUDE.md` § The task store describes. Every question below that recommends an option takes the
+form `CLAUDE.md` § A question shows where its recommendation loses gives.
 
 ## 1. Decide that it is a change
 

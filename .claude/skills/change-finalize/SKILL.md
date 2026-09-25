@@ -1,6 +1,6 @@
 ---
 name: change-finalize
-description: Land a verified change - rebase, archive it into the living spec, open the pull request, and once the user says so, merge it, close its epic and clean up its worktree and branch. Use after change-verify, when asked to finalize, archive, ship or merge a change.
+description: Land a verified change - rebase, archive it into the living spec, open the pull request, and once the user says so, merge it, clean up its worktree and branch, and close its epic once its acceptance criteria are checked. Use after change-verify, when asked to finalize, archive, ship or merge a change.
 ---
 
 Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
@@ -10,7 +10,8 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 The last of the six `change-*` stages (`docs/decisions.md` § D-02). It starts in the change's
 worktree and ends in the primary checkout. The archive runs here, on the branch, before the merge,
 so the living spec and the code land in the same pull request. Every tracker write below sits
-inside the bracket `CLAUDE.md` § The task store describes.
+inside the bracket `CLAUDE.md` § The task store describes. Every question below that recommends an
+option takes the form `CLAUDE.md` § A question shows where its recommendation loses gives.
 
 ## 1. Find the change and its epic
 
@@ -99,25 +100,48 @@ but it keeps a squash-merged one.
 If the remote branch survives the merge (`git ls-remote --heads origin agent/<change>` prints it),
 run `git push origin --delete agent/<change>`.
 
-## 8. Close the epic, and clean up
+## 8. Clean up, check the epic's criteria, and close it
 
-1. Close the epic: `bd close <epic> --reason "Merged in <pull request URL>; archived as openspec/changes/archive/<date>-<change>/"`.
-2. Update the primary checkout: `git fetch origin`, then `git pull --rebase`.
-3. Run `npm run worktree:gc -- --dry-run` first. The sweep is not scoped to this change: it
+The cleanup comes first, because an epic's criteria can name its result, such as the worktree
+gone.
+
+1. Update the primary checkout: `git fetch origin`, then `git pull --rebase`.
+2. Run `npm run worktree:gc -- --dry-run` first. The sweep is not scoped to this change: it
    removes every clean worktree under `.claude/worktrees/` whose branch it proves is in
    `origin/main`, with that branch. Where `/proc` is absent, as on macOS, it cannot see a session
    working in one, and a worktree just cut from `origin/main` is clean and proven
    (`scripts/prune-worktree-branches.mjs`, its header). If the dry run names only this change's
    worktree, run `npm run worktree:gc`. If it names others, show the user the list, and run it
    only on their word.
-4. Confirm with `git worktree list` that the worktree is gone.
+3. Confirm with `git worktree list` that the worktree is gone.
+4. Check each of the epic's acceptance criteria. They are the bullets under `## Acceptance Criteria`
+   in its description, and its `acceptance_criteria` field, as `bd show <epic> --json` prints them.
+   Give each one a line for the report: the criterion, its state, and the command you ran or the
+   file you read that shows the state now. The state is one of three:
+   - **met**: the command or the file shows it holds;
+   - **unmet**: it shows it does not;
+   - **not exercised**: the criterion asks for a behaviour this change never triggered, such as a
+     refusal that nothing gave cause for.
+
+   The epic's own notes and a stage's report are not that evidence
+   (`CLAUDE.md` § Verification before claiming). An epic with no criteria gets one line that says
+   so.
+5. For each criterion that is unmet or not exercised, ask the user whether to file a follow-up that
+   carries it. File each follow-up they approve `discovered-from` the epic, as
+   `.claude/skills/change-build/SKILL.md` § 5. What the build turns up files an out-of-scope issue,
+   with finalize's found-at label. A criterion with no approved follow-up blocks the close, and the
+   epic stays open. Otherwise close it:
+   `bd close <epic> --reason "Merged in <pull request URL>; archived as openspec/changes/archive/<date>-<change>/"`,
+   adding each follow-up's id and the criterion it carries.
 
 ## 9. Report
 
 Report:
 
 - the pull request and its merge;
-- the epic, closed;
+- each of the epic's acceptance criteria as step 8 found it, with the command or file that shows
+  its state, and each follow-up filed for one;
+- the epic, closed, or the criteria that hold it open;
 - the living spec files and the archive path;
 - both gate runs, as measured;
 - every issue filed along the way;

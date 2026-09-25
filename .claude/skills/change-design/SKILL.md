@@ -8,7 +8,9 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 # Design a change
 
 The second of the six `change-*` stages (`docs/decisions.md` § D-02). It runs in the change's
-worktree, after the user has reviewed the proposal and its delta specs.
+worktree, after the user has reviewed the proposal and its delta specs. Every question below that
+recommends an option takes the form `CLAUDE.md` § A question shows where its recommendation loses
+gives.
 
 ## 1. Find the change
 
@@ -29,6 +31,8 @@ Write `design.md` only when one of these holds:
 - the change cuts across several modules, or introduces a pattern the code does not have yet;
 - it adds a dependency or changes a data model;
 - it carries a security, performance or migration risk;
+- it makes the product compute a value, or carry one forward from one step to the next, such as a
+  number, an amount, a date or a duration;
 - the specs leave open a technical choice that the build should not make on its own.
 
 Otherwise write no file. Say so in the report and hand over to `change-plan`. An empty design is
@@ -44,6 +48,19 @@ Write `openspec/changes/<change>/design.md` with these sections, in this order:
 - **`## Risks / Trade-offs`:** each as a risk and its mitigation.
 - **`## Migration Plan`** and **`## Open Questions`**, when they apply.
 
+Every value the change makes the product compute or carry forward gets its own decision under
+`## Decisions`, and the decision states three things:
+
+- **its representation**, such as a binary float, a decimal, an exact fraction, or an integer count
+  of the smallest unit;
+- **its precision**: how many digits or places it keeps, and where that stops;
+- **its rounding rule**: whether it rounds, where, and which way, and whether the next step computes
+  from the rounded value or the exact one. "Rounded for display" says what is shown, not what is
+  carried forward.
+
+The calculator change's design stated no numeric model, and its build rebuilt the arithmetic five
+times (`asdlc-openspec-asv`).
+
 A design says how, never what:
 
 - **A behaviour the design needs that no scenario states** belongs in a delta spec. Revise the spec
@@ -58,14 +75,24 @@ A design says how, never what:
 - **A design that relies on an existing decision** cites that decision's register entry by
   section, as `CLAUDE.md` § Citations describes.
 
-## 4. Commit it, and stop
+## 4. Settle each scenario's expected value
+
+Work out the expected value of every scenario in the delta specs from the design's decisions. A
+scenario whose expected value depends on a choice the design has not made, such as which value a
+chain carries forward or where a result rounds, is a question for the user in this stage. It never
+goes to `## Open Questions` for the build to settle: the build encodes whichever value it meets
+first, and every task built on a value the user later reverses is rework. Record the answer as a
+decision in the design. Where the answer changes a scenario, revise the delta spec with the user,
+with the proposal and the epic's label, as § 3 says of a behaviour no scenario states.
+
+## 5. Commit it, and stop
 
 Stage the design and every file this stage revised with `git add`, then run `npm run openspec:check`
 and `npm run citations:check`, each as its own call. Stage first: the citations gate reads only
 tracked files, so a design not yet added passes without being read.
 
-Commit, with the message passed from a file under `.scratch/`. Report what the design decides and
-what it leaves open, then stop.
+Commit, with the message passed from a file under `.scratch/`. Report what the design decides, each
+question step 4 put to the user with its answer, and what the design leaves open, then stop.
 
 The user reviews it before `change-plan` turns it into tasks.
 

@@ -10,7 +10,8 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 The fifth of the six `change-*` stages (`docs/decisions.md` § D-02). It runs in the change's worktree
 and changes no tracked file: it writes only the trace under `.scratch/`, any issue the user has it
 file in step 4, and the epic's label for a send-back (steps 4 and 6). When it finds a gap, the gap is fixed in the stage that owns it (step 6), and verification then
-runs again from step 2.
+runs again from step 2. Every question below that recommends an option takes the form
+`CLAUDE.md` § A question shows where its recommendation loses gives.
 
 ## 1. Find the change and its epic
 
