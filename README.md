@@ -314,7 +314,7 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 | Script | What it does | Gate |
 |---|---|---|
 | `worktree:gc` | Removes checkouts nobody is using, and deletes an agent branch only on proof its content is in the trunk; `-- --dry-run` prints what it would do. | |
-| `worktree:selftest` | The worktree hooks, the git guard and the branch sweep, negative-tested against a scratch repository it builds. | pre-push |
+| `worktree:selftest` | The worktree hooks, the git guard and the branch sweep, negative-tested against a scratch repository it builds, and the worktree briefing rendered from its template into a scratch directory. | pre-push |
 
 ## The work, and what its runs leave behind
 
