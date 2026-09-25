@@ -88,6 +88,11 @@ const SUBCOMMANDS = ['mark', 'next', 'brief', 'act']
 const AGENT_TOOLS = ['Read', 'Grep', 'Glob', 'StructuredOutput']
 /** What the run denies as well, so the agent's own list is not the one thing between a verdict and a write. */
 const DENIED_TOOLS = ['Bash', 'Edit', 'Write', 'NotebookEdit', 'WebFetch', 'WebSearch', 'Agent']
+const ACTION = 'anthropics/claude-code-action'
+/** The action's inputs for workload identity federation: the review authenticates by these alone. */
+const FEDERATION_INPUTS = ['anthropic_federation_rule_id', 'anthropic_organization_id', 'anthropic_service_account_id', 'anthropic_workspace_id']
+/** Stored credentials, which Anthropic's credential precedence puts above federation, so one here silently wins. */
+const SHADOWING_INPUTS = ['anthropic_api_key', 'claude_code_oauth_token']
 /** A GitHub status description is cut at 140 characters; a comment at 65,536. */
 const STATUS_MAX = 140
 const COMMENT_MAX = 60000
@@ -605,8 +610,12 @@ export function statusFor(decision) {
  * where `verify` is `success`, `failure`, `pending` or `missing`, `mergeable` is GitHub's (null while
  * it computes), `verdict` is `latestVerdict`'s, `approved` is `approvalHolds`'s `holds`, and
  * `status` is the reviewer's current status on the head, or null.
+ *
+ * `reviewable` is false in a run whose OIDC token the Anthropic federation rule refuses: a
+ * `pull_request_target` run carries the subject `…:pull_request`, not `main`'s. Such a run takes
+ * only a merge, and `redispatch` asks for a run on `main` to take the review it withheld.
  */
-export function chooseNext(prs, trunk, { force = null, check = 'verify' } = {}) {
+export function chooseNext(prs, trunk, { force = null, check = 'verify', reviewable = true } = {}) {
   const statuses = []
   const want = (pr, state, description) => {
     if (pr.status?.state === state && pr.status?.description === description) return
@@ -637,7 +646,7 @@ export function chooseNext(prs, trunk, { force = null, check = 'verify' } = {}) 
   const trunkGreen = trunk.verify === 'success'
   const actions = [
     ...(trunkGreen ? merges.map((pr) => ({ action: 'merge', pr })) : []),
-    ...reviews.map((pr) => ({ action: 'review', pr })),
+    ...(reviewable ? reviews.map((pr) => ({ action: 'review', pr })) : []),
   ]
   const first = actions[0]
   return {
@@ -648,6 +657,7 @@ export function chooseNext(prs, trunk, { force = null, check = 'verify' } = {}) 
     statuses,
     held: trunkGreen ? [] : merges.map((pr) => pr.number),
     dispatchTrunkVerify: trunk.verify === 'missing',
+    redispatch: !reviewable && reviews.length > 0,
   }
 }
 
@@ -818,7 +828,8 @@ function next({ dryRun }) {
   const states = pulls.map((pull) => prState(repo, pull, policy))
   const trunk = trunkState(repo, policy)
   const force = Number(process.env.FORCE_PR) || null
-  const choice = chooseNext(states, trunk, { force, check: policy.prReviewRequiredCheck })
+  const reviewable = process.env.EVENT_NAME !== 'pull_request_target'
+  const choice = chooseNext(states, trunk, { force, check: policy.prReviewRequiredCheck, reviewable })
 
   for (const s of states) {
     const verdict = s.verdict ? `${s.verdict.outcome}${s.approval ? ` (${s.approval.why})` : ''}` : 'none'
@@ -828,6 +839,10 @@ function next({ dryRun }) {
   if (choice.held.length > 0) console.log(`held until ${TRUNK} is green: ${choice.held.map((n) => `#${n}`).join(', ')}`)
   for (const s of choice.statuses) setStatus(dryRun, repo, s.sha, policy, s.state, s.description)
   if (choice.dispatchTrunkVerify) dispatch(dryRun, repo, VERIFY)
+  if (choice.redispatch) {
+    console.log(`a review waits, and this ${process.env.EVENT_NAME} run's token cannot reach Anthropic: dispatching a run on ${TRUNK}`)
+    dispatch(dryRun, repo, WORKFLOW)
+  }
   console.log(`next: ${choice.action}${choice.pr ? ` #${choice.pr} at ${short(choice.sha)}` : ''}${choice.more ? ', and more after it' : ''}`)
   setOutput('action', choice.action)
   setOutput('pr', choice.pr ?? '')
@@ -1111,9 +1126,12 @@ function frontmatter(text) {
 /**
  * The reviewer's four files held to each other: the policy is whole; `pr-review.yml` queues rather
  * than cancels, wakes on `verify.yml`'s runs, filters on the policy's approval label, runs only
- * subcommands this file has, and names an agent that exists; the agent and the run both deny every
- * tool that runs, writes or reaches out, and the agent lists no allowlist, which drops structured
- * output; and `verify.yml` has the check the policy requires and can be dispatched.
+ * subcommands this file has, and names an agent that exists; the agent allows exactly its four
+ * tools and the run denies every one that runs, writes or reaches out; the review job alone may
+ * mint an OIDC token, and authenticates by workload identity federation, its ids Actions secrets and
+ * no stored credential beside them to win over them; `next` is told the event, so a run whose token
+ * the federation rule refuses takes no review; and `verify.yml` has the check the policy requires and
+ * can be dispatched.
  */
 export async function runCheck(root) {
   const failures = []
@@ -1191,6 +1209,44 @@ export async function runCheck(root) {
       )
     }
   }
+  const jobs = workflow?.jobs ?? {}
+  const usesAction = (step) => String(step?.uses ?? '').startsWith(ACTION)
+  const reviewId = Object.keys(jobs).find((id) => (jobs[id]?.steps ?? []).some(usesAction))
+  if (!reviewId) {
+    fail(`${WORKFLOW} has no step that uses ${ACTION}.`)
+  } else {
+    if (jobs[reviewId].permissions?.['id-token'] !== 'write') {
+      fail(`${WORKFLOW}'s \`${reviewId}\` job does not request \`id-token: write\`: without GitHub's OIDC token the action has nothing to exchange for an Anthropic token.`)
+    }
+    const step = jobs[reviewId].steps.find(usesAction)
+    const inputs = step.with ?? {}
+    for (const key of SHADOWING_INPUTS.filter((k) => k in inputs)) {
+      fail(`${WORKFLOW} passes \`${key}\` to ${ACTION}: a stored credential silently wins over workload identity federation.`)
+    }
+    // The action falls back to the same credentials from its environment (`inputs.x || env.X`).
+    const envs = [['the workflow', workflow?.env], [`the \`${reviewId}\` job`, jobs[reviewId].env], ['the action step', step.env]]
+    for (const [where, env] of envs) {
+      for (const name of SHADOWING_INPUTS.map((k) => k.toUpperCase()).filter((n) => n in (env ?? {}))) {
+        fail(`${WORKFLOW} sets \`${name}\` in ${where}'s env, which the action falls back to and which silently wins over workload identity federation.`)
+      }
+    }
+    for (const key of FEDERATION_INPUTS) {
+      const value = String(inputs[key] ?? '')
+      if (!/^\$\{\{\s*secrets\.[A-Z0-9_]+\s*\}\}$/.test(value)) {
+        fail(`${WORKFLOW} passes \`${key}\` as ${JSON.stringify(value)}, not as an Actions secret: this repository's logs are public, and they print a variable or a literal in clear.`)
+      }
+    }
+  }
+  if (workflow?.permissions?.['id-token']) fail(`${WORKFLOW} grants \`id-token\` to every job; only the review job may reach Anthropic.`)
+  for (const [id, job] of Object.entries(jobs)) {
+    if (id !== reviewId && job?.permissions?.['id-token']) {
+      fail(`${WORKFLOW}'s \`${id}\` job requests \`id-token\`; only the job that runs Claude Code may reach Anthropic.`)
+    }
+  }
+  if (!/EVENT_NAME:\s*\$\{\{\s*github\.event_name\s*\}\}/.test(text)) {
+    fail(`${WORKFLOW} does not pass EVENT_NAME to \`next\`, so a \`pull_request_target\` run could take a review whose OIDC token the federation rule refuses.`)
+  }
+
   const deniedInRun = listed(/--disallowedTools\s+(\S+)/.exec(text)?.[1])
   const missingInRun = DENIED_TOOLS.filter((tool) => !deniedInRun.includes(tool))
   if (missingInRun.length > 0) {
@@ -1408,6 +1464,15 @@ function helperCases(policy) {
     }),
     h('the queue: drafts, forks, other bases and a pending verify are not taken', () =>
       assertEqual(chooseNext([pr(1, { draft: true }), pr(2, { sameRepo: false }), pr(3, { base: 'release' }), pr(4, { verify: 'pending' })], green).action, 'none', 'action')),
+    h('the queue: a run whose token cannot reach Anthropic merges, withholds a review, and asks for a run on main', () => {
+      const merging = chooseNext([pr(5, { verdict: { outcome: 'human' }, approved: true }), pr(6)], green, { reviewable: false })
+      const reviewing = chooseNext([pr(6)], green, { reviewable: false })
+      return assertEqual(
+        [merging.action, merging.pr, merging.more, merging.redispatch, reviewing.action, reviewing.redispatch, chooseNext([pr(6)], green).redispatch],
+        ['merge', 5, false, true, 'none', true, false],
+        'choices',
+      )
+    }),
     h('the queue: a forced pull request is reviewed again first, whatever its verdict', () => {
       const out = chooseNext([pr(4), pr(9, { verdict: { outcome: 'changes' } })], green, { force: 9 })
       return assertEqual([out.action, out.pr], ['review', 9], 'choice')
@@ -1456,6 +1521,12 @@ function wiringCases() {
     { name: 'the agent loses its allowlist, and a denylist leaks', doctor: edit(AGENT, /^tools: .*\n/m, ''), expect: /lists no `tools:`/ },
     { name: 'the agent\'s allowlist leaves out StructuredOutput', doctor: edit(AGENT, ', StructuredOutput', ''), expect: /leaves out StructuredOutput/ },
     { name: 'the workflow stops denying Write', doctor: edit(WORKFLOW, 'Bash,Edit,Write,', 'Bash,Edit,'), expect: /`--disallowedTools` does not deny Write/ },
+    { name: 'the review job loses id-token: write', doctor: edit(WORKFLOW, /^      id-token: write\n/m, ''), expect: /`review` job does not request `id-token: write`/ },
+    { name: 'the merging job gains id-token', doctor: edit(WORKFLOW, '      contents: write\n', '      contents: write\n      id-token: write\n'), expect: /`act` job requests `id-token`/ },
+    { name: 'an API key comes back beside the federation ids', doctor: edit(WORKFLOW, '          anthropic_federation_rule_id:', '          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}\n          anthropic_federation_rule_id:'), expect: /passes `anthropic_api_key`/ },
+    { name: 'an API key comes back through the review job\'s env', doctor: edit(WORKFLOW, '    env:\n      PR: ${{ needs.select.outputs.pr }}', '    env:\n      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}\n      PR: ${{ needs.select.outputs.pr }}'), expect: /sets `ANTHROPIC_API_KEY` in the `review` job's env/ },
+    { name: 'a federation id passed as a variable, which a public log prints', doctor: edit(WORKFLOW, '${{ secrets.ANTHROPIC_ORGANIZATION_ID }}', '${{ vars.ANTHROPIC_ORGANIZATION_ID }}'), expect: /passes `anthropic_organization_id` as .* not as an Actions secret/ },
+    { name: 'next is no longer told the event', doctor: edit(WORKFLOW, /^ {10}EVENT_NAME: .*\n/m, ''), expect: /does not pass EVENT_NAME/ },
     { name: 'verify loses its dispatch trigger', doctor: edit(VERIFY, /^  workflow_dispatch:\n/m, ''), expect: /cannot be dispatched/ },
     { name: 'verify\'s job no longer carries the required check\'s name', doctor: edit(VERIFY, /^  verify:$/m, '  gates:'), expect: /has no job whose check is `verify`/ },
   ]

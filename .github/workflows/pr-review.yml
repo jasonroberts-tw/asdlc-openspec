@@ -10,17 +10,20 @@
 # this workflow's token. So every run that reviews or merges shares one concurrency group whose
 # pending runs queue rather than cancel; a run takes one action and re-dispatches itself while more
 # are waiting; every job checks out the trunk and reads a pull request only as data; and the job that
-# runs Claude Code holds a read-only token and no tool that writes, while the job that merges holds
-# no Anthropic key.
+# runs Claude Code holds a read-only token and no tool that writes, while the job that merges cannot
+# reach Anthropic at all: it has neither `id-token: write` nor the identity's secrets.
 #
 # INVOCATION. It runs on its triggers. By hand, `gh workflow run pr-review.yml` wakes the queue, and
 # `gh workflow run pr-review.yml -f pr=<number>` reviews that pull request again at its head.
 # `node scripts/pr-review.mjs next --dry-run`, from any checkout with `gh`, prints what a run would do
 # and writes nothing.
 #
-# NEEDS. The repository secret ANTHROPIC_API_KEY; `bd` at the version `.devcontainer/Dockerfile` pins,
-# and the tracker's database, cloned read-only from this repository's `refs/dolt/data` over HTTPS;
-# and the network. It reads a token, a language model and the network, so it is neither a pre-push
+# NEEDS. An Anthropic federation rule that accepts this workflow's OIDC token when it runs on `main`
+# (subject `repo:<owner>/<repo>:ref:refs/heads/main`, audience `https://api.anthropic.com`). Its ids
+# are the Actions secrets ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID,
+# ANTHROPIC_SERVICE_ACCOUNT_ID and ANTHROPIC_WORKSPACE_ID; no API key is stored anywhere. It also
+# needs `bd` at the version `.devcontainer/Dockerfile` pins, the tracker's database, cloned
+# read-only from this repository's `refs/dolt/data` over HTTPS, and the network. It reads a token, a language model and the network, so it is neither a pre-push
 # job nor a `verify.yml` step (`CLAUDE.md` § The gate ladder): `pr-review:check` holds its wiring to
 # the policy, and `pr-review:selftest` holds every decision, from those tiers.
 name: pr-review
@@ -110,6 +113,10 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           FORCE_PR: ${{ inputs.pr }}
+          # A `pull_request_target` run's OIDC subject is `…:pull_request`, which a federation
+          # rule pinned to `main` refuses, so such a run only merges, and hands a review to a
+          # dispatch on `main`.
+          EVENT_NAME: ${{ github.event_name }}
 
   review:
     needs: select
@@ -117,9 +124,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     # Read-only: whatever the pull request persuades the reviewer of, this token can write nothing.
+    # `id-token: write` is the one grant beyond reading, and this job alone has it: GitHub's OIDC
+    # token is what the action exchanges for a short-lived Anthropic token.
     permissions:
       contents: read
       pull-requests: read
+      id-token: write
     outputs:
       verdict: ${{ steps.claude.outputs.structured_output }}
       facts: ${{ steps.brief.outputs.facts }}
@@ -155,7 +165,14 @@ jobs:
         name: review
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Workload identity federation: no API key exists to store, leak or rotate. The four ids
+          # are Actions secrets, not variables or committed values, so a public log masks them.
+          # An `anthropic_api_key` here would silently win over them, and `pr-review:check`
+          # refuses one.
+          anthropic_federation_rule_id: ${{ secrets.ANTHROPIC_FEDERATION_RULE_ID }}
+          anthropic_organization_id: ${{ secrets.ANTHROPIC_ORGANIZATION_ID }}
+          anthropic_service_account_id: ${{ secrets.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          anthropic_workspace_id: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
           github_token: ${{ github.token }}
           # The session hooks guard agents that edit; the reviewer edits nothing.
           settings: '{"disableAllHooks": true}'
@@ -180,7 +197,7 @@ jobs:
       && needs.select.outputs.action != 'none'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # No Anthropic key here: the job that can merge never runs the model.
+    # No `id-token: write` and no Anthropic identity here: the job that can merge never runs the model.
     permissions:
       contents: write
       pull-requests: write
