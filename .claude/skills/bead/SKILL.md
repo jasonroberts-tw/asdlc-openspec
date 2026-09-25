@@ -127,29 +127,15 @@ the second proves it against what landed meanwhile.
 
 ## 6. Open the pull request and watch its checks
 
-Before opening, list the open pull requests:
+Open it with the `open-pr` skill, which tests the merge against the open pull requests, opens it,
+marks the reviewer's status pending, watches the checks, and says what each outcome asks. Its title
+ends with the id of each issue this branch carries. Its body opens with any register entry or
+prerequisite step 1 named, and names every issue filed in step 4.
 
-    gh pr list --state open --json number,headRefName,files
-
-For each one that touches a file this branch touches, test the merge:
-
-    git merge-tree --write-tree --name-only origin/<its branch> HEAD
-
-A shared file is not a conflict; a conflict this reports is.
-
-Push the branch and open the pull request with its base named explicitly (`main`), its body passed
-from a file under `.scratch/`. Its title ends with the id of each issue it carries, in parentheses:
-the reviewer holds the pull request to their acceptance criteria (`CLAUDE.md` § Git workflow). The body opens with any register entry or prerequisite step 1 named,
-then any conflict found above, with the pull request it is against. If `gh pr create` fails, run
-`gh pr list --head <branch>` before retrying: a create can land after its client gives up. Watch the
-checks with one `gh pr checks <number> --watch` in the background, and no second watcher; never end
-the turn while it runs. Started just after the create, it can exit 1 at once with "no checks
-reported", because CI has not registered its run yet: that is not a failing check, and starting the
-watcher again is not a second one. A failing check is read, fixed on the same branch and pushed
-again. The reviewer's `pr-review` check is one of them. It stays pending until the reviewer has
-judged the head, and fails when the review requests changes, with the reasons in its comment on the
-pull request (`gh pr view <number> --comments`). A review that asks for a person passes it, so the
-watcher ends. The report then says the pull request waits for a person, and why.
+When a review did not complete for a cause in the reviewer's own workflow, file that cause as
+step 4 says, and leave the issue open with a note naming the pull request and the issue that
+carries the cause. When the pull request waits for a person, or on such an issue, the report says
+so, and why.
 
 ## 7. Close on green, with a reason
 

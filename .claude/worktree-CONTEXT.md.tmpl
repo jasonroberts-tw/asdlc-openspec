@@ -25,8 +25,7 @@ The project instructions (the *Git workflow* section of CLAUDE.md) name `main` a
 - Do not run `git worktree`, `git gc`, `git prune`, or `git reflog expire`. The object store is shared with sibling worktrees.
 - Do not read or write outside `{{WORKTREE_PATH}}`. Sibling worktrees are in active use by other agents.
 - Commit and force-push freely, to `{{BRANCH}}` only.
-- Open every pull request with `--base main`. Never let a tool infer the base: a tool that infers one infers the hosting service's default branch, which need not be the trunk.
-- Open it ready for review, never `--draft`, unless the request says draft. Nothing here keys off the draft state, and the operator has to undo it by hand before anything moves (the *Git workflow* section of CLAUDE.md).
+- Open every pull request with the `open-pr` skill. It names `main` as the base rather than letting a tool infer one, and opens the pull request ready for review, never as a draft unless the request says draft.
 
 `scripts/hooks/guard-git.mjs` enforces the rules above on every Bash command — including refusing a `gh pr create` that does not name `main` as its base — so a slip is refused rather than silently landing on someone else's work. The refusal text says what to do instead; read it rather than retrying a variation.
 
@@ -80,14 +79,7 @@ something this repository deliberately does not contain. Do not edit `package.js
 1. Run the test suite (`npm ci` first, if you have not already this session).
 2. `git fetch origin && git rebase origin/main`
 3. Run the suite again. A rebase that applies cleanly can still break the build — that is the failure this step exists to catch.
-4. Push `{{BRANCH}}` and open the PR **against `main`**, ready for review — the base is typed, never inferred, and there is no `--draft`:
-
-   ```bash
-   git push -u origin {{BRANCH}}
-   gh pr create --base main --head {{BRANCH}} --title "<what changed>" --body "..."
-   ```
-
-   In the description, list: what changed; shared interfaces, schemas, or config files touched; flags added; and what you deliberately left undone.
+4. Open the PR from `{{BRANCH}}` with the `open-pr` skill. It pushes the branch, ends the title with the ids of the issues it carries, passes the description from a file, marks the reviewer's status pending, and watches the checks. In the description, list: what changed; shared interfaces, schemas, or config files touched; flags added; and what you deliberately left undone.
 5. Stop. Do not merge, do not pick up follow-up work, do not open a second task.
 
 If no person is directing this session and the merge window closes before you finish: commit what is green behind the flag, open the PR marked partial with the remaining work listed, and stop. Do not widen scope to reach a tidier stopping point. A person directing the session decides when it stops; the window does not bind them.

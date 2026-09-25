@@ -247,7 +247,8 @@ parentheses, and the reviewer holds it to their acceptance criteria. The reviewe
 request that satisfies every dimension and is not high risk. A person merges any other, or approves
 its head by applying the approval label (`prReviewLabels` in `tools/policy.json`), after which the
 reviewer merges it. An agent never applies that label: the approval is a person's, and GitHub cannot
-tell a person from an agent holding their credentials (`docs/decisions.md` § R-01).
+tell a person from an agent holding their credentials (`docs/decisions.md` § R-01). An agent opens
+every pull request with the `open-pr` skill, which holds the steps from the push to the verdict.
 
 ## Prompt reviews
 
