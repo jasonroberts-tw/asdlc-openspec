@@ -149,10 +149,12 @@ again.
 
 ## 7. Close on green, with a reason
 
-When every check is green, close the issue with a reason that names the pull request. An acceptance
-criterion that acts outside the repository is not performed: it becomes a follow-up issue labelled
-`human`, created with its label at creation; step 4 says how to search for it and what its body
-carries.
+When every check is green, close the issue with a reason that names the pull request. Write the
+reason to a file under `.scratch/` and close with `bd close <id> --reason-file <file>`, as
+`CLAUDE.md` § Bash command style asks of any prose: from a worktree, the harness can refuse an
+inline `--reason` whose text it cannot tell from a git command. An acceptance criterion that acts
+outside the repository is not performed: it becomes a follow-up issue labelled `human`, created
+with its label at creation; step 4 says how to search for it and what its body carries.
 
 ## 8. Report
 
