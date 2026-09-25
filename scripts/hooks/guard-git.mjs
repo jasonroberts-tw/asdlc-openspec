@@ -10,8 +10,10 @@
  * THE GIT RULES ARE A NO-OP IN THE PRIMARY CHECKOUT. CLAUDE.md § Git workflow forbids pushing to,
  * switching to or rewriting a protected branch from a worktree; the primary checkout is where a
  * person works, and what they commit or push there is theirs to decide. So the guard asks git
- * whether it is in a linked worktree and skips every git rule if not. The PR-base rule below is the
- * one exception and applies everywhere, because what it guards is not worktree isolation.
+ * whether the command runs in a linked worktree and skips every git rule if not. The PR-base rule
+ * below is the one exception and applies everywhere, because what it guards is not worktree
+ * isolation. Where the command runs is the payload's `cwd`, never `CLAUDE_PROJECT_DIR`; `commandDir`
+ * below says what reading the variable cost.
  *
  * IT FAILS CLOSED, unlike the three advisory hooks beside it. A guard that allows the command when
  * it cannot read the payload is not a guard: the shell version of this file needed `jq`, which is
@@ -45,36 +47,55 @@ import { readHookInput } from './_shared.mjs'
  * Are we in a linked worktree?
  * ============================================================================================= */
 
-/** Where the command would have run. Claude Code sets this to the session's project root. */
-const CWD = process.env.CLAUDE_PROJECT_DIR ?? process.cwd()
+/**
+ * The directory the command will run in: the payload's `cwd`, or this process's own directory when
+ * the payload names none. The harness sets both to the session's current directory
+ * (https://code.claude.com/docs/en/hooks.md: `cwd` is the "Current working directory when the hook
+ * is invoked", and "Handlers run in the current directory"), and the payload's `cwd` follows the
+ * session into a worktree and through every `cd` (https://code.claude.com/docs/en/worktrees.md, the
+ * note "Hook paths don't follow the worktree").
+ *
+ * NOT `CLAUDE_PROJECT_DIR`. Until 2026-09-25 this read that variable first, under the comment
+ * "Claude Code sets this to the session's project root". It does, and the root stays where the
+ * session started: after `EnterWorktree` it still names the primary checkout. So in every session
+ * that had entered a worktree the guard judged the primary checkout, found no linked worktree and
+ * applied no git rule. From `.claude/worktrees/7dj-hook-paths`, `git worktree list` ran unrefused
+ * while `gh pr create --help` was refused, which proved the guard was running
+ * (asdlc-openspec-bvf). Nothing else refused a push to `main`, which has no branch protection on
+ * GitHub (the PR-base rule below). The selftest set the variable to the worktree, which the harness
+ * never does, and passed.
+ */
+function commandDir(input) {
+  return typeof input?.cwd === 'string' && input.cwd !== '' ? input.cwd : process.cwd()
+}
 
-/** One `git rev-parse` path, or `null` if git cannot answer (not a repository, git missing). */
-function gitPath(flag) {
-  return gitOut(['rev-parse', '--path-format=absolute', flag])
+/** One `git rev-parse` path in `dir`, or `null` if git cannot answer (not a repository, git missing). */
+function gitPath(dir, flag) {
+  return gitOut(dir, ['rev-parse', '--path-format=absolute', flag])
 }
 
 /**
- * The trimmed stdout of a git command, or `null` if it fails or says nothing.
+ * The trimmed stdout of a git command run in `dir`, or `null` if it fails or says nothing.
  *
- * Every caller treats `null` as "do not judge", so a missing git, a detached HEAD or an absent
- * `origin/main` degrades to allowing the command rather than blocking on a question git could not
- * answer.
+ * Every caller treats `null` as "do not judge", so a missing git, a detached HEAD, an absent
+ * `origin/main` or a `cwd` that no longer exists degrades to allowing the command rather than
+ * blocking on a question git could not answer.
  */
-function gitOut(args) {
-  const r = spawnSync('git', args, { cwd: CWD, encoding: 'utf8', windowsHide: true })
+function gitOut(dir, args) {
+  const r = spawnSync('git', args, { cwd: dir, encoding: 'utf8', windowsHide: true })
   if (r.status !== 0 || typeof r.stdout !== 'string') return null
   const out = r.stdout.trim()
   return out === '' ? null : out
 }
 
 /**
- * True only in a LINKED worktree. `--git-dir` is `<common>/worktrees/<name>` there, and equal to
- * `--git-common-dir` in the primary checkout. Anything unanswerable counts as "not a worktree", so
- * an environment without git is never blocked.
+ * True only when `dir` is in a LINKED worktree. `--git-dir` is `<common>/worktrees/<name>` there,
+ * and equal to `--git-common-dir` in the primary checkout. Anything unanswerable counts as "not a
+ * worktree", so an environment without git is never blocked.
  */
-function inLinkedWorktree() {
-  const gitDir = gitPath('--git-dir')
-  const common = gitPath('--git-common-dir')
+function inLinkedWorktree(dir) {
+  const gitDir = gitPath(dir, '--git-dir')
+  const common = gitPath(dir, '--git-common-dir')
   if (gitDir === null || common === null) return false
   return gitDir !== common
 }
@@ -118,15 +139,15 @@ function inLinkedWorktree() {
  * the message when there is one, and never decides, because a legitimately long-lived `agent/*`
  * branch may sit far behind `origin/main` for good reasons.
  */
-function unprovisionedWorktree() {
-  const branch = gitOut(['rev-parse', '--abbrev-ref', 'HEAD'])
+function unprovisionedWorktree(dir) {
+  const branch = gitOut(dir, ['rev-parse', '--abbrev-ref', 'HEAD'])
   if (branch === null || branch === 'HEAD') return null // detached; not a shape we judge
   if (branch.startsWith('agent/')) return null
 
   // For the message only. `null` whenever git cannot answer -- offline, no origin/main, a shallow
   // clone -- because the branch name has already decided and this must never be what blocks.
   let behind = null
-  const counts = gitOut(['rev-list', '--left-right', '--count', `origin/${TRUNK}...HEAD`])
+  const counts = gitOut(dir, ['rev-list', '--left-right', '--count', `origin/${TRUNK}...HEAD`])
   if (counts !== null) {
     const [left] = counts.split(/\s+/)
     if (/^\d+$/.test(left)) behind = Number(left)
@@ -498,13 +519,14 @@ if (process.stdin.isTTY) process.exit(0)
 
 // Read stdin BEFORE deciding anything, so the writer never meets a closed pipe.
 const input = await readHookInput()
-const linked = inLinkedWorktree()
+const dir = commandDir(input)
+const linked = inLinkedWorktree(dir)
 
 // THE WORKTREE WAS NOT PROVISIONED BY THE SCRIPT. Refuse everything, not just git: the agent is
 // about to do real work against a commit it did not choose, and every command it runs deepens that.
 // Escaping does not need the shell -- `ExitWorktree` is a tool -- so refusing every Bash command
 // leaves a way out rather than a deadlock.
-const unprovisioned = linked ? unprovisionedWorktree() : null
+const unprovisioned = linked ? unprovisionedWorktree(dir) : null
 if (unprovisioned !== null) {
   const { branch, behind } = unprovisioned
   // A distance of 0 or an unanswerable one says nothing: while the default branch is the trunk, a

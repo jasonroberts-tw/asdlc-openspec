@@ -186,13 +186,27 @@ git(primary, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
 git(primary, 'worktree', 'add', '-q', '.claude/worktrees/native', '-b', 'worktree-native', 'HEAD')
 git(primary, 'worktree', 'add', '-q', '.claude/worktrees/ours', '-b', 'agent/ours', 'HEAD')
 
-/** Run guard-git as if the agent had typed a harmless command from `dir`. */
-function guardFrom(dir) {
+/**
+ * Run guard-git as the harness runs it on a command typed from `dir`, in a session that started in
+ * the primary checkout: the process in `dir`, the payload's `cwd` naming `dir`, and
+ * `CLAUDE_PROJECT_DIR` naming the primary checkout, where the harness keeps it after `EnterWorktree`
+ * (https://code.claude.com/docs/en/worktrees.md, the note "Hook paths don't follow the worktree").
+ *
+ * Until 2026-09-25 this set `CLAUDE_PROJECT_DIR` to `dir`, which the harness never does, and so it
+ * passed over a guard that read that variable, judged the primary checkout, and applied no git rule
+ * in any worktree a session had entered (asdlc-openspec-bvf).
+ *
+ * `payloadDir` moves the payload's `cwd` away from the process's directory, for the cases that show
+ * which of the two decides; `null` leaves it out of the payload.
+ */
+function guardFrom(dir, { command = 'echo hello', payloadDir = dir } = {}) {
+  const payload = { tool_input: { command } }
+  if (payloadDir !== null) payload.cwd = payloadDir
   try {
     execFileSync('node', [GUARD], {
-      input: JSON.stringify({ tool_input: { command: 'echo hello' } }),
+      input: JSON.stringify(payload),
       cwd: dir,
-      env: { ...GIT_ENV, CLAUDE_PROJECT_DIR: dir },
+      env: { ...GIT_ENV, CLAUDE_PROJECT_DIR: primary },
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
     })
@@ -223,6 +237,42 @@ const ours = guardFrom(join(primary, '.claude', 'worktrees', 'ours'))
 check('an agent/* worktree is allowed', ours.code === 0, `code=${ours.code} ${ours.stderr}`)
 const prim = guardFrom(primary)
 check('primary checkout is allowed', prim.code === 0, `code=${prim.code} ${prim.stderr}`)
+
+// THE GIT RULES, IN A WORKTREE THE SESSION HAS ENTERED. Each refusal is asserted by its reason. The
+// control is the same command in the primary checkout, where the git rules do not apply: without
+// it, a guard that refused every `git worktree` everywhere would pass these cases.
+console.log('guard-git: the git rules in a worktree the session has entered')
+const oursDir = join(primary, '.claude', 'worktrees', 'ours')
+const WORKTREE_RULE = 'worktree management belongs to the orchestrator'
+const why = (r) => `code=${r.code} ${JSON.stringify(r.stderr.slice(0, 200))}`
+
+const primList = guardFrom(primary, { command: 'git worktree list' })
+check('control: the primary checkout allows `git worktree list`', primList.code === 0, why(primList))
+const listed = guardFrom(oursDir, { command: 'git worktree list' })
+check(
+  'the worktree refuses it, by its reason',
+  listed.code === 2 && listed.stderr.includes(WORKTREE_RULE),
+  why(listed),
+)
+mkdirSync(join(oursDir, 'sub'))
+const pushed = guardFrom(join(oursDir, 'sub'), { command: 'git push origin main' })
+check(
+  'a subdirectory of it, after a cd, refuses a push to main, by its reason',
+  pushed.code === 2 && pushed.stderr.includes('you cannot push to a long-lived branch'),
+  why(pushed),
+)
+const byPayload = guardFrom(primary, { command: 'git worktree list', payloadDir: oursDir })
+check(
+  "the payload's cwd decides, not the process's directory",
+  byPayload.code === 2 && byPayload.stderr.includes(WORKTREE_RULE),
+  why(byPayload),
+)
+const noCwd = guardFrom(oursDir, { command: 'git worktree list', payloadDir: null })
+check(
+  "with no cwd in the payload, the process's directory decides",
+  noCwd.code === 2 && noCwd.stderr.includes(WORKTREE_RULE),
+  why(noCwd),
+)
 
 /* --------------------------------------------------------------------------------------------- *
  * prune-worktree-branches: the safety rule.
