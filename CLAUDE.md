@@ -31,6 +31,14 @@ number in a document, an issue, a pull-request body or an analysis is re-derived
 at the time of writing, with the source path cited inline. If a figure cannot be verified, say so
 instead of estimating.
 
+The same holds for a fact a session hands a subagent. A premise in a brief, such as whether an API
+exists, the version that added it, or a value computed from the code, is verified first and given
+with its source, or given as a question for the subagent to check. A subagent that finds a premise
+false builds on what it found, not on the brief, and names the false premise in its report. In the
+calculator change's build, a brief said `fs.globSync` was not stable in Node 22.18. The builder
+found that it was, built the hand-written matcher it had been told to build anyway, and
+`asdlc-openspec-pta` now replaces that matcher.
+
 ## Stateful counts live in `count-index.md`, under a key
 
 Every count describing the current measured state of what this repository measures has a
