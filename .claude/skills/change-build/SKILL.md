@@ -31,10 +31,41 @@ Never work around a blocker.
 
 ## 3. Build it, and prove it
 
-- Make the change the task describes.
-- Run the proof the task names, and see it pass as measured. A proof you did not run is not a proof.
+Run `.claude/workflows/build-change-task.js` with the Workflow tool, once for the task, with
+`scriptPath` set to that file inside the worktree, so the script and the policy it reads come from
+one commit. Its header says what each argument means and what it returns. Pass:
+
+- `task`, the task's id, title and body as `bd show <id>` prints them; `change`; `worktree`, as
+  `git rev-parse --show-toplevel` prints it there; and `branch`.
+- `kind`, the `assetLabels` key in `tools/policy.json` for what the task mainly changes.
+  `buildReviewLenses` there maps it to the review's lenses, and the workflow reads the rest of the
+  review's sizes from that file itself.
+- `lenses`, only where the task needs its own probes, mutations or cases for a lens its kind runs;
+  `guide`, only where the builder needs a reading order; `settled`, for what the user or an earlier
+  run has already decided.
+
+Then act on what it returns:
+
+- **`stopped`.** `spec-contradiction` is a spec that is wrong (§ 5). `proof-failing` and
+  `agent-died`: find the cause, fix it or run the workflow again, and report it if neither works;
+  never commit around it. `refused`: correct what `why` names and run it again. `nothing-major` and
+  `round-limit`: carry on below.
+- **Each `unverified` finding:** judge it yourself against the delta specs, the design and the task.
+  Fix one that holds, and ask the user about one you cannot settle.
+- **Each of `followUps`:** file it as out of scope (§ 5), once a search of the tracker finds no match.
+- **Each of `unplanned`:** in scope but missing from the plan (§ 5).
+- **`listeners.leftBehind`:** stop each process, and say so in the report. Where
+  `listeners.checked` is false, list the listeners on `127.0.0.1` yourself.
+- **`fixUnreviewed`:** read the last fix's diff before you commit.
+
+Then, whatever the workflow reported:
+
+- Run the proof the task names yourself, and see it pass as measured. A proof you did not run is not
+  a proof.
 - Regenerate every derived artifact the change touches with its emitter, never by hand.
 - Commit, with the message passed from a file under `.scratch/`, naming the task's id.
+
+After a spec revision (§ 5), run the workflow for the task again, with the revision in `settled`.
 
 ## 4. Close it
 

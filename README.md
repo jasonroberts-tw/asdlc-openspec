@@ -69,7 +69,7 @@ level above them.
 | Path | What it holds |
 |---|---|
 | `CLAUDE.md` | The only home for a rule an agent must follow. `AGENTS.md` is one line pointing at it, so a second home never grows. |
-| `.claude/` | What the agent harness loads at session start: `settings.json` (the plugins and the hook registrations, nothing else), the skills under `skills/`, the agents under `agents/`, and the template for a worktree's briefing. |
+| `.claude/` | What the agent harness loads at session start: `settings.json` (the plugins and the hook registrations, nothing else), the skills under `skills/`, the agents under `agents/`, the workflow scripts a skill runs under `workflows/`, and the template for a worktree's briefing. |
 | `scripts/` | Single-file gates, and the scripts a git hook or an operator calls. Each refuses one thing, and its header says which incident it exists to prevent. |
 | `scripts/hooks/` | The in-session hooks: the fastest tier of checks, run by the harness around an agent's tool calls. |
 | `tools/` | Emitters and multi-file checks, one directory each, TypeScript run directly by Node. |
@@ -277,6 +277,12 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 | `pipeline:stale` | Reports which node's declared inputs have moved since it stamped its output, with no exit code; `-- --verbose` says why a node is not covered. | |
 | `pipeline:stale:check` | The same report as a gate. It runs no generator, so forgetting to regenerate is visible without regenerating. | pre-push + CI |
 
+### workflows
+
+| Script | What it does | Gate |
+|---|---|---|
+| `workflows:selftest` | Runs the change-build review workflow, `.claude/workflows/build-change-task.js`, against stubbed agents with the review sizes in `tools/policy.json`: how it stops, how many skeptics it sends a finding, that a finding nobody could verify is never counted refuted, and that it reports a listener it left behind. It also holds the file to what the Workflow runtime accepts. Without it a wrong stop rule shows only in a real run, at millions of tokens. | pre-push + CI |
+
 ### worktree
 
 | Script | What it does | Gate |
@@ -365,6 +371,7 @@ at its start: restart the session after changing it.
 | `git push` | `counts:check` re-derives every value in `count-index.md` from the source the index names for it; `counts:selftest` holds the gate to its fixtures when the gate changes. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes the register, `CLAUDE.md` or the gate | `check:register` holds the register's header, summary table and dates to its entries, and its selftest holds the gate. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes `openspec/`, a skill, an agent, `tools/policy.json`, the gate or the pinned CLI | `openspec:check` validates the living spec and every active change, proves each change applies, and holds every prompt that spells the change label to `tools/policy.json`; `openspec:selftest` holds the gate. | `lefthook.yml` (`pre-push`) |
+| `git push` that changes a workflow under `.claude/workflows/`, `tools/policy.json` or its selftest | `workflows:selftest`: the change-build review workflow, run against stubbed agents with the policy's review sizes. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes `apps/calculator/`, `package.json` or the lockfile | `calculator:test`: the calculator's scenarios, each a test named for it, under Node's own test runner. | `lefthook.yml` (`pre-push`) |
 | `git push` | `pipeline:check` holds the graph record to the files it names and to the prose page; `pipeline:stale:check` refuses an output whose stamp no longer matches its declared inputs; `pipeline:selftest` holds both gates. Neither carries a glob: the record's globs may name any file. | `lefthook.yml` (`pre-push`) |
 | A pull request, or a push to `main` | Every gate that reads only committed files, cheapest first. It trusts none of the faster tiers. | `.github/workflows/verify.yml` |

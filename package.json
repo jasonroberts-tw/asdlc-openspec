@@ -27,6 +27,7 @@
     "check:register:selftest": "node scripts/check-register-status.mjs --selftest",
     "openspec:check": "node scripts/check-openspec.mjs",
     "openspec:selftest": "node scripts/check-openspec.mjs --selftest",
+    "workflows:selftest": "node scripts/workflows.selftest.mjs",
     "gates": "lefthook run pre-push --force"
   },
   "devDependencies": {

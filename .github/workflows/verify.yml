@@ -44,6 +44,9 @@ jobs:
         run: npm run check:prompts
       - name: the prompt gate, negative-tested
         run: npm run check:prompts:selftest
+      # Milliseconds: the change-build review workflow against stubbed agents, with the policy's sizes.
+      - name: the build workflow stops, confirms and reports as its policy says
+        run: npm run workflows:selftest
       # Milliseconds: the count index held to the committed files its own second table names.
       - name: every count in the index re-derives from its source
         run: npm run counts:check
