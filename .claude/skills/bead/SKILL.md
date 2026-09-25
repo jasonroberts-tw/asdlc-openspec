@@ -28,6 +28,13 @@ which of four things is true, citing file and line for each claim:
 - **blocked**: the work needs something that is in neither the repository nor the issue's own
   scope; name it, and the open issue that carries it, if one does.
 
+Read that code as the trunk has it. This step runs in the primary checkout, whose `main` trails
+`origin/main` until someone pulls it, and step 3's worktree is cut from `origin/main`. Run
+`git fetch origin main`, then read with `git show origin/main:<path>`. Where a fetch is not wanted
+yet, as in plan mode, `gh api "repos/{owner}/{repo}/contents/<path>?ref=main" -H "Accept: application/vnd.github.raw"`
+reads the same file without one. An agent sent to read the code reads the checkout's copy unless its
+brief says otherwise, so say so.
+
 Name, too, any entry in the decision register an acceptance criterion implies. An amendment is made
 by a new decision (`docs/decisions.md` § How an entry changes), and no agent re-litigates a
 recorded one, so the person reviewing the pull request reads it first (step 6).
@@ -87,6 +94,8 @@ node and the command that rebuilds it. A
 first run that stamps an output which had none makes `pipeline:stale:check` bind it from then on
 (`docs/pipeline.md` § The two gates): say so in the pull request.
 
+Stage every file the change adds (`git add`) before the gates run: the citations and count-index
+gates read the files `git ls-files` lists, so a new file not yet added passes them unread.
 Run `npm run gates`: the forced full suite, never the bare hook runner, and the build check here.
 There is no `tsc` to run: the repository has no `tsconfig.json` and no TypeScript package, and
 `package.json` runs its `.ts` files with `node` directly. Run no script name `package.json` does not
@@ -127,7 +136,10 @@ from a file under `.scratch/`. The body opens with any register entry or prerequ
 then any conflict found above, with the pull request it is against. If `gh pr create` fails, run
 `gh pr list --head <branch>` before retrying: a create can land after its client gives up. Watch the
 checks with one `gh pr checks <number> --watch` in the background, and no second watcher; never end
-the turn while it runs. A failing check is read, fixed on the same branch and pushed again.
+the turn while it runs. Started just after the create, it can exit 1 at once with "no checks
+reported", because CI has not registered its run yet: that is not a failing check, and starting the
+watcher again is not a second one. A failing check is read, fixed on the same branch and pushed
+again.
 
 ## 7. Close on green, with a reason
 
