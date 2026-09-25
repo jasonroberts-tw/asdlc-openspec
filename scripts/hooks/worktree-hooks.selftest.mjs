@@ -1,7 +1,8 @@
 /**
- * Self-test for scripts/hooks/worktree-create.mjs, scripts/hooks/worktree-remove.mjs and
- * scripts/prune-worktree-branches.mjs, and for the hook registrations in .claude/settings.json: each
- * must load whatever the session's working directory is (the last section says what broke).
+ * Self-test for scripts/hooks/worktree-create.mjs, scripts/hooks/worktree-remove.mjs,
+ * scripts/prune-worktree-branches.mjs, and scripts/render-worktree-context.mjs with the briefing
+ * template it renders, and for the hook registrations in .claude/settings.json: each must load
+ * whatever the session's working directory is (the last section says what broke).
  *
  * Covers the halves of the contract that are cheap to exercise and easy to get wrong: what the hooks
  * accept on stdin, what they refuse, and -- for the remove hook -- that stdout stays clean and the
@@ -24,10 +25,21 @@
  *   node scripts/hooks/worktree-hooks.selftest.mjs
  *
  * Needs `git` and a POSIX `sh` on PATH, and reads nothing outside the temporary directory but this
- * checkout's own files.
+ * checkout's own files. The render cases bind loopback ports for a moment, as the renderer's port
+ * probe does.
  */
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -539,6 +551,116 @@ check(
   'but still collects an orphan section',
   !configKeys().some((k) => k.includes('agent/ghost2')),
   noTrunk.slice(0, 300),
+)
+
+/* --------------------------------------------------------------------------------------------- *
+ * render-worktree-context: the briefing a new worktree opens with.
+ *
+ * THE GAP (asdlc-openspec-pb2). This job's glob names the template and its renderer, and until
+ * 2026-09-25 no case here read either, so a change to the template ran a selftest that passed without
+ * looking at it. Two template changes were proved by a render run by hand into `.scratch/` instead:
+ * asdlc-openspec-iy4's on 2026-09-23, and asdlc-openspec-zgh.6's port paragraphs on 2026-09-24.
+ *
+ * The renderer and the committed template are COPIED into a scratch checkout, because the renderer
+ * finds the template beside itself and has no root override: run in place, a write relative to its own
+ * checkout would land in this one. The copy runs from an empty directory, and every file under the
+ * scratch root is listed afterwards, so a write anywhere but the path it was handed shows. The values
+ * are hostile on purpose: `&` and `\` are what `sed` mangled (the renderer's header records `a&b`
+ * rendering as `a{{WORKTREE_PATH}}b`), and `$&`, `$$` and `$1` are what `String.replace` expands when
+ * it is handed a replacement string rather than a function.
+ *
+ * The control is the committed template, which must render clean. The negative is the same template
+ * with a placeholder the renderer does not supply, which must be refused by its reason with nothing
+ * written: without it, a renderer that lost its leftover check would still pass the control.
+ * --------------------------------------------------------------------------------------------- */
+console.log('render-worktree-context: the briefing template, rendered')
+const RENDERER = resolve(HOOKS, '..', 'render-worktree-context.mjs')
+const TEMPLATE_TEXT = readFileSync(
+  resolve(HOOKS, '..', '..', '.claude', 'worktree-CONTEXT.md.tmpl'),
+  'utf8',
+)
+const HOSTILE = { BRANCH: 'agent/b&r\\$&', BASE_SHA: 's&h\\$$a', TASK_REF: 't&sk\\$&$1' }
+const COPIED = [
+  join('checkout', '.claude', 'worktree-CONTEXT.md.tmpl'),
+  join('checkout', 'scripts', 'render-worktree-context.mjs'),
+].sort()
+
+/**
+ * Render `template` through a copy of the renderer in a fresh scratch checkout, with the arguments
+ * `scripts/new-worktree.sh` passes, into a worktree directory named `a&b`. Returns the run, the
+ * worktree path it was handed, and every file under the scratch root afterwards, relative to it.
+ */
+function render(template) {
+  const root = mkdtempSync(join(tmpdir(), 'wt-render-'))
+  const copy = join(root, 'checkout', 'scripts', 'render-worktree-context.mjs')
+  mkdirSync(dirname(copy), { recursive: true })
+  mkdirSync(join(root, 'checkout', '.claude'))
+  copyFileSync(RENDERER, copy)
+  writeFileSync(join(root, 'checkout', '.claude', 'worktree-CONTEXT.md.tmpl'), template)
+  const worktree = join(root, 'a&b')
+  mkdirSync(worktree)
+  mkdirSync(join(root, 'cwd'))
+  // GIT_ENV, because the renderer runs `git worktree list` to spare its siblings' ports, and under a
+  // real push an inherited GIT_DIR would point that at this repository.
+  const r = spawnSync('node', [copy, worktree, HOSTILE.BRANCH, HOSTILE.BASE_SHA, HOSTILE.TASK_REF], {
+    cwd: join(root, 'cwd'),
+    env: GIT_ENV,
+    encoding: 'utf8',
+  })
+  const files = readdirSync(root, { recursive: true })
+    .filter((p) => statSync(join(root, p)).isFile())
+    .sort()
+  return { code: r.status ?? 1, stderr: r.stderr ?? '', worktree, files }
+}
+
+const rendered = render(TEMPLATE_TEXT)
+check(
+  'the committed template renders',
+  rendered.code === 0,
+  `code=${rendered.code} ${rendered.stderr}`,
+)
+const contextFile = join(rendered.worktree, '.worktree', 'CONTEXT.md')
+const context = existsSync(contextFile) ? readFileSync(contextFile, 'utf8') : ''
+// Broader than the renderer's own `{{[A-Z_]+}}`, so a mistyped `{{app_port}}` is caught here too.
+const survivors = context.match(/\{\{[^}]*\}\}/g) ?? []
+check(
+  'no {{PLACEHOLDER}} survives',
+  context !== '' && survivors.length === 0,
+  survivors.join(', '),
+)
+// Each value appears exactly as often as its placeholder does in the template. A mangled value is
+// missing from the count; one that `$&` expanded also leaves its placeholder for the check above.
+let exercised = 0
+for (const [key, value] of Object.entries({ WORKTREE_PATH: rendered.worktree, ...HOSTILE })) {
+  const want = TEMPLATE_TEXT.split(`{{${key}}}`).length - 1
+  if (want === 0) continue
+  exercised += 1
+  const got = context.split(value).length - 1
+  check(
+    `${key} renders ${JSON.stringify(value)} literally`,
+    got === want,
+    `${got} of ${want} occurrence(s)`,
+  )
+}
+check('the template carries a placeholder the hostile values reach', exercised > 0)
+const WRITTEN = [join('a&b', '.worktree', 'CONTEXT.md'), join('a&b', '.worktree', 'ports.env')]
+check(
+  'CONTEXT.md and ports.env are written under the path given, and nothing else is',
+  JSON.stringify(rendered.files) === JSON.stringify([...COPIED, ...WRITTEN].sort()),
+  JSON.stringify(rendered.files),
+)
+
+const refused = render(`${TEMPLATE_TEXT}\n{{DB_NAME}}\n`)
+check(
+  'a placeholder the renderer does not supply is refused, by its reason',
+  refused.code === 1 &&
+    refused.stderr.includes('unsubstituted placeholders in the rendered context: {{DB_NAME}}'),
+  `code=${refused.code} ${JSON.stringify(refused.stderr.slice(0, 200))}`,
+)
+check(
+  'and nothing is written',
+  JSON.stringify(refused.files) === JSON.stringify(COPIED),
+  JSON.stringify(refused.files),
 )
 
 /* --------------------------------------------------------------------------------------------- *
