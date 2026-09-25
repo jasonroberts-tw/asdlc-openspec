@@ -8,7 +8,7 @@
   "scripts": {
     "beads:check": "node scripts/check-beads.mjs",
     "calculator:serve": "node apps/calculator/serve.js",
-    "calculator:test": "node --test \"apps/calculator/test/*.test.js\"",
+    "calculator:test": "node scripts/run-tests.mjs \"apps/calculator/test/*.test.js\"",
     "check:jobs": "node scripts/check-jobs.mjs",
     "check:jobs:selftest": "node scripts/check-jobs.mjs --selftest",
     "check:prompts": "node scripts/check-prompts.mjs",
@@ -28,6 +28,7 @@
     "check:register:selftest": "node scripts/check-register-status.mjs --selftest",
     "openspec:check": "node scripts/check-openspec.mjs",
     "openspec:selftest": "node scripts/check-openspec.mjs --selftest",
+    "tests:selftest": "node scripts/run-tests.mjs --selftest",
     "workflows:selftest": "node scripts/workflows.selftest.mjs",
     "gates": "lefthook run pre-push --force"
   },

@@ -113,7 +113,7 @@ the rule. The third column wins over the first two.
 |---|---|---|
 | A rule with two homes, one of them stale; a rule kept in an agent's memory store | The citations gate's memory rule (`tools/citations/memory.ts`), and review | `CLAUDE.md` § Rules for agents live in tracked files, and nowhere else |
 | A hand edit to generated output | `scripts/hooks/block-generated-edit.mjs` in session, `scripts/assert-not-hand-edited.mjs` at commit, and each emitter's `:check` twin at push and in CI | `CLAUDE.md` § The script suffix contract |
-| A green run that ran nothing | `npm run gates` forces the full suite; `check:jobs` refuses a gate no job runs unless it is declared, with its reason | `CLAUDE.md` § The gate ladder |
+| A green run that ran nothing | `npm run gates` forces the full suite; `check:jobs` refuses a gate no job runs unless it is declared, with its reason; `scripts/run-tests.mjs` fails a test run whose pattern matches no file or matches a file that declares no test | `CLAUDE.md` § The gate ladder |
 | A gate that still passes with its guard deleted | Every gate's `:selftest`: one break per case, the refusal's reason asserted, one undoctored control | `CLAUDE.md` § Standing rules for prompts and gates |
 | A skill or agent that does not defer to `CLAUDE.md` | `check:prompts` refuses one whose first line is not the line `CLAUDE.md` requires | `CLAUDE.md` § Standing rules for prompts and gates |
 | An agent in a worktree pushing to, switching to or rewriting a protected branch | `scripts/hooks/guard-git.mjs`, and the worktree hooks that provision only through `scripts/new-worktree.sh` | `CLAUDE.md` § Git workflow |
@@ -227,7 +227,7 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 | Script | What it does | Gate |
 |---|---|---|
 | `calculator:serve` | Serves the calculator page on `127.0.0.1` alone, at the port `PORT` names or at the default `apps/calculator/serve.js` holds, and prints the URL; it runs until Ctrl-C, and a port in use or an invalid `PORT` is refused in one line. Without it the calculator can be tested but not used. No job runs it, since it never returns: `calculator:test` runs the same file and proves what it does. | |
-| `calculator:test` | Runs the test files directly in `apps/calculator/test/` (its `README.md` lists them) with Node's own test runner: each scenario of the calculator and of its local server is a test named for it, under a suite named for its requirement, except the few a browser alone can show, which `apps/calculator/test/README.md` names. Without it nothing holds the calculator to its specs. A pattern that matches no file runs nothing and still exits 0, so read the test names in its output, never the exit code alone. | pre-push + CI |
+| `calculator:test` | Runs the test files directly in `apps/calculator/test/` (its `README.md` lists them) with Node's own test runner: each scenario of the calculator and of its local server is a test named for it, under a suite named for its requirement, except the few a browser alone can show, which `apps/calculator/test/README.md` names. Without it nothing holds the calculator to its specs. It runs through `scripts/run-tests.mjs`, which also fails the run when its pattern matches no file or a matched file declares no test, since Node's runner passes both. | pre-push + CI |
 
 ### check
 
@@ -276,6 +276,12 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 | `pipeline:selftest` | Both pipeline gates, negative-tested against a synthetic record. | pre-push + CI |
 | `pipeline:stale` | Reports which node's declared inputs have moved since it stamped its output, with no exit code; `-- --verbose` says why a node is not covered. | |
 | `pipeline:stale:check` | The same report as a gate. It runs no generator, so forgetting to regenerate is visible without regenerating. | pre-push + CI |
+
+### tests
+
+| Script | What it does | Gate |
+|---|---|---|
+| `tests:selftest` | The test runner behind `calculator:test`, negative-tested against fixture trees it builds: it must refuse a matched file that declares no test and a pattern that matches no file, and still fail a failing test. Without it the runner could go back to passing a run that tested nothing, as Node's own runner does. | pre-push + CI |
 
 ### workflows
 
@@ -372,7 +378,8 @@ at its start: restart the session after changing it.
 | `git push` that changes the register, `CLAUDE.md` or the gate | `check:register` holds the register's header, summary table and dates to its entries, and its selftest holds the gate. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes `openspec/`, a skill, an agent, `tools/policy.json`, the gate or the pinned CLI | `openspec:check` validates the living spec and every active change, proves each change applies, and holds every prompt that spells the change label to `tools/policy.json`; `openspec:selftest` holds the gate. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes a workflow under `.claude/workflows/`, `tools/policy.json` or its selftest | `workflows:selftest`: the change-build review workflow, run against stubbed agents with the policy's review sizes. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes `apps/calculator/`, `package.json` or the lockfile | `calculator:test`: the calculator's scenarios, each a test named for it, under Node's own test runner. | `lefthook.yml` (`pre-push`) |
+| `git push` that changes `apps/calculator/`, `scripts/run-tests.mjs`, `package.json` or the lockfile | `calculator:test`: the calculator's scenarios, each a test named for it, under Node's own test runner, with no matched file allowed to declare none. | `lefthook.yml` (`pre-push`) |
+| `git push` that changes `scripts/run-tests.mjs` | `tests:selftest`: the test runner, negative-tested. | `lefthook.yml` (`pre-push`) |
 | `git push` | `pipeline:check` holds the graph record to the files it names and to the prose page; `pipeline:stale:check` refuses an output whose stamp no longer matches its declared inputs; `pipeline:selftest` holds both gates. Neither carries a glob: the record's globs may name any file. | `lefthook.yml` (`pre-push`) |
 | A pull request, or a push to `main` | Every gate that reads only committed files, cheapest first. It trusts none of the faster tiers. | `.github/workflows/verify.yml` |
 | The dev container starts | `npm ci` when the lockfile moved, the git hooks, and the tracker's hydration; each step warns and carries on. | `.devcontainer/entrypoint.sh` |

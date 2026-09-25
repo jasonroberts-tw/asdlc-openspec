@@ -204,22 +204,34 @@ pre-push:
         - 'tools/policy.json'
       run: node --run workflows:selftest
     # The calculator's scenarios, each a test named for its scenario under a suite named for its
-    # requirement, run by Node's own test runner over `apps/calculator/test/`. The manifest is in
+    # requirement, run by Node's own test runner over `apps/calculator/test/` through
+    # `scripts/run-tests.mjs`, which also refuses a matched file that declares no test. The runner
+    # is in the glob because it decides the verdict. The manifest is in
     # the glob for three reasons: it holds the runner's file pattern, its `"type": "module"` is
     # what makes these `.js` files ES modules, and a test asserts the command `calculator:serve`
     # runs. The lockfile is in it because it pins any package a test imports, jsdom among them. The
     # server's tests bind free ports on `127.0.0.1`, in-process and in the `serve.js` processes they
     # spawn (the default port among them, while it is free), and one tries a connection to this host's own
     # address on another interface, which a host that drops it unanswered waits 0.5 s on.
-    # 1.59-1.61 s wall through `node --run` and 1.66-1.67 s through `npm run calculator:test`
-    # (`/usr/bin/time -p`, two runs each), on a macOS 26.7 laptop (Apple M3 Max) with
-    # Node 26.8.1, 2026-09-24; that host drops the connection, so 0.5 s of it is that wait.
+    # 1.63 s wall through `node --run`, both of two runs (`/usr/bin/time -p`), on a macOS 26.7
+    # laptop (Apple M3 Max) with Node 26.8.1, 2026-09-25. The same host measured 1.59-1.61 s on
+    # 2026-09-24, before the runner, when the script called `node --test` directly. That host drops
+    # the connection, so 0.5 s of it is that wait.
     - name: calculator-test
       glob:
         - 'apps/calculator/**'
+        - 'scripts/run-tests.mjs'
         - 'package.json'
         - 'package-lock.json'
       run: node --run calculator:test
+    # The test runner's refusals (a matched file that declares no test, a pattern that matches no
+    # file) and its failures, against fixture trees it builds under the temporary directory, with
+    # one undoctored control. Reads nothing but the runner itself. 0.38-0.41 s wall through
+    # `node --run` (`/usr/bin/time -p`, two runs), on the host and date of the 1.63 s above.
+    - name: tests-selftest
+      glob:
+        - 'scripts/run-tests.mjs'
+      run: node --run tests:selftest
     # Every value in the count index re-derived from the source the index names for it. No glob: a
     # key's source may be any tracked file, so any push can change its verdict. Milliseconds.
     - name: count-index
