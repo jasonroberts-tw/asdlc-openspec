@@ -386,10 +386,14 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
    - A failed dimension requests changes: a red status, which the author's watcher reads.
    - A criterion nobody can verify, a title with no issue, or high risk asks a person. The person merges it, or applies the approval label, and the reviewer then merges that head.
    - Otherwise the reviewer rebase-merges it and dispatches `verify.yml` on `main`, since a merge made with a workflow token starts no push run.
-6. **A product change's pull request merges through the reviewer too.** `change-finalize` ends its title with the epic's id and waits for the merge instead of asking the user for one.
-7. **An agent never applies the approval label** (`CLAUDE.md` § Git workflow). R-01 records why that rule is all that holds it today.
+6. **The reviewer authenticates to Anthropic by workload identity federation, and no API key is stored.**
+   - Only the review job requests `id-token: write`. The action exchanges that job's GitHub OIDC token for a short-lived Anthropic token.
+   - The four ids are the repository's Actions secrets. The maintainer chose to keep them out of this public tree, and secrets rather than variables keep them out of its public logs.
+   - The federation rule is expected to accept a run on `main` alone. A run started by `pull_request_target` carries another subject, so it only merges, and hands a review to a dispatched run on `main`.
+7. **A product change's pull request merges through the reviewer too.** `change-finalize` ends its title with the epic's id and waits for the merge instead of asking the user for one.
+8. **An agent never applies the approval label** (`CLAUDE.md` § Git workflow). R-01 records why that rule is all that holds it today.
 
-**Why.** The maintainer asked that a pull request which satisfies every dimension "should automatically be merged", and that the workflow "run single threaded for now, only processing one PR at a time so merge conflict thrashing doesn't occur". Six alternatives lost:
+**Why.** The maintainer asked that a pull request which satisfies every dimension "should automatically be merged", and that the workflow "run single threaded for now, only processing one PR at a time so merge conflict thrashing doesn't occur". Seven alternatives lost:
 
 - **GitHub's own approval as the person's gate.** One account opened and merged every pull request so far, and GitHub does not let an author approve their own.
 - **An environment with required reviewers.** A run waiting for that approval holds the concurrency group, so one high-risk pull request would stop the queue.
@@ -397,6 +401,7 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 - **GitHub's default concurrency queue.** It keeps one pending run and cancels the one before it, so a pull request's wake-up could be lost.
 - **Reviewing before `verify` passes.** That spends a review on a head CI then refuses.
 - **The review as a pre-push job or a `verify.yml` step.** It reads a token and a language model (`CLAUDE.md` § The gate ladder). Only its wiring and its decisions are gates.
+- **A stored API key.** It never expires, anything that reads the repository's secrets could spend it, and Anthropic's credential precedence lets it silently win over federation. So `pr-review:check` refuses one. The federation ids themselves are not credentials: a token is minted only for a GitHub OIDC token the rule's match conditions accept.
 
 **What changed.**
 
@@ -405,6 +410,7 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 - **`tools/policy.json`:** the `prReview*` keys, each with its `Means` sibling; `describes`, `gatedBy`, `whatItDoesNOTDo` and `provenance` name them.
 - **`package.json`:** `pr-review:check` and `pr-review:selftest`, each a pre-push job in `lefthook.yml` and a step in `.github/workflows/verify.yml`.
 - **`.github/workflows/verify.yml`:** a `workflow_dispatch` trigger, for the reviewer's merges.
+- **The repository's Actions secrets, outside this tree:** `ANTHROPIC_FEDERATION_RULE_ID`, `ANTHROPIC_ORGANIZATION_ID`, `ANTHROPIC_SERVICE_ACCOUNT_ID` and `ANTHROPIC_WORKSPACE_ID`. No gate can read them; a wrong one shows as a failed exchange on the Console's authentication history.
 - **`CLAUDE.md`:** § Git workflow says how a pull request reaches the trunk and who applies the approval label.
 - **`.claude/skills/bead/SKILL.md`:** § 6 ends the title with the carried ids and reads the `pr-review` check.
 - **`.claude/skills/change-finalize/SKILL.md`:** § 5 ends the title with the epic's id; § 7 waits for the reviewer's merge.
