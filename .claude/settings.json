@@ -52,6 +52,18 @@
         ]
       }
     ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "command": "node scripts/hooks/gate-summary.mjs",
+            "statusMessage": "Running the fast gates over the subagent's work",
+            "timeout": 240,
+            "type": "command"
+          }
+        ]
+      }
+    ],
     "WorktreeCreate": [
       {
         "hooks": [

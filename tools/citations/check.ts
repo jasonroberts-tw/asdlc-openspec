@@ -23,14 +23,17 @@
  *
  *   npm run citations:check                        the gate, over this checkout
  *   CITATIONS_ROOT=<dir> npm run citations:check   the same gate over a doctored copy (a git tree)
+ *   CITATIONS_UNTRACKED=1 npm run citations:check  also reads untracked files git does not ignore,
+ *                                                  as the Stop hook runs it (`INCLUDE_UNTRACKED`)
  *
- * Needs no `../sibling` checkout and no network; it reads tracked files and runs in about a
- * second.
+ * Needs no `../sibling` checkout and no network; it reads tracked files, and untracked ones when
+ * asked, and runs in about a second.
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   HISTORY,
+  INCLUDE_UNTRACKED,
   SCAN_ROOT,
   SCANNED_EXTENSIONS,
   citationsIn,
@@ -43,6 +46,7 @@ import {
   namesSection,
   resolveTarget,
   trackedFiles,
+  untrackedFiles,
 } from './scan.ts'
 import { inMemoryScope, memoryProblemsIn } from './memory.ts'
 
@@ -54,7 +58,10 @@ interface Problem {
 
 const problems: Problem[] = []
 
-const tracked = trackedFiles()
+// With `CITATIONS_UNTRACKED=1` the untracked files join the roster as if tracked, so a pointer in
+// one is checked and a pointer to one resolves: both are about to be committed together.
+const untracked = INCLUDE_UNTRACKED ? untrackedFiles() : []
+const tracked = [...trackedFiles(), ...untracked]
 const trackedSet = new Set(tracked)
 // `isDeliveredPackage` FILTERED THIS UNTIL a later decision, on both sides: a delivered handoff package copied
 // ~60 documents under new paths, so a bare basename could resolve into a copy and five long-standing
@@ -219,7 +226,9 @@ console.log(
     (memorySkipped.length
       ? `; ${memorySkipped.length} files skipped as binary: ${memorySkipped.join(', ')}`
       : '') +
-    ')\n',
+    ')' +
+    (INCLUDE_UNTRACKED ? `; untracked files read too (CITATIONS_UNTRACKED=1): ${untracked.length}` : '') +
+    '\n',
 )
 
 if (problems.length) {

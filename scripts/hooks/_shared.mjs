@@ -8,10 +8,10 @@
  * repository is done by an agent, and a gate that fires after the agent has spent twenty minutes
  * going the wrong way is worth far less than one that stops it at the first keystroke.
  */
-import { closeSync, openSync, readFileSync, readSync } from 'node:fs'
+import { closeSync, openSync, readFileSync, readSync, realpathSync } from 'node:fs'
 import { dirname, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 
 /** The repository root. This file lives at `scripts/hooks/_shared.mjs`. */
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
@@ -167,13 +167,15 @@ const NPM = WINDOWS ? 'npm.cmd' : 'npm'
  * Windows needs a shell: since the CVE-2024-27980 fix Node refuses to `spawn` a `.cmd` file without
  * one and throws EINVAL. The whole command therefore goes through as ONE string with no argv array,
  * which is also what keeps Node's DEP0190 warning off the hook's stderr. `script` is always a literal
- * from the caller in this repository, never anything a payload supplied.
+ * from the caller in this repository, never anything a payload supplied. `cwd` is the checkout to run
+ * it in, this one unless the caller names another; `env` is added to this process's environment.
  */
-export function npmRun(script, { timeoutMs = 120_000 } = {}) {
+export function npmRun(script, { timeoutMs = 120_000, cwd = ROOT, env = {} } = {}) {
   return new Promise((done) => {
+    const options = { cwd, env: { ...process.env, ...env } }
     const child = WINDOWS
-      ? spawn(`${NPM} run --silent ${script}`, { cwd: ROOT, windowsHide: true, shell: true })
-      : spawn(NPM, ['run', '--silent', script], { cwd: ROOT })
+      ? spawn(`${NPM} run --silent ${script}`, { ...options, windowsHide: true, shell: true })
+      : spawn(NPM, ['run', '--silent', script], options)
     let out = ''
     const take = (b) => {
       out += b.toString('utf8')
@@ -191,6 +193,39 @@ export function npmRun(script, { timeoutMs = 120_000 } = {}) {
       done({ code: code ?? 1, out: out.trim() })
     })
   })
+}
+
+/* ============================================================================================= *
+ * Which checkout a stopping agent worked in.
+ * ============================================================================================= */
+
+/** An absolute path `git rev-parse` gives for `flag` in `dir`, resolved, or null outside a checkout. */
+function gitPath(dir, flag) {
+  try {
+    const out = execFileSync('git', ['rev-parse', '--path-format=absolute', flag], {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    return realpathSync(out.trim())
+  } catch {
+    return null
+  }
+}
+
+/**
+ * The top of the checkout `cwd` is in, when that checkout is `ownRoot`'s repository (the primary
+ * checkout or a linked worktree, which share one git directory), and `ownRoot` otherwise: no `cwd`,
+ * a `cwd` outside any checkout, or one in another repository. Two or three git calls.
+ */
+export function checkoutOf(cwd, ownRoot = ROOT) {
+  const own = gitPath(ownRoot, '--show-toplevel') ?? ownRoot
+  if (typeof cwd !== 'string' || cwd === '') return own
+  const top = gitPath(cwd, '--show-toplevel')
+  if (top === null) return own
+  const theirs = gitPath(cwd, '--git-common-dir')
+  const ours = gitPath(ownRoot, '--git-common-dir')
+  return theirs !== null && theirs === ours ? top : own
 }
 
 /** Read a file, or a fallback. */

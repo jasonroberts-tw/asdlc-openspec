@@ -23,7 +23,7 @@ empty input.
 | `PreToolUse` on Bash | `guard-git.mjs` | yes, in a linked worktree | Tokenises the command; refuses pushes, checkouts, branch writes and merges against the protected branches, and `git worktree`, `gc` and `prune`, from a worktree. A no-op in the primary checkout. Fails closed when it cannot read its input. |
 | `PreToolUse` on Write and Edit | `block-generated-edit.mjs` | yes | Refuses an edit to generated output and names where the change belongs. |
 | `PostToolUse` on Write and Edit | `check-emitted-drift.mjs` | never | Re-runs the `:check` twin of any emitter whose input was just edited. |
-| `Stop` | `gate-summary.mjs` | never | Runs the fastest gates concurrently and prints one verdict line into the transcript. It never denies the stop: a hook people disable is a lie in version control. |
+| `Stop` and `SubagentStop` | `gate-summary.mjs` | never | Runs the fastest gates concurrently over the checkout the stopping agent worked in, untracked files included, and prints one verdict line into the transcript; a subagent's verdict says it is one. It never denies the stop: a hook people disable is a lie in version control. |
 | `WorktreeCreate` | `worktree-create.mjs` | yes | Provisions through `scripts/new-worktree.sh`: `agent/<name>` cut from `origin/main`, with a rendered briefing, never the harness's native fallback off the default branch. |
 | `WorktreeRemove` | `worktree-remove.mjs` | no | Removes the checkout, keeps the branch, and runs the branch sweep for paths under `.claude/worktrees/` only. |
 
