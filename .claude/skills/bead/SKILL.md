@@ -91,7 +91,9 @@ first inside it. Read `.worktree/CONTEXT.md` there: it names the branch, the bas
 shared repository. Tracker writes that carry a body, such as step 1's re-scoping, are made from
 here, with the body file under this worktree's `.scratch/`. Work agreed in conversation has no issue
 to claim yet, so the order turns round: make the worktree, search for an issue that already carries
-the work as step 4 says, then file it from here and claim it.
+the work as step 4 says, then file it from here and claim it. Step 1 still applies, with what was
+agreed standing for the issue: each part of it is a premise, and a part that does not hold goes back
+to the user with its evidence before anything is filed, even a part the session proposed itself.
 
 ## 4. Implement, regenerate, gate
 
