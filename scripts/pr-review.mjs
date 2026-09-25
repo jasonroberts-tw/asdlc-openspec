@@ -24,8 +24,20 @@
  * VERDICT, FACTS, REVIEW_RESULT, REVIEW_DIR, FORCE_PR, GH_TOKEN), never from the command line, so no
  * value from a pull request is ever interpolated into a shell.
  *
- * WHAT IT WOULD LET THROUGH IF IT WERE WRONG. Written 2026-09-25 (asdlc-openspec-mi6), before the
- * first run, so no incident yet; the first one replaces this paragraph. Wrong here, the trunk takes
+ * THE INCIDENT, AND WHAT ELSE IT WOULD LET THROUGH. The first local run of the reviewer, over pull
+ * request #40 on 2026-09-25 (asdlc-openspec-mi6), returned its whole verdict as text: 31 turns,
+ * 6.2 minutes, $2.15, and no structured output for `act` to read. The agent's file listed
+ * `tools: Read, Grep, Glob`, and that allowlist had dropped StructuredOutput, the tool `--json-schema`
+ * answers through. In CI every review would have ended in an error comment. Probes with throwaway
+ * agents showed the two ways out:
+ *   - a denylist kept the verdict, but still left Workflow, which starts agents with tools of their
+ *     own, and ToolSearch, which loads more;
+ *   - an allowlist that names StructuredOutput kept the verdict, and the agent had those four tools
+ *     and no other.
+ * So the wiring gate holds the agent to exactly that allowlist, and the run to denying every tool
+ * that runs, writes or reaches out.
+ *
+ * Nothing else has happened yet. Wrong here, the trunk takes
  * a merge nobody meant: a head that moved after it was reviewed (the merge names the reviewed
  * commit, so GitHub refuses a moved one); a high-risk change a person never approved, or approved
  * before the head they approved was reviewed; an approval applied by a bot; a merge onto a `main`
@@ -72,6 +84,10 @@ const WORKFLOW_BOT = 'github-actions[bot]'
 /** The first line of a verdict comment: `<!-- pr-review:verdict {"sha":…,"outcome":…} -->`. */
 const MARKER_RE = /^<!-- pr-review:verdict (\{[^\n]*\}) -->$/
 const SUBCOMMANDS = ['mark', 'next', 'brief', 'act']
+/** Every tool the reviewer has: it reads, it searches, and it answers in the verdict's schema. */
+const AGENT_TOOLS = ['Read', 'Grep', 'Glob', 'StructuredOutput']
+/** What the run denies as well, so the agent's own list is not the one thing between a verdict and a write. */
+const DENIED_TOOLS = ['Bash', 'Edit', 'Write', 'NotebookEdit', 'WebFetch', 'WebSearch', 'Agent']
 /** A GitHub status description is cut at 140 characters; a comment at 65,536. */
 const STATUS_MAX = 140
 const COMMENT_MAX = 60000
@@ -1095,8 +1111,9 @@ function frontmatter(text) {
 /**
  * The reviewer's four files held to each other: the policy is whole; `pr-review.yml` queues rather
  * than cancels, wakes on `verify.yml`'s runs, filters on the policy's approval label, runs only
- * subcommands this file has, and names an agent that exists and cannot write; and `verify.yml` has
- * the check the policy requires and can be dispatched.
+ * subcommands this file has, and names an agent that exists; the agent and the run both deny every
+ * tool that runs, writes or reaches out, and the agent lists no allowlist, which drops structured
+ * output; and `verify.yml` has the check the policy requires and can be dispatched.
  */
 export async function runCheck(root) {
   const failures = []
@@ -1154,14 +1171,30 @@ export async function runCheck(root) {
 
   const agentName = /--agent\s+(\S+)/.exec(text)?.[1]
   const agent = frontmatter(readFileSync(join(root, AGENT), 'utf8'))
+  const listed = (value) => String(value ?? '').split(',').map((t) => t.trim()).filter(Boolean)
   if (!agent || agent.name !== agentName) {
     fail(`${WORKFLOW} runs the agent \`${agentName}\`, but ${AGENT} is named \`${agent?.name}\`.`)
   } else {
-    const tools = (agent.tools ?? '').split(',').map((t) => t.trim()).filter(Boolean)
-    const writers = tools.filter((tool) => !['Read', 'Grep', 'Glob'].includes(tool))
-    if (tools.length === 0 || writers.length > 0) {
-      fail(`${AGENT} must list its tools, and only Read, Grep and Glob: it gives ${JSON.stringify(tools)}. A reviewer that can run a command or write a file can change what it judges.`)
+    const tools = listed(agent.tools)
+    const extra = tools.filter((tool) => !AGENT_TOOLS.includes(tool))
+    if (tools.length === 0) {
+      fail(
+        `${AGENT} lists no \`tools:\`, so it has every tool not denied, and a denylist leaks: a probe on 2026-09-25 still` +
+          ' had Workflow, which starts agents with tools of their own, and ToolSearch, which loads more. List them.',
+      )
+    } else if (extra.length > 0) {
+      fail(`${AGENT} gives ${extra.join(', ')}; the reviewer has only ${AGENT_TOOLS.join(', ')}, so it cannot change what it judges.`)
+    } else if (!tools.includes('StructuredOutput')) {
+      fail(
+        `${AGENT}'s \`tools:\` leaves out StructuredOutput, the tool \`--json-schema\` answers through: on 2026-09-25 the` +
+          ' reviewer\'s first run returned its verdict as text, with no structured output for `act` to read.',
+      )
     }
+  }
+  const deniedInRun = listed(/--disallowedTools\s+(\S+)/.exec(text)?.[1])
+  const missingInRun = DENIED_TOOLS.filter((tool) => !deniedInRun.includes(tool))
+  if (missingInRun.length > 0) {
+    fail(`${WORKFLOW}'s \`--disallowedTools\` does not deny ${missingInRun.join(', ')}, which the agent's own file must not be the only thing denying.`)
   }
 
   const checks = Object.entries(verify?.jobs ?? {}).map(([id, job]) => job?.name ?? id)
@@ -1419,7 +1452,10 @@ function wiringCases() {
     { name: 'the workflow wakes on another workflow\'s runs', doctor: edit(WORKFLOW, "workflows: ['verify']", "workflows: ['build']"), expect: /wakes on the runs of \["build"\]/ },
     { name: 'the workflow runs a subcommand that does not exist', doctor: edit(WORKFLOW, 'node scripts/pr-review.mjs act', 'node scripts/pr-review.mjs merge'), expect: /runs `node scripts\/pr-review\.mjs merge`, which is not one of/ },
     { name: 'the agent is renamed without the workflow', doctor: edit(AGENT, /^name: pr-reviewer$/m, 'name: reviewer'), expect: /runs the agent `pr-reviewer`, but .* is named `reviewer`/ },
-    { name: 'the agent is given a tool that writes', doctor: edit(AGENT, /^tools: Read, Grep, Glob$/m, 'tools: Read, Grep, Glob, Bash'), expect: /only Read, Grep and Glob: it gives .*Bash/ },
+    { name: 'the agent is given Bash', doctor: edit(AGENT, /^tools: Read, /m, 'tools: Bash, Read, '), expect: /pr-reviewer\.md gives Bash/ },
+    { name: 'the agent loses its allowlist, and a denylist leaks', doctor: edit(AGENT, /^tools: .*\n/m, ''), expect: /lists no `tools:`/ },
+    { name: 'the agent\'s allowlist leaves out StructuredOutput', doctor: edit(AGENT, ', StructuredOutput', ''), expect: /leaves out StructuredOutput/ },
+    { name: 'the workflow stops denying Write', doctor: edit(WORKFLOW, 'Bash,Edit,Write,', 'Bash,Edit,'), expect: /`--disallowedTools` does not deny Write/ },
     { name: 'verify loses its dispatch trigger', doctor: edit(VERIFY, /^  workflow_dispatch:\n/m, ''), expect: /cannot be dispatched/ },
     { name: 'verify\'s job no longer carries the required check\'s name', doctor: edit(VERIFY, /^  verify:$/m, '  gates:'), expect: /has no job whose check is `verify`/ },
   ]

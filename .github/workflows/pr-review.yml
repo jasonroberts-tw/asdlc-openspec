@@ -162,12 +162,14 @@ jobs:
           prompt: >-
             Review pull request #${{ needs.select.outputs.pr }} at head commit
             ${{ needs.select.outputs.sha }}. Your brief is ${{ runner.temp }}/pr-review/brief.md.
+          # The agent's own file allows exactly Read, Grep, Glob and StructuredOutput, the tool the
+          # verdict's schema is answered through (the incident in `scripts/pr-review.mjs`'s header).
+          # The run denies what writes or reaches out as well, so that file is not the only guard.
           claude_args: >-
             --agent pr-reviewer
             --add-dir ${{ runner.temp }}/pr-review
             --max-turns 80
-            --allowedTools Read,Grep,Glob
-            --disallowedTools Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,Agent
+            --disallowedTools Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,Agent,mcp__*
             --json-schema '${{ steps.brief.outputs.schema }}'
 
   act:
