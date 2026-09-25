@@ -48,14 +48,19 @@ between two of your claims.
 ## 4. One fresh agent per lane, each in its own worktree
 
 Make each worktree with the one worktree script. Brief each lane with: its issues, its anchors, the
-base, the skill it follows (`.claude/skills/bead/SKILL.md`), and these three rules, stated in every
-brief word for word:
+base, the skill it follows (`.claude/skills/bead/SKILL.md`) and where it stops in it, and these
+three rules, stated in every brief word for word:
 
 1. **Never end a turn while a command runs.** A turn end kills the lane's background run or leaves
    it running unwatched.
 2. **Label every issue the lane creates at creation**, with the label naming where its work lands.
 3. **An acceptance criterion that acts outside the repository becomes a follow-up issue labelled
    `human` and is never performed by the lane.**
+
+A lane stops at the end of `.claude/skills/bead/SKILL.md` § 5, once its rebased branch passes
+`npm run gates`, and reports its branch and both gate runs as measured. It opens no pull request
+and closes no issue: step 5 merges its branch, and step 6 opens the one pull request and closes its
+issues.
 
 ## 5. Integrate on your own branch, merging forward
 
@@ -65,7 +70,9 @@ renumber any register entry that collided, then run `npm run gates`.
 
 ## 6. Open the pull request and watch its checks
 
-Open it with the `open-pr` skill. Its title ends with the id of every issue the lanes carried.
+Open it with the `open-pr` skill. Its title ends with the id of every issue the lanes carried. When
+every check is green, close each of those issues as `.claude/skills/bead/SKILL.md` § 7 says, with a
+reason naming the pull request.
 
 ## 7. Report one table
 
