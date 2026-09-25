@@ -15,8 +15,9 @@ option takes the form `CLAUDE.md` § A question shows where its recommendation l
 
 ## 1. Find the change and its epic
 
-- **The change.** The branch is `agent/<change>` (`git branch --show-current`). From the primary
-  checkout, enter the worktree with `EnterWorktree` and the path `.claude/worktrees/<change>`.
+- **The change.** Its name is found as `CLAUDE.md` § Product work runs as OpenSpec-format changes
+  says. The branch is `agent/<change>`. From the primary checkout, enter the worktree with
+  `EnterWorktree` and the path `.claude/worktrees/<change>`.
 - **The epic.** It is the one issue that
   `bd list --label spec-change --type epic --metadata-field change=<change> --json` returns (the
   label is `specChangeLabel` in `tools/policy.json`). If none or several come back, stop and say

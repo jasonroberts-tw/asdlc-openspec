@@ -113,4 +113,12 @@ because every capability has one.
 - Stop, and report the name, the epic, the capabilities and each requirement with its scenarios.
 
 The user reviews the proposal and the specs before anything else happens. Revisions happen here, in
-this stage. The next stage is `change-design`.
+this stage. The next stage is `change-design`, in a fresh session given the change's name
+(`CLAUDE.md` § Product work runs as OpenSpec-format changes).
+
+When `change-verify` sends a spec gap here (`.claude/skills/change-verify/SKILL.md` § 6. Verdict),
+the change already exists: skip steps 1 to 4. Find the change and its epic as
+`.claude/skills/change-verify/SKILL.md` § 1. Find the change and its epic says, and read the gap in
+the epic's latest note. Revise the proposal and the delta specs with the user under steps 5 and 6,
+check and commit them as step 7 says, then hand back to `change-verify`, which runs again from its
+step 2.

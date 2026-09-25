@@ -17,19 +17,28 @@ question below that recommends an option takes the form
 
 ## 1. Find the change and its epic
 
-- **The change.** The branch is `agent/<change>` (`git branch --show-current`). From the primary
-  checkout, enter the worktree with `EnterWorktree` and the path `.claude/worktrees/<change>`.
+- **The change.** Its name is found as `CLAUDE.md` § Product work runs as OpenSpec-format changes
+  says. The branch is `agent/<change>`. From the primary checkout, enter the worktree with
+  `EnterWorktree` and the path `.claude/worktrees/<change>`.
 - **The epic.** It is the one issue that
   `bd list --label spec-change --type epic --metadata-field change=<change> --json` returns. If none
   or several come back, stop and say what was found.
 
 ## 2. Take the next task
 
-Run `bd ready --parent <epic> --json`, take the first task it lists, read it, and claim it with
-`bd update <id> --claim`.
+A child already in progress (`bd list --parent <epic> --status in_progress --json`) is one an
+earlier session claimed and did not close. Take it first: its notes and the branch's commits since
+it was claimed (`git log`) show how far it got.
+
+Otherwise run `bd ready --parent <epic> --json`, take the first task it lists, read it, and claim it
+with `bd update <id> --claim`.
 
 If nothing is ready but children are still open, read why with `bd ready --explain` and report it.
 Never work around a blocker.
+
+If no child is open at all and the epic's latest note is a send-back from `change-verify`, it names
+the gap in the code to fix. Fix it, prove it and commit it as step 3 says, note on the epic what was
+fixed and in which commit subject, then go to step 6.
 
 ## 3. Build it, and prove it
 
@@ -44,7 +53,8 @@ one commit. Its header says what each argument means and what it returns. Pass:
   review's sizes from that file itself.
 - `lenses`, only where the task needs its own probes, mutations or cases for a lens its kind runs;
   `guide`, only where the builder needs a reading order; `settled`, for what the user or an earlier
-  run has already decided.
+  run has already decided, read from the task's notes and the design, not from an earlier
+  session's conversation.
 
 Then act on what it returns:
 
@@ -89,7 +99,8 @@ Run `bd close <id> --reason "<the subject of the commit that built it>"`. The su
 - **A doubt about a scenario's expected value**, whether you hold it yourself or a decision the
   build reports raises it: put it to the user before the task that encodes the value is committed,
   and never hold it for the report in step 6. Every task built on the value before the user
-  reverses it is rework.
+  reverses it is rework. Record the answer on the task with `bd note`, where a later session's
+  `settled` finds it.
 - **A test whose assertions depend on the environment**, such as whether a port is free, fails or
   skips visibly where the environment is not the one it needs, and never passes on a weaker branch
   that asserts less. A pass on the weaker branch prints the same as a pass on the full one.
@@ -112,4 +123,5 @@ Go back to step 2 until
 `bd list --parent <epic> --status open,in_progress,blocked,deferred --json` prints an empty list.
 
 Then run `npm run gates` and report each task closed with its commit, every issue filed along the
-way, and the gates as measured. The next stage is `change-verify`.
+way, and the gates as measured. The next stage is `change-verify`, in a fresh session given the
+change's name (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
