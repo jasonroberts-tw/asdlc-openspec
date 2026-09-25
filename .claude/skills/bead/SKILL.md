@@ -36,10 +36,12 @@ reads the same file without one. An agent sent to read the code reads the checko
 brief says otherwise, so say so.
 
 This skill and `CLAUDE.md` came from that checkout too: the harness read both from it, so they can
-trail the trunk in the same way. After the fetch,
-`git diff --stat HEAD...origin/main -- .claude/skills/bead/SKILL.md CLAUDE.md` names each of the two
-that the trunk has changed and the checkout lacks. Read the trunk's copy of each one it names, as
-above, and follow that copy from here on.
+trail the trunk in the same way. A pull made after the harness read them moves `HEAD` and not the
+copy the session follows, so compare the trunk with the commit the session started from: the first
+of the recent commits in the git status the harness gave at the start. After the fetch,
+`git diff --stat <that commit>...origin/main -- .claude/skills/bead/SKILL.md CLAUDE.md` names each of
+the two that the trunk has changed since. Read the trunk's copy of each one it names, as above, and
+follow that copy from here on. A session given no such git status reads the trunk's copy of both.
 
 Name, too, any entry in the decision register an acceptance criterion implies. An amendment is made
 by a new decision (`docs/decisions.md` § How an entry changes), and no agent re-litigates a
