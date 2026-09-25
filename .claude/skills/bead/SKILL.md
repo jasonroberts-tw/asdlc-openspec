@@ -35,6 +35,12 @@ yet, as in plan mode, `gh api "repos/{owner}/{repo}/contents/<path>?ref=main" -H
 reads the same file without one. An agent sent to read the code reads the checkout's copy unless its
 brief says otherwise, so say so.
 
+This skill and `CLAUDE.md` came from that checkout too: the harness read both from it, so they can
+trail the trunk in the same way. After the fetch,
+`git diff --stat HEAD...origin/main -- .claude/skills/bead/SKILL.md CLAUDE.md` names each of the two
+that the trunk has changed and the checkout lacks. Read the trunk's copy of each one it names, as
+above, and follow that copy from here on.
+
 Name, too, any entry in the decision register an acceptance criterion implies. An amendment is made
 by a new decision (`docs/decisions.md` § How an entry changes), and no agent re-litigates a
 recorded one, so the person reviewing the pull request reads it first (step 6).
