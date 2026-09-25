@@ -1,6 +1,7 @@
 /**
  * Self-test for scripts/hooks/worktree-create.mjs, scripts/hooks/worktree-remove.mjs and
- * scripts/prune-worktree-branches.mjs.
+ * scripts/prune-worktree-branches.mjs, and for the hook registrations in .claude/settings.json: each
+ * must load whatever the session's working directory is (the last section says what broke).
  *
  * Covers the halves of the contract that are cheap to exercise and easy to get wrong: what the hooks
  * accept on stdin, what they refuse, and -- for the remove hook -- that stdout stays clean and the
@@ -21,11 +22,14 @@
  * repository below and the hook's own ownership check are what keep that separated.
  *
  *   node scripts/hooks/worktree-hooks.selftest.mjs
+ *
+ * Needs `git` and a POSIX `sh` on PATH, and reads nothing outside the temporary directory but this
+ * checkout's own files.
  */
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { delimiter, dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const HOOKS = resolve(dirname(fileURLToPath(import.meta.url)))
@@ -486,6 +490,101 @@ check(
   !configKeys().some((k) => k.includes('agent/ghost2')),
   noTrunk.slice(0, 300),
 )
+
+/* --------------------------------------------------------------------------------------------- *
+ * .claude/settings.json: every registered hook loads whatever the working directory is.
+ *
+ * THE INCIDENT (asdlc-openspec-7dj). Every hook was registered as `node scripts/hooks/<name>.mjs`,
+ * a path relative to the directory the harness runs a hook in, which is the session's current one.
+ * On 2026-09-25, after a Bash `cd docs`, the Stop hook failed with "Cannot find module
+ * .../docs/scripts/hooks/gate-summary.mjs" and printed no verdict, and `guard-git.mjs` failed to
+ * load the same way; its exit 1 does not block, so the next command ran unguarded. Each command now
+ * names its script through `$CLAUDE_PROJECT_DIR` (`.claude/README.md` § The hooks).
+ *
+ * Each registered command runs as the harness runs a command hook, through `sh -c` with
+ * `CLAUDE_PROJECT_DIR` naming this checkout, from a subdirectory of it (the incident's shape) and
+ * from a directory outside it. The `node` first on PATH is a stand-in that reports the script it was
+ * handed and runs nothing, because `worktree-create.mjs` provisions a real worktree when it runs. So
+ * every command must be `node <script>`: that is what lets this case test one without running it.
+ *
+ * The control is the old relative form from the checkout root, which must load; the negative is the
+ * same form from the subdirectory, which must be refused for that reason. Without the pair, a
+ * stand-in that refused everything, or loaded everything, would pass every case below it.
+ * --------------------------------------------------------------------------------------------- */
+console.log('settings: every registered hook loads whatever the working directory')
+const CHECKOUT = resolve(HOOKS, '..', '..')
+const settings = JSON.parse(readFileSync(join(CHECKOUT, '.claude', 'settings.json'), 'utf8'))
+const hookCommands = Object.entries(settings.hooks ?? {}).flatMap(([event, groups]) =>
+  groups.flatMap((group) =>
+    (group.hooks ?? [])
+      .filter((hook) => hook.type === 'command')
+      .map((hook) => ({ event, command: hook.command })),
+  ),
+)
+
+const stubBin = mkdtempSync(join(tmpdir(), 'hook-node-'))
+writeFileSync(
+  join(stubBin, 'node'),
+  [
+    '#!/bin/sh',
+    '# Stands in for node: reports the script it was handed, and runs nothing.',
+    'if [ -f "$1" ]; then printf "loads %s\\n" "$1"; exit 0; fi',
+    'printf "no such script: %s\\n" "$1" >&2',
+    'exit 3',
+    '',
+  ].join('\n'),
+  { mode: 0o755 },
+)
+const subdir = join(CHECKOUT, 'docs')
+const outside = mkdtempSync(join(tmpdir(), 'hook-cwd-'))
+
+/** Run one hook command as the harness would, from `cwd`, with the stand-in `node` first on PATH. */
+function loadFrom(command, cwd) {
+  const r = spawnSync('sh', ['-c', command], {
+    cwd,
+    env: {
+      ...process.env,
+      PATH: `${stubBin}${delimiter}${process.env.PATH ?? ''}`,
+      CLAUDE_PROJECT_DIR: CHECKOUT,
+    },
+    encoding: 'utf8',
+  })
+  return { code: r.status ?? 1, stdout: (r.stdout ?? '').trim(), stderr: (r.stderr ?? '').trim() }
+}
+
+const RELATIVE = 'node scripts/hooks/guard-git.mjs'
+const fromRoot = loadFrom(RELATIVE, CHECKOUT)
+check(
+  'control: the relative form loads from the checkout root',
+  fromRoot.code === 0 && fromRoot.stdout === 'loads scripts/hooks/guard-git.mjs',
+  `code=${fromRoot.code} ${fromRoot.stdout} ${fromRoot.stderr}`,
+)
+const fromSubdir = loadFrom(RELATIVE, subdir)
+check(
+  'the relative form is refused from a subdirectory, by its reason',
+  fromSubdir.code === 3 && fromSubdir.stderr === 'no such script: scripts/hooks/guard-git.mjs',
+  `code=${fromSubdir.code} ${fromSubdir.stdout} ${fromSubdir.stderr}`,
+)
+
+check('settings.json registers a command hook', hookCommands.length > 0)
+const HOOK_DIR = `${join(CHECKOUT, 'scripts', 'hooks')}${sep}`
+for (const { event, command } of hookCommands) {
+  if (!/^node\s/.test(command)) {
+    check(`${event}: ${command} is a node command`, false, 'nothing else can be tested unrun')
+    continue
+  }
+  for (const [where, cwd] of [
+    ['a subdirectory', subdir],
+    ['outside the checkout', outside],
+  ]) {
+    const r = loadFrom(command, cwd)
+    check(
+      `${event}: ${command} loads from ${where}`,
+      r.code === 0 && r.stdout.startsWith(`loads ${HOOK_DIR}`),
+      `code=${r.code} ${r.stdout} ${r.stderr}`,
+    )
+  }
+}
 
 console.log(failures === 0 ? '\nall worktree hook checks passed' : `\n${failures} check(s) failed`)
 process.exit(failures === 0 ? 0 : 1)
