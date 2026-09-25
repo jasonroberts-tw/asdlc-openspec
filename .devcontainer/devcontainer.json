@@ -48,5 +48,6 @@
       // Editor wiring for gates the repository already enforces -- not environment setup.
       "extensions": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode", "anthropic.claude-code"]
     }
-  }
+  },
+  "overrideCommand": false
 }
