@@ -27,7 +27,15 @@ runs again from step 2. Every question below that recommends an option takes the
 
 `bd list --parent <epic> --status open,in_progress,blocked,deferred --json` prints an empty list.
 
-Anything else goes back to `change-build`.
+Anything else means the build has not finished. Report each child the command printed, with its
+status, and stop: steps 3 to 5 would measure code those children have yet to change. The next stage
+is `change-build`, in a fresh session given the change's name, and it takes the children up from the
+tracker (`.claude/skills/change-build/SKILL.md` § 2. Take the next task).
+
+This refusal writes nothing: no trace, no note and no label. The epic is labelled for a stage whose
+work a later stage reopens (`CLAUDE.md` § Product work runs as OpenSpec-format changes), and a child
+never closed reopens nothing. The work left is already an issue, and `change-build` finds it without
+a note: the note is for a gap that leaves no child open.
 
 ## 3. The specs are valid, and apply
 
