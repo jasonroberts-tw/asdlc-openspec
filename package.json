@@ -17,6 +17,7 @@
     "citations:selftest": "node tools/citations/selftest.ts",
     "counts:check": "node scripts/check-count-index.mjs",
     "counts:selftest": "node scripts/check-count-index.mjs --selftest",
+    "gate-summary:selftest": "node scripts/hooks/gate-summary.selftest.mjs",
     "worktree:gc": "node scripts/prune-worktree-branches.mjs",
     "worktree:selftest": "node scripts/hooks/worktree-hooks.selftest.mjs",
     "pipeline:check": "node tools/pipeline/check.ts",

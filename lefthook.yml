@@ -153,6 +153,23 @@ pre-push:
         - 'scripts/prune-worktree-branches.mjs'
         - '.claude/worktree-CONTEXT.md.tmpl'
       run: node --run worktree:selftest
+    # The Stop and SubagentStop hook, run as the harness runs it over scratch citation trees: an
+    # untracked file with a broken pointer turns its verdict to FAIL for that reason, an ignored one
+    # does not, and `checkoutOf` places a linked worktree over scratch repositories. The hook runs
+    # `check:jobs` over this checkout in every case, so the glob carries that gate's inputs too.
+    # 1.92-2.03 s wall through `node --run` (`/usr/bin/time -p`, three runs) on a macOS 26.7 laptop
+    # (Apple M3 Max) with Node 26.8.1, 2026-09-25: four hook runs, each two npm starts.
+    - name: gate-summary-selftest
+      glob:
+        - 'scripts/hooks/**'
+        - 'tools/citations/**'
+        - 'tools/lib/**'
+        - 'package.json'
+        - 'lefthook.yml'
+        - '.github/workflows/verify.yml'
+        - 'scripts/check-jobs.mjs'
+        - 'apps/**'
+      run: node --run gate-summary:selftest
     # The register's status line, its parenthetical dates, its mechanism sentence and its summary
     # table, held to the `### D-` headings in both directions; and `CLAUDE.md`, which cites the
     # register without a bound and must not grow one. Three committed files; milliseconds.

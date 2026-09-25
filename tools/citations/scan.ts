@@ -259,7 +259,26 @@ const SECTION_RE = /`([A-Za-z0-9._][A-Za-z0-9._/-]*\.md)`[^\S\n]*§[^\S\n]*([^`\
 
 /** Every git-tracked path, repository-relative. */
 export function trackedFiles(): string[] {
-  return execFileSync('git', ['ls-files', '-z'], {
+  return gitFiles([])
+}
+
+/**
+ * Whether the gate also reads the files git lists as untracked and not ignored. Off unless
+ * `CITATIONS_UNTRACKED=1`, so off at pre-push and in CI, where a file nobody has added is not part
+ * of what is pushed. The Stop hook turns it on (`scripts/hooks/gate-summary.mjs`): in a session the
+ * newest file is the likeliest to carry a bad pointer, and until it is staged a gate over tracked
+ * files never reads it. On 2026-09-24 the hook printed PASS at every one of a change's 33 stops while
+ * the change's unstaged design sat unread (asdlc-openspec-hp8).
+ */
+export const INCLUDE_UNTRACKED = process.env.CITATIONS_UNTRACKED === '1'
+
+/** Every untracked path git does not ignore, repository-relative. */
+export function untrackedFiles(): string[] {
+  return gitFiles(['--others', '--exclude-standard'])
+}
+
+function gitFiles(flags: readonly string[]): string[] {
+  return execFileSync('git', ['ls-files', '-z', ...flags], {
     cwd: SCAN_ROOT,
     encoding: 'utf8',
     maxBuffer: 1 << 28,

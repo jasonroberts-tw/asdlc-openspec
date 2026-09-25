@@ -14,7 +14,7 @@ two. This table is a cache of its sources: where the table and a source disagree
 
 | Key | Value | What it counts |
 |---|---|---|
-| `CNT-HOOKS` | 6 | Hook registrations in `.claude/settings.json`: every entry of every `hooks` array, across every event and matcher group. |
+| `CNT-HOOKS` | 7 | Hook registrations in `.claude/settings.json`: every entry of every `hooks` array, across every event and matcher group. |
 
 ## Where each value comes from
 

@@ -58,6 +58,10 @@ jobs:
       # Synthetic fixtures, and scratch git trees under the temporary directory for the end-to-end cases.
       - name: the citations gate, negative-tested
         run: npm run citations:selftest
+      # About a second (lefthook.yml's `gate-summary-selftest` job has the measurement): the Stop
+      # hook over scratch citation trees and scratch repositories under the temporary directory.
+      - name: the Stop hook reads untracked files and places a subagent's checkout, negative-tested
+        run: npm run gate-summary:selftest
       # Milliseconds: the graph record held to the files it names, to the hook runner's
       # configuration, to this file, to the prose page and to the tracker's formula.
       - name: the graph record describes the repository
