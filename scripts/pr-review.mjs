@@ -37,6 +37,12 @@
  * So the wiring gate holds the agent to exactly that allowlist, and the run to denying every tool
  * that runs, writes or reaches out.
  *
+ * The second, the same day (asdlc-openspec-61t): the review of pull request #47 in CI stopped at
+ * `bd bootstrap`, which found no `bd` binary. `@beads/bd`'s postinstall skips its download whenever
+ * `CI` is set, and Actions sets it on every step; the fix first proposed, `--allow-scripts` alone,
+ * still skipped it. So the wiring gate also holds the job that runs `brief` to installing `bd` with
+ * `CI` unset, with `--allow-scripts`, and with `bd --version` in the same step.
+ *
  * Nothing else has happened yet. Wrong here, the trunk takes
  * a merge nobody meant: a head that moved after it was reviewed (the merge names the reviewed
  * commit, so GitHub refuses a moved one); a high-risk change a person never approved, or approved
@@ -1130,8 +1136,8 @@ function frontmatter(text) {
  * tools and the run denies every one that runs, writes or reaches out; the review job alone may
  * mint an OIDC token, and authenticates by workload identity federation, its ids Actions secrets and
  * no stored credential beside them to win over them; `next` is told the event, so a run whose token
- * the federation rule refuses takes no review; and `verify.yml` has the check the policy requires and
- * can be dispatched.
+ * the federation rule refuses takes no review; the job that runs `brief` installs a `bd` that runs;
+ * and `verify.yml` has the check the policy requires and can be dispatched.
  */
 export async function runCheck(root) {
   const failures = []
@@ -1245,6 +1251,39 @@ export async function runCheck(root) {
   }
   if (!/EVENT_NAME:\s*\$\{\{\s*github\.event_name\s*\}\}/.test(text)) {
     fail(`${WORKFLOW} does not pass EVENT_NAME to \`next\`, so a \`pull_request_target\` run could take a review whose OIDC token the federation rule refuses.`)
+  }
+
+  // `brief` reads each cited issue with `bd`, and an install of `@beads/bd` can exit 0 with no binary.
+  const runOf = (step) => String(step?.run ?? '')
+  const installsBd = (line) => /\bnpm (?:install|i)\b.*@beads\/bd@/.test(line)
+  const briefId = Object.keys(jobs).find((id) => (jobs[id]?.steps ?? []).some((step) => /node scripts\/pr-review\.mjs brief\b/.test(runOf(step))))
+  if (briefId) {
+    const installs = (jobs[briefId].steps ?? []).filter((step) => installsBd(runOf(step)))
+    if (installs.length === 0) {
+      fail(`${WORKFLOW}'s \`${briefId}\` job runs \`brief\`, which reads each cited issue with \`bd\`, but installs no \`@beads/bd\`.`)
+    }
+    for (const step of installs) {
+      const lines = runOf(step).split('\n').map((line) => line.trim())
+      const at = lines.findIndex(installsBd)
+      if (!lines.slice(0, at).some((line) => /^unset\b.*\bCI\b/.test(line))) {
+        fail(
+          `${WORKFLOW} installs \`@beads/bd\` with \`CI\` set, as Actions leaves it on every step: its postinstall then prints` +
+            ' "Skipping binary download in CI environment", and on 2026-09-25 `bd bootstrap` found no binary. Put `unset CI` before the install.',
+        )
+      }
+      if (!/--allow-scripts=\S*@beads\/bd\b/.test(lines[at])) {
+        fail(
+          `${WORKFLOW} installs \`@beads/bd\` without \`--allow-scripts=@beads/bd\`: npm 11.19.0 warns that its postinstall is not` +
+            ' covered by `allowScripts`, and an npm that enforces that downloads no binary.',
+        )
+      }
+      if (!lines.slice(at + 1).some((line) => /^bd (?:--version|version)\b/.test(line))) {
+        fail(
+          `${WORKFLOW} does not run \`bd --version\` after installing \`@beads/bd\`, in the same step: an install with no binary exits 0,` +
+            ' and the failure surfaces a step later as "bd binary not found".',
+        )
+      }
+    }
   }
 
   const deniedInRun = listed(/--disallowedTools\s+(\S+)/.exec(text)?.[1])
@@ -1527,6 +1566,10 @@ function wiringCases() {
     { name: 'an API key comes back through the review job\'s env', doctor: edit(WORKFLOW, '    env:\n      PR: ${{ needs.select.outputs.pr }}', '    env:\n      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}\n      PR: ${{ needs.select.outputs.pr }}'), expect: /sets `ANTHROPIC_API_KEY` in the `review` job's env/ },
     { name: 'a federation id passed as a variable, which a public log prints', doctor: edit(WORKFLOW, '${{ secrets.ANTHROPIC_ORGANIZATION_ID }}', '${{ vars.ANTHROPIC_ORGANIZATION_ID }}'), expect: /passes `anthropic_organization_id` as .* not as an Actions secret/ },
     { name: 'next is no longer told the event', doctor: edit(WORKFLOW, /^ {10}EVENT_NAME: .*\n/m, ''), expect: /does not pass EVENT_NAME/ },
+    { name: 'the review job no longer installs the tracker\'s CLI', doctor: edit(WORKFLOW, '"@beads/bd@$(', '"@beads/cli@$('), expect: /runs `brief`, .* but installs no `@beads\/bd`/ },
+    { name: 'the tracker\'s CLI is installed with CI set', doctor: edit(WORKFLOW, /^ {10}unset CI\n/m, ''), expect: /installs `@beads\/bd` with `CI` set/ },
+    { name: 'the tracker\'s CLI is installed without --allow-scripts', doctor: edit(WORKFLOW, ' --allow-scripts=@beads/bd', ''), expect: /without `--allow-scripts=@beads\/bd`/ },
+    { name: 'the install step no longer runs bd --version', doctor: edit(WORKFLOW, /^ {10}bd --version\n/m, ''), expect: /does not run `bd --version` after installing/ },
     { name: 'verify loses its dispatch trigger', doctor: edit(VERIFY, /^  workflow_dispatch:\n/m, ''), expect: /cannot be dispatched/ },
     { name: 'verify\'s job no longer carries the required check\'s name', doctor: edit(VERIFY, /^  verify:$/m, '  gates:'), expect: /has no job whose check is `verify`/ },
   ]

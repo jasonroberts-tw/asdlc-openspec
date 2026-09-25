@@ -293,7 +293,7 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 
 | Script | What it does | Gate |
 |---|---|---|
-| `pr-review:check` | Holds the pull-request reviewer's four files to each other: the policy's `prReview*` keys whole, and a floor that covers the reviewer itself; `pr-review.yml` queuing rather than cancelling, waking on `verify`'s runs and filtering on the policy's approval label; the agent it names read-only; and `verify.yml` carrying the required check and a dispatch trigger. Without it a renamed label or check leaves approvals and merges waiting on the schedule, and nothing says why. | pre-push + CI |
+| `pr-review:check` | Holds the pull-request reviewer's four files to each other: the policy's `prReview*` keys whole, and a floor that covers the reviewer itself; `pr-review.yml` queuing rather than cancelling, waking on `verify`'s runs and filtering on the policy's approval label; the agent it names read-only; the review job installing `bd` with `CI` unset and running `bd --version` in the same step; and `verify.yml` carrying the required check and a dispatch trigger. Without it a renamed label or check leaves approvals and merges waiting on the schedule, and nothing says why. | pre-push + CI |
 | `pr-review:selftest` | Every decision the reviewer makes, over fixtures built from the live policy, each case asserting its reason: which verdicts merge, ask a person or request changes, which approvals count, and what the queue takes next. It also runs the wiring gate over doctored copies with an undoctored control. Without it a change to the decisions shows only in a merge nobody meant. | pre-push + CI |
 
 ### tests

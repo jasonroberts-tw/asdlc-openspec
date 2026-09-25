@@ -3,8 +3,17 @@
 # high (`docs/decisions.md` § D-07). Claude Code only returns a verdict; `scripts/pr-review.mjs`
 # decides what the verdict does, by the `prReview*` keys of `tools/policy.json`.
 #
-# WHAT IT WOULD LET THROUGH IF IT WERE WRONG. Written 2026-09-25 (asdlc-openspec-mi6), before the
-# first run, so no incident yet. Two runs merging at once would each judge a base the other was about
+# THE INCIDENT. On 2026-09-25 the review of pull request #47 (run 36191751066) failed before it read
+# anything: `bd bootstrap` found no `bd` binary (asdlc-openspec-61t). `@beads/bd`'s postinstall
+# downloads the binary only when `CI` is unset, Actions sets `CI=true` on every step, and the install
+# exited 0 all the same. The first diagnosis blamed the `allowScripts` warning npm 11.19.0 printed,
+# but that warning withholds nothing yet, and its fix, `--allow-scripts` alone, still skipped the
+# download when measured with `CI=true`. So the install step unsets `CI`, passes `--allow-scripts`
+# for the npm that will enforce it, and runs `bd --version` itself, and `pr-review:check` holds all
+# three.
+#
+# WHAT ELSE IT WOULD LET THROUGH IF IT WERE WRONG. Written 2026-09-25 (asdlc-openspec-mi6), before the
+# first run. Two runs merging at once would each judge a base the other was about
 # to move; a pending run cancelled by a newer one would leave its pull request unreviewed until the
 # schedule; and a job that checked out a pull request's head would run that pull request's code with
 # this workflow's token. So every run that reviews or merges shares one concurrency group whose
@@ -144,8 +153,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: package.json
+      # With `CI` set, `@beads/bd`'s postinstall skips the binary and the install still exits 0, so
+      # `bd --version` fails this step rather than the next (the incident in this file's header).
       - name: install the tracker's CLI at the version the dev container pins
-        run: npm install -g "@beads/bd@$(sed -n 's/^ARG BD_VERSION=//p' .devcontainer/Dockerfile)"
+        run: |
+          unset CI
+          npm install -g --allow-scripts=@beads/bd "@beads/bd@$(sed -n 's/^ARG BD_VERSION=//p' .devcontainer/Dockerfile)"
+          bd --version
+        env:
+          NO_COLOR: '1'
       - name: clone the tracker read-only
         run: |
           chmod 700 .beads
