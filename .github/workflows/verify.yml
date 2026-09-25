@@ -77,9 +77,13 @@ jobs:
         run: npm run openspec:check
       # Seconds, more than the OpenSpec check and less than its selftest (the cost note on
       # lefthook.yml's `calculator-test` job has the measurement): Node's own test runner over
-      # `apps/calculator/test/`, each scenario a test named for it.
+      # `apps/calculator/test/`, each scenario a test named for it, and no matched file without one.
       - name: the calculator's scenarios pass
         run: npm run calculator:test
+      # Under a second (lefthook.yml's `tests-selftest` job has the measurement): fixture trees
+      # under the temporary directory, one Node process per fixture test file.
+      - name: the test runner, negative-tested
+        run: npm run tests:selftest
       - name: the OpenSpec gate, negative-tested
         run: npm run openspec:selftest
       #

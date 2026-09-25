@@ -5,7 +5,8 @@ name, verbatim from the spec, so a scenario traces to the test that proves it by
 except the last suite in `page.test.js`, `serve.test.js` and `server.test.js`, whose name says it is
 not a spec scenario.**
 `npm run calculator:test` runs every file here whose name ends in `.test.js`, with Node's own test
-runner and no framework; a file named otherwise is not run.
+runner and no framework, through `scripts/run-tests.mjs`; a file named otherwise is not run, and a
+file so named that declares no test fails the run.
 
 Where a row here and a test file disagree, the file wins and the row is corrected; where a test and
 the spec disagree, the spec wins and the test is corrected.
