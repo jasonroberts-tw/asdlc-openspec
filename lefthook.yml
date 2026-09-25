@@ -143,8 +143,11 @@ pre-push:
         - '.beads/formulas/**'
       run: node --run citations:selftest
     # The worktree hooks and the guard, negative-tested: each case asserts the REASON a refusal
-    # reports. About a hundred git spawns, so re-measure it on your host before trusting the suite's
-    # total.
+    # reports. Also loads every command `.claude/settings.json` registers from a subdirectory and
+    # from outside the checkout, through a stand-in `node` that runs no hook, so the settings file is
+    # in the glob. About a hundred git spawns: 5.13-7.94 s wall through `node --run`
+    # (`/usr/bin/time -p`, two runs) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-25, so
+    # re-measure it on your host before trusting the suite's total.
     - name: worktree-hooks
       glob:
         - 'scripts/hooks/**'
@@ -152,6 +155,7 @@ pre-push:
         - 'scripts/render-worktree-context.mjs'
         - 'scripts/prune-worktree-branches.mjs'
         - '.claude/worktree-CONTEXT.md.tmpl'
+        - '.claude/settings.json'
       run: node --run worktree:selftest
     # The Stop and SubagentStop hook, run as the harness runs it over scratch citation trees: an
     # untracked file with a broken pointer turns its verdict to FAIL for that reason, an ignored one

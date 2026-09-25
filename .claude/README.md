@@ -18,6 +18,16 @@ Every hook is a Node script under `scripts/hooks/`, registered in `settings.json
 hand with `node scripts/hooks/<name>.mjs < /dev/null` because the shared stdin reader returns null on
 empty input.
 
+**A registration names its script as `node "$CLAUDE_PROJECT_DIR"/scripts/hooks/<name>.mjs`, never
+by a relative path.** The harness runs a hook in the session's current directory, so a relative path
+stops loading after a Bash `cd`, and a guard that fails to load blocks nothing
+(`asdlc-openspec-7dj`). `worktree:selftest` loads every registration from a subdirectory and from
+outside the checkout. `CLAUDE_PROJECT_DIR` names the directory the session started in and does not
+follow it into a worktree, so a session that has entered one runs the primary checkout's copy of
+each hook, as current as that checkout's last pull. A hook that must act on the worktree finds it
+from the payload's `cwd`, as `gate-summary.mjs` does; `guard-git.mjs` does not yet
+(`asdlc-openspec-bvf`).
+
 | Event | Script | Blocks? | What it does |
 |---|---|---|---|
 | `PreToolUse` on Bash | `guard-git.mjs` | yes, in a linked worktree | Tokenises the command; refuses pushes, checkouts, branch writes and merges against the protected branches, and `git worktree`, `gc` and `prune`, from a worktree. A no-op in the primary checkout. Fails closed when it cannot read its input. |

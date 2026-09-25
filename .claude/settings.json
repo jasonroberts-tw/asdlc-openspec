@@ -7,7 +7,7 @@
       {
         "hooks": [
           {
-            "command": "node scripts/hooks/check-emitted-drift.mjs",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/scripts/hooks/check-emitted-drift.mjs",
             "statusMessage": "Re-checking emitted-output drift",
             "timeout": 120,
             "type": "command"
@@ -20,7 +20,7 @@
       {
         "hooks": [
           {
-            "command": "node scripts/hooks/guard-git.mjs",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/scripts/hooks/guard-git.mjs",
             "statusMessage": "Checking the command against the worktree rules",
             "timeout": 15,
             "type": "command"
@@ -31,7 +31,7 @@
       {
         "hooks": [
           {
-            "command": "node scripts/hooks/block-generated-edit.mjs",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/scripts/hooks/block-generated-edit.mjs",
             "statusMessage": "Checking the target is not generated output",
             "timeout": 15,
             "type": "command"
@@ -44,7 +44,7 @@
       {
         "hooks": [
           {
-            "command": "node scripts/hooks/gate-summary.mjs",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/scripts/hooks/gate-summary.mjs",
             "statusMessage": "Running the fast gates",
             "timeout": 240,
             "type": "command"
@@ -56,7 +56,7 @@
       {
         "hooks": [
           {
-            "command": "node scripts/hooks/gate-summary.mjs",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/scripts/hooks/gate-summary.mjs",
             "statusMessage": "Running the fast gates over the subagent's work",
             "timeout": 240,
             "type": "command"
@@ -68,7 +68,7 @@
       {
         "hooks": [
           {
-            "command": "node scripts/hooks/worktree-create.mjs",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/scripts/hooks/worktree-create.mjs",
             "statusMessage": "Provisioning the worktree off main with a briefing",
             "timeout": 120,
             "type": "command"
@@ -80,7 +80,7 @@
       {
         "hooks": [
           {
-            "command": "node scripts/hooks/worktree-remove.mjs",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/scripts/hooks/worktree-remove.mjs",
             "statusMessage": "Removing the worktree",
             "timeout": 60,
             "type": "command"
