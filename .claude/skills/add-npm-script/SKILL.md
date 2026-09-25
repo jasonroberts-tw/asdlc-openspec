@@ -14,9 +14,12 @@ name and the documentation as part of the change, not as follow-up.
 ## 1. Name it
 
 `<group>:<verb>`. Reuse an existing prefix wherever one fits; a new prefix means a new README
-sub-section, which is a decision, not a side effect. The suffixes are the bare name, `:check`,
-`:selftest` and `:update`, and what each one must do is `CLAUDE.md` § The script suffix contract.
-An emitter's `:check` twin in particular is how a reviewer trusts a committed artifact.
+sub-section, which is a decision, not a side effect. A person makes it when they merge the pull
+request, so its description names the new prefix and says why no existing one fits.
+
+The suffixes are the bare name, `:check`, `:selftest` and `:update`, and what each one must do is
+`CLAUDE.md` § The script suffix contract. An emitter's `:check` twin in particular is how a
+reviewer trusts a committed artifact.
 
 A third segment only when it names a sub-artifact rather than a variation
 (`pipeline:stale:check`, `lint:ratchet:update`).
@@ -77,7 +80,10 @@ The section documents **every** script in `package.json`, and its structure is m
   not an input to anything.
 
 Also update `README.md` § What runs automatically when you add, change or remove a hook, a job or
-a CI step, and any row of `README.md` § The guardrails that names the script.
+a CI step. In `README.md` § The guardrails, update any row that names the script, and the row of any
+failure the script now refuses. No row can name a script that is only now being added, so an
+addition finds its row by the failure: `calculator:test`'s new runner, `scripts/run-tests.mjs`,
+joined "A green run that ran nothing" (`asdlc-openspec-frm`).
 
 ## 6. Renaming or removing one
 
