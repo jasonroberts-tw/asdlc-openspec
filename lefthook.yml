@@ -193,6 +193,16 @@ pre-push:
         - 'package.json'
         - 'package-lock.json'
       run: node --run openspec:selftest
+    # The change-build review workflow run against stubbed agents, with the review sizes in
+    # `tools/policy.json`: how it stops, how many skeptics it sends, and what it returns. Reads the
+    # workflow and the policy, and nothing else. 0.09-0.10 s wall through `node --run`
+    # (`/usr/bin/time -p`, two runs) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-25.
+    - name: workflows-selftest
+      glob:
+        - '.claude/workflows/**'
+        - 'scripts/workflows.selftest.mjs'
+        - 'tools/policy.json'
+      run: node --run workflows:selftest
     # The calculator's scenarios, each a test named for its scenario under a suite named for its
     # requirement, run by Node's own test runner over `apps/calculator/test/`. The manifest is in
     # the glob for three reasons: it holds the runner's file pattern, its `"type": "module"` is
