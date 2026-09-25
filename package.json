@@ -25,6 +25,8 @@
     "pipeline:selftest": "node tools/pipeline/selftest.ts",
     "pipeline:stale": "node tools/pipeline/stale.ts",
     "pipeline:stale:check": "node tools/pipeline/stale.ts --check",
+    "pr-review:check": "node scripts/pr-review.mjs --check",
+    "pr-review:selftest": "node scripts/pr-review.mjs --selftest",
     "check:register": "node scripts/check-register-status.mjs",
     "check:register:selftest": "node scripts/check-register-status.mjs --selftest",
     "openspec:check": "node scripts/check-openspec.mjs",

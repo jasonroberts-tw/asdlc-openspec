@@ -51,7 +51,8 @@ Make your own worktree before the first edit, with `EnterWorktree`. Change the p
 `npm run gates`, then rebase, gate again and open the pull request as
 `.claude/skills/bead/SKILL.md` § 5 and § 6 say. The pull request is a proposal: a person reads it
 and decides whether it merges (`CLAUDE.md` § A program proposes; only a person promotes). Never
-merge it yourself.
+merge it yourself. Its title cites no issue, so the pull-request reviewer leaves its merge to a
+person too (`docs/decisions.md` § D-07).
 
 If the permission classifier refuses `npm run gates`, run `npm run citations:check` as its own call
 before you commit, because a prompt edit is what that gate reads, and commit only once it passes.

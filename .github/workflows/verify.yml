@@ -12,6 +12,10 @@ on:
   pull_request:
   push:
     branches: ['main']
+  # The reviewer's merges (`.github/workflows/pr-review.yml`) are made with a workflow token, and an
+  # event that token causes starts no workflow run, so no push run follows them. The reviewer
+  # dispatches this workflow on `main` after each one instead, which keeps it binding on every push.
+  workflow_dispatch:
 
 # A newer run for the same ref supersedes an older one: cancel it rather than queue behind it.
 concurrency:
@@ -47,6 +51,12 @@ jobs:
       # Milliseconds: the change-build review workflow against stubbed agents, with the policy's sizes.
       - name: the build workflow stops, confirms and reports as its policy says
         run: npm run workflows:selftest
+      # Milliseconds: the reviewer's wiring and its decisions, with the policy's values. The reviewer
+      # itself reads a token and a language model, and runs only as `pr-review.yml`.
+      - name: the reviewer's workflow, agent and policy agree
+        run: npm run pr-review:check
+      - name: the reviewer's decisions, and its wiring gate, negative-tested
+        run: npm run pr-review:selftest
       # Milliseconds: the count index held to the committed files its own second table names.
       - name: every count in the index re-derives from its source
         run: npm run counts:check
@@ -95,6 +105,8 @@ jobs:
       #   * the tracker's checks: they read the tracker's database, which a fresh clone does not have.
       #   * the worktree hooks' selftest: about a hundred git spawns against a scratch repository it
       #     builds; it is a pre-push job, and nothing it reads differs in CI.
+      #   * the pull-request review itself: it reads a token, a language model and the tracker, so it
+      #     is `.github/workflows/pr-review.yml`, and only its wiring and decisions are steps here.
       #
       # A RETIRED STEP stays here as a comment saying why a restored step would be wrong, so the next
       # person does not restore it:

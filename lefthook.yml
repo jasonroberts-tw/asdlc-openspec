@@ -224,6 +224,28 @@ pre-push:
         - 'scripts/workflows.selftest.mjs'
         - 'tools/policy.json'
       run: node --run workflows:selftest
+    # The pull-request reviewer's wiring: the policy's `prReview*` keys whole, and `pr-review.yml`,
+    # `verify.yml` and the reviewer's agent spelling the same labels, check and agent. The reviewer
+    # itself reads a token and a language model and runs only as `pr-review.yml`. 0.10 s wall
+    # through `node --run` (`/usr/bin/time -p`) on a macOS 26.7 laptop (Apple M3 Max) with Node
+    # 26.8.1, 2026-09-25.
+    - name: pr-review-check
+      glob:
+        - 'scripts/pr-review.mjs'
+        - 'tools/policy.json'
+        - '.github/workflows/*.yml'
+        - '.claude/agents/pr-reviewer.md'
+      run: node --run pr-review:check
+    # Every decision over fixtures built from the live policy, each asserting its reason, and the
+    # wiring gate over doctored copies of the four files it reads, with an undoctored control. The
+    # same files decide its verdict. 0.16 s wall on the host and date above.
+    - name: pr-review-selftest
+      glob:
+        - 'scripts/pr-review.mjs'
+        - 'tools/policy.json'
+        - '.github/workflows/*.yml'
+        - '.claude/agents/pr-reviewer.md'
+      run: node --run pr-review:selftest
     # The calculator's scenarios, each a test named for its scenario under a suite named for its
     # requirement, run by Node's own test runner over `apps/calculator/test/` through
     # `scripts/run-tests.mjs`, which also refuses a matched file that declares no test. The runner

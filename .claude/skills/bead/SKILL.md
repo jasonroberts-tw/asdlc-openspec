@@ -138,14 +138,18 @@ For each one that touches a file this branch touches, test the merge:
 A shared file is not a conflict; a conflict this reports is.
 
 Push the branch and open the pull request with its base named explicitly (`main`), its body passed
-from a file under `.scratch/`. The body opens with any register entry or prerequisite step 1 named,
+from a file under `.scratch/`. Its title ends with the id of each issue it carries, in parentheses:
+the reviewer holds the pull request to their acceptance criteria (`CLAUDE.md` § Git workflow). The body opens with any register entry or prerequisite step 1 named,
 then any conflict found above, with the pull request it is against. If `gh pr create` fails, run
 `gh pr list --head <branch>` before retrying: a create can land after its client gives up. Watch the
 checks with one `gh pr checks <number> --watch` in the background, and no second watcher; never end
 the turn while it runs. Started just after the create, it can exit 1 at once with "no checks
 reported", because CI has not registered its run yet: that is not a failing check, and starting the
 watcher again is not a second one. A failing check is read, fixed on the same branch and pushed
-again.
+again. The reviewer's `pr-review` check is one of them. It stays pending until the reviewer has
+judged the head, and fails when the review requests changes, with the reasons in its comment on the
+pull request (`gh pr view <number> --comments`). A review that asks for a person passes it, so the
+watcher ends. The report then says the pull request waits for a person, and why.
 
 ## 7. Close on green, with a reason
 
