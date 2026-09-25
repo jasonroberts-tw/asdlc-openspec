@@ -3,7 +3,7 @@
 # high (`docs/decisions.md` § D-07). Claude Code only returns a verdict; `scripts/pr-review.mjs`
 # decides what the verdict does, by the `prReview*` keys of `tools/policy.json`.
 #
-# THE INCIDENT. On 2026-09-25 the review of pull request #47 (run 36191751066) failed before it read
+# THE INCIDENTS. On 2026-09-25 the review of pull request #47 (run 36191751066) failed before it read
 # anything: `bd bootstrap` found no `bd` binary (asdlc-openspec-61t). `@beads/bd`'s postinstall
 # downloads the binary only when `CI` is unset, Actions sets `CI=true` on every step, and the install
 # exited 0 all the same. The first diagnosis blamed the `allowScripts` warning npm 11.19.0 printed,
@@ -11,6 +11,15 @@
 # download when measured with `CI=true`. So the install step unsets `CI`, passes `--allow-scripts`
 # for the npm that will enforce it, and runs `bd --version` itself, and `pr-review:check` holds all
 # three.
+#
+# The same day, the first reviews to reach Claude Code (run 36194854141 and after) failed in the
+# action with "--json-schema was provided but Claude did not return structured_output"
+# (asdlc-openspec-2se). The action says that whenever the session ends in an error, and it hides the
+# error itself, even in debug mode. There were two causes, and only the Anthropic console showed
+# either. First, the federation rule matched a name-only subject, which GitHub no longer issues here
+# (authentication history: `match_subject_prefix`). Then the organisation had no API credit, so the
+# first request made with a valid token failed at no cost. A replayed token (`jti_reused`) was
+# suspected in between, and the authentication history ruled it out. NEEDS below states both.
 #
 # WHAT ELSE IT WOULD LET THROUGH IF IT WERE WRONG. Written 2026-09-25 (asdlc-openspec-mi6), before the
 # first run. Two runs merging at once would each judge a base the other was about
@@ -27,14 +36,20 @@
 # `node scripts/pr-review.mjs next --dry-run`, from any checkout with `gh`, prints what a run would do
 # and writes nothing.
 #
-# NEEDS. An Anthropic federation rule that accepts this workflow's OIDC token when it runs on `main`
-# (subject `repo:<owner>/<repo>:ref:refs/heads/main`, audience `https://api.anthropic.com`). Its ids
-# are the Actions secrets ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID,
-# ANTHROPIC_SERVICE_ACCOUNT_ID and ANTHROPIC_WORKSPACE_ID; no API key is stored anywhere. It also
-# needs `bd` at the version `.devcontainer/Dockerfile` pins, the tracker's database, cloned
-# read-only from this repository's `refs/dolt/data` over HTTPS, and the network. It reads a token, a language model and the network, so it is neither a pre-push
-# job nor a `verify.yml` step (`CLAUDE.md` § The gate ladder): `pr-review:check` holds its wiring to
-# the policy, and `pr-review:selftest` holds every decision, from those tiers.
+# NEEDS. An Anthropic federation rule that accepts this workflow's OIDC token when it runs on `main`,
+# with audience `https://api.anthropic.com`. While the repository's `use_immutable_subject` is on,
+# GitHub issues the subject with the owner's and the repository's ids,
+# `repo:<owner>@<owner id>/<repo>@<repo id>:ref:refs/heads/main`, and a rule written for
+# `repo:<owner>/<repo>:...` refuses it; `gh api repos/{owner}/{repo}/actions/oidc/customization/sub`
+# prints this repository's prefix. The rule's ids are the Actions secrets
+# ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID, ANTHROPIC_SERVICE_ACCOUNT_ID and
+# ANTHROPIC_WORKSPACE_ID; no API key is stored anywhere. The organisation needs API credit: with
+# none, the review step fails with "did not return structured_output". It also needs `bd` at the
+# version `.devcontainer/Dockerfile` pins, the tracker's database, cloned read-only from this
+# repository's `refs/dolt/data` over HTTPS, and the network. It reads a token, a language model and
+# the network, so it is neither a pre-push job nor a `verify.yml` step
+# (`CLAUDE.md` § The gate ladder): `pr-review:check` holds its wiring to the policy, and
+# `pr-review:selftest` holds every decision, from those tiers.
 name: pr-review
 
 on:
