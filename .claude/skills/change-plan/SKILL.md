@@ -15,14 +15,18 @@ gives.
 
 ## 1. Find the change and its epic
 
-- **The change.** The branch is `agent/<change>` (`git branch --show-current`). From the primary
-  checkout, enter the worktree with `EnterWorktree` and the path `.claude/worktrees/<change>`.
+- **The change.** Its name is found as `CLAUDE.md` § Product work runs as OpenSpec-format changes
+  says. The branch is `agent/<change>`. From the primary checkout, enter the worktree with
+  `EnterWorktree` and the path `.claude/worktrees/<change>`.
 - **The epic.** It is the one issue that
   `bd list --label spec-change --type epic --metadata-field change=<change> --json` returns (the
   label is `specChangeLabel` in `tools/policy.json`). If none or several come back, stop and say
   what was found.
 
-Read the proposal, every delta spec, and the design where there is one.
+Read the proposal, every delta spec, and the design, or else the note on the epic in which
+`change-design` ruled one out. With neither, `change-design` has not run: stop and say so. A draft
+already at `.scratch/<change>-plan.md` is an earlier session's; take it to step 3 rather than
+drafting again.
 
 ## 2. Draft the tasks
 
@@ -74,4 +78,5 @@ Afterwards, `bd ready --parent <epic>` lists exactly the tasks that wait on noth
 ## 5. Report
 
 Report the epic, each task's id with the scenarios it covers, what was marked manual, and the first
-ready task. The next stage is `change-build`.
+ready task. The next stage is `change-build`, in a fresh session given the change's name
+(`CLAUDE.md` § Product work runs as OpenSpec-format changes).

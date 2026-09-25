@@ -109,6 +109,21 @@ order: `change-propose`, `change-design`, `change-plan`, `change-build`, `change
 children; the shape and its reasons are `docs/decisions.md` § D-02. Never track a change's tasks in a
 `tasks.md`, and never run `openspec init` or `openspec update` here.
 
+Each stage starts in a fresh session and never depends on an earlier stage's conversation. It picks
+the change up from what the earlier stages wrote down:
+
+- **its name**: the stage's argument, or else the `change` metadata of the one open epic that carries
+  the change label (`specChangeLabel` in `tools/policy.json`), which
+  `bd list --label <that label> --type epic --status open,in_progress,blocked --json` lists. With
+  several, ask the user which;
+- **its epic**, with the epic's description, notes and children;
+- **its worktree**, `.claude/worktrees/<change>` on the branch `agent/<change>`, and the change's
+  folder there, `openspec/changes/<change>/`.
+
+What a later stage needs from an earlier one, such as the user's answer to a question or a decision
+to write no design, goes into one of these before the earlier stage ends. `asdlc-openspec-9ta`
+records what running all six stages of the calculator change in one session cost.
+
 When a later stage sends a change back, the epic gets the `rerouteLabels` label, from
 `tools/policy.json`, for each earlier stage whose work it reopens: the proposal or a delta spec
 revised, the design revised, a task added to the epic, or work `change-verify` sends back to
