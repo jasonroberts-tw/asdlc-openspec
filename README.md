@@ -4,7 +4,7 @@
 should do is agreed before code is written, every rule has one home, and every claim is re-derived
 rather than remembered.** Its name, `asdlc-openspec`, is short for an agentic software development
 lifecycle run on OpenSpec. It puts two things together to get there, and each was taken for the
-failure it prevents.
+failure it prevents. 
 
 - **The starter kit's conventions** (`docs/decisions.md` § D-01). An agent here keeps nothing
   between sessions, may run beside other agents, and can state a figure it never checked. So a rule
