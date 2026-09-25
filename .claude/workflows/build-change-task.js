@@ -57,9 +57,11 @@ export const meta = {
  *   round-limit         the last round `buildReviewMaxRounds` allows confirmed a major defect; its fix
  *                       is unreviewed
  *
- * THE MECHANICS, whose one home is this header. The kinds of finding are defined once, in KIND_RULE
- * below, which every agent reads. What the parent does with each is
- * `.claude/skills/change-build/SKILL.md` § 5. What the build turns up.
+ * THE MECHANICS, whose one home is this header. The kinds of finding are defined in KIND_RULE below,
+ * which every agent reads, but for one case, a scenario a known-wrong implementation satisfies, whose
+ * home is `.claude/skills/change-build/SKILL.md` § 5. What the build turns up. That section also says
+ * what the parent does with each kind, and KIND_RULE cites it for the one case and has every agent
+ * read it first.
  *
  *   Merge. Findings of one kind naming one file go, where there are two or more, to one agent that
  *   groups those describing one defect. A group becomes one finding, with the highest severity among
@@ -130,6 +132,7 @@ const LENSES = {
       'Mutate what the scenarios state: each condition, each boundary, each branch, each value written out. For a gate, break the gate and run its selftest: a case that still holds does not assert its reason.',
       'Give each surviving mutant its kind by the rule below. A mutation that cannot change anything observable is equivalent, and not a finding.',
       'Also look for skipped, todo or only tests, assertions that can pass over an empty list, and helpers that swallow exceptions.',
+      'Look too for a test whose assertions depend on the environment, such as whether a port is free, with a weaker branch it can pass on; hold it to the rule for such a test in ' + ROUTES + '.',
     ].join(' '),
   },
   wiring: {
@@ -164,11 +167,13 @@ const LENSES = {
 /* ------------------------------------------------------------------------------- the rules ----- */
 
 const KIND_RULE = [
+  'Read ' + ROUTES + ' before you give any finding a kind: one case below is decided there, not here.',
   'Give every finding one kind. First quote, in `against`, the sentence of the delta specs, the design or the task that says what should happen.',
   '- No sentence to quote: coverage-gap. The behaviour may well be right, but nothing states it, so nothing proves it. A mutant you can call wrong only by your own judgement is one.',
   '- The code as it stands breaks the sentence: defect.',
-  "- Only a known-wrong implementation, a mutant, breaks it: when no scenario is about that sentence, coverage-gap; when a faithful test of the scenario would fail the mutant but the task's own test passes it, defect, because the task's proof does not prove its scenario; when the mutant satisfies every WHEN and THEN of the scenario as written, spec-contradiction.",
-  '- A scenario that cannot hold as written, or a behaviour the delta specs leave undecided so that the build had to choose: spec-contradiction. Code that gets a behaviour right where no scenario speaks is never one.',
+  "- Only a known-wrong implementation, a mutant, breaks it: when no scenario is about that sentence, coverage-gap; when a faithful test of the scenario would fail the mutant but the task's own test passes it, defect, because the task's proof does not prove its scenario; " +
+    'otherwise, the kind ' + ROUTES + ' gives it.',
+  '- A scenario that cannot hold as written, a behaviour the delta specs leave undecided so that the build had to choose, or anything else that § 5 calls a spec that is wrong: spec-contradiction. Code that gets a behaviour right where no scenario speaks is never one.',
   '- A real defect in a file or a task this task does not own: out-of-scope. Work this change needs that no task of its plan covers: unplanned.',
   'Grade a finding blocker or major when it breaks a scenario or an acceptance criterion, and minor when it is real but small. Report nothing that is a matter of taste.',
   'Where each kind goes is ' + ROUTES + '; the parent session routes it, not you.',

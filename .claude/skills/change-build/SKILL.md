@@ -63,19 +63,34 @@ Then, whatever the workflow reported:
 - Run the proof the task names yourself, and see it pass as measured. A proof you did not run is not
   a proof.
 - Regenerate every derived artifact the change touches with its emitter, never by hand.
+- Put any doubt about a scenario's expected value to the user, and have the answer, before the
+  commit below (§ 5). `build.decisions` and `lastFix.decisions` can raise one.
 - Commit, with the message passed from a file under `.scratch/`, naming the task's id.
 
-After a spec revision (§ 5), run the workflow for the task again, with the revision in `settled`.
+After a spec revision (§ 5), run the workflow for the task again. Whenever it runs again for a task,
+`settled` carries the revision and each answer the user gave to a doubt.
 
 ## 4. Close it
 
-Run `bd close <id> --reason "<short commit id>: <what now exists>"`.
+Run `bd close <id> --reason "<the subject of the commit that built it>"`. The subject, never the id:
+`change-finalize` rebases the branch and its pull request is rebase-merged
+(`docs/decisions.md` § D-02), and each of them rewrites every commit id.
 
 ## 5. What the build turns up
 
 - **A review finding** blocks the task only when the code contradicts the spec, the design or the
   task. A behaviour the code gets right but no scenario proves is out of scope, filed as below, so
   review does not loop on coverage.
+- **A scenario that a known-wrong implementation satisfies**, every WHEN and THEN as written, is a
+  spec that is wrong (below), not a coverage gap: the spec states the behaviour, and the scenario
+  that states it cannot fail.
+- **A doubt about a scenario's expected value**, whether you hold it yourself or a decision the
+  build reports raises it: put it to the user before the task that encodes the value is committed,
+  and never hold it for the report in step 6. Every task built on the value before the user
+  reverses it is rework.
+- **A test whose assertions depend on the environment**, such as whether a port is free, fails or
+  skips visibly where the environment is not the one it needs, and never passes on a weaker branch
+  that asserts less. A pass on the weaker branch prints the same as a pass on the full one.
 - **Out of scope**, such as a defect nearby or a gap somewhere else: file it with
   `bd create "<title>" -l <the repo: label>,<its found-at label>,<its asset: labels> --deps discovered-from:<epic> --body-file <file> --silent`,
   with the labels `CLAUDE.md` § The task store names; here the found-at label is build's.
