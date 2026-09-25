@@ -63,10 +63,9 @@ As each lane reports green, merge its branch into the dispatcher's branch. Never
 that has been pushed. After each merge, regenerate every generated file more than one lane touched,
 renumber any register entry that collided, then run `npm run gates`.
 
-## 6. Open the pull request and poll its checks
+## 6. Open the pull request and watch its checks
 
-Base named explicitly (`main`), body from a file under `.scratch/`. Poll the checks in the
-background; never end the turn while they run.
+Open it with the `open-pr` skill. Its title ends with the id of every issue the lanes carried.
 
 ## 7. Report one table
 

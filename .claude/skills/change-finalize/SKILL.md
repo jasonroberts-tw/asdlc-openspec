@@ -60,9 +60,7 @@ in step 2, so a refusal here means stop and read it.
 - **Commit** the archive move, the living spec, the Purpose and every file repointed together, with
   the message passed from a file under `.scratch/`.
 
-## 5. Push, and open the pull request
-
-Run `git push -u origin agent/<change>`.
+## 5. Open the pull request
 
 Write the body to `.scratch/<change>-pr.md`. It covers:
 
@@ -78,12 +76,11 @@ Write the body to `.scratch/<change>-pr.md`. It covers:
 
 Every figure in the body is re-derived (`CLAUDE.md` § Verification before claiming).
 
-Then run `gh pr create --base main --head agent/<change> --title "<change>: <what changed> (<epic id>)" --body-file .scratch/<change>-pr.md`.
-The epic's id ends the title, because the reviewer holds the pull request to the acceptance criteria
-of the issues its title cites (`CLAUDE.md` § Git workflow).
-
-Poll the checks in the background, and never end the turn while they run. Read a failing check, fix
-it on the branch, and push again.
+Then open it with the `open-pr` skill, from the branch `agent/<change>`, with that body file and the
+title `<change>: <what changed> (<epic id>)`. The epic's id ends the title, because the reviewer
+holds the pull request to the acceptance criteria of the issues its title cites
+(`CLAUDE.md` § Git workflow). The skill watches the checks to the reviewer's verdict, and a fix it
+asks for is made here, in the worktree.
 
 ## 6. Leave the worktree
 
@@ -96,7 +93,7 @@ The pull-request reviewer merges it (`docs/decisions.md` § D-07). It reviews th
 `verify` passes, against the epic's acceptance criteria, and merges it when every dimension passes
 and its risk is not high. Its verdict is the `pr-review` check and a comment on the pull request.
 
-Wait for it with one `gh pr checks <number> --watch` in the background, then read
+Step 5's `open-pr` skill watched the checks to that verdict. Read
 `gh pr view <number> --json state,mergedAt,labels`:
 
 - **`MERGED`.** Carry on from the remote branch below, and then step 8.
@@ -105,7 +102,8 @@ Wait for it with one `gh pr checks <number> --watch` in the background, then rea
   or applies the approval label for the reviewer to merge it. Never apply the label yourself
   (`CLAUDE.md` § Git workflow). Wait for `MERGED` as above.
 - **The review requests changes.** Read its comment, go back into the worktree with `EnterWorktree`,
-  and fix, gate, commit and push as the earlier steps do. The reviewer judges the new head.
+  and fix, gate, commit and push as the earlier steps do. Then mark and watch the new head as the
+  `open-pr` skill's steps 5 and 6 say. The reviewer judges the new head.
 
 `scripts/hooks/guard-git.mjs` refuses a merge from a worktree.
 

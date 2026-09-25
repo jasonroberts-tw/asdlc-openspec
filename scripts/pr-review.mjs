@@ -6,6 +6,10 @@
  * keys of `tools/policy.json` (`docs/decisions.md` § D-07).
  *
  *   node scripts/pr-review.mjs mark     a new head: set its status pending (pull_request_target)
+ *   PR=<n> node scripts/pr-review.mjs mark
+ *                                       the same, from the session that just opened pull request <n>
+ *                                       (the `open-pr` skill): the head is read from GitHub, and one
+ *                                       that already carries the reviewer's status is left alone
  *   node scripts/pr-review.mjs next     choose this run's one action: review, merge or none
  *   node scripts/pr-review.mjs brief    write the reviewer's brief for one head commit
  *   node scripts/pr-review.mjs act      post the verdict, set labels and status, and merge
@@ -22,7 +26,11 @@
  *
  * The subcommands read their inputs from the environment the workflow sets (PR, SHA, ACTION, MORE,
  * VERDICT, FACTS, REVIEW_RESULT, REVIEW_DIR, FORCE_PR, GH_TOKEN), never from the command line, so no
- * value from a pull request is ever interpolated into a shell.
+ * value from a pull request is ever interpolated into a shell. A session sets PR alone, for `mark`.
+ * The workflow's `mark` job sets the status seconds after the create: 11 s on #47, created at
+ * 21:27:59Z and marked at 21:28:10Z on 2026-09-25. Until then, `gh pr checks --watch` can exit at once
+ * with "no checks reported". So the session that opens a pull request marks it too, and both marks
+ * set the same pending status.
  *
  * THE INCIDENT, AND WHAT ELSE IT WOULD LET THROUGH. The first local run of the reviewer, over pull
  * request #40 on 2026-09-25 (asdlc-openspec-mi6), returned its whole verdict as text: 31 turns,
@@ -55,7 +63,8 @@
  * schedule. `pr-review:check` holds that spelling; the selftest holds every decision above.
  *
  * NEEDS. `mark`, `next` and `act` need `gh` with a token that can read pull requests and, for `act`,
- * write them; `brief` also needs `git` with `origin` fetchable and `bd` with the tracker cloned
+ * write them, and for `mark`, `next` and `act`, write commit statuses; from a session, that is the
+ * person's own `gh` login; `brief` also needs `git` with `origin` fetchable and `bd` with the tracker cloned
  * (`bd bootstrap`), since it reads each cited issue. All four need the network, which is why none
  * is a pre-push job or a `verify.yml` step (`CLAUDE.md` § The gate ladder). `pr-review:check` and
  * `pr-review:selftest` read only committed files and `js-yaml`, in milliseconds, and are both.
@@ -604,6 +613,33 @@ export function statusFor(decision) {
   return { state: 'error', description: clip(`The review did not complete: ${first}`) }
 }
 
+/**
+ * The head `mark` sets pending, and whether it sets it. The workflow passes `SHA`, `DRAFT`,
+ * `BASE_REF` and `HEAD_REPO` from its event, and then every value comes from the environment, as it
+ * always has. A session that has just opened a pull request (the `open-pr` skill) passes `PR` alone:
+ * `pull` is then that pull request as GitHub returns it, and `current` the reviewer's status on its
+ * head, or null. A session marks only a head nobody has marked, so a second call, or one after the
+ * verdict, never turns a verdict back to pending: the queue re-marks no head it has judged.
+ */
+export function markTarget(environment, { pull = null, current = null, repo }) {
+  const need = (name) => {
+    const value = environment[name]
+    if (value === undefined || value === '') throw new Error(`${name} is not set; the workflow sets it, and a session sets PR alone`)
+    return value
+  }
+  const fromEvent = Boolean(environment.SHA)
+  const head = fromEvent
+    ? { sha: need('SHA'), draft: need('DRAFT') === 'true', base: need('BASE_REF'), headRepo: need('HEAD_REPO') }
+    : { sha: pull.head.sha, draft: Boolean(pull.draft), base: pull.base.ref, headRepo: pull.head.repo?.full_name ?? '' }
+  if (head.draft || head.base !== TRUNK || head.headRepo !== repo) {
+    return { sha: head.sha, mark: false, why: `#${environment.PR} is a draft, from a fork, or not against ${TRUNK}: the reviewer does not take it.` }
+  }
+  if (!fromEvent && current) {
+    return { sha: head.sha, mark: false, why: `${short(head.sha)} already carries the reviewer's status (${current.state}): a session marks only a head nobody has marked.` }
+  }
+  return { sha: head.sha, mark: true, why: `${short(head.sha)} waits for its review` }
+}
+
 /* -------------------------------------------------------------------------- the queue ----- */
 
 /**
@@ -819,12 +855,18 @@ function env(name, { required = true } = {}) {
 function mark({ dryRun }) {
   const policy = readPolicy(ROOT)
   const repo = repoName()
-  const eligible = env('DRAFT') !== 'true' && env('BASE_REF') === TRUNK && env('HEAD_REPO') === repo
-  if (!eligible) {
-    console.log(`#${env('PR')} is a draft, from a fork, or not against ${TRUNK}: the reviewer does not take it.`)
-    return
+  const pr = env('PR')
+  let pull = null
+  let current = null
+  if (!process.env.SHA) {
+    if (!/^[0-9]+$/.test(pr)) throw new Error(`PR is ${JSON.stringify(pr)}, not a pull request number`)
+    pull = ghJson(`repos/${repo}/pulls/${pr}`)
+    current = currentStatus(repo, pull.head.sha, policy.prReviewStatusContext)
   }
-  setStatus(dryRun, repo, env('SHA'), policy, 'pending', `Queued: reviewed once ${policy.prReviewRequiredCheck} passes at this head`)
+  const target = markTarget(process.env, { pull, current, repo })
+  console.log(target.why)
+  if (!target.mark) return
+  setStatus(dryRun, repo, target.sha, policy, 'pending', `Queued: reviewed once ${policy.prReviewRequiredCheck} passes at this head`)
 }
 
 function next({ dryRun }) {
@@ -1406,6 +1448,12 @@ function helperCases(policy) {
   const holds = (input) => approvalHolds({ labelsNow: [approved], permission: 'admin', verdictAt: '2026-09-25T10:00:00Z', ...input }, policy)
   const pr = (number, extra = {}) => ({ number, sha: `${number}`.padEnd(40, 'a'), draft: false, base: TRUNK, sameRepo: true, verify: 'success', mergeable: true, verdict: null, approved: false, status: null, ...extra })
   const green = { verify: 'success' }
+  const REPO = 'owner/repo'
+  const eventSha = 'e'.repeat(40)
+  const openedSha = 'f'.repeat(40)
+  const opened = (extra = {}) => ({ head: { sha: openedSha, repo: { full_name: REPO } }, base: { ref: TRUNK }, draft: false, ...extra })
+  /** A mark that is refused, and refused for the reason `why` matches. */
+  const because = (out, why) => (out.mark === false && why.test(out.why) ? null : `mark ${out.mark}, why ${JSON.stringify(out.why)}`)
   const h = (name, fn) => ({ name, run: fn })
   return [
     h('the ids in the parentheses that end a title are cited, and no others', () =>
@@ -1522,6 +1570,28 @@ function helperCases(policy) {
         ['success', 'success', 'failure', 'error'],
         'states',
       )),
+    h('mark, control: the workflow passes the head in its event, and it is marked whatever status it carries', () => {
+      const out = markTarget({ PR: '7', SHA: eventSha, DRAFT: 'false', BASE_REF: TRUNK, HEAD_REPO: REPO }, { repo: REPO, current: { state: 'success' } })
+      return assertEqual([out.mark, out.sha], [true, eventSha], 'mark')
+    }),
+    h('mark: a session passes PR alone, and the head is read from the pull request', () => {
+      const out = markTarget({ PR: '7' }, { pull: opened(), repo: REPO })
+      return assertEqual([out.mark, out.sha], [true, openedSha], 'mark')
+    }),
+    h('mark: a session\'s draft is not marked, by its reason', () =>
+      because(markTarget({ PR: '7' }, { pull: opened({ draft: true }), repo: REPO }), /#7 is a draft, from a fork, or not against main/)),
+    h('mark: a session\'s pull request from a deleted fork is not marked, by its reason', () =>
+      because(markTarget({ PR: '7' }, { pull: opened({ head: { sha: openedSha, repo: null } }), repo: REPO }), /is a draft, from a fork, or not against main/)),
+    h('mark: a session leaves a head that already carries the reviewer\'s status, by its reason', () =>
+      because(markTarget({ PR: '7' }, { pull: opened(), current: { state: 'success' }, repo: REPO }), /already carries the reviewer's status \(success\)/)),
+    h('mark: an event with SHA and no DRAFT names what is missing', () => {
+      try {
+        markTarget({ PR: '7', SHA: eventSha }, { repo: REPO })
+        return 'returned, where it should have thrown'
+      } catch (error) {
+        return /DRAFT is not set/.test(error.message) ? null : `threw for another reason: ${error.message}`
+      }
+    }),
   ]
 }
 
