@@ -28,6 +28,11 @@ each one landed from. A point an earlier review set aside under *Deliberately no
 raised again unless this run shows something that review did not have. Reviews written before
 `docs/decisions.md` § D-05 were files, and that entry says how to recover them.
 
+The run you review often worked on a branch of its own, such as a change's, whose files are not on
+`origin/main`. Read them where they are, with `git show origin/<branch>:<path>`. Never stage or copy
+them into your own tree, not even so that a gate reads them: your pull request would then carry
+another branch's files, which someone has to take out before it merges.
+
 ## 2. Decide whether the prompt should change
 
 Look for what made the run slower or wrong: long-running steps, repeated cycles, incorrect
@@ -47,6 +52,19 @@ Make your own worktree before the first edit, with `EnterWorktree`. Change the p
 `.claude/skills/bead/SKILL.md` § 5 and § 6 say. The pull request is a proposal: a person reads it
 and decides whether it merges (`CLAUDE.md` § A program proposes; only a person promotes). Never
 merge it yourself.
+
+If the permission classifier refuses `npm run gates`, run `npm run citations:check` as its own call
+before you commit, because a prompt edit is what that gate reads, and commit only once it passes.
+End the description with a `RUN THESE YOURSELF` block holding the refused command (`CLAUDE.md`
+§ Guards), so the person deciding the merge runs the full suite first. In the reviews of the
+add-calculator-web-app change, a reviewer whose gate run was refused committed a review that had
+passed no gate, and its pointer to a file only the change branch held was found when the
+maintainer ran the gates by hand.
+
+The description and every edit cite only files your own base holds. A file that only the reviewed
+branch holds, such as a change's design, is named in prose by its branch and its path, never as a
+pointer: in the description it sends a reader to a file the trunk lacks, and in a tracked file the
+citations gate refuses it.
 
 Its description is the review, in this order. The section names are a default; the two closing
 sections are the value.
