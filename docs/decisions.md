@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-06 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24).**
+**Status: every decision from D-01 to D-07 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-06` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-07` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -62,10 +62,13 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-04** | The repository carries a demo product, a calculator served on loopback only | `apps/calculator/`, served by `npm run calculator:serve` on `127.0.0.1` alone; its tests as the `calculator-test` pre-push job and a CI step; and the worktree briefing's port paragraphs |
 | **D-05** | A prompt review runs in the background, and lives in its own pull request rather than in a file | `CLAUDE.md` § Prompt reviews, the `continuous-prompt-improvement` agent, and `docs/prompt-reviews/` and every `Reviewed:` trailer deleted |
 | **D-06** | The learning loop is retired; a run's labels in the tracker show what recurs | `tools/outcomes/` and `artifacts/outcomes/` deleted with their scripts and jobs; three label vocabularies in `tools/policy.json`; `CLAUDE.md` § The task store and § Product work runs as OpenSpec-format changes; `change-finalize`'s report and the prompt reviewer's analysis read the counts |
+| **D-07** | A reviewer merges each pull request that satisfies the issues it carries, one at a time | `.github/workflows/pr-review.yml`, the `pr-reviewer` agent and `scripts/pr-review.mjs`; the `prReview*` keys of `tools/policy.json`; `CLAUDE.md` § Git workflow; the `bead` and `change-finalize` skills; `verify.yml` dispatched after each merge |
 
 ## Risks
 
-None recorded yet. The first is `R-01`.
+| Id | Risk | Held by |
+|---|---|---|
+| **R-01** | Anything holding a maintainer's credentials, an agent included, can approve a high-risk pull request | `CLAUDE.md` § Git workflow and review; no guard yet (`asdlc-openspec-g1b`) |
 
 ## The entries
 
@@ -353,3 +356,73 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 - One archived change: `git ls-tree --name-only <that commit>^ openspec/changes/archive/`.
 - The calculator spec's scenarios, 30 before the build's revision and 47 after: `git grep -c "#### Scenario:" d00e197^ -- openspec/changes/add-calculator-web-app/specs/calculator/spec.md`, and the same at `d00e197`.
 - The 25 issues discovered from the first change, and the labels each was given on 2026-09-24: `bd show asdlc-openspec-zgh` lists them under DISCOVERED, with the epic's own labels, and `bd show <id>` gives each one's. `bd count -l <found-at label> --by-label` counts them with every issue filed since, so it grows after this date.
+
+### D-07 · A reviewer merges each pull request that satisfies the issues it carries, one at a time
+
+**Recorded 2026-09-25**, carried by `asdlc-openspec-mi6`. The maintainer asked for it on 2026-09-25. They allowed the rules in the prompts to be updated, and responsibilities moved, to make it work.
+
+**Builds on / amends:** amends no entry's text. Builds on:
+
+- D-02, whose item 6 rebase-merges a change's pull request; the reviewer merges that way too.
+- D-03, whose policy file holds the reviewer's constants.
+- D-05, which it leaves as it stands: a prompt review's pull request cites no issue, so a person still decides whether it merges.
+
+**Decision.** `.github/workflows/pr-review.yml` reviews each open pull request against `main`, one at a time, and merges each one that passes.
+
+1. **One at a time.** Every run that reviews or merges shares one concurrency group, whose pending runs queue (`queue: max`) rather than cancel.
+   - A run takes one action: a merge before a review, the oldest pull request first. It dispatches itself again while more are waiting.
+   - No merge happens while `main`'s own `verify` run is anything but green.
+   - A head is reviewed only once `verify` has passed on it.
+2. **A pull request cites the issues it carries in its title**, as the ids in the parentheses that end it. A title that cites none is reviewed, and a person merges it. A prompt review's pull request is one of these.
+3. **Claude Code judges, and decides nothing.** It runs as `.claude/agents/pr-reviewer.md`, with read-only tools and a read-only token, from a brief `scripts/pr-review.mjs` writes. It judges three dimensions:
+   - **Correctness:** it reports every acceptance criterion of every cited issue as met, not met or unverifiable, with evidence.
+   - **Maintainability:** it holds each changed file to the product rubric or the context-engineering rubric, as `prReviewContextPaths` assigns it.
+   - **Blast radius and risk:** it judges who a mistake would reach and how far.
+4. **`scripts/pr-review.mjs` decides**, by the `prReview*` keys of `tools/policy.json`:
+   - a criterion the reviewer did not report counts as unverified;
+   - a blocker or major finding fails maintainability;
+   - risk is never below a floor computed from the changed paths and JSON keys. The floor covers CI, the reviewer itself, the rules and this register.
+5. **What each outcome does.** Each is the `pr-review` status on the head and a comment on the pull request.
+   - A failed dimension requests changes: a red status, which the author's watcher reads.
+   - A criterion nobody can verify, a title with no issue, or high risk asks a person. The person merges it, or applies the approval label, and the reviewer then merges that head.
+   - Otherwise the reviewer rebase-merges it and dispatches `verify.yml` on `main`, since a merge made with a workflow token starts no push run.
+6. **A product change's pull request merges through the reviewer too.** `change-finalize` ends its title with the epic's id and waits for the merge instead of asking the user for one.
+7. **An agent never applies the approval label** (`CLAUDE.md` § Git workflow). R-01 records why that rule is all that holds it today.
+
+**Why.** The maintainer asked that a pull request which satisfies every dimension "should automatically be merged", and that the workflow "run single threaded for now, only processing one PR at a time so merge conflict thrashing doesn't occur". Six alternatives lost:
+
+- **GitHub's own approval as the person's gate.** One account opened and merged every pull request so far, and GitHub does not let an author approve their own.
+- **An environment with required reviewers.** A run waiting for that approval holds the concurrency group, so one high-risk pull request would stop the queue.
+- **Letting Claude Code merge through its own tools.** The judge would hold what it judges with, and a pull request that persuaded it would merge itself.
+- **GitHub's default concurrency queue.** It keeps one pending run and cancels the one before it, so a pull request's wake-up could be lost.
+- **Reviewing before `verify` passes.** That spends a review on a head CI then refuses.
+- **The review as a pre-push job or a `verify.yml` step.** It reads a token and a language model (`CLAUDE.md` § The gate ladder). Only its wiring and its decisions are gates.
+
+**What changed.**
+
+- **This register:** this entry and R-01; the status line, the blockquote's bound, the decisions table and the risks table.
+- **Added:** `.github/workflows/pr-review.yml`, with `.github/workflows/README.md`; `.claude/agents/pr-reviewer.md`; `scripts/pr-review.mjs`.
+- **`tools/policy.json`:** the `prReview*` keys, each with its `Means` sibling; `describes`, `gatedBy`, `whatItDoesNOTDo` and `provenance` name them.
+- **`package.json`:** `pr-review:check` and `pr-review:selftest`, each a pre-push job in `lefthook.yml` and a step in `.github/workflows/verify.yml`.
+- **`.github/workflows/verify.yml`:** a `workflow_dispatch` trigger, for the reviewer's merges.
+- **`CLAUDE.md`:** § Git workflow says how a pull request reaches the trunk and who applies the approval label.
+- **`.claude/skills/bead/SKILL.md`:** § 6 ends the title with the carried ids and reads the `pr-review` check.
+- **`.claude/skills/change-finalize/SKILL.md`:** § 5 ends the title with the epic's id; § 7 waits for the reviewer's merge.
+- **`.claude/agents/continuous-prompt-improvement.md`:** § 3 says its pull request stays a person's to merge.
+- **`README.md`:** each section that says who merges, or lists what runs and where; and `scripts/README.md`, one row.
+
+**Figures.** 45 pull requests, every one opened and merged by one account, as of 2026-09-25: `gh pr list --state all --limit 200 --json author,mergedBy`.
+
+### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
+
+**Recorded 2026-09-25**, carried by `asdlc-openspec-mi6`.
+
+**Builds on / amends:** builds on D-07, whose approval label it is about.
+
+**Risk.** The reviewer counts the approval label when a non-bot account with write access applies it after the verdict on the head. The sessions that work here run `gh` with the maintainer's own credentials. An agent that applied the label would therefore count as the maintainer, and a high-risk pull request would merge without a person having read it. `CLAUDE.md` § Git workflow forbids an agent to apply it; no guard refuses one.
+
+**Why.** It is accepted for now because the alternative needs an identity the repository does not yet have. GitHub cannot tell two sessions of one account apart. The fix is either for agents to act under an identity of their own, a bot account or a GitHub App, whose approval the reviewer refuses; or a guard that refuses the command in session. `asdlc-openspec-g1b` carries it.
+
+**What changed.** Nothing yet, beyond the rule in `CLAUDE.md` § Git workflow.
+
+**Figures.** None.

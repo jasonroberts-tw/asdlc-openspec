@@ -1,9 +1,9 @@
 {
-  "describes": "The constants the workflow's prompts and tools read that belong to no one tool: the spelling of the tracker label that marks a product change's epic and every one of its tasks, the three label vocabularies a run leaves in the tracker so that `bd count` can show what recurs across runs, and the sizes of the review that `.claude/workflows/build-change-task.js` runs on each task of a product change.",
+  "describes": "The constants the workflow's prompts and tools read that belong to no one tool: the spelling of the tracker label that marks a product change's epic and every one of its tasks, the three label vocabularies a run leaves in the tracker so that `bd count` can show what recurs across runs, the sizes of the review that `.claude/workflows/build-change-task.js` runs on each task of a product change, and what the pull-request reviewer (`.github/workflows/pr-review.yml`, deciding through `scripts/pr-review.mjs`) reads to decide a merge.",
   "whyThisFileExists": "A constant spelled in a register entry, six skills and an agent is eight copies, and the stale one is the one a reader finds. CLAUDE.md § Three kinds of file, and never a fourth puts every constant a tool or a prompt reads in a policy file under a key, with its reason beside it. `docs/decisions.md` § D-02 held the label's spelling only until this file existed; § D-03 moved it here.",
-  "gatedBy": "npm run openspec:check (this file carries `specChangeLabel` and its `Means` sibling; every skill and agent that spells the label cites the key, and every one that cites the key spells its current value). No gate yet holds `assetLabels`, `foundAtLabels` or `rerouteLabels`: the prompts cite the keys and spell none of their values, and asdlc-openspec-dzi asks `beads:check` to refuse a found issue without them. npm run workflows:selftest holds the four `buildReview*` keys: it runs the workflow against stubbed agents with this file's values, runs a clean control for every `buildReviewLenses` key, and refuses a missing key, a kind that is not an `assetLabels` key and a lens the workflow does not have.",
-  "whatItDoesNOTDo": "It does not hold a rule about how a run proceeds, which lives in CLAUDE.md or in the skill that runs it: when a label is applied is CLAUDE.md § The task store and § Product work runs as OpenSpec-format changes, and who reads the counts is `.claude/skills/change-finalize/SKILL.md` § 9. Report. It computes nothing: `bd count` does the counting. It holds no prompt text: the review's lens prompts and the kinds of finding they report are the workflow's own, and what a finding blocks is `.claude/skills/change-build/SKILL.md` § 5. What the build turns up.",
-  "provenance": "Written 2026-09-23 under D-03 (asdlc-openspec-4gp), which moved the label's spelling here out of D-02. Each later key carries its date and its evidence in its `Means` sibling.",
+  "gatedBy": "npm run openspec:check (this file carries `specChangeLabel` and its `Means` sibling; every skill and agent that spells the label cites the key, and every one that cites the key spells its current value). No gate yet holds `assetLabels`, `foundAtLabels` or `rerouteLabels`: the prompts cite the keys and spell none of their values, and asdlc-openspec-dzi asks `beads:check` to refuse a found issue without them. npm run workflows:selftest holds the four `buildReview*` keys: it runs the workflow against stubbed agents with this file's values, runs a clean control for every `buildReviewLenses` key, and refuses a missing key, a kind that is not an `assetLabels` key and a lens the workflow does not have. npm run pr-review:check holds the `prReview*` keys: it refuses a missing key or `Means` sibling, a value of the wrong shape, and a `.github/workflows/pr-review.yml` or `.github/workflows/verify.yml` that spells a label, a status context or a check other than this file does; npm run pr-review:selftest runs the reviewer's decisions over fixtures built from these values.",
+  "whatItDoesNOTDo": "It does not hold a rule about how a run proceeds, which lives in CLAUDE.md or in the skill that runs it: when a label is applied is CLAUDE.md § The task store and § Product work runs as OpenSpec-format changes, and who reads the counts is `.claude/skills/change-finalize/SKILL.md` § 9. Report. It computes nothing: `bd count` does the counting. It holds no prompt text: the review's lens prompts and the kinds of finding they report are the workflow's own, and what a finding blocks is `.claude/skills/change-build/SKILL.md` § 5. What the build turns up. The pull-request reviewer's rubrics are the prose of `.claude/agents/pr-reviewer.md`, and how its verdict becomes a merge is `scripts/pr-review.mjs`; this file holds only the values both read.",
+  "provenance": "Written 2026-09-23 under D-03 (asdlc-openspec-4gp), which moved the label's spelling here out of D-02. Each later key carries its date and its evidence in its `Means` sibling; the `prReview*` keys came with D-07 (asdlc-openspec-mi6).",
 
   "specChangeLabel": "spec-change",
   "specChangeLabelMeans": "The tracker label on a product change's epic and on every one of its tasks (docs/decisions.md § D-02, item 3). change-propose puts it on the epic and the children inherit it; the general sweeps of the queue exclude it (`bd ready --exclude-label` in the bead skill and the fan-out-work agent), and change-plan, change-build, change-verify and change-finalize find the epic by it. Changing it here strands every open change: relabel their epics and tasks in the same change, and respell the label in every skill and agent that cites this key, which `npm run openspec:check` names. Decided 2026-09-23 with D-02; moved here 2026-09-23 by D-03.",
@@ -62,5 +62,61 @@
   "buildReviewMaxRoundsMeans": "The most review rounds one run of the workflow makes. A round reviews, confirms and fixes, and the next reviews that fix; after the last round's fix the run stops and reports the fix as unreviewed, and the parent reads its diff. In the calculator change no round after the second confirmed anything: its two third rounds sent 2 findings to skeptics and confirmed none (wf_ad92e5b6-d54 and wf_2d38608d-3a8, workflow state files outside this repository). Decided 2026-09-25 (asdlc-openspec-d6b).",
 
   "buildReviewMajorSeverities": ["blocker", "major"],
-  "buildReviewMajorSeveritiesMeans": "The severities of a confirmed defect that earn another review round. A round that confirms none of these is the last: its confirmed minor defects are fixed and the run stops, so review does not loop on small findings, as `.claude/skills/change-build/SKILL.md` § 5. What the build turns up keeps it from looping on coverage. No build run of the calculator change confirmed a finding above minor, yet five of them ran a second round and two a third (the session's wf_*.json workflow state files, outside this repository). Decided 2026-09-25 (asdlc-openspec-d6b)."
+  "buildReviewMajorSeveritiesMeans": "The severities of a confirmed defect that earn another review round. A round that confirms none of these is the last: its confirmed minor defects are fixed and the run stops, so review does not loop on small findings, as `.claude/skills/change-build/SKILL.md` § 5. What the build turns up keeps it from looping on coverage. No build run of the calculator change confirmed a finding above minor, yet five of them ran a second round and two a third (the session's wf_*.json workflow state files, outside this repository). Decided 2026-09-25 (asdlc-openspec-d6b).",
+
+  "prReviewIssuePattern": "asdlc-openspec-[a-z0-9]+(?:\\.[0-9]+)*",
+  "prReviewIssuePatternMeans": "A tracker issue id, as a regular expression without anchors: this tracker's prefix, the hash, and a child's dotted suffix (`asdlc-openspec-zgh.9`). The reviewer reads the issues a pull request carries from the ids that match it inside the parentheses at the end of the pull request's title, and nowhere else: a body names follow-ups and related issues it does not carry. A title with none cites no issue, and a person merges that pull request (`docs/decisions.md` § D-07). Change it with the tracker's prefix. Decided 2026-09-25 (asdlc-openspec-mi6).",
+
+  "prReviewStatusContext": "pr-review",
+  "prReviewStatusContextMeans": "The commit status the reviewer sets on a pull request's head commit: pending from the push until it has judged that commit, then success, failure or error with the reason in its description. It is what `gh pr checks --watch` waits on, so an agent watching its own pull request (`.claude/skills/bead/SKILL.md` § 6) reads the review's outcome as it reads any check. A verdict that needs a person sets success, not pending, so no watcher waits on a person. Renaming it strands the pending status on every open pull request until its next push. Decided 2026-09-25 (asdlc-openspec-mi6).",
+
+  "prReviewRequiredCheck": "verify",
+  "prReviewRequiredCheckMeans": "The check run that must have passed on a commit before the reviewer acts on it: the one job of `.github/workflows/verify.yml`, whose check run carries the job's name. On a pull request's head it gates the review, so no review is spent on a head CI has refused; on `main`'s head it gates every merge, so after a bad merge the reviewer stops merging until `main` is green again. `npm run pr-review:check` refuses a `verify.yml` with no job of this name and a `pr-review.yml` whose `workflow_run` does not name that workflow. Decided 2026-09-25 (asdlc-openspec-mi6).",
+
+  "prReviewLabels": {
+    "approved": "review:approved",
+    "changes": "review:changes-requested",
+    "human": "review:needs-human"
+  },
+  "prReviewLabelsMeans": "The labels the reviewer reads and writes on a pull request, each key its role and each value its spelling. `changes`: a dimension failed, and the author fixes the branch; the next push is reviewed again. `human`: nothing failed, and a person decides, because the risk is high, a criterion could not be verified, or the title cites no issue. `approved`: a person approves the merge of the head commit the reviewer last judged. It counts only when a person with a permission in `prReviewApproverPermissions` applied it after that verdict, and an agent never applies it (`CLAUDE.md` § Git workflow). The reviewer creates the three if they are missing. Renaming one means renaming it on the repository in the same change, and `npm run pr-review:check` refuses a `pr-review.yml` that filters on another spelling of `approved`. Decided 2026-09-25 (asdlc-openspec-mi6).",
+
+  "prReviewApproverPermissions": ["admin", "maintain", "write"],
+  "prReviewApproverPermissionsMeans": "The repository permissions, as GitHub's collaborator-permission endpoint names them, of an account whose application of the approval label counts. A bot's never does. GitHub cannot tell a person from an agent acting with that person's credentials, which is `docs/decisions.md` § R-01. Decided 2026-09-25 (asdlc-openspec-mi6).",
+
+  "prReviewBlockingSeverities": ["blocker", "major"],
+  "prReviewBlockingSeveritiesMeans": "The severities of a maintainability finding that fail the dimension. A `minor` finding is posted in the review and blocks nothing, so the reviewer does not hold a merge on wording. The severities themselves are defined in `.claude/agents/pr-reviewer.md` § 2. Maintainability. Decided 2026-09-25 (asdlc-openspec-mi6).",
+
+  "prReviewContextPaths": [
+    "CLAUDE.md",
+    "AGENTS.md",
+    ".claude/**",
+    "docs/**",
+    "openspec/**",
+    "count-index.md",
+    "KIT-CHECKLIST.md",
+    "**/README.md",
+    "tools/policy.json"
+  ],
+  "prReviewContextPathsMeans": "The files held to the context-engineering rubric: what an agent reads to decide what to do, meaning the rules, the prompts, the documents, the specs and the constants they cite. Every other file is held to the product rubric. `*` matches within one directory, `**` across directories, and `**/` also matches none. A file is classed by its path at the pull request's head, and the brief names each file's class, so the reviewer does not choose. Decided 2026-09-25 (asdlc-openspec-mi6).",
+
+  "prReviewHighRiskPaths": {
+    ".github/**": "the workflows: what runs with the repository's token and secrets, this reviewer among them",
+    ".claude/settings.json": "the hooks every session runs, the guards among them",
+    ".claude/agents/pr-reviewer.md": "this reviewer's own prompt",
+    "scripts/pr-review.mjs": "this reviewer's own decisions",
+    "CLAUDE.md": "the rules every agent follows",
+    "AGENTS.md": "the pointer another harness follows to those rules",
+    "docs/decisions.md": "a recorded decision, which is the maintainer's to make",
+    "package-lock.json": "the dependency tree every gate and the product run on"
+  },
+  "prReviewHighRiskPathsMeans": "The floor under the reviewer's risk judgement: a pull request that adds, changes, deletes or renames a file matching one of these globs is high risk whatever the reviewer says, and merges only on a person's approval. Each key is a glob, matched as `prReviewContextPaths` says, and each value is the reason the review comment gives. The reviewer can raise a pull request to high but never lower one below this floor, so no pull request can argue its way past a person into changing CI, this reviewer or the rules. Removing a line lets pull requests that change that file merge without a person, and this key is itself high risk (`prReviewHighRiskJsonKeys`). Decided 2026-09-25 (asdlc-openspec-mi6).",
+
+  "prReviewHighRiskJsonKeys": {
+    "package.json": ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies", "overrides", "allowScripts", "engines"],
+    "tools/policy.json": ["prReview*"]
+  },
+  "prReviewHighRiskJsonKeysMeans": "The second half of the floor: top-level keys of committed JSON files whose value a pull request changes (added, removed or different, compared as parsed JSON) make it high risk. A trailing `*` matches any key with that prefix. It exists because the whole file is too wide: most pull requests that add a gate add a script to `package.json`, and many change another key of this file, and neither needs a person. A dependency, an install-script permission, the engine floor, or a key the reviewer decides by does. Decided 2026-09-25 (asdlc-openspec-mi6).",
+
+  "prReviewMergeMethod": "rebase",
+  "prReviewMergeMethodMeans": "How the reviewer merges: the method GitHub's merge endpoint takes. It is `rebase` because `docs/decisions.md` § D-02, item 6, rebase-merges a change's pull request so `npm run worktree:gc` can prove its branch reached the trunk, and the repository allows no other method. Decided 2026-09-25 (asdlc-openspec-mi6)."
 }

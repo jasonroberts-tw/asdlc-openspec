@@ -241,6 +241,14 @@ protected branches are main, release: never push to, switch to or rewrite one fr
 worktree. Rebase onto `origin/main` rather than merging the trunk into a branch, and use
 `--rebase` on every pull. Commit or push only when asked.
 
+A pull request reaches the trunk through the reviewer, `.github/workflows/pr-review.yml`, one at a
+time (`docs/decisions.md` § D-07). Its title ends with the ids of the issues it carries, in
+parentheses, and the reviewer holds it to their acceptance criteria. The reviewer merges a pull
+request that satisfies every dimension and is not high risk. A person merges any other, or approves
+its head by applying the approval label (`prReviewLabels` in `tools/policy.json`), after which the
+reviewer merges it. An agent never applies that label: the approval is a person's, and GitHub cannot
+tell a person from an agent holding their credentials (`docs/decisions.md` § R-01).
+
 ## Prompt reviews
 
 After a prompt is executed from a file, the session that ran it launches the

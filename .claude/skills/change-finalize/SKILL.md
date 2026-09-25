@@ -1,6 +1,6 @@
 ---
 name: change-finalize
-description: Land a verified change - rebase, archive it into the living spec, open the pull request, and once the user says so, merge it, clean up its worktree and branch, and close its epic once its acceptance criteria are checked. Use after change-verify, when asked to finalize, archive, ship or merge a change.
+description: Land a verified change - rebase, archive it into the living spec, open the pull request, and once the pull-request reviewer (or a person) has merged it, clean up its worktree and branch, and close its epic once its acceptance criteria are checked. Use after change-verify, when asked to finalize, archive, ship or merge a change.
 ---
 
 Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
@@ -78,7 +78,9 @@ Write the body to `.scratch/<change>-pr.md`. It covers:
 
 Every figure in the body is re-derived (`CLAUDE.md` § Verification before claiming).
 
-Then run `gh pr create --base main --head agent/<change> --title "<change>: <what changed>" --body-file .scratch/<change>-pr.md`.
+Then run `gh pr create --base main --head agent/<change> --title "<change>: <what changed> (<epic id>)" --body-file .scratch/<change>-pr.md`.
+The epic's id ends the title, because the reviewer holds the pull request to the acceptance criteria
+of the issues its title cites (`CLAUDE.md` § Git workflow).
 
 Poll the checks in the background, and never end the turn while they run. Read a failing check, fix
 it on the branch, and push again.
@@ -88,12 +90,24 @@ it on the branch, and push again.
 Call `ExitWorktree` with `keep`. The branch is not in the trunk yet, so `remove` would either refuse
 or discard it. The session is back in the primary checkout.
 
-## 7. Merge, on the user's word
+## 7. Merge, through the reviewer
 
-Merging is the person's call, and `scripts/hooks/guard-git.mjs` refuses it from a worktree. Ask the
-user. On a yes, run `gh pr merge <number> --rebase --delete-branch`. If the user merges it
-themselves, `gh pr view <number> --json state,mergedAt` shows `MERGED`; carry on from the remote
-branch below, and then step 8.
+The pull-request reviewer merges it (`docs/decisions.md` § D-07). It reviews the pull request once
+`verify` passes, against the epic's acceptance criteria, and merges it when every dimension passes
+and its risk is not high. Its verdict is the `pr-review` check and a comment on the pull request.
+
+Wait for it with one `gh pr checks <number> --watch` in the background, then read
+`gh pr view <number> --json state,mergedAt,labels`:
+
+- **`MERGED`.** Carry on from the remote branch below, and then step 8.
+- **The review asks for a person.** Its comment says why: a criterion nobody can verify from the
+  pull request, such as one about the merge itself, or high risk. Tell the user. The user merges it,
+  or applies the approval label for the reviewer to merge it. Never apply the label yourself
+  (`CLAUDE.md` § Git workflow). Wait for `MERGED` as above.
+- **The review requests changes.** Read its comment, go back into the worktree with `EnterWorktree`,
+  and fix, gate, commit and push as the earlier steps do. The reviewer judges the new head.
+
+`scripts/hooks/guard-git.mjs` refuses a merge from a worktree.
 
 Always rebase, never squash. `npm run worktree:gc` can prove a rebase-merged branch is in the trunk,
 but it keeps a squash-merged one.

@@ -1,0 +1,205 @@
+# The pull-request reviewer: one pull request at a time, Claude Code reviews its head against the
+# issues its title cites, and the reviewer merges it when every dimension passes and its risk is not
+# high (`docs/decisions.md` § D-07). Claude Code only returns a verdict; `scripts/pr-review.mjs`
+# decides what the verdict does, by the `prReview*` keys of `tools/policy.json`.
+#
+# WHAT IT WOULD LET THROUGH IF IT WERE WRONG. Written 2026-09-25 (asdlc-openspec-mi6), before the
+# first run, so no incident yet. Two runs merging at once would each judge a base the other was about
+# to move; a pending run cancelled by a newer one would leave its pull request unreviewed until the
+# schedule; and a job that checked out a pull request's head would run that pull request's code with
+# this workflow's token. So every run that reviews or merges shares one concurrency group whose
+# pending runs queue rather than cancel; a run takes one action and re-dispatches itself while more
+# are waiting; every job checks out the trunk and reads a pull request only as data; and the job that
+# runs Claude Code holds a read-only token and no tool that writes, while the job that merges holds
+# no Anthropic key.
+#
+# INVOCATION. It runs on its triggers. By hand, `gh workflow run pr-review.yml` wakes the queue, and
+# `gh workflow run pr-review.yml -f pr=<number>` reviews that pull request again at its head.
+# `node scripts/pr-review.mjs next --dry-run`, from any checkout with `gh`, prints what a run would do
+# and writes nothing.
+#
+# NEEDS. The repository secret ANTHROPIC_API_KEY; `bd` at the version `.devcontainer/Dockerfile` pins,
+# and the tracker's database, cloned read-only from this repository's `refs/dolt/data` over HTTPS;
+# and the network. It reads a token, a language model and the network, so it is neither a pre-push
+# job nor a `verify.yml` step (`CLAUDE.md` § The gate ladder): `pr-review:check` holds its wiring to
+# the policy, and `pr-review:selftest` holds every decision, from those tiers.
+name: pr-review
+
+on:
+  # A verify run finished: a pull request's head may now be reviewable, or `main` green for a merge.
+  workflow_run:
+    workflows: ['verify']
+    types: [completed]
+  # The base branch's copy of this file runs, never the pull request's, and no job checks out its head.
+  pull_request_target:
+    types: [opened, reopened, synchronize, ready_for_review, labeled]
+  # The safety net for a wake-up that never came: a merge GitHub was still computing, say.
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'Review this pull request again at its head, even where it has a verdict'
+        required: false
+        default: ''
+
+# Every run that reviews or merges shares `pr-review-queue`, so one runs at a time, and `queue: max`
+# keeps each pending run rather than letting the newest cancel it. Marking a new head pending is not
+# queue work: it takes a group per pull request, so a long review never delays the pending status an
+# agent's `gh pr checks --watch` waits on.
+concurrency:
+  group: >-
+    ${{ github.event_name == 'pull_request_target' && github.event.action != 'labeled'
+    && format('pr-review-mark-{0}', github.event.pull_request.number) || 'pr-review-queue' }}
+  cancel-in-progress: false
+  queue: max
+
+permissions: {}
+
+jobs:
+  mark:
+    if: github.event_name == 'pull_request_target' && github.event.action != 'labeled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+      - name: the new head waits for its review
+        run: node scripts/pr-review.mjs mark
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+
+  select:
+    # Any label but the approval one is not the queue's business.
+    if: >-
+      github.event_name != 'pull_request_target'
+      || github.event.label.name == 'review:approved'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      checks: read
+      # A red or conflicting head gets its status; `main` with no verify run gets one dispatched.
+      statuses: write
+      actions: write
+    outputs:
+      action: ${{ steps.next.outputs.action }}
+      pr: ${{ steps.next.outputs.pr }}
+      sha: ${{ steps.next.outputs.sha }}
+      more: ${{ steps.next.outputs.more }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+      - id: next
+        name: choose this run's one action
+        run: node scripts/pr-review.mjs next
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORCE_PR: ${{ inputs.pr }}
+
+  review:
+    needs: select
+    if: needs.select.outputs.action == 'review'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # Read-only: whatever the pull request persuades the reviewer of, this token can write nothing.
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      verdict: ${{ steps.claude.outputs.structured_output }}
+      facts: ${{ steps.brief.outputs.facts }}
+    env:
+      PR: ${{ needs.select.outputs.pr }}
+      SHA: ${{ needs.select.outputs.sha }}
+    steps:
+      # The trunk with its history: the merge base, and the reviewer's working directory.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+      - name: install the tracker's CLI at the version the dev container pins
+        run: npm install -g "@beads/bd@$(sed -n 's/^ARG BD_VERSION=//p' .devcontainer/Dockerfile)"
+      - name: clone the tracker read-only
+        run: |
+          chmod 700 .beads
+          bd bootstrap --yes --sandbox
+        env:
+          BD_SYNC_REMOTE: git+https://github.com/${{ github.repository }}.git
+          NO_COLOR: '1'
+      - id: brief
+        name: write the brief, the diff and each changed file at the head
+        run: node scripts/pr-review.mjs brief
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # The runner's temporary directory, outside the checkout: nothing there is `main`'s, and
+          # neither `.gitignore` nor a `CLAUDE.md` of the pull request's applies to it.
+          REVIEW_DIR: ${{ runner.temp }}/pr-review
+      - id: claude
+        name: review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
+          # The session hooks guard agents that edit; the reviewer edits nothing.
+          settings: '{"disableAllHooks": true}'
+          prompt: >-
+            Review pull request #${{ needs.select.outputs.pr }} at head commit
+            ${{ needs.select.outputs.sha }}. Your brief is ${{ runner.temp }}/pr-review/brief.md.
+          claude_args: >-
+            --agent pr-reviewer
+            --add-dir ${{ runner.temp }}/pr-review
+            --max-turns 80
+            --allowedTools Read,Grep,Glob
+            --disallowedTools Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,Agent
+            --json-schema '${{ steps.brief.outputs.schema }}'
+
+  act:
+    needs: [select, review]
+    # Runs after a skipped review too (a merge needs none), and after a failed one, to record it.
+    if: >-
+      !cancelled() && needs.select.result == 'success'
+      && needs.select.outputs.action != 'none'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # No Anthropic key here: the job that can merge never runs the model.
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      statuses: write
+      checks: read
+      # After a merge, `verify.yml` on `main`; while more is waiting, this workflow again.
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
+      - name: post the verdict, set the labels and the status, and merge
+        run: node scripts/pr-review.mjs act
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTION: ${{ needs.select.outputs.action }}
+          PR: ${{ needs.select.outputs.pr }}
+          SHA: ${{ needs.select.outputs.sha }}
+          MORE: ${{ needs.select.outputs.more }}
+          REVIEW_RESULT: ${{ needs.review.result }}
+          VERDICT: ${{ needs.review.outputs.verdict }}
+          FACTS: ${{ needs.review.outputs.facts }}

@@ -21,9 +21,11 @@ failure it prevents.
   `bd`.
 
 **A person decides; agents propose and build.** A person reviews each change's proposal before its
-build starts, says when its pull request merges, and decides whether each change a prompt review
-proposes merges; nothing a program proposes instructs an agent until then (`CLAUDE.md` § A program
-proposes; only a person promotes).
+build starts, decides whether each change a prompt review proposes merges, and approves every pull
+request the reviewer judges high risk or cannot verify. Nothing a program proposes instructs an agent
+until then (`CLAUDE.md` § A program proposes; only a person promotes). The rest merge through the
+pull-request reviewer, one at a time, once each satisfies the issues it carries
+(`docs/decisions.md` § D-07).
 
 **It is built to learn from its own runs.** A defect a run finds outside the files its issue
 changes is filed as an issue of its own, labelled with the kind of file it would change, so the
@@ -82,6 +84,7 @@ level above them.
 | `lefthook.yml` | The git-hook tiers: which gate runs at commit and at push, each with the glob that scopes it and a note of its measured cost. |
 | `lefthook-windows.yml` | A per-machine override of the hook runner's configuration, for the platform where it hangs in parallel. |
 | `.github/workflows/verify.yml` | The slowest tier: every gate that reads only committed files, on every pull request and every push to `main`. |
+| `.github/workflows/pr-review.yml` | The pull-request reviewer: one pull request at a time, Claude Code judges it against the issues its title cites, and it merges when every dimension passes and the risk is not high. |
 | `.devcontainer/` | A container that needs nothing from the network at create time. |
 | `KIT-CHECKLIST.md` | What the starter kit's bootstrap laid down, step by step, and what is still to adapt. Deleted once it is worked through. |
 
@@ -122,6 +125,7 @@ the rule. The third column wins over the first two.
 | A recorded decision argued again, or a register whose summary drifts from its entries | `check:register` | `CLAUDE.md` § Decisions live in the register |
 | Work tracked in a checklist or a status table, or an issue that does not say where its work lands | The issue: `beads:check`, at push, refuses an open issue with no `repo:` label. The checklist or status table: review alone, because no gate scans a file for one | `CLAUDE.md` § The task store |
 | A generated artifact left stale after its input moved | `pipeline:check` and `pipeline:stale:check` | `docs/pipeline.md` § The two gates |
+| A pull request merged without being held to the issue it carries, a high-risk one merged without a person, or two merged at once | `.github/workflows/pr-review.yml`, one run at a time, deciding through `scripts/pr-review.mjs`; `pr-review:check` and `pr-review:selftest` hold its wiring and its decisions | `CLAUDE.md` § Git workflow |
 | A program that rewrites its own instructions from what it observed | The prompt reviewer only opens a pull request, and a person decides whether it merges | `CLAUDE.md` § A program proposes; only a person promotes |
 | A chained shell command whose failing step cannot be told apart, or a workaround for a refused command | Convention, and a `RUN THESE YOURSELF` block at the end of the agent's report | `CLAUDE.md` § Bash command style |
 
@@ -203,6 +207,8 @@ holds platform-native binaries. Use one clone per platform.
 | Make a worktree by hand | `scripts/new-worktree.sh <task-ref> <slug>` | From the primary checkout. It cuts `agent/<name>` from `origin/main`; `npm ci` is the first command inside. |
 | Check your work before a pull request | `npm run gates` | Then fetch, rebase onto `origin/main`, and run it again. |
 | Improve a prompt after running it | the `continuous-prompt-improvement` agent | Launched in the background by the session that ran the prompt, which does not wait for it (`CLAUDE.md` § Prompt reviews). A review that proposes a change is the description of its own pull request; one that proposes nothing leaves nothing. |
+| Get a pull request reviewed and merged | nothing: `.github/workflows/pr-review.yml` takes it once `verify` passes | It merges one whose title cites the issues it carries, satisfies them, and is not high risk. `gh workflow run pr-review.yml -f pr=<number>` reviews a head again. |
+| Approve a pull request the reviewer left to a person | apply the approval label, `prReviewLabels` in `tools/policy.json` | A person only, never an agent (`CLAUDE.md` § Git workflow). It approves the head the reviewer last judged, and a push needs it again. Merging by hand works too. |
 | Check a pull request, report or analysis before trusting it | the `adversarial-verifier` agent | Pass it the pull request number or file path. Every claim is re-derived from source; it reports a verdict table and changes nothing. |
 
 ## The npm scripts
@@ -283,6 +289,13 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 | `pipeline:stale` | Reports which node's declared inputs have moved since it stamped its output, with no exit code; `-- --verbose` says why a node is not covered. | |
 | `pipeline:stale:check` | The same report as a gate. It runs no generator, so forgetting to regenerate is visible without regenerating. | pre-push + CI |
 
+### pr-review
+
+| Script | What it does | Gate |
+|---|---|---|
+| `pr-review:check` | Holds the pull-request reviewer's four files to each other: the policy's `prReview*` keys whole, and a floor that covers the reviewer itself; `pr-review.yml` queuing rather than cancelling, waking on `verify`'s runs and filtering on the policy's approval label; the agent it names read-only; and `verify.yml` carrying the required check and a dispatch trigger. Without it a renamed label or check leaves approvals and merges waiting on the schedule, and nothing says why. | pre-push + CI |
+| `pr-review:selftest` | Every decision the reviewer makes, over fixtures built from the live policy, each case asserting its reason: which verdicts merge, ask a person or request changes, which approvals count, and what the queue takes next. It also runs the wiring gate over doctored copies with an undoctored control. Without it a change to the decisions shows only in a merge nobody meant. | pre-push + CI |
+
 ### tests
 
 | Script | What it does | Gate |
@@ -347,6 +360,7 @@ The work of clearing them is tracked in `bd`.
 | `count-index.md` | Every count describing the current measured state, under a key. |
 | `scripts/README.md` | The single-file gates and git-job scripts, one row each. |
 | `scripts/hooks/README.md` | The harness hooks, one row each. |
+| `.github/workflows/README.md` | The CI workflow and the pull-request reviewer, one row each. |
 | `tools/README.md` | The emitters and multi-file checks, one row each. |
 | `apps/calculator/README.md` | The calculator demo app: what each file and directory holds, and which specs win over it. |
 | `.claude/README.md` | What the harness loads when a session starts here. |
@@ -389,5 +403,8 @@ at its start: restart the session after changing it.
 | `git push` that changes `apps/calculator/`, `scripts/run-tests.mjs`, `package.json` or the lockfile | `calculator:test`: the calculator's scenarios, each a test named for it, under Node's own test runner, with no matched file allowed to declare none. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes `scripts/run-tests.mjs` | `tests:selftest`: the test runner, negative-tested. | `lefthook.yml` (`pre-push`) |
 | `git push` | `pipeline:check` holds the graph record to the files it names and to the prose page; `pipeline:stale:check` refuses an output whose stamp no longer matches its declared inputs; `pipeline:selftest` holds both gates. Neither carries a glob: the record's globs may name any file. | `lefthook.yml` (`pre-push`) |
-| A pull request, or a push to `main` | Every gate that reads only committed files, cheapest first. It trusts none of the faster tiers. | `.github/workflows/verify.yml` |
+| `git push` that changes the reviewer's script, `tools/policy.json`, a workflow or the reviewer's agent | `pr-review:check`: the reviewer's workflow, agent and policy agree; `pr-review:selftest`: its decisions over fixtures, and the check over doctored copies. | `lefthook.yml` (`pre-push`) |
+| A pull request, a push to `main`, or a merge the reviewer made | Every gate that reads only committed files, cheapest first. It trusts none of the faster tiers. After a reviewer's merge it runs by dispatch, since that merge starts no push run. | `.github/workflows/verify.yml` |
+| A pull request is opened, reopened, marked ready or pushed to | The reviewer sets its head's `pr-review` status pending, so an agent watching the checks waits for the review. | `.github/workflows/pr-review.yml` (`mark`) |
+| A `verify` run ends, a person applies the approval label, every 15 minutes, or by hand | The reviewer takes one action, one run at a time: it merges a pull request whose verdict allows it, or reviews the oldest head that passed `verify` and has no verdict, and runs again while more are waiting. | `.github/workflows/pr-review.yml` |
 | The dev container starts | `npm ci` when the lockfile moved, the git hooks, and the tracker's hydration; each step warns and carries on. | `.devcontainer/entrypoint.sh` |
