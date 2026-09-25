@@ -30,11 +30,14 @@ setup() {
   local repo="${REPO_WORKSPACE:-}"
 
   # Which mounted directory is this repository? Named by package.json rather than by path, because
-  # the mount point is the clone's directory name and people clone into whatever they like.
+  # the mount point is the clone's directory name and people clone into whatever they like. The
+  # marker is package.json's "name", "asdlc-openspec": a rename there is a rename here. Until
+  # 2026-09-25 this matched the placeholder "<package-name>", which no package.json carried, so
+  # every container skipped setup with a warning that read like a mount problem (asdlc-openspec-opg).
   if [ -z "$repo" ]; then
     local candidate
     for candidate in /workspaces/*/; do
-      if grep -sq '"<package-name>"' "${candidate}package.json"; then
+      if grep -Eqs '"name"[[:space:]]*:[[:space:]]*"asdlc-openspec"' "${candidate}package.json"; then
         repo="${candidate%/}"
         break
       fi
