@@ -47,10 +47,10 @@ review that proposes nothing leaves nothing behind, and no run is counted anywhe
 
 ## 3. Propose the change as a pull request of its own
 
-Make your own worktree before the first edit, with `EnterWorktree`. Change the prompt, run
-`npm run gates`, then rebase and gate again as `.claude/skills/bead/SKILL.md` § 5 says, and open the
-pull request with the `open-pr` skill. The pull request is a proposal: a person reads it
-and decides whether it merges (`CLAUDE.md` § A program proposes; only a person promotes). Never
+Make your own worktree before the first edit, with `EnterWorktree`. Change the prompt, stage every
+file you add and run `npm run gates` as `.claude/skills/bead/SKILL.md` § 4 says, then rebase and
+gate again as its § 5 says, and open the pull request with the `open-pr` skill. The pull request is
+a proposal: a person reads it and decides whether it merges (`CLAUDE.md` § A program proposes; only a person promotes). Never
 merge it yourself. Its title cites no issue, so the pull-request reviewer leaves its merge to a
 person too (`docs/decisions.md` § D-07).
 
