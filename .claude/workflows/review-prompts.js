@@ -32,7 +32,10 @@ export const meta = {
  * one of its files returned nothing, so that its finding is never reviewed. Since asdlc-openspec-pnm
  * it would also let through a finding below the threshold proposed as an edit, a branch merged with
  * an edit a majority of its skeptics did not uphold, and a finding read and proposed nowhere that no
- * held line records, so that its count starts again at the next review.
+ * held line records, so that its count starts again at the next review. Since asdlc-openspec-aa0 it
+ * would also let through a consolidation that removes a rule and says nowhere where the rule went, or
+ * one no majority of its skeptics upheld: a rewrite that collapses a context loses what the next run
+ * needed, and nothing says so (https://arxiv.org/abs/2510.04618, "context collapse").
  *
  * INVOCATION. The Workflow tool, with `scriptPath` set to this file inside the review's worktree, so
  * that the script and the agent file its agents read come from one commit, and `args`:
@@ -82,6 +85,9 @@ export const meta = {
  *
  * Each change a skeptic judged carries its finding's `severity`, `count` and `met`, the `outcome`
  * (upheld, refuted or unverified), how many `skeptics` were sent, and each one's vote in `votes`.
+ * Each consolidation a group reports (`.claude/agents/continuous-prompt-improvement.md` § How a prompt
+ * is consolidated) carries its `file`, its `commit`, its `wordsBefore` and `wordsAfter`, its `removed`
+ * rows, and, once judged, the same `outcome`, `skeptics` and `votes`.
  *
  * THE RULES a report is held to, in this order, each a problem when broken:
  *
@@ -90,7 +96,10 @@ export const meta = {
  *   - no two groups report one branch;
  *   - a changed report lists the files its branch changes, every one of them its own, states at
  *     least one change, each to a file of its own, and ran gates that all passed;
- *   - an unchanged report lists no changed file and states no change;
+ *   - each consolidation it states is of a file of its own that its branch changes, one per file,
+ *     names its commit, frees words, and lists what it removed, every row saying where its text went:
+ *     a kept row names the place and what loads it, a moved row the pull request, a deleted row why;
+ *   - an unchanged report lists no changed file and states no change and no consolidation;
  *   - every change and every finding set aside names a finding of its own group, and every finding of
  *     its group is changed or set aside.
  *
@@ -103,8 +112,12 @@ export const meta = {
  * unverified to two questions: had the prompt said this, would the runs have gone differently; and
  * does the edit break another path through the prompt, or another caller of it. With n sent,
  * floor(n/2)+1 upheld upholds a change and as many refuted refutes it; anything else, a skeptic that
- * returns nothing included, leaves it unverified. A group merges only when every change it carries is
- * upheld: the script runs no git, so it cannot take one change of a branch and leave another.
+ * returns nothing included, leaves it unverified. A change to a consolidated file is read from its
+ * consolidation's commit, so its skeptics judge the edit alone. Each consolidation goes to the
+ * `blocker` count of skeptics, whatever its findings' severities, because a rule it loses is lost to
+ * every later run of the prompt; each answers whether its rows account for every removal and whether
+ * each row holds. A group merges only when every change and every consolidation it carries is
+ * upheld: the script runs no git, so it cannot take one commit of a branch and leave another.
  *
  *   `merge` lists the merging groups' branches in the order of `args.groups`. A run is in `runsRead`
  *   when every group whose findings cite it is `merge`, `unchanged` or `not-upheld`; otherwise it is
@@ -113,7 +126,8 @@ export const meta = {
  *   by its agent, not upheld, or upheld on a branch kept out, with its key, its runs, its count and
  *   the reason; the session appends a held line for each of its runs.
  *
- * LABELS. Each file agent is labelled `review <id>`, and each skeptic `skeptic <i>/<n> <id>: <key>`.
+ * LABELS. Each file agent is labelled `review <id>`, each skeptic of a change `skeptic <i>/<n> <id>:
+ * <key>`, and each skeptic of a consolidation `skeptic <i>/<n> <id>: consolidation of <file>`.
  * scripts/workflows.selftest.mjs routes its stubbed agents by those labels: change one here and change
  * it there.
  *
@@ -133,8 +147,12 @@ const VERDICTS = ['changed', 'unchanged']
 const OUTCOMES = ['working', 'not working', 'not exercised']
 const SEVERITIES = ['blocker', 'major', 'minor']
 const POLICY_KEYS = ['promptReviewRecurrenceCount', 'promptReviewMajorSeverities', 'promptReviewSkeptics']
+const DISPOSITIONS = ['kept', 'moved', 'deleted']
+/** The severity whose skeptic count judges a consolidation, as the header says why. */
+const CONSOLIDATION_SEVERITY = 'blocker'
 const PROVISIONED = 'agent/'
 const JUDGED = '`.claude/agents/continuous-prompt-improvement.md` § How a file is judged'
+const CONSOLIDATED = '`.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated'
 const KEY = /^(.+)#([a-z0-9][a-z0-9-]*)$/
 
 /* ----------------------------------------------------------------------------- the schemas ----- */
@@ -165,6 +183,33 @@ const REPORT_SCHEMA = {
         required: ['file', 'finding', 'title', 'edit', 'why', 'frequency', 'cost', 'words'],
       },
     },
+    consolidations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          file: { type: 'string' },
+          commit: { type: 'string' },
+          wordsBefore: { type: 'integer' },
+          wordsAfter: { type: 'integer' },
+          removed: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                text: { type: 'string' },
+                disposition: { type: 'string', enum: DISPOSITIONS },
+                where: { type: 'string' },
+                loadedBy: { type: 'string' },
+                why: { type: 'string' },
+              },
+              required: ['text', 'disposition', 'where', 'loadedBy', 'why'],
+            },
+          },
+        },
+        required: ['file', 'commit', 'wordsBefore', 'wordsAfter', 'removed'],
+      },
+    },
     notChanged: {
       type: 'array',
       items: {
@@ -191,7 +236,7 @@ const REPORT_SCHEMA = {
       },
     },
   },
-  required: ['verdict', 'branch', 'head', 'filesChanged', 'changes', 'notChanged', 'earlierReviews', 'unverified', 'gates'],
+  required: ['verdict', 'branch', 'head', 'filesChanged', 'changes', 'consolidations', 'notChanged', 'earlierReviews', 'unverified', 'gates'],
 }
 
 const VERDICT_SCHEMA = {
@@ -304,6 +349,13 @@ function metBy(f) {
 
 const settledBlock = () => (A.settled && A.settled.length ? `\n\n## Settled already; do not raise these again\n\n${A.settled.map((s) => `- ${s}`).join('\n')}` : '')
 
+/** What every skeptic is told of its own conduct, and of an answer it could not establish. */
+const SKEPTIC_RULES = 'You change nothing, commit nothing and write nothing to the tracker; throwaway files go under .scratch/ only. Run each command as its own Bash call, as CLAUDE.md asks.'
+const UNVERIFIED = '- unverified: you could not establish either. Say what stopped you. Never answer refuted because you could not verify it.'
+
+/** The consolidation group `g` reports of `file`, or undefined. */
+const consolidationOf = (g, file) => (g.consolidations || []).find((k) => clean(k.file) === clean(file))
+
 function findingBlock(f) {
   return [
     `### ${f.key.trim()}: ${f.title}`,
@@ -321,7 +373,7 @@ function reviewPrompt(g) {
     '',
     'Rules for this run, on top of CLAUDE.md and .worktree/CONTEXT.md:',
     '- Change only the files listed under Your files. Create, delete and rename none.',
-    '- Commit your change on your branch as one commit. Do not push, open a pull request, stash, reset, rebase or switch branches, and write nothing to the tracker: the session that ran this workflow merges your branch, opens the one pull request and marks the analyses read.',
+    "- Commit your change on your branch as one commit, after a consolidation's own commit if you made one. Do not push, open a pull request, stash, reset, rebase or switch branches, and write nothing to the tracker: the session that ran this workflow merges your branch, opens the one pull request and marks the analyses read.",
     '- Throwaway files go under .scratch/ only.',
     '- Run each command as its own Bash call, as CLAUDE.md asks.',
     '',
@@ -340,6 +392,7 @@ function reviewPrompt(g) {
     '- Account for every finding above by its key: each change names under finding the one it answers, and each finding you leave alone goes under notChanged with your reason.',
     '- If nothing should change: edit nothing and commit nothing. Return the verdict unchanged.',
     '- If a file should change: make the edit, run `npm ci`, stage it with `git add`, run `npm run check:prompts` and `npm run citations:check`, fix what they report in your own files, and commit. Return the verdict changed, with each gate you ran and what it printed.',
+    `- If your edit would take a file past its word budget, consolidate the file first, as ${CONSOLIDATED} says, commit that alone, and report it under consolidations.`,
     "- Each change states how often the situation arises (frequency) and what it costs when it does (cost), each figure citing a run, a label count or a pull request, and the net words the edit adds (words, negative when it removes more), counted from `git diff --word-diff=porcelain origin/main...HEAD` on its file.",
     "- After you finish, skeptics judge each change against your branch's diff. A branch merges only when a majority upholds every change on it, so leave out an edit you would not defend.",
     '- branch is what `git branch --show-current` prints, head what `git log -1 --format=%H` prints, and filesChanged what `git diff --name-only origin/main...HEAD` prints, one path each, after your last commit.',
@@ -347,10 +400,12 @@ function reviewPrompt(g) {
 }
 
 function skepticPrompt(g, c, f, i, n) {
+  const k = consolidationOf(g, c.file)
+  const base = k ? k.commit.trim() : 'origin/main'
   return [
-    `You are skeptic ${i} of ${n} on one edit a batched review of this repository's prompts proposes (\`CLAUDE.md\` § Prompt reviews). You change nothing, commit nothing and write nothing to the tracker; throwaway files go under .scratch/ only. Run each command as its own Bash call, as CLAUDE.md asks.`,
+    `You are skeptic ${i} of ${n} on one edit a batched review of this repository's prompts proposes (\`CLAUDE.md\` § Prompt reviews). ${SKEPTIC_RULES}`,
     '',
-    `Read ${JUDGED} first. Then read the edit, \`git diff origin/main...${g.branch.trim()} -- ${clean(c.file)}\`, and the file as \`origin/main\` has it.`,
+    `Read ${JUDGED} first. Then read the edit, \`git diff ${base}...${g.branch.trim()} -- ${clean(c.file)}\`, and the file as \`${base}\` has it.`,
     '',
     'Answer two questions about the edit, and only these:',
     '',
@@ -359,7 +414,7 @@ function skepticPrompt(g, c, f, i, n) {
     '',
     '- upheld: you checked both; the answer to 1 is yes, and to 2 is no.',
     '- refuted: you checked, and the answer to 1 is no or to 2 is yes. Say which, with the evidence.',
-    '- unverified: you could not establish either. Say what stopped you. Never answer refuted because you could not verify it.',
+    UNVERIFIED,
     '',
     '## The finding',
     '',
@@ -377,7 +432,62 @@ function skepticPrompt(g, c, f, i, n) {
   ].join('\n')
 }
 
+const rowLine = (row, i) => `${i + 1}. ${row.disposition}: "${row.text}" Where: ${row.where || '-'}. Loaded by: ${row.loadedBy || '-'}. Why: ${row.why || '-'}.`
+
+function consolidationPrompt(k, i, n) {
+  const file = clean(k.file)
+  return [
+    `You are skeptic ${i} of ${n} on one consolidation a batched review of this repository's prompts proposes (\`CLAUDE.md\` § Prompt reviews). ${SKEPTIC_RULES}`,
+    '',
+    `Read ${CONSOLIDATED} first. Then read the consolidation, \`git diff origin/main...${k.commit.trim()} -- ${file}\`, and each file a row names.`,
+    '',
+    'Answer two questions about it, and only these:',
+    '',
+    '1. Does every sentence or clause the diff removes have a row below, and is every row text the diff removes?',
+    '2. Does each row hold: a kept rule stated where it names, in a file loaded wherever this prompt is; a moved one told in the pull request it names; a deleted one needless for its reason?',
+    '',
+    '- upheld: you checked both, and the answer to each is yes.',
+    '- refuted: you checked, and the answer to one is no. Name the row or the removal, with the evidence.',
+    UNVERIFIED,
+    '',
+    '## The consolidation, as its agent reported it',
+    '',
+    `${file}: ${k.wordsBefore} words before and ${k.wordsAfter} after, in ${k.commit.trim()}.`,
+    '',
+    k.removed.map(rowLine).join('\n'),
+  ].join('\n')
+}
+
 /* ------------------------------------------------------------------------ judging a report ----- */
+
+/** Whether a consolidation's row says where its text went, as the header's rules ask. */
+function placed(row) {
+  if (row.disposition === 'kept') return isText(row.where) && isText(row.loadedBy)
+  if (row.disposition === 'moved') return isText(row.where)
+  return isText(row.why)
+}
+
+/** The problems with the consolidations a changed report states, given its own files and the files its branch changes. */
+function consolidationProblems(r, own, changed) {
+  const problems = []
+  const seen = new Set()
+  for (const k of r.consolidations) {
+    const file = clean(k.file)
+    if (!own.has(file)) {
+      problems.push(`it states a consolidation of ${file}, which it was not given`)
+      continue
+    }
+    if (!changed.includes(file)) problems.push(`it states a consolidation of ${file}, which its branch does not change`)
+    if (seen.has(file)) problems.push(`it states two consolidations of ${file}`)
+    seen.add(file)
+    if (!isText(k.commit)) problems.push(`its consolidation of ${file} names no commit`)
+    if (!(k.wordsAfter < k.wordsBefore)) problems.push(`its consolidation of ${file} frees no words: ${k.wordsBefore} before, ${k.wordsAfter} after`)
+    if (!k.removed.length) problems.push(`its consolidation of ${file} lists nothing it removed`)
+    const unplaced = k.removed.filter((row) => !placed(row)).length
+    if (unplaced) problems.push(`its consolidation of ${file} has ${unplaced} row(s) that do not say where the text went`)
+  }
+  return problems
+}
 
 /** The problems with one agent's report, in the order the header states the rules. */
 function problemsOf(g, r) {
@@ -398,9 +508,11 @@ function problemsOf(g, r) {
     const failing = r.gates.filter((gate) => !gate.passed)
     if (!r.gates.length) problems.push('it changed a file and ran no gate')
     else if (failing.length) problems.push(`its gate(s) ${failing.map((gate) => gate.command).join(', ')} did not pass`)
+    problems.push(...consolidationProblems(r, own, changed))
   } else {
     if (changed.length) problems.push(`it reports no change, but its branch changes ${changed.join(', ')}`)
     if (r.changes.length) problems.push(`it reports no change, but states ${r.changes.length} change(s)`)
+    if (r.consolidations.length) problems.push(`it reports no change, but states ${r.consolidations.length} consolidation(s)`)
   }
   const named = [...r.changes.map((c) => c.finding.trim()), ...r.notChanged.map((n) => n.finding.trim())]
   const foreign = [...new Set(named.filter((key) => !keys.has(key)))]
@@ -463,32 +575,40 @@ for (const g of groups) {
 }
 
 const findingOf = (g, key) => g.findings.find((f) => f.key.trim() === key.trim())
-const toJudge = groups.filter((g) => g.status === 'merge').flatMap((g) => g.changes.map((c) => ({ g, c, f: findingOf(g, c.finding) })))
+const merging = groups.filter((g) => g.status === 'merge')
+const toJudge = merging.flatMap((g) => [...g.consolidations.map((k) => ({ g, k })), ...g.changes.map((c) => ({ g, c, f: findingOf(g, c.finding) }))])
+
+/** The `i`th of `n` skeptics of one item to judge: a consolidation, or a change. */
+function skeptic({ g, k, c, f }, i, n) {
+  return k
+    ? agent(consolidationPrompt(k, i, n), { label: `skeptic ${i}/${n} ${g.id}: consolidation of ${clean(k.file)}`, phase: 'Confirm', schema: VERDICT_SCHEMA })
+    : agent(skepticPrompt(g, c, f, i, n), { label: `skeptic ${i}/${n} ${g.id}: ${f.key.trim()}`, phase: 'Confirm', schema: VERDICT_SCHEMA })
+}
 
 if (toJudge.length) {
   phase('Confirm')
   const judged = await pipeline(
     toJudge,
-    ({ g, c, f }) => {
-      const n = A.policy.promptReviewSkeptics[f.severity]
-      return parallel(
-        Array.from({ length: n }, (_, i) => () =>
-          agent(skepticPrompt(g, c, f, i + 1, n), { label: `skeptic ${i + 1}/${n} ${g.id}: ${f.key.trim()}`, phase: 'Confirm', schema: VERDICT_SCHEMA }),
-        ),
-      )
+    (item) => {
+      const n = A.policy.promptReviewSkeptics[item.k ? CONSOLIDATION_SEVERITY : item.f.severity]
+      return parallel(Array.from({ length: n }, (_, i) => () => skeptic(item, i + 1, n)))
     },
     (votes) => tally(votes),
   )
-  toJudge.forEach(({ g, c, f }, i) => {
+  toJudge.forEach(({ k, c, f }, i) => {
     const t = judged[i] || { outcome: 'unverified', skeptics: 0, upheld: 0, refuted: 0, votes: ['the skeptics returned nothing'] }
-    Object.assign(c, { severity: f.severity, count: f.count, met: metBy(f), ...t })
+    if (k) Object.assign(k, t)
+    else Object.assign(c, { severity: f.severity, count: f.count, met: metBy(f), ...t })
   })
-  for (const g of groups) {
-    if (g.status !== 'merge') continue
-    const lost = g.changes.filter((c) => c.outcome !== 'upheld')
+  for (const g of merging) {
+    const lost = [
+      ...g.consolidations.filter((k) => k.outcome !== 'upheld').map((k) => ({ name: `the consolidation of ${clean(k.file)}`, votes: voteLine(k) })),
+      ...g.changes.filter((c) => c.outcome !== 'upheld').map((c) => ({ name: c.finding.trim(), votes: voteLine(c) })),
+    ]
     if (lost.length) {
       g.status = 'not-upheld'
-      log(`Group ${g.id} not upheld: ${lost.map((c) => `${c.finding.trim()} (${voteLine(c)})`).join('; ')}`)
+      g.lost = lost.map((l) => l.name)
+      log(`Group ${g.id} not upheld: ${lost.map((l) => `${l.name} (${l.votes})`).join('; ')}`)
     }
   }
 }
@@ -506,7 +626,7 @@ for (const run of allRuns) {
 /** Each finding of a read group that no merged branch carries, with the reason it is held. */
 const findingsHeld = []
 for (const g of groups.filter(read)) {
-  const lost = g.status === 'not-upheld' ? g.changes.filter((c) => c.outcome !== 'upheld').map((c) => c.finding.trim()) : []
+  const lost = g.status === 'not-upheld' ? g.lost : []
   for (const f of g.findings) {
     const key = f.key.trim()
     const mine = g.changes.filter((c) => c.finding.trim() === key)
@@ -524,7 +644,8 @@ for (const g of groups.filter(read)) {
 }
 
 const count = (status) => groups.filter((g) => g.status === status).length
-const judgedChanges = toJudge.map(({ c }) => c)
+const judgedChanges = toJudge.filter(({ c }) => c).map(({ c }) => c)
+const judgedConsolidations = toJudge.filter(({ k }) => k).map(({ k }) => k)
 const counts = {
   groups: groups.length,
   merge: count('merge'),
@@ -535,6 +656,9 @@ const counts = {
   changes: judgedChanges.length,
   upheld: judgedChanges.filter((c) => c.outcome === 'upheld').length,
   skeptics: judgedChanges.reduce((n, c) => n + c.skeptics, 0),
+  consolidations: judgedConsolidations.length,
+  consolidationsUpheld: judgedConsolidations.filter((k) => k.outcome === 'upheld').length,
+  consolidationSkeptics: judgedConsolidations.reduce((n, k) => n + k.skeptics, 0),
   runs: allRuns.length,
   runsRead: runsRead.length,
   runsHeld: runsHeld.length,
@@ -547,6 +671,9 @@ if (counts.died === counts.groups) {
   log(`Stopped (agent-died): ${why}`)
   return { stopped: 'agent-died', why, groups, merge, runsRead, runsHeld, findingsHeld, counts }
 }
-const why = `${counts.merge} to merge, ${counts.unchanged} unchanged, ${counts.notUpheld} not upheld, ${counts.refused} refused, ${counts.died} died; ${counts.upheld} of ${counts.changes} change(s) upheld by ${counts.skeptics} skeptic(s); ${counts.runsRead} of ${counts.runs} run(s) read, ${counts.findingsHeld} finding(s) held`
+const consolidationClause = counts.consolidations
+  ? `; ${counts.consolidationsUpheld} of ${counts.consolidations} consolidation(s) upheld by ${counts.consolidationSkeptics} skeptic(s)`
+  : ''
+const why = `${counts.merge} to merge, ${counts.unchanged} unchanged, ${counts.notUpheld} not upheld, ${counts.refused} refused, ${counts.died} died; ${counts.upheld} of ${counts.changes} change(s) upheld by ${counts.skeptics} skeptic(s)${consolidationClause}; ${counts.runsRead} of ${counts.runs} run(s) read, ${counts.findingsHeld} finding(s) held`
 log(`Stopped (done): ${why}`)
 return { stopped: 'done', why, groups, merge, runsRead, runsHeld, findingsHeld, counts }

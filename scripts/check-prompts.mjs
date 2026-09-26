@@ -373,7 +373,8 @@ function budgetProblems(root, { measured, policy, unreadable }) {
       const counted = path.startsWith(`${WORKFLOWS_DIR}/`) ? ' in its string and template literals' : ''
       problems.push(
         `${path}: ${count} words${counted}, over its budget of ${budget} (\`${key}\` in ${POLICY}). ` +
-          `Consolidate it to fit, or raise the budget there with the reason in \`${key}Means\`, which a person merges.`,
+          'Consolidate it first, as `.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated says, ' +
+          `and raise the budget there only by what that does not free, with the reason in \`${key}Means\`; a person merges a raise.`,
       )
     }
   }

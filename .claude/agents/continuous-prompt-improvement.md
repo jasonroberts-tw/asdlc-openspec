@@ -92,7 +92,8 @@ Before each merge, check what the agent reported against git: `git diff --name-o
 origin/main...<branch>` must list only files of that branch's group. A branch that lists another file
 is not merged: its group's runs are held as the workflow's `runsHeld` are, for the reason § 6
 reports. The groups share no file, so a conflict means something the script did not catch: stop and
-report it.
+report it. For each consolidation a merged branch carries, set its file's budget in
+`tools/policy.json` as § How a prompt is consolidated says.
 Then run `npm run gates`, rebase onto `origin/main` and run it again, as
 `.claude/skills/bead/SKILL.md` § 4 and § 5 say, and open the pull request with the `open-pr` skill.
 Its title cites no issue, and a person decides whether it merges: never merge it yourself. A gate
@@ -139,7 +140,8 @@ sections are the value.
    each with its key, the runs that showed it, the condition of the threshold it met (`met`), how
    often the situation arises, what it costs when it does, the net words its edit adds, and its fix:
    the sentence added, changed or removed, and where. Under each, every skeptic's vote as the
-   workflow returns it.
+   workflow returns it. Before a file's findings, its consolidation, if it has one: the table
+   § How a prompt is consolidated asks for, and its skeptics' votes.
 4. **Corrections to the runs' own analyses.** Where a session's account of itself is wrong, say so,
    with the evidence.
 5. **What this review read and held.** The runs marked read; each run held with the group that held
@@ -182,3 +184,33 @@ description it sends a reader to a file the trunk lacks, and in a tracked file t
 refuses it. An edit that adds or changes a rule states the failure it prevents in one clause, and
 the runs that showed the failure go in the description, with the finding, never in the prompt
 (`CLAUDE.md` § Standing rules for prompts and gates).
+
+## How a prompt is consolidated
+
+An edit that would take a prompt past its word budget, a key in `tools/policy.json` that
+`node scripts/check-prompts.mjs --counts` prints beside the prompt's words, consolidates the prompt
+first. A raise, which a person merges, covers only what the consolidation did not free. This holds
+for a file's agent and for any other session that edits a prompt.
+
+What loads the prompt decides what can go: `CLAUDE.md`, in every session, and each file the prompt
+sends the session to at a step. Whether a workflow's agents load `CLAUDE.md` is not established, so
+in a workflow's literals only the second counts. Remove only:
+
+- a restatement of a rule `CLAUDE.md` states, keeping a `CLAUDE.md` § pointer where the step needs one;
+- a step one of those files states where the prompt sends the session to it;
+- incident prose, or an example drawn from one, which the pull request that added it keeps:
+  `git log -S "<text>" -- <file>` finds the commit;
+- explanation past the one clause that states a kept rule's failure.
+
+Keep every heading another file cites: `git grep` the prompt's path and its name.
+
+Commit the consolidation alone, before the edit. The pull request's description gives one row for
+each sentence or clause removed: kept, naming the file and section that state it and what loads that
+file wherever this prompt is loaded; moved, naming the pull request that tells it; or deleted, saying
+why. A sentence whose row cannot name what loads its new home stays: a rule kept where the session
+never reads it is lost. Once the edit lands, the prompt's budget is its new count, and its `Means`
+names the consolidation.
+
+A file's agent reports its consolidation under `consolidations`, skeptics judge the rows against its
+commit's diff, as `.claude/workflows/review-prompts.js`'s header says, and the reviewer's session
+sets the budget (§ 5).
