@@ -92,15 +92,19 @@ pre-push:
   # would take if it came back.
   jobs:
     # Every `run:` token here and in `.github/workflows/verify.yml` resolves to a package script, and every script no job
-    # invokes is declared by kind in the gate's own table. Reads three committed files; milliseconds.
-    # `apps/**` is in both globs because moving or emptying a file a calculator script names changes
-    # the verdict (the path and glob checks), and its selftest's control reads those same files.
+    # invokes is declared by kind in the gate's own table. Reads three committed files and lists the
+    # directories the scripts' paths and globs name; milliseconds. `tools/**`, `scripts/**` and
+    # `apps/**`, the roots a script's path is read under, are in both globs: moving, renaming or
+    # emptying a file a script names changes the verdict (the path and glob checks), and a push that
+    # touched only that file would otherwise skip the job. The selftest's control reads those same
+    # files, and `scripts/**` holds the gate itself.
     - name: check-jobs
       glob:
         - 'package.json'
         - 'lefthook.yml'
         - '.github/workflows/verify.yml'
-        - 'scripts/check-jobs.mjs'
+        - 'tools/**'
+        - 'scripts/**'
         - 'apps/**'
       run: node --run check:jobs
     - name: check-jobs-selftest
@@ -108,7 +112,8 @@ pre-push:
         - 'package.json'
         - 'lefthook.yml'
         - '.github/workflows/verify.yml'
-        - 'scripts/check-jobs.mjs'
+        - 'tools/**'
+        - 'scripts/**'
         - 'apps/**'
       run: node --run check:jobs:selftest
     # Every skill and agent opens with the line CLAUDE.md requires, read out of CLAUDE.md itself.
@@ -165,18 +170,18 @@ pre-push:
     # The Stop and SubagentStop hook, run as the harness runs it over scratch citation trees: an
     # untracked file with a broken pointer turns its verdict to FAIL for that reason, an ignored one
     # does not, and `checkoutOf` places a linked worktree over scratch repositories. The hook runs
-    # `check:jobs` over this checkout in every case, so the glob carries that gate's inputs too.
+    # `check:jobs` over this checkout in every case, so the glob carries that gate's inputs too, the
+    # whole of `tools/`, `scripts/` and `apps/` among them. `scripts/**` and `tools/**` also hold the
+    # hook and the citations gate it runs.
     # 1.92-2.03 s wall through `node --run` (`/usr/bin/time -p`, three runs) on a macOS 26.7 laptop
     # (Apple M3 Max) with Node 26.8.1, 2026-09-25: four hook runs, each two npm starts.
     - name: gate-summary-selftest
       glob:
-        - 'scripts/hooks/**'
-        - 'tools/citations/**'
-        - 'tools/lib/**'
         - 'package.json'
         - 'lefthook.yml'
         - '.github/workflows/verify.yml'
-        - 'scripts/check-jobs.mjs'
+        - 'tools/**'
+        - 'scripts/**'
         - 'apps/**'
       run: node --run gate-summary:selftest
     # The register's status line, its parenthetical dates, its mechanism sentence and its summary

@@ -252,7 +252,7 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 
 | Script | What it does | Gate |
 |---|---|---|
-| `check:jobs` | Holds the hook runner's configuration, the CI workflow and `package.json` to each other: every job names a script that exists, and every script no job runs is declared with its reason. Without it a gate can be unwired and nothing says so. | pre-push + CI |
+| `check:jobs` | Holds the hook runner's configuration, the CI workflow and `package.json` to each other: every job names a script that exists, every script no job runs is declared with its reason, and every declaration is current and of the right kind. It also holds each script to the files it names: a `tools/`, `scripts/` or `apps/` path exists as spelled, case included, and a glob matches a file. Without it a gate can be unwired, or a script can name a file that is gone, and nothing says so. | pre-push + CI |
 | `check:jobs:selftest` | The job cross-check, negative-tested. | pre-push + CI |
 | `check:prompts` | Refuses a skill or agent whose first line after its frontmatter is not the sentence `CLAUDE.md` requires, read out of `CLAUDE.md` so the sentence has one home. Without it a prompt copied in or written fresh loses the line and nothing says so. | pre-push + CI |
 | `check:prompts:selftest` | The prompt gate, negative-tested against a fixture tree it builds. | pre-push + CI |
@@ -404,7 +404,7 @@ at its start: restart the session after changing it.
 | `git commit`, with a staged path under `artifacts/` | `scripts/assert-not-hand-edited.mjs` refuses a generated file that no longer matches its generator. | `lefthook.yml` (`pre-commit`) |
 | `git commit`, `git checkout`, `git merge`, `git push` | The tracker's own git hooks, preserved as hook-runner jobs, so installing the hook runner does not turn the tracker's git integration off. | `lefthook.yml` (`pre-commit`, `prepare-commit-msg`, `post-checkout`, `post-merge`, `pre-push`) |
 | `git push` | `beads:check` holds the open issues to the label and identifier rules. It reads the tracker's database, so it is not a `.github/workflows/verify.yml` step. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes `package.json`, `lefthook.yml`, `.github/workflows/verify.yml`, `apps/` or the gate | `check:jobs` and its selftest: every job names a script that exists, and every script no job runs is declared. | `lefthook.yml` (`pre-push`) |
+| `git push` that changes `package.json`, `lefthook.yml`, `.github/workflows/verify.yml`, or anything under `tools/`, `scripts/` or `apps/`, the gate among them | `check:jobs` and its selftest: every job names a script that exists; every script no job runs is declared, and no declaration is stale or of the wrong kind; every `tools/`, `scripts/` or `apps/` path a script names exists as spelled, case included; and every glob a script names matches a file. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes a skill, an agent, `CLAUDE.md` or the gate | `check:prompts`: every skill and agent opens with the line `CLAUDE.md` requires; `check:prompts:selftest` holds the gate. | `lefthook.yml` (`pre-push`) |
 | `git push` | `citations:check`: every line and section pointer in every tracked text file resolves. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes the citations gate, `tools/lib/`, `CLAUDE.md` or a prompt file | `citations:selftest`: the citations gate, negative-tested. | `lefthook.yml` (`pre-push`) |
