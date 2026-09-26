@@ -150,8 +150,8 @@ try {
     `${control.verdict} ${control.detail.slice(0, 300)}`,
   )
   if (!control.verdict.startsWith('gates: PASS')) {
-    console.error('selftest: the control does not pass, so no case below can be trusted.')
-    process.exit(1)
+    // Thrown, never `process.exit`, which would skip the `finally` that removes the scratch trees.
+    throw new Error('selftest: the control does not pass, so no case below can be trusted.')
   }
 
   const untracked = runHook('untracked', { untracked: { [DRAFT]: BROKEN } })
