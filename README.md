@@ -276,7 +276,7 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 
 | Script | What it does | Gate |
 |---|---|---|
-| `gate-summary:selftest` | The Stop and SubagentStop hook, run as the harness runs it over scratch trees: an untracked file with a broken pointer must turn its verdict to FAIL for that reason, an ignored one must not, and a subagent's verdict must say so; and it must gate a linked worktree where the stopping agent worked. Without it the hook could go back to reporting PASS over files it never read. | pre-push + CI |
+| `gate-summary:selftest` | The Stop and SubagentStop hook, run as the harness runs it over scratch trees: an untracked file with a broken pointer must turn its verdict to FAIL for that reason, an ignored one must not, and a subagent's verdict must say so. A copy of the hook in a scratch repository must run its gates in the linked worktree the payload's `cwd` names, and its verdict must say what that worktree's own gate read. Without it the hook could go back to reporting PASS over files it never read, or over a checkout it never gated. | pre-push + CI |
 
 ### gates
 

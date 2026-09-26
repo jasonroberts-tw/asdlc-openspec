@@ -20,6 +20,17 @@
  * worktree there; so the verdict names the checkout whenever it is not the hook's own, and a
  * subagent's verdict says it is one.
  *
+ * AND A VERDICT NAMING A CHECK THE GATED CHECKOUT DID NOT MAKE. `.claude/settings.json` names this
+ * hook by `$CLAUDE_PROJECT_DIR`, which stays at the checkout a session started in, so a session that
+ * has entered a worktree runs the primary checkout's copy of this hook, and that copy runs the
+ * worktree's copy of each gate. On 2026-09-25 the review of pull request 40 reproduced a PASS verdict
+ * that said "citations:check with untracked files" over a checkout whose gate predates
+ * `CITATIONS_UNTRACKED` and so read tracked files only, because the label was a constant in `GATES`
+ * (asdlc-openspec-wdt). The label is now read from the gate's own summary line (`UNTRACKED_READ`), and
+ * says tracked files only when that line is missing. `gate-summary:selftest` runs a copy of this hook
+ * against a linked worktree whose gate ignores the setting, which is what turns red if the label
+ * goes back to being a constant or the gates stop running where `checkoutOf` points.
+ *
  * IT NEVER BLOCKS. A Stop hook that denies the stop can trap a session in a loop when the failure is
  * pre-existing or not fixable from here, and a hook people disable is a lie in version control. The
  * accountability mechanism is that the verdict is in the transcript where both the user and the agent
@@ -55,7 +66,8 @@
  *   npm run gate-summary:selftest          its fixtures (`gate-summary.selftest.mjs`)
  *
  * Each gate's own root override passes through, so a by-hand run can point it at a doctored copy:
- * `CITATIONS_ROOT=<dir> node scripts/hooks/gate-summary.mjs`, which is how the selftest runs it.
+ * `CITATIONS_ROOT=<dir> node scripts/hooks/gate-summary.mjs`, which is how the selftest runs this
+ * checkout's copy; it also runs a copy of the hook from a scratch repository with stub gates.
  *
  * Needs `npm` and `git` on PATH and `npm ci` in the checkout it gates, and nothing outside it.
  */
@@ -63,23 +75,38 @@ import { realpathSync } from 'node:fs'
 import { ROOT, checkoutOf, npmRun, readHookInput } from './_shared.mjs'
 
 /**
- * The fast gates, in the order they are worth reading, each with the environment it runs under.
- * Every other gate runs at pre-push and in CI; one that moves here brings its measured cost into the
- * header's budget in the same change.
+ * The line `tools/citations/check.ts` adds to its summary when it honours `CITATIONS_UNTRACKED`. A
+ * copy of the gate that predates the setting ignores it and prints no such line.
+ */
+const UNTRACKED_READ = 'untracked files read too (CITATIONS_UNTRACKED=1)'
+
+/**
+ * The fast gates, in the order they are worth reading, each with the environment it runs under and
+ * `reads`, which turns the gate's output into what the verdict says it read. The label comes from the
+ * output because the copy of the gate that runs is the gated checkout's, which can predate the
+ * environment this file hands it. Every other gate runs at pre-push and in CI; one that moves here
+ * brings its measured cost into the header's budget in the same change.
  */
 const GATES = [
-  { script: 'check:jobs', env: {}, reads: 'check:jobs' },
-  { script: 'citations:check', env: { CITATIONS_UNTRACKED: '1' }, reads: 'citations:check with untracked files' },
+  { script: 'check:jobs', env: {}, reads: () => 'check:jobs' },
+  {
+    script: 'citations:check',
+    env: { CITATIONS_UNTRACKED: '1' },
+    reads: (out) =>
+      out.includes(UNTRACKED_READ)
+        ? 'citations:check with untracked files'
+        : 'citations:check over tracked files only: its copy there ignores CITATIONS_UNTRACKED',
+  },
 ]
 
 const input = await readHookInput()
 const root = checkoutOf(input?.cwd)
 
 const results = await Promise.all(
-  GATES.map(async (gate) => ({
-    gate: gate.script,
-    ...(await npmRun(gate.script, { timeoutMs: 180_000, cwd: root, env: gate.env })),
-  })),
+  GATES.map(async (gate) => {
+    const run = await npmRun(gate.script, { timeoutMs: 180_000, cwd: root, env: gate.env })
+    return { gate: gate.script, reads: gate.reads(run.out), ...run }
+  }),
 )
 const failed = results.filter((r) => r.code !== 0)
 
@@ -90,7 +117,7 @@ const who =
 const where = root === realpathSync(ROOT) ? '' : ` in ${root}`
 const verdict =
   failed.length === 0
-    ? `${who}gates: PASS${where} (${GATES.map((g) => g.reads).join(', ')})`
+    ? `${who}gates: PASS${where} (${results.map((r) => r.reads).join(', ')})`
     : `${who}gates: FAIL${where} -- ${failed.map((f) => f.gate).join(', ')}. Do not report this as complete.`
 
 const detail =
