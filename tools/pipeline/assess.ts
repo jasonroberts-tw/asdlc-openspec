@@ -37,8 +37,8 @@ export type Verdict =
    */
   | 'pin-drift'
   /**
-   * A real gate already covers it (`detection.via` is `regeneration` or `none`). Reported, never
-   * failed. A third staleness value landed here too, until the node kind that used it was retired.
+   * The digest gate does not assess it: a whole-output `:check` covers it (`detection.via` is
+   * `regeneration`), or the record says why nothing does (`none`). Reported, never failed.
    */
   | 'not-applicable'
 

@@ -222,7 +222,7 @@ export const computeGeneratorDigest = (node: PipelineNode, root: string = ROOT):
  * under `root`. An emitter writing under an OUTPUT OVERRIDE passes the file it is about to overwrite
  * (a node that emits under a scratch root for its selftest): the sticky timestamp has to be carried
  * forward from the output being replaced, or a scratch emit and the scratch `--check` a second later
- * differ on `generatedAtUtc` alone -- which is how one node's selftest found this.
+ * differ on `generatedAtUtc` alone, and that `--check` fails a correct output.
  * In production the two paths are the same file, so nothing about the committed bytes moves.
  */
 export function readStamp(

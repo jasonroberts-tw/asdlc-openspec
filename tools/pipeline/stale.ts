@@ -118,7 +118,7 @@ if (debt.length) {
         : r.node.staleness === 'grows'
           ? 'ASSET, `grows`: reopens because a run asked for something absent, not because time passed. Worth a bead, not worth failing a push.'
           : r.node.detection.via === 'legacy-commit'
-            ? 'The sibling ../sibling checkout has diverged from the pin. No commit in THIS repository caused it and none can fix it without a supervised re-extraction, so it is not a push gate.'
+            ? 'The sibling ../sibling checkout has diverged from the pin. No commit in THIS repository caused it and none can fix it: its rebuild needs that checkout, which CI does not have, so it is not a push gate.'
             : 'This artifact predates the provenance stamp, so there is nothing to compare it against. This node becomes gated the first time its emitter runs.'
     console.log(`\n  ${r.node.id} -- ${r.detail}`)
     console.log(`      why not gated: ${why}`)

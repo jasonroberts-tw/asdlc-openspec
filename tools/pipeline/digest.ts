@@ -49,8 +49,8 @@ export const stringDigest = (s: string): Digest => sha256(s)
 /**
  * Fold a set of files into one digest, keyed by path so a RENAME registers as a change.
  *
- * Hashing content alone would make `git mv a.json b.json` invisible, and a renamed input is exactly
- * the change that once left a generated record citing a file that no longer existed. Path and content are
+ * Hashing content alone would make `git mv a.json b.json` invisible, and a stamp blind to a rename
+ * would report CURRENT over a generated record that still cites the old path. Path and content are
  * separated by a NUL, which cannot occur in either, so no path can be constructed that folds to the
  * same bytes as a different path plus content.
  */
