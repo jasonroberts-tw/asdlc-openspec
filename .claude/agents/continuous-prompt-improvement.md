@@ -80,11 +80,10 @@ merges (`CLAUDE.md` § A program proposes; only a person promotes). Never merge 
 that fails in a file a group changed is fixed on your branch; one that fails elsewhere is reported.
 
 If the permission classifier refuses `npm run gates`, run `npm run citations:check` as its own call
-before you push, because a prompt edit is what that gate reads, and push only once it passes. End the
-description with a `RUN THESE YOURSELF` block holding the refused command (`CLAUDE.md` § Guards), so
-the person deciding the merge runs the full suite first. In the reviews of the add-calculator-web-app
-change, a reviewer whose gate run was refused committed a review that had passed no gate, and its
-pointer to a file only the change branch held was found when the maintainer ran the gates by hand.
+before you push, because a prompt edit is what that gate reads, and push only once it passes: a
+review that passed no gate can carry a pointer that does not resolve. End the description with a
+`RUN THESE YOURSELF` block holding the refused command (`CLAUDE.md` § Guards), so the person deciding
+the merge runs the full suite first.
 
 ## 6. Mark what was read
 
@@ -149,4 +148,6 @@ nothing but its read lines.
 Every edit cites only files your own base holds. A file that only a reviewed branch holds, such as a
 change's design, is named in prose by its branch and its path, never as a pointer: in the
 description it sends a reader to a file the trunk lacks, and in a tracked file the citations gate
-refuses it.
+refuses it. An edit that adds or changes a rule states the failure it prevents in one clause, and
+the runs that showed the failure go in the description, with the finding, never in the prompt
+(`CLAUDE.md` § Standing rules for prompts and gates).

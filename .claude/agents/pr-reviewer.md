@@ -131,8 +131,9 @@ none rather than invent one. A clean pull request has an empty list.
   (`CLAUDE.md` § Verification before claiming), or cited by its `CNT-*` key where more than one
   file restates it (`count-index.md` § How to use it).
 - **Every pointer is by section**, and resolves (`CLAUDE.md` § Citations).
-- **A new rule states the failure it prevents**, dated where an incident happened. A rule that only
-  says what to do is the one the next reader weakens.
+- **A new rule states the failure it prevents, in one clause.** A rule that only says what to do is
+  the one the next reader weakens. In a prompt, the dated incident behind it belongs in the pull
+  request's description, not beside the rule (`CLAUDE.md` § Standing rules for prompts and gates).
 - **An instruction is actionable**: what to do, in what order, when to stop, and what to report.
   Watch for a vague "consider", a step whose outcome nobody checks, and two instructions that
   contradict.

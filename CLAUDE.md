@@ -34,10 +34,8 @@ instead of estimating.
 The same holds for a fact a session hands a subagent. A premise in a brief, such as whether an API
 exists, the version that added it, or a value computed from the code, is verified first and given
 with its source, or given as a question for the subagent to check. A subagent that finds a premise
-false builds on what it found, not on the brief, and names the false premise in its report. In the
-calculator change's build, a brief said `fs.globSync` was not stable in Node 22.18. The builder
-found that it was, built the hand-written matcher it had been told to build anyway, and
-`asdlc-openspec-pta` now replaces that matcher.
+false builds on what it found, not on the brief, and names the false premise in its report: what it
+builds on a premise it knows is false is work someone later replaces.
 
 ## Stateful counts live in `count-index.md`, under a key
 
@@ -62,10 +60,6 @@ case where it gives the worse result: the input or the situation, what the recom
 there, and what the other option gives. With `AskUserQuestion`, the case goes in the recommended
 option's description or preview. A person answers from the case in front of them, and an example
 on which the recommendation wins, or on which every option agrees, answers the question for them.
-The calculator change's design asked which value a chain carries forward, and illustrated it only
-with 0.1 + 0.2 − 0.3, where carrying the displayed value looks right. The maintainer took that
-option and reversed it a day later on 1 ÷ 3 × 3, which it turns into 0.9999999999
-(`asdlc-openspec-asv`).
 
 ## Bash command style
 
@@ -109,8 +103,9 @@ order: `change-propose`, `change-design`, `change-plan`, `change-build`, `change
 children; the shape and its reasons are `docs/decisions.md` § D-02. Never track a change's tasks in a
 `tasks.md`, and never run `openspec init` or `openspec update` here.
 
-Each stage starts in a fresh session and never depends on an earlier stage's conversation. It picks
-the change up from what the earlier stages wrote down:
+Each stage starts in a fresh session and never depends on an earlier stage's conversation, because
+one session that runs every stage carries each stage's context into the next. It picks the change
+up from what the earlier stages wrote down:
 
 - **its name**: the stage's argument, or else the `change` metadata of the one open epic that carries
   the change label (`specChangeLabel` in `tools/policy.json`), which
@@ -121,8 +116,7 @@ the change up from what the earlier stages wrote down:
   folder there, `openspec/changes/<change>/`.
 
 What a later stage needs from an earlier one, such as the user's answer to a question or a decision
-to write no design, goes into one of these before the earlier stage ends. `asdlc-openspec-9ta`
-records what running all six stages of the calculator change in one session cost.
+to write no design, goes into one of these before the earlier stage ends.
 
 When a later stage sends a change back, the epic gets the `rerouteLabels` label, from
 `tools/policy.json`, for each earlier stage whose work it reopens: the proposal or a delta spec
@@ -200,6 +194,13 @@ Each of these holds from the first file it applies to, and for every one after i
 
 - **The first line of every substantial skill and agent** is: "Read CLAUDE.md first. Everything
   below is subordinate to it and points at it rather than restating it."
+- **A rule in a prompt states the failure it prevents in one clause, and carries no incident.** In
+  `CLAUDE.md`, a skill or an agent, the dated incident behind a rule goes in the description of the
+  pull request that adds or changes the rule, because every session loads the prompt and only the
+  reader who edits the rule needs the incident. That reader finds it from the prompt:
+  `git log --format=%h origin/main -- <prompt>` lists the commits that changed it, and
+  `gh api repos/{owner}/{repo}/commits/<commit>/pulls` names the pull request each one landed from.
+  The header of a script, an emitter or a hook is not a prompt, and keeps its incident (below).
 - **Every gate has a `--selftest` mode.** It copies the gate's inputs under the temporary directory,
   breaks exactly one thing per case, asserts the run fails **for that reason**, and keeps one
   undoctored control case that must pass, without which every other case could be failing on the

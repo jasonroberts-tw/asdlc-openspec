@@ -29,8 +29,8 @@ A third segment only when it names a sub-artifact rather than a variation
 `tools/<name>/*.ts` run by plain `node` for a node emitter that has its own module tree (Node 22.18+
 strips the types itself; write every relative import with its `.ts` extension and use no enums,
 namespaces or parameter properties, which the stripper cannot erase); a single-file `scripts/*.mjs`
-run with `node` for a gate. Match the neighbours and introduce no new runtime — `tsx` was the
-launcher until it was measured at ~6 s per start on Windows and removed.
+run with `node` for a gate. Match the neighbours and introduce no new runtime: a launcher adds its
+start-up time to every run of every script it starts.
 
 Open the file with the header the neighbours use: what it emits, **the failure it exists to
 prevent** (in this repository that is the paragraph readers actually need), the `npm run <name>`
@@ -75,15 +75,13 @@ The section documents **every** script in `package.json`, and its structure is m
 - The description says what the script does and what breaks without it. It does not restate the
   command line; `package.json` holds that, and two copies means one goes stale.
 - Any figure in it must be re-derived at the time of writing, with no exceptions for numbers copied
-  out of a source comment. Those drift silently: one emitter's header described the table it generated as 140 rows
-  while the table it wrote carried 201, and every gate was green, because a numeral in a comment is
-  not an input to anything.
+  out of a source comment. Those drift silently, because a numeral in a comment is not an input to
+  anything.
 
 Also update `README.md` § What runs automatically when you add, change or remove a hook, a job or
 a CI step. In `README.md` § The guardrails, update any row that names the script, and the row of any
 failure the script now refuses. No row can name a script that is only now being added, so an
-addition finds its row by the failure: `calculator:test`'s new runner, `scripts/run-tests.mjs`,
-joined "A green run that ran nothing" (`asdlc-openspec-frm`).
+addition finds its row by the failure it refuses.
 
 ## 6. Renaming or removing one
 
