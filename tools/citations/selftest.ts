@@ -160,6 +160,50 @@ console.log('citation scanner selftest\n')
   ok('capitalised names are section names', looksLikeSectionName('Measured state'))
   ok('numbered names are section names', looksLikeSectionName('5.3'))
   ok('lowercase names are not', !looksLikeSectionName('header'))
+
+  // SPLIT BY ONE LINE BREAK. A reflowed paragraph puts the file name at the end of one line and the
+  // `§` at the start of the next; read line by line, the pointer was never checked at all.
+  // `sections(...)` rather than `only(...)` below, so a scanner that stops reading splits reports
+  // every case here and the end-to-end cases in § 6, instead of throwing at the first.
+  const split = sections('as `CLAUDE.md`\n * § The gate ladder asks of a skip.')
+  ok(
+    'a pointer split before the § is read, at the line its file name is on',
+    split.length === 1 &&
+      split[0]?.target === 'CLAUDE.md' &&
+      split[0].section.startsWith('The gate ladder') &&
+      split[0].at === 1,
+    JSON.stringify(split),
+  )
+  for (const leader of ['', '*', '//', '>', '#', '-']) {
+    ok(
+      `a split pointer is read after the leader ${JSON.stringify(leader)}`,
+      sections(`see \`foo.md\`\n  ${leader} § INVARIANTS says so`).length === 1,
+    )
+  }
+  const afterMark = sections('see `foo.md` §\n// INVARIANTS says so')
+  ok(
+    'a pointer split between the § and the name is read',
+    afterMark.length === 1 && afterMark[0]?.section.startsWith('INVARIANTS') === true,
+    JSON.stringify(afterMark),
+  )
+  ok(
+    'a paragraph break ends a pointer',
+    sections('see `foo.md`\n\n§ INVARIANTS says so').length === 0,
+  )
+  ok(
+    'two line breaks are never joined',
+    sections('see `foo.md`\n§\nINVARIANTS says so').length === 0,
+  )
+  ok(
+    'other text after the break is never joined',
+    sections('see `foo.md`\nand § INVARIANTS says so').length === 0,
+  )
+  const third = sections('# Title\nprose\nsee `foo.md`\n// § Beta')
+  ok(
+    'a split pointer is reported at its own line, not the first line of the text',
+    third.length === 1 && third[0]?.at === 3,
+    JSON.stringify(third),
+  )
 }
 
 /* --------------------------------------------------------------------------------------------- *
@@ -390,8 +434,9 @@ console.log('citation scanner selftest\n')
   claude.push('## After the regions', 'prose', '')
   const liveSection = claudeRegions.find((r) => 'section' in r)
 
-  // Three line citations (two in a markdown file, one in a source comment), three section citations,
-  // one dead citation inside a history directory, one inside an extension the gate does not scan.
+  // Three line citations (two in a markdown file, one in a source comment); four section citations
+  // (two in a markdown file; two in a source comment, one of them split by a line break); one dead
+  // citation inside a history directory, one inside an extension the gate does not scan.
   const TREE: Readonly<Record<string, string>> = {
     'docs/target.md': [
       '# Target',
@@ -411,6 +456,8 @@ console.log('citation scanner selftest\n')
     'tools/code.ts': [
       '// The last word is at docs/target.md:6,',
       '// and `docs/target.md` § Beta has the rest.',
+      '// A pointer a line break splits: `docs/target.md`',
+      '// § Alpha section, after a comment leader.',
       'export {}',
       '',
     ].join('\n'),
@@ -464,7 +511,7 @@ console.log('citation scanner selftest\n')
   )
   const n = (i: number): number => Number(m?.[i] ?? Number.NaN)
   ok('the scan finds line citations to resolve -- exactly the three the tree holds', n(1) === 3, `${n(1)} found`)
-  ok('the scan finds section citations to resolve -- exactly the three the tree holds', n(2) === 3, `${n(2)} found`)
+  ok('the scan finds section citations to resolve -- exactly the four the tree holds', n(2) === 4, `${n(2)} found`)
   ok(
     'the gate reads the tracked text files, five, and skips the extension it does not scan',
     n(3) === 5,
@@ -521,6 +568,13 @@ console.log('citation scanner selftest\n')
       what: 'a section citation to a heading that is not there',
       doctor: edit('docs/citer.md', '§ Beta', '§ Gamma'),
       where: 'docs/citer.md:3',
+      reason: 'but no section of docs/target.md is named that',
+      problems: 1,
+    },
+    {
+      what: 'a section citation split by a line break, to a heading that is not there',
+      doctor: edit('tools/code.ts', '// § Alpha section, after', '// § Gamma, after'),
+      where: 'tools/code.ts:3',
       reason: 'but no section of docs/target.md is named that',
       problems: 1,
     },
