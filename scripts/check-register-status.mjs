@@ -53,7 +53,7 @@
  * NEGATIVE TESTING. `--selftest` copies the register and the citing files under `os.tmpdir()` and
  * doctors ONE thing per case, asserting the run fails FOR THAT REASON -- plus a control that the
  * undoctored copy passes, without which every other case could be failing on the copy. By hand,
- * point `CHECK_REGISTER_ROOT` at a copy of the tree, as `check-provenance.mjs` does:
+ * point `CHECK_REGISTER_ROOT` at a copy of the tree, as `check-jobs.mjs` does with `CHECK_JOBS_ROOT`:
  *
  *   CHECK_REGISTER_ROOT=/tmp/doctored node scripts/check-register-status.mjs
  *
