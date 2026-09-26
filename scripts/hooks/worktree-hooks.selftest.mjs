@@ -649,6 +649,25 @@ check(
   JSON.stringify(rendered.files) === JSON.stringify([...COPIED, ...WRITTEN].sort()),
   JSON.stringify(rendered.files),
 )
+// The banner once said the file was read by a `vite.config.ts` this repository never had
+// (asdlc-openspec-5pf). It must name its reader, every file it names must exist here, and the pair
+// must be in the one form that reader parses, or the next worktree is handed the same ports.
+const portsFile = join(rendered.worktree, '.worktree', 'ports.env')
+const portsText = existsSync(portsFile) ? readFileSync(portsFile, 'utf8') : ''
+const banner = portsText.split('\n').filter((line) => line.startsWith('#'))
+const named = banner.join('\n').match(/[\w./-]+\.(?:mjs|js|ts|md|json|sh)\b/g) ?? []
+const missing = named.filter((path) => !existsSync(resolve(HOOKS, '..', '..', path)))
+check(
+  'ports.env names its reader, and every file it names exists',
+  named.includes('scripts/render-worktree-context.mjs') && missing.length === 0,
+  `named ${JSON.stringify(named)}, missing ${JSON.stringify(missing)}`,
+)
+check(
+  'and it holds the pair in the form that reader parses',
+  JSON.stringify([...portsText.matchAll(/^([A-Z_]+)=\d+$/gm)].map((m) => m[1])) ===
+    JSON.stringify(['APP_PORT', 'SB_PORT']),
+  JSON.stringify(portsText),
+)
 
 const refused = render(`${TEMPLATE_TEXT}\n{{DB_NAME}}\n`)
 check(
