@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-10 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09 and D-10 added 2026-09-26).**
+**Status: every decision from D-01 to D-11 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10 and D-11 added 2026-09-26).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-10` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-11` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -66,6 +66,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-08** | A run leaves its analysis in the tracker, and one review reads every pending analysis as a batch | `CLAUDE.md` § Prompt reviews; the `continuous-prompt-improvement` agent and `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; the four `promptReview*` keys of `tools/policy.json`; `bead` § 8 |
 | **D-09** | An in-session guard refuses a `gh` command that applies the approval label, from any checkout | `scripts/hooks/guard-git.mjs`, held by `worktree:selftest`; the guard's rows in `.claude/README.md`, `scripts/hooks/README.md` and `README.md` |
 | **D-10** | A prompt review proposes an edit only for a finding that recurs or is severe, and carries it once skeptics uphold it | The threshold check and the skeptic step of `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; `promptReviewHeldMarker`, `promptReviewRecurrenceCount`, `promptReviewMajorSeverities` and `promptReviewSkeptics` in `tools/policy.json`; `CLAUDE.md` § Prompt reviews; the `continuous-prompt-improvement` agent |
+| **D-11** | `beads:check` refuses an open found issue with no asset label, as D-06 item 4 asked | Rule 4 of `scripts/check-beads.mjs`, held by `beads:selftest` at pre-push and in CI; `gatedBy` in `tools/policy.json` |
 
 ## Risks
 
@@ -220,6 +221,8 @@ Retirement checklist for the deleted skills, each item done in this change:
 
 > **Amended 2026-09-24 by D-06.** Item 3 and the first alternative no longer apply: the run-outcome schema, `tools/outcomes/record.selftest.ts` and `tools/outcomes/policy.json` are deleted, so no intervention enum exists to tie to, and `outcomes-record-selftest` is no longer a job. `tools/policy.json` now also carries `assetLabels`, `foundAtLabels` and `rerouteLabels`, which no gate holds yet.
 
+> **Amended 2026-09-26 by D-11.** The amendment above no longer holds for `assetLabels`: `beads:check` holds it. `foundAtLabels` and `rerouteLabels` are still held by no gate.
+
 ### D-04 · The repository carries a demo product, a calculator served on loopback only
 
 **Recorded 2026-09-24**, carried by `asdlc-openspec-zgh`. The maintainer accepted it on 2026-09-23, during the `change-design` stage of the change `add-calculator-web-app`.
@@ -361,6 +364,8 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 - One archived change: `git ls-tree --name-only <that commit>^ openspec/changes/archive/`.
 - The calculator spec's scenarios, 30 before the build's revision and 47 after: `git grep -c "#### Scenario:" d00e197^ -- openspec/changes/add-calculator-web-app/specs/calculator/spec.md`, and the same at `d00e197`.
 - The 25 issues discovered from the first change, and the labels each was given on 2026-09-24: `bd show asdlc-openspec-zgh` lists them under DISCOVERED, with the epic's own labels, and `bd show <id>` gives each one's. `bd count -l <found-at label> --by-label` counts them with every issue filed since, so it grows after this date.
+
+> **Amended 2026-09-26 by D-11.** Item 4 no longer holds for `assetLabels`: `beads:check` refuses an open issue filed `discovered-from` that carries none of its labels, and `beads:selftest` holds that refusal in CI. `foundAtLabels` and `rerouteLabels` are still held by no gate.
 
 ### D-07 · A reviewer merges each pull request that satisfies the issues it carries, one at a time
 
@@ -536,6 +541,33 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 - **`lefthook.yml`, `.github/workflows/verify.yml`, `README.md`, `scripts/README.md` and `.claude/README.md`:** the `workflows-selftest` job's comment and cost, the step's name and comment, and the rows that describe the workflow or its selftest.
 
 **Figures.** Eleven review pull requests from #28 to #53, the titles in that range that cite no issue: nine merged, and #48 and #51 were closed when #53 superseded them (`gh pr list --state all --limit 100 --json number,title,state`). A batch of 5 major findings sends 15 skeptics: 5 times `promptReviewSkeptics.major`, 3.
+
+### D-11 · beads:check refuses an open found issue with no asset label, as D-06 item 4 asked
+
+**Recorded 2026-09-26**, carried by `asdlc-openspec-dzi`. D-06 item 4, the maintainer's on 2026-09-24, named this gate as the one to come. This entry records that it now holds, and corrects the two places the register said no gate did.
+
+**Builds on / amends:** amends D-06, whose item 4 said no gate holds the three label vocabularies, and D-03, whose amendment by D-06 said the same. Builds on D-03, whose policy file holds `assetLabels`.
+
+**Decision.** `npm run beads:check` refuses an open issue filed `discovered-from` that carries no label `assetLabels` lists, reading the list from `tools/policy.json` and spelling none of its values.
+
+1. **It stays a pre-push job and not a CI step,** because it reads the tracker (`CLAUDE.md` § The gate ladder).
+2. **`npm run beads:selftest` holds the refusal,** over a fixture export and a copy of the policy, through the root override `BEADS_CHECK_ROOT`. It reads only committed files and fixtures, so it is a pre-push job and a `.github/workflows/verify.yml` step.
+3. **`foundAtLabels` and `rerouteLabels` stay ungated.** Issues filed before D-06 carry no found-at label, as `foundAtLabelsMeans` allows, so a rule for them needs a cut-off date, which is the maintainer's to choose (`asdlc-openspec-sbp`).
+
+**Why.** Without the rule, an issue filed with no asset label drops out of the pairs `bd count -l <found-at label> --by-label` prints, and nothing says so. The sweep of 2026-09-26 found two such open issues, `asdlc-openspec-egt` and `asdlc-openspec-pkn`, both filed before D-06, and labelled them by hand. One alternative lost:
+
+- **Refusing a missing found-at label in the same rule.** It would refuse every open found issue filed before D-06 until a cut-off is chosen. Where the chosen rule loses: an issue filed while its asset is unclear is refused at the next push of any branch until someone labels it.
+
+**What changed.**
+
+- **This register:** this entry; the status line, the blockquote's bound and the decisions table carry D-11; D-03 and D-06 carry an amendment each.
+- **`scripts/check-beads.mjs`:** rule 4, `BEADS_CHECK_ROOT` and `--selftest`.
+- **`package.json`:** the `beads:selftest` script.
+- **`lefthook.yml`:** the `beads-selftest` job.
+- **`.github/workflows/verify.yml`:** the `beads:selftest` step, and the list of deliberately absent steps names only `beads:check`.
+- **`tools/policy.json`, `tools/README.md`, `README.md` and `scripts/README.md`:** `gatedBy` and the rows that said no gate holds the labels.
+
+**Figures.** None: `npm run beads:check` names each open issue it refuses, and names none at the commit that added this entry.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
