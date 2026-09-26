@@ -8,13 +8,11 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 # Work an issue
 
 The argument is one issue id, several, or nothing (then take the top of
-`bd ready --exclude-label spec-change`: a product change's tasks are worked in its own worktree by
-`change-build`, `docs/decisions.md` § D-02, and the label is `specChangeLabel` in
-`tools/policy.json`). Work agreed in conversation that no issue carries yet is filed before it is
-worked, in step 3. Every tracker
-write below sits inside the bracket `CLAUDE.md` § The task store describes: pull before the first
-write (`bd dolt pull`), push after the last (`bd dolt push`), and report a rejected push rather
-than forcing it.
+`bd ready --exclude-label spec-change`, which leaves a product change's tasks to `change-build`; the
+label is `specChangeLabel` in `tools/policy.json`). Work agreed in conversation that no issue
+carries yet is filed before it is worked, in step 3. Every tracker write below sits inside the
+bracket `CLAUDE.md` § The task store describes: `bd dolt pull` before the first, `bd dolt push`
+after the last.
 
 ## 1. Verify the premise before any work
 
@@ -28,27 +26,24 @@ which of four things is true, citing file and line for each claim:
 - **blocked**: the work needs something that is in neither the repository nor the issue's own
   scope; name it, and the open issue that carries it, if one does.
 
-Read that code as the trunk has it. This step runs in the primary checkout, whose `main` trails
-`origin/main` until someone pulls it, and step 3's worktree is cut from `origin/main`. Run
-`git fetch origin main`, then read with `git show origin/main:<path>`. Where a fetch is not wanted
-yet, as in plan mode, `gh api "repos/{owner}/{repo}/contents/<path>?ref=main" -H "Accept: application/vnd.github.raw"`
+Read that code as the trunk has it: this step runs in the primary checkout, whose `main` trails
+`origin/main` until someone pulls it. Run `git fetch origin main`, then read with
+`git show origin/main:<path>`. Where a fetch is not wanted yet, as in plan mode, `gh api "repos/{owner}/{repo}/contents/<path>?ref=main" -H "Accept: application/vnd.github.raw"`
 reads the same file without one. An agent sent to read the code reads the checkout's copy unless its
 brief says otherwise, so say so.
 
-This skill and `CLAUDE.md` came from that checkout too: the harness read both from it, so they can
-trail the trunk in the same way. A pull made after the harness read them moves `HEAD` and not the
-copy the session follows, so compare the trunk with the commit the session started from: the first
-of the recent commits in the git status the harness gave at the start. After the fetch,
+The harness read this skill and `CLAUDE.md` from that checkout too, so they can trail the trunk as
+well. Compare the trunk with the commit the session started from, the first of the recent commits in
+the git status the harness gave, and not with `HEAD`, which a later pull moves: after the fetch,
 `git diff --stat <that commit>...origin/main -- .claude/skills/bead/SKILL.md CLAUDE.md` names each of
 the two that the trunk has changed since. Read the trunk's copy of each one it names, as above, and
 follow that copy from here on. A session given no such git status reads the trunk's copy of both.
 
-Name, too, any entry in the decision register an acceptance criterion implies. An amendment is made
-by a new decision (`docs/decisions.md` § How an entry changes), and no agent re-litigates a
-recorded one, so the person reviewing the pull request reads it first (step 6).
+Name, too, any entry in the decision register an acceptance criterion implies, so the person
+reviewing the pull request reads it first (step 6).
 
-An issue that asks for a change to what the product does, stated as requirements, is not worked
-here: it seeds a change, and `change-propose` takes it.
+An issue asking for a product change goes to `change-propose` (`CLAUDE.md` § Product work runs as
+OpenSpec-format changes).
 
 What happens next depends on who is listening:
 
@@ -68,13 +63,11 @@ What happens next depends on who is listening:
 ## 2. Partition before claiming
 
 With several issues, decide before claiming any of them which can share a branch and which cannot,
-by the overlap kinds in `.claude/agents/fan-out-work.md` § 2. Partition the ready work into lanes,
-read from the files each issue will touch, not from its title. Two issues that rewrite the same
-lines share a branch. Two branches that each add a row beside the same anchor, such as neighbouring
-rows of a README table or jobs in `lefthook.yml`, stay separate and conflict when the second merges;
-step 6 finds that. Two issues that describe one defect are one lane; where their acceptance criteria
-conflict, the choice and its reason go in the pull-request body and in both close reasons. Claim
-only what this session will finish.
+by the overlap kinds in `.claude/agents/fan-out-work.md` § 2. Two branches that each add a row
+beside the same anchor, such as neighbouring rows of a README table or jobs in `lefthook.yml`, stay
+separate and conflict when the second merges; step 6 finds that. Two issues that describe one defect
+are one lane; where their acceptance criteria conflict, the choice and its reason go in the
+pull-request body and in both close reasons. Claim only what this session will finish.
 
 Separate branches are worked one after another, never interleaved. Take one through step 6, its
 watcher running in the background, then leave its worktree with `ExitWorktree` (action `keep`) and
@@ -86,9 +79,9 @@ each issue as its own checks go green. A request to sweep or parallelise ready w
 
 Claim the issue in the tracker (`bd update <id> --claim`); with several, claim every one step 2
 kept, in one bracket, before the first worktree. Make the worktree with the one worktree script,
-never natively: `EnterWorktree`, whose hook runs `scripts/new-worktree.sh`. Run `npm ci`
-first inside it. Read `.worktree/CONTEXT.md` there: it names the branch, the base and the rules of a
-shared repository. Tracker writes that carry a body, such as step 1's re-scoping, are made from
+never natively: `EnterWorktree`, whose hook runs `scripts/new-worktree.sh`. Read
+`.worktree/CONTEXT.md` there: it names the branch, the base, the rules of a shared repository and
+what to run first. Tracker writes that carry a body, such as step 1's re-scoping, are made from
 here, with the body file under this worktree's `.scratch/`. Work agreed in conversation has no issue
 to claim yet, so the order turns round: make the worktree, search for an issue that already carries
 the work as step 4 says, then file it from here and claim it. Step 1 still applies, with what was
@@ -97,49 +90,44 @@ to the user with its evidence before anything is filed, even a part the session 
 
 ## 4. Implement, regenerate, gate
 
-Make the change. Regenerate every derived artifact the change touches, with its emitter, never by
-hand, and only after the last edit to the emitter or its inputs: an emitter's own source is one of
-its inputs, so even a comment edit stales its output. `npm run pipeline:stale` names each stale
-node and the command that rebuilds it. A
-first run that stamps an output which had none makes `pipeline:stale:check` bind it from then on
+Make the change. Regenerate every derived artifact the change touches only after the last edit to
+the emitter or its inputs: an emitter's own source is one of its inputs, so even a comment edit
+stales its output. `npm run pipeline:stale` names each stale node and the command that rebuilds it.
+A first run that stamps an output which had none makes `pipeline:stale:check` bind it from then on
 (`docs/pipeline.md` § The two gates): say so in the pull request.
 
 Stage every file the change adds (`git add`) before the gates run: the citations and count-index
-gates read the files `git ls-files` lists, so a new file not yet added passes them unread.
-Run `npm run gates`: the forced full suite, never the bare hook runner, and the build check here.
-There is no `tsc` to run: the repository has no `tsconfig.json` and no TypeScript package, and
-`package.json` runs its `.ts` files with `node` directly. Run no script name `package.json` does not
-list. A red gate is fixed or reported, never bypassed.
+gates read the files `git ls-files` lists, so a new file not yet added passes them unread. Run
+`npm run gates`, the build check here. There is no `tsc` to run: the repository has no
+`tsconfig.json` and no TypeScript package, and `package.json` runs its `.ts` files with `node`
+directly. Run no script name `package.json` does not list. A red gate is fixed or reported, never
+bypassed.
 
 A defect found on the way is fixed in this branch only when it sits in a file the issue already
 changes. Anything else is filed as its own issue, never folded in, and before the pull request
-opens, so the pull request's body names the new id. File it from a body file under `.scratch/`,
-with the command `.claude/skills/change-build/SKILL.md` § 5. What the build turns up gives:
+opens, so the pull request's body names the new id. File it with the command
+`.claude/skills/change-build/SKILL.md` § 5. What the build turns up gives:
 `bd create "<title>" -l <the repo: label>,<its found-at label>,<its asset: labels> --deps discovered-from:<id> --body-file <file> --silent`,
 with the labels `CLAUDE.md` § The task store names; here the found-at label is bead's.
 
 Before filing this or any follow-up, search for it. `bd search "<words>"` matches titles only and
 `bd list --all --desc-contains "<words>"` matches descriptions; both include closed issues. Run
-both, then again with a second phrasing, because a string can miss: `Stop hook` does not match
-`` `Stop` hook ``. A match gets a note (`bd note`), not a second issue. A follow-up's body carries
-the sections `bd lint --help` lists for its type.
+both, then again with a second phrasing, because a string can miss. A match gets a note
+(`bd note`), not a second issue. A follow-up's body carries the sections `bd lint --help` lists for
+its type.
 
 ## 5. Rebase and gate again
 
-Fetch, rebase onto `origin/main`, and run `npm run gates` again: the first run proved the change,
-the second proves it against what landed meanwhile.
+Fetch, rebase onto `origin/main`, and run `npm run gates` again (`CLAUDE.md` § The gate ladder).
 
 ## 6. Open the pull request and watch its checks
 
-Open it with the `open-pr` skill, which tests the merge against the open pull requests, opens it,
-marks the reviewer's status pending, watches the checks, and says what each outcome asks. Its title
-ends with the id of each issue this branch carries. Its body opens with any register entry or
-prerequisite step 1 named, and names every issue filed in step 4.
+Open it with the `open-pr` skill. Its body opens with any register entry or prerequisite step 1
+named, and names every issue filed in step 4.
 
 When a review did not complete for a cause in the reviewer's own workflow, file that cause as
 step 4 says, and leave the issue open with a note naming the pull request and the issue that
-carries the cause. When the pull request waits for a person, or on such an issue, the report says
-so, and why.
+carries the cause.
 
 ## 7. Close on green, with a reason
 
@@ -152,10 +140,8 @@ with its label at creation; step 4 says how to search for it and what its body c
 
 ## 8. Report
 
-First write this run's analysis and check whether a review is due, as `CLAUDE.md` § Prompt reviews
-says, and do not wait for a review it launches.
+First write this run's analysis and check whether a review is due (`CLAUDE.md` § Prompt reviews).
 
 Then one short report: what was verified in step 1 and where, what changed, what was regenerated,
-both gate runs as measured, the pull request, the issue's final state, every follow-up filed, the
-analysis's issue and run id, the reviewer's session if one was launched, and a `RUN THESE YOURSELF`
-block for any command that was refused (`CLAUDE.md` § Guards).
+both gate runs as measured, the pull request and, when it waits for a person or on an issue, why,
+the issue's final state, and every follow-up filed.
