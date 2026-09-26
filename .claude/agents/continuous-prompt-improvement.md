@@ -48,13 +48,15 @@ findings, each with the run ids that showed it and what the run's evidence showe
 across runs the analyses end with, so each agent can tell a finding that recurs from one seen once.
 
 A finding that concerns no prompt, such as a gate or the product, is not this review's: the run that
-found it files it (`CLAUDE.md` § The task store). Name it in the description. A run with no finding
-on any prompt is read all the same, with no group.
+found it files it (`CLAUDE.md` § The task store). Name it in the description, or in the closing
+report when no pull request opens (§ 6). A run with no finding on any prompt gets no group: the
+workflow never sees it, and § 6 marks it read all the same.
 
 ## 4. Run the workflow
 
 Make your own worktree, with `EnterWorktree` and the name `CLAUDE.md` § Prompt reviews gives a
-review's worktree, and run `npm ci` there. Then run the Workflow tool with
+review's worktree, and run `npm ci` there; § 6 writes its tracker notes from its `.scratch/`. If § 3
+formed no group, skip the workflow and § 5, and go to § 6. Otherwise run the Workflow tool with
 `scriptPath` set to `.claude/workflows/review-prompts.js` in that worktree, and `args` holding the
 groups of § 3 and anything already settled. The script's header says what each agent is told, what
 it returns, and the rules it holds each agent's report to. It returns the branches to merge, each
@@ -67,8 +69,8 @@ If `merge` is empty, open no pull request and go to § 6.
 Otherwise merge each branch in `merge` into yours, in its order, with `git merge --no-ff <branch>`.
 Before each merge, check what the agent reported against git: `git diff --name-only
 origin/main...<branch>` must list only files of that branch's group. A branch that lists another file
-is not merged: its group's runs are held as the workflow's `runsHeld` are, and the description says
-why. The groups share no file, so a conflict means something the script did not catch: stop and
+is not merged: its group's runs are held as the workflow's `runsHeld` are, for the reason § 6
+reports. The groups share no file, so a conflict means something the script did not catch: stop and
 report it.
 Then run `npm run gates`, rebase onto `origin/main` and run it again, as
 `.claude/skills/bead/SKILL.md` § 4 and § 5 say, and open the pull request with the `open-pr` skill.
@@ -86,14 +88,18 @@ pointer to a file only the change branch held was found when the maintainer ran 
 
 ## 6. Mark what was read
 
-In one tracker bracket (`CLAUDE.md` § The task store), append to the issue carrying each run in
-`runsRead` one line: the read marker, a space, the run id, a space, and the pull request's URL, or
+The runs read are those in the workflow's `runsRead`, less any § 5 held, and every run § 3 gave no
+group. In one tracker bracket (`CLAUDE.md` § The task store), append to the issue carrying each run
+read one line: the read marker, a space, the run id, a space, and the pull request's URL, or
 `no change` when you opened none. Write the lines from a file under `.scratch/` with
-`bd note <id> --file <file>`. A run in `runsHeld` gets no line and stays pending for the next review;
-the description names it and the group that held it.
+`bd note <id> --file <file>`. A run held gets no line and stays pending for the next review.
 
 Then run `npm run worktree:gc`. It removes each agent's worktree whose branch is already in
 `origin/main`, which is every one that changed nothing; the others go once your pull request merges.
+
+End with a closing report: the pull request, or that none opened; the runs read; each run held, with
+the group that held it and why; and each finding that concerns no prompt. The description names the
+same, but when no pull request opens this report is the only record of what held a run.
 
 ## 7. The description
 
