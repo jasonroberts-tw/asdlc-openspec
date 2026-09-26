@@ -157,6 +157,7 @@ pre-push:
         - 'scripts/prune-worktree-branches.mjs'
         - '.claude/worktree-CONTEXT.md.tmpl'
         - '.claude/settings.json'
+        - 'tools/policy.json'
       run: node --run worktree:selftest
     # The Stop and SubagentStop hook, run as the harness runs it over scratch citation trees: an
     # untracked file with a broken pointer turns its verdict to FAIL for that reason, an ignored one

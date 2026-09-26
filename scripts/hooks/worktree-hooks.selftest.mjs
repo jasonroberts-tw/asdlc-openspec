@@ -289,6 +289,125 @@ check(
 )
 
 /* --------------------------------------------------------------------------------------------- *
+ * guard-git: the approval label, from any checkout.
+ *
+ * The reviewer merges a high-risk pull request once its approval label is applied, and cannot tell a
+ * person from an agent holding their credentials (docs/decisions.md § R-01), so the guard refuses a
+ * `gh` command that applies it, in the primary checkout as in a worktree. Each refusal is asserted by
+ * its reason. The controls are the same commands with another label, removing it, or reading: without
+ * them, a guard that refused every `gh pr edit` or every `gh api` would pass. Two doctored copies of
+ * the policy, each with one thing broken, prove the spelling is read from `tools/policy.json` rather
+ * than written into the guard, and that a policy it cannot read refuses a label rather than allowing
+ * it. The last four hold the parser: a flag before `pr create` once hid a missing `--base`, as did
+ * gh's alias `pr new`, and a brace inside a word once split the statement, which hid the endpoint of
+ * `repos/{owner}/{repo}/…`.
+ * --------------------------------------------------------------------------------------------- */
+console.log('guard-git: the approval label, from any checkout')
+const POLICY_FILE = resolve(HOOKS, '..', '..', 'tools', 'policy.json')
+const APPROVED = JSON.parse(readFileSync(POLICY_FILE, 'utf8')).prReviewLabels.approved
+const APPROVAL_RULE = "is the reviewer's approval label"
+
+/** guard-git on `command` typed from `dir`, reading the policy under `root` when one is given. */
+function labelGuard(dir, command, root = null) {
+  const env = { ...GIT_ENV, CLAUDE_PROJECT_DIR: primary }
+  delete env.GUARD_GIT_ROOT
+  if (root !== null) env.GUARD_GIT_ROOT = root
+  const r = spawnSync('node', [GUARD], {
+    input: JSON.stringify({ cwd: dir, tool_input: { command } }),
+    cwd: dir,
+    env,
+    encoding: 'utf8',
+  })
+  return { code: r.status ?? 1, stderr: r.stderr ?? '' }
+}
+const refusedFor = (r, reason) => r.code === 2 && r.stderr.includes(reason)
+
+for (const [label, command] of [
+  ['another label', 'gh pr edit 12 --add-label bug'],
+  ['removing the approval label', `gh pr edit 12 --remove-label ${APPROVED}`],
+  ["reading an issue's labels", 'gh api repos/{owner}/{repo}/issues/12/labels'],
+  ['another label through the API', "gh api -X POST repos/o/r/issues/12/labels -f 'labels[]=bug'"],
+]) {
+  const r = labelGuard(primary, command)
+  check(`control: the primary checkout allows ${label}`, r.code === 0, why(r))
+}
+for (const [label, dir, command] of [
+  ['gh pr edit --add-label, in the primary checkout', primary, `gh pr edit 12 --add-label ${APPROVED}`],
+  [
+    'gh issue edit, in a worktree, in a list and in capitals',
+    oursDir,
+    `gh issue edit 12 --add-label "bug,${APPROVED.toUpperCase()}"`,
+  ],
+  ['a flag before the group, and --add-label=', primary, `gh --repo o/r pr edit 12 --add-label=${APPROVED}`],
+  ['gh pr create --label', primary, `gh pr create --base main --fill --label ${APPROVED}`],
+  ['gh pr new, the alias of create, with -l', primary, `gh pr new --base main --fill -l ${APPROVED}`],
+  [
+    'gh api -X POST to the labels endpoint',
+    primary,
+    `gh api -X POST repos/{owner}/{repo}/issues/12/labels -f 'labels[]=${APPROVED}'`,
+  ],
+  ['gh api with a field, so POST by default', primary, `gh api repos/o/r/issues/12/labels -F labels[]=${APPROVED}`],
+  ['gh api --method=PATCH on the issue', primary, `gh api --method=PATCH /repos/o/r/issues/12 -f labels[]=${APPROVED}`],
+  ['inside bash -c', oursDir, `bash -c "gh pr edit 12 --add-label ${APPROVED}"`],
+]) {
+  const r = labelGuard(dir, command)
+  check(`${label} is refused, by its reason`, refusedFor(r, APPROVAL_RULE), why(r))
+}
+const hidden = labelGuard(primary, 'gh api --method PUT repos/o/r/issues/12/labels --input labels.json')
+check(
+  'a label write whose body it cannot read is refused, by its reason',
+  refusedFor(hidden, 'from a body the guard cannot read'),
+  why(hidden),
+)
+
+// One break per copy: the approval label respelled, then the policy file gone.
+const respelled = mkdtempSync(join(tmpdir(), 'guard-policy-'))
+mkdirSync(join(respelled, 'tools'))
+const respelledPolicy = JSON.parse(readFileSync(POLICY_FILE, 'utf8'))
+respelledPolicy.prReviewLabels.approved = 'lgtm'
+writeFileSync(join(respelled, 'tools', 'policy.json'), JSON.stringify(respelledPolicy, null, 2))
+const lgtm = labelGuard(primary, 'gh pr edit 12 --add-label lgtm', respelled)
+check(
+  "the policy's spelling is the one refused, by its reason",
+  refusedFor(lgtm, `\`lgtm\` ${APPROVAL_RULE}`),
+  why(lgtm),
+)
+const oldSpelling = labelGuard(primary, `gh pr edit 12 --add-label ${APPROVED}`, respelled)
+check('and the old spelling is then allowed', oldSpelling.code === 0, why(oldSpelling))
+const noPolicy = mkdtempSync(join(tmpdir(), 'guard-nopolicy-'))
+const unread = labelGuard(primary, 'gh pr edit 12 --add-label bug', noPolicy)
+check(
+  'with no policy to read, any label is refused, by its reason',
+  refusedFor(unread, '`prReviewLabels.approved` could not be read'),
+  why(unread),
+)
+const unlabelled = labelGuard(primary, 'gh pr view 12', noPolicy)
+check('and a command that applies no label is still allowed', unlabelled.code === 0, why(unlabelled))
+
+const flagFirst = labelGuard(primary, 'gh --repo o/r pr create --fill')
+check(
+  'a flag before `pr create` no longer hides a missing --base, by its reason',
+  refusedFor(flagFirst, 'a pull request must name `main` as its base'),
+  why(flagFirst),
+)
+const flagFirstBase = labelGuard(primary, 'gh --repo o/r pr create --base main --fill')
+check('control: the same with --base main is allowed', flagFirstBase.code === 0, why(flagFirstBase))
+const aliased = labelGuard(primary, 'gh pr new --fill')
+check(
+  'gh pr new, the alias of create, with no --base is refused, by its reason',
+  refusedFor(aliased, 'a pull request must name `main` as its base'),
+  why(aliased),
+)
+// A brace inside a word is now a letter, so `{owner}` above keeps its endpoint; one standing as a
+// word must still group commands, or the push inside this group would be read as the command `{`.
+const grouped = labelGuard(oursDir, '{ git push origin main; }')
+check(
+  'a brace group still splits statements, so its push to main is refused, by its reason',
+  refusedFor(grouped, 'you cannot push to a long-lived branch'),
+  why(grouped),
+)
+
+/* --------------------------------------------------------------------------------------------- *
  * prune-worktree-branches: the safety rule.
  *
  * The script deletes branches and removes checkouts, so what has to be tested is not that it works
