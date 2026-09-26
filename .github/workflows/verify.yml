@@ -86,6 +86,11 @@ jobs:
         run: npm run check:register
       - name: the register gate, negative-tested
         run: npm run check:register:selftest
+      # Under a second (lefthook.yml's `beads-selftest` job has the measurement): a fixture export
+      # and a copy of the policy under the temporary directory, read through `BEADS_CHECK_ROOT`,
+      # with no `bd`. The gate it tests reads the tracker, so it is absent below.
+      - name: the tracker gate, negative-tested over a fixture export
+        run: npm run beads:selftest
       # Seconds: the pinned OpenSpec CLI, one start per run plus one per active change; no network.
       - name: every living spec and active change is valid, and every change applies
         run: npm run openspec:check
@@ -102,7 +107,9 @@ jobs:
         run: npm run openspec:selftest
       #
       # DELIBERATELY ABSENT, each with its reason. Add to this list rather than deleting from it:
-      #   * the tracker's checks: they read the tracker's database, which a fresh clone does not have.
+      #   * the tracker's checks, `beads:check` and the tracker's own pre-push hook: they read the
+      #     tracker's database, which a fresh clone does not have. `beads:selftest` is a step above:
+      #     it reads a fixture export and the committed policy, and runs no `bd`.
       #   * the worktree hooks' selftest: about a hundred git spawns against a scratch repository it
       #     builds; it is a pre-push job, and nothing it reads differs in CI.
       #   * the pull-request review itself: it reads a token, a language model and the tracker, so it
