@@ -1,7 +1,8 @@
 /**
  * Self-test for scripts/hooks/worktree-create.mjs, scripts/hooks/worktree-remove.mjs,
- * scripts/prune-worktree-branches.mjs, and scripts/render-worktree-context.mjs with the briefing
- * template it renders, and for the hook registrations in .claude/settings.json: each must load
+ * scripts/prune-worktree-branches.mjs, scripts/render-worktree-context.mjs with the briefing
+ * template it renders, and scripts/new-worktree.sh's choice of which copy of that template renders,
+ * and for the hook registrations in .claude/settings.json: each must load
  * whatever the session's working directory is (the last section says what broke).
  *
  * Covers the halves of the contract that are cheap to exercise and easy to get wrong: what the hooks
@@ -9,7 +10,8 @@
  * sandbox fallback actually deletes a directory `git worktree remove` will not touch. It deliberately
  * does NOT provision a real worktree: `git worktree add` needs the primary checkout, and a
  * worktree-isolated session is refused it by scripts/hooks/guard-git.mjs. That one round trip is
- * verified by running the create hook from the primary checkout; see the PR body.
+ * verified by running the create hook from the primary checkout; see the PR body. The new-worktree
+ * case runs the script only in a scratch repository of its own.
  *
  * THE PRUNE CASES ARE DIFFERENT IN KIND from everything else here, and the difference is the point:
  * that script DELETES BRANCHES AND REMOVES CHECKOUTS, so what is asserted is not that it works but
@@ -24,9 +26,9 @@
  *
  *   node scripts/hooks/worktree-hooks.selftest.mjs
  *
- * Needs `git` and a POSIX `sh` on PATH, and reads nothing outside the temporary directory but this
- * checkout's own files. The render cases bind loopback ports for a moment, as the renderer's port
- * probe does.
+ * Needs `git`, `bash` and a POSIX `sh` on PATH, and reads nothing outside the temporary directory
+ * but this checkout's own files. The render and new-worktree cases bind loopback ports for a moment,
+ * as the renderer's port probe does.
  */
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import {
@@ -680,6 +682,105 @@ check(
   'and nothing is written',
   JSON.stringify(refused.files) === JSON.stringify(COPIED),
   JSON.stringify(refused.files),
+)
+
+/* --------------------------------------------------------------------------------------------- *
+ * new-worktree.sh: the briefing is the base's template, not the checkout's.
+ *
+ * THE INCIDENT (asdlc-openspec-kce). The script ran the primary checkout's renderer, which reads the
+ * template beside itself, so a worktree cut from `origin/main` opened with whatever template the
+ * checkout's working tree held. On 2026-09-23 and again on 2026-09-25 that was an older one, and the
+ * briefing, which `CLAUDE.md` gives precedence, carried steps the base had already replaced. The
+ * render case above could not see it: it copies one template beside the renderer, so there is no
+ * second template to read by mistake.
+ *
+ * So this case builds a scratch repository whose checkout trails its remote by one commit, a commit
+ * that changes only the template, and runs the checkout's copy of the script from the checkout, as
+ * the WorktreeCreate hook runs it. The briefing must be the base's template, rendered, word for word.
+ * The negative is the same script doctored back to the checkout's renderer, which must render the
+ * checkout's template: without it, a scratch repository whose two templates never differed would
+ * pass the case.
+ * --------------------------------------------------------------------------------------------- */
+console.log("new-worktree: the briefing is the base's template, not the checkout's")
+const PROVISION = resolve(HOOKS, '..', 'new-worktree.sh')
+const trailing = mkdtempSync(join(tmpdir(), 'wt-base-'))
+const trailingPrimary = join(trailing, 'primary')
+const trailingOrigin = join(trailing, 'origin.git')
+const templateOf = (where) =>
+  `rendered from the ${where}: {{BRANCH}} cut at {{BASE_SHA}} for {{TASK_REF}}\n`
+
+execFileSync('git', ['init', '-q', '--bare', '-b', 'main', trailingOrigin], { env: GIT_ENV })
+execFileSync('git', ['init', '-q', '-b', 'main', trailingPrimary], { env: GIT_ENV })
+mkdirSync(join(trailingPrimary, 'scripts'))
+mkdirSync(join(trailingPrimary, '.claude'))
+copyFileSync(PROVISION, join(trailingPrimary, 'scripts', 'new-worktree.sh'))
+copyFileSync(RENDERER, join(trailingPrimary, 'scripts', 'render-worktree-context.mjs'))
+const trailingTemplate = join(trailingPrimary, '.claude', 'worktree-CONTEXT.md.tmpl')
+writeFileSync(trailingTemplate, templateOf('checkout'))
+git(trailingPrimary, 'add', '.')
+git(trailingPrimary, ...AS, 'commit', '-qm', 'the template the checkout keeps')
+writeFileSync(trailingTemplate, templateOf('base'))
+git(trailingPrimary, ...AS, 'commit', '-qam', 'the template the base moves on to')
+git(trailingPrimary, 'remote', 'add', 'origin', trailingOrigin)
+git(trailingPrimary, 'push', '-q', 'origin', 'main')
+// The checkout falls one commit behind the remote, as a primary checkout nobody has pulled does.
+git(trailingPrimary, 'reset', '-q', '--hard', 'HEAD~1')
+
+/**
+ * Provision `name` by running `script` with bash from the scratch checkout, as the WorktreeCreate
+ * hook runs it, and return the run with the briefing it wrote. The variables the script reads are
+ * pinned, so a developer's own `WORKTREE_ROOT` or `TRUNK_BRANCH` cannot move the case.
+ */
+function provision(script, name) {
+  const worktrees = join(trailingPrimary, '.claude', 'worktrees')
+  const r = spawnSync('bash', [script, name], {
+    cwd: trailingPrimary,
+    env: { ...GIT_ENV, WORKTREE_ROOT: worktrees, TRUNK_BRANCH: 'main', LIFETIME_HOURS: '2' },
+    encoding: 'utf8',
+  })
+  const briefing = join(worktrees, name, '.worktree', 'CONTEXT.md')
+  return {
+    code: r.status ?? 1,
+    stderr: r.stderr ?? '',
+    text: existsSync(briefing) ? readFileSync(briefing, 'utf8') : '',
+  }
+}
+/** The template `where` holds, rendered with the values the script passes for `name`. */
+function expected(where, name) {
+  const base = git(trailingPrimary, 'rev-parse', '--short', 'origin/main').trim()
+  const values = { BRANCH: `agent/${name}`, BASE_SHA: base, TASK_REF: name }
+  return templateOf(where).replace(/\{\{([A-Z_]+)\}\}/g, (_, key) => values[key])
+}
+
+const fromBase = provision(join(trailingPrimary, 'scripts', 'new-worktree.sh'), 'fresh')
+check(
+  'a checkout trailing its base provisions a worktree',
+  fromBase.code === 0,
+  `code=${fromBase.code} ${JSON.stringify(fromBase.stderr.slice(0, 300))}`,
+)
+check(
+  "its briefing is the base's template, rendered",
+  fromBase.text === expected('base', 'fresh'),
+  JSON.stringify(fromBase.text),
+)
+
+const RUNS_ITS_OWN = 'node "$WORKTREE_PATH/scripts/render-worktree-context.mjs"'
+const doctoredScript = join(trailing, 'new-worktree.doctored.sh')
+const provisionSource = readFileSync(PROVISION, 'utf8')
+writeFileSync(
+  doctoredScript,
+  provisionSource.replace(RUNS_ITS_OWN, 'node "$REPO_ROOT/scripts/render-worktree-context.mjs"'),
+)
+check(
+  "negative: the doctoring reaches the script's renderer line",
+  provisionSource.includes(RUNS_ITS_OWN),
+  `no ${RUNS_ITS_OWN} in scripts/new-worktree.sh`,
+)
+const fromCheckout = provision(doctoredScript, 'doctored')
+check(
+  "doctored to run the checkout's renderer, it renders the checkout's template",
+  fromCheckout.code === 0 && fromCheckout.text === expected('checkout', 'doctored'),
+  `code=${fromCheckout.code} ${JSON.stringify(fromCheckout.text || fromCheckout.stderr.slice(0, 300))}`,
 )
 
 /* --------------------------------------------------------------------------------------------- *

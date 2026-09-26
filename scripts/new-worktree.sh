@@ -79,7 +79,11 @@ git -C "$REPO_ROOT" worktree add -b "$BRANCH" "$WORKTREE_PATH" "origin/$TRUNK"
 CREATED=1
 
 # Ports, timestamps and the briefing. See the renderer's header for why this is not another `sed`.
-RENDER="$(node "$REPO_ROOT/scripts/render-worktree-context.mjs" \
+# The NEW worktree's renderer, never $REPO_ROOT's: the renderer reads the template beside itself, and
+# this checkout's working tree can trail the base, so running its copy handed a worktree cut from
+# origin/main a briefing from the checkout's older template (asdlc-openspec-kce; the renderer's
+# header, item 4, has the incidents). The worktree's copy is the base's, template and all.
+RENDER="$(node "$WORKTREE_PATH/scripts/render-worktree-context.mjs" \
   "$WORKTREE_PATH" "$BRANCH" "$BASE_SHA" "$TASK_REF" "$LIFETIME_HOURS")"
 
 value_of() { printf '%s\n' "$RENDER" | sed -n "s/^$1=//p"; }

@@ -9,7 +9,7 @@
  * (`docs/decisions.md` § D-04).
  *
  * The failures it exists to prevent. It is a separate Node file rather than more shell because of
- * three defects the shell version had:
+ * the first three, each a defect the shell version had:
  *
  * 1. `sed "s|{{X}}|<value>|"` treats `&` in the REPLACEMENT as "the whole match" and `\` as an
  *    escape. Verified: a path containing `a&b` rendered as `a{{WORKTREE_PATH}}b`, silently, with a
@@ -18,11 +18,22 @@
  *    AFTER creating the worktree and branch, leaving both behind.
  * 3. The ports were `hash % 900` with nothing checking them. They are probed here, so the header's
  *    "non-colliding" claim is true rather than a hope.
+ * 4. The template is the one beside this file (`ROOT` below has no override), so the copy of this
+ *    script that runs decides which template renders. `scripts/new-worktree.sh` ran the primary
+ *    checkout's copy, whose working tree can trail the base a worktree is cut from. On 2026-09-23
+ *    `agent/add-calculator-web-app`, cut from `origin/main` at `ac307b6`, opened with the template
+ *    the checkout had at `053e51c`, still carrying a sentence `b5d087e` had replaced. On 2026-09-25
+ *    `agent/fan-out-lane-stop`, cut at `1ae4734` while the checkout stood at `1862494`, was told to
+ *    open its pull request with an inline `gh pr create`, the step `4097416` had replaced with the
+ *    `open-pr` skill; `CLAUDE.md` gives the briefing precedence, so the stale step won
+ *    (asdlc-openspec-kce). The caller now runs the new worktree's own copy, so the briefing is the
+ *    base's template, whatever state the primary checkout is in.
  *
- *   node scripts/render-worktree-context.mjs <worktree-path> <branch> <base-sha> <task-ref> [hours]
+ *   node <worktree-path>/scripts/render-worktree-context.mjs \
+ *     <worktree-path> <branch> <base-sha> <task-ref> [hours]
  *
- * Called by `scripts/new-worktree.sh`. Needs `git` on PATH, for the list of sibling worktrees, and
- * binds loopback ports for a moment to probe them.
+ * Called by `scripts/new-worktree.sh`, from the new worktree's checkout. Needs `git` on PATH, for
+ * the list of sibling worktrees, and binds loopback ports for a moment to probe them.
  */
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
