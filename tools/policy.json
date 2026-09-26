@@ -76,6 +76,22 @@
   "promptReviewDueAgeDays": 3,
   "promptReviewDueAgeDaysMeans": "How many days the oldest pending analysis may wait, read from the time in its run id, before a review is due however few are pending. It covers a slow week, when `promptReviewDueCount` analyses take longer to gather. Nothing checks it but the closing step of a run, so in a week when no prompt runs an analysis waits past it for the next run of any prompt; the maintainer chose that over a scheduler (D-08). It is a choice, not a measurement. Decided 2026-09-26 with D-08 (asdlc-openspec-lzr).",
 
+  "promptReviewHeldMarker": "prompt-run-held",
+  "promptReviewHeldMarkerMeans": "The word that opens a held line, which a review appends to the issue carrying a run's analysis for each finding that run showed and the review did not carry into its pull request: below the threshold, set aside by its file's agent, or on a branch the skeptics did not uphold (`CLAUDE.md` § Prompt reviews says how the line is written). The next review counts a finding from these lines, so changing the word strands every count kept under the old one, and each held finding starts again at one; a change rewrites them first. An analysis ends at the next line that opens with this word or either other marker. Decided 2026-09-26 with D-10 (asdlc-openspec-pnm); the maintainer chose a line in the analysis notes, with the loss that a hand edit breaking one resets its count unnoticed.",
+
+  "promptReviewRecurrenceCount": 2,
+  "promptReviewRecurrenceCountMeans": "How many distinct runs must have shown a finding, those in the batch and those its held lines name, before a review proposes an edit for it, unless its severity is in `promptReviewMajorSeverities`. The reviewer's session applies it before the workflow runs and holds every finding below it, and `.claude/workflows/review-prompts.js` refuses one that reaches it. It is a choice, not a measurement: a research session on 2026-09-25 found no primary source for requiring a number of occurrences before an edit (asdlc-openspec-pnm). Where it loses: a one-off minor defect that costs an hour, and recurs a week later, is paid for twice before it is fixed. 1 proposes an edit for every finding, as D-08's review did. Decided 2026-09-26 with D-10 (asdlc-openspec-pnm).",
+
+  "promptReviewMajorSeverities": ["blocker", "major"],
+  "promptReviewMajorSeveritiesMeans": "The severities of a finding a review proposes on one run, skipping `promptReviewRecurrenceCount`. The severities are those `.claude/agents/pr-reviewer.md` § 2. Maintainability defines, so a prompt review and the pull-request reviewer grade on one scale. Adding `minor` removes the threshold; emptying the list makes every finding wait for a second run. Decided 2026-09-26 with D-10 (asdlc-openspec-pnm).",
+
+  "promptReviewSkeptics": {
+    "blocker": 3,
+    "major": 3,
+    "minor": 1
+  },
+  "promptReviewSkepticsMeans": "How many skeptics `.claude/workflows/review-prompts.js` sends to judge one proposed edit, by its finding's severity, once the file's agent has committed it. Each reads the branch's diff and answers upheld, refuted or unverified to two questions: had the prompt said this, would the runs have gone differently; and does the edit break another path through the prompt, or another caller of it. A majority of those sent decides, and a branch merges only when every edit on it is upheld (the workflow's header holds the mechanics). The counts copy `buildReviewSkeptics`; where they lose, a batch of 5 major findings sends 15 skeptics. Lowering `major` or `blocker` below 3 lets one vote decide an edit every later run of the prompt reads. Decided 2026-09-26 with D-10 (asdlc-openspec-pnm).",
+
   "prReviewIssuePattern": "asdlc-openspec-[a-z0-9]+(?:\\.[0-9]+)*",
   "prReviewIssuePatternMeans": "A tracker issue id, as a regular expression without anchors: this tracker's prefix, the hash, and a child's dotted suffix (`asdlc-openspec-zgh.9`). The reviewer reads the issues a pull request carries from the ids that match it inside the parentheses at the end of the pull request's title, and nowhere else: a body names follow-ups and related issues it does not carry. A title with none cites no issue, and a person merges that pull request (`docs/decisions.md` § D-07). Change it with the tracker's prefix. Decided 2026-09-25 (asdlc-openspec-mi6).",
 

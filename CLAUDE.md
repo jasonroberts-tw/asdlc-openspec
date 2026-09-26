@@ -263,7 +263,8 @@ every pull request with the `open-pr` skill, which holds the steps from the push
 
 After a prompt is executed from a file, the session that ran it leaves its analysis of the run in
 the tracker, and one review reads every analysis no review has read yet, as a batch
-(`docs/decisions.md` § D-08). The markers and thresholds below are keys of `tools/policy.json`.
+(`docs/decisions.md` § D-08). The markers, thresholds and skeptic counts below are keys of
+`tools/policy.json`.
 
 **Each run writes one analysis**, as a note on the issue or epic it worked, from a file under
 `.scratch/` (`bd note <id> --file <file>`), inside a tracker bracket. Its first line is
@@ -280,9 +281,9 @@ unreviewed.
 
 **The closing step of every run checks whether a review is due.** After its tracker push, it lists
 every issue carrying an analysis, `bd list --all --notes-contains "<analysis marker>" --json -n 0`.
-In an issue's notes, an analysis runs from its marker line to the next line that opens with either
-marker, and it is pending while no line of `promptReviewReadMarker`, a space and its run id follows
-it. A review is due when `promptReviewDueCount` analyses or more are pending, or the oldest is older
+In an issue's notes, an analysis runs from its marker line to the next line that opens with any
+marker this section names, and it is pending while no line of `promptReviewReadMarker`, a space and
+its run id follows it. A review is due when `promptReviewDueCount` analyses or more are pending, or the oldest is older
 than `promptReviewDueAgeDays` days. None starts while a pull request from a review's branch is open
 (`gh pr list --state open --json headRefName`), or while `claude agents --json` lists a session
 named `review-prompts` whose `state` is `working`: the pending analyses wait for it. Without `--all`
@@ -309,9 +310,16 @@ refused launch goes in the report's `RUN THESE YOURSELF` block (§ Guards).
 
 **What a review leaves.** It runs `.claude/workflows/review-prompts.js`, one agent per prompt file,
 and opens one pull request over every file they change; the review is that pull request's
-description, and a person decides whether it merges. It appends a read line to each analysis it
-read, naming that pull request, or that it changed nothing. A review that proposes nothing edits no
-file and opens no pull request. A review is not a file in this repository, and a prompt carries no
+description, and a person decides whether it merges. It proposes an edit only for a finding that
+`promptReviewRecurrenceCount` runs have shown or whose severity is in `promptReviewMajorSeverities`,
+and carries it only once a majority of its `promptReviewSkeptics` upholds it. It appends a read line
+to each analysis it read, naming that pull request, or that it changed nothing. For each finding it
+read and did not carry into that pull request, it appends a held line to the issue of each run that
+showed it:
+`promptReviewHeldMarker`, a space, the run id, a space, the finding's key (`<file>#<name>`), a
+space, the count of runs that have shown it so far, a colon, a space and the reason. The next
+review counts the finding from these lines. A review that proposes nothing edits no file and opens
+no pull request. A review is not a file in this repository, and a prompt carries no
 `Reviewed:` trailer: the earlier reviews of a prompt are the descriptions of the pull requests that
 changed it, and the agent's file says how to find them. `docs/decisions.md` § D-05 records how to
 recover the review files it deleted.
