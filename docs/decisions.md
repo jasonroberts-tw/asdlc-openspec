@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-11 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10 and D-11 added 2026-09-26).**
+**Status: every decision from D-01 to D-12 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-11` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-12` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -67,6 +67,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-09** | An in-session guard refuses a `gh` command that applies the approval label, from any checkout | `scripts/hooks/guard-git.mjs`, held by `worktree:selftest`; the guard's rows in `.claude/README.md`, `scripts/hooks/README.md` and `README.md` |
 | **D-10** | A prompt review proposes an edit only for a finding that recurs or is severe, and carries it once skeptics uphold it | The threshold check and the skeptic step of `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; `promptReviewHeldMarker`, `promptReviewRecurrenceCount`, `promptReviewMajorSeverities` and `promptReviewSkeptics` in `tools/policy.json`; `CLAUDE.md` § Prompt reviews; the `continuous-prompt-improvement` agent |
 | **D-11** | `beads:check` refuses an open found issue with no asset label, as D-06 item 4 asked | Rule 4 of `scripts/check-beads.mjs`, held by `beads:selftest` at pre-push and in CI; `gatedBy` in `tools/policy.json` |
+| **D-12** | A prompt that an edit would take past its word budget is consolidated first, and every rule it removes is accounted for | `.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated; the consolidations of `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; the refusal of `check:prompts`; `bead` consolidated and its budget lowered in `tools/policy.json` |
 
 ## Risks
 
@@ -542,6 +543,8 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 
 **Figures.** Eleven review pull requests from #28 to #53, the titles in that range that cite no issue: nine merged, and #48 and #51 were closed when #53 superseded them (`gh pr list --state all --limit 100 --json number,title,state`). A batch of 5 major findings sends 15 skeptics: 5 times `promptReviewSkeptics.major`, 3.
 
+> **Amended 2026-09-26 by D-12.** Items 3 and 4 judged a finding's edits alone. A branch may now also carry a consolidation of a file its edit would take past its word budget. The consolidation goes to `promptReviewSkeptics.blocker` skeptics, who answer two questions of its own, and the branch merges only when it is upheld too.
+
 ### D-11 · beads:check refuses an open found issue with no asset label, as D-06 item 4 asked
 
 **Recorded 2026-09-26**, carried by `asdlc-openspec-dzi`. D-06 item 4, the maintainer's on 2026-09-24, named this gate as the one to come. This entry records that it now holds, and corrects the two places the register said no gate did.
@@ -568,6 +571,40 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 - **`tools/policy.json`, `tools/README.md`, `README.md` and `scripts/README.md`:** `gatedBy` and the rows that said no gate holds the labels.
 
 **Figures.** None: `npm run beads:check` names each open issue it refuses, and names none at the commit that added this entry.
+
+### D-12 · A prompt that an edit would take past its word budget is consolidated first, and every rule it removes is accounted for
+
+**Recorded 2026-09-26**, carried by `asdlc-openspec-aa0`. On 2026-09-26 the maintainer chose who consolidates, the first pass and the proof, items 1, 2 and 3, each from a recommendation put with the case where it loses. The session that built it chose the rest: items 4, 5 and 6.
+
+**Builds on / amends:** amends D-10, whose items 3 and 4 judged and merged a finding's edits alone. Builds on D-08, whose review's file agents run the consolidation; on D-03, whose policy file holds each prompt's budget; and on D-07, which leaves a pull request that changes a budget to a person.
+
+**Decision.** How a prompt makes room when an edit would take it past its word budget. `.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated holds the procedure, and the header of `.claude/workflows/review-prompts.js` holds how a review judges one.
+
+1. **The file's agent consolidates its file first**, in its own worktree, and the review's one pull request carries the consolidation with the edit. Any other session that edits a prompt past its budget does the same, and a raise, which a person merges, covers only what the consolidation did not free. Where it loses: a small urgent fix arrives bundled with a large rewrite.
+2. **The first pass consolidated `bead`**, set its budget to the result, and the procedure was written from what that pass needed. Where it loses: a procedure shaped by `bead` may not fit `CLAUDE.md`, the file every session loads.
+3. **The proof is a table in the pull request's description**, one row for each sentence or clause removed: kept elsewhere, naming where and what loads that file wherever the prompt is loaded; moved to the pull request that tells its incident; or deleted, with why. A sentence whose row cannot name what loads its new home stays.
+4. **What may go:** a restatement of `CLAUDE.md`; a step that a file the prompt sends the session to states at that step; incident prose, or an example drawn from one; and explanation past the one clause that states a kept rule's failure. Every heading another file cites stays.
+5. **Skeptics judge a consolidation** against its own commit's diff, at the `promptReviewSkeptics.blocker` count whatever its findings' severities, and answer whether every removal has a row and whether each row holds. A change to a consolidated file is judged from the consolidation's commit, and a branch merges only when its consolidation is upheld too.
+6. **The budget falls to the prompt's new count** once the edit lands, and its `Means` names the consolidation, so the room it freed is not spent unseen.
+
+**Why.** The budgets of `asdlc-openspec-2wv` stop a prompt growing, but said nothing about how to make room. A rewrite can lose rules without anyone seeing: the ACE paper reports a context rewritten from 18,282 tokens to 122, with accuracy falling from 66.7 to 57.1, below the 63.7 baseline (https://arxiv.org/abs/2510.04618, as read by a research session on 2026-09-25). Three alternatives lost:
+
+- **A consolidation pull request of its own, opened before the edit's.** It keeps an urgent fix small, and the fix waits a merge longer.
+- **The table alone, without what loads each new home.** A rule kept in a file the session never reads is lost in practice.
+- **A consolidation judged by its edit's skeptics.** Their questions ask whether the runs would have gone differently, which a removal that keeps every rule cannot answer, and a minor finding's single skeptic would decide a rewrite every later run reads.
+
+**What changed.**
+
+- **This register:** this entry; the status line, the blockquote's bound and the decisions table carry D-12; D-10 carries an amendment.
+- **`.claude/skills/bead/SKILL.md`:** consolidated, and its budget lowered.
+- **`.claude/agents/continuous-prompt-improvement.md`:** consolidated, then § How a prompt is consolidated, § 5's step that sets a consolidated file's budget, and § 7's table.
+- **`.claude/workflows/review-prompts.js`:** its literals consolidated, then each report's `consolidations`, the rules they are held to, their skeptics, and a change's diff read from its consolidation's commit.
+- **`scripts/workflows.selftest.mjs`:** cases for a consolidation's skeptic count, one not upheld, and each rule a consolidation is held to.
+- **`scripts/check-prompts.mjs`:** the refusal of a prompt over its budget points at the procedure.
+- **`tools/policy.json`:** the budgets of the three files, each with the figures in its `Means`; `promptReviewSkepticsMeans` and `provenance`.
+- **`README.md`, `scripts/README.md` and `.claude/README.md`:** the rows that say what the workflow and its selftest hold.
+
+**Figures.** Each is `node scripts/check-prompts.mjs --counts`, at `d69527a` for the first figure and at this entry's commit for the second: `.claude/skills/bead/SKILL.md` 1,857 and 1,628; `.claude/agents/continuous-prompt-improvement.md` 2,261 and 2,493; the literals of `.claude/workflows/review-prompts.js` 1,441 and 1,720. What each consolidation freed on its own, 229, 126 and 43, is the same command at its own commit, and the pull request lists those commits. The ACE figures are the paper's.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

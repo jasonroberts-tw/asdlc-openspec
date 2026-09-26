@@ -3,9 +3,9 @@
  * asserts how it stops and what it returns. `build-change-task.js` runs with the review sizes
  * `tools/policy.json` holds, and its cases assert how many skeptics it sends; `review-prompts.js` runs
  * with groups of findings built here and the policy's `promptReview*` keys, and its cases assert
- * which findings it refuses as below the threshold, how many skeptics it sends each change, which
- * branches it lets the session merge, which analyses it lets the session mark read and which
- * findings it holds. It holds every script to what the Workflow runtime accepts: a pure `meta`
+ * which findings it refuses as below the threshold, how many skeptics it sends each change and each
+ * consolidation, which reports it refuses, which branches it lets the session merge, which analyses
+ * it lets the session mark read and which findings it holds. It holds every script to what the Workflow runtime accepts: a pure `meta`
  * literal first, every phase declared there, and no clock or randomness. A script under
  * `.claude/workflows/` with no suite here is refused, so a workflow cannot land unheld.
  *
@@ -19,7 +19,9 @@
  * provisioned by the WorktreeCreate hook, or carried an edit a majority of its skeptics did not
  * uphold; a finding below the threshold passed to an agent; an analysis marked read whose file's
  * agent returned nothing; or a finding read and not proposed that is not returned to be held (since
- * asdlc-openspec-pnm). Each costs millions of tokens, a wrong verdict or a finding never reviewed,
+ * asdlc-openspec-pnm); or a consolidation merged whose rows do not say where each removed rule went,
+ * or that a majority of its skeptics did not uphold (since asdlc-openspec-aa0). Each costs millions
+ * of tokens, a wrong verdict, a rule lost from a prompt or a finding never reviewed,
  * before anyone sees it, and no other gate reads their logic: `check:prompts` counts only the words
  * of their string literals, and `openspec:check` reads only skills and agents.
  *
@@ -590,6 +592,7 @@ function buildCases(policy) {
 
 const BEAD = '.claude/skills/bead/SKILL.md'
 const OPEN_PR = '.claude/skills/open-pr/SKILL.md'
+const OTHER = '.claude/skills/other/SKILL.md'
 const RUN_A = 'example-1@2026-09-26T00:00:00Z'
 const RUN_B = 'example-2@2026-09-26T01:00:00Z'
 const RUN_C = 'example-3@2026-09-26T02:00:00Z'
@@ -642,6 +645,22 @@ const change = (f) => ({
   words: 12,
 })
 
+const CONSOLIDATION_COMMIT = 'c'.repeat(40)
+
+/** A clean consolidation of `file`: one row of each disposition, each saying where its text went. */
+const consolidation = (file, extra = {}) => ({
+  file,
+  commit: CONSOLIDATION_COMMIT,
+  wordsBefore: 100,
+  wordsAfter: 80,
+  removed: [
+    { text: 'A rule CLAUDE.md states.', disposition: 'kept', where: 'CLAUDE.md § The task store', loadedBy: 'every session', why: '' },
+    { text: 'The day it went wrong.', disposition: 'moved', where: '#13', loadedBy: '', why: '' },
+    { text: 'A second reason for one rule.', disposition: 'deleted', where: '', loadedBy: '', why: 'The kept clause states its failure.' },
+  ],
+  ...extra,
+})
+
 /** A clean report of a change answering every finding of the group, unless `extra` says otherwise. */
 const changed = (group, extra = {}) => ({
   verdict: 'changed',
@@ -649,6 +668,7 @@ const changed = (group, extra = {}) => ({
   head: 'a'.repeat(40),
   filesChanged: [...group.files],
   changes: group.findings.map(change),
+  consolidations: [],
   notChanged: [],
   earlierReviews: [],
   unverified: [],
@@ -663,6 +683,7 @@ const unchanged = (group, extra = {}) => ({
   head: 'b'.repeat(40),
   filesChanged: [],
   changes: [],
+  consolidations: [],
   notChanged: group.findings.map((f) => ({ finding: f.key, reason: 'The finding does not hold.' })),
   earlierReviews: [{ pr: '#45', change: 'close with the reason passed from a file', outcome: 'working', evidence: 'Both runs closed so.' }],
   unverified: [],
@@ -895,6 +916,100 @@ function reviewCases(policy) {
       'a report of no change that states a change is refused, so its finding is neither merged nor dropped unheld',
       (g) => unchanged(g, { changes: g.findings.map(change), notChanged: [] }),
       /reports no change, but states 1 change\(s\)/,
+    ),
+    {
+      name: `a consolidation goes to the blocker count of skeptics (${skeptics.blocker}) whatever its finding's severity, its file's edit is read from the consolidation's commit, and the branch merges once both are upheld`,
+      args: reviewArgs(policy),
+      reports: { bead: (g) => changed(g, { consolidations: [consolidation(BEAD)] }) },
+      expect: ['done', /^1 to merge, 1 unchanged, 0 not upheld, 0 refused, 0 died; 1 of 1 change\(s\) upheld by \d+ skeptic\(s\); 1 of 1 consolidation\(s\) upheld by \d+ skeptic\(s\); 3 of 3 run\(s\) read, 1 finding\(s\) held$/],
+      check: ({ result, options, calls }) => {
+        const label = `consolidation of ${BEAD}`
+        const sent = skepticsOn(calls, label)
+        if (sent !== skeptics.blocker) return `sent ${sent} skeptic(s) to the consolidation, not the blocker count ${skeptics.blocker}`
+        const onConsolidation = options.find((o) => o.label.endsWith(`: ${label}`))
+        if (!onConsolidation.prompt.includes(`git diff origin/main...${CONSOLIDATION_COMMIT} -- ${BEAD}`) || !onConsolidation.prompt.includes('A rule CLAUDE.md states.')) {
+          return "the consolidation's skeptic does not read its commit's diff and its rows"
+        }
+        const onChange = options.find((o) => o.label.endsWith(`: ${BEAD_KEY}`))
+        if (!onChange.prompt.includes(`git diff ${CONSOLIDATION_COMMIT}...agent/wf_example-bead -- ${BEAD}`)) return "the edit's skeptic reads the consolidation with the edit"
+        const k = result.groups.find((g) => g.id === 'bead').consolidations[0]
+        if (k.outcome !== 'upheld' || k.votes.length !== sent) return `the consolidation came back ${JSON.stringify(k)}`
+        return result.merge.join() === 'agent/wf_example-bead' ? null : `merge is ${result.merge.join(', ')}`
+      },
+    },
+    {
+      name: 'a consolidation not upheld keeps its branch out, its runs are read, and the finding whose edit was upheld is held naming the consolidation',
+      args: reviewArgs(policy),
+      reports: { bead: (g) => changed(g, { consolidations: [consolidation(BEAD)] }) },
+      verdict: (key) => reviewVote(key.startsWith('consolidation of ') ? 'refuted' : 'upheld'),
+      expect: ['done', /^0 to merge, 1 unchanged, 1 not upheld, 0 refused, 0 died; 1 of 1 change\(s\) upheld by \d+ skeptic\(s\); 0 of 1 consolidation\(s\) upheld by \d+ skeptic\(s\); 3 of 3 run\(s\) read, 2 finding\(s\) held$/],
+      check: ({ result }) => {
+        if (statusOf(result, 'bead') !== 'not-upheld') return `bead is ${statusOf(result, 'bead')}, not not-upheld`
+        if (result.merge.length) return `merge is ${result.merge.join(', ')}, not empty`
+        const held = heldFinding(result, BEAD_KEY)
+        return held && /^upheld, but its branch also carried the consolidation of \.claude\/skills\/bead\/SKILL\.md, which the skeptics did not uphold/.test(held.reason)
+          ? null
+          : `held as ${JSON.stringify(held)}`
+      },
+    },
+    refusedBead(
+      policy,
+      'a report of no change that states a consolidation is refused',
+      (g) => unchanged(g, { consolidations: [consolidation(BEAD)] }),
+      /reports no change, but states 1 consolidation\(s\)/,
+    ),
+    refusedBead(
+      policy,
+      'a consolidation of a file the group was not given is not merged',
+      (g) => changed(g, { consolidations: [consolidation(OPEN_PR)] }),
+      /states a consolidation of \.claude\/skills\/open-pr\/SKILL\.md, which it was not given/,
+    ),
+    {
+      name: 'a consolidation of a file its branch does not change is not merged',
+      args: reviewArgs(policy, [
+        { id: 'bead', files: [BEAD, OTHER], findings: [reviewFinding(policy, BEAD, 'gates-before-staging', [RUN_A, RUN_B])] },
+        one('open-pr', OPEN_PR, 'second-watcher', [RUN_B, RUN_C]),
+      ]),
+      reports: { bead: (g) => changed(g, { filesChanged: [BEAD], consolidations: [consolidation(OTHER)] }) },
+      expect: ['done', /^0 to merge, 1 unchanged, 0 not upheld, 1 refused, 0 died;/],
+      check: ({ result }) =>
+        /states a consolidation of \.claude\/skills\/other\/SKILL\.md, which its branch does not change/.test(problemsOf(result, 'bead')) ? null : `bead's problems were ${problemsOf(result, 'bead')}`,
+    },
+    refusedBead(
+      policy,
+      'two consolidations of one file are not merged',
+      (g) => changed(g, { consolidations: [consolidation(BEAD), consolidation(BEAD)] }),
+      /states two consolidations of \.claude\/skills\/bead\/SKILL\.md/,
+    ),
+    refusedBead(
+      policy,
+      'a consolidation naming no commit is not merged',
+      (g) => changed(g, { consolidations: [consolidation(BEAD, { commit: ' ' })] }),
+      /its consolidation of \.claude\/skills\/bead\/SKILL\.md names no commit/,
+    ),
+    refusedBead(
+      policy,
+      'a consolidation that frees no words is not merged',
+      (g) => changed(g, { consolidations: [consolidation(BEAD, { wordsAfter: 100 })] }),
+      /its consolidation of \.claude\/skills\/bead\/SKILL\.md frees no words: 100 before, 100 after/,
+    ),
+    refusedBead(
+      policy,
+      'a consolidation listing nothing it removed is not merged',
+      (g) => changed(g, { consolidations: [consolidation(BEAD, { removed: [] })] }),
+      /its consolidation of \.claude\/skills\/bead\/SKILL\.md lists nothing it removed/,
+    ),
+    ...[
+      ['kept', 'names no loader', { loadedBy: '' }],
+      ['moved', 'names no pull request', { where: '' }],
+      ['deleted', 'gives no reason', { why: '' }],
+    ].map(([disposition, what, blank]) =>
+      refusedBead(
+        policy,
+        `a consolidation whose ${disposition} row ${what} is not merged`,
+        (g) => changed(g, { consolidations: [consolidation(BEAD, { removed: consolidation(BEAD).removed.map((row) => (row.disposition === disposition ? { ...row, ...blank } : row)) })] }),
+        /its consolidation of \.claude\/skills\/bead\/SKILL\.md has 1 row\(s\) that do not say where the text went/,
+      ),
     ),
     skeptics[major] >= 3
       ? {
