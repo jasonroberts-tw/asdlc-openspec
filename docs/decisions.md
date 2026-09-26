@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-09 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08 and D-09 added 2026-09-26).**
+**Status: every decision from D-01 to D-10 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09 and D-10 added 2026-09-26).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-09` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-10` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -65,6 +65,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-07** | A reviewer merges each pull request that satisfies the issues it carries, one at a time | `.github/workflows/pr-review.yml`, the `pr-reviewer` agent and `scripts/pr-review.mjs`; the `prReview*` keys of `tools/policy.json`; `CLAUDE.md` § Git workflow; the `bead` and `change-finalize` skills; `verify.yml` dispatched after each merge |
 | **D-08** | A run leaves its analysis in the tracker, and one review reads every pending analysis as a batch | `CLAUDE.md` § Prompt reviews; the `continuous-prompt-improvement` agent and `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; the four `promptReview*` keys of `tools/policy.json`; `bead` § 8 |
 | **D-09** | An in-session guard refuses a `gh` command that applies the approval label, from any checkout | `scripts/hooks/guard-git.mjs`, held by `worktree:selftest`; the guard's rows in `.claude/README.md`, `scripts/hooks/README.md` and `README.md` |
+| **D-10** | A prompt review proposes an edit only for a finding that recurs or is severe, and carries it once skeptics uphold it | The threshold check and the skeptic step of `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; `promptReviewHeldMarker`, `promptReviewRecurrenceCount`, `promptReviewMajorSeverities` and `promptReviewSkeptics` in `tools/policy.json`; `CLAUDE.md` § Prompt reviews; the `continuous-prompt-improvement` agent |
 
 ## Risks
 
@@ -469,6 +470,8 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 
 **Figures.** Eleven review pull requests opened between 2026-09-24T23:47Z (#28) and 2026-09-25T23:10Z (#53), the titles in that range that cite no issue: `gh pr list --state all --limit 100 --json number,title,createdAt`. `promptReviewDueCount` and `promptReviewDueAgeDays` are choices made from that pace, not measurements.
 
+> **Amended 2026-09-26 by D-10.** Item 8 no longer holds. The review proposes an edit only for a finding that `promptReviewRecurrenceCount` runs have shown or whose severity is in `promptReviewMajorSeverities`, and merges a branch only once a majority of its `promptReviewSkeptics` upheld every edit on it. Beside item 6's read line, the review appends a held line for each finding it read and did not carry into its pull request, which the next review counts, and an analysis now ends at the next line that opens with any of the three markers.
+
 ### D-09 · An in-session guard refuses a gh command that applies the approval label, from any checkout
 
 **Recorded 2026-09-26**, carried by `asdlc-openspec-g1b`. The maintainer chose it on 2026-09-26 from the issue's two options, put to them as the recommendation with the case where it loses.
@@ -496,6 +499,43 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 - **`.claude/README.md`, `scripts/hooks/README.md` and `README.md`:** the guard's rows, which said it acted only in a linked worktree, and a row for the label in `README.md` § The guardrails.
 
 **Figures.** None.
+
+### D-10 · A prompt review proposes an edit only for a finding that recurs or is severe, and carries it once skeptics uphold it
+
+**Recorded 2026-09-26**, carried by `asdlc-openspec-pnm`. On 2026-09-26 the maintainer chose the threshold, what an edit states, the skeptics, when they run, and a held line in the analysis notes, items 1, 2, 3 and the first sentence of 5, each from a recommendation put with the case where it loses. The session that built it chose the rest: items 4, 6 and 7, the held line's marker, and holding a finding for a reason other than the threshold.
+
+**Builds on / amends:** amends D-08, whose item 8 left the skeptic step and the recurrence threshold to `asdlc-openspec-pnm`. Builds on D-03, whose policy file holds the new keys; on D-07, which leaves a review's pull request to a person; and on the severities `.claude/agents/pr-reviewer.md` § 2. Maintainability defines.
+
+**Decision.** Which findings a prompt review proposes an edit for, and which of its edits reach its pull request. `CLAUDE.md` § Prompt reviews holds the rule and the held line's form; the agent's § 3 and the workflow's header hold the mechanics.
+
+1. **The threshold.** A finding goes to a file's agent only when `promptReviewRecurrenceCount` distinct runs have shown it, or its severity is in `promptReviewMajorSeverities`. The reviewer's session counts and applies it before the workflow runs, since only it reads every analysis. `.claude/workflows/review-prompts.js` refuses a finding below it, and returns with each change the condition its finding met.
+2. **Each proposed edit states** how often the situation arises, what it costs when it does, and the net words it adds, each figure citing a run, a label count or a pull request.
+3. **Skeptics judge each edit after its file's agent commits it, reading the branch's diff.** `promptReviewSkeptics` gives how many for each severity, the counts `buildReviewSkeptics` gives, and a majority of those sent decides. Each answers two questions: had the prompt said this, would the runs have gone differently; and does the edit break another path through the prompt, or another caller of it. The script tallies the votes, and the review's pull request lists them.
+4. **A branch merges only when a majority upheld every edit on it.** The script runs no git, so it cannot take one commit of a branch and leave another. One edit not upheld keeps the whole branch out, and its runs are still read.
+5. **A finding read and not carried is held.** A line of `promptReviewHeldMarker`, the run id, the finding's key, its count so far and the reason goes on the issue of each run that showed it, and the next review counts the finding from it. A finding is held when it is below the threshold, when its agent set it aside, when its edit was not upheld, or when its edit was upheld on a branch kept out. One held for any reason but the first goes to an agent again only when a run its held lines do not name shows it.
+6. **Two findings are one** when they concern the same prompt file and describe the same failure, the same step done wrong or missing at the same place, however each analysis words it. The session judges it, and a finding that is one with a held line takes that line's key, `<file>#<name>`. The script holds each key to a file of its group and to one finding in the batch.
+7. **The policy reaches the workflow as `args.policy`**, the `promptReview*` keys the session prints from the review worktree's `tools/policy.json`. The script reads no file, and refuses a key that is missing or of the wrong shape.
+
+**Why.** Every review pull request since D-05 that was not superseded merged, so the reviewer's own judgement was the only filter between a plausible finding and an edit, and each edit costs its words on every later run of its prompt (`asdlc-openspec-2wv` measures the `bead` skill's growth). Error analysis counts failures by category before fixing any (https://hamel.dev/blog/posts/evals-faq/why-is-error-analysis-so-important-in-llm-evals-and-how-is-it-performed.html), and FMEA weighs severity before occurrence (https://accendoreliability.com/prioritizing-risk-in-an-fmea/). A research session read both on 2026-09-25 and found no primary source for a number of occurrences, so the count is this repository's choice. Six alternatives lost:
+
+- **An edit on the first run that shows a finding, as D-08's review made.** This is where the threshold loses: a one-off minor defect that costs an hour, and recurs a week later, is now paid for twice before it is fixed.
+- **Skeptics on each finding before its file's agent edits.** A refuted finding would then cost no agent run and no worktree, which the chosen order spends; but a skeptic judging a finding cannot see whether the edit breaks another caller of the prompt.
+- **Fewer skeptics.** The chosen counts send 15 for a batch of 5 major findings, but a single vote would decide an edit that every later run of the prompt reads.
+- **Merging the upheld commits of a branch and dropping the rest.** It needs git in the script, or cherry-picks in the session whose conflicts no selftest holds. A branch kept out holds its upheld findings instead, and a run that shows one again brings it back.
+- **A Setup agent reading the policy, as `build-change-task.js` does.** It costs one more agent per review, and its read could differ from the values the session applied.
+- **A held line only for a finding below the threshold.** A finding set aside or not upheld would start its count again at the next review, so a recurring one would never be counted as recurring.
+
+**What changed.**
+
+- **This register:** this entry; the status line, the blockquote's bound and the decisions table carry D-10; D-08 carries an amendment.
+- **`tools/policy.json`:** `promptReviewHeldMarker`, `promptReviewRecurrenceCount`, `promptReviewMajorSeverities` and `promptReviewSkeptics`, each with its `Means` sibling; `describes`, `gatedBy`, `whatItDoesNOTDo` and `provenance` name them, and so does `tools/README.md`'s row.
+- **`.claude/workflows/review-prompts.js`:** each group carries its findings in place of free evidence, with `args.policy`; the threshold check, the skeptic step, the `not-upheld` status and `findingsHeld`; each change names its finding and states its frequency, cost and words.
+- **`scripts/workflows.selftest.mjs`:** the review suite runs with the policy's values, and its cases hold the threshold, the number of skeptics and their tally, and the findings held.
+- **`CLAUDE.md`:** § Prompt reviews states the threshold, the skeptics and the held line, and where an analysis now ends.
+- **`.claude/agents/continuous-prompt-improvement.md`:** § 2 collects the held lines; § 3 counts, holds and groups; § 4 passes the policy; § 6 writes the held lines; § 7 lists each finding's condition, figures and votes; § How a file is judged says what the threshold decides and what it leaves to the agent and the skeptics.
+- **`lefthook.yml`, `.github/workflows/verify.yml`, `README.md`, `scripts/README.md` and `.claude/README.md`:** the `workflows-selftest` job's comment and cost, the step's name and comment, and the rows that describe the workflow or its selftest.
+
+**Figures.** Eleven review pull requests from #28 to #53, the titles in that range that cite no issue: nine merged, and #48 and #51 were closed when #53 superseded them (`gh pr list --state all --limit 100 --json number,title,state`). A batch of 5 major findings sends 15 skeptics: 5 times `promptReviewSkeptics.major`, 3.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

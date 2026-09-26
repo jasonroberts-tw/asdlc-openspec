@@ -2,10 +2,12 @@
  * Workflow selftest: runs each workflow script under `.claude/workflows/` against stubbed agents and
  * asserts how it stops and what it returns. `build-change-task.js` runs with the review sizes
  * `tools/policy.json` holds, and its cases assert how many skeptics it sends; `review-prompts.js` runs
- * with groups of files built here, and its cases assert which branches it lets the session merge and
- * which analyses it lets the session mark read. It holds every script to what the Workflow runtime
- * accepts: a pure `meta` literal first, every phase declared there, and no clock or randomness. A
- * script under `.claude/workflows/` with no suite here is refused, so a workflow cannot land unheld.
+ * with groups of findings built here and the policy's `promptReview*` keys, and its cases assert
+ * which findings it refuses as below the threshold, how many skeptics it sends each change, which
+ * branches it lets the session merge, which analyses it lets the session mark read and which
+ * findings it holds. It holds every script to what the Workflow runtime accepts: a pure `meta`
+ * literal first, every phase declared there, and no clock or randomness. A script under
+ * `.claude/workflows/` with no suite here is refused, so a workflow cannot land unheld.
  *
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet: `build-change-task.js` is tracked for the first
  * time in the change that adds this file (asdlc-openspec-d6b), and `review-prompts.js` in the change
@@ -13,11 +15,13 @@
  * cannot show cheaply. For the build: a third review round, an unverified vote counted as refuted, a
  * spec contradiction halting before skeptics confirmed it, a coverage gap sent to skeptics, a listener
  * left on 127.0.0.1 and not reported, or a policy key renamed so that every run refuses. For the
- * prompt review: a branch merged that changed another group's file, failed its gates or was never
- * provisioned by the WorktreeCreate hook, or an analysis marked read whose file's agent returned
- * nothing. Each costs millions of tokens, a wrong verdict or a finding never reviewed, before anyone
- * sees it, and no other gate reads these files: `check:prompts` and `openspec:check` read only skills
- * and agents.
+ * prompt review: a branch merged that changed another group's file, failed its gates, was never
+ * provisioned by the WorktreeCreate hook, or carried an edit a majority of its skeptics did not
+ * uphold; a finding below the threshold passed to an agent; an analysis marked read whose file's
+ * agent returned nothing; or a finding read and not proposed that is not returned to be held (since
+ * asdlc-openspec-pnm). Each costs millions of tokens, a wrong verdict or a finding never reviewed,
+ * before anyone sees it, and no other gate reads these files: `check:prompts` and `openspec:check`
+ * read only skills and agents.
  *
  * INVOCATION.
  *
@@ -34,9 +38,10 @@
  * plus a `Date` and a `Math.random` that throw, as the runtime's do. Each stubbed agent is answered by
  * its label (each workflow's header lists them), and each answer is checked against the schema the
  * agent was given: a field the schema does not declare is refused, since a real agent would never
- * return it. The build's Setup agent's answer is the real policy, and every number a build case
- * expects is read from it, so no case restates a constant. Each suite has an undoctored control that
- * must pass before any of its other cases is trusted.
+ * return it. The build's Setup agent's answer is the real policy, and so is the review's
+ * `args.policy`; every number a case expects is read from it, so no case restates a constant, and a
+ * case the policy's values cannot exercise fails and says why. Each suite has an undoctored control
+ * that must pass before any of its other cases is trusted.
  *
  * The refusal of a script with no suite is held the same way: a control directory built under the
  * temporary directory holding only the suites' scripts must report nothing, and the same with one
@@ -58,6 +63,7 @@ const BUILD = `${WORKFLOWS}/build-change-task.js`
 const REVIEW = `${WORKFLOWS}/review-prompts.js`
 const POLICY = 'tools/policy.json'
 const POLICY_KEYS = ['buildReviewLenses', 'buildReviewSkeptics', 'buildReviewMaxRounds', 'buildReviewMajorSeverities', 'assetLabels']
+const REVIEW_POLICY_KEYS = ['promptReviewRecurrenceCount', 'promptReviewMajorSeverities', 'promptReviewSkeptics']
 const HEAD = 'export const meta = {'
 
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
@@ -588,23 +594,61 @@ const RUN_A = 'example-1@2026-09-26T00:00:00Z'
 const RUN_B = 'example-2@2026-09-26T01:00:00Z'
 const RUN_C = 'example-3@2026-09-26T02:00:00Z'
 
+/**
+ * The policy's prompt-review keys as the agent's § 4 prints them, every `promptReview*` key but the
+ * `Means`, so the workflow reads the tracked values and ignores the ones it does not use.
+ */
+const promptPolicy = (policy) => Object.fromEntries(Object.entries(policy).filter(([k]) => k.startsWith('promptReview') && !k.endsWith('Means')))
+
+/** The severities the policy counts, and the first of them that does not skip the count. */
+const severitiesOf = (policy) => Object.keys(policy.promptReviewSkeptics)
+const countedSeverity = (policy) => severitiesOf(policy).find((s) => !policy.promptReviewMajorSeverities.includes(s))
+
+/** One finding on `file` shown by `runs`, at a counted severity and the count the threshold asks, unless `extra` says otherwise. */
+const reviewFinding = (policy, file, name, runs, extra = {}) => ({
+  key: `${file}#${name}`,
+  title: `The ${name} finding`,
+  severity: countedSeverity(policy) ?? severitiesOf(policy).at(-1),
+  count: Math.max(policy.promptReviewRecurrenceCount, runs.length),
+  runs,
+  evidence: `The runs ${runs.join(', ')} showed it.`,
+  ...extra,
+})
+
+const BEAD_KEY = `${BEAD}#gates-before-staging`
+const OPEN_PR_KEY = `${OPEN_PR}#second-watcher`
+
 /** Two groups, `bead` from runs A and B and `open-pr` from runs B and C, so run B is in both. */
-const reviewArgs = (groups) => ({
+const reviewArgs = (policy, groups, extra = {}) => ({
+  policy: promptPolicy(policy),
   groups: groups ?? [
-    { id: 'bead', files: [BEAD], runs: [RUN_A, RUN_B], evidence: 'Both runs gated before staging a new file.' },
-    { id: 'open-pr', files: [OPEN_PR], runs: [RUN_B, RUN_C], evidence: 'Both runs started a second watcher.' },
+    { id: 'bead', files: [BEAD], findings: [reviewFinding(policy, BEAD, 'gates-before-staging', [RUN_A, RUN_B])] },
+    { id: 'open-pr', files: [OPEN_PR], findings: [reviewFinding(policy, OPEN_PR, 'second-watcher', [RUN_B, RUN_C])] },
   ],
+  ...extra,
 })
 
 const gateRun = (passed) => ({ command: 'npm run check:prompts', passed, output: passed ? 'ok' : '1 problem' })
 
-/** A clean report of a change to the group's first file, unless `extra` says otherwise. */
+/** A clean change answering finding `f`, to the file its key names. */
+const change = (f) => ({
+  file: f.key.split('#')[0],
+  finding: f.key,
+  title: `A fix for ${f.key}`,
+  edit: 'One sentence added.',
+  why: 'The runs show the gap.',
+  frequency: `In ${f.runs.join(' and ')}.`,
+  cost: 'One gate run repeated in each.',
+  words: 12,
+})
+
+/** A clean report of a change answering every finding of the group, unless `extra` says otherwise. */
 const changed = (group, extra = {}) => ({
   verdict: 'changed',
   branch: `agent/wf_example-${group.id}`,
   head: 'a'.repeat(40),
   filesChanged: [...group.files],
-  changes: [{ file: group.files[0], title: `A fix to ${group.id}`, runs: [group.runs[0]], edit: 'One sentence added.', why: 'The runs show the gap.' }],
+  changes: group.findings.map(change),
   notChanged: [],
   earlierReviews: [],
   unverified: [],
@@ -612,51 +656,63 @@ const changed = (group, extra = {}) => ({
   ...extra,
 })
 
-/** A clean report of no change, unless `extra` says otherwise. */
+/** A clean report of no change, every finding set aside, unless `extra` says otherwise. */
 const unchanged = (group, extra = {}) => ({
   verdict: 'unchanged',
   branch: `agent/wf_example-${group.id}`,
   head: 'b'.repeat(40),
   filesChanged: [],
   changes: [],
-  notChanged: [{ title: `Nothing to change in ${group.id}`, runs: [...group.runs], reason: 'The finding does not hold.' }],
+  notChanged: group.findings.map((f) => ({ finding: f.key, reason: 'The finding does not hold.' })),
   earlierReviews: [{ pr: '#45', change: 'close with the reason passed from a file', outcome: 'working', evidence: 'Both runs closed so.' }],
   unverified: [],
   gates: [],
   ...extra,
 })
 
+const reviewVote = (verdict) => ({ verdict, reason: `the skeptic's ${verdict} reason` })
+
 /**
  * Answers each `review <id>` agent: `reports[id]` is a function of the group, or null for an agent
- * that returns nothing. By default `bead` changes its file and `open-pr` changes nothing.
+ * that returns nothing. By default `bead` changes its file and `open-pr` changes nothing. Each
+ * `skeptic <i>/<n> <id>: <key>` is answered by `verdict(key, i, n)`, upheld by default.
  */
-function reviewAnswer(args, reports = {}) {
+function reviewAnswer(args, reports = {}, verdict) {
   return (label) => {
-    const m = /^review (\S+)$/.exec(label)
-    if (!m) throw new Error(`no stub answers the label "${label}"`)
-    const group = args.groups.find((g) => g.id === m[1])
-    const make = reports[m[1]]
-    if (make === null) return null
-    return make ? make(group) : m[1] === 'bead' ? changed(group) : unchanged(group)
+    let m = /^review (\S+)$/.exec(label)
+    if (m) {
+      const group = args.groups.find((g) => g.id === m[1])
+      const make = reports[m[1]]
+      if (make === null) return null
+      return make ? make(group) : m[1] === 'bead' ? changed(group) : unchanged(group)
+    }
+    m = /^skeptic (\d+)\/(\d+) (\S+): (.+)$/.exec(label)
+    if (m) return verdict ? verdict(m[4], Number(m[1]), Number(m[2])) : reviewVote('upheld')
+    throw new Error(`no stub answers the label "${label}"`)
   }
 }
 
 const statusOf = (result, id) => result.groups.find((g) => g.id === id)?.status
 const problemsOf = (result, id) => (result.groups.find((g) => g.id === id)?.problems ?? []).join('; ')
 const heldRuns = (result) => result.runsHeld.map((h) => h.run).join()
+const heldFinding = (result, key) => result.findingsHeld.find((h) => h.key === key)
+const changeOf = (result, id, key) => result.groups.find((g) => g.id === id)?.changes?.find((c) => c.finding === key)
+const skepticsOn = (calls, key) => calls.filter((label) => label.startsWith('skeptic ') && label.endsWith(`: ${key}`)).length
 
 /** A case where the `bead` group's report breaks one rule: it is refused for that reason, and only it. */
-function refusedBead(name, report, reason) {
+function refusedBead(policy, name, report, reason) {
   return {
     name,
-    args: reviewArgs(),
+    args: reviewArgs(policy),
     reports: { bead: report },
-    expect: ['done', /^0 to merge, 1 unchanged, 1 refused, 0 died; 1 of 3 run\(s\) read$/],
-    check: ({ result }) => {
+    expect: ['done', /^0 to merge, 1 unchanged, 0 not upheld, 1 refused, 0 died; 0 of 0 change\(s\) upheld by 0 skeptic\(s\); 1 of 3 run\(s\) read, 1 finding\(s\) held$/],
+    check: ({ result, calls }) => {
       if (statusOf(result, 'bead') !== 'refused') return `bead is ${statusOf(result, 'bead')}, not refused`
       if (!reason.test(problemsOf(result, 'bead'))) return `bead was refused for another reason: ${problemsOf(result, 'bead')}`
+      if (calls.some((label) => label.startsWith('skeptic '))) return 'a skeptic judged a refused report'
       if (result.merge.length) return `merge is ${result.merge.join(', ')}, not empty`
       if (heldRuns(result) !== [RUN_A, RUN_B].join()) return `held ${heldRuns(result)}, not bead's runs`
+      if (heldFinding(result, BEAD_KEY)) return "a refused group's finding was held, though its runs stay pending"
       return result.runsRead.join() === RUN_C ? null : `read ${result.runsRead.join()}, not ${RUN_C} alone`
     },
   }
@@ -664,100 +720,232 @@ function refusedBead(name, report, reason) {
 
 /* -------------------------------------------------------------- review-prompts.js: cases ----- */
 
-function reviewCases() {
-  return [
+function reviewCases(policy) {
+  const skeptics = policy.promptReviewSkeptics
+  const majors = policy.promptReviewMajorSeverities
+  const least = policy.promptReviewRecurrenceCount
+  const counted = countedSeverity(policy)
+  const major = majors[0]
+  const one = (id, file, name, runs, extra) => ({ id, files: [file], findings: [reviewFinding(policy, file, name, runs, extra)] })
+  const beforeAnyAgent = ({ calls }) => (calls.length ? `ran ${calls.join(', ')} before refusing` : null)
+
+  /** A case the policy's values cannot exercise fails with that reason, rather than passing unrun. */
+  const unexercised = (name, why) => ({ name, args: reviewArgs(policy), reports: {}, check: () => `cannot be exercised: ${why}` })
+
+  const list = [
     {
-      name: 'control: one group changes its file and one changes nothing, each agent in a worktree of its own; the one merges and every run is read',
+      name: 'control: one group changes its file and one changes nothing, each agent in a worktree of its own; skeptics uphold the change, the one merges, every run is read, and the finding set aside is held',
       control: true,
-      args: reviewArgs(),
+      args: reviewArgs(policy),
       reports: {},
-      expect: ['done', /^1 to merge, 1 unchanged, 0 refused, 0 died; 3 of 3 run\(s\) read$/],
-      check: ({ result, options }) => {
-        const labels = options.map((o) => o.label)
-        if (labels.join() !== 'review bead,review open-pr') return `ran ${labels.join(', ')}`
-        if (options.some((o) => o.isolation !== 'worktree')) return 'an agent ran without isolation: worktree'
-        const prompt = options[0].prompt
-        if (!prompt.includes(BEAD) || !prompt.includes(RUN_A) || !prompt.includes('§ How a file is judged')) {
-          return "the bead agent's prompt does not name its file, its runs and the section it reads first"
+      expect: ['done', /^1 to merge, 1 unchanged, 0 not upheld, 0 refused, 0 died; 1 of 1 change\(s\) upheld by \d+ skeptic\(s\); 3 of 3 run\(s\) read, 1 finding\(s\) held$/],
+      check: ({ result, options, calls }) => {
+        const reviews = options.filter((o) => o.label.startsWith('review '))
+        if (reviews.map((o) => o.label).join() !== 'review bead,review open-pr') return `ran ${reviews.map((o) => o.label).join(', ')}`
+        if (reviews.some((o) => o.isolation !== 'worktree')) return 'a file agent ran without isolation: worktree'
+        const prompt = reviews[0].prompt
+        if (!prompt.includes(BEAD_KEY) || !prompt.includes(RUN_A) || !prompt.includes('§ How a file is judged')) {
+          return "the bead agent's prompt does not name its finding, its runs and the section it reads first"
         }
         if (prompt.includes(OPEN_PR)) return "the bead agent's prompt names another group's file"
+        const sent = skepticsOn(calls, BEAD_KEY)
+        const severity = reviewFinding(policy, BEAD, 'x', [RUN_A]).severity
+        if (sent !== skeptics[severity]) return `sent ${sent} skeptic(s) to bead's change, not the ${skeptics[severity]} a ${severity} finding gets`
+        if (skepticsOn(calls, OPEN_PR_KEY)) return 'a skeptic judged a group that changed nothing'
+        const skeptic = options.find((o) => o.label.startsWith('skeptic '))
+        if (skeptic.isolation !== undefined || !skeptic.prompt.includes('git diff origin/main...agent/wf_example-bead')) {
+          return "a skeptic does not read bead's diff where the session runs"
+        }
+        const c = changeOf(result, 'bead', BEAD_KEY)
+        if (c?.outcome !== 'upheld' || c.met !== 'recurrence' || c.votes.length !== sent) return `bead's change came back ${JSON.stringify(c)}`
         if (result.merge.join() !== 'agent/wf_example-bead') return `merge is ${result.merge.join(', ')}`
         if (statusOf(result, 'bead') !== 'merge' || statusOf(result, 'open-pr') !== 'unchanged') return 'the statuses are not merge and unchanged'
-        return result.runsRead.join() === [RUN_A, RUN_B, RUN_C].join() && !result.runsHeld.length ? null : `read ${result.runsRead.join()}, held ${heldRuns(result)}`
+        if (result.runsRead.join() !== [RUN_A, RUN_B, RUN_C].join() || result.runsHeld.length) return `read ${result.runsRead.join()}, held ${heldRuns(result)}`
+        const held = heldFinding(result, OPEN_PR_KEY)
+        if (heldFinding(result, BEAD_KEY)) return 'the merged finding was held'
+        return held && /^set aside by its file's agent: /.test(held.reason) && held.count === least && held.runs.join() === [RUN_B, RUN_C].join()
+          ? null
+          : `the finding set aside was held as ${JSON.stringify(held)}`
       },
     },
     {
-      name: 'refused: a file in two groups, before any agent runs',
-      args: reviewArgs([
-        { id: 'bead', files: [BEAD], runs: [RUN_A], evidence: 'e' },
-        { id: 'both', files: [OPEN_PR, `./${BEAD}`], runs: [RUN_B], evidence: 'e' },
+      name: `each change gets the skeptics its finding's severity is given (${Object.entries(skeptics).map(([s, n]) => `${s} ${n}`).join(', ')}), and a ${major} finding one run showed is proposed by severity`,
+      args: reviewArgs(policy, [
+        {
+          id: 'bead',
+          files: [BEAD],
+          findings: [reviewFinding(policy, BEAD, 'counted', [RUN_A, RUN_B]), reviewFinding(policy, BEAD, 'severe', [RUN_A], { severity: major, count: 1 })],
+        },
+        one('open-pr', OPEN_PR, 'second-watcher', [RUN_B, RUN_C]),
       ]),
+      reports: {},
+      expect: ['done', /^1 to merge, 1 unchanged, 0 not upheld, 0 refused, 0 died; 2 of 2 change\(s\) upheld/],
+      check: ({ result, calls }) => {
+        const got = [skepticsOn(calls, `${BEAD}#counted`), skepticsOn(calls, `${BEAD}#severe`)]
+        const want = [skeptics[counted], skeptics[major]]
+        if (got.join() !== want.join()) return `sent ${got.join(' and ')} skeptic(s), not ${want.join(' and ')}`
+        const met = [changeOf(result, 'bead', `${BEAD}#counted`).met, changeOf(result, 'bead', `${BEAD}#severe`).met]
+        return met.join() === 'recurrence,severity' ? null : `the changes say they met the threshold by ${met.join(' and ')}`
+      },
+    },
+    least >= 2 && counted
+      ? {
+          name: `refused: a ${counted} finding shown by fewer than ${least} runs, before any agent runs`,
+          args: reviewArgs(policy, [one('bead', BEAD, 'once', [RUN_A], { count: least - 1 })]),
+          expect: ['refused', new RegExp(`^group bead: the finding \\.claude/skills/bead/SKILL\\.md#once was shown by ${least - 1} run\\(s\\) at ${counted}, below the threshold`)],
+          check: beforeAnyAgent,
+        }
+      : unexercised('refused: a finding below the threshold', 'the policy counts no severity, or a count of 1 meets it'),
+    {
+      name: 'refused: a policy without promptReviewSkeptics, before any agent runs',
+      args: reviewArgs(policy, undefined, { policy: Object.fromEntries(Object.entries(promptPolicy(policy)).filter(([k]) => k !== 'promptReviewSkeptics')) }),
+      expect: ['refused', /^args\.policy has no `promptReviewSkeptics`/],
+      check: beforeAnyAgent,
+    },
+    {
+      name: 'refused: a finding whose key names a file its group was not given',
+      args: reviewArgs(policy, [{ id: 'bead', files: [BEAD], findings: [reviewFinding(policy, OPEN_PR, 'elsewhere', [RUN_A])] }]),
+      expect: ['refused', /^group bead: the finding \.claude\/skills\/open-pr\/SKILL\.md#elsewhere names \.claude\/skills\/open-pr\/SKILL\.md, which is not one of its files/],
+      check: beforeAnyAgent,
+    },
+    {
+      name: 'refused: one key on two findings',
+      args: reviewArgs(policy, [{ id: 'bead', files: [BEAD], findings: [reviewFinding(policy, BEAD, 'twice', [RUN_A]), reviewFinding(policy, BEAD, 'twice', [RUN_B])] }]),
+      expect: ['refused', /^the key \.claude\/skills\/bead\/SKILL\.md#twice is on two findings/],
+      check: beforeAnyAgent,
+    },
+    {
+      name: 'refused: a count below the runs a finding names',
+      args: reviewArgs(policy, [one('bead', BEAD, 'undercounted', [RUN_A, RUN_B], { severity: major, count: 1 })]),
+      expect: ['refused', /^group bead: the finding .*#undercounted has the count 1, fewer than the 2 run\(s\) it names/],
+      check: beforeAnyAgent,
+    },
+    {
+      name: 'refused: a file in two groups, before any agent runs',
+      args: reviewArgs(policy, [one('bead', BEAD, 'x', [RUN_A]), { id: 'both', files: [OPEN_PR, `./${BEAD}`], findings: [reviewFinding(policy, OPEN_PR, 'y', [RUN_B])] }]),
       expect: ['refused', /^the file \.claude\/skills\/bead\/SKILL\.md is in groups bead and both/],
-      check: ({ calls }) => (calls.length ? `ran ${calls.join(', ')} before refusing` : null),
+      check: beforeAnyAgent,
     },
     {
       name: 'refused: an absolute path',
-      args: reviewArgs([{ id: 'bead', files: ['/etc/hosts'], runs: [RUN_A], evidence: 'e' }]),
+      args: reviewArgs(policy, [one('bead', '/etc/hosts', 'x', [RUN_A])]),
       expect: ['refused', /^group bead: the file "\/etc\/hosts" is absolute/],
-      check: ({ calls }) => (calls.length ? `ran ${calls.join(', ')} before refusing` : null),
+      check: beforeAnyAgent,
     },
     {
       name: 'refused: a path that climbs out of the repository',
-      args: reviewArgs([{ id: 'bead', files: ['.claude/../../outside.md'], runs: [RUN_A], evidence: 'e' }]),
+      args: reviewArgs(policy, [one('bead', '.claude/../../outside.md', 'x', [RUN_A])]),
       expect: ['refused', /^group bead: the file ".*" has an empty or `\.\.` segment/],
       check: () => null,
     },
     {
       name: 'refused: no groups',
-      args: reviewArgs([]),
+      args: reviewArgs(policy, []),
       expect: ['refused', /^args\.groups must be a non-empty list/],
       check: () => null,
     },
     {
-      name: 'refused: a group with no runs',
-      args: reviewArgs([{ id: 'bead', files: [BEAD], runs: [], evidence: 'e' }]),
-      expect: ['refused', /^group bead: runs must be a non-empty list/],
+      name: 'refused: a group with no findings',
+      args: reviewArgs(policy, [{ id: 'bead', files: [BEAD], findings: [] }]),
+      expect: ['refused', /^group bead: findings must be a non-empty list/],
       check: () => null,
     },
     refusedBead(
+      policy,
       'a branch the WorktreeCreate hook did not provision is not merged, and its runs are held',
       (g) => changed(g, { branch: 'worktree-wf_example-bead' }),
       /is not an agent\/ branch/,
     ),
     refusedBead(
+      policy,
       'a change to a file the group was not given is not merged',
       (g) => changed(g, { filesChanged: [BEAD, OPEN_PR] }),
       /changes \.claude\/skills\/open-pr\/SKILL\.md, which it was not given/,
     ),
-    refusedBead('a change whose gate failed is not merged', (g) => changed(g, { gates: [gateRun(false)] }), /did not pass/),
-    refusedBead('a change with no gate run is not merged', (g) => changed(g, { gates: [] }), /ran no gate/),
-    refusedBead('a report of a change that states none is not merged', (g) => changed(g, { changes: [] }), /states none/),
-    refusedBead('a report of a change whose branch changes no file is not merged', (g) => changed(g, { filesChanged: [] }), /changes no file/),
+    refusedBead(policy, 'a change whose gate failed is not merged', (g) => changed(g, { gates: [gateRun(false)] }), /did not pass/),
+    refusedBead(policy, 'a change with no gate run is not merged', (g) => changed(g, { gates: [] }), /ran no gate/),
+    refusedBead(policy, 'a report of a change that states none is not merged', (g) => changed(g, { changes: [] }), /states none/),
+    refusedBead(policy, 'a report of a change whose branch changes no file is not merged', (g) => changed(g, { filesChanged: [] }), /changes no file/),
     refusedBead(
+      policy,
       'a report stating a change to a file the group was not given is not merged, though its branch is clean',
-      (g) => changed(g, { changes: [{ file: OPEN_PR, title: 'A fix', runs: [RUN_A], edit: 'e', why: 'w' }] }),
+      (g) => changed(g, { changes: [{ ...change(g.findings[0]), file: OPEN_PR }] }),
       /states a change to \.claude\/skills\/open-pr\/SKILL\.md, which it was not given/,
     ),
     refusedBead(
-      'a change that cites no run is not merged',
-      (g) => changed(g, { changes: [{ file: BEAD, title: 'A fix citing nothing', runs: [], edit: 'e', why: 'w' }] }),
-      /"A fix citing nothing" cite\(s\) no run/,
+      policy,
+      'a change naming a finding its group was not given is not merged',
+      (g) => changed(g, { changes: [...g.findings.map(change), { ...change(g.findings[0]), finding: `${BEAD}#never-given` }] }),
+      /names the finding\(s\) \.claude\/skills\/bead\/SKILL\.md#never-given, which its group was not given/,
     ),
     refusedBead(
-      'a report citing a run its evidence does not come from is not merged',
-      (g) => changed(g, { changes: [{ file: BEAD, title: 'A fix', runs: [RUN_C], edit: 'e', why: 'w' }] }),
-      /cites the run\(s\) example-3@2026-09-26T02:00:00Z, which its evidence does not come from/,
+      policy,
+      'a report that neither changes nor sets aside a finding it was given is not merged',
+      (g) => unchanged(g, { notChanged: [] }),
+      /neither changes nor sets aside the finding\(s\) \.claude\/skills\/bead\/SKILL\.md#gates-before-staging/,
     ),
     refusedBead(
+      policy,
       'a report of no change whose branch changes a file is refused',
       (g) => unchanged(g, { filesChanged: [BEAD] }),
       /reports no change, but its branch changes \.claude\/skills\/bead\/SKILL\.md/,
     ),
+    refusedBead(
+      policy,
+      'a report of no change that states a change is refused, so its finding is neither merged nor dropped unheld',
+      (g) => unchanged(g, { changes: g.findings.map(change), notChanged: [] }),
+      /reports no change, but states 1 change\(s\)/,
+    ),
+    skeptics[major] >= 3
+      ? {
+          name: `votes with no majority leave a ${major} change unverified, never refuted; its branch is not merged, its runs are read and its finding held with the votes`,
+          args: reviewArgs(policy, [one('bead', BEAD, 'split', [RUN_A, RUN_B], { severity: major }), one('open-pr', OPEN_PR, 'second-watcher', [RUN_B, RUN_C])]),
+          reports: {},
+          verdict: (key, i) => reviewVote(i === 1 ? 'upheld' : i === 2 ? 'refuted' : 'unverified'),
+          expect: ['done', /^0 to merge, 1 unchanged, 1 not upheld, 0 refused, 0 died; 0 of 1 change\(s\) upheld by \d+ skeptic\(s\); 3 of 3 run\(s\) read, 2 finding\(s\) held$/],
+          check: ({ result }) => {
+            if (statusOf(result, 'bead') !== 'not-upheld') return `bead is ${statusOf(result, 'bead')}, not not-upheld`
+            if (changeOf(result, 'bead', `${BEAD}#split`).outcome !== 'unverified') return 'the change was not left unverified'
+            if (result.merge.length) return `merge is ${result.merge.join(', ')}, not empty`
+            const held = heldFinding(result, `${BEAD}#split`)
+            return held && /^the skeptics did not uphold its edit: 1 upheld, 1 refuted and \d+ unverified of \d+$/.test(held.reason) ? null : `held as ${JSON.stringify(held)}`
+          },
+        }
+      : unexercised(`votes with no majority on a ${major} change`, `the policy sends a ${major} finding fewer than 3 skeptics, so no vote can split`),
+    {
+      name: 'skeptics that return nothing leave a change unverified, not refuted, and its branch unmerged',
+      args: reviewArgs(policy),
+      reports: {},
+      verdict: () => null,
+      expect: ['done', /^0 to merge, 1 unchanged, 1 not upheld, 0 refused, 0 died; 0 of 1 change\(s\) upheld/],
+      check: ({ result }) => {
+        const c = changeOf(result, 'bead', BEAD_KEY)
+        if (c.outcome !== 'unverified') return `the change came back ${c.outcome}`
+        return c.votes.every((v) => v === 'unverified: the skeptic returned nothing') ? null : `the votes were ${c.votes.join(' | ')}`
+      },
+    },
+    {
+      name: 'a refuted change keeps its branch out, and the upheld change beside it is held with that reason',
+      args: reviewArgs(policy, [
+        { id: 'bead', files: [BEAD], findings: [reviewFinding(policy, BEAD, 'sound', [RUN_A, RUN_B]), reviewFinding(policy, BEAD, 'unsound', [RUN_A, RUN_B])] },
+        one('open-pr', OPEN_PR, 'second-watcher', [RUN_B, RUN_C]),
+      ]),
+      reports: {},
+      verdict: (key) => reviewVote(key.endsWith('#unsound') ? 'refuted' : 'upheld'),
+      expect: ['done', /^0 to merge, 1 unchanged, 1 not upheld, 0 refused, 0 died; 1 of 2 change\(s\) upheld by \d+ skeptic\(s\); 3 of 3 run\(s\) read, 3 finding\(s\) held$/],
+      check: ({ result }) => {
+        if (result.merge.length) return `merge is ${result.merge.join(', ')}, not empty`
+        const sound = heldFinding(result, `${BEAD}#sound`)
+        const unsound = heldFinding(result, `${BEAD}#unsound`)
+        if (!sound || !/^upheld, but its branch also carried .*#unsound, which the skeptics did not uphold/.test(sound.reason)) return `the upheld finding was held as ${JSON.stringify(sound)}`
+        return unsound && /^the skeptics did not uphold its edit: 0 upheld, \d+ refuted/.test(unsound.reason) ? null : `the refuted finding was held as ${JSON.stringify(unsound)}`
+      },
+    },
     {
       name: 'an agent that returns nothing holds its runs, and a run only other groups cite is read',
-      args: reviewArgs(),
+      args: reviewArgs(policy),
       reports: { 'open-pr': null },
-      expect: ['done', /^1 to merge, 0 unchanged, 0 refused, 1 died; 1 of 3 run\(s\) read$/],
+      expect: ['done', /^1 to merge, 0 unchanged, 0 not upheld, 0 refused, 1 died; 1 of 1 change\(s\) upheld by \d+ skeptic\(s\); 1 of 3 run\(s\) read, 0 finding\(s\) held$/],
       check: ({ result }) => {
         if (statusOf(result, 'open-pr') !== 'died') return `open-pr is ${statusOf(result, 'open-pr')}, not died`
         if (result.merge.join() !== 'agent/wf_example-bead') return `merge is ${result.merge.join(', ')}`
@@ -768,9 +956,9 @@ function reviewCases() {
     },
     {
       name: 'two groups reporting one branch are both refused',
-      args: reviewArgs(),
+      args: reviewArgs(policy),
       reports: { bead: (g) => changed(g, { branch: 'agent/wf_example-same' }), 'open-pr': (g) => unchanged(g, { branch: 'agent/wf_example-same' }) },
-      expect: ['done', /^0 to merge, 0 unchanged, 2 refused, 0 died; 0 of 3 run\(s\) read$/],
+      expect: ['done', /^0 to merge, 0 unchanged, 0 not upheld, 2 refused, 0 died; 0 of 0 change\(s\) upheld by 0 skeptic\(s\); 0 of 3 run\(s\) read, 0 finding\(s\) held$/],
       check: ({ result }) =>
         ['bead', 'open-pr'].every((id) => /report the one branch agent\/wf_example-same/.test(problemsOf(result, id)))
           ? null
@@ -778,12 +966,14 @@ function reviewCases() {
     },
     {
       name: 'every agent returning nothing stops the run, with every run held',
-      args: reviewArgs(),
+      args: reviewArgs(policy),
       reports: { bead: null, 'open-pr': null },
       expect: ['agent-died', /^every agent returned nothing/],
-      check: ({ result }) => (!result.runsRead.length && result.runsHeld.length === 3 && !result.merge.length ? null : 'a run was read or a branch merged'),
+      check: ({ result }) =>
+        !result.runsRead.length && result.runsHeld.length === 3 && !result.merge.length && !result.findingsHeld.length ? null : 'a run was read, a finding held or a branch merged',
     },
   ]
+  return list
 }
 
 /* ---------------------------------------------------------------- the unheld-file refusal ----- */
@@ -848,7 +1038,7 @@ async function main() {
   } catch (error) {
     staticProblems.push(`${POLICY} could not be read: ${error.message}`)
   }
-  const missing = policy ? POLICY_KEYS.filter((k) => policy[k] === undefined) : []
+  const missing = policy ? [...POLICY_KEYS, ...REVIEW_POLICY_KEYS].filter((k) => policy[k] === undefined) : []
   if (missing.length) staticProblems.push(`${POLICY} has no ${missing.join(', ')}`)
   if (staticProblems.length || suites.some((s) => !s.body)) {
     console.error(`workflows selftest: a workflow or the policy cannot be run.\n`)
@@ -856,7 +1046,7 @@ async function main() {
     process.exit(1)
   }
   suites[0].cases = buildCases(policy).map((c) => ({ ...c, answer: scenario(policy, c.scenario) }))
-  suites[1].cases = reviewCases().map((c) => ({ ...c, answer: reviewAnswer(c.args, c.reports) }))
+  suites[1].cases = reviewCases(policy).map((c) => ({ ...c, answer: reviewAnswer(c.args, c.reports, c.verdict) }))
 
   const results = unheldResults(suites)
   if (!results[0].ok) {

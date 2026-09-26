@@ -48,8 +48,9 @@ jobs:
         run: npm run check:prompts
       - name: the prompt gate, negative-tested
         run: npm run check:prompts:selftest
-      # Milliseconds: the change-build review workflow against stubbed agents, with the policy's sizes.
-      - name: the build workflow stops, confirms and reports as its policy says
+      # Milliseconds: each workflow under `.claude/workflows/` against stubbed agents, with the policy's
+      # review sizes, prompt-review threshold and skeptic counts.
+      - name: the workflows stop, confirm and report as their policy says
         run: npm run workflows:selftest
       # Milliseconds: the reviewer's wiring and its decisions, with the policy's values. The reviewer
       # itself reads a token and a language model, and runs only as `pr-review.yml`.
