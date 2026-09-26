@@ -22,24 +22,19 @@ nothing, and stop.
 
 ## 1. Stop if another review is under way
 
-Stop, editing nothing and writing nothing, if either holds. `CLAUDE.md` § Prompt reviews names a
-review's branch and its session.
-
-- `gh pr list --state open --json number,headRefName` lists a pull request from a review's branch.
-  Its analyses were read by that review, and the rest wait for it to merge or close.
-- `claude agents --json` lists a session with the review's name, besides this one, whose `state` is
-  `working`.
+Stop, editing nothing and writing nothing, while `CLAUDE.md` § Prompt reviews says no review starts:
+a pull request from a review's branch is open, or `claude agents --json` lists a session of the
+review's name, besides this one, whose `state` is `working`.
 
 ## 2. Collect the pending analyses
 
-Find every pending analysis as `CLAUDE.md` § Prompt reviews says: which issues carry one, where each
-begins and ends in the notes, and which are pending. Apply both thresholds again, `promptReviewDueCount` and `promptReviewDueAgeDays`, the age read from
-the run id's time. If neither holds, the launch was early: stop, editing nothing and writing nothing.
+Find every pending analysis as `CLAUDE.md` § Prompt reviews says. Apply both thresholds again,
+`promptReviewDueCount` and `promptReviewDueAgeDays`, the age read from the run id's time. If neither
+holds, the launch was early: stop, editing nothing and writing nothing.
 
-Collect every held line too, whether its analysis is pending or not. With `promptReviewHeldMarker`
+Collect every held line too, whether its analysis is pending or not: with `promptReviewHeldMarker`
 as the marker, `bd list --all --notes-contains "<held marker>" --json -n 0` lists the issues that
-carry one. Each is a finding an earlier review read and did not carry into its pull request, with
-its key and its count so far, and § 3 counts it.
+carry one, and § 3 counts each.
 
 An analysis is an input, not a verdict. Check each claim it makes against the run's own evidence,
 its commits, its pull request and its issue, before building on it, and read a file the run worked
@@ -100,9 +95,7 @@ reports. The groups share no file, so a conflict means something the script did 
 report it.
 Then run `npm run gates`, rebase onto `origin/main` and run it again, as
 `.claude/skills/bead/SKILL.md` § 4 and § 5 say, and open the pull request with the `open-pr` skill.
-Its title cites no issue, so the pull-request reviewer leaves its merge to a person
-(`docs/decisions.md` § D-07). The pull request is a proposal: a person reads it and decides whether it
-merges (`CLAUDE.md` § A program proposes; only a person promotes). Never merge it yourself. A gate
+Its title cites no issue, and a person decides whether it merges: never merge it yourself. A gate
 that fails in a file a group changed is fixed on your branch; one that fails elsewhere is reported.
 
 If the permission classifier refuses `npm run gates`, run `npm run citations:check` as its own call
@@ -180,10 +173,8 @@ file's agent is given met the threshold of § 3: enough runs showed it, or it is
 worth reading, not worth an edit, and a count alone is never the reason to change a prompt. Each
 change states how often the situation arises, what it costs when it does, and the net words the edit
 adds, each figure citing a run, a label count or a pull request, because every later run of the
-prompt reads those words. Skeptics then judge each change against its branch's diff, as the
-workflow's header says, and a branch merges only when a majority upholds every change on it. If
-nothing should change, change nothing: a review that proposes nothing leaves nothing but its read
-and held lines.
+prompt reads those words. If nothing should change, change nothing: a review that proposes nothing
+leaves nothing but its read and held lines.
 
 Every edit cites only files your own base holds. A file that only a reviewed branch holds, such as a
 change's design, is named in prose by its branch and its path, never as a pointer: in the
