@@ -31,12 +31,6 @@ ARG BD_VERSION=1.3.0
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# The extractors are console apps; neither the telemetry ping nor the first-run banner has anywhere
-# useful to go from here.
-ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
-    DOTNET_NOLOGO=1 \
-    DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
-
 # Observed on bd 1.2.2, and not re-measured since the pin moved to 1.3.0: bd sniffs terminal
 # capability by writing OSC 11 to the tty and exiting without reading the reply; the terminal's answer
 # lands in the shell's input queue and is executed as if typed (`11: command not found`). NO_COLOR
@@ -45,7 +39,7 @@ ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
 ENV NO_COLOR=1
 
 # --- base packages ------------------------------------------------------------------------------
-# build-essential is README.md's WSL step 1: some npm dependencies still compile on install.
+# build-essential: some npm dependencies still compile on install.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
@@ -58,8 +52,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Node ---------------------------------------------------------------------------------------
-# NodeSource rather than the nvm dance in README.md: nvm is a shell function, so it exists only in
-# an interactive login shell, and every hook, ENTRYPOINT and `docker exec` would miss it.
+# NodeSource rather than nvm: nvm is a shell function, so it exists only in an interactive login
+# shell, and every hook, ENTRYPOINT and `docker exec` would miss it.
 RUN curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/* \
@@ -82,11 +76,11 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
 # NOTHING IS INSTALLED HERE BY DEFAULT. Add the SDK your own projects build with, and take it from
 # the base image's own archive where it carries one, so the layer costs no third-party repository.
 #
-# THE VERSION HAS TO TRACK WHAT THE PROJECTS TARGET, and that is the failure worth writing down
-# here: a change once bumped every project's target framework and updated the README's setup step
-# without touching this file, so the image went on installing the older SDK and failed every build
-# with a "does not support targeting" error. Pin ONE version, not two -- keeping the old one
-# alongside only hides the next mismatch.
+# THE VERSION HAS TO TRACK WHAT THE PROJECTS TARGET: pin ONE, re-derived from where the projects
+# declare it. Left to drift, this layer lets through a change that moves every project to a newer
+# SDK and updates README.md's setup steps without touching this file: it builds on every machine set
+# up from README.md and fails every build in this container. An older version pinned alongside the
+# new one hides that mismatch rather than preventing it.
 
 # --- global npm tools ---------------------------------------------------------------------------
 # `bd` is pinned to the database's version. Claude Code deliberately is not: it self-updates, so a
@@ -99,7 +93,7 @@ RUN npm install -g \
 # --- git configuration --------------------------------------------------------------------------
 # The workspace is a bind mount owned by the host user, whose uid rarely matches the container's;
 # without safe.directory git calls the whole repository untrusted and every hook fails.
-# core.autocrlf input is README.md's line-endings step -- scripts/*.sh must stay LF or bash dies on
+# core.autocrlf input backs .gitattributes' `eol=lf` -- scripts/*.sh must stay LF or bash dies on
 # an invisible carriage return.
 RUN git config --system --add safe.directory '*' \
     && git config --system core.autocrlf input
@@ -115,11 +109,11 @@ RUN chmod 0755 /usr/local/bin/workspace-entrypoint
 USER vscode
 
 # .claude/settings.json (committed) enables `beads@beads-marketplace`, but the marketplace itself is
-# a per-user registration, and skipping it is the most common cause of "the beads skills aren't
-# showing up" (README.md step 7). Non-fatal, and belt-and-braces: an image build that cannot reach
-# GitHub should still produce a working container, and devcontainer.json's ~/.claude mount hides
-# this copy whenever it is present. entrypoint.sh asks `claude plugin marketplace list` at start and
-# adds it if whatever ended up at ~/.claude does not have it.
+# a per-user registration, and without it the beads skills do not show up. Non-fatal, and
+# belt-and-braces: an image build that cannot reach GitHub should still produce a working container,
+# and devcontainer.json's ~/.claude mount hides this copy whenever it is present. entrypoint.sh asks
+# `claude plugin marketplace list` at start and adds it if whatever ended up at ~/.claude does not
+# have it.
 RUN claude plugin marketplace add gastownhall/beads || true
 
 ENTRYPOINT ["/usr/local/bin/workspace-entrypoint"]
