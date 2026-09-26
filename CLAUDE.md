@@ -82,6 +82,12 @@ If a command you need is refused by the permission classifier, do not attempt a 
 it, keep going with everything else, and give one `RUN THESE YOURSELF` code block at the end of the
 report with the exact commands, in order.
 
+A command a subagent reports refused may be run once by the session that launched it, as its own
+single call, before that session hands it to the user: the classifier judges each call in its own
+context, so a subagent's refusal is not its parent's. If that call is refused too, the command goes
+in the block. The parent never tries again in pieces, through another tool, or through another
+subagent; each of those is a workaround.
+
 ## The task store
 
 Every task is an issue in `bd`, never a markdown checklist or an in-session todo list.
