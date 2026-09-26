@@ -147,8 +147,16 @@ does not apply to your platform is absent from its list, not marked optional.
 
 ### macOS and Linux
 
-1. Install git, and Node 22.18 or newer (`package.json` `engines` is the floor; it runs the
-   TypeScript tools here directly, so nothing else is needed to run a gate).
+1. Install git, and Node 22.22.2 or newer (`package.json` `engines` is the floor; it runs the
+   TypeScript tools here directly, so nothing else is needed to run a gate). The floor is never
+   below the lowest version on its major line that every package in `package-lock.json` accepts,
+   or a dependency refuses a Node this step calls enough. After a change to the lockfile, this
+   prints that version beside the floor, from the clone; raise `engines` if the floor is lower (it
+   may sit above). It refuses a range form it cannot read rather than skip it:
+
+   ```sh
+   node -e "const L=require('./package-lock.json').packages,F=require('./package.json').engines.node,M=+F.match(/[0-9]+/)[0],n=s=>{const p=s.replace(/^v/,'').split('.').map(Number);return[p.length,(p[0]*1e3+(p[1]||0))*1e3+(p[2]||0)]},iv=c=>{const m=c.match(/^(>=|\^)?(v?[0-9]+(\.[0-9]+){0,2})$/);if(m===null)throw Error('cannot read '+c);const[k,lo]=n(m[2]);return[lo,m[1]=='>='?Infinity:m[1]?((lo/1e6|0)+1)*1e6:lo+[1e6,1e3,1][k-1]]},R=Object.entries(L).filter(([p,x])=>p&&x.engines&&x.engines.node).map(([p,x])=>x.engines.node.replace(/>=\s+/g,'>=').split('||').map(a=>a.trim().split(/\s+/).map(iv).reduce((a,b)=>[Math.max(a[0],b[0]),Math.min(a[1],b[1])]))),C=R.flat().map(i=>i[0]).concat(M*1e6).filter(c=>(c/1e6|0)==M&&R.every(r=>r.some(i=>i[0]<=c&&c<i[1]))).sort((a,b)=>a-b),f=c=>[c/1e6|0,(c/1e3|0)-(c/1e6|0)*1e3,c-(c/1e3|0)*1e3].join('.');console.log(C.length?'lowest '+M+'.x every locked package accepts: '+f(C[0])+'; package.json engines: '+F:'no '+M+'.x version satisfies every locked package; package.json engines: '+F)"
+   ```
 1. Install `bd`, the tracker's CLI, and check that `bd --version` answers.
 1. Clone, then `npm ci`. The hook runner's install script writes the git hooks; if your package
    manager blocks install scripts, run `npx lefthook install` once.
@@ -162,7 +170,9 @@ does not apply to your platform is absent from its list, not marked optional.
 
 ### Windows, native
 
-1. Install git, and Node 22.18 or newer.
+1. Install git, and Node 22.22.2 or newer. The command in step 1 of macOS and Linux re-derives the
+   floor; it holds no `$`, backtick or double quote inside its quotes, so PowerShell passes it as
+   it stands.
 1. Install `bd`, the tracker's CLI, and check that `bd --version` answers from the shell you will
    work in.
 1. Clone, then `npm ci`. If install scripts are blocked, run `npx lefthook install` once.
