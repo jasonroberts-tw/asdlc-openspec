@@ -67,8 +67,8 @@ Every value the change makes the product compute or carry forward gets its own d
   from the rounded value or the exact one. "Rounded for display" says what is shown, not what is
   carried forward.
 
-The calculator change's design stated no numeric model, and its build rebuilt the arithmetic five
-times (`asdlc-openspec-asv`).
+Without that decision, the build picks a model itself and rebuilds the arithmetic each time a
+scenario disagrees with it.
 
 A design says how, never what:
 
