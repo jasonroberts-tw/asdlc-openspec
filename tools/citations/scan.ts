@@ -229,6 +229,7 @@ export interface LineCitation {
 export interface SectionCitation {
   kind: 'section'
   from: string
+  /** 1-based line of `from` the cited file's name sits on, where a line break splits the pointer. */
   at: number
   target: string
   /** The section name as written, with quotes/emphasis stripped. */
@@ -254,8 +255,31 @@ const LINE_RE = /([A-Za-z0-9._][A-Za-z0-9._/-]*\.md):(\d+)(?:-(\d+))?/g
  * (comma, semicolon, closing bracket, backtick, newline). Prose regularly runs straight on past the
  * heading -- "§ Measurement gives the failure condition for this node" -- which is why the resolver
  * below matches by PREFIX rather than requiring the captured text to be the whole heading.
+ *
+ * ONE LINE BREAK MAY SPLIT THE POINTER, before the `§` or between the `§` and the name, and after
+ * the break only whitespace and one comment or quote leader (`*`, `//`, `>`, `#`, `-`) may come
+ * first. Until 2026-09-26 the pattern stopped at a newline and `citationsIn` read line by line, so a
+ * split pointer was never read and passed whether it resolved or not. On 2026-09-25, working
+ * `asdlc-openspec-ed1` (pull request 33), a reflowed paragraph in the `change-build` skill put a
+ * backticked `docs/decisions.md` at the end of one line and `§ D-02` at the start of the next; a
+ * reader caught it before the commit, and no gate would have, even had the section not existed. A
+ * scan of the tree then found one live split pointer, in a test's comment, and it resolved
+ * (`asdlc-openspec-qsq`). Reflowing a paragraph is how splits appear.
+ *
+ * WHERE THIS LOSES, accepted when it was adopted: a line that ends with a backticked `.md` name,
+ * followed by an unrelated list item that begins `- §`, is read as one pointer, and refused when that
+ * file has no such section. Two breaks, or any other text after the break, are never joined: a
+ * paragraph break ends a pointer, and a name that a break splits is read up to the break and
+ * resolved by prefix, as a name that runs on into prose is.
  */
-const SECTION_RE = /`([A-Za-z0-9._][A-Za-z0-9._/-]*\.md)`[^\S\n]*§[^\S\n]*([^`\n,;)|]{2,80})/g
+const GAP = String.raw`[^\S\n]*`
+const BREAK = String.raw`[^\S\n]*\n[^\S\n]*(?:\/\/|[*>#-])?[^\S\n]*`
+const SECTION_RE = new RegExp(
+  String.raw`\`([A-Za-z0-9._][A-Za-z0-9._/-]*\.md)\`` +
+    `(?:${BREAK}§${GAP}|${GAP}§(?:${BREAK}|${GAP}))` +
+    String.raw`([^\`\n,;)|]{2,80})`,
+  'g',
+)
 
 /** Every git-tracked path, repository-relative. */
 export function trackedFiles(): string[] {
@@ -409,10 +433,18 @@ export function indexByName(tracked: readonly string[]): Map<string, string[]> {
   return byName
 }
 
-/** Every citation written in `text`, which is the content of `from`. */
+/**
+ * Every citation written in `text`, which is the content of `from`, in the order of the lines they
+ * start on.
+ *
+ * Line citations are read line by line. Section citations are read over the whole text, because
+ * one may cross a line break (`SECTION_RE`); each is reported at the line its file name is on, with
+ * every line it spans as its context.
+ */
 export function citationsIn(from: string, text: string): Citation[] {
   const out: Citation[] = []
-  text.split('\n').forEach((line, i) => {
+  const lines = text.split('\n')
+  lines.forEach((line, i) => {
     for (const m of line.matchAll(LINE_RE)) {
       const first = Number(m[2])
       out.push({
@@ -425,21 +457,42 @@ export function citationsIn(from: string, text: string): Citation[] {
         context: line.trim(),
       })
     }
-    for (const m of line.matchAll(SECTION_RE)) {
-      const section = stripWrapper((m[2] as string).trim())
-      if (section && looksLikeSectionName(section)) {
-        out.push({
-          kind: 'section',
-          from,
-          at: i + 1,
-          target: m[1] as string,
-          section,
-          context: line.trim(),
-        })
-      }
-    }
   })
-  return out
+  const lineOf = lineIndexer(text)
+  for (const m of text.matchAll(SECTION_RE)) {
+    const section = stripWrapper((m[2] as string).trim())
+    if (section && looksLikeSectionName(section)) {
+      const first = lineOf(m.index)
+      const last = lineOf(m.index + m[0].length - 1)
+      out.push({
+        kind: 'section',
+        from,
+        at: first + 1,
+        target: m[1] as string,
+        section,
+        context: lines
+          .slice(first, last + 1)
+          .map((l) => l.trim())
+          .join(' '),
+      })
+    }
+  }
+  // Stable, so a line citation stays ahead of a section citation on the same line, as it was when
+  // both were read in one pass per line.
+  return out.sort((a, b) => a.at - b.at)
+}
+
+/** The 0-based line of an offset into `text`, for offsets asked in ascending order. */
+function lineIndexer(text: string): (offset: number) => number {
+  let line = 0
+  let next = text.indexOf('\n')
+  return (offset) => {
+    while (next !== -1 && next < offset) {
+      line++
+      next = text.indexOf('\n', next + 1)
+    }
+    return line
+  }
 }
 
 /**
