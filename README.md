@@ -172,8 +172,8 @@ does not apply to your platform is absent from its list, not marked optional.
 ### Windows, native
 
 1. Install git, and Node 22.22.2 or newer. The command in step 1 of macOS and Linux re-derives the
-   floor; it holds no `$`, backtick or double quote inside its quotes, so PowerShell passes it as
-   it stands.
+   floor. It holds no `$`, backtick or double quote inside its quotes, the characters PowerShell
+   would expand, but it has not been run in PowerShell (`asdlc-openspec-xn4`).
 1. Install `bd`, the tracker's CLI, and check that `bd --version` answers from the shell you will
    work in.
 1. Clone, then `npm ci`. If install scripts are blocked, run `npx lefthook install` once.
