@@ -169,12 +169,14 @@ pre-push:
       run: node --run worktree:selftest
     # The Stop and SubagentStop hook, run as the harness runs it over scratch citation trees: an
     # untracked file with a broken pointer turns its verdict to FAIL for that reason, an ignored one
-    # does not, and `checkoutOf` places a linked worktree over scratch repositories. The hook runs
-    # `check:jobs` over this checkout in every case, so the glob carries that gate's inputs too, the
-    # whole of `tools/`, `scripts/` and `apps/` among them. `scripts/**` and `tools/**` also hold the
-    # hook and the citations gate it runs.
-    # 1.92-2.03 s wall through `node --run` (`/usr/bin/time -p`, three runs) on a macOS 26.7 laptop
-    # (Apple M3 Max) with Node 26.8.1, 2026-09-25: four hook runs, each two npm starts.
+    # does not, and `checkoutOf` places a linked worktree over scratch repositories; and a copy of the
+    # hook in a scratch repository gates a linked worktree and reports what that worktree's own gate
+    # read. The hook runs `check:jobs` over this checkout in four of its seven runs, so the glob carries
+    # that gate's inputs too, the whole of `tools/`, `scripts/` and `apps/` among them. `scripts/**`
+    # and `tools/**` also hold the hook and the citations gate it runs.
+    # 3.35-3.43 s wall through `node --run` (`/usr/bin/time -p`, two runs, while other worktrees ran
+    # their gates) on a macOS 26.7 laptop (Apple M3 Max) with Node 26.8.1, 2026-09-26: seven hook
+    # runs, each two npm starts, three of them against stub gates.
     - name: gate-summary-selftest
       glob:
         - 'package.json'
