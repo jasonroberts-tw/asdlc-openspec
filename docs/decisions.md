@@ -604,7 +604,7 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 - **`tools/policy.json`:** the budgets of the three files, each with the figures in its `Means`; `promptReviewSkepticsMeans` and `provenance`.
 - **`README.md`, `scripts/README.md` and `.claude/README.md`:** the rows that say what the workflow and its selftest hold.
 
-**Figures.** Each is `node scripts/check-prompts.mjs --counts`, at `d69527a` for the first figure and at this entry's commit for the second: `.claude/skills/bead/SKILL.md` 1,857 and 1,628; `.claude/agents/continuous-prompt-improvement.md` 2,261 and 2,516; the literals of `.claude/workflows/review-prompts.js` 1,441 and 1,720. What each consolidation freed on its own, 229, 126 and 43, is the same command at its own commit, and the pull request lists those commits. The ACE figures are the paper's.
+**Figures.** Each is `node scripts/check-prompts.mjs --counts`, at `d69527a` for the first figure and at this entry's commit for the second: `.claude/skills/bead/SKILL.md` 1,857 and 1,635; `.claude/agents/continuous-prompt-improvement.md` 2,261 and 2,516; the literals of `.claude/workflows/review-prompts.js` 1,441 and 1,720. What each consolidation freed on its own, 229, 126 and 43, is the same command at its own commit, and the pull request lists those commits; bead's 7 words back came from the review, which found that removing one qualifier had broadened a rule. The ACE figures are the paper's.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

@@ -42,8 +42,8 @@ follow that copy from here on. A session given no such git status reads the trun
 Name, too, any entry in the decision register an acceptance criterion implies, so the person
 reviewing the pull request reads it first (step 6).
 
-An issue asking for a product change goes to `change-propose` (`CLAUDE.md` § Product work runs as
-OpenSpec-format changes).
+An issue asking for a change to what the product does, stated as requirements, goes to
+`change-propose` (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
 
 What happens next depends on who is listening:
 
