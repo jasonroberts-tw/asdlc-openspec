@@ -48,8 +48,8 @@ With `<change>` the confirmed name:
 - **From a seeding issue:** `bd update <id> -t epic --add-label spec-change --spec-id openspec/changes/<change> --set-metadata change=<change>`.
   The issue keeps its id, its history and its `repo:` label; it becomes the change's epic rather than
   being closed. Stop if another actor holds it in progress.
-- **Otherwise:** write the epic's description (the why, in a paragraph) to
-  `.scratch/<change>-epic.md`, then
+- **Otherwise:** write the epic's description (the why, in a paragraph; `change-plan` adds its
+  acceptance criteria) to `.scratch/<change>-epic.md`, then
   `bd create "<change>: <what changes, in a line>" -t epic -l spec-change,<the repo: label open issues here carry> --spec-id openspec/changes/<change> --metadata '{"change":"<change>"}' --body-file .scratch/<change>-epic.md --silent`.
 
 The `spec-change` label keeps the epic and every child out of the general queue, and the later

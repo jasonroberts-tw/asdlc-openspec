@@ -1,6 +1,6 @@
 ---
 name: change-plan
-description: Turn a reviewed change into tasks - child issues of its epic in bd, each tied to the scenarios it satisfies and the test or gate that proves it - once the user approves the draft. Use after change-propose (and change-design, where one was written), when asked to plan a change.
+description: Turn a reviewed change into tasks - child issues of its epic in bd, each tied to the scenarios it satisfies and the test or gate that proves it - and write the epic's acceptance criteria, once the user approves the draft. Use after change-propose (and change-design, where one was written), when asked to plan a change.
 ---
 
 Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
@@ -28,7 +28,7 @@ Read the proposal, every delta spec, and the design, or else the note on the epi
 already at `.scratch/<change>-plan.md` is an earlier session's; take it to step 3 rather than
 drafting again.
 
-## 2. Draft the tasks
+## 2. Draft the tasks and the epic's criteria
 
 Write the draft to `.scratch/<change>-plan.md`, not to the tracker. List the tasks in dependency
 order. Give each one:
@@ -52,10 +52,28 @@ Then check the draft as a whole:
   who wins).
 - **The living spec is never a task.** The archive in `change-finalize` edits it.
 
+Then draft the epic's acceptance criteria in the same file. The reviewer holds the change's pull
+request to them, and `change-finalize` checks them before it closes the epic. They are the bullets
+under `## Acceptance Criteria` in the epic's description and its `acceptance_criteria` field, as
+`bd show <epic> --json` prints them. An epic that already states criteria, as one seeded from an
+issue with criteria does, keeps them: the draft lists them as they stand. An epic with none gets
+them drafted here:
+
+- **What "done" means around the code**, which no scenario states: what the change's documents say,
+  whether a dependency was added, what the pull request carries, such as the archive folder, and the
+  state of the worktree and branch after the merge. A criterion restates no scenario:
+  `change-verify` already traces every scenario to its proof.
+- **Each one checkable** by a command or a file that shows whether it holds, as
+  `.claude/skills/change-finalize/SKILL.md` § 8. Clean up, check the epic's criteria, and close it
+  reports it.
+
 ## 3. Stop for approval
 
-Show the draft, with its scenario-by-scenario coverage. Write nothing to the tracker until the user
-approves. Edit the draft as they direct.
+Show the draft, with its scenario-by-scenario coverage and the epic's criteria. Beside a criterion
+only the merge can settle, such as the worktree gone, say that the reviewer cannot verify it from the
+pull request and so hands the merge to a person
+(`.claude/skills/change-finalize/SKILL.md` § 7. Merge, through the reviewer). Write nothing to the
+tracker until the user approves. Edit the draft as they direct.
 
 ## 4. File it
 
@@ -73,10 +91,19 @@ already exist:
   `repo:` label, and must keep both. The first keeps it out of the general queue, and the second is
   where its work lands.
 
+In the same bracket, write the criteria the draft drafted; an epic that kept its own needs no write.
+`bd update --body-file` replaces the whole description, so build the file from the description as it
+stands after the bracket's pull: write the `description` that `bd show <epic> --json` prints,
+unchanged, to `.scratch/<change>-epic-description.md`, and end it with a `## Acceptance Criteria`
+section holding the approved criteria as bullets. Then run
+`bd update <epic> --body-file .scratch/<change>-epic-description.md`, and read the epic back to
+check that it holds its earlier description and the criteria.
+
 Afterwards, `bd ready --parent <epic>` lists exactly the tasks that wait on nothing.
 
 ## 5. Report
 
-Report the epic, each task's id with the scenarios it covers, what was marked manual, and the first
-ready task. The next stage is `change-build`, in a fresh session given the change's name
+Report the epic, its acceptance criteria and whether this stage wrote them or the epic kept its own,
+each task's id with the scenarios it covers, what was marked manual, and the first ready task. The
+next stage is `change-build`, in a fresh session given the change's name
 (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
