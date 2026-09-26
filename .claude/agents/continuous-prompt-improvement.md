@@ -1,6 +1,6 @@
 ---
 name: continuous-prompt-improvement
-description: Reviews one run of a prompt against the prompt that drove it, and proposes changes to the prompt. The session that ran the prompt launches it in the background (CLAUDE.md § Prompt reviews), naming the prompt's path and the file holding its own analysis of the run. It opens a pull request when it proposes a change, and edits nothing when it does not.
+description: Reviews every run of a prompt that no review has read yet, in one batch, and proposes changes to the prompts they concern. A run whose closing step finds a review due launches it in the background (CLAUDE.md § Prompt reviews). It reads the runs' analyses from the tracker, runs one agent per prompt file through .claude/workflows/review-prompts.js, opens one pull request over what they change, and marks each analysis read. It edits nothing when nothing should change.
 model: opus
 effort: high
 isolation: worktree
@@ -8,77 +8,139 @@ isolation: worktree
 
 Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
 
-# Review a run of a prompt
+# Review the pending runs of the prompts
 
-The session that ran the prompt launched you in the background and does not wait for you
-(`CLAUDE.md` § Prompt reviews). Your launch names the prompt and a file holding that session's
-analysis of its own run, under `.scratch/` in the worktree it left. Read the analysis before
-anything else: `.scratch/` is not tracked, and the worktree is removed once its branch lands.
+A run whose closing step found a review due launched you in the background, and nobody waits for you
+(`CLAUDE.md` § Prompt reviews). Your input is every analysis in the tracker that no review has read
+yet. Your output is one pull request over every prompt file the analyses show should change, or none,
+and a read line for each analysis you read.
 
 You start in the primary checkout. If `git rev-parse --git-dir` and `git rev-parse --git-common-dir`
 disagree, you were launched inside another session's worktree and are standing on its branch: edit
 nothing, and stop.
 
-## 1. Read what came before
+## 1. Stop if another review is under way
 
-Read the prompt as it stands on `origin/main`. Then read its earlier reviews, which are the
-descriptions of the pull requests that changed it: `git log --format=%h origin/main -- <prompt>`
-lists the commits, and `gh api repos/{owner}/{repo}/commits/<commit>/pulls` names the pull request
-each one landed from. A point an earlier review set aside under *Deliberately not changed* is not
-raised again unless this run shows something that review did not have. Reviews written before
-`docs/decisions.md` § D-05 were files, and that entry says how to recover them.
+Stop, editing nothing and writing nothing, if either holds:
 
-The run you review often worked on a branch of its own, such as a change's, whose files are not on
-`origin/main`. Read them where they are, with `git show origin/<branch>:<path>`. Never stage or copy
-them into your own tree, not even so that a gate reads them: your pull request would then carry
-another branch's files, which someone has to take out before it merges.
+- `gh pr list --state open --json number,headRefName` lists a pull request from a branch
+  `agent/review-prompts-*`. Its analyses were read by that review, and the rest wait for it to merge
+  or close.
+- `claude agents --json` lists a session named `review-prompts` besides this one.
 
-## 2. Decide whether the prompt should change
+## 2. Collect the pending analyses
 
-Look for what made the run slower or wrong: long-running steps, repeated cycles, incorrect
-statements or assumptions, and contradictions, within the prompt or between it and `CLAUDE.md`. The
-analysis is an input, not a verdict: check each claim it makes against the run's own evidence (its
-commits, its pull request, the tracker) before building on it. It ends with the counts across runs
-(`CLAUDE.md` § Prompt reviews). A finding of a kind those counts show recurring weighs more than one
-seen once, but a count alone is never the reason to change a prompt.
+The markers are `promptReviewAnalysisMarker` and `promptReviewReadMarker` in `tools/policy.json`.
+`bd list --all --notes-contains "<analysis marker>" --json -n 0` lists every issue that carries an
+analysis. In each one's notes, an analysis starts at a line holding the analysis marker, a space and
+its run id, and runs to the next line holding either marker. It is pending while no line of the read
+marker, a space and its run id follows in the same notes.
 
-If nothing should change, stop here. Edit no file, make no worktree and open no pull request. A
-review that proposes nothing leaves nothing behind, and no run is counted anywhere.
+Apply both thresholds again, `promptReviewDueCount` and `promptReviewDueAgeDays`, the age read from
+the run id's time. If neither holds, the launch was early: stop, editing nothing and writing nothing.
 
-## 3. Propose the change as a pull request of its own
+An analysis is an input, not a verdict. Check each claim it makes against the run's own evidence,
+its commits, its pull request and its issue, before building on it, and read a file the run worked
+on its own branch where it is, as § How a file is judged says.
 
-Make your own worktree before the first edit, with `EnterWorktree`. Change the prompt, stage every
-file you add and run `npm run gates` as `.claude/skills/bead/SKILL.md` § 4 says, then rebase and
-gate again as its § 5 says, and open the pull request with the `open-pr` skill. The pull request is
-a proposal: a person reads it and decides whether it merges (`CLAUDE.md` § A program proposes; only a person promotes). Never
-merge it yourself. Its title cites no issue, so the pull-request reviewer leaves its merge to a
-person too (`docs/decisions.md` § D-07).
+## 3. Group the evidence by file
+
+Sort every finding by the prompt file it concerns: `CLAUDE.md`, a skill, an agent or a workflow
+script. A group is one file, or several when one finding concerns them together, such as two
+prompts that contradict each other; a file is in one group only. Each group's evidence is its
+findings, each with the run ids that showed it and what the run's evidence showed. Add the counts
+across runs the analyses end with, so each agent can tell a finding that recurs from one seen once.
+
+A finding that concerns no prompt, such as a gate or the product, is not this review's: the run that
+found it files it (`CLAUDE.md` § The task store). Name it in the description. A run with no finding
+on any prompt is read all the same, with no group.
+
+## 4. Run the workflow
+
+Make your own worktree, with `EnterWorktree` and the name `review-prompts-<UTC date and time>`, such
+as `review-prompts-20260926-0412`, and run `npm ci` there. Then run the Workflow tool with
+`scriptPath` set to `.claude/workflows/review-prompts.js` in that worktree, and `args` holding the
+groups of § 3 and anything already settled. The script's header says what each agent is told, what
+it returns, and the rules it holds each agent's report to. It returns the branches to merge, each
+group's report and status, and which runs were read and which held.
+
+## 5. Merge, gate, and open one pull request
+
+If `merge` is empty, open no pull request and go to § 6.
+
+Otherwise merge each branch in `merge` into yours, in its order, with `git merge --no-ff <branch>`.
+The groups share no file, so a conflict means something the script did not catch: stop and report it.
+Then run `npm run gates`, rebase onto `origin/main` and run it again, as
+`.claude/skills/bead/SKILL.md` § 4 and § 5 say, and open the pull request with the `open-pr` skill.
+Its title cites no issue, so the pull-request reviewer leaves its merge to a person
+(`docs/decisions.md` § D-07). The pull request is a proposal: a person reads it and decides whether it
+merges (`CLAUDE.md` § A program proposes; only a person promotes). Never merge it yourself. A gate
+that fails in a file a group changed is fixed on your branch; one that fails elsewhere is reported.
 
 If the permission classifier refuses `npm run gates`, run `npm run citations:check` as its own call
-before you commit, because a prompt edit is what that gate reads, and commit only once it passes.
-End the description with a `RUN THESE YOURSELF` block holding the refused command (`CLAUDE.md`
-§ Guards), so the person deciding the merge runs the full suite first. In the reviews of the
-add-calculator-web-app change, a reviewer whose gate run was refused committed a review that had
-passed no gate, and its pointer to a file only the change branch held was found when the
-maintainer ran the gates by hand.
+before you push, because a prompt edit is what that gate reads, and push only once it passes. End the
+description with a `RUN THESE YOURSELF` block holding the refused command (`CLAUDE.md` § Guards), so
+the person deciding the merge runs the full suite first. In the reviews of the add-calculator-web-app
+change, a reviewer whose gate run was refused committed a review that had passed no gate, and its
+pointer to a file only the change branch held was found when the maintainer ran the gates by hand.
 
-The description and every edit cite only files your own base holds. A file that only the reviewed
-branch holds, such as a change's design, is named in prose by its branch and its path, never as a
-pointer: in the description it sends a reader to a file the trunk lacks, and in a tracked file the
-citations gate refuses it.
+## 6. Mark what was read
 
-Its description is the review, in this order. The section names are a default; the two closing
+In one tracker bracket (`CLAUDE.md` § The task store), append to the issue carrying each run in
+`runsRead` one line: the read marker, a space, the run id, a space, and the pull request's URL, or
+`no change` when you opened none. Write the lines from a file under `.scratch/` with
+`bd note <id> --file <file>`. A run in `runsHeld` gets no line and stays pending for the next review;
+the description names it and the group that held it.
+
+Then run `npm run worktree:gc`. It removes each agent's worktree whose branch is already in
+`origin/main`, which is every one that changed nothing; the others go once your pull request merges.
+
+## 7. The description
+
+The description is the review, in this order. The section names are a default; the two closing
 sections are the value.
 
-1. **The prompt and the run reviewed**, with identifiers a reader can verify: the prompt's path and
-   the commit the run used, the pull request the run produced, and the date.
-2. **What the earlier reviews' changes did in this run.** Each change an earlier review's pull
-   request made, and whether this run shows it working, not working, or not exercised.
-3. **What the run cost that the prompt did not prevent**, as numbered findings, each with its fix:
-   the sentence added, changed or removed, and where.
-4. **Corrections to the run's own analysis.** Where the session's account of itself is wrong, say
-   so, with the evidence.
-5. ***Deliberately not changed.*** What was considered and left alone, with the reason. This is the
+1. **The runs reviewed**, with identifiers a reader can verify: each run id, the issue carrying its
+   analysis, the prompts it loaded and the commit it read them at, and the pull request it produced.
+2. **What the earlier reviews' changes did in these runs.** Each change an earlier review's pull
+   request made to a file of this review, and whether these runs show it working, not working, or
+   not exercised.
+3. **What the runs cost that the prompts did not prevent**, as numbered findings grouped by file,
+   each with the runs that showed it and its fix: the sentence added, changed or removed, and where.
+4. **Corrections to the runs' own analyses.** Where a session's account of itself is wrong, say so,
+   with the evidence.
+5. **What this review read and held.** The runs marked read, and each run held with the group that
+   held it and why, from the workflow's `runsHeld` and each group's `problems`.
+6. ***Deliberately not changed.*** What was considered and left alone, with the reason. This is the
    section that stops the same suggestion arriving three times.
-6. ***What this review could not verify.*** Every claim above that rests on something you could
-   not check, named.
+7. ***What this review could not verify.*** Every claim above that rests on something no agent could
+   check, named.
+
+## How a file is judged
+
+Each agent the workflow runs reads this section before anything else, for the files it was given.
+
+Read each file as it stands on `origin/main`, where your worktree was cut. Then read its earlier
+reviews, which are the descriptions of the pull requests that changed it:
+`git log --format=%h origin/main -- <file>` lists the commits, and
+`gh api repos/{owner}/{repo}/commits/<commit>/pulls` names the pull request each one landed from. A
+point an earlier review set aside under *Deliberately not changed* is not raised again unless these
+runs show something that review did not have. Reviews written before `docs/decisions.md` § D-05
+were files, and that entry says how to recover them.
+
+A run often worked on a branch of its own, such as a change's, whose files are not on `origin/main`.
+Read them where they are, with `git show origin/<branch>:<path>`. Never stage or copy them into your
+own tree, not even so that a gate reads them: the pull request would then carry another branch's
+files, which someone has to take out before it merges.
+
+Look for what made a run slower or wrong: long-running steps, repeated cycles, incorrect statements
+or assumptions, and contradictions, within a prompt or between it and `CLAUDE.md`. A finding of a
+kind the counts across runs show recurring weighs more than one seen once, and one that several runs
+in the evidence share weighs more than one that one run shows, but a count alone is never the reason
+to change a prompt. If nothing should change, change nothing: a review that proposes nothing leaves
+nothing but its read lines.
+
+Every edit cites only files your own base holds. A file that only a reviewed branch holds, such as a
+change's design, is named in prose by its branch and its path, never as a pointer: in the
+description it sends a reader to a file the trunk lacks, and in a tracked file the citations gate
+refuses it.

@@ -252,33 +252,53 @@ every pull request with the `open-pr` skill, which holds the steps from the push
 
 ## Prompt reviews
 
-After a prompt is executed from a file, the session that ran it launches the
-`continuous-prompt-improvement` agent on the run and does not wait for it. First it writes its
-analysis of the run to `.scratch/review.md` in its own worktree, where it can write: the harness
-refuses a background session's edit in the shared checkout. The analysis ends with the counts across
-runs that `.claude/skills/change-finalize/SKILL.md` § 9. Report prints, so the reviewer can tell a
-finding that recurs from one seen once. Then it leaves the worktree
-(`ExitWorktree`, action `keep`, so the file stays): a background session starts in the directory it
-was launched from, and one launched inside a linked worktree writes on that worktree's branch. From
-the primary checkout it launches the reviewer as a background session, which agent view
-(`claude agents`) lists and its supervisor keeps running after the launcher ends, naming the file
-by its path from there:
+After a prompt is executed from a file, the session that ran it leaves its analysis of the run in
+the tracker, and one review reads every analysis no review has read yet, as a batch
+(`docs/decisions.md` § D-08). The markers and thresholds below are keys of `tools/policy.json`.
 
-    claude --bg --agent continuous-prompt-improvement --permission-mode auto --name review-<prompt-basename> "Review the run of <prompt path>. The run's analysis is .claude/worktrees/<worktree>/.scratch/review.md."
+**Each run writes one analysis**, as a note on the issue or epic it worked, from a file under
+`.scratch/` (`bd note <id> --file <file>`), inside a tracker bracket. Its first line is
+`promptReviewAnalysisMarker`, a space, and the run id: the issue's id, `@`, and the UTC second the
+note is written, as `date -u +%Y-%m-%dT%H:%M:%SZ` prints it. The next lines name every prompt file
+the run loaded and the commit it read them at. Then comes the analysis: what made the run slower or
+wrong, each point with the prompt it concerns. It ends with the counts across runs that
+`.claude/skills/change-finalize/SKILL.md` § 9. Report prints, so the reviewer can tell a finding
+that recurs from one seen once. A run that worked several issues writes one analysis, on the first
+one its pull request's title carries. The tracker is public, so an analysis quotes no secret. No
+analysis is written by a prompt another prompt called, such as `open-pr` inside `bead`, whose
+caller's analysis names it; by the reviewer's own run; or by a run that worked no issue, which goes
+unreviewed.
+
+**The closing step of every run checks whether a review is due.** After its tracker push, it lists
+every issue carrying an analysis, `bd list --all --notes-contains "<analysis marker>" --json -n 0`.
+An analysis is pending while no line of `promptReviewReadMarker`, a space and its run id follows it
+in the same notes. A review is due when `promptReviewDueCount` analyses or more are pending, or the
+oldest is older than `promptReviewDueAgeDays` days. None starts while a pull request from a branch
+`agent/review-prompts-*` is open (`gh pr list --state open --json headRefName`), or while
+`claude agents --json` lists a session named `review-prompts`: the pending analyses wait for it.
+
+When a review is due, the run leaves its worktree (`ExitWorktree`, action `keep`): a background
+session starts in the directory it was launched from, and one launched inside a linked worktree
+writes on that worktree's branch. From the primary checkout it launches the reviewer as a background
+session, which agent view (`claude agents`) lists and its supervisor keeps running after the launcher
+ends:
+
+    claude --bg --agent continuous-prompt-improvement --permission-mode auto --name review-prompts "Review the pending prompt-run analyses."
 
 The mode is passed on the command line because a session started this way does not apply an agent
 file's `permissionMode`: without the flag the reviewer takes the machine's default mode, and on a
 machine whose default is not `auto` it stops at its first permission prompt, with nobody waiting on
-it. A skill's file is always `SKILL.md`, so its basename is its directory's name. The launcher neither
-waits for the reviewer nor relays what it finds: its report names the session the launch printed,
-and nothing more. A refused launch goes in the report's `RUN THESE YOURSELF` block (§ Guards), with
-the analysis file left in place for it.
+it. The launcher neither waits for the reviewer nor relays what it finds. Its report names the
+issue and run id of its analysis and, if it launched a review, the session the launch printed. A
+refused launch goes in the report's `RUN THESE YOURSELF` block (§ Guards).
 
-A review is not a file in this repository, and a prompt carries no `Reviewed:` trailer. A reviewer
-that proposes a change to the prompt opens a pull request of its own, and the review is that pull
-request's description; one that proposes nothing edits no file and opens no pull request. The
-earlier reviews of a prompt are the descriptions of the pull requests that changed it, and the
-agent's file says how to find them. `docs/decisions.md` § D-05 records the change, and how to
+**What a review leaves.** It runs `.claude/workflows/review-prompts.js`, one agent per prompt file,
+and opens one pull request over every file they change; the review is that pull request's
+description, and a person decides whether it merges. It appends a read line to each analysis it
+read, naming that pull request, or that it changed nothing. A review that proposes nothing edits no
+file and opens no pull request. A review is not a file in this repository, and a prompt carries no
+`Reviewed:` trailer: the earlier reviews of a prompt are the descriptions of the pull requests that
+changed it, and the agent's file says how to find them. `docs/decisions.md` § D-05 records how to
 recover the review files it deleted.
 
 ## A program proposes; only a person promotes

@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-07 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25).**
+**Status: every decision from D-01 to D-08 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08 added 2026-09-26).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-07` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-08` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -63,6 +63,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-05** | A prompt review runs in the background, and lives in its own pull request rather than in a file | `CLAUDE.md` § Prompt reviews, the `continuous-prompt-improvement` agent, and `docs/prompt-reviews/` and every `Reviewed:` trailer deleted |
 | **D-06** | The learning loop is retired; a run's labels in the tracker show what recurs | `tools/outcomes/` and `artifacts/outcomes/` deleted with their scripts and jobs; three label vocabularies in `tools/policy.json`; `CLAUDE.md` § The task store and § Product work runs as OpenSpec-format changes; `change-finalize`'s report and the prompt reviewer's analysis read the counts |
 | **D-07** | A reviewer merges each pull request that satisfies the issues it carries, one at a time | `.github/workflows/pr-review.yml`, the `pr-reviewer` agent and `scripts/pr-review.mjs`; the `prReview*` keys of `tools/policy.json`; `CLAUDE.md` § Git workflow; the `bead` and `change-finalize` skills; `verify.yml` dispatched after each merge |
+| **D-08** | A run leaves its analysis in the tracker, and one review reads every pending analysis as a batch | `CLAUDE.md` § Prompt reviews; the `continuous-prompt-improvement` agent and `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; the four `promptReview*` keys of `tools/policy.json`; `bead` § 8 |
 
 ## Risks
 
@@ -295,6 +296,8 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 
 **Figures.** Seven review files and the directory's README deleted: `git log -1 --diff-filter=D --name-only --format= -- docs/prompt-reviews/` lists them. Seven `Reviewed:` trailers dropped: `git grep -n "^Reviewed:" <the deleting commit>^ -- .claude` lists them.
 
+> **Amended 2026-09-26 by D-08.** Items 1 and 3 no longer hold as written. A run no longer launches a reviewer on itself: it writes its analysis as a note in the tracker, and one review over every pending analysis starts when a threshold holds, launched by the run whose closing step finds it due, from the primary checkout, as `review-prompts`. A review that proposes nothing still edits no file and opens no pull request, but it appends a read line to each analysis it read, so a run is now counted in the tracker. Items 2, 4 and 5 stand.
+
 ### D-06 · The learning loop is retired; a run's labels in the tracker show what recurs
 
 **Recorded 2026-09-24**, carried by `asdlc-openspec-6dn`. The maintainer chose each part below on 2026-09-24, first from the recommendation that answered whether `asdlc-openspec-ri0` had happened for `add-calculator-web-app`, then from a second opinion on that recommendation.
@@ -418,6 +421,50 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 - **`README.md`:** each section that says who merges, or lists what runs and where; and `scripts/README.md`, one row.
 
 **Figures.** 45 pull requests, every one opened and merged by one account, as of 2026-09-25: `gh pr list --state all --limit 200 --json author,mergedBy`.
+
+### D-08 · A run leaves its analysis in the tracker, and one review reads every pending analysis as a batch
+
+**Recorded 2026-09-26**, carried by `asdlc-openspec-lzr`. The maintainer chose the note, the two thresholds, the one review over every analysis and the workflow script, items 1 to 4, on 2026-09-25, when the issue was filed. On 2026-09-26, when it was worked, they chose what checks the thresholds, the script's name, and items 5 to 8, each from a recommendation put with the case where it loses.
+
+**Builds on / amends:** amends D-05, whose items 1 and 3 launched one reviewer per run and left nothing behind a review that proposed nothing. Builds on D-06, whose counts across runs each analysis still ends with, and on D-07, which leaves a review's pull request, citing no issue, to a person.
+
+**Decision.** How a run of a prompt is recorded, and when and how the runs are reviewed. `CLAUDE.md` § Prompt reviews holds the rule and the launch command, and every caller points there.
+
+1. **A run's analysis is a note in the tracker**, on the issue or epic the run worked. Its first line is `promptReviewAnalysisMarker` and a run id, the issue's id, `@` and the UTC second the note was written; the next name every prompt the run loaded and the commit it read them at. A prompt another prompt called, the reviewer's own run, and a run that worked no issue write none.
+2. **A review starts when either threshold holds**: `promptReviewDueCount` analyses pending, or the oldest older than `promptReviewDueAgeDays` days. The closing step of every run checks both, and the reviewer checks them again when it starts. No scheduler does.
+3. **One review reads every pending analysis, with one agent per prompt file.** The reviewer groups the evidence by the file each finding concerns, putting the files one finding spans in one group, and opens one pull request over every file the agents change.
+4. **The agents run through a workflow script**, `.claude/workflows/review-prompts.js`, each in a worktree of its own. The script judges each agent's report in code: a branch the WorktreeCreate hook did not provision, a file the agent was not given, a failed or missing gate, or a run its evidence does not come from keeps the branch out of the merge. The session running the agent does everything with a side effect: it reads the notes and applies the thresholds, merges the branches the script returns, gates the result, opens the pull request with `open-pr`, and marks the analyses read.
+5. **No second review starts while one is under way**: while a pull request from a branch `agent/review-prompts-*` is open, or `claude agents --json` lists a session named `review-prompts`. The pending analyses wait for it.
+6. **What a review read is marked by an appended line**, `promptReviewReadMarker`, the run id, and the review's pull request or `no change`. An analysis is pending while no such line names it. One whose file's agent returned nothing, or whose report the script refused, gets no line and waits for the next review.
+7. **The reviewer's session is named `review-prompts`**, one name for every review, since one runs at a time. `asdlc-openspec-7nk`, which asked for a name per run, `review-<prompt>-<context>`, closed as obsolete.
+8. **The skeptics wait for `asdlc-openspec-pnm`.** This review has no skeptic step and no recurrence threshold, and proposes any edit its agents judge worth making, as D-05's reviewer did. pnm adds both once its own open decisions are settled.
+
+**Why.** The maintainer asked on 2026-09-25 for the reviews one `bead` run triggers, of `bead` and of `open-pr` inside it, to be rolled up. Under D-05 every run launched a reviewer, so two reviews of one prompt could run at once, and did: #48 and #51, both of `.claude/skills/bead/SKILL.md`, collided and were superseded by #53, which carries a commit from each. And a review that proposed nothing left nothing, while the analysis it read sat in a worktree removed once its branch landed, so a recurrence count (`asdlc-openspec-pnm`) had nothing across runs to count. GEPA's reflection over minibatches of traces, crediting each piece of feedback to the module it concerns, is the model the batch follows (https://arxiv.org/abs/2507.19457, as read by a research session on 2026-09-25). Nine alternatives lost:
+
+- **A comment on the run's pull request.** `change-propose` to `change-verify` run before any pull request exists.
+- **An event issue of its own for each run.** An issue per run, where the issue the run worked is already there to carry the note.
+- **A comment on the issue, which has an id of its own.** `bd list` filters on notes, not comments, so finding the pending analyses would mean reading every issue.
+- **A review per prompt.** It would split a contradiction between two prompts, `bead` and `open-pr` say, across two reviews that each see half of it.
+- **Agents the reviewer starts in worktrees, as `fan-out-work` does.** They need only prose, but what they count and which branch merges would be the model's judgement, and no selftest would hold it. The script's rules are held by `workflows:selftest`, as `build-change-task.js`'s are.
+- **A scheduler**, a task on the machine or a GitHub Actions schedule. It would review an old analysis on time in a week when no prompt runs, which the closing step cannot. The machine's task is set up outside the repository, where no gate sees it, and an Actions job would both run the model and write, which D-07 keeps apart.
+- **A second review over the files an open review leaves alone.** It keeps the other files moving, where a review pull request nobody merges now holds up every later review.
+- **Metadata on the issue to mark what was read.** A structured field `bd list --metadata-field` filters exactly, where a hand edit that breaks a read line miscounts; but it is a second write for every run to keep in step with the note.
+- **A session name for each review, carrying its date.** Past reviews could be told apart at a glance in agent view, where each now reads `review-prompts`.
+
+Two checks this decision rested on were run first, on 2026-09-26. A workflow agent with `isolation: 'worktree'` landed on `agent/wf_55659cd9-cb4-1` at `origin/main`, with `.worktree/CONTEXT.md`, so the WorktreeCreate hook provisions it. A `claude --bg` session called the Workflow tool when its launch prompt named a script, and that run's agent landed on `agent/wf_b5b546d9-f08-1` the same way. Neither worktree was removed when its agent ended, though neither changed a file; `npm run worktree:gc` removes such a worktree once its branch is in `origin/main`, and the reviewer runs it last.
+
+**What changed.**
+
+- **This register:** this entry; the status line, the blockquote's bound and the decisions table carry D-08; D-05 carries the amendment above.
+- **`CLAUDE.md`:** § Prompt reviews is rewritten: the analysis as a note with its marker line, the closing step's check of the thresholds, when no review starts, the launch as `review-prompts`, and what a review leaves.
+- **`.claude/agents/continuous-prompt-improvement.md`:** rewritten as the reviewer of a batch. § How a file is judged keeps, for each of the workflow's agents, what its § 1 and § 2 said about reading a prompt, its earlier reviews and a run's own branch.
+- **Added:** `.claude/workflows/review-prompts.js`.
+- **`scripts/workflows.selftest.mjs`:** runs a suite for each workflow, adds one for `review-prompts.js` with its own control, and refuses a workflow file it has no suite for.
+- **`tools/policy.json`:** `promptReviewAnalysisMarker`, `promptReviewReadMarker`, `promptReviewDueCount` and `promptReviewDueAgeDays`, each with its `Means` sibling; `describes`, `gatedBy`, `whatItDoesNOTDo` and `provenance` name them.
+- **`.claude/skills/bead/SKILL.md`:** § 8 writes the run's analysis and checks whether a review is due, and the report names the analysis's issue and run id.
+- **`.claude/README.md`, `scripts/README.md`, `lefthook.yml` and `README.md`:** the workflows row, the selftest's row, the `workflows-selftest` job's comment and measured cost, and the rows that said a run launches its own review.
+
+**Figures.** Eleven review pull requests opened between 2026-09-24T23:47Z (#28) and 2026-09-25T23:10Z (#53), the titles in that range that cite no issue: `gh pr list --state all --limit 100 --json number,title,createdAt`. `promptReviewDueCount` and `promptReviewDueAgeDays` are choices made from that pace, not measurements.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
