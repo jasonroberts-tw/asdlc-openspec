@@ -271,14 +271,17 @@ unreviewed.
 
 **The closing step of every run checks whether a review is due.** After its tracker push, it lists
 every issue carrying an analysis, `bd list --all --notes-contains "<analysis marker>" --json -n 0`.
-An analysis is pending while no line of `promptReviewReadMarker`, a space and its run id follows it
-in the same notes. A review is due when `promptReviewDueCount` analyses or more are pending, or the
-oldest is older than `promptReviewDueAgeDays` days. None starts while a pull request from a
-review's branch is open (`gh pr list --state open --json headRefName`), or while
-`claude agents --json` lists a session named `review-prompts`: the pending analyses wait for it. A
-review's worktree is named `review-prompts-` and the UTC date and time, as
-`date -u +%Y%m%d-%H%M` prints them, so its branch is `agent/review-prompts-<that date and time>`;
-this section is the one home of that name and of the session's.
+In an issue's notes, an analysis runs from its marker line to the next line that opens with either
+marker, and it is pending while no line of `promptReviewReadMarker`, a space and its run id follows
+it. A review is due when `promptReviewDueCount` analyses or more are pending, or the oldest is older
+than `promptReviewDueAgeDays` days. None starts while a pull request from a review's branch is open
+(`gh pr list --state open --json headRefName`), or while `claude agents --json` lists a session
+named `review-prompts` whose `state` is `working`: the pending analyses wait for it. Without `--all`
+that command lists no finished background session (`claude agents --help`), and counting only a
+working one keeps a finished review that is still open from holding up the next. A review's
+worktree is named `review-prompts-` and the UTC date and time, as `date -u +%Y%m%d-%H%M` prints
+them, so its branch is `agent/review-prompts-<that date and time>`. This section is the one home of
+these names and of the rule for what is pending.
 
 When a review is due, the run leaves its worktree (`ExitWorktree`, action `keep`): a background
 session starts in the directory it was launched from, and one launched inside a linked worktree

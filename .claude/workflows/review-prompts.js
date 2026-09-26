@@ -67,6 +67,10 @@ export const meta = {
  *   - every change and every finding set aside cites at least one run, and only runs in its own
  *     evidence.
  *
+ *   These rules judge what each agent reports of its branch and its files, which a script that runs
+ *   no git cannot check; the session checks each branch's diff against its group's files before it
+ *   merges it (`.claude/agents/continuous-prompt-improvement.md` § 5).
+ *
  *   `merge` lists the merging groups' branches in the order of `args.groups`. A run is in `runsRead`
  *   when every group whose evidence cites it is `merge` or `unchanged`; otherwise it is in `runsHeld`,
  *   with the groups that held it, and the session leaves it pending for the next review.
