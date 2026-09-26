@@ -189,8 +189,9 @@ the runs that showed the failure go in the description, with the finding, never 
 
 An edit that would take a prompt past its word budget, a key in `tools/policy.json` that
 `node scripts/check-prompts.mjs --counts` prints beside the prompt's words, consolidates the prompt
-first. A raise, which a person merges, covers only what the consolidation did not free. This holds
-for a file's agent and for any other session that edits a prompt.
+first. A raise, which a person merges, covers only what the consolidation did not free. A file's
+agent may not edit `tools/policy.json`, so it leaves out an edit that still does not fit, and sets
+its finding aside with the words the edit needs; its held line brings the raise to a person.
 
 What loads the prompt decides what can go: `CLAUDE.md`, in every session, and each file the prompt
 sends the session to at a step. Whether a workflow's agents load `CLAUDE.md` is not established, so
