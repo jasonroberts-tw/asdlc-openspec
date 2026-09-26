@@ -580,7 +580,7 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 
 **Decision.** How a prompt makes room when an edit would take it past its word budget. `.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated holds the procedure, and the header of `.claude/workflows/review-prompts.js` holds how a review judges one.
 
-1. **The file's agent consolidates its file first**, in its own worktree, and the review's one pull request carries the consolidation with the edit. Any other session that edits a prompt past its budget does the same, and a raise, which a person merges, covers only what the consolidation did not free. Where it loses: a small urgent fix arrives bundled with a large rewrite.
+1. **The file's agent consolidates its file first**, in its own worktree, and the review's one pull request carries the consolidation with the edit. Any other session that edits a prompt past its budget does the same, and a raise, which a person merges, covers only what the consolidation did not free. A file's agent, which may not edit `tools/policy.json`, leaves out an edit that still does not fit and sets its finding aside with the words it needs. Where it loses: a small urgent fix arrives bundled with a large rewrite.
 2. **The first pass consolidated `bead`**, set its budget to the result, and the procedure was written from what that pass needed. Where it loses: a procedure shaped by `bead` may not fit `CLAUDE.md`, the file every session loads.
 3. **The proof is a table in the pull request's description**, one row for each sentence or clause removed: kept elsewhere, naming where and what loads that file wherever the prompt is loaded; moved to the pull request that tells its incident; or deleted, with why. A sentence whose row cannot name what loads its new home stays.
 4. **What may go:** a restatement of `CLAUDE.md`; a step that a file the prompt sends the session to states at that step; incident prose, or an example drawn from one; and explanation past the one clause that states a kept rule's failure. Every heading another file cites stays.
@@ -604,7 +604,7 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 - **`tools/policy.json`:** the budgets of the three files, each with the figures in its `Means`; `promptReviewSkepticsMeans` and `provenance`.
 - **`README.md`, `scripts/README.md` and `.claude/README.md`:** the rows that say what the workflow and its selftest hold.
 
-**Figures.** Each is `node scripts/check-prompts.mjs --counts`, at `d69527a` for the first figure and at this entry's commit for the second: `.claude/skills/bead/SKILL.md` 1,857 and 1,628; `.claude/agents/continuous-prompt-improvement.md` 2,261 and 2,493; the literals of `.claude/workflows/review-prompts.js` 1,441 and 1,720. What each consolidation freed on its own, 229, 126 and 43, is the same command at its own commit, and the pull request lists those commits. The ACE figures are the paper's.
+**Figures.** Each is `node scripts/check-prompts.mjs --counts`, at `d69527a` for the first figure and at this entry's commit for the second: `.claude/skills/bead/SKILL.md` 1,857 and 1,628; `.claude/agents/continuous-prompt-improvement.md` 2,261 and 2,516; the literals of `.claude/workflows/review-prompts.js` 1,441 and 1,720. What each consolidation freed on its own, 229, 126 and 43, is the same command at its own commit, and the pull request lists those commits. The ACE figures are the paper's.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

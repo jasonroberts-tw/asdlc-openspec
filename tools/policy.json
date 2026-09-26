@@ -151,8 +151,8 @@
   "promptWordBudgetAgentAdversarialVerifier": 328,
   "promptWordBudgetAgentAdversarialVerifierMeans": "The most words `.claude/agents/adversarial-verifier.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
 
-  "promptWordBudgetAgentContinuousPromptImprovement": 2493,
-  "promptWordBudgetAgentContinuousPromptImprovementMeans": "The most words `.claude/agents/continuous-prompt-improvement.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on, 2,261; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv). Raised 2026-09-26 to 2,493 by D-12 (asdlc-openspec-aa0): its § How a prompt is consolidated, with § 5 and § 7's part in it, added 358 words, and consolidating the file first freed 126, so the raise is the other 232.",
+  "promptWordBudgetAgentContinuousPromptImprovement": 2516,
+  "promptWordBudgetAgentContinuousPromptImprovementMeans": "The most words `.claude/agents/continuous-prompt-improvement.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on, 2,261; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv). Raised 2026-09-26 to 2,516 by D-12 (asdlc-openspec-aa0): its § How a prompt is consolidated, with § 5 and § 7's part in it, added 381 words, and consolidating the file first freed 126, so the raise is the other 255.",
 
   "promptWordBudgetAgentFanOutWork": 817,
   "promptWordBudgetAgentFanOutWorkMeans": "The most words `.claude/agents/fan-out-work.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
