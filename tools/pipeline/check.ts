@@ -67,11 +67,6 @@ for (const n of NODES) {
     if (d === n.id) fail(n.id, 'depends on itself')
   }
 
-  // TWO CHECKS STOOD HERE until the node kind they belonged to was retired with its last member.
-  // Each asserted something about that kind's own exception field, and with the kind, its one
-  // special value and the field all gone, the type system refuses what they asserted. This note
-  // stands where they stood, by the retirement rule in the record's own header.
-
   // A digest-stamped node must stamp one of its OWN outputs. Stamping something else would put the
   // record of what a node was built from in a file some other node overwrites.
   if (n.detection.via === 'digest' || n.detection.via === 'legacy-commit') {
@@ -119,15 +114,12 @@ for (const n of NODES) {
  * ----------------------------------------------------------------------------------------------- */
 
 /*
- * NO GLOB IS EXEMPT FROM THE EMPTY-MATCH RULE, and this note records that the one exemption there
- * used to be was removed rather than lost.
- *
- * It covered a node whose output could not exist until a per-item lifecycle had admitted work: for
- * that one kind, a glob matching nothing was a fact about position rather than a dead citation, and
- * it was reported as a NOTE. The kind is retired and every path the exemption named is gone, so
- * the header's rule holds for every node without exception: an input, output or
- * generator glob that matches no file is an ERROR here, because the only thing it can now be is a
- * citation nothing reported.
+ * AN EMPTY MATCH IS AN ERROR. An output or generator glob that matches no file fails the record, and
+ * so does an input group that matches none, unless the record declares that group `mayBeEmpty`, where
+ * a reader of the record sees the exemption beside the group it covers. No exemption lives in this
+ * file, so none can outlast the node it was made for. Wrong, this rule would let through the quiet
+ * failure the header names: an input renamed out from under its node, whose group then folds to a
+ * constant digest and reports CURRENT forever.
  */
 
 function checkGlobs(n: PipelineNode, what: string, globs: readonly string[]): void {
@@ -152,26 +144,18 @@ for (const n of NODES) {
 /* ----------------------------------------------------------------------------------------------- *
  * Every node's `prompt` names a file that is there
  *
- * This was the graph's least-checked claim and it stayed that way for a while: the manifest/prose
- * check below asserts that every node id APPEARS in `docs/pipeline.md` and never opened
- * `prompt` at all, so the field could name a file that had been retired, moved or never existed and
- * nothing said so.
- *
- * It cost something, and the instance is historical twice over -- the node it happened to is gone.
- * One node's `prompt` named a document that successive decisions had retired around a single
- * surviving paragraph, and which carried no heading of that node’s name at all, so every
- * reference to a section of it resolved to nothing. The live part was moved and the remainder
- * retired; had this check existed, the retirement would have failed
- * a gate here instead of being found by an audit.
+ * The manifest/prose check below asserts that every node id APPEARS in `docs/pipeline.md` and never
+ * opens `prompt`, so without this check the field could name a file that was retired, moved or never
+ * existed, and nothing would say so. A reader who follows such a pointer concludes the node is
+ * undocumented rather than that the record is wrong.
  *
  * Existence is the floor, deliberately. It cannot tell that a prompt still DESCRIBES its node -- only
- * that a reader following the pointer arrives at a file. That is the failure that actually happens: a
- * prompt is retired or moved on one side and the manifest is not updated on the other.
+ * that a reader following the pointer arrives at a file. That covers the failure a hand-kept record
+ * is prone to: a prompt retired or moved on one side and the manifest not updated on the other.
  *
- * `prompt` is repository-relative, not root-relative-with-a-directory-convention. Every live node's
- * now sits at the repository root -- `S-BASELINE`'s was the one exception, under `artifacts/`, and it
- * left with the node -- but joining against ROOT is what keeps both spellings one check, so a future
- * prompt that belongs beside its evidence rather than at the root needs no change here.
+ * `prompt` is repository-relative, not root-relative-with-a-directory-convention. Joining it against
+ * ROOT keeps a prompt at the repository root and one beside its evidence under a directory in one
+ * check, so a prompt that belongs beside its evidence needs no change here.
  * ----------------------------------------------------------------------------------------------- */
 
 for (const n of NODES) {
@@ -310,9 +294,8 @@ for (const n of NODES) {
 {
   const prompts = readFileSync(join(ROOT, 'docs/pipeline.md'), 'utf8')
   for (const n of NODES) {
-    // NO EXEMPTION STANDS HERE. There were two, both sub-nodes named in the prose by their own
-    // command rather than by an id, so an id search failed on a node the page did describe. Both
-    // are retired, so every node id is searched for exactly as written.
+    // Every node id is searched for exactly as written, with no exemption: a node the page describes
+    // only by its command, never by its id, fails here, and the fix is to name the id on the page.
     if (!prompts.includes(n.id)) {
       fail(n.id, 'is not mentioned anywhere in docs/pipeline.md')
     }
@@ -322,11 +305,10 @@ for (const n of NODES) {
     prompts.indexOf('```mermaid'),
     prompts.indexOf('```', prompts.indexOf('```mermaid') + 3),
   )
-  // Node labels look like `CO["C-ONE<br/>what it emits"]` or `AT["A-TWO"]`. Some drawn labels put
-  // prose straight after the id (`AT["A-TWO bind"]`) and are not matched; the count is deliberately
-  // not stated here, because it moves whenever a node is added or retired, and a stale numeral in
-  // a comment is worse than none. This is a floor, not a parser, and generating
-  // the block outright replaces it.
+  // A node label is matched when the id is followed by `<br/>` or the closing quote, as in
+  // `XE["X-EXAMPLE<br/>summary of one list"]` or `XE["X-EXAMPLE"]`. A label that puts prose straight
+  // after the id (`XE["X-EXAMPLE summary"]`) is not matched, so a node drawn that way goes unchecked.
+  // This is a floor, not a parser, and generating the block outright replaces it.
   for (const [, drawn] of mermaid.matchAll(/\["([A-Z]-[A-Z-]+?)(?:<|")/g)) {
     if (!ids.has(drawn as string)) {
       problems.push(`mermaid: draws "${drawn}", which is not a node in tools/pipeline/graph.ts`)
