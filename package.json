@@ -7,6 +7,7 @@
   },
   "scripts": {
     "beads:check": "node scripts/check-beads.mjs",
+    "beads:selftest": "node scripts/check-beads.mjs --selftest",
     "calculator:serve": "node apps/calculator/serve.js",
     "calculator:test": "node scripts/run-tests.mjs \"apps/calculator/test/*.test.js\"",
     "check:jobs": "node scripts/check-jobs.mjs",

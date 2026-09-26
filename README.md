@@ -123,7 +123,7 @@ the rule. The third column wins over the first two.
 | A figure restated from memory that has since moved | `counts:check` re-derives every keyed count from its source | `count-index.md` § How to use it |
 | A pointer to a file or a section that is gone | `citations:check`, over every tracked text file | `CLAUDE.md` § Citations |
 | A recorded decision argued again, or a register whose summary drifts from its entries | `check:register` | `CLAUDE.md` § Decisions live in the register |
-| Work tracked in a checklist or a status table, or an issue that does not say where its work lands | The issue: `beads:check`, at push, refuses an open issue with no `repo:` label. The checklist or status table: review alone, because no gate scans a file for one | `CLAUDE.md` § The task store |
+| Work tracked in a checklist or a status table, an issue that does not say where its work lands, or a found issue that does not say what kind of file it would change | The issue: `beads:check`, at push, refuses an open issue with no `repo:` label, and an open issue filed `discovered-from` with no label `assetLabels` in `tools/policy.json` lists; `beads:selftest` holds both refusals. The checklist or status table: review alone, because no gate scans a file for one | `CLAUDE.md` § The task store |
 | A generated artifact left stale after its input moved | `pipeline:check` and `pipeline:stale:check` | `docs/pipeline.md` § The two gates |
 | A pull request merged without being held to the issue it carries, a high-risk one merged without a person, or two merged at once | `.github/workflows/pr-review.yml`, one run at a time, deciding through `scripts/pr-review.mjs`; `pr-review:check` and `pr-review:selftest` hold its wiring and its decisions | `CLAUDE.md` § Git workflow |
 | A program that rewrites its own instructions from what it observed | The prompt reviewer only opens a pull request, and a person decides whether it merges | `CLAUDE.md` § A program proposes; only a person promotes |
@@ -227,7 +227,8 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 
 | Script | What it does | Gate |
 |---|---|---|
-| `beads:check` | Refuses an open issue with no label naming where its work lands, and an issue citing an identifier that does not resolve here. It reads the tracker's database, which a fresh clone in CI does not have. | pre-push |
+| `beads:check` | Refuses an open issue with no label naming where its work lands, an open issue filed `discovered-from` another with no label `assetLabels` in `tools/policy.json` lists, and an issue citing an identifier that does not resolve here. Without the second, a found issue drops out of `bd count --by-label` and the count still reads as complete. It reads the tracker's database, which a fresh clone in CI does not have. | pre-push |
+| `beads:selftest` | The tracker gate, negative-tested: each refusal over a fixture export and a copy of the committed policy, read through `BEADS_CHECK_ROOT`, with an undoctored control that must name the fixture's bead count. It runs no `bd`, so it runs in CI too. Without it the gate could lose a rule, or read the live tracker when pointed at a copy, and still pass. | pre-push + CI |
 
 ### calculator
 
@@ -410,3 +411,4 @@ at its start: restart the session after changing it.
 | A pull request is opened, reopened, marked ready or pushed to | The reviewer sets its head's `pr-review` status pending, so an agent watching the checks waits for the review. | `.github/workflows/pr-review.yml` (`mark`) |
 | A `verify` run ends, a person applies the approval label, every 15 minutes, or by hand | The reviewer takes one action, one run at a time: it merges a pull request whose verdict allows it, or reviews the oldest head that passed `verify` and has no verdict, and runs again while more are waiting. | `.github/workflows/pr-review.yml` |
 | The dev container starts | `npm ci` when the lockfile moved, the git hooks, and the tracker's hydration; each step warns and carries on. | `.devcontainer/entrypoint.sh` |
+| `git push` that changes `scripts/check-beads.mjs`, `tools/policy.json` or `tools/lib/bd-launcher.ts` | `beads:selftest`: `beads:check`'s refusals of an issue with no `repo:` label and of a found issue with no label `assetLabels` lists, over a fixture export, each asserting its reason. It runs no `bd`, so it is a `.github/workflows/verify.yml` step as well. | `lefthook.yml` (`pre-push`) |

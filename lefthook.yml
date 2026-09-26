@@ -307,7 +307,9 @@ pre-push:
         - 'tools/lib/sibling-root.ts'
       run: node --run pipeline:selftest
     # The tracker's own pre-push hook, preserved, and the label and foreign-id rules over its open
-    # issues. Neither carries a glob: both read the tracker's database, not the push.
+    # issues: a `repo:` label on every one, and a label `assetLabels` in `tools/policy.json` lists on
+    # every one filed `discovered-from`. Neither carries a glob: both read the tracker's database, not
+    # the push.
     - name: beads
       env:
         NO_COLOR: '1'
@@ -316,3 +318,14 @@ pre-push:
       env:
         NO_COLOR: '1'
       run: node --run beads:check
+    # The gate's refusals over a fixture export and a copy of the committed policy it writes under the
+    # temporary directory, read through `BEADS_CHECK_ROOT`, each asserting its reason, with one
+    # undoctored control. It runs no `bd`, so it carries a glob: the gate, the policy it copies and
+    # the launcher the gate imports. 0.63-0.64 s wall through `node --run` (`/usr/bin/time -p`, two
+    # runs) on a macOS 26.7 laptop (Apple M3 Max) with Node 26.8.1, 2026-09-26.
+    - name: beads-selftest
+      glob:
+        - 'scripts/check-beads.mjs'
+        - 'tools/policy.json'
+        - 'tools/lib/bd-launcher.ts'
+      run: node --run beads:selftest

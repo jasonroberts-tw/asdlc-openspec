@@ -1,8 +1,7 @@
 /**
- * Every bead in the tracker stands on its own: it names where its work lands, and every identifier
- * it cites resolves from THIS checkout.
- *
- *   npm run beads:check
+ * Every bead in the tracker stands on its own: it names where its work lands, an open bead a run
+ * filed `discovered-from` another names the kinds of file its work would change, and every
+ * identifier it cites resolves from THIS checkout.
  *
  * THE FAILURE THIS EXISTS TO PREVENT. A bead is a set of instructions an agent executes months
  * after a human wrote it, and the tracker is the only thing that travels with it. When a bead cites
@@ -15,16 +14,29 @@
  * and it was PUBLISHED into a generated artifact as the stated authority for a hard exclusion
  * rule. The smell escaped the tracker and shipped.
  *
+ * AN UNLABELLED FOUND ISSUE IS A HOLE IN A COUNT, AND THE COUNT DOES NOT SHOW IT. `docs/decisions.md`
+ * § D-06 retired the run-outcome learning loop and put labels in its place: an issue a run files
+ * `discovered-from` the issue it ran on carries a label that `assetLabels` in `tools/policy.json`
+ * lists for each kind of file its work would change, so `bd count --by-label` shows what keeps
+ * needing a fix (`CLAUDE.md` § The task store). On 2026-09-26 a fan-out sweep's investigator found
+ * asdlc-openspec-egt and asdlc-openspec-pkn open with no such label: both were filed
+ * `discovered-from` on 2026-09-23, the day before D-06, and nothing had asked for the label since.
+ * The count left both out and read the same as a complete one. The sweep labelled them by hand, and
+ * rule 4 below refuses the next one.
+ *
  * WHY A REGISTRY RATHER THAN A BAN. A bead that CORRECTS a stale foreign citation has to name the
  * id it is correcting, so a flat prohibition would forbid the fix along with the defect. This is the
  * same trade `tools/citations/scan.ts` makes with its `QUOTED` list, and the same reasoning: each
  * exemption is registered individually, with a reason, rather than by a wholesale exemption that
  * would stop saying anything.
  *
- * WHY IT IS NOT A CI STEP. It reads the Dolt database through `bd export`. CI has neither the
- * database nor the binary, so it would compare against nothing and pass. It is a `pre-push` job.
- * Where `bd` is unavailable it SKIPS CLEAN and says so -- a gate that is red on every fresh clone
- * gets bypassed with `--no-verify`, which costs you every other gate too.
+ * WHY THE LIVE RUN IS NOT A CI STEP, AND ITS SELFTEST IS. The live run reads the Dolt database
+ * through `bd export`. CI has neither the database nor the binary, so it would compare against
+ * nothing and pass. It is a `pre-push` job. Where `bd` is unavailable it SKIPS CLEAN and says so -- a
+ * gate that is red on every fresh clone gets bypassed with `--no-verify`, which costs you every other
+ * gate too. `--selftest` reads only the fixtures it writes and the committed `tools/policy.json`, and
+ * runs no `bd`, so it is a pre-push job and a `.github/workflows/verify.yml` step both
+ * (`CLAUDE.md` § The gate ladder).
  *
  * "UNAVAILABLE" MEANS NOT FOUND, AND NOTHING ELSE. `tools/lib/bd-launcher.ts` resolves `bd` on PATH
  * and starts it without a shell; only its `found: false` answer is a skip. A `bd` that IS found and
@@ -35,7 +47,7 @@
  * A green run prints the bead count it read and which `bd` it read
  * through, so it cannot be mistaken for the skip in a pre-push log.
  *
- * THREE HARD FAILURES:
+ * FOUR HARD FAILURES:
  *
  *   1. An unregistered id carrying PREDECESSOR_PREFIX in any bead field: an id from the predecessor
  *      repository's tracker. Register it below with a reason, or copy the fact in. With no
@@ -45,15 +57,60 @@
  *   3. A bead whose work lands in a foreign repository and which does not cite its context bead.
  *      Those beads carry the copied bundle facts; a cross-repo bead that does not point at one is
  *      asking the reader to go and open another checkout.
+ *   4. An open bead with a `discovered-from` dependency and no label that `assetLabels` in
+ *      `tools/policy.json` lists. The list is read from the policy on every run and spelled nowhere
+ *      here, so a label added there is accepted at once, and a label renamed there strands every
+ *      issue that carries the old spelling, as `assetLabelsMeans` warns. A closed bead is exempt:
+ *      the count is read for what is still to fix. A policy with no such list, or an empty one, is a
+ *      failure, never a pass over nothing.
  *
- * Plus one consistency check: a context bead cited by rule 3 must itself exist in the export, so
- * this gate cannot be satisfied by pointing at an id that is as dead as the ones it forbids.
+ * "Open" is every status but `closed`, for rules 2 to 4. Plus one consistency check: a context bead
+ * cited by rule 3 must itself exist in the export, so this gate cannot be satisfied by pointing at an
+ * id that is as dead as the ones it forbids.
+ *
+ * INVOCATION.
+ *
+ *   npm run beads:check                         the gate, over what `bd export` writes
+ *   npm run beads:selftest                      its refusals over a fixture export (--selftest)
+ *   BEADS_CHECK_ROOT=<dir> npm run beads:check  the gate over a doctored copy
+ *
+ * ROOT OVERRIDE. `BEADS_CHECK_ROOT` names a doctored copy: a directory holding `tools/policy.json` and
+ * `export.jsonl`, one issue per line in the shape `bd export` writes. The gate then reads both from
+ * there and runs no `bd`. A copy with no export is a failure, never a fall-back to the live tracker
+ * or a skip.
+ *
+ * NEGATIVE TESTING. `--selftest` writes a fixture export and a copy of the committed policy under
+ * `os.tmpdir()`, doctors ONE thing per case, runs this gate on it as a child process through
+ * `BEADS_CHECK_ROOT`, and asserts the run fails FOR THAT REASON. Its undoctored control must pass and
+ * must print the fixture's bead count and the override, so neither a skip nor a read of the live
+ * tracker can pass for it. Rules 1 and 3 have nothing configured yet (PREDECESSOR_PREFIX is null and
+ * CONTEXT_BEAD is empty), so no case breaks them; the case for each lands with its first entry.
+ * Nine gate runs, one Node process each: 0.63-0.64 s wall through `node --run` (`/usr/bin/time -p`,
+ * two runs) on a macOS 26.7 laptop (Apple M3 Max) with Node 26.8.1, 2026-09-26.
+ *
+ * NEEDS `bd` on PATH for the live run, and skips clean without it. The override and the selftest
+ * need nothing but Node: no `bd`, no network.
  */
 
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describeLauncher, resolveBd, runBd } from '../tools/lib/bd-launcher.ts'
+
+const SELF = fileURLToPath(import.meta.url)
+const REPO_ROOT = resolve(dirname(SELF), '..')
+const ROOT_ENV = 'BEADS_CHECK_ROOT'
+/** The doctored copy a by-hand run or the selftest names; unset or empty means the live tracker. */
+const OVERRIDE = process.env[ROOT_ENV] || null
+const ROOT = OVERRIDE ?? REPO_ROOT
+const POLICY = 'tools/policy.json'
+const POLICY_KEY = 'assetLabels'
+/** Under the override, the export sits here, where `bd export` would have written it. */
+const OVERRIDE_EXPORT = 'export.jsonl'
+
+const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
 
 /**
  * The predecessor tracker's id prefix, and this tracker's own. With no predecessor repository,
@@ -117,17 +174,45 @@ const FIELDS = ['description', 'acceptance_criteria', 'design', 'notes']
 
 const textOf = (bead) => FIELDS.map((f) => (typeof bead[f] === 'string' ? bead[f] : '')).join('\n')
 
+/** One issue per non-empty line, or the reason the lines are not an export. */
+function parseExport(text, source) {
+  const lines = text.split('\n').filter((l) => l.trim())
+  try {
+    return { kind: 'ok', beads: lines.map((l) => JSON.parse(l)) }
+  } catch (err) {
+    return {
+      kind: 'failed',
+      detail: `${source} holds ${String(lines.length)} line(s) that do not parse as JSONL: ${err.message}`,
+    }
+  }
+}
+
 /**
  * Three outcomes, and only the first is a skip:
  *
  *   { kind: 'absent', reason }        no `bd` on PATH at all -- a fresh clone, CI
- *   { kind: 'failed', detail }        a `bd` was found and the export did not happen
- *   { kind: 'ok', beads, launcher }   the export, parsed
+ *   { kind: 'failed', detail }        a `bd` was found and the export did not happen, or the
+ *                                     override names a copy whose export is missing or unreadable
+ *   { kind: 'ok', beads, through }    the export, parsed, and where it was read from
  *
  * Nothing here catches an error into "absent": the only route to a skip is the resolver saying the
- * command does not exist.
+ * command does not exist, and under the override no route leads there.
  */
 function loadBeads() {
+  if (OVERRIDE) {
+    const path = join(OVERRIDE, OVERRIDE_EXPORT)
+    if (!existsSync(path)) {
+      return {
+        kind: 'failed',
+        detail:
+          `${ROOT_ENV} names ${OVERRIDE}, which holds no ${OVERRIDE_EXPORT}. A doctored copy carries ` +
+          'the export `bd export` would have written; this gate never falls back to the live tracker.',
+      }
+    }
+    const parsed = parseExport(readFileSync(path, 'utf8'), path)
+    return parsed.kind === 'ok' ? { ...parsed, through: `${path} (${ROOT_ENV})` } : parsed
+  }
+
   const resolved = resolveBd()
   if (!resolved.found) return { kind: 'absent', reason: resolved.reason }
   if (!resolved.runnable) {
@@ -160,117 +245,388 @@ function loadBeads() {
         detail: `\`bd export\` through ${through} exited 0 and wrote nothing at ${out}`,
       }
     }
-    const lines = readFileSync(out, 'utf8')
-      .split('\n')
-      .filter((l) => l.trim())
-    try {
-      return { kind: 'ok', beads: lines.map((l) => JSON.parse(l)), launcher }
-    } catch (err) {
-      return {
-        kind: 'failed',
-        detail: `\`bd export\` through ${through} wrote ${String(lines.length)} line(s) that do not parse as JSONL: ${err.message}`,
-      }
-    }
+    const parsed = parseExport(readFileSync(out, 'utf8'), `the file \`bd export\` wrote through ${through}`)
+    return parsed.kind === 'ok' ? { ...parsed, through } : parsed
   } finally {
     if (dir) rmSync(dir, { recursive: true, force: true })
   }
 }
 
-const loaded = loadBeads()
-
-if (loaded.kind === 'absent') {
-  console.log(
-    `beads:check -- skipped: \`bd\` is not installed here (${loaded.reason}).\n` +
-      '  This gate reads the Dolt issue database, which a fresh clone and CI do not carry.\n',
-  )
-  process.exit(0)
+/** The labels `assetLabels` lists in the policy under `root`, or the reason there are none to read. */
+function loadAssetLabels(root) {
+  const path = join(root, POLICY)
+  const missing =
+    `Rule 4 reads the labels \`${POLICY_KEY}\` lists from it, and with no list it would pass every ` +
+    'found issue without looking.'
+  if (!existsSync(path)) return { error: `${POLICY} is not at ${path}. ${missing}` }
+  let policy
+  try {
+    policy = JSON.parse(readFileSync(path, 'utf8'))
+  } catch (err) {
+    return { error: `${POLICY} does not parse as JSON (${err.message}). ${missing}` }
+  }
+  const value = policy?.[POLICY_KEY]
+  if (value === null || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length === 0) {
+    return {
+      error:
+        `${POLICY} has no \`${POLICY_KEY}\` object with at least one label: each key is a label and each ` +
+        `value what it covers. ${missing}`,
+    }
+  }
+  return { labels: new Set(Object.keys(value)) }
 }
 
-if (loaded.kind === 'failed') {
-  console.error(
-    'beads:check FAILED -- `bd` is installed here and the export did not happen:\n' +
-      `  ${loaded.detail}\n\n` +
-      '  A found `bd` is never reported as absent: the skip above is for machines with no tracker,\n' +
-      '  and this machine has one. Fix the launcher or the tracker, then re-run.\n',
-  )
-  process.exit(1)
-}
+/**
+ * Every rule over `beads`. `assetLabels` is the set rule 4 reads, or null when the policy gave none,
+ * which the caller has already reported, so rule 4 does not repeat it once per bead.
+ */
+function runCheck(beads, assetLabels) {
+  const failures = []
+  const isQuoted = (bead, id) =>
+    QUOTED_IDS.some((q) => q.bead === bead && q.id.toLowerCase() === id.toLowerCase())
 
-const { beads } = loaded
+  const known = new Set(beads.map((b) => b.id))
 
-const failures = []
-const isQuoted = (bead, id) =>
-  QUOTED_IDS.some((q) => q.bead === bead && q.id.toLowerCase() === id.toLowerCase())
+  for (const bead of beads) {
+    const text = textOf(bead)
+    const labels = bead.labels ?? []
+    const closed = bead.status === 'closed'
 
-const known = new Set(beads.map((b) => b.id))
+    // 1. Unregistered foreign ids.
+    for (const m of FOREIGN_ID ? text.matchAll(FOREIGN_ID) : []) {
+      const raw = m[0]
+      const id = raw.toLowerCase()
+      if (OWN_PREFIX && id.startsWith(`${OWN_PREFIX}-`)) continue
+      if (EXTENSION_AFTER.test(text.slice(m.index + raw.length))) continue
+      if (NOT_IDS.some((n) => n.token === id)) continue
+      if (isQuoted(bead.id, id)) continue
+      failures.push(
+        `${bead.id}: cites \`${raw}\`, an id from the predecessor repository's tracker.\n` +
+          `    It does not resolve here -- \`bd show ${raw}\` errors -- so the fact it stands for does\n` +
+          `    not travel with the bead. Copy the fact in and cite the in-repo file that carries it,\n` +
+          `    or register the id in QUOTED_IDS in scripts/check-beads.mjs with a reason.`,
+      )
+    }
 
-for (const bead of beads) {
-  const text = textOf(bead)
-  const labels = bead.labels ?? []
-  const closed = bead.status === 'closed'
+    // 2. Every open bead says where its work lands.
+    if (!closed && !labels.some((l) => l.startsWith('repo:'))) {
+      failures.push(
+        `${bead.id}: no \`repo:\` label. A bead that does not say which checkout its work lands in\n` +
+          `    leaves the reader guessing between this repository and every other one its work could land in.`,
+      )
+    }
 
-  // 1. Unregistered foreign ids.
-  for (const m of FOREIGN_ID ? text.matchAll(FOREIGN_ID) : []) {
-    const raw = m[0]
-    const id = raw.toLowerCase()
-    if (OWN_PREFIX && id.startsWith(`${OWN_PREFIX}-`)) continue
-    if (EXTENSION_AFTER.test(text.slice(m.index + raw.length))) continue
-    if (NOT_IDS.some((n) => n.token === id)) continue
-    if (isQuoted(bead.id, id)) continue
-    failures.push(
-      `${bead.id}: cites \`${raw}\`, an id from the predecessor repository's tracker.\n` +
-        `    It does not resolve here -- \`bd show ${raw}\` errors -- so the fact it stands for does\n` +
-        `    not travel with the bead. Copy the fact in and cite the in-repo file that carries it,\n` +
-        `    or register the id in QUOTED_IDS in scripts/check-beads.mjs with a reason.`,
-    )
+    // 3. Cross-repo beads cite their context bead.
+    for (const [label, ctx] of Object.entries(CONTEXT_BEAD)) {
+      if (closed) continue
+      if (!labels.includes(label)) continue
+      if (bead.id === ctx) continue
+      if (text.includes(ctx)) continue
+      failures.push(
+        `${bead.id}: labelled \`${label}\` but does not cite \`${ctx}\`.\n` +
+          `    That bead carries the rooted file map and the copied facts for this surface. Without\n` +
+          `    it the reader has to open another checkout to find out what a bare basename means.`,
+      )
+    }
+
+    // 4. An open bead a run filed discovered-from another names what its work would change.
+    const from = (bead.dependencies ?? [])
+      .filter((d) => d.type === 'discovered-from' && (d.issue_id ?? bead.id) === bead.id)
+      .map((d) => d.depends_on_id)
+    if (!closed && assetLabels && from.length > 0 && !labels.some((l) => assetLabels.has(l))) {
+      const carried = labels.length ? labels.map((l) => `\`${l}\``).join(', ') : 'no label at all'
+      failures.push(
+        `${bead.id}: filed \`discovered-from\` ${from.join(', ')} and carries no label that \`${POLICY_KEY}\`\n` +
+          `    in ${POLICY} lists (it carries ${carried}). Add one for each kind of file its work\n` +
+          `    would change (CLAUDE.md § The task store): without it \`bd count --by-label\` leaves the\n` +
+          `    issue out and still reads as complete.`,
+      )
+    }
   }
 
-  // 2. Every open bead says where its work lands.
-  if (!closed && !labels.some((l) => l.startsWith('repo:'))) {
-    failures.push(
-      `${bead.id}: no \`repo:\` label. A bead that does not say which checkout its work lands in\n` +
-        `    leaves the reader guessing between this repository and every other one its work could land in.`,
-    )
-  }
-
-  // 3. Cross-repo beads cite their context bead.
+  // Consistency: the context beads this gate points people at must themselves exist.
   for (const [label, ctx] of Object.entries(CONTEXT_BEAD)) {
-    if (closed) continue
-    if (!labels.includes(label)) continue
-    if (bead.id === ctx) continue
-    if (text.includes(ctx)) continue
-    failures.push(
-      `${bead.id}: labelled \`${label}\` but does not cite \`${ctx}\`.\n` +
-        `    That bead carries the rooted file map and the copied facts for this surface. Without\n` +
-        `    it the reader has to open another checkout to find out what a bare basename means.`,
-    )
+    if (!known.has(ctx)) {
+      failures.push(
+        `CONTEXT_BEAD maps ${label} to \`${ctx}\`, which is not in the export.\n` +
+          `    This gate would send readers to an id as dead as the ones it forbids. Fix the mapping\n` +
+          `    in scripts/check-beads.mjs.`,
+      )
+    }
   }
+
+  return failures
 }
 
-// Consistency: the context beads this gate points people at must themselves exist.
-for (const [label, ctx] of Object.entries(CONTEXT_BEAD)) {
-  if (!known.has(ctx)) {
-    failures.push(
-      `CONTEXT_BEAD maps ${label} to \`${ctx}\`, which is not in the export.\n` +
-        `    This gate would send readers to an id as dead as the ones it forbids. Fix the mapping\n` +
-        `    in scripts/check-beads.mjs.`,
-    )
-  }
-}
+/* --------------------------------------------------------------------------------- the gate ----- */
 
-if (failures.length) {
-  console.error('beads:check FAILED\n')
-  for (const f of failures) console.error(`  ${f}\n`)
-  console.error(
-    `${failures.length} problem(s) across ${beads.length} beads.\n` +
-      'A bead is read by an agent long after its author is gone, and the tracker is all that\n' +
-      'travels with it. Every identifier in it has to resolve from this checkout.\n',
+function main() {
+  const loaded = loadBeads()
+
+  if (loaded.kind === 'absent') {
+    console.log(
+      `beads:check -- skipped: \`bd\` is not installed here (${loaded.reason}).\n` +
+        '  This gate reads the Dolt issue database, which a fresh clone and CI do not carry.\n',
+    )
+    process.exit(0)
+  }
+
+  if (loaded.kind === 'failed') {
+    console.error(
+      'beads:check FAILED -- the export did not happen:\n' +
+        `  ${loaded.detail}\n\n` +
+        '  A found `bd` is never reported as absent: the skip is for machines with no tracker, and\n' +
+        '  this run had one, or was pointed at a copy. Fix the launcher, the tracker or the copy, then\n' +
+        '  re-run.\n',
+    )
+    process.exit(1)
+  }
+
+  const { beads } = loaded
+  const policy = loadAssetLabels(ROOT)
+  const failures = policy.error ? [policy.error] : []
+  failures.push(...runCheck(beads, policy.labels ?? null))
+
+  if (failures.length) {
+    console.error('beads:check FAILED\n')
+    for (const f of failures) console.error(`  ${f}\n`)
+    console.error(
+      `${failures.length} problem(s) across ${beads.length} beads.\n` +
+        'A bead is read by an agent long after its author is gone, and the tracker is all that\n' +
+        'travels with it. Every identifier in it has to resolve from this checkout, and every label\n' +
+        'a count reads has to be on it.\n',
+    )
+    process.exit(1)
+  }
+
+  console.log(
+    `beads:check -- ${beads.length} beads: every identifier resolves here, every open bead names its\n` +
+      `  repository, every open bead filed discovered-from another carries a label \`${POLICY_KEY}\` lists,\n` +
+      `  and every cross-repo bead cites its context bead.\n` +
+      `  (read from ${loaded.through})\n`,
   )
-  process.exit(1)
 }
 
-console.log(
-  `beads:check -- ${beads.length} beads: every identifier resolves here, every open bead names its\n` +
-    `  repository, and every cross-repo bead cites its context bead.\n` +
-    `  (read through ${describeLauncher(loaded.launcher)})\n`,
-)
+/* --------------------------------------------------------------------------------- selftest ----- */
+
+const REPO = 'repo:fixture'
+
+/**
+ * The undoctored fixture: every exemption the rules make appears in it, so the control passing proves
+ * none of them refuses. `asset` is a label the live policy lists, chosen from it, so the fixture
+ * spells no value either.
+ */
+function fixture(policy, asset) {
+  const discoveredFrom = (id) => [
+    { issue_id: id, depends_on_id: 'fx-parent', type: 'discovered-from', metadata: '{}' },
+  ]
+  return {
+    policy,
+    exportTail: '',
+    writeExport: true,
+    beads: [
+      { _type: 'issue', id: 'fx-parent', status: 'open', issue_type: 'task', labels: [REPO] },
+      // Found, open, labelled: what rule 4 asks for.
+      {
+        _type: 'issue',
+        id: 'fx-found',
+        status: 'open',
+        issue_type: 'task',
+        labels: [asset, REPO],
+        dependencies: discoveredFrom('fx-found'),
+      },
+      // Found, in progress, labelled: "open" is every status but closed.
+      {
+        _type: 'issue',
+        id: 'fx-working',
+        status: 'in_progress',
+        issue_type: 'task',
+        labels: [asset, REPO],
+        dependencies: discoveredFrom('fx-working'),
+      },
+      // Found, closed, unlabelled: exempt, the count is read for what is still to fix.
+      {
+        _type: 'issue',
+        id: 'fx-closed',
+        status: 'closed',
+        issue_type: 'task',
+        labels: [REPO],
+        dependencies: discoveredFrom('fx-closed'),
+      },
+      // Not found: a child and a blocker carry no asset label and are not asked for one.
+      {
+        _type: 'issue',
+        id: 'fx-child',
+        status: 'open',
+        issue_type: 'task',
+        labels: [REPO],
+        dependencies: [
+          { issue_id: 'fx-child', depends_on_id: 'fx-parent', type: 'parent-child', metadata: '{}' },
+          { issue_id: 'fx-child', depends_on_id: 'fx-found', type: 'blocks', metadata: '{}' },
+        ],
+      },
+    ],
+  }
+}
+
+function beadOf(fx, id) {
+  const bead = fx.beads.find((b) => b.id === id)
+  if (!bead) throw new Error(`selftest fixture has no bead ${id}`)
+  return bead
+}
+
+const without = (list, value) => list.filter((v) => v !== value)
+
+function cases(asset) {
+  const found = 'fx-found'
+  const refusedFound = (id) =>
+    new RegExp(`^  ${id}: filed \`discovered-from\` fx-parent and carries no label that \`${POLICY_KEY}\``, 'm')
+  return [
+    {
+      name: 'control: the undoctored fixture passes',
+      doctor: () => {},
+      expect: 'pass',
+    },
+    {
+      name: 'an open issue filed discovered-from with no label the policy lists',
+      doctor: (fx) => {
+        beadOf(fx, found).labels = without(beadOf(fx, found).labels, asset)
+      },
+      expect: refusedFound(found),
+    },
+    {
+      name: 'the same, in progress rather than open',
+      doctor: (fx) => {
+        beadOf(fx, 'fx-working').labels = without(beadOf(fx, 'fx-working').labels, asset)
+      },
+      expect: refusedFound('fx-working'),
+    },
+    {
+      name: 'a label shaped like a listed one that the policy does not list',
+      doctor: (fx) => {
+        beadOf(fx, found).labels = beadOf(fx, found).labels.map((l) => (l === asset ? `${asset}-unlisted` : l))
+      },
+      expect: refusedFound(found),
+    },
+    {
+      name: 'the policy renames the label the issue carries',
+      doctor: (fx) => {
+        const list = fx.policy[POLICY_KEY]
+        list[`${asset}-renamed`] = list[asset]
+        delete list[asset]
+      },
+      expect: refusedFound(found),
+    },
+    {
+      name: `the policy has no ${POLICY_KEY}`,
+      doctor: (fx) => {
+        delete fx.policy[POLICY_KEY]
+      },
+      expect: new RegExp(`^  tools/policy\\.json has no \`${POLICY_KEY}\` object with at least one label`, 'm'),
+    },
+    {
+      name: 'an open issue with no repo: label',
+      doctor: (fx) => {
+        beadOf(fx, 'fx-child').labels = without(beadOf(fx, 'fx-child').labels, REPO)
+      },
+      expect: /^ {2}fx-child: no `repo:` label/m,
+    },
+    {
+      name: `the override names a copy with no ${OVERRIDE_EXPORT}`,
+      doctor: (fx) => {
+        fx.writeExport = false
+      },
+      expect: new RegExp(`${ROOT_ENV} names .* which holds no ${OVERRIDE_EXPORT.replace('.', '\\.')}\\.`),
+    },
+    {
+      name: 'an export line that is not JSON',
+      doctor: (fx) => {
+        fx.exportTail = 'not an issue\n'
+      },
+      expect: /export\.jsonl holds \d+ line\(s\) that do not parse as JSONL/,
+    },
+  ]
+}
+
+function writeFixture(dir, fx) {
+  mkdirSync(join(dir, dirname(POLICY)), { recursive: true })
+  writeFileSync(join(dir, POLICY), `${JSON.stringify(fx.policy, null, 2)}\n`)
+  if (fx.writeExport) {
+    const lines = fx.beads.map((b) => JSON.stringify(b)).join('\n')
+    writeFileSync(join(dir, OVERRIDE_EXPORT), `${lines}\n${fx.exportTail}`)
+  }
+}
+
+function selftest() {
+  const committed = JSON.parse(readFileSync(join(REPO_ROOT, POLICY), 'utf8'))
+  const listed = Object.keys(committed?.[POLICY_KEY] ?? {}).sort(byCodePoint)
+  if (listed.length === 0) {
+    console.error(
+      `beads selftest: the committed ${POLICY} lists no label under \`${POLICY_KEY}\`, so no fixture can ` +
+        'carry one. `npm run beads:check` refuses that policy too.',
+    )
+    process.exit(1)
+  }
+  const asset = listed[0]
+
+  const base = mkdtempSync(join(tmpdir(), 'check-beads-'))
+  const results = []
+  try {
+    for (const { name, doctor, expect } of cases(asset)) {
+      const fx = fixture(structuredClone(committed), asset)
+      const before = JSON.stringify(fx)
+      doctor(fx)
+      if (expect !== 'pass' && JSON.stringify(fx) === before) {
+        throw new Error(`selftest case "${name}" changed nothing -- the doctoring missed its target`)
+      }
+      const dir = join(base, name.replace(/[^a-z0-9]+/gi, '-'))
+      writeFixture(dir, fx)
+      const run = spawnSync(process.execPath, [SELF], {
+        encoding: 'utf8',
+        env: { ...process.env, [ROOT_ENV]: dir },
+      })
+      const output = `${run.stdout ?? ''}${run.stderr ?? ''}`
+      let ok
+      let detail
+      if (run.error) {
+        ok = false
+        detail = `the gate could not be started: ${run.error.message}`
+      } else if (expect === 'pass') {
+        const count = `-- ${fx.beads.length} beads:`
+        ok = run.status === 0 && output.includes(count) && output.includes(`(${ROOT_ENV})`)
+        detail = ok
+          ? `passes, over the fixture's ${fx.beads.length} beads read through ${ROOT_ENV}`
+          : run.status === 0
+            ? `exited 0 without naming the fixture's bead count and ${ROOT_ENV}, so it did not read the fixture: ${output.trim()}`
+            : `unexpected failure (exit ${String(run.status)}): ${output.trim()}`
+      } else {
+        ok = run.status === 1 && expect.test(output)
+        detail = ok
+          ? 'fails for that reason'
+          : run.status === 0
+            ? 'PASSED, but should have failed'
+            : `failed (exit ${String(run.status)}), but not for that reason: ${output.trim()}`
+      }
+      results.push({ name, ok, detail })
+      if (name.startsWith('control') && !ok) {
+        console.error(`beads selftest: the undoctored fixture does not pass, so no case can be trusted: ${detail}`)
+        process.exit(1)
+      }
+    }
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+
+  const failed = results.filter((result) => !result.ok)
+  for (const { name, ok, detail } of results) {
+    console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${name} -- ${detail}`)
+  }
+  console.log(
+    `beads selftest: ${results.length - failed.length}/${results.length} cases hold` +
+      ` (control plus ${results.length - 1} doctored copies).`,
+  )
+  process.exit(failed.length === 0 ? 0 : 1)
+}
+
+if (process.argv.includes('--selftest')) selftest()
+else main()
