@@ -325,7 +325,7 @@ function reviewPrompt(g) {
     '- Throwaway files go under .scratch/ only.',
     '- Run each command as its own Bash call, as CLAUDE.md asks.',
     '',
-    `Read ${JUDGED} before anything else. It says what to look for, how to find the earlier reviews of your files, what to cite, what each change states, and when to change nothing.`,
+    `Read ${JUDGED} before anything else.`,
     '',
     '## Your files',
     '',
@@ -350,7 +350,7 @@ function skepticPrompt(g, c, f, i, n) {
   return [
     `You are skeptic ${i} of ${n} on one edit a batched review of this repository's prompts proposes (\`CLAUDE.md\` § Prompt reviews). You change nothing, commit nothing and write nothing to the tracker; throwaway files go under .scratch/ only. Run each command as its own Bash call, as CLAUDE.md asks.`,
     '',
-    `Read ${JUDGED} first: it says how to read a prompt file, its earlier reviews and a run's own branch. Then read the edit, \`git diff origin/main...${g.branch.trim()} -- ${clean(c.file)}\`, and the file as \`origin/main\` has it.`,
+    `Read ${JUDGED} first. Then read the edit, \`git diff origin/main...${g.branch.trim()} -- ${clean(c.file)}\`, and the file as \`origin/main\` has it.`,
     '',
     'Answer two questions about the edit, and only these:',
     '',
