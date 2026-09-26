@@ -152,9 +152,10 @@ with its label at creation; step 4 says how to search for it and what its body c
 
 ## 8. Report
 
-First launch the review of this run as `CLAUDE.md` § Prompt reviews says, and do not wait for it.
+First write this run's analysis and check whether a review is due, as `CLAUDE.md` § Prompt reviews
+says, and do not wait for a review it launches.
 
 Then one short report: what was verified in step 1 and where, what changed, what was regenerated,
 both gate runs as measured, the pull request, the issue's final state, every follow-up filed, the
-reviewer's session, and a `RUN THESE YOURSELF` block for any command that was refused
-(`CLAUDE.md` § Guards).
+analysis's issue and run id, the reviewer's session if one was launched, and a `RUN THESE YOURSELF`
+block for any command that was refused (`CLAUDE.md` § Guards).

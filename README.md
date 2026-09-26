@@ -207,7 +207,7 @@ holds platform-native binaries. Use one clone per platform.
 | Make a worktree by hand | `scripts/new-worktree.sh <task-ref> <slug>` | From the primary checkout. It cuts `agent/<name>` from `origin/main`; `npm ci` is the first command inside. |
 | Check your work before a pull request | `npm run gates` | Then fetch, rebase onto `origin/main`, and run it again. |
 | Open a pull request | the `open-pr` skill | Tests the merge against the open pull requests, ends the title with the ids of the issues carried, sets the reviewer's `pr-review` status pending from the session, watches the checks with one watcher, and says what each outcome of `verify` and the reviewer asks. Every other skill and agent that opens a pull request opens it with this one. |
-| Improve a prompt after running it | the `continuous-prompt-improvement` agent | Launched in the background by the session that ran the prompt, which does not wait for it (`CLAUDE.md` § Prompt reviews). A review that proposes a change is the description of its own pull request; one that proposes nothing leaves nothing. |
+| Improve a prompt after running it | the `continuous-prompt-improvement` agent | Each run leaves its analysis as a note in the tracker, and the run whose closing step finds enough pending, or the oldest old enough, launches the reviewer in the background and does not wait for it (`CLAUDE.md` § Prompt reviews). One review reads every pending analysis, one agent per prompt file; what they change is one pull request, whose description is the review. |
 | Get a pull request reviewed and merged | nothing: `.github/workflows/pr-review.yml` takes it once `verify` passes | It merges one whose title cites the issues it carries, satisfies them, and is not high risk. `gh workflow run pr-review.yml -f pr=<number>` reviews a head again. |
 | Approve a pull request the reviewer left to a person | apply the approval label, `prReviewLabels` in `tools/policy.json` | A person only, never an agent (`CLAUDE.md` § Git workflow). It approves the head the reviewer last judged, and a push needs it again. Merging by hand works too. |
 | Check a pull request, report or analysis before trusting it | the `adversarial-verifier` agent | Pass it the pull request number or file path. Every claim is re-derived from source; it reports a verdict table and changes nothing. |
@@ -329,9 +329,10 @@ own to say here.
 A run leaves behind its commits and pull request, and an issue in `bd` for each defect it found
 outside its own files, linked `discovered-from` the issue or epic it ran on. Each of those issues
 carries one or more of the labels `assetLabels` in `tools/policy.json` lists, one per kind of file
-it would change, so `bd count --by-label` shows which kind keeps needing a fix after a run. A prompt
-that has run is reviewed as `CLAUDE.md` § Prompt reviews says. A program proposes, and only a person
-promotes (`CLAUDE.md` § A program proposes; only a person promotes).
+it would change, so `bd count --by-label` shows which kind keeps needing a fix after a run. It also
+leaves its analysis of itself as a note on the issue it worked, and the prompts that ran are
+reviewed from those notes in batches, as `CLAUDE.md` § Prompt reviews says. A program proposes, and
+only a person promotes (`CLAUDE.md` § A program proposes; only a person promotes).
 
 `docs/decisions.md` § D-06 retired the kit's learning loop, which wrote a record per run and
 derived reports from the records; it never had a record to read.
