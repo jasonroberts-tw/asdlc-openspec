@@ -27,7 +27,7 @@ The project instructions (the *Git workflow* section of CLAUDE.md) name `main` a
 - Commit and force-push freely, to `{{BRANCH}}` only.
 - Open every pull request with the `open-pr` skill. It names `main` as the base rather than letting a tool infer one, and opens the pull request ready for review, never as a draft unless the request says draft.
 
-`scripts/hooks/guard-git.mjs` enforces the rules above on every Bash command — including refusing a `gh pr create` that does not name `main` as its base — so a slip is refused rather than silently landing on someone else's work. The refusal text says what to do instead; read it rather than retrying a variation.
+`scripts/hooks/guard-git.mjs` enforces the rules above on every Bash command — including refusing a `gh pr create` that does not name `main` as its base, and a `gh` command that applies the reviewer's approval label — so a slip is refused rather than silently landing on someone else's work. The refusal text says what to do instead; read it rather than retrying a variation.
 
 ## Environment
 
