@@ -1,10 +1,15 @@
 /**
- * Allocate a worktree's dev-server ports and render its briefing from `.claude/worktree-CONTEXT.md.tmpl`.
+ * Allocate a worktree's pair of ports and render its briefing from the template beside this file.
  *
- *   node scripts/render-worktree-context.mjs <worktree-path> <branch> <base-sha> <task-ref> [hours]
+ * Prints `KEY=value` lines on stdout for the caller to read, and writes two files into the
+ * worktree: `.worktree/CONTEXT.md`, the briefing rendered from `.claude/worktree-CONTEXT.md.tmpl`,
+ * and `.worktree/ports.env`, the pair. This script is the one reader of `ports.env`: it reads every
+ * sibling worktree's copy, so as not to hand out a pair already promised. The calculator server does
+ * not read it; a worktree passes `APP_PORT` to `npm run calculator:serve` as `PORT`
+ * (`docs/decisions.md` § D-04).
  *
- * Called by `scripts/new-worktree.sh`. It is a separate Node file rather than more shell for three
- * reasons, each a defect the shell version had:
+ * The failures it exists to prevent. It is a separate Node file rather than more shell because of
+ * three defects the shell version had:
  *
  * 1. `sed "s|{{X}}|<value>|"` treats `&` in the REPLACEMENT as "the whole match" and `\` as an
  *    escape. Verified: a path containing `a&b` rendered as `a{{WORKTREE_PATH}}b`, silently, with a
@@ -14,9 +19,10 @@
  * 3. The ports were `hash % 900` with nothing checking them. They are probed here, so the header's
  *    "non-colliding" claim is true rather than a hope.
  *
- * Prints `KEY=value` lines on stdout for the caller to read, and writes two files into the
- * worktree: `.worktree/CONTEXT.md` (the briefing) and `.worktree/ports.env` (read by
- * `vite.config.ts`, so `npm run dev` binds the allocated port with no flag to remember).
+ *   node scripts/render-worktree-context.mjs <worktree-path> <branch> <base-sha> <task-ref> [hours]
+ *
+ * Called by `scripts/new-worktree.sh`. Needs `git` on PATH, for the list of sibling worktrees, and
+ * binds loopback ports for a moment to probe them.
  */
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -40,7 +46,7 @@ const lifetimeHours = Number(hoursArg ?? 2) || 2
  * Ports.
  * ============================================================================================= */
 
-/** Is nothing listening on this port? Probed on the loopback the dev servers actually bind. */
+/** Is nothing listening on this port? Probed on the loopback the calculator server binds. */
 function free(port) {
   return new Promise((done) => {
     const s = createServer()
@@ -94,8 +100,8 @@ function hash(text) {
  * `PORT` to `npm run calculator:serve` there (`docs/decisions.md` § D-04); the second is unused.
  *
  * The hash picks where to start looking; availability decides where it stops. 900 blocks of ten in
- * 20000-28990, walked in order from the hashed start, so a collision costs one step rather than a
- * failed `npm run dev` twenty minutes later.
+ * 20000-28990, walked in order from the hashed start, so a collision costs one step here rather
+ * than a `calculator:serve` that fails to bind later.
  */
 async function allocate(name) {
   const reserved = reservedBySiblings()
@@ -154,7 +160,9 @@ mkdirSync(outDir, { recursive: true })
 writeFileSync(join(outDir, 'CONTEXT.md'), rendered, 'utf8')
 writeFileSync(
   join(outDir, 'ports.env'),
-  `# Written by scripts/render-worktree-context.mjs. Read by vite.config.ts.\n` +
+  `# Written by scripts/render-worktree-context.mjs, the one reader of this file: it reads every\n` +
+    `# worktree's copy to keep their pairs apart. The calculator server does not read it; pass\n` +
+    `# APP_PORT to it as PORT (docs/decisions.md § D-04).\n` +
     `APP_PORT=${ports.APP_PORT}\nSB_PORT=${ports.SB_PORT}\n`,
   'utf8',
 )
