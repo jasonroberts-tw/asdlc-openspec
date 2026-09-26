@@ -16,10 +16,12 @@
 
 FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 
-# 22, the major of the floor package.json `engines` sets (>=22.18), which README.md restates. CI
-# does not pin a major: .github/workflows/verify.yml reads that same range, and setup-node took
-# 24.21.0 for it on 2026-09-23. The container runs the floor, so code that needs anything newer
-# than the repository claims to support fails here first.
+# 22, the major line of the floor package.json `engines` sets. README.md's setup step 1 restates
+# that floor and holds the command that re-derives it from package-lock.json. CI does not pin a
+# major: .github/workflows/verify.yml reads the same `engines` range, and setup-node takes the
+# newest release it allows (24.21.0 on 2026-09-23). NodeSource installs the newest 22.x, not the
+# floor itself, so the container runs the repository's oldest supported major: code that needs a
+# newer major fails here first, and code that needs a newer patch than the floor does not.
 ARG NODE_MAJOR=22
 # The version of the bd that owns the tracker's database, so the container never runs an older client
 # against a newer schema. Re-derive it from `bd version` on the maintainer's machine, or from
