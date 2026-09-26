@@ -20,8 +20,8 @@
  * uphold; a finding below the threshold passed to an agent; an analysis marked read whose file's
  * agent returned nothing; or a finding read and not proposed that is not returned to be held (since
  * asdlc-openspec-pnm). Each costs millions of tokens, a wrong verdict or a finding never reviewed,
- * before anyone sees it, and no other gate reads these files: `check:prompts` and `openspec:check`
- * read only skills and agents.
+ * before anyone sees it, and no other gate reads their logic: `check:prompts` counts only the words
+ * of their string literals, and `openspec:check` reads only skills and agents.
  *
  * INVOCATION.
  *

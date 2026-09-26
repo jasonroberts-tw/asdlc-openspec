@@ -43,8 +43,9 @@ jobs:
         run: npm run check:jobs
       - name: the job cross-check, negative-tested
         run: npm run check:jobs:selftest
-      # Milliseconds: CLAUDE.md and the prompts.
-      - name: every skill and agent opens with the line CLAUDE.md requires
+      # Milliseconds: CLAUDE.md, the prompts, the workflows' string literals and the word budgets in
+      # tools/policy.json.
+      - name: every skill and agent opens with the line CLAUDE.md requires, and every prompt is within its word budget
         run: npm run check:prompts
       - name: the prompt gate, negative-tested
         run: npm run check:prompts:selftest

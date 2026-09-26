@@ -141,10 +141,76 @@
 
   "prReviewHighRiskJsonKeys": {
     "package.json": ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies", "overrides", "allowScripts", "engines"],
-    "tools/policy.json": ["prReview*"]
+    "tools/policy.json": ["prReview*", "promptWordBudget*"]
   },
-  "prReviewHighRiskJsonKeysMeans": "The second half of the floor: top-level keys of committed JSON files whose value a pull request changes (added, removed or different, compared as parsed JSON) make it high risk. A trailing `*` matches any key with that prefix. It exists because the whole file is too wide: most pull requests that add a gate add a script to `package.json`, and many change another key of this file, and neither needs a person. A dependency, an install-script permission, the engine floor, or a key the reviewer decides by does. Decided 2026-09-25 (asdlc-openspec-mi6).",
+  "prReviewHighRiskJsonKeysMeans": "The second half of the floor: top-level keys of committed JSON files whose value a pull request changes (added, removed or different, compared as parsed JSON) make it high risk. A trailing `*` matches any key with that prefix. It exists because the whole file is too wide: most pull requests that add a gate add a script to `package.json`, and many change another key of this file, and neither needs a person. A dependency, an install-script permission, the engine floor, or a key the reviewer decides by does. Decided 2026-09-25 (asdlc-openspec-mi6). A prompt's word budget does too, so that a person merges every raise and every change to the reason beside it: `promptWordBudget*` added 2026-09-26 (asdlc-openspec-2wv).",
 
   "prReviewMergeMethod": "rebase",
-  "prReviewMergeMethodMeans": "How the reviewer merges: the method GitHub's merge endpoint takes. It is `rebase` because `docs/decisions.md` § D-02, item 6, rebase-merges a change's pull request so `npm run worktree:gc` can prove its branch reached the trunk, and the repository allows no other method. Decided 2026-09-25 (asdlc-openspec-mi6)."
+  "prReviewMergeMethodMeans": "How the reviewer merges: the method GitHub's merge endpoint takes. It is `rebase` because `docs/decisions.md` § D-02, item 6, rebase-merges a change's pull request so `npm run worktree:gc` can prove its branch reached the trunk, and the repository allows no other method. Decided 2026-09-25 (asdlc-openspec-mi6).",
+
+  "promptWordBudgetAgentAdversarialVerifier": 328,
+  "promptWordBudgetAgentAdversarialVerifierMeans": "The most words `.claude/agents/adversarial-verifier.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetAgentContinuousPromptImprovement": 1723,
+  "promptWordBudgetAgentContinuousPromptImprovementMeans": "The most words `.claude/agents/continuous-prompt-improvement.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetAgentFanOutWork": 817,
+  "promptWordBudgetAgentFanOutWorkMeans": "The most words `.claude/agents/fan-out-work.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetAgentPrReviewer": 1765,
+  "promptWordBudgetAgentPrReviewerMeans": "The most words `.claude/agents/pr-reviewer.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetSkillAddNpmScript": 1291,
+  "promptWordBudgetSkillAddNpmScriptMeans": "The most words `.claude/skills/add-npm-script/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetSkillBead": 1857,
+  "promptWordBudgetSkillBeadMeans": "The most words `.claude/skills/bead/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetSkillChangeBuild": 1316,
+  "promptWordBudgetSkillChangeBuildMeans": "The most words `.claude/skills/change-build/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetSkillChangeDesign": 1045,
+  "promptWordBudgetSkillChangeDesignMeans": "The most words `.claude/skills/change-design/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetSkillChangeFinalize": 1648,
+  "promptWordBudgetSkillChangeFinalizeMeans": "The most words `.claude/skills/change-finalize/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetSkillChangePlan": 698,
+  "promptWordBudgetSkillChangePlanMeans": "The most words `.claude/skills/change-plan/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetSkillChangePropose": 1159,
+  "promptWordBudgetSkillChangeProposeMeans": "The most words `.claude/skills/change-propose/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetSkillChangeVerify": 987,
+  "promptWordBudgetSkillChangeVerifyMeans": "The most words `.claude/skills/change-verify/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetSkillEli5": 559,
+  "promptWordBudgetSkillEli5Means": "The most words `.claude/skills/eli5/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetSkillExplore": 118,
+  "promptWordBudgetSkillExploreMeans": "The most words `.claude/skills/explore/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetSkillHumanPlan": 46,
+  "promptWordBudgetSkillHumanPlanMeans": "The most words `.claude/skills/human-plan/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetSkillOpenPr": 1023,
+  "promptWordBudgetSkillOpenPrMeans": "The most words `.claude/skills/open-pr/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetSkillRetireAsset": 148,
+  "promptWordBudgetSkillRetireAssetMeans": "The most words `.claude/skills/retire-asset/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetWorkflowBuildChangeTask": 2561,
+  "promptWordBudgetWorkflowBuildChangeTaskMeans": "The most words the string and template literals of `.claude/workflows/build-change-task.js` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetWorkflowReviewPrompts": 729,
+  "promptWordBudgetWorkflowReviewPromptsMeans": "The most words the string and template literals of `.claude/workflows/review-prompts.js` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetWorktreeContext": 886,
+  "promptWordBudgetWorktreeContextMeans": "The most words `.claude/worktree-CONTEXT.md.tmpl` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetAgentsMd": 26,
+  "promptWordBudgetAgentsMdMeans": "The most words `AGENTS.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+
+  "promptWordBudgetClaudeMd": 3673,
+  "promptWordBudgetClaudeMdMeans": "The most words `CLAUDE.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv)."
 }

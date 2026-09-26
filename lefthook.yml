@@ -116,13 +116,20 @@ pre-push:
         - 'scripts/**'
         - 'apps/**'
       run: node --run check:jobs:selftest
-    # Every skill and agent opens with the line CLAUDE.md requires, read out of CLAUDE.md itself.
-    # Reads CLAUDE.md and the prompts; milliseconds.
+    # Every skill and agent opens with the line CLAUDE.md requires, read out of CLAUDE.md itself, and
+    # every prompt is within its word budget in `tools/policy.json`: the skills and agents, CLAUDE.md,
+    # AGENTS.md, the worktree briefing template, and the string literals of each workflow. Reads
+    # those and the policy; 0.08 s wall through `node --run` (`/usr/bin/time -p`, two runs) on a
+    # macOS 26.7 laptop with Node 26.8.1, 2026-09-26.
     - name: check-prompts
       glob:
         - 'CLAUDE.md'
+        - 'AGENTS.md'
         - '.claude/skills/**'
         - '.claude/agents/**'
+        - '.claude/workflows/**'
+        - '.claude/worktree-CONTEXT.md.tmpl'
+        - 'tools/policy.json'
         - 'scripts/check-prompts.mjs'
       run: node --run check:prompts
     # Its refusals against a fixture tree it builds under the temporary directory, with one
