@@ -26,17 +26,13 @@ review's branch and its session.
 
 - `gh pr list --state open --json number,headRefName` lists a pull request from a review's branch.
   Its analyses were read by that review, and the rest wait for it to merge or close.
-- `claude agents --json` lists a session with the review's name besides this one.
+- `claude agents --json` lists a session with the review's name, besides this one, whose `state` is
+  `working`.
 
 ## 2. Collect the pending analyses
 
-The markers are `promptReviewAnalysisMarker` and `promptReviewReadMarker` in `tools/policy.json`.
-`bd list --all --notes-contains "<analysis marker>" --json -n 0` lists every issue that carries an
-analysis. In each one's notes, an analysis starts at a line holding the analysis marker, a space and
-its run id, and runs to the next line holding either marker. It is pending while no line of the read
-marker, a space and its run id follows in the same notes.
-
-Apply both thresholds again, `promptReviewDueCount` and `promptReviewDueAgeDays`, the age read from
+Find every pending analysis as `CLAUDE.md` § Prompt reviews says: which issues carry one, where each
+begins and ends in the notes, and which are pending. Apply both thresholds again, `promptReviewDueCount` and `promptReviewDueAgeDays`, the age read from
 the run id's time. If neither holds, the launch was early: stop, editing nothing and writing nothing.
 
 An analysis is an input, not a verdict. Check each claim it makes against the run's own evidence,
@@ -69,7 +65,11 @@ group's report and status, and which runs were read and which held.
 If `merge` is empty, open no pull request and go to § 6.
 
 Otherwise merge each branch in `merge` into yours, in its order, with `git merge --no-ff <branch>`.
-The groups share no file, so a conflict means something the script did not catch: stop and report it.
+Before each merge, check what the agent reported against git: `git diff --name-only
+origin/main...<branch>` must list only files of that branch's group. A branch that lists another file
+is not merged: its group's runs are held as the workflow's `runsHeld` are, and the description says
+why. The groups share no file, so a conflict means something the script did not catch: stop and
+report it.
 Then run `npm run gates`, rebase onto `origin/main` and run it again, as
 `.claude/skills/bead/SKILL.md` § 4 and § 5 say, and open the pull request with the `open-pr` skill.
 Its title cites no issue, so the pull-request reviewer leaves its merge to a person
