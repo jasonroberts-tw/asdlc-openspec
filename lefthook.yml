@@ -146,9 +146,12 @@ pre-push:
     # reports. Also loads every command `.claude/settings.json` registers from a subdirectory and
     # from outside the checkout, through a stand-in `node` that runs no hook, so the settings file is
     # in the glob, and renders the briefing template through a scratch copy of its renderer, so both
-    # are in it too. About a hundred git spawns and two renders: 7.47-8.08 s wall through
-    # `node --run` (`/usr/bin/time -p`, two runs) on a macOS 26.7 laptop with Node 26.8.1,
-    # 2026-09-25, so re-measure it on your host before trusting the suite's total.
+    # are in it too. It provisions twice through a scratch copy of `scripts/new-worktree.sh`, from a
+    # checkout that trails its remote, and the guard reads the approval label from
+    # `tools/policy.json`, so the policy is in the glob too. About a hundred and twenty git spawns,
+    # two bash runs and four renders: 7.59-7.82 s wall through `node --run` (`/usr/bin/time -p`, two
+    # runs, while other worktrees ran their gates) on a macOS 26.7 laptop with Node 26.8.1,
+    # 2026-09-26, so re-measure it on your host before trusting the suite's total.
     - name: worktree-hooks
       glob:
         - 'scripts/hooks/**'
