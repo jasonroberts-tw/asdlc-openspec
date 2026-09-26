@@ -273,9 +273,12 @@ unreviewed.
 every issue carrying an analysis, `bd list --all --notes-contains "<analysis marker>" --json -n 0`.
 An analysis is pending while no line of `promptReviewReadMarker`, a space and its run id follows it
 in the same notes. A review is due when `promptReviewDueCount` analyses or more are pending, or the
-oldest is older than `promptReviewDueAgeDays` days. None starts while a pull request from a branch
-`agent/review-prompts-*` is open (`gh pr list --state open --json headRefName`), or while
-`claude agents --json` lists a session named `review-prompts`: the pending analyses wait for it.
+oldest is older than `promptReviewDueAgeDays` days. None starts while a pull request from a
+review's branch is open (`gh pr list --state open --json headRefName`), or while
+`claude agents --json` lists a session named `review-prompts`: the pending analyses wait for it. A
+review's worktree is named `review-prompts-` and the UTC date and time, as
+`date -u +%Y%m%d-%H%M` prints them, so its branch is `agent/review-prompts-<that date and time>`;
+this section is the one home of that name and of the session's.
 
 When a review is due, the run leaves its worktree (`ExitWorktree`, action `keep`): a background
 session starts in the directory it was launched from, and one launched inside a linked worktree

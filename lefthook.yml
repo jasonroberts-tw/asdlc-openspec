@@ -218,8 +218,9 @@ pre-push:
     # Every workflow under `.claude/workflows/` run against stubbed agents: the change-build review
     # with the review sizes in `tools/policy.json` (how it stops, how many skeptics it sends, and what
     # it returns), and the prompt review (which branches it lets merge, and which analyses it lets be
-    # marked read). Reads the workflows and the policy, and nothing else. 0.07-0.08 s wall through
-    # `node --run` (`/usr/bin/time -p`, two runs) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-26.
+    # marked read), and refuses a workflow with no suite. Reads the workflows and the policy, and
+    # writes only under the temporary directory. 0.06-0.07 s wall through `node --run`
+    # (`/usr/bin/time -p`, two runs) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-26.
     - name: workflows-selftest
       glob:
         - '.claude/workflows/**'
