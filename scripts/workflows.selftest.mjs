@@ -38,9 +38,15 @@
  * expects is read from it, so no case restates a constant. Each suite has an undoctored control that
  * must pass before any of its other cases is trusted.
  *
- * NEEDS only committed files: the workflows and `tools/policy.json`. No agent, no network. Milliseconds.
+ * The refusal of a script with no suite is held the same way: a control directory built under the
+ * temporary directory holding only the suites' scripts must report nothing, and the same with one
+ * more script must report it, by its reason.
+ *
+ * NEEDS only committed files: the workflows and `tools/policy.json`. It writes only under the
+ * temporary directory. No agent, no network. Milliseconds.
  */
-import { readdirSync, readFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -728,6 +734,16 @@ function reviewCases() {
     refusedBead('a report of a change that states none is not merged', (g) => changed(g, { changes: [] }), /states none/),
     refusedBead('a report of a change whose branch changes no file is not merged', (g) => changed(g, { filesChanged: [] }), /changes no file/),
     refusedBead(
+      'a report stating a change to a file the group was not given is not merged, though its branch is clean',
+      (g) => changed(g, { changes: [{ file: OPEN_PR, title: 'A fix', runs: [RUN_A], edit: 'e', why: 'w' }] }),
+      /states a change to \.claude\/skills\/open-pr\/SKILL\.md, which it was not given/,
+    ),
+    refusedBead(
+      'a change that cites no run is not merged',
+      (g) => changed(g, { changes: [{ file: BEAD, title: 'A fix citing nothing', runs: [], edit: 'e', why: 'w' }] }),
+      /"A fix citing nothing" cite\(s\) no run/,
+    ),
+    refusedBead(
       'a report citing a run its evidence does not come from is not merged',
       (g) => changed(g, { changes: [{ file: BEAD, title: 'A fix', runs: [RUN_C], edit: 'e', why: 'w' }] }),
       /cites the run\(s\) example-3@2026-09-26T02:00:00Z, which its evidence does not come from/,
@@ -770,6 +786,44 @@ function reviewCases() {
   ]
 }
 
+/* ---------------------------------------------------------------- the unheld-file refusal ----- */
+
+/**
+ * `unheld` run on a workflows directory built under the temporary directory: a control holding only
+ * the suites' files, which must report nothing, then the same with a script no suite runs and a file
+ * that is not a script, which must report the script alone, by its reason.
+ */
+function unheldResults(suites) {
+  const root = mkdtempSync(join(tmpdir(), 'workflows-unheld-'))
+  try {
+    mkdirSync(join(root, WORKFLOWS), { recursive: true })
+    for (const s of suites) writeFileSync(join(root, s.file), '')
+    const control = unheld(root, suites)
+    writeFileSync(join(root, WORKFLOWS, 'extra.js'), '')
+    writeFileSync(join(root, WORKFLOWS, 'notes.md'), '')
+    const doctored = unheld(root, suites)
+    const refusedForItsReason = doctored.length === 1 && /^\.claude\/workflows\/extra\.js has no suite in /.test(doctored[0])
+    return [
+      {
+        file: WORKFLOWS,
+        name: "control: a workflows directory holding only the suites' scripts has nothing unheld",
+        control: true,
+        ok: control.length === 0,
+        detail: control.length ? control.join(' | ') : 'holds',
+      },
+      {
+        file: WORKFLOWS,
+        name: 'a script no suite runs is refused, by its reason, and a file that is not a script is not',
+        control: false,
+        ok: refusedForItsReason,
+        detail: refusedForItsReason ? 'holds' : `reported ${JSON.stringify(doctored)}`,
+      },
+    ]
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+}
+
 /* ------------------------------------------------------------------------------- selftest ----- */
 
 /** Why a case's outcome is wrong, or null. */
@@ -804,7 +858,11 @@ async function main() {
   suites[0].cases = buildCases(policy).map((c) => ({ ...c, answer: scenario(policy, c.scenario) }))
   suites[1].cases = reviewCases().map((c) => ({ ...c, answer: reviewAnswer(c.args, c.reports) }))
 
-  const results = []
+  const results = unheldResults(suites)
+  if (!results[0].ok) {
+    console.error(`workflows selftest: the unheld-file check fails on a clean directory, so its refusal cannot be trusted: ${results[0].detail}`)
+    process.exit(1)
+  }
   for (const s of suites) {
     for (const c of s.cases) {
       const detail = judge(c, await run(s.body, c.args, c.answer))
@@ -818,10 +876,10 @@ async function main() {
 
   const failed = results.filter((r) => !r.ok)
   for (const { file, name, ok, detail } of results) console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${file.split('/').pop()}: ${name} -- ${detail}`)
-  const tally = suites.map((s) => {
-    const mine = results.filter((r) => r.file === s.file)
+  const tally = [...suites.map((s) => s.file), WORKFLOWS].map((file) => {
+    const mine = results.filter((r) => r.file === file)
     const controls = mine.filter((r) => r.control).length
-    return `${s.file}: ${controls} control(s) and ${mine.length - controls} scenario(s)`
+    return `${file === WORKFLOWS ? 'the unheld-file check' : file}: ${controls} control(s) and ${mine.length - controls} scenario(s)`
   })
   console.log(`workflows selftest: ${results.length - failed.length}/${results.length} cases hold (${tally.join('; ')}).`)
   process.exit(failed.length === 0 ? 0 : 1)

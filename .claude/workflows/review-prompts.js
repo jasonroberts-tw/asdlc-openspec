@@ -62,7 +62,7 @@ export const meta = {
  *     fallback names it `worktree-<name>` (CLAUDE.md § Git workflow);
  *   - no two groups report one branch;
  *   - a changed report lists the files its branch changes, every one of them its own, states at
- *     least one change, and ran gates that all passed;
+ *     least one change, each to a file of its own, and ran gates that all passed;
  *   - an unchanged report lists no changed file;
  *   - every change and every finding set aside cites at least one run, and only runs in its own
  *     evidence.
@@ -230,6 +230,8 @@ function problemsOf(g, r) {
     const stray = changed.filter((f) => !own.has(f))
     if (stray.length) problems.push(`its branch changes ${stray.join(', ')}, which it was not given`)
     if (!r.changes.length) problems.push('it reports a change, but states none')
+    const elsewhere = [...new Set(r.changes.map((c) => clean(c.file)).filter((f) => !own.has(f)))]
+    if (elsewhere.length) problems.push(`it states a change to ${elsewhere.join(', ')}, which it was not given`)
     const failing = r.gates.filter((gate) => !gate.passed)
     if (!r.gates.length) problems.push('it changed a file and ran no gate')
     else if (failing.length) problems.push(`its gate(s) ${failing.map((gate) => gate.command).join(', ')} did not pass`)

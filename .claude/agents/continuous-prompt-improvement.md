@@ -21,12 +21,12 @@ nothing, and stop.
 
 ## 1. Stop if another review is under way
 
-Stop, editing nothing and writing nothing, if either holds:
+Stop, editing nothing and writing nothing, if either holds. `CLAUDE.md` § Prompt reviews names a
+review's branch and its session.
 
-- `gh pr list --state open --json number,headRefName` lists a pull request from a branch
-  `agent/review-prompts-*`. Its analyses were read by that review, and the rest wait for it to merge
-  or close.
-- `claude agents --json` lists a session named `review-prompts` besides this one.
+- `gh pr list --state open --json number,headRefName` lists a pull request from a review's branch.
+  Its analyses were read by that review, and the rest wait for it to merge or close.
+- `claude agents --json` lists a session with the review's name besides this one.
 
 ## 2. Collect the pending analyses
 
@@ -57,8 +57,8 @@ on any prompt is read all the same, with no group.
 
 ## 4. Run the workflow
 
-Make your own worktree, with `EnterWorktree` and the name `review-prompts-<UTC date and time>`, such
-as `review-prompts-20260926-0412`, and run `npm ci` there. Then run the Workflow tool with
+Make your own worktree, with `EnterWorktree` and the name `CLAUDE.md` § Prompt reviews gives a
+review's worktree, and run `npm ci` there. Then run the Workflow tool with
 `scriptPath` set to `.claude/workflows/review-prompts.js` in that worktree, and `args` holding the
 groups of § 3 and anything already settled. The script's header says what each agent is told, what
 it returns, and the rules it holds each agent's report to. It returns the branches to merge, each
