@@ -88,8 +88,15 @@ import { ROOT } from '../lib/paths.ts'
  */
 export const SCAN_ROOT = process.env.CITATIONS_ROOT ? resolve(process.env.CITATIONS_ROOT) : ROOT
 
-/** Text files worth scanning. Anything else is either binary or has no citations in it. */
-const SCANNED_EXTENSIONS = /\.(ts|tsx|js|mjs|cjs|md|json|ya?ml|cs|sql)$/
+/**
+ * Text files worth scanning. Anything else is either binary or has no citations in it.
+ *
+ * `tmpl` and `sh` were added on 2026-09-26 (`asdlc-openspec-5sc`). Until then the worktree
+ * briefing's template cited `docs/decisions.md` § D-04, and a shell script's comment could cite any
+ * section, with no gate reading either. Measured before they were added: the three tracked files of
+ * those types held one pointer in the form this gate reads, and it resolved.
+ */
+const SCANNED_EXTENSIONS = /\.(ts|tsx|js|mjs|cjs|md|json|ya?ml|cs|sql|tmpl|sh)$/
 
 /**
  * Where a RETIRED document lives once it stops being the live one.
