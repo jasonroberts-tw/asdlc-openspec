@@ -434,9 +434,10 @@ console.log('citation scanner selftest\n')
   claude.push('## After the regions', 'prose', '')
   const liveSection = claudeRegions.find((r) => 'section' in r)
 
-  // Three line citations (two in a markdown file, one in a source comment); four section citations
-  // (two in a markdown file; two in a source comment, one of them split by a line break); one dead
-  // citation inside a history directory, one inside an extension the gate does not scan.
+  // Three line citations (two in a markdown file, one in a source comment); six section citations
+  // (two in a markdown file; two in a source comment, one of them split by a line break; one in a
+  // shell script; one in a template); one dead citation inside a history directory, one inside an
+  // extension the gate does not scan.
   const TREE: Readonly<Record<string, string>> = {
     'docs/target.md': [
       '# Target',
@@ -461,6 +462,10 @@ console.log('citation scanner selftest\n')
       'export {}',
       '',
     ].join('\n'),
+    'scripts/fixture.sh': ['#!/bin/sh', '# The rule is `docs/target.md` § Alpha section.', 'exit 0', ''].join(
+      '\n',
+    ),
+    'templates/fixture.md.tmpl': ['# {{TITLE}}', 'Read `docs/target.md` § Beta first.', ''].join('\n'),
     'docs/retired/old.md': [
       '# Old',
       'It once cited docs/target.md:999, which this record keeps as written.',
@@ -511,10 +516,10 @@ console.log('citation scanner selftest\n')
   )
   const n = (i: number): number => Number(m?.[i] ?? Number.NaN)
   ok('the scan finds line citations to resolve -- exactly the three the tree holds', n(1) === 3, `${n(1)} found`)
-  ok('the scan finds section citations to resolve -- exactly the four the tree holds', n(2) === 4, `${n(2)} found`)
+  ok('the scan finds section citations to resolve -- exactly the six the tree holds', n(2) === 6, `${n(2)} found`)
   ok(
-    'the gate reads the tracked text files, five, and skips the extension it does not scan',
-    n(3) === 5,
+    'the gate reads the tracked text files, seven with the script and the template, and skips the extension it does not scan',
+    n(3) === 7,
     `${n(3)} files`,
   )
   ok('the dead citation inside a history directory is exempt, and counted', n(4) === 1, `${n(4)} files`)
@@ -575,6 +580,20 @@ console.log('citation scanner selftest\n')
       what: 'a section citation split by a line break, to a heading that is not there',
       doctor: edit('tools/code.ts', '// § Alpha section, after', '// § Gamma, after'),
       where: 'tools/code.ts:3',
+      reason: 'but no section of docs/target.md is named that',
+      problems: 1,
+    },
+    {
+      what: 'a section citation in a shell script, to a heading that is not there',
+      doctor: edit('scripts/fixture.sh', '§ Alpha section', '§ Gamma'),
+      where: 'scripts/fixture.sh:2',
+      reason: 'but no section of docs/target.md is named that',
+      problems: 1,
+    },
+    {
+      what: 'a section citation in a template, to a heading that is not there',
+      doctor: edit('templates/fixture.md.tmpl', '§ Beta', '§ Gamma'),
+      where: 'templates/fixture.md.tmpl:2',
       reason: 'but no section of docs/target.md is named that',
       problems: 1,
     },

@@ -45,7 +45,8 @@ in the same change among them, are `CLAUDE.md` § The script suffix contract.
 
 ## 4. Decide gating from what it reads, not from how much you trust it
 
-- **Reads only committed files** → it can be a `pre-push` job *and* a CI step.
+- **Reads only committed files** → it can be a `pre-push` job *and* a CI step, even when it talks
+  over loopback to a server it starts from them (`docs/decisions.md` § D-04).
 - **Reads `../sibling`** → it can be neither. CI does not clone that checkout, so a `--check`
   there would compare a real artifact against one with every source-derived signal zeroed. Say so
   in the header, and rely on

@@ -60,10 +60,18 @@ though the calculator's tests open short-lived loopback listeners of their own, 
 Two ports (`{{APP_PORT}}`, `{{SB_PORT}}`) are probed and reserved for this worktree at provisioning
 time, and recorded in `.worktree/ports.env`. The first, `APP_PORT`, is the calculator's port in this
 worktree. The server does not read that file, so pass it as `PORT`, and two worktrees serving at once
-do not collide:
+do not collide. In a POSIX shell:
 
-```bash
+```sh
 PORT={{APP_PORT}} npm run calculator:serve
+```
+
+In PowerShell, which cannot prefix a command with a variable, set it first; it stays set for the
+rest of that session:
+
+```powershell
+$env:PORT = '{{APP_PORT}}'
+npm run calculator:serve
 ```
 
 The second, `SB_PORT`, is unused. The calculator's tests (`npm run calculator:test`) need neither:
@@ -77,7 +85,7 @@ something this repository deliberately does not contain. Do not edit `package.js
 ## Finishing
 
 1. Run the test suite (`npm ci` first, if you have not already this session).
-2. `git fetch origin && git rebase origin/main`
+2. `git fetch origin`, then `git rebase origin/main`, each as its own command (Windows PowerShell has no `&&`).
 3. Run the suite again. A rebase that applies cleanly can still break the build — that is the failure this step exists to catch.
 4. Open the PR from `{{BRANCH}}` with the `open-pr` skill. It pushes the branch, ends the title with the ids of the issues it carries, passes the description from a file, marks the reviewer's status pending, and watches the checks. In the description, list: what changed; shared interfaces, schemas, or config files touched; flags added; and what you deliberately left undone.
 5. Stop. Do not merge, do not pick up follow-up work, do not open a second task.
