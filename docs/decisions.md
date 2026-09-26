@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-08 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08 added 2026-09-26).**
+**Status: every decision from D-01 to D-09 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08 and D-09 added 2026-09-26).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-08` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-09` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -64,12 +64,13 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-06** | The learning loop is retired; a run's labels in the tracker show what recurs | `tools/outcomes/` and `artifacts/outcomes/` deleted with their scripts and jobs; three label vocabularies in `tools/policy.json`; `CLAUDE.md` § The task store and § Product work runs as OpenSpec-format changes; `change-finalize`'s report and the prompt reviewer's analysis read the counts |
 | **D-07** | A reviewer merges each pull request that satisfies the issues it carries, one at a time | `.github/workflows/pr-review.yml`, the `pr-reviewer` agent and `scripts/pr-review.mjs`; the `prReview*` keys of `tools/policy.json`; `CLAUDE.md` § Git workflow; the `bead` and `change-finalize` skills; `verify.yml` dispatched after each merge |
 | **D-08** | A run leaves its analysis in the tracker, and one review reads every pending analysis as a batch | `CLAUDE.md` § Prompt reviews; the `continuous-prompt-improvement` agent and `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; the four `promptReview*` keys of `tools/policy.json`; `bead` § 8 |
+| **D-09** | An in-session guard refuses a `gh` command that applies the approval label, from any checkout | `scripts/hooks/guard-git.mjs`, held by `worktree:selftest`; the guard's rows in `.claude/README.md`, `scripts/hooks/README.md` and `README.md` |
 
 ## Risks
 
 | Id | Risk | Held by |
 |---|---|---|
-| **R-01** | Anything holding a maintainer's credentials, an agent included, can approve a high-risk pull request | `CLAUDE.md` § Git workflow and review; no guard yet (`asdlc-openspec-g1b`) |
+| **R-01** | Anything holding a maintainer's credentials, an agent included, can approve a high-risk pull request | `CLAUDE.md` § Git workflow and review; `scripts/hooks/guard-git.mjs` for a session's `gh` command (D-09); nothing for the web UI, curl, a browser tool or anything outside a session |
 
 ## The entries
 
@@ -422,6 +423,8 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 
 **Figures.** 45 pull requests, every one opened and merged by one account, as of 2026-09-25: `gh pr list --state all --limit 200 --json author,mergedBy`.
 
+> **Amended 2026-09-26 by D-09.** Item 8's rule is no longer all that holds the approval label: `scripts/hooks/guard-git.mjs` refuses a session's `gh` command that applies it, from any checkout. The rule stands, and still alone holds every other way of applying the label.
+
 ### D-08 · A run leaves its analysis in the tracker, and one review reads every pending analysis as a batch
 
 **Recorded 2026-09-26**, carried by `asdlc-openspec-lzr`. The maintainer chose the note, the two thresholds, the one review over every analysis and the workflow script, items 1 to 4, on 2026-09-25, when the issue was filed. On 2026-09-26, when it was worked, they chose what checks the thresholds, the script's name, and items 5 to 8, each from a recommendation put with the case where it loses.
@@ -466,6 +469,34 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 
 **Figures.** Eleven review pull requests opened between 2026-09-24T23:47Z (#28) and 2026-09-25T23:10Z (#53), the titles in that range that cite no issue: `gh pr list --state all --limit 100 --json number,title,createdAt`. `promptReviewDueCount` and `promptReviewDueAgeDays` are choices made from that pace, not measurements.
 
+### D-09 · An in-session guard refuses a gh command that applies the approval label, from any checkout
+
+**Recorded 2026-09-26**, carried by `asdlc-openspec-g1b`. The maintainer chose it on 2026-09-26 from the issue's two options, put to them as the recommendation with the case where it loses.
+
+**Builds on / amends:** amends R-01, whose risk said no guard refuses the label and whose record of what changed said nothing had; and D-07, whose item 8 said that rule was all that held it. Builds on D-03, whose policy file spells the label.
+
+**Decision.** `scripts/hooks/guard-git.mjs` refuses, in every session and from any checkout, the primary one included, a `gh` command that applies `prReviewLabels.approved`.
+
+1. **What it refuses:** `gh pr edit` or `gh issue edit` with `--add-label`, and `gh pr create` with `--label`, naming the label in any letter case, alone or in a list; and `gh api` writing an issue's labels, by `POST`, `PUT` or `PATCH` to `repos/<owner>/<repo>/issues/<n>` or its `/labels`, with a `labels` field that names it.
+2. **What it cannot read, it refuses:** a `gh api` label write whose body is a file (`--input`, or a `-F labels…=@file` field), and any label at all while `tools/policy.json` cannot be read.
+3. **It reads the spelling from `tools/policy.json`**, and only when a command applies a label, so a rename there moves the guard with it.
+4. **The agents keep the maintainer's credentials**, and the reviewer's check of who applied the label is unchanged.
+
+**Why.** R-01 left the label held by one sentence of `CLAUDE.md`. Two alternatives lost:
+
+- **Agents under an identity of their own**, a bot account or a GitHub App, whose label the reviewer refuses. It holds wherever the label is applied, and the guard does not. Where the guard loses: an agent that applies the label through curl or a browser tool passes it, and the reviewer merges a high-risk pull request no person looked at; under a bot identity, the reviewer would refuse the bot's label. The repository has no such identity yet (R-01).
+- **The label rule in a linked worktree only**, as the guard's merge rule is. The hook runs only on a session's Bash calls, so it never stands between a person and the label, and a session in the primary checkout is as much an agent as one in a worktree.
+
+**What changed.**
+
+- **This register:** this entry; the status line, the blockquote's bound and the decisions table carry D-09; D-07 and R-01 carry an amendment each, and the risks table a new cell for R-01.
+- **`scripts/hooks/guard-git.mjs`:** the label rule and its header paragraph, and `GUARD_GIT_ROOT`, which points it at a doctored policy. Its `gh` parser now reads past flags, which also stops `gh --repo <repo> pr create` with no `--base` from passing the base rule, and reads `gh pr new` as the `create` it aliases; and a brace inside a word no longer splits a statement, which hid the endpoint of `gh api repos/{owner}/{repo}/…`.
+- **`scripts/hooks/worktree-hooks.selftest.mjs`:** a section asserting each refusal by its reason, beside controls, from the primary checkout and from a worktree.
+- **`lefthook.yml`:** `tools/policy.json` in the `worktree-hooks` job's glob.
+- **`.claude/README.md`, `scripts/hooks/README.md` and `README.md`:** the guard's rows, which said it acted only in a linked worktree, and a row for the label in `README.md` § The guardrails.
+
+**Figures.** None.
+
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
 **Recorded 2026-09-25**, carried by `asdlc-openspec-mi6`.
@@ -479,3 +510,5 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 **What changed.** Nothing yet, beyond the rule in `CLAUDE.md` § Git workflow.
 
 **Figures.** None.
+
+> **Amended 2026-09-26 by D-09.** A guard now refuses one: `scripts/hooks/guard-git.mjs` refuses, from any checkout, a session's `gh` command that applies the approval label, where the Risk and What changed above say nothing did. It reads only the command line of a session's Bash call, so the risk stands for a label applied through the web UI, curl, a browser tool, a GraphQL mutation (which names a label by its id), a program the command starts, or anything outside a session.

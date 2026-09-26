@@ -31,7 +31,7 @@ no git rule in any entered worktree until `asdlc-openspec-bvf`.
 
 | Event | Script | Blocks? | What it does |
 |---|---|---|---|
-| `PreToolUse` on Bash | `guard-git.mjs` | yes, in a linked worktree | Tokenises the command; refuses pushes, checkouts, branch writes and merges against the protected branches, and `git worktree`, `gc` and `prune`, from a worktree. A no-op in the primary checkout. Fails closed when it cannot read its input. |
+| `PreToolUse` on Bash | `guard-git.mjs` | yes; its git rules in a linked worktree only | Tokenises the command; refuses pushes, checkouts, branch writes and merges against the protected branches, and `git worktree`, `gc` and `prune`, from a worktree. From any checkout, refuses a `gh pr create` that does not name `main` as its base, and a `gh` command that applies the reviewer's approval label (`docs/decisions.md` § R-01). Fails closed in a worktree when it cannot read its input. |
 | `PreToolUse` on Write and Edit | `block-generated-edit.mjs` | yes | Refuses an edit to generated output and names where the change belongs. |
 | `PostToolUse` on Write and Edit | `check-emitted-drift.mjs` | never | Re-runs the `:check` twin of any emitter whose input was just edited. |
 | `Stop` and `SubagentStop` | `gate-summary.mjs` | never | Runs the fastest gates concurrently over the checkout the stopping agent worked in, untracked files included, and prints one verdict line into the transcript; a subagent's verdict says it is one. It never denies the stop: a hook people disable is a lie in version control. |
