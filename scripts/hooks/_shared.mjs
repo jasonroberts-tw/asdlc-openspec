@@ -1,8 +1,10 @@
 /**
  * Shared helpers for the Claude Code hooks in this directory.
  *
- * These hooks run on EVERY matching tool call, so the budget is a few hundred milliseconds. Nothing
- * here starts a TypeScript process, reads a large document or shells out. `node` plus `fs` only.
+ * These hooks run on EVERY matching tool call, so the budget is a few hundred milliseconds. This file
+ * imports Node's built-in `fs`, `path`, `url` and `child_process` and nothing else, and it reads no
+ * file and starts no process when it is loaded. Two helpers start a process, and only when called:
+ * `npmRun` runs an npm script, and `checkoutOf` runs git. A hook that calls neither starts none.
  *
  * Why this tier exists: most of the work in this
  * repository is done by an agent, and a gate that fires after the agent has spent twenty minutes
@@ -216,7 +218,8 @@ function gitPath(dir, flag) {
 /**
  * The top of the checkout `cwd` is in, when that checkout is `ownRoot`'s repository (the primary
  * checkout or a linked worktree, which share one git directory), and `ownRoot` otherwise: no `cwd`,
- * a `cwd` outside any checkout, or one in another repository. Two or three git calls.
+ * a `cwd` outside any checkout, or one in another repository. One git call with no `cwd`, two when
+ * `cwd` is outside any checkout, and four when it is inside one.
  */
 export function checkoutOf(cwd, ownRoot = ROOT) {
   const own = gitPath(ownRoot, '--show-toplevel') ?? ownRoot
