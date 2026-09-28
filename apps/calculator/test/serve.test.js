@@ -4,11 +4,14 @@
  * prints, what it answers and how it exits. The scenario on the listening address also calls the
  * command's own listen function in-process, to read the address the server reports.
  *
- * Each `describe` is a requirement's name and each `test` a scenario's title, its header after its
- * ID, both verbatim from capability `calculator-local-server`'s spec, so a scenario traces to its
- * test by exact string. A scenario's expected values are literals copied from the spec. The last
- * `describe` is named so that it cannot be taken for a requirement: its tests hold what the
- * change's design says of the command beyond the scenarios.
+ * Each `describe` is a requirement's name, verbatim from capability `calculator-local-server`'s
+ * spec. Each test is named `[<ID>] <title>` for the scenario it proves, its title verbatim too, and
+ * carries a `// trace:` line with its role and the version of the scenario it was written against:
+ * the convention is the header of `scripts/test-trace.mjs`. A scenario's expected values are
+ * literals copied from the spec. The last `describe` is named so that it cannot be taken for a
+ * requirement: its tests hold what the change's design says of the command beyond the scenarios,
+ * and each names the task it served, asdlc-openspec-zgh.4, and the version of the app's Binding
+ * Surface it was written against.
  *
  * The npm script is proved in two parts, as the design has it: an assertion that `package.json` runs
  * exactly `node apps/calculator/serve.js`, and the spawned file. Spawning `npm` itself would add a
@@ -35,6 +38,8 @@ import { fileURLToPath } from 'node:url'
 import { JSDOM } from 'jsdom'
 import { listenOnLoopback, listenRefusal, parsePort } from '../serve.js'
 import { createCalculatorServer } from '../server.js'
+
+// trace-defaults: layer=integration level=1
 
 const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url))
 const SERVE = fileURLToPath(new URL('../serve.js', import.meta.url))
@@ -336,7 +341,8 @@ async function assertStopsOn(t, signal) {
 }
 
 describe('One npm script starts the calculator', () => {
-  test('The script serves the page', { timeout: TEST_BOUND_MS }, async (t) => {
+  // trace: CLS-001:happy@0d346f021d93
+  test('[CLS-001] The script serves the page', { timeout: TEST_BOUND_MS }, async (t) => {
     assert.equal(SCRIPTS['calculator:serve'], 'node apps/calculator/serve.js')
     const port = await freePort()
     const url = await printedUrl(serve(t, port))
@@ -352,7 +358,8 @@ describe('One npm script starts the calculator', () => {
 })
 
 describe('The server listens on the loopback interface only', () => {
-  test('The listener is loopback-only', { timeout: TEST_BOUND_MS }, async (t) => {
+  // trace: CLS-002:happy@9f3426afadf1
+  test('[CLS-002] The listener is loopback-only', { timeout: TEST_BOUND_MS }, async (t) => {
     // In-process: the command's own listen function, and the address the server reports.
     const server = createCalculatorServer(PUBLIC_DIR)
     t.after(() => release(server))
@@ -384,7 +391,8 @@ describe('The server listens on the loopback interface only', () => {
 })
 
 describe('The port is configurable', () => {
-  test('PORT chooses the port', { timeout: TEST_BOUND_MS }, async (t) => {
+  // trace: CLS-003:happy@bbf90d26abe5
+  test('[CLS-003] PORT chooses the port', { timeout: TEST_BOUND_MS }, async (t) => {
     const port = (await isFree(26680)) ? 26680 : await freePort()
     if (port !== 26680) {
       t.diagnostic(`port 26680, the spec's example, is in use here, so port ${port} stands in`)
@@ -396,7 +404,8 @@ describe('The port is configurable', () => {
     assert.equal(answer.body, PAGE_TEXT)
   })
 
-  test('The default port', { timeout: TEST_BOUND_MS }, async (t) => {
+  // trace: CLS-004:happy@b9a69111b482
+  test('[CLS-004] The default port', { timeout: TEST_BOUND_MS }, async (t) => {
     const first = await firstLine(serve(t, undefined))
     if (first.line !== undefined) {
       assert.equal(urlOn(first.line), 'http://127.0.0.1:8080/')
@@ -407,26 +416,30 @@ describe('The port is configurable', () => {
     assertRefused(first.exit, '8080')
   })
 
-  test('A port already in use is refused', { timeout: TEST_BOUND_MS }, async (t) => {
+  // trace: CLS-005:happy@2d05ee941fa0
+  test('[CLS-005] A port already in use is refused', { timeout: TEST_BOUND_MS }, async (t) => {
     const holder = await bind(0)
     t.after(() => release(holder))
     const { port } = holder.address()
     assertRefused(await exitWithin(serve(t, port), START_BOUND_MS), String(port))
   })
 
-  test('An invalid PORT is refused', { timeout: TEST_BOUND_MS }, async (t) => {
+  // trace: CLS-006:happy@83db3f8de872
+  test('[CLS-006] An invalid PORT is refused', { timeout: TEST_BOUND_MS }, async (t) => {
     assertRefused(await exitWithin(serve(t, 'abc'), START_BOUND_MS), 'abc')
   })
 })
 
 describe('An interrupt stops the server cleanly', () => {
-  test('Ctrl-C stops the server', { skip: SIGNAL_SKIP, timeout: TEST_BOUND_MS }, async (t) => {
+  // trace: CLS-013:happy@f6d0d59a72f4
+  test('[CLS-013] Ctrl-C stops the server', { skip: SIGNAL_SKIP, timeout: TEST_BOUND_MS }, async (t) => {
     await assertStopsOn(t, 'SIGINT')
   })
 })
 
 describe('The command (not a spec scenario)', () => {
-  test('PORT is read as a whole number from 1 to 65535, and unset means 8080', () => {
+  // trace: asdlc-openspec-zgh.4 surface:apps/calculator/binding-surface.md@e52392e73c00
+  test('[asdlc-openspec-zgh.4] PORT is read as a whole number from 1 to 65535, and unset means 8080', () => {
     assert.equal(parsePort(undefined), 8080)
     const valid = [
       ['1', 1],
@@ -466,7 +479,8 @@ describe('The command (not a spec scenario)', () => {
     }
   })
 
-  test('A listen error other than a port in use is refused in one line naming its code', () => {
+  // trace: asdlc-openspec-zgh.4 surface:apps/calculator/binding-surface.md@e52392e73c00
+  test('[asdlc-openspec-zgh.4] A listen error other than a port in use is refused in one line naming its code', () => {
     const denied = Object.assign(new Error('listen EACCES: permission denied 127.0.0.1:80'), {
       code: 'EACCES',
     })
@@ -477,16 +491,18 @@ describe('The command (not a spec scenario)', () => {
     assert.match(listenRefusal({ code: 'EADDRINUSE' }, 8080), /\b8080\b/)
   })
 
+  // trace: asdlc-openspec-zgh.4 surface:apps/calculator/binding-surface.md@e52392e73c00
   test(
-    'SIGTERM stops the server as Ctrl-C does',
+    '[asdlc-openspec-zgh.4] SIGTERM stops the server as Ctrl-C does',
     { skip: SIGNAL_SKIP, timeout: TEST_BOUND_MS },
     async (t) => {
       await assertStopsOn(t, 'SIGTERM')
     },
   )
 
+  // trace: asdlc-openspec-zgh.4 surface:apps/calculator/binding-surface.md@e52392e73c00
   test(
-    'The page is found from the file, not from the working directory',
+    '[asdlc-openspec-zgh.4] The page is found from the file, not from the working directory',
     { timeout: TEST_BOUND_MS },
     async (t) => {
       const url = await printedUrl(serve(t, await freePort(), { cwd: tmpdir() }))

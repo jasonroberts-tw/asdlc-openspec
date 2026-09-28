@@ -2,13 +2,16 @@
  * The local server's request scenarios, run in-process: `createCalculatorServer` over the committed
  * `public/` directory, listening on a free port of `127.0.0.1`, and asked over HTTP.
  *
- * Each `describe` is a requirement's name and each `test` a scenario's title, its header after its
- * ID, both verbatim from capability `calculator-local-server`'s spec, so a scenario traces to its
- * test by exact string. A scenario's expected values are literals copied from the spec. The last
- * `describe` is named so that it cannot be taken for a requirement: its tests hold what the
- * change's design says about every response the server writes, and the methods other than POST
- * that the spec refuses, none of which has a scenario of its own. Node's own answers to protocol
- * errors, which the design accepts without the policy, are not tested here.
+ * Each `describe` is a requirement's name, verbatim from capability `calculator-local-server`'s
+ * spec. Each test is named `[<ID>] <title>` for the scenario it proves, its title verbatim too, and
+ * carries a `// trace:` line with its role and the version of the scenario it was written against:
+ * the convention is the header of `scripts/test-trace.mjs`. A scenario's expected values are
+ * literals copied from the spec. The last `describe` is named so that it cannot be taken for a
+ * requirement: its tests hold what the change's design says about every response the server
+ * writes, and the methods other than POST that the spec refuses, none of which has a scenario of its
+ * own. Each names the task it served, asdlc-openspec-zgh.3, or asdlc-openspec-zgh.9 for the 500,
+ * and the version of the app's Binding Surface it was written against. Node's own answers to
+ * protocol errors, which the design accepts without the policy, are not tested here.
  *
  * Every request goes through `http.request` with an explicit `path`, which Node's client sends as
  * written. `fetch`, like a browser, would resolve `/../package.json` to `/package.json` before
@@ -36,6 +39,8 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { JSDOM } from 'jsdom'
 import { createCalculatorServer } from '../server.js'
+
+// trace-defaults: layer=integration level=1
 
 const PUBLIC_DIR = fileURLToPath(new URL('../public/', import.meta.url))
 
@@ -238,7 +243,8 @@ after(async () => {
 })
 
 describe("The server serves only the calculator's own files", () => {
-  test('The page and its files carry their content types', async () => {
+  // trace: CLS-007:happy@f59d7d277705
+  test('[CLS-007] The page and its files carry their content types', async () => {
     const walk = await walkPage(calculator.port)
     assert.equal(walk.page.status, 200)
     assert.equal(walk.page.headers['content-type'], HTML)
@@ -255,12 +261,14 @@ describe("The server serves only the calculator's own files", () => {
     }
   })
 
-  test('An unknown path is not found', async () => {
+  // trace: CLS-008:happy@f44633289417
+  test('[CLS-008] An unknown path is not found', async () => {
     const answer = await ask(calculator.port, '/no-such-file')
     assert.equal(answer.status, 404)
   })
 
-  test('A path outside the calculator is not served', async () => {
+  // trace: CLS-009:happy@d55f0930348b
+  test('[CLS-009] A path outside the calculator is not served', async () => {
     // The spec's two paths, and then each climbed as far as the repository root. From `public/`,
     // `/../package.json` names `apps/calculator/package.json`, which does not exist, so a server
     // that resolved paths under its root would answer 404 to it and still serve the root's file to
@@ -284,20 +292,23 @@ describe("The server serves only the calculator's own files", () => {
     }
   })
 
-  test('A method other than GET is refused', async () => {
+  // trace: CLS-010:happy@6b80ea1aff0c
+  test('[CLS-010] A method other than GET is refused', async () => {
     const answer = await ask(calculator.port, '/', 'POST')
     assert.equal(answer.status, 405)
   })
 })
 
 describe('The page needs no other origin', () => {
-  test('The page forbids other origins', async () => {
+  // trace: CLS-011:happy@142ddf9d2959
+  test('[CLS-011] The page forbids other origins', async () => {
     const answer = await ask(calculator.port, '/')
     assert.equal(answer.status, 200)
     assert.equal(answer.headers['content-security-policy'], POLICY)
   })
 
-  test('Everything the page references is served locally', async () => {
+  // trace: CLS-012:happy@bb04f4c715ca
+  test('[CLS-012] Everything the page references is served locally', async () => {
     const walk = await walkPage(calculator.port)
     for (const reference of walk.references) {
       const named = `${reference.from} ${reference.kind} ${reference.specifier}`
@@ -309,7 +320,8 @@ describe('The page needs no other origin', () => {
 })
 
 describe('Every response (not a spec scenario)', () => {
-  test('The page, a miss and a refused method carry the policy, a type and a length', async () => {
+  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@e52392e73c00
+  test('[asdlc-openspec-zgh.3] The page, a miss and a refused method carry the policy, a type and a length', async () => {
     const answers = {
       200: await ask(calculator.port, '/'),
       404: await ask(calculator.port, '/no-such-file'),
@@ -326,7 +338,8 @@ describe('Every response (not a spec scenario)', () => {
     assert.equal(answers[405].headers.allow, 'GET')
   })
 
-  test('Every method but GET is refused, HEAD among them', async () => {
+  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@e52392e73c00
+  test('[asdlc-openspec-zgh.3] Every method but GET is refused, HEAD among them', async () => {
     for (const method of ['HEAD', 'PUT', 'DELETE', 'OPTIONS']) {
       const answer = await ask(calculator.port, '/', method)
       assert.equal(answer.status, 405, method)
@@ -334,7 +347,8 @@ describe('Every response (not a spec scenario)', () => {
     }
   })
 
-  test('CONNECT is refused too, though Node hands it past the request handler', async () => {
+  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@e52392e73c00
+  test('[asdlc-openspec-zgh.3] CONNECT is refused too, though Node hands it past the request handler', async () => {
     const answer = await askRaw(
       calculator.port,
       'CONNECT 127.0.0.1:1 HTTP/1.1\r\nHost: 127.0.0.1:1\r\n\r\n',
@@ -348,7 +362,8 @@ describe('Every response (not a spec scenario)', () => {
     assert.equal(answer.body, (await ask(calculator.port, '/', 'POST')).body)
   })
 
-  test('A CONNECT client that keeps its side open cannot keep a stopped server open', async (t) => {
+  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@e52392e73c00
+  test('[asdlc-openspec-zgh.3] A CONNECT client that keeps its side open cannot keep a stopped server open', async (t) => {
     const local = await startServer(PUBLIC_DIR)
     // Once answered, this client never closes its own side, so only the server can end the
     // connection. The other clients here close theirs on the server's FIN, which hides a server
@@ -378,7 +393,8 @@ describe('Every response (not a spec scenario)', () => {
     assert.equal(stopped, true, `still open ${STOP_BOUND_MS} ms after it was stopped`)
   })
 
-  test('A query is ignored and the path is matched exactly', async () => {
+  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@e52392e73c00
+  test('[asdlc-openspec-zgh.3] A query is ignored and the path is matched exactly', async () => {
     const page = await ask(calculator.port, '/')
     const byName = await ask(calculator.port, '/index.html')
     const withQuery = await ask(calculator.port, '/style.css?v=2')
@@ -401,7 +417,8 @@ describe('Every response (not a spec scenario)', () => {
     }
   })
 
-  test('Only the listing taken at creation is served; a vanished file is not found', async (t) => {
+  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@e52392e73c00
+  test('[asdlc-openspec-zgh.3] Only the listing taken at creation is served; a vanished file is not found', async (t) => {
     const dir = scratchDir(t)
     writeFileSync(join(dir, 'index.html'), '<!doctype html><title>t</title>\n')
     writeFileSync(join(dir, 'gone.js'), 'export {}\n')
@@ -421,7 +438,8 @@ describe('Every response (not a spec scenario)', () => {
     }
   })
 
-  test('A file replaced by a directory, or its directory by a file, is not found', async (t) => {
+  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@e52392e73c00
+  test('[asdlc-openspec-zgh.3] A file replaced by a directory, or its directory by a file, is not found', async (t) => {
     const dir = scratchDir(t)
     writeFileSync(join(dir, 'index.html'), '<!doctype html><title>t</title>\n')
     writeFileSync(join(dir, 'style.css'), 'p {}\n')
@@ -442,7 +460,8 @@ describe('Every response (not a spec scenario)', () => {
     }
   })
 
-  test('A symbolic link is not followed', async (t) => {
+  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@e52392e73c00
+  test('[asdlc-openspec-zgh.3] A symbolic link is not followed', async (t) => {
     const dir = scratchDir(t)
     const outside = scratchDir(t)
     writeFileSync(join(dir, 'index.html'), '<!doctype html><title>t</title>\n')
@@ -460,7 +479,8 @@ describe('Every response (not a spec scenario)', () => {
     assert.equal((await ask(local.port, '/linked.js')).status, 404)
   })
 
-  test('A file that is there and cannot be read is a 500, with the policy, a type and a length', async (t) => {
+  // trace: asdlc-openspec-zgh.9 surface:apps/calculator/binding-surface.md@e52392e73c00
+  test('[asdlc-openspec-zgh.9] A file that is there and cannot be read is a 500, with the policy, a type and a length', async (t) => {
     const dir = scratchDir(t)
     writeFileSync(join(dir, 'index.html'), '<!doctype html><title>t</title>\n')
     writeFileSync(join(dir, 'locked.css'), 'p {}\n')

@@ -14,7 +14,8 @@
  * rewritten under the same title left its old test standing as its proof. And a reader that misses a
  * test returns a smaller answer and says nothing: the trace gate would count a scenario unproved by
  * a test it never saw. So `scripts/run-tests.mjs` compares, file by file, the tests this reader
- * finds with the tests Node's runner reports, by line and name, and refuses either difference.
+ * finds with the tests Node's runner reports, by the line of the call and the name, and refuses
+ * either difference.
  *
  * THE NAME. A test's name is one string literal, the first argument of a call that opens its line
  * (`test(`, `it(`, or either with `.skip`, `.todo` or `.only`), written on that line or alone on the
@@ -22,8 +23,9 @@
  * its title. An ID is a scenario's (`CALC-003`), an NFR requirement's (`NFR-CALC-001`) or a tracker
  * task's (`asdlc-openspec-zgh.4`, the shape `prReviewIssuePattern` in `tools/policy.json` holds). A
  * happy-path test's title is its scenario's title, as its header has it after the ID. A name is
- * unique in its file. A test registered in a loop, by a helper or inside another test's body is not
- * read, and the runner's cross-check refuses it: write each as a literal call.
+ * unique in its file. A test registered in a loop, by a helper, under a condition or inside another
+ * test's body is refused, by this reader or by the runner's cross-check: write each as a literal call,
+ * and skip one with the `skip` option and its reason rather than an `if`.
  *
  * THE TRACE LINE. Directly above that line, one or more consecutive lines `// trace: <token> ...`,
  * read as one, whose tokens are separated by spaces, and whose reasons are in double quotes:
@@ -37,7 +39,7 @@
  *                                    (its operationId) the test covers
  *   layer=<layer>                    its layer, where the file's default does not hold
  *   level=<n> ["<reason>"]           its orchestration level, 1 to 3, with the reason when it is above
- *                                    its layer's default
+ *                                    its layer's default, and only then
  *   no-negative:<SCENARIO> "<reason>"  on a happy-path test: that scenario's negative test is not
  *                                    applicable, and why (D-13, item 10)
  *
@@ -47,8 +49,8 @@
  * The layers and each one's default level are `testTraceLayers` in `tools/policy.json`; mutation is
  * not a layer, and a mutation run references the suite it targets (the strategy's rule 7). A line
  * `// trace-defaults: layer=<layer> level=<n> ["<reason>"]`, at most one, above a file's first test,
- * gives the layer and level of every test that does not state its own; with no level anywhere, a
- * test takes its layer's default, and a layer with none (fitness) must state one.
+ * gives the layer and level of every test that does not state its own: a test's level is its own,
+ * else the file's, else its layer's default, and a layer with none (fitness) must be given one.
  *
  *   // trace-defaults: layer=functional level=1
  *   // trace: CALC-003:happy@<hash>
@@ -57,21 +59,25 @@
  *   test('[asdlc-openspec-zgh.4] SIGTERM stops the server as Ctrl-C does', ...)
  *
  * THE HASH of an artifact is the first `testTraceHashLength` characters (`tools/policy.json`) of the
- * lowercase hex sha256 of its text, as UTF-8. `node scripts/test-trace.mjs hash <ref>` prints it.
+ * lowercase hex sha256 of its text, as UTF-8. `node scripts/test-trace.mjs cite <ref>` prints it.
  *
- *   - A scenario: its requirement's statement, from the requirement's header line up to the next
- *     header, then the scenario's block, from its header line up to the next header of its level or
- *     above; each normalised, the two joined by a line feed. The requirement is the nearest header
- *     above the scenario of a lower level, and must be headed `Requirement:`.
+ *   - A scenario: its requirement's statement, the requirement's lines below its header up to the
+ *     next header, then the scenario's block, from its header line up to the next header of its level
+ *     or above; each normalised, the two joined by a line feed. The requirement is the nearest header
+ *     above the scenario of a lower level, and must be headed `Requirement:`. Its header is left out:
+ *     a change that only renames a requirement moves no scenario's hash, before or after its archive,
+ *     since a requirement that is not an NFR carries no ID and its name is not what a test proves.
  *   - An NFR requirement: its whole block, from its header line up to the next header of its level
- *     or above, its scenarios included; normalised.
+ *     or above, its scenarios included; normalised. Its header carries its ID, and a new title takes
+ *     a new ID (the header of scripts/check-openspec.mjs).
  *   - A file (a Binding Surface or a contract): its whole text, with CR LF and a lone CR read as LF.
  *
  * Normalised: CR LF and a lone CR read as LF, trailing spaces and tabs stripped from each line, the
- * lines then empty dropped, and the rest joined by a line feed. The pinned OpenSpec 1.6.0's archive
- * moves blank lines: measured on 2026-09-28, an ADDED scenario's raw hash changed across the archive
- * of its change and its normalised hash did not, as it did not for a MODIFIED one. A header inside
- * fenced code is not a header, by OpenSpec 1.6.0's fence rule (`requirement-text.js`, which
+ * lines then empty dropped, and the rest joined by a line feed, so that an archive by the pinned
+ * OpenSpec 1.6.0, which rewrites the blank lines around the blocks it merges (measured 2026-09-28: it
+ * drops the blank lines that end a block and joins two requirements with one), moves no hash; the
+ * selftest archives a fixture change with that CLI and asserts it. A header inside fenced code is not
+ * a header, by OpenSpec 1.6.0's fence rule (`requirement-text.js`, which
  * `scripts/check-openspec.mjs` follows too). The block is read from an active change's delta spec
  * when an ADDED or MODIFIED section of one heads it, and from the living spec otherwise; an ID that
  * two active deltas head, or none of the files, is refused. A scenario's hash changes with any change
@@ -80,24 +86,29 @@
  *
  * WHAT IT DOES NOT CHECK, each the trace gate's (asdlc-openspec-j09.7): whether an ID heads a
  * scenario or an NFR requirement that exists, whether a hash is current, and whether a scenario has
- * its happy-path and its negative test. Nor whether a test's layer is the right one, which review
- * holds. The runner's cross-check holds only that the tests it reports are the tests read here.
+ * its happy-path and its negative test. Nor whether a test's layer is the right one, or whether a
+ * happy-path test's title is its scenario's, which review holds. The runner's cross-check holds only
+ * that the tests it reports are the tests read here.
  *
  * INVOCATION.
  *
- *   node scripts/test-trace.mjs hash <ref> [...]   print each ref with its current hash: an ID
- *                                                  (`CALC-003`, `CALC-003:happy`, `NFR-CALC-001`),
- *                                                  `surface:<path>`, `contract:<path>#<operation>`
+ *   node scripts/test-trace.mjs cite <ref> [...]   print each ref with its current hash, as a trace
+ *                                                  line cites it: an ID (`CALC-003`,
+ *                                                  `CALC-003:happy`, `NFR-CALC-001`),
+ *                                                  `surface:<path>` or `contract:<path>#<operation>`
  *   npm run tests:trace:selftest                   its fixtures, each refusal on a doctored copy
  *
- * By hand, point `TEST_TRACE_ROOT` at a doctored copy and `hash` reads the specs and the policy
- * there instead: `TEST_TRACE_ROOT=/tmp/doctored node scripts/test-trace.mjs hash CALC-003`.
+ * The verb is not `hash`: on 2026-09-28 the harness of a session isolated in a worktree refused
+ * `node scripts/test-trace.mjs hash <ref>` as running a string through the shell's `hash` builtin.
+ * By hand, point `TEST_TRACE_ROOT` at a doctored copy and `cite` reads the specs and the policy there
+ * instead: `TEST_TRACE_ROOT=/tmp/doctored node scripts/test-trace.mjs cite CALC-003`.
  *
  * NEEDS `tools/policy.json` (`testTraceHashLength`, `testTraceLayers`, `prReviewIssuePattern`) and,
  * for a hash, the specs under `openspec/` and the file a ref names. The selftest also runs the
  * pinned OpenSpec CLI once, to archive a fixture change (`npm ci`). Reads only committed files; no
- * network. Reading the four calculator test files takes under a millisecond, so it adds nothing
- * measurable to `calculator:test`.
+ * network. Reading the calculator's four test files through it, the policy included, took 3.4 ms on
+ * a macOS laptop with Node 26.8.1 on 2026-09-28, nothing beside the runner's own cost; the
+ * selftest's cost is on its job in `lefthook.yml`.
  */
 import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
@@ -105,9 +116,11 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isDeepStrictEqual } from 'node:util'
 import { findBin } from './lib/bin-path.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const SELF = fileURLToPath(import.meta.url)
 
 export const POLICY_FILE = 'tools/policy.json'
 const HASH_LENGTH_KEY = 'testTraceHashLength'
@@ -144,7 +157,7 @@ export function readTracePolicy(root) {
   return tracePolicy(policy)
 }
 
-/** The same constants, from a policy already parsed. */
+/** The same constants, from a policy already parsed: `{ hashLength, layers, task }`. */
 export function tracePolicy(policy) {
   const hashLength = policy[HASH_LENGTH_KEY]
   if (!Number.isInteger(hashLength) || hashLength < 1 || hashLength > 64) {
@@ -244,6 +257,8 @@ export function readTests(text, policy, file = '<source>') {
           ' `[<ID>, <ID>] <title>`, each ID a scenario\'s, an NFR requirement\'s or a tracker task\'s.',
       )
     }
+    const twice = nameIds.filter((id, n) => nameIds.indexOf(id) !== n)
+    if (twice.length > 0) problem(index, `"${name}" names ${twice.join(', ')} twice; name each ID once.`)
     test.ids = nameIds
 
     if (first === index) {
@@ -363,10 +378,15 @@ function parseTrace(words, test, policy, problem) {
     if (hash !== null && hashOk(hash, policy)) return true
     problem(
       `\`${shown}\` does not end in \`@\` and a hash of ${policy.hashLength} lowercase hex characters;` +
-        ` \`node scripts/test-trace.mjs hash\` prints it.`,
+        ` \`node scripts/test-trace.mjs cite\` prints it.`,
     )
     return false
   }
+  const notAToken = (word) =>
+    problem(
+      `\`${word}\` is not a token of a \`// trace:\` line: a scenario, NFR or task reference, \`surface:\`,` +
+        ' `contract:`, `layer=`, `level=` or `no-negative:` (the header of scripts/test-trace.mjs).',
+    )
   for (let n = 0; n < list.length; n++) {
     const { word, reason } = list[n]
     if (word === undefined) {
@@ -384,26 +404,25 @@ function parseTrace(words, test, policy, problem) {
       const why = list[n + 1]?.reason
       if (why === undefined || why === '') {
         problem(`\`${word}\` gives no reason; follow it with the reason in double quotes.`)
-      } else {
-        n++
       }
+      if (why !== undefined) n++
       if (once(word, word)) test.noNegative.push({ id, reason: why ?? '' })
     } else if (word.startsWith('surface:')) {
       const [path, hash] = withHash(word.slice('surface:'.length))
       if (!SURFACE_PATH.test(path)) problem(`\`${word}\` does not name an app's Binding Surface, \`apps/<app>/binding-surface.md\`.`)
-      if (needHash(word, hash) && once(`surface:${path}`, word)) test.refs.push({ kind: 'surface', path, hash })
+      else if (needHash(word, hash) && once(`surface:${path}`, word)) test.refs.push({ kind: 'surface', path, hash })
     } else if (word.startsWith('contract:')) {
       const [target, hash] = withHash(word.slice('contract:'.length))
-      const [path, operation] = target.split('#')
-      if (!CONTRACT_PATH.test(path) || operation === undefined || !OPERATION.test(operation)) {
+      const [path, operation, ...more] = target.split('#')
+      if (!CONTRACT_PATH.test(path) || path.split('/').includes('..') || operation === undefined || !OPERATION.test(operation) || more.length > 0) {
         problem(`\`${word}\` is not \`contract:apps/<app>/contracts/<file>#<operationId>@<hash>\`.`)
       } else if (needHash(word, hash) && once(`contract:${target}`, word)) {
         test.refs.push({ kind: 'contract', path, operation, hash })
       }
     } else {
       const [head, hash] = withHash(word)
-      const [id, role] = head.split(':')
-      if (SCENARIO_ID.test(id)) {
+      const [id, role, ...more] = head.split(':')
+      if (SCENARIO_ID.test(id) && more.length === 0) {
         if (role !== 'happy' && role !== 'negative') {
           problem(`\`${word}\` names a scenario without its role: write \`${id}:happy@<hash>\` or \`${id}:negative@<hash>\`.`)
         } else if (needHash(word, hash) && once(id, id)) {
@@ -414,10 +433,7 @@ function parseTrace(words, test, policy, problem) {
       } else if (policy.task.test(word)) {
         if (once(word, word)) test.refs.push({ kind: 'task', id: word })
       } else {
-        problem(
-          `\`${word}\` is not a token of a \`// trace:\` line: a scenario, NFR or task reference, \`surface:\`,` +
-            ' `contract:`, `layer=`, `level=` or `no-negative:` (the header of scripts/test-trace.mjs).',
-        )
+        notAToken(word)
       }
     }
   }
@@ -521,7 +537,7 @@ function specBlocks(source, delta) {
         return
       }
       const r = heads.indexOf(above)
-      const statement = lines.slice(above.index, heads[r + 1].index)
+      const statement = lines.slice(above.index + 1, heads[r + 1].index)
       blocks.push({
         id: scenario[1],
         line: head.index + 1,
@@ -590,7 +606,7 @@ export function hashRef(root, ref, policy, index = specIndex(root)) {
 
 /* --------------------------------------------------------------------------------- the CLI ------ */
 
-function hashCommand(refs) {
+function citeCommand(refs) {
   const root = process.env.TEST_TRACE_ROOT ? resolve(process.env.TEST_TRACE_ROOT) : REPO_ROOT
   if (refs.length === 0) {
     console.error('test-trace: name what to hash: an ID, `surface:<path>` or `contract:<path>#<operation>`.')
@@ -693,13 +709,13 @@ const TREE = {
 /** The normalised texts the definition above says each hash reads, written out by hand. */
 const EXPECTED = {
   'GRT-001':
-    '### Requirement: Greeting is polite\nThe system SHALL greet every reader politely.\n' +
+    'The system SHALL greet every reader politely.\n' +
     '#### Scenario: [GRT-001] A reader arrives\n- **WHEN** a reader arrives\n- **THEN** the system greets them politely',
   'NFR-GRT-001':
     '### Requirement: [NFR-GRT-001] Greeting is prompt\nThe system SHALL greet a reader within one second.\n' +
     '#### Scenario: [GRT-003] A greeting is timed\n- **WHEN** a reader arrives\n- **THEN** the greeting shows within one second',
   'GRT-004':
-    '### Requirement: Farewell is polite\nThe system SHALL bid every departing reader farewell.\n' +
+    'The system SHALL bid every departing reader farewell.\n' +
     '#### Scenario: [GRT-004] A reader leaves\n- **WHEN** a reader leaves\n- **THEN** the system bids them farewell',
 }
 
@@ -729,38 +745,66 @@ test('[NFR-GRT-001] A greeting is timed', () => {})
 it('[GRT-003] The greeting endpoint answers', () => {})
 `
 
+/** What the reader must make of SOURCE, test by test, written out by hand. */
+const READ = [
+  {
+    line: 5, name: '[GRT-001] A reader arrives', modifier: null, ids: ['GRT-001'], layer: 'functional', level: 1, reason: null, noNegative: [],
+    refs: [{ kind: 'scenario', id: 'GRT-001', role: 'happy', hash: 'aaaaaaaaaaaa' }],
+  },
+  {
+    line: 8, name: '[GRT-001] A reader who is not arriving is not greeted', modifier: null, ids: ['GRT-001'], layer: 'integration', level: 1, reason: null, noNegative: [],
+    refs: [{ kind: 'scenario', id: 'GRT-001', role: 'negative', hash: 'aaaaaaaaaaaa' }],
+  },
+  {
+    line: 12, name: '[GRT-002] A reader returns', modifier: null, ids: ['GRT-002'], layer: 'functional', level: 2, reason: 'needs a real browser',
+    noNegative: [{ id: 'GRT-002', reason: 'a return has no near miss' }],
+    refs: [{ kind: 'scenario', id: 'GRT-002', role: 'happy', hash: 'bbbbbbbbbbbb' }],
+  },
+  {
+    line: 18, name: '[asdlc-openspec-abc.1] The greeting module imports nothing', modifier: 'skip', ids: ['asdlc-openspec-abc.1'], layer: 'functional', level: 1, reason: null, noNegative: [],
+    refs: [{ kind: 'task', id: 'asdlc-openspec-abc.1' }, { kind: 'surface', path: 'apps/greeter/binding-surface.md', hash: 'cccccccccccc' }],
+  },
+  {
+    line: 21, name: '[NFR-GRT-001] A greeting is timed', modifier: null, ids: ['NFR-GRT-001'], layer: 'fitness', level: 1, reason: null, noNegative: [],
+    refs: [{ kind: 'nfr', id: 'NFR-GRT-001', hash: 'dddddddddddd' }],
+  },
+  {
+    line: 24, name: '[GRT-003] The greeting endpoint answers', modifier: null, ids: ['GRT-003'], layer: 'contract', level: 1, reason: null, noNegative: [],
+    refs: [
+      { kind: 'scenario', id: 'GRT-003', role: 'happy', hash: 'eeeeeeeeeeee' },
+      { kind: 'contract', path: 'apps/greeter/contracts/api.json', operation: 'getGreeting', hash: 'ffffffffffff' },
+    ],
+  },
+]
+
 function selftest() {
   const results = []
   const record = (name, ok, detail) => results.push({ name, ok, detail })
-  const policy = readTracePolicy(REPO_ROOT)
-  const fixturePolicy = JSON.parse(POLICY)
-  fixturePolicy.task = new RegExp(`^(?:${fixturePolicy[TASK_PATTERN_KEY]})$`)
-  fixturePolicy.hashLength = fixturePolicy[HASH_LENGTH_KEY]
-  fixturePolicy.layers = fixturePolicy[LAYERS_KEY]
+
+  // The live policy: every test here reads its hash length and layers from it.
+  try {
+    const live = readTracePolicy(REPO_ROOT)
+    record('the live policy reads', true, `hash length ${live.hashLength}, layers ${Object.keys(live.layers).sort(byCodePoint).join(', ')}`)
+  } catch (error) {
+    record('the live policy reads', false, error.message)
+  }
 
   // The reader: the control, then one doctored source per refusal, each asserting its reason.
+  const fixturePolicy = tracePolicy(JSON.parse(POLICY))
   const control = readTests(SOURCE, fixturePolicy, 'f.test.js')
-  const shape = control.tests.map((t) => `${t.line}|${t.name}|${t.layer}|${t.level}|${t.ids.join(',')}|${t.refs.length}`)
-  const wanted = [
-    '5|[GRT-001] A reader arrives|functional|1|GRT-001|1',
-    '8|[GRT-001] A reader who is not arriving is not greeted|integration|1|GRT-001|1',
-    '12|[GRT-002] A reader returns|functional|2|GRT-002|1',
-    '18|[asdlc-openspec-abc.1] The greeting module imports nothing|functional|1|asdlc-openspec-abc.1|2',
-    '21|[NFR-GRT-001] A greeting is timed|fitness|1|NFR-GRT-001|1',
-    '24|[GRT-003] The greeting endpoint answers|contract|1|GRT-003|2',
-  ]
-  const same = control.problems.length === 0 && JSON.stringify(shape) === JSON.stringify(wanted)
-  record('control: every token kind reads, with its layer and level', same, same ? 'reads' : `read ${JSON.stringify({ shape, problems: control.problems })}`)
-  if (!same) return finish(results)
+  const same = control.problems.length === 0 && isDeepStrictEqual(control.tests, READ)
+  record(
+    'control: every token kind reads, with its layer, level, reason and references',
+    same,
+    same ? `${control.tests.length} tests read` : `read ${JSON.stringify({ tests: control.tests, problems: control.problems })}`,
+  )
+  if (!same) return finish(results, 'the undoctored source does not read as written out')
 
   for (const { name, edit, expect } of readerCases()) {
     const { problems } = readTests(edit(SOURCE), fixturePolicy, 'f.test.js')
     const ok = problems.some((p) => expect.test(p))
     record(name, ok, ok ? 'refused for that reason' : problems.length === 0 ? 'PASSED, but should have failed' : `refused, but not for that reason: ${problems.join(' | ')}`)
   }
-
-  // The live policy is well-formed, since every test here reads its hash length and layers from it.
-  record('the live policy reads', Number.isInteger(policy.hashLength), `hash length ${policy.hashLength}`)
 
   // The hash: a fixture tree, each case doctoring one thing.
   const base = mkdtempSync(join(tmpdir(), 'test-trace-'))
@@ -799,31 +843,43 @@ function readerCases() {
     return text.replace(from, to)
   }
   return [
-    { name: 'a test with no trace line', edit: swap("// trace: GRT-001:happy@aaaaaaaaaaaa\n", ''), expect: /:5: the test "\[GRT-001\] A reader arrives" has no `\/\/ trace:` line directly above it/ },
+    { name: 'a test with no trace line', edit: swap("// trace: GRT-001:happy@aaaaaaaaaaaa\n", ''), expect: /:4: the test "\[GRT-001\] A reader arrives" has no `\/\/ trace:` line directly above it/ },
     { name: 'a trace line parted from its test by a blank line', edit: swap("aaaa\ntest('[GRT-001] A reader arrives'", "aaaa\n\ntest('[GRT-001] A reader arrives'"), expect: /:4: a `\/\/ trace:` line that no test call directly follows/ },
     { name: 'a name that is not a string literal', edit: swap("test('[GRT-001] A reader arrives'", 'test(`[GRT-001] ${"A reader"} arrives`'), expect: /:5: this test's name is not one string literal/ },
     { name: 'a name that does not open with its IDs', edit: swap("test('[GRT-001] A reader arrives'", "test('A reader arrives'"), expect: /"A reader arrives" does not open with the IDs it references/ },
+    { name: 'a name that names one ID twice', edit: swap("test('[GRT-001] A reader arrives'", "test('[GRT-001, GRT-001] A reader arrives'"), expect: /"\[GRT-001, GRT-001\] A reader arrives" names GRT-001 twice/ },
     { name: 'a name whose IDs differ from its trace line', edit: swap("test('[GRT-001] A reader arrives'", "test('[GRT-002] A reader arrives'"), expect: /the IDs of "\[GRT-002\] A reader arrives" and of its `\/\/ trace:` line differ; the name has GRT-002 and the line does not; the line has GRT-001/ },
     { name: 'two tests of one name', edit: swap('A reader who is not arriving is not greeted', 'A reader arrives'), expect: /the name "\[GRT-001\] A reader arrives" is already the name of the test at line 5/ },
     { name: 'a token the grammar does not have', edit: swap('GRT-001:happy@aaaaaaaaaaaa\n', 'GRT-001:happy@aaaaaaaaaaaa proves-it\n'), expect: /`proves-it` is not a token of a `\/\/ trace:` line/ },
+    { name: 'a scenario token with a second colon', edit: swap('GRT-001:happy@aaaaaaaaaaaa\n', 'GRT-001:happy:twice@aaaaaaaaaaaa\n'), expect: /`GRT-001:happy:twice@aaaaaaaaaaaa` is not a token of a `\/\/ trace:` line/ },
     { name: 'a hash of the wrong length', edit: swap('GRT-001:happy@aaaaaaaaaaaa\n', 'GRT-001:happy@aaaaaaa\n'), expect: /`GRT-001:happy@aaaaaaa` does not end in `@` and a hash of 12 lowercase hex characters/ },
-    { name: 'a hash in capitals', edit: swap('GRT-001:happy@aaaaaaaaaaaa\n', 'GRT-001:happy@AAAAAAAAAAAA\n'), expect: /does not end in `@` and a hash of 12 lowercase hex characters/ },
+    { name: 'a hash in capitals', edit: swap('GRT-001:happy@aaaaaaaaaaaa\n', 'GRT-001:happy@AAAAAAAAAAAA\n'), expect: /`GRT-001:happy@AAAAAAAAAAAA` does not end in `@` and a hash of 12 lowercase hex characters/ },
     { name: 'a scenario without its role', edit: swap('GRT-001:happy@aaaaaaaaaaaa\n', 'GRT-001@aaaaaaaaaaaa\n'), expect: /`GRT-001@aaaaaaaaaaaa` names a scenario without its role/ },
     { name: 'a layer the policy does not list', edit: swap('layer=integration', 'layer=system'), expect: /`layer=system` names no layer; the layers are contract, e2e, fitness, functional, integration, unit/ },
     { name: 'no layer anywhere', edit: swap('// trace-defaults: layer=functional level=1\n', '// trace-defaults: level=1\n'), expect: /"\[GRT-001\] A reader arrives" declares no layer/ },
-    { name: 'a fitness test with no level', edit: swap('layer=fitness level=1', 'layer=fitness'), expect: /\] A greeting is timed" is at layer fitness, which has no default level/ },
+    {
+      name: 'a fitness test with no level, from its line or the file',
+      edit: (text) => swap('layer=fitness level=1', 'layer=fitness')(swap('layer=functional level=1\n', 'layer=functional\n')(text)),
+      expect: /"\[NFR-GRT-001\] A greeting is timed" is at layer fitness, which has no default level/,
+    },
     { name: 'a level above its default with no reason', edit: swap('level=2 "needs a real browser"', 'level=2'), expect: /"\[GRT-002\] A reader returns" is at level 2, above functional's default of 1, with no reason/ },
     { name: 'a reason for a level not above its default', edit: swap('layer=integration\n', 'layer=integration level=2 "habit"\n'), expect: /gives a reason for level 2, which is not above integration's default of 2/ },
     { name: 'a level outside 1 to 3', edit: swap('layer=fitness level=1', 'layer=fitness level=4'), expect: /`level=4` is not an orchestration level/ },
     { name: 'a no-negative with no reason', edit: swap('no-negative:GRT-002 "a return has no near miss"', 'no-negative:GRT-002'), expect: /`no-negative:GRT-002` gives no reason/ },
+    { name: 'a no-negative that names no scenario', edit: swap('no-negative:GRT-002 "a return', 'no-negative:NFR-GRT-001 "a return'), expect: /`no-negative:NFR-GRT-001` does not name a scenario ID/ },
     { name: "a no-negative on a test that is not that scenario's happy path", edit: swap('layer=integration\n', 'layer=integration no-negative:GRT-001 "none"\n'), expect: /`no-negative:GRT-001` is on a test that is not GRT-001's happy-path test/ },
     { name: 'a task-only test that cites no Binding Surface', edit: swap(' surface:apps/greeter/binding-surface.md@cccccccccccc', ''), expect: /references tasks alone, so it also cites its app's Binding Surface/ },
     { name: 'a surface that is not a binding-surface.md', edit: swap('surface:apps/greeter/binding-surface.md', 'surface:apps/greeter/README.md'), expect: /`surface:apps\/greeter\/README\.md@cccccccccccc` does not name an app's Binding Surface/ },
-    { name: 'a contract without its operation', edit: swap('api.json#getGreeting@', 'api.json@'), expect: /is not `contract:apps\/<app>\/contracts\/<file>#<operationId>@<hash>`/ },
+    { name: 'a contract without its operation', edit: swap('api.json#getGreeting@', 'api.json@'), expect: /`contract:apps\/greeter\/contracts\/api\.json@ffffffffffff` is not `contract:apps\/<app>\/contracts\/<file>#<operationId>@<hash>`/ },
+    { name: 'a contract path that climbs out of contracts/', edit: swap('contracts/api.json#', 'contracts/../../secret.json#'), expect: /`contract:apps\/greeter\/contracts\/\.\.\/\.\.\/secret\.json#getGreeting@ffffffffffff` is not `contract:/ },
     { name: 'one reference twice', edit: swap('GRT-001:negative@aaaaaaaaaaaa', 'GRT-001:negative@aaaaaaaaaaaa GRT-001:happy@aaaaaaaaaaaa'), expect: /`GRT-001` appears twice in the `\/\/ trace:` line/ },
     { name: 'a reason that follows nothing', edit: swap('layer=integration\n', 'layer=integration "why"\n'), expect: /the reason "why" follows neither `level=<n>` nor `no-negative:<ID>`/ },
-    { name: 'a second trace-defaults line', edit: swap("// trace-defaults: layer=functional level=1\n", '// trace-defaults: layer=functional level=1\n// trace-defaults: layer=unit\n'), expect: /a second `\/\/ trace-defaults:` line; the first is at line 2/ },
-    { name: 'trace-defaults below a test', edit: (text) => `${text}// trace-defaults: layer=unit\n`, expect: /`\/\/ trace-defaults:` below a test/ },
+    { name: 'a second trace-defaults line', edit: swap("// trace-defaults: layer=functional level=1\n", '// trace-defaults: layer=functional level=1\n// trace-defaults: layer=unit\n'), expect: /:3: a second `\/\/ trace-defaults:` line; the first is at line 2/ },
+    {
+      name: 'trace-defaults below a test',
+      edit: (text) => `${swap('// trace-defaults: layer=functional level=1\n', '')(text)}// trace-defaults: layer=functional level=1\n`,
+      expect: /:24: `\/\/ trace-defaults:` below a test/,
+    },
     { name: 'a trace-defaults key the grammar does not have', edit: swap('layer=functional level=1\n', 'layer=functional level=1 role=happy\n'), expect: /`\/\/ trace-defaults:` holds `role=happy`/ },
   ]
 }
@@ -861,6 +917,16 @@ function hashCases() {
       },
     },
     {
+      name: 'the cite command prints each ref with its hash, reading the tree TEST_TRACE_ROOT names',
+      run: (dir, policy) => {
+        const env = { ...process.env, TEST_TRACE_ROOT: dir }
+        const cli = spawnSync(process.execPath, [SELF, 'cite', 'GRT-001:happy', 'surface:apps/greeter/binding-surface.md'], { encoding: 'utf8', env })
+        const surface = sha('# Binding Surface\n\nNothing yet.\n', policy.hashLength)
+        const want = `GRT-001:happy@${expected('GRT-001', policy)}\nsurface:apps/greeter/binding-surface.md@${surface}\n`
+        return [cli.status === 0 && cli.stdout === want, `status ${cli.status}, printed ${JSON.stringify(cli.stdout)}${cli.stderr ? `, stderr ${cli.stderr}` : ''}`]
+      },
+    },
+    {
       name: 'a role on the ID does not change its hash',
       run: (dir, policy) => {
         const a = hashOf(dir, policy, 'GRT-001:happy')
@@ -873,19 +939,36 @@ function hashCases() {
       run: unchanged([[living, (t) => t.replace('- **WHEN** a reader arrives\n', '- **WHEN** a reader arrives   \n\n\n')]], 'GRT-001'),
     },
     { name: "an edit to the requirement's statement moves its scenario's hash", run: moved([[living, (t) => t.replace('politely.', 'politely, always.')]], 'GRT-002') },
+    { name: "a new name for the requirement does not move its scenario's hash", run: unchanged([[living, (t) => t.replace('### Requirement: Greeting is polite', '### Requirement: Greeting is courteous')]], 'GRT-001') },
     { name: "an edit to a sibling scenario does not move a scenario's hash", run: unchanged([[living, (t) => t.replace('greets them again', 'greets them once more')]], 'GRT-001') },
     { name: "an edit to a scenario's own block moves its hash", run: moved([[living, (t) => t.replace('greets them again', 'greets them once more')]], 'GRT-002') },
     { name: "an edit to an NFR requirement's scenario moves the NFR's hash", run: moved([[living, (t) => t.replace('within one second\n', 'within a second\n')]], 'NFR-GRT-001') },
     {
-      name: 'a header inside fenced code does not end a block',
-      run: moved([[living, (t) => t.replace('- **THEN** the system greets them politely\n', '- **THEN** the system greets them politely\n\n```\n#### not a header\n```\n')]], 'GRT-001'),
+      name: 'a header inside fenced code stays inside the block',
+      files: { [living]: LIVING.replace('- **THEN** the system greets them politely\n', '- **THEN** the system greets them politely\n\n```\n#### not a header\n```\n') },
+      run: (dir, policy) => {
+        const want = sha(`${EXPECTED['GRT-001']}\n\`\`\`\n#### not a header\n\`\`\``, policy.hashLength)
+        const got = hashOf(dir, policy, 'GRT-001')
+        return [got === want, `GRT-001@${got}, where the block with its fence reads @${want}`]
+      },
     },
     {
       name: "an active change's delta copy wins over the living spec",
-      files: { [delta]: DELTA.replace('## REMOVED', '## MODIFIED Requirements\n\n### Requirement: Greeting is polite\nThe system SHALL greet every reader politely, by name.\n\n#### Scenario: [GRT-001] A reader arrives\n- **WHEN** a named reader arrives\n- **THEN** the system greets them by name\n\n## REMOVED') },
+      files: {
+        [delta]: DELTA.replace(
+          '## REMOVED',
+          '## MODIFIED Requirements\n\n### Requirement: Greeting is polite\nThe system SHALL greet every reader politely, by name.\n\n' +
+            '#### Scenario: [GRT-001] A reader arrives\n- **WHEN** a named reader arrives\n- **THEN** the system greets them by name\n\n## REMOVED',
+        ),
+      },
       run: (dir, policy) => {
+        const want = sha(
+          'The system SHALL greet every reader politely, by name.\n#### Scenario: [GRT-001] A reader arrives\n' +
+            '- **WHEN** a named reader arrives\n- **THEN** the system greets them by name',
+          policy.hashLength,
+        )
         const got = hashOf(dir, policy, 'GRT-001')
-        return [got !== expected('GRT-001', policy), `the delta's ${got}, not the living spec's ${expected('GRT-001', policy)}`]
+        return [got === want, `GRT-001@${got}; the delta's block reads @${want}, the living spec's @${expected('GRT-001', policy)}`]
       },
     },
     {
@@ -924,20 +1007,32 @@ function hashCases() {
       },
     },
     {
-      name: "a scenario's hash is the same once the pinned OpenSpec CLI archives its change",
+      name: 'hashes are the same once the pinned OpenSpec CLI archives a change that adds a scenario and renames a requirement',
       run: (dir, policy) => {
-        const before = hashOf(dir, policy, 'GRT-004')
         const bin = findBin('openspec', REPO_ROOT)
         if (bin === null) return [false, 'the pinned OpenSpec CLI is not installed; run `npm ci`']
+        // The fixture's REMOVED block names an NFR the archive would drop; keep the ADDED block and
+        // rename the requirement GRT-001 and GRT-002 sit under.
+        writeFileSync(
+          join(dir, delta),
+          DELTA.replace(
+            /\n## REMOVED[\s\S]*$/,
+            '\n## RENAMED Requirements\n\n- FROM: `### Requirement: Greeting is polite`\n- TO: `### Requirement: Greeting is courteous`\n',
+          ),
+        )
+        const refs = ['GRT-001', 'GRT-002', 'GRT-004']
+        const before = refs.map((ref) => hashOf(dir, policy, ref))
         const env = { ...process.env, OPENSPEC_TELEMETRY: '0', DO_NOT_TRACK: '1', NO_COLOR: '1' }
-        // The fixture's REMOVED block names an NFR the archive would drop; keep only the ADDED one.
-        writeFileSync(join(dir, delta), DELTA.replace(/\n## REMOVED[\s\S]*$/, '\n'))
         const archive = spawnSync(bin, ['archive', 'add-farewell', '--yes'], { cwd: dir, encoding: 'utf8', env, shell: process.platform === 'win32' })
         if (archive.status !== 0) return [false, `the archive failed: ${archive.stderr || archive.stdout}`]
         const merged = readFileSync(join(dir, living), 'utf8')
-        const raw = merged.includes('farewell\n\n\n') ? 'kept' : 'moved'
-        const after = hashOf(dir, policy, 'GRT-004')
-        return [before === after && !existsSync(join(dir, delta)), `GRT-004@${before} before, @${after} after; the archive ${raw} the delta's blank lines`]
+        if (!merged.includes('### Requirement: Greeting is courteous') || !merged.includes('[GRT-004]') || existsSync(join(dir, delta))) {
+          return [false, `the archive did not merge the delta as the case needs: ${JSON.stringify(merged)}`]
+        }
+        const after = refs.map((ref) => hashOf(dir, policy, ref))
+        const raw = merged.includes('#### Scenario: [GRT-004] A reader leaves\n\n- **WHEN**') ? 'kept' : 'rewrote'
+        const shown = refs.map((ref, n) => `${ref}@${before[n]}${before[n] === after[n] ? '' : `->${after[n]}`}`).join(' ')
+        return [JSON.stringify(before) === JSON.stringify(after), `${shown}; the archive ${raw} the blank line under GRT-004's header`]
       },
     },
   ]
@@ -953,11 +1048,11 @@ function writeTree(dir, files) {
 }
 
 const [command, ...rest] = process.argv.slice(2)
-if (import.meta.url === `file://${process.argv[1]}` || resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url)) {
+if (resolve(process.argv[1] ?? '') === SELF) {
   if (command === '--selftest') selftest()
-  else if (command === 'hash') hashCommand(rest)
+  else if (command === 'cite') citeCommand(rest)
   else {
-    console.error('usage: node scripts/test-trace.mjs hash <ref> [...] | --selftest')
+    console.error('usage: node scripts/test-trace.mjs cite <ref> [...] | --selftest')
     process.exit(1)
   }
 }
