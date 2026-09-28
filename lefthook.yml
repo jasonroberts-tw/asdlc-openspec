@@ -337,6 +337,44 @@ pre-push:
         - 'package.json'
         - 'package-lock.json'
       run: node --run tests:trace:selftest
+    # The traceability record re-derived and diffed, and the rules its header holds: rules 5 to 8,
+    # every scenario's happy-path and negative test, IDs that resolve, hashes that are current, and
+    # the ratchet baseline against the one at the branch's merge base with origin/main. It reads the
+    # specs, the tests, contracts and Binding Surfaces under apps/, both files under artifacts/trace/,
+    # the policy, the manifest's test patterns, the reader and the helpers it imports, and git
+    # history: a commit that changes the record's tasks changes a path under apps/, which the glob
+    # holds. The lockfile pins the OpenSpec CLI it trial-archives an active change with. 0.31-0.33 s
+    # wall through `node --run` (`/usr/bin/time -p`, two runs) on a macOS 26.7 laptop with Node
+    # 26.8.1, 2026-09-28, with no active change, so no CLI start.
+    - name: trace-check
+      glob:
+        - 'openspec/**'
+        - 'apps/**'
+        - 'artifacts/trace/**'
+        - 'tools/trace/**'
+        - 'tools/lib/**'
+        - 'scripts/test-trace.mjs'
+        - 'scripts/lib/bin-path.mjs'
+        - 'tools/policy.json'
+        - 'package.json'
+        - 'package-lock.json'
+      run: node --run trace:check
+    # The trace gate's refusals, each on a doctored copy of a fixture repository it builds under the
+    # temporary directory with the live policy copied in, asserting the reason, beside a control; the
+    # baseline's update; the history walk against its ratified fixture; and the command line through
+    # TRACE_ROOT. Four cases trial-archive an active change with the pinned CLI, twice each.
+    # 10.71-10.92 s wall through `node --run` (`/usr/bin/time -p`, two runs, while other worktrees
+    # ran) on the host and date above, most of it git and CLI starts; the jobs run in parallel.
+    - name: trace-selftest
+      glob:
+        - 'tools/trace/**'
+        - 'tools/lib/**'
+        - 'scripts/test-trace.mjs'
+        - 'scripts/lib/bin-path.mjs'
+        - 'tools/policy.json'
+        - 'package.json'
+        - 'package-lock.json'
+      run: node --run trace:selftest
     # Every value in the count index re-derived from the source the index names for it. No glob: a
     # key's source may be any tracked file, so any push can change its verdict. Milliseconds.
     - name: count-index

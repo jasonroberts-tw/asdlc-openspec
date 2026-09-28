@@ -32,7 +32,12 @@ jobs:
     # A hung step fails the run in minutes rather than holding a runner for the default six hours.
     timeout-minutes: 15
     steps:
+      # The whole history, not the default single commit: `trace:check` walks every commit on HEAD
+      # for the tasks its record links, and measures the branch from its merge base with
+      # origin/main, which a shallow clone has neither of (the header of tools/trace/trace.ts).
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version-file: package.json
@@ -102,6 +107,15 @@ jobs:
       # pinned OpenSpec CLI, with no network.
       - name: the test-trace reader and its hash, negative-tested
         run: npm run tests:trace:selftest
+      # Under a second (lefthook.yml's `trace-check` job has the measurement): the traceability
+      # record re-derived and diffed, and every rule its header holds, over the branch's commits since
+      # its merge base with origin/main, which the whole-history checkout above provides.
+      - name: the traceability record is current, and every scenario, test, contract and task holds to it
+        run: npm run trace:check
+      # About ten seconds (lefthook.yml's `trace-selftest` job has the measurement): fixture
+      # repositories under the temporary directory, four trial archives by the pinned CLI.
+      - name: the trace gate, negative-tested
+        run: npm run trace:selftest
       - name: the OpenSpec gate, negative-tested
         run: npm run openspec:selftest
       #

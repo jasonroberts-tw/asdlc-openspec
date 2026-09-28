@@ -5,8 +5,8 @@
  * (`docs/decisions.md` § D-13, item 17, which gives it to the header of the tool that reads a test's
  * metadata; landed by asdlc-openspec-j09.5, whose notes record the maintainer's choices).
  * `scripts/run-tests.mjs` reads every test file it runs through it and refuses what it refuses; the
- * trace gate (asdlc-openspec-j09.7) and the test-inventory gate (asdlc-openspec-j09.9) are to read
- * tests through it too, from committed files and from a merge base.
+ * trace gate, `tools/trace/trace.ts`, reads tests and specs through it too, and the test-inventory
+ * gate (asdlc-openspec-j09.9) is to, from committed files and from a merge base.
  *
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet; this is what it would let through if it were
  * wrong or absent. Before it, a test traced to its scenario by the scenario's title copied into its
@@ -87,7 +87,7 @@
  * to its requirement's statement, a typo fix included: the maintainer chose that over the scenario's
  * block alone, which left a test current when its requirement's prose was reworded.
  *
- * WHAT IT DOES NOT CHECK, each the trace gate's (asdlc-openspec-j09.7): whether an ID heads a
+ * WHAT IT DOES NOT CHECK, each the trace gate's (`tools/trace/trace.ts`): whether an ID heads a
  * scenario or an NFR requirement that exists, whether a hash is current, and whether a scenario has
  * its happy-path and its negative test. Nor whether a test's layer is the right one, or whether a
  * happy-path test's title is its scenario's, which review holds. The runner's cross-check holds only

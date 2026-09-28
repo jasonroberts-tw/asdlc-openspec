@@ -29,6 +29,10 @@
     "openspec:selftest": "node scripts/check-openspec.mjs --selftest",
     "tests:selftest": "node scripts/run-tests.mjs --selftest",
     "tests:trace:selftest": "node scripts/test-trace.mjs --selftest",
+    "trace": "node tools/trace/trace.ts",
+    "trace:check": "node tools/trace/trace.ts --check",
+    "trace:selftest": "node tools/trace/selftest.ts",
+    "trace:update": "node tools/trace/trace.ts --update",
     "workflows:selftest": "node scripts/workflows.selftest.mjs",
     "gates": "lefthook run pre-push --force"
   },

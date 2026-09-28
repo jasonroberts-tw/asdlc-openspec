@@ -138,14 +138,22 @@ function redirect(rel, what, where, command) {
  *
  * Every row goes in the same change as the emitter it names, and leaves with it: a redirect naming
  * a command that no longer exists is worse than none, because the reader runs it. A row never claims
- * a path that a different emitter owns.
- *
- * kit 1.5-5 · ADAPT: the kit's one row left with the learning loop. Add a row the day an emitter of
- * yours owns a path, and delete this line.
+ * a path that a different emitter owns. The kit's one row, the learning loop's `artifacts/outcomes/`,
+ * left with the loop (`docs/decisions.md` § D-06).
  */
 const REDIRECTS = [
-  // Empty. Its one row was the learning loop's tree, `artifacts/outcomes/`, re-emitted by
-  // `npm run outcomes`, and left with the loop (`docs/decisions.md` § D-06).
+  {
+    owns: (rel) => rel === 'artifacts/trace/record.json',
+    what: 'traceability record (tools/trace/trace.ts)',
+    where: 'the specs under openspec/, the tests, contracts or Binding Surface under apps/, or the commits it reads',
+    command: 'npm run trace',
+  },
+  {
+    owns: (rel) => rel === 'artifacts/trace/baseline.json',
+    what: 'ratchet baseline (tools/trace/trace.ts), which may fall and never rise',
+    where: 'the test that meets an obligation it lists; nothing adds one',
+    command: 'npm run trace:update',
+  },
 ]
 
 /** `null` when nothing generates this path, otherwise the message to hand back. */

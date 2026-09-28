@@ -59,7 +59,10 @@ if (suspect.length === 0) process.exit(0)
  */
 const VERIFIERS = [
   // Empty. Its one row was the learning loop's `outcomes:check`, over `artifacts/outcomes/`, and
-  // left with the loop (`docs/decisions.md` § D-06).
+  // left with the loop (`docs/decisions.md` § D-06). `artifacts/trace/` has none on purpose: its
+  // `trace:check` also refuses a scenario still owed a test, which a commit midway through a
+  // change's build may hold, so a row here would refuse that commit. It is reported unverified
+  // here, and `trace:check` holds it at push and in CI.
 ]
 
 /**
