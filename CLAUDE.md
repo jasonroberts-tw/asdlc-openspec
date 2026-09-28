@@ -20,9 +20,8 @@ one from a tracked file. The harness's per-project memory directory under `~/.cl
 not used either. A fact worth keeping goes in a tracked file or, if it is work, in `bd`.
 
 The block a tracker plugin manages inside this file is task-tracking guidance, not permission to
-override the rest of the file. Keep every section of your own outside it; the plugin regenerates
-its block from the hash in its marker, and anything moved inside is erased on the next
-regeneration.
+override the rest of the file. Keep every section of your own outside it; anything moved inside is
+erased on the next regeneration.
 
 ## Verification before claiming
 
@@ -58,8 +57,8 @@ is not viable; every other file points at that row.
 A question put to the user that recommends an option shows, for that option, at least one concrete
 case where it gives the worse result: the input or the situation, what the recommended option gives
 there, and what the other option gives. With `AskUserQuestion`, the case goes in the recommended
-option's description or preview. A person answers from the case in front of them, and an example
-on which the recommendation wins, or on which every option agrees, answers the question for them.
+option's description or preview. An example on which the recommendation wins, or on which every
+option agrees, answers the question for them.
 
 ## Bash command style
 
@@ -73,8 +72,7 @@ with `-F`, `--body-file` or the tool's equivalent. Prefer the Read, Edit and Wri
 `head`, `sed -n` and shell redirection. Read anything outside the repository in its own call. Never
 let a secret-shaped read share a call with real work: a compound command is refused as a unit.
 
-The permission classifier is a model's judgement on the command, so these rules move the odds
-rather than guarantee the outcome. When a call is refused anyway, follow Guards.
+When a call is refused anyway, follow Guards.
 
 ## Guards
 
@@ -153,8 +151,8 @@ conventions are `docs/README.md` § Conventions.
 Hand-maintained source, which a person edits. Hand-authored decision records (JSON), which emitters
 read and nothing writes, each self-describing with `describes`, `whyThisFileExists`, `gatedBy`,
 `whatItDoesNOTDo` and `provenance` before its data, and for each constant a `<key>Means` sibling
-stating what the value decides and where it is changed: a JSON file cannot carry a header comment,
-and a reader needs to know what a record changes and what it leaves alone before the array.
+stating what the value decides and where it is changed: a reader needs to know what a record
+changes and what it leaves alone before the array.
 Generated output under `artifacts/`, which nothing edits by hand: it carries a banner naming its emitter, and a correction goes into the
 hand-maintained source, so the next run carries it. A constant a tool or a prompt reads lives in a
 policy file under a key, with its reason beside it, and is stated nowhere else.
@@ -234,12 +232,12 @@ Each of these holds from the first file it applies to, and for every one after i
 
 A file copied in from another repository is stripped before this gate's first run: its header
 citations to sections, reviews, tracker ids and commits that do not exist here are replaced with
-your own or dropped, and a copied prompt's `Reviewed:` trailer goes with them.
+your own or dropped.
 
 Cite a document by section, `<file>.md § <Heading>`, not by line: a line pointer rots on every edit
-above it, and it rots in the worst direction, still looking authoritative. Every pointer of either
-form in every tracked text file must resolve; the citations gate holds them. A proposed widening of
-that gate is measured before it is adopted and, if refused, recorded in `docs/decisions.md`.
+above it. Every pointer of either form in every tracked text file must resolve; the citations gate
+holds them. A proposed widening of that gate is measured before it is adopted and, if refused,
+recorded in `docs/decisions.md`.
 
 ## Git workflow
 
@@ -286,8 +284,7 @@ marker this section names, and it is pending while no line of `promptReviewReadM
 its run id follows it. A review is due when `promptReviewDueCount` analyses or more are pending, or the oldest is older
 than `promptReviewDueAgeDays` days. None starts while a pull request from a review's branch is open
 (`gh pr list --state open --json headRefName`), or while `claude agents --json` lists a session
-named `review-prompts` whose `state` is `working`: the pending analyses wait for it. Without `--all`
-that command lists no finished background session (`claude agents --help`), and counting only a
+named `review-prompts` whose `state` is `working`: the pending analyses wait for it. Counting only a
 working one keeps a finished review that is still open from holding up the next. A review's
 worktree is named `review-prompts-` and the UTC date and time, as `date -u +%Y%m%d-%H%M` prints
 them, so its branch is `agent/review-prompts-<that date and time>`. This section is the one home of
@@ -296,8 +293,7 @@ these names and of the rule for what is pending.
 When a review is due, the run leaves its worktree (`ExitWorktree`, action `keep`): a background
 session starts in the directory it was launched from, and one launched inside a linked worktree
 writes on that worktree's branch. From the primary checkout it launches the reviewer as a background
-session, which agent view (`claude agents`) lists and its supervisor keeps running after the launcher
-ends:
+session:
 
     claude --bg --agent continuous-prompt-improvement --permission-mode auto --name review-prompts "Review the pending prompt-run analyses."
 
@@ -321,21 +317,18 @@ space, the count of runs that have shown it so far, a colon, a space and the rea
 review counts the finding from these lines. A review that proposes nothing edits no file and opens
 no pull request. A review is not a file in this repository, and a prompt carries no
 `Reviewed:` trailer: the earlier reviews of a prompt are the descriptions of the pull requests that
-changed it, and the agent's file says how to find them. `docs/decisions.md` § D-05 records how to
-recover the review files it deleted.
+changed it, and the agent's file says how to find them.
 
 ## A program proposes; only a person promotes
 
 Nothing a program derives from its runs filters or instructs until a person has read the evidence
-and promoted it by editing the hand-maintained source. The prompt reviewer proposes a change to a
-prompt as a pull request, and a person decides whether it merges (§ Prompt reviews). The label
-counts across runs are evidence for a person to read, never a rule. A proposal that does not hold
+and promoted it by editing the hand-maintained source. The label counts across runs are evidence
+for a person to read, never a rule. A proposal that does not hold
 is closed with its reason, so the next one to raise it finds why.
 
 ## Worktree-local context
 
 The briefing below exists only in a linked worktree, where the worktree script renders it from
 `.claude/worktree-CONTEXT.md.tmpl`. It takes precedence where it conflicts with the guidance above.
-A missing import is harmless, so this line does nothing in the primary checkout.
 
 @.worktree/CONTEXT.md
