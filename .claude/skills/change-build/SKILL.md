@@ -58,9 +58,10 @@ Then act on what it returns:
 
 - **`stopped`.** `spec-contradiction` is a spec that is wrong (§ 5). `proof-failing`, `not-red`
   and `agent-died`: find the cause, fix it or run the workflow again, and report it if neither works;
-  never commit around it. After `not-red`, discard the build's changes before it runs again, or the
-  next builder finds every proof already passing. `refused`: correct what `why` names and run it
-  again. `nothing-major` and `round-limit`: carry on below.
+  never commit around it. After `not-red`, keep the build: for each scenario `why` names, revert
+  the change under test, see its proof fail and restore the change before the workflow runs again;
+  a discarded build is paid for twice. `refused`: correct what `why` names and run it again.
+  `nothing-major` and `round-limit`: carry on below.
 - **Each `unverified` finding:** judge it yourself against the delta specs, the design and the task.
   Fix one that holds, and ask the user about one you cannot settle.
 - **Each of `followUps`:** file it as out of scope (§ 5), once a search of the tracker finds no match.
@@ -79,7 +80,7 @@ Then, whatever the workflow reported:
 - Commit, with the message passed from a file under `.scratch/`, naming the task's id.
 
 After a spec revision (§ 5), run the workflow for the task again. Whenever it runs again for a task,
-`settled` carries the revision and each answer the user gave to a doubt.
+`settled` carries the revision, each answer the user gave to a doubt, and each red record.
 
 ## 4. Close it
 

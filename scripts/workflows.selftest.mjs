@@ -2,7 +2,8 @@
  * Workflow selftest: runs each workflow script under `.claude/workflows/` against stubbed agents and
  * asserts how it stops and what it returns. `build-change-task.js` runs with the review sizes and the
  * red-first kinds `tools/policy.json` holds, and its cases assert how many skeptics it sends and which
- * kinds it stops when the builder saw no scenario fail first; `review-prompts.js` runs
+ * kinds it stops as not-red when a named scenario has neither a red record nor an already-green
+ * report; `review-prompts.js` runs
  * with groups of findings built here and the policy's `promptReview*` keys, and its cases assert
  * which findings it refuses as below the threshold, how many skeptics it sends each change and each
  * consolidation, which reports it refuses, which branches it lets the session merge, which analyses
@@ -15,10 +16,10 @@
  * that adds its suite (asdlc-openspec-lzr). Were this wrong, it would let through the logic a real run
  * cannot show cheaply. For the build: a third review round, an unverified vote counted as refuted, a
  * spec contradiction halting before skeptics confirmed it, a coverage gap sent to skeptics, a listener
- * left on 127.0.0.1 and not reported, or a policy key renamed so that every run refuses; or a build of
- * a kind `buildRedFirstKinds` lists that never saw a scenario's proof fail let through to review, a
- * task of another kind stopped for it, or an already-green report counted as passed (since
- * asdlc-openspec-fye). For the
+ * left on 127.0.0.1 and not reported, or a policy key renamed so that every run refuses; or a task of
+ * a kind `buildRedFirstKinds` lists let through to review with a named scenario that has neither a red
+ * record nor an already-green report, a task of another kind stopped for one, or an already-green
+ * report counted as passed (since asdlc-openspec-fye). For the
  * prompt review: a branch merged that changed another group's file, failed its gates, was never
  * provisioned by the WorktreeCreate hook, or carried an edit a majority of its skeptics did not
  * uphold; a finding below the threshold passed to an agent; an analysis marked read whose file's
@@ -607,7 +608,7 @@ function buildCases(policy) {
   const others = kinds.filter((kind) => !redFirst.includes(kind))
   const unexercised = (name, why) => ({ name, args: args(widest), scenario: {}, check: () => `cannot be exercised: ${why}` })
   const noReview = ({ calls }) =>
-    count(calls, /^review /) ? 'a reviewer ran after a build with no red run' : calls.at(-1) === 'sweep' ? null : 'the sweep did not run'
+    count(calls, /^review /) ? 'a reviewer ran after a build that left a named scenario with neither record' : calls.at(-1) === 'sweep' ? null : 'the sweep did not run'
   const reviewedWith = (kind) => ({ calls }) => {
     const reviews = calls.filter((l) => l.startsWith('review '))
     return reviews.length === policy.buildReviewLenses[kind].length ? null : `reviewed with ${reviews.join(', ') || 'no lens'}`
@@ -615,17 +616,17 @@ function buildCases(policy) {
 
   for (const kind of redFirst) {
     list.push({
-      name: `not-red: a task of kind ${kind} whose builder returns no red record stops before any reviewer, naming the scenario`,
+      name: `not-red: a task of kind ${kind} whose builder returns neither a red record nor an already-green report for a named scenario stops before any reviewer, naming it`,
       args: args(kind),
       scenario: { build: built({ red: [] }) },
       expect: ['not-red', new RegExp(`^the builder returned no red record and no already-green report for 1 scenario\\(s\\): "${escape(SCENARIO)}"; no reviewer ran`)],
       check: noReview,
     })
   }
-  if (!redFirst.length) list.push(unexercised('not-red: a task of a red-first kind with no red record', 'tools/policy.json `buildRedFirstKinds` lists no kind'))
+  if (!redFirst.length) list.push(unexercised('not-red: a task of a red-first kind with neither record for a named scenario', 'tools/policy.json `buildRedFirstKinds` lists no kind'))
   for (const kind of others) {
     list.push({
-      name: `a task of kind ${kind} with no red record is not held to one, and runs on to review`,
+      name: `a task of kind ${kind} whose builder returns neither record for a named scenario is not held to one, and runs on to review`,
       args: args(kind),
       scenario: { build: built({ red: [] }) },
       expect: ['nothing-major', /^round 1 confirmed no /],

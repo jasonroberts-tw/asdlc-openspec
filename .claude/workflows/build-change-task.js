@@ -32,10 +32,11 @@ export const meta = {
  * reviewer's mutant copy of apps/calculator/serve.js was left listening on 127.0.0.1:8080 for 74
  * minutes. `bd show asdlc-openspec-d6b` gives each figure and the file it was measured from.
  *
- * Since asdlc-openspec-fye (`docs/decisions.md` § D-14) it also refuses a build that never saw a
- * scenario's proof fail. No incident yet: were that check wrong, a test first run after the code that
- * passes it, which may pass without that code, would reach review, where only the honesty lens's
- * mutants can catch it, and only for the mutations a reviewer thinks of.
+ * Since asdlc-openspec-fye (`docs/decisions.md` § D-14) it also stops, as not-red and before any
+ * review, a task of a kind `buildRedFirstKinds` lists when a scenario the parent named has neither a
+ * red record nor an already-green report. No incident yet: were that check wrong, a test first run
+ * after the code that passes it, which may pass without that code, would reach review, where only the
+ * honesty lens's mutants can catch it, and only for the mutations a reviewer thinks of.
  *
  * INVOCATION. The Workflow tool, with `scriptPath` set to this file inside the change's worktree, so
  * that the script and the policy it reads come from one commit, and `args`:
@@ -98,8 +99,9 @@ export const meta = {
  *   that set `red` read the red records, and the spec lens holds each failure to its scenario's THEN.
  *
  *   Stop order, after the build: a confirmed spec contradiction among the builder's findings stops the
- *   run, since a spec revision rebuilds the task anyway; then not-red, since the parent discards that
- *   build (`.claude/skills/change-build/SKILL.md` § 3. Build it, and prove it); then a failing proof.
+ *   run, since a spec revision rebuilds the task anyway; then not-red, whose missing records the parent
+ *   takes against the build it keeps (`.claude/skills/change-build/SKILL.md` § 3. Build it, and prove
+ *   it); then a failing proof.
  *   After each round's confirmation: a confirmed spec contradiction stops the run; else the confirmed
  *   defects are fixed and the proofs run again; then a round that confirmed no defect at a major
  *   severity stops it, and so does the last round allowed; else the next round reviews the fix.
