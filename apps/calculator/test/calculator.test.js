@@ -1,10 +1,11 @@
 /**
  * The calculator's arithmetic scenarios, driven through the pure logic in `public/calculator.js`.
  *
- * Each `describe` is a requirement's name and each `test` a scenario's name, both verbatim from
- * capability `calculator`'s spec, so a scenario traces to its test by exact string. A test presses
- * the scenario's buttons in order and asserts what its THEN, and each AND, says the display shows.
- * Every expected value is a literal copied from the spec, never computed with the code under test.
+ * Each `describe` is a requirement's name and each `test` a scenario's title, its header after its
+ * ID, both verbatim from capability `calculator`'s spec, so a scenario traces to its test by exact
+ * string. A test presses the scenario's buttons in order and asserts what its THEN, and each AND,
+ * says the display shows. Every expected value is a literal copied from the spec, never computed
+ * with the code under test.
  */
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'

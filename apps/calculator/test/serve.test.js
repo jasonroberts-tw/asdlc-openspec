@@ -4,11 +4,11 @@
  * prints, what it answers and how it exits. The scenario on the listening address also calls the
  * command's own listen function in-process, to read the address the server reports.
  *
- * Each `describe` is a requirement's name and each `test` a scenario's name, both verbatim from
- * capability `calculator-local-server`'s spec, so a scenario traces to its test by exact string. A
- * scenario's expected values are literals copied from the spec. The last `describe` is named so
- * that it cannot be taken for a requirement: its tests hold what the change's design says of the
- * command beyond the scenarios.
+ * Each `describe` is a requirement's name and each `test` a scenario's title, its header after its
+ * ID, both verbatim from capability `calculator-local-server`'s spec, so a scenario traces to its
+ * test by exact string. A scenario's expected values are literals copied from the spec. The last
+ * `describe` is named so that it cannot be taken for a requirement: its tests hold what the
+ * change's design says of the command beyond the scenarios.
  *
  * The npm script is proved in two parts, as the design has it: an assertion that `package.json` runs
  * exactly `node apps/calculator/serve.js`, and the spawned file. Spawning `npm` itself would add a

@@ -2,13 +2,13 @@
  * The local server's request scenarios, run in-process: `createCalculatorServer` over the committed
  * `public/` directory, listening on a free port of `127.0.0.1`, and asked over HTTP.
  *
- * Each `describe` is a requirement's name and each `test` a scenario's name, both verbatim from
- * capability `calculator-local-server`'s spec, so a scenario traces to its test by exact string. A
- * scenario's expected values are literals copied from the spec. The last `describe` is named so
- * that it cannot be taken for a requirement: its tests hold what the change's design says about
- * every response the server writes, and the methods other than POST that the spec refuses, none of
- * which has a scenario of its own. Node's own answers to protocol errors, which the design accepts
- * without the policy, are not tested here.
+ * Each `describe` is a requirement's name and each `test` a scenario's title, its header after its
+ * ID, both verbatim from capability `calculator-local-server`'s spec, so a scenario traces to its
+ * test by exact string. A scenario's expected values are literals copied from the spec. The last
+ * `describe` is named so that it cannot be taken for a requirement: its tests hold what the
+ * change's design says about every response the server writes, and the methods other than POST
+ * that the spec refuses, none of which has a scenario of its own. Node's own answers to protocol
+ * errors, which the design accepts without the policy, are not tested here.
  *
  * Every request goes through `http.request` with an explicit `path`, which Node's client sends as
  * written. `fetch`, like a browser, would resolve `/../package.json` to `/package.json` before

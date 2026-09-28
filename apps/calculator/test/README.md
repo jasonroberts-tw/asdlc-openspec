@@ -1,9 +1,9 @@
 # `apps/calculator/test/`
 
 **The calculator's tests: each `describe` is a requirement's name and each `test` a scenario's
-name, verbatim from the spec, so a scenario traces to the test that proves it by exact string,
-except the last suite in `page.test.js`, `serve.test.js` and `server.test.js`, whose name says it is
-not a spec scenario.**
+title, the text of its header after its ID, verbatim from the spec, so a scenario traces to the test
+that proves it by exact string, except the last suite in `page.test.js`, `serve.test.js` and
+`server.test.js`, whose name says it is not a spec scenario.**
 `npm run calculator:test` runs every file here whose name ends in `.test.js`, with Node's own test
 runner and no framework, through `scripts/run-tests.mjs`; a file named otherwise is not run, and a
 file so named that declares no test fails the run.
