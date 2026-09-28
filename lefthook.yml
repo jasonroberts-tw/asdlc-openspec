@@ -364,8 +364,9 @@ pre-push:
     # baseline's update; the history walk against its ratified fixture; and the command line through
     # TRACE_ROOT. Eight trial archives of an active change by the pinned CLI, two in each of four
     # cases.
-    # 10.71-10.92 s wall through `node --run` (`/usr/bin/time -p`, two runs, while other worktrees
-    # ran) on the host and date above, most of it git and CLI starts; the jobs run in parallel.
+    # 12.01-12.53 s wall for its 49 cases through `node --run` (`/usr/bin/time -p`, two runs, while
+    # other worktrees ran) on the host and date above, most of it git and CLI starts; the jobs run
+    # in parallel.
     - name: trace-selftest
       glob:
         - 'tools/trace/**'
