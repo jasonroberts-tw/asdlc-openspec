@@ -4,9 +4,6 @@
 follow is not here: it lives in `CLAUDE.md`, a skill, an agent or the header of the gate that
 enforces it, and a document points at that home rather than restating it.
 
-<!-- kit 3.1-2 · WRITE: one row per document, added in the same change as the document. The kit
-     lists only what it laid down. Delete this comment when your first row has landed. -->
-
 ## The documents in this folder
 
 | Document | What it is |
@@ -14,6 +11,8 @@ enforces it, and a document points at that home rather than restating it.
 | `docs/decisions.md` | The register: the numbered decisions (`D-NN`) and risks (`R-NN`) that nobody re-litigates. An entry is never rewritten; a later decision adds a dated amendment under each entry it changes. |
 | `docs/retired/README.md` | What has been retired, each file under a banner naming the decision that retired it. Kept as the evidence a decision was recorded from, never as guidance. |
 | `docs/pipeline.md` | The pipeline graph in prose: which generated artifact is built from which, and what to regenerate, in what order, when something moves. A copy; the record under `tools/pipeline/graph.ts` wins a disagreement. |
+| `docs/playbook.md` | The route one issue takes to the trunk, by the issue route or the product-change route, with a glossary, a table of where the truth lives and a crib sheet. Dated, and a route rather than an authority: the file or command each step names wins a disagreement. |
+| `docs/plain-language-guide.md` | How work gets done here, for a reader who runs nothing: the parts, the loop between them, who decides what, and what has not happened yet. Dated; any technical document wins a disagreement. |
 
 ## The documents that live elsewhere
 
