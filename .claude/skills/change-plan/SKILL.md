@@ -8,9 +8,8 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 # Plan a change
 
 The third of the six `change-*` stages (`docs/decisions.md` § D-02). Every tracker write below sits
-inside the bracket `CLAUDE.md` § The task store describes. Every question below that
-recommends an option takes the form `CLAUDE.md` § A question shows where its recommendation loses
-gives.
+inside the bracket `CLAUDE.md` § The task store describes. Every question below that recommends an
+option takes the form `CLAUDE.md` § A question shows where its recommendation loses gives.
 
 ## 1. Find the change and its epic
 
@@ -22,10 +21,10 @@ gives.
   label is `specChangeLabel` in `tools/policy.json`). If none or several come back, stop and say
   what was found.
 
-Read the proposal, every delta spec, and the design, or else the note on the epic in which
-`change-design` ruled one out. With neither, `change-design` has not run: stop and say so. A draft
-already at `.scratch/<change>-plan.md` is an earlier session's; take it to step 3 rather than
-drafting again.
+Read the proposal, its `findings.md` where there is one, every delta spec, and the design, or else
+the note on the epic in which `change-design` ruled one out. With neither, `change-design` has not
+run: stop and say so. A draft already at `.scratch/<change>-plan.md` is an earlier session's; take
+it to step 3 rather than drafting again.
 
 ## 2. Draft the tasks and the epic's criteria
 
@@ -33,14 +32,22 @@ Write the draft to `.scratch/<change>-plan.md`, not to the tracker. List the tas
 order. Give each one:
 
 - **A title** that says what exists once it is done.
-- **The scenarios it satisfies**, each as `<capability>: <scenario name>` taken from the delta specs.
-- **Its proof**: the test, gate or check that proves it, named precisely enough to run.
+- **Its kind**: the `assetLabels` key in `tools/policy.json` for what it mainly changes.
+- **The scenarios and NFRs it satisfies**, as `[<ID>] <title>` from the delta specs.
+- **Its proof**: the test, gate or check that proves it, named precisely enough to run. A scenario
+  no harness here can observe is proved by an automated test in a real browser, or the task names
+  the open issue that carries one; never by hand, a check no later change repeats
+  (`docs/decisions.md` § D-13, item 7).
 - **The tasks it waits on.**
 
-Then check the draft as a whole:
+Then check the draft as a whole, and fix what fails before § 3. The first three are traceability
+rules 1 to 3 (`docs/decisions.md` § D-13, items 6 and 14), which no gate reads:
 
-- **Every scenario in every delta spec is covered** by at least one task, or is marked manual,
-  saying who verifies it and how.
+- **Rule 1:** every scenario ID in every delta spec is named by a task.
+- **Rule 2:** every NFR is in a fitness record's `nfrIds` under `apps/<app>/fitness/`, or a task's
+  proof is a test that references it.
+- **Rule 3:** every `asset:product` task names an ID, and the draft lists every other task as
+  exempt.
 - **Each task is small enough** to finish and prove in one sitting, **and whole**: what must land
   together is one task. A new npm script comes with its job or its `UNJOBBED_BY_KIND` entry in
   `scripts/check-jobs.mjs` (the `add-npm-script` skill), never in a later task: nothing would catch
@@ -66,9 +73,9 @@ them drafted here:
 
 ## 3. Stop for approval
 
-Show the draft, with its scenario-by-scenario coverage and the epic's criteria. Beside a criterion
-only the merge can settle, such as the worktree gone, say that the reviewer cannot verify it from the
-pull request and so hands the merge to a person
+Show the draft, with its coverage of each ID, its exempt tasks and the epic's criteria. Beside a
+criterion only the merge can settle, such as the worktree gone, say that the reviewer cannot verify
+it from the pull request and so hands the merge to a person
 (`.claude/skills/change-finalize/SKILL.md` § 7. Merge, through the reviewer). Write nothing to the
 tracker until the user approves. Edit the draft as they direct.
 
@@ -77,16 +84,16 @@ tracker until the user approves. Edit the draft as they direct.
 In one bracket, create one child per task, in the draft's order, so that each task's predecessors
 already exist:
 
-- **Write each body first**, to its own file under `.scratch/`. It carries the scenarios, the proof
-  and what done means.
+- **Write each body first**, to its own file under `.scratch/`. It carries the IDs, the proof and
+  what done means.
 - **Create the child:**
-  `bd create "<title>" --parent <epic> --body-file <that file> --deps blocked-by:<predecessor id> --silent`.
+  `bd create "<title>" --parent <epic> --no-inherit-labels -l spec-change,<its repo: label>,<its kind> --body-file <that file> --deps blocked-by:<predecessor id> --silent`.
   Several predecessors go in the one flag, comma-separated:
   `--deps blocked-by:<id>,blocked-by:<id>` (`bd create --help`). Leave out `--deps` for a task that
   waits on nothing.
-- **Keep the labels it inherits.** Each child inherits the epic's labels, `spec-change` and the
-  `repo:` label, and must keep both. The first keeps it out of the general queue, and the second is
-  where its work lands.
+- **Its labels are those three alone:** `spec-change`, which keeps it out of the general queue, the
+  epic's `repo:` label, and its kind, which rule 3 reads. The epic's `asset:`, found-at and reroute
+  labels are not the task's.
 
 In the same bracket, write the criteria the draft drafted; an epic that kept its own needs no write.
 `bd update --body-file` replaces the whole description, so build the file from the description as it
@@ -101,5 +108,5 @@ Afterwards, `bd ready --parent <epic>` lists exactly the tasks that wait on noth
 ## 5. Report
 
 Report the epic, its acceptance criteria and whether this stage wrote them or the epic kept its own,
-each task's id with the scenarios it covers, what was marked manual, and the first ready task. The
-next stage is `change-build` (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
+each task's id with its kind and the IDs it covers, and the first ready task. The next stage is
+`change-build` (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
