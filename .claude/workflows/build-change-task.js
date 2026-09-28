@@ -119,7 +119,6 @@ const LENSES = {
     prompt: [
       'Probe the real thing this task changes: the module, the page, the server, the command or the gate.',
       'Before you run each probe, write down the result the delta specs, the design or the task say it must give, derived from their text and never from the code.',
-      'Put every probe under .scratch/. Start a server in your own script, on port 0 of 127.0.0.1, and close it again; kill every child process you start.',
       'Cover the cases the text names, and the inputs just either side of every limit it states.',
       'Report each divergence with the probe, the result the text requires, and the result you got.',
     ].join(' '),
@@ -132,17 +131,17 @@ const LENSES = {
       'Mutate what the scenarios state: each condition, each boundary, each branch, each value written out. For a gate, break the gate and run its selftest: a case that still holds does not assert its reason.',
       'Give each surviving mutant its kind by the rule below. A mutation that cannot change anything observable is equivalent, and not a finding.',
       'Also look for skipped, todo or only tests, assertions that can pass over an empty list, and helpers that swallow exceptions.',
-      'Look too for a test whose assertions depend on the environment, such as whether a port is free, with a weaker branch it can pass on; hold it to the rule for such a test in ' + ROUTES + '.',
+      'Look too for a test whose assertions depend on the environment, and hold it to the rule for such a test in ' + ROUTES + '.',
     ].join(' '),
   },
   wiring: {
     label: 'the repository around the change',
     prompt: [
       "Hold the files around the change to what the task's acceptance criteria ask of them.",
-      'An npm script it adds is wired as the add-npm-script skill says: a lefthook job whose glob is re-derived from what the script reads, a cost note measured on this host, and a .github/workflows/verify.yml step where the script reads only committed files.',
+      'An npm script it adds is wired as the add-npm-script skill says, with a cost note measured on this host and a .github/workflows/verify.yml step where the script reads only committed files.',
       "A file it adds has its row in its directory's README.md. A script, emitter or hook it adds opens with the header CLAUDE.md asks of one.",
       'Every comment and README sentence it touches is true of the code.',
-      'Run npm run check:jobs and npm run citations:check, each as its own call, and report what they print.',
+      'Run npm run check:jobs and npm run citations:check, and report what they print.',
     ].join(' '),
   },
   contract: {
@@ -159,7 +158,7 @@ const LENSES = {
       'Re-derive every claim the changed text makes about the repository: each file, script, path, command, figure and date.',
       "A file-level record, such as a register entry's What changed or a README table, must match git diff --stat origin/main...HEAD and git status --short, with nothing missing and nothing extra.",
       'Each figure must come with the command that re-derives it, and equal what that command prints now.',
-      'Run npm run citations:check and npm run counts:check, each as its own call, and report what they print.',
+      'Run npm run citations:check and npm run counts:check, and report what they print.',
     ].join(' '),
   },
 }
@@ -173,7 +172,7 @@ const KIND_RULE = [
   '- The code as it stands breaks the sentence: defect.',
   "- Only a known-wrong implementation, a mutant, breaks it: when no scenario is about that sentence, coverage-gap; when a faithful test of the scenario would fail the mutant but the task's own test passes it, defect, because the task's proof does not prove its scenario; " +
     'otherwise, the kind ' + ROUTES + ' gives it.',
-  '- A scenario that cannot hold as written, a behaviour the delta specs leave undecided so that the build had to choose, or anything else that § 5 calls a spec that is wrong: spec-contradiction. Code that gets a behaviour right where no scenario speaks is never one.',
+  '- A behaviour the delta specs leave undecided so that the build had to choose, or anything § 5 calls a spec that is wrong: spec-contradiction. Code that gets a behaviour right where no scenario speaks is never one.',
   '- A real defect in a file or a task this task does not own: out-of-scope. Work this change needs that no task of its plan covers: unplanned.',
   'Grade a finding blocker or major when it breaks a scenario or an acceptance criterion, and minor when it is real but small. Report nothing that is a matter of taste.',
   'Where each kind goes is ' + ROUTES + '; the parent session routes it, not you.',
@@ -617,7 +616,7 @@ function reviewPrompt(lens, round) {
   return [
     rules(),
     '',
-    `You are an independent reviewer of task ${A.task.id}, through one lens only: ${def.label}. You change nothing in the repository; throwaway probes go under .scratch/. Report only real findings, each with evidence a reader can check again: the file and line, or the command and what it printed.`,
+    `You are an independent reviewer of task ${A.task.id}, through one lens only: ${def.label}. You change nothing in the repository. Report only real findings, each with evidence a reader can check again: the file and line, or the command and what it printed.`,
     '',
     KIND_RULE,
     '',
@@ -638,7 +637,7 @@ function buildPrompt() {
     '',
     '## How to work',
     '',
-    "Read the task, the delta specs and the design first. Build what the task asks, and run every proof it names, each as its own call, until each passes as measured. Regenerate every derived artifact the change touches with its emitter, never by hand. A defect in your own work is fixed, never reported.",
+    "Read the task, the delta specs and the design first. Build what the task asks, and run every proof it names until each passes as measured. Regenerate every derived artifact the change touches with its emitter, never by hand. A defect in your own work is fixed, never reported.",
     '',
     'Report as findings only what you found and did not fix, by this rule:',
     '',
@@ -661,7 +660,7 @@ function fixPrompt(defects) {
     '',
     list,
     '',
-    "Then run every proof the task names again, each as its own call, and return their real output. Report as findings only what you could not fix without contradicting the specs, and what you found outside this task, by this rule:",
+    "Then run every proof the task names again, and return their real output. Report as findings only what you could not fix without contradicting the specs, and what you found outside this task, by this rule:",
     '',
     KIND_RULE,
   ].join('\n')
