@@ -14,6 +14,19 @@
   },
   "specIdPrefixesMeans": "The prefix every scenario and NFR ID of a capability carries: each key a capability (a directory under openspec/specs/, or under a change's specs/), each value its prefix. The ID rules, what `npm run openspec:check` refuses and where the next free ID comes from are the header of scripts/check-openspec.mjs, their one home under docs/decisions.md § D-13. A change that adds a capability adds its key here in the same change; renaming a prefix re-keys every header and every test that names it. Where it loses: a reader who meets `[CLS-014]` in a test name looks the prefix up here to learn its capability, where the full capability name would have said so. Decided 2026-09-28 with D-13, the prefixes chosen by the maintainer (asdlc-openspec-j09.3).",
 
+  "testTraceHashLength": 12,
+  "testTraceHashLengthMeans": "How many characters of an artifact's lowercase hex sha256 a test's `// trace:` line carries as the version of that artifact it was written against: a scenario's block with its requirement's statement, an NFR requirement's block, a Binding Surface or a contract file (the header of scripts/test-trace.mjs, the convention's one home under docs/decisions.md § D-13, item 17). A hash is compared only with the current hash of the same block, so it is a version stamp and not an identity: 12 characters leave one edit in 2^48 unnoticed, and keep a trace line that cites three artifacts within the files' line width. Changing it makes every hash in every test the wrong length, which `npm run calculator:test` then refuses: rewrite them from `node scripts/test-trace.mjs hash` in the same change. Where it loses: an edit whose block hashes to the same 12 characters leaves its tests current, where the full 64 would not. Decided 2026-09-28 (asdlc-openspec-j09.5).",
+
+  "testTraceLayers": {
+    "contract": 2,
+    "e2e": 3,
+    "fitness": null,
+    "functional": 1,
+    "integration": 2,
+    "unit": 1
+  },
+  "testTraceLayersMeans": "The layers a test may declare in its `// trace:` metadata, each key a layer and each value its default orchestration level, as docs/test-strategy.md § Environment orchestration rules gives them; `null` where the level is declared per test, as it is for a fitness function. A test at a level above its layer's default records why, and a test at or below it records no reason; scripts/test-trace.mjs, whose header is the convention's one home, refuses either slip and a layer this key does not list. Mutation is not a layer: a mutation run references the suite it targets (docs/test-strategy.md § Traceability, rule 7). Levels 2 and 3 are not adopted until a product needs them (docs/decisions.md § D-13, item 17), so an integration test here runs at level 1, below its default, and records nothing. The layer of each of the calculator's test files was the maintainer's choice (asdlc-openspec-j09.5's notes). Adding a layer here lets a test declare it; removing one strands every test that declares it, which `npm run calculator:test` then refuses. Where it loses: a default changed here moves the level of every test that states none, without a line of any test changing. Decided 2026-09-28 (asdlc-openspec-j09.5).",
+
   "assetLabels": {
     "asset:docs": "a document that is neither the register nor the living spec: a README, a page under docs/, count-index.md",
     "asset:environment": "what a session runs on: the worktree script and its briefing template, the toolchain's versions, the harness's settings, the dev container",
