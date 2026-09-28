@@ -35,33 +35,29 @@ at most 64 characters: it names the branch and the worktree too. It must not alr
 confirm it. It cannot change once the worktree exists.
 
 Before asking, read the worktree briefing's template as the trunk has it,
-`git show origin/main:.claude/worktree-CONTEXT.md.tmpl`. The briefing takes precedence where it
-conflicts (`CLAUDE.md` § Worktree-local context), and it names things this repository does not
-contain. If the change needs one of them, put the conflict in the same question as the name, for the
-user to decide. If they go ahead, the proposal's `## Impact` names the template and the
-`docs/decisions.md` entry the reversal needs.
+`git show origin/main:.claude/worktree-CONTEXT.md.tmpl`. The briefing names things this repository
+does not contain. If the change needs one of them, put the conflict in the same question as the
+name, for the user to decide. If they go ahead, the proposal's `## Impact` names the template and
+the `docs/decisions.md` entry the reversal needs.
 
 ## 3. Open the epic
 
 With `<change>` the confirmed name:
 
 - **From a seeding issue:** `bd update <id> -t epic --add-label spec-change --spec-id openspec/changes/<change> --set-metadata change=<change>`.
-  The issue keeps its id, its history and its `repo:` label; it becomes the change's epic rather than
-  being closed. Stop if another actor holds it in progress.
+  It becomes the change's epic rather than being closed. Stop if another actor holds it in progress.
 - **Otherwise:** write the epic's description (the why, in a paragraph; `change-plan` adds its
   acceptance criteria) to `.scratch/<change>-epic.md`, then
   `bd create "<change>: <what changes, in a line>" -t epic -l spec-change,<the repo: label open issues here carry> --spec-id openspec/changes/<change> --metadata '{"change":"<change>"}' --body-file .scratch/<change>-epic.md --silent`.
 
-The `spec-change` label keeps the epic and every child out of the general queue, and the later
-stages find the epic by its `change` metadata. The spelling's one home is `specChangeLabel` in
-`tools/policy.json`; this skill spells it only to run the commands above.
+The `spec-change` label keeps the epic and every child out of the general queue. The spelling's one
+home is `specChangeLabel` in `tools/policy.json`.
 
 ## 4. Cut the worktree
 
-Call `EnterWorktree` with the name `<change>`. The harness hook provisions it through the one
-worktree script as `agent/<change>`, cut from `origin/main`. Never run `git worktree add` yourself.
+Call `EnterWorktree` with the name `<change>`. Never run `git worktree add` yourself.
 
-Inside it, run `npm ci`, then read `.worktree/CONTEXT.md`.
+Inside it, read `.worktree/CONTEXT.md`.
 
 ## 5. Write the proposal
 
@@ -102,19 +98,18 @@ the living spec mechanically, so the grammar is exact:
   `` - TO: `### Requirement: <new name>` `` line, and put any change to the requirement's text under
   MODIFIED with the new name.
 
-Cite any other file by its full path from the repository root. A bare `spec.md` is ambiguous here,
-because every capability has one.
+Cite any other file by its full path from the repository root. A bare `spec.md` is ambiguous.
 
 ## 7. Check it, commit it, and stop
 
 - Run `npm run openspec:check`. It validates every delta strictly and trial-archives the change
   against the living spec. Fix what it names.
-- Commit the change folder with its message passed from a file under `.scratch/`.
+- Commit the change folder.
 - Stop, and report the name, the epic, the capabilities and each requirement with its scenarios.
 
 The user reviews the proposal and the specs before anything else happens. Revisions happen here, in
-this stage. The next stage is `change-design`, in a fresh session given the change's name
-(`CLAUDE.md` § Product work runs as OpenSpec-format changes).
+this stage. The next stage is `change-design` (`CLAUDE.md` § Product work runs as OpenSpec-format
+changes).
 
 When `change-verify` sends a spec gap here (`.claude/skills/change-verify/SKILL.md` § 6. Verdict),
 the change already exists: skip steps 1 to 4. Find the change and its epic as
