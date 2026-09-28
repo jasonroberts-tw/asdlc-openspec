@@ -39,20 +39,38 @@
  *
  * IDS (`docs/decisions.md` § D-13, items 1, 2 and 11, whose table names this header their home;
  * landed by asdlc-openspec-j09.3). A scenario is headed `#### Scenario: [<PREFIX>-NNN] <title>` and
- * an NFR requirement `### Requirement: [NFR-<PREFIX>-NNN] <title>`, where the prefix is its
- * capability's under `specIdPrefixes` in `tools/policy.json` and NNN is three digits or more,
- * zero-padded, from 001. A requirement that is not an NFR carries no ID; its scenarios do. An ID is
- * unique within its prefix and never reused, and a reworded header is a removal and an addition with
- * a new ID, because the pinned OpenSpec matches a MODIFIED scenario by its whole header. Over the
- * living specs and the active deltas, the gate refuses:
+ * an NFR requirement `### Requirement: [NFR-<PREFIX>-NNN] <title>`: the ID in brackets, one space,
+ * then the title. The prefix is its capability's under `specIdPrefixes` in `tools/policy.json`, and
+ * NNN is a number from 1, written with three digits or more and zero-padded to three, no further. A
+ * requirement that is not an NFR carries no ID; its scenarios do. An ID is unique within its prefix
+ * and never reused, and a reworded header is a removal and an addition with a new ID, because the
+ * pinned OpenSpec matches a MODIFIED scenario by its whole header. Since an ID is never reused,
+ * neither is a prefix: a capability that is removed keeps its key in the policy file, which no gate
+ * holds.
  *
- *   - a scenario without its capability's ID, and any other level-4 header under a requirement,
- *     which OpenSpec counts as a scenario;
+ * WHAT COUNTS AS A HEADER is what the pinned OpenSpec 1.6.0 counts, reader by reader, outside fenced
+ * code as its own fence rules draw it (`requirement-text.js`: a fence opens on three or more
+ * backticks or tildes after any indent, and closes only on a line of the same marker, at least as
+ * long, with nothing after it). In a living spec, its spec reader (`markdown-parser.js`): each header
+ * under the first `Requirements` section is a requirement, whatever its level and words, and each
+ * header under a requirement that has any content is a scenario. In a delta, its delta reader
+ * (`requirement-blocks.js`) and validator: in an ADDED or MODIFIED section each `### Requirement:`
+ * line opens a block that runs to the next one or the next `## ` line, and each level-4 header in the
+ * block is a scenario; a REMOVED section's requirement headers; and a RENAMED section's `TO:` lines.
+ * After each trial archive, the merged living spec is read again with the spec reader, since a header
+ * the delta reader does not count, such as a `#####` right under a requirement, is a scenario there.
+ * Over the living specs and the active deltas, the gate refuses:
+ *
+ *   - a scenario without its capability's ID, and a header counted as a scenario that is not headed
+ *     `Scenario:`;
  *   - a requirement header that opens with a bracketed token, or with `NFR`, and is not
- *     `[NFR-<PREFIX>-NNN] <title>`; a capability with no prefix; a prefix that is not capital
- *     letters and digits, or is `NFR`, or is another capability's;
+ *     `[NFR-<PREFIX>-NNN] <title>`; a bracketed token not written `[<ID>] <title>`; an ID of another
+ *     shape, of another capability's prefix, numbered zero, or padded other than to three digits;
+ *   - a capability with no prefix; a prefix that is not a string of capital letters and digits
+ *     opening with a letter, or is `NFR`, or is another capability's;
  *   - one ID on two headers of different titles, a `RENAMED` block's `TO:` line counted; on two
- *     headers of one file; or on two headers of a living spec as a trial archive leaves it;
+ *     headers of one file, a `TO:` line and the MODIFIED header that must repeat it counting as one;
+ *     or on two headers of a living spec as a trial archive leaves it;
  *   - an ID that a delta under `openspec/changes/archive/` gave a different title.
  *
  * THE NEXT FREE ID of a prefix is one more than the highest it has reached in what this gate reads:
@@ -66,13 +84,19 @@
  * gave each ID; the proposal's prose, beyond what the CLI validates; the change's epic in `bd`, which
  * a fresh clone does not have (`change-verify` checks it in session); a spelling of the label outside
  * the skills and agents, such as the register's, which records what was decided on its day; and a
- * prefix spelled in a prompt, since a stale one is refused at the first header written with it. Two
- * gaps in the ID rules are known. An NFR requirement written with no ID and no leading `NFR` reads
- * as a functional requirement. And an ID whose only record is the living spec, as is every ID given
- * by editing the living spec directly when IDs were introduced (asdlc-openspec-j09.3), leaves no
- * trace once a change removes it, because the change's delta need not carry it (a `REMOVED` block
- * names the requirement and not its scenarios): nothing then refuses its reuse, and the next free
- * ID stays above it only while a higher ID of its prefix survives. asdlc-openspec-fa7 carries it.
+ * prefix spelled in a prompt, since a stale one is refused at the first header written with it.
+ * "Never reused" holds only as far as the archive records an ID, and three gaps are known:
+ *
+ *   - An NFR requirement written with no ID and no leading `NFR` reads as a functional requirement.
+ *   - An ID whose only record is the living spec, as is every ID given by editing the living spec
+ *     directly when IDs were introduced (asdlc-openspec-j09.3), leaves no trace once a change removes
+ *     it, because the change's delta need not carry it (a `REMOVED` block names the requirement and
+ *     not its scenarios): nothing then refuses its reuse, and the next free ID stays above it only
+ *     while a higher ID of its prefix survives.
+ *   - Such an ID can also be reworded in place, by a direct edit of the living spec, keeping the ID:
+ *     with no archived title to compare, nothing refuses it.
+ *
+ * asdlc-openspec-fa7 carries the last two.
  *
  * The CLI never reaches the network: telemetry is turned off in the environment of every spawn. It
  * resolves its root as the nearest `openspec/` above its working directory, so the gate refuses a
@@ -110,16 +134,26 @@ const LABEL_KEY = 'specChangeLabel'
 const PREFIX_KEY = 'specIdPrefixes'
 /** The folder under `openspec/changes/` the archive moves a landed change into. */
 const ARCHIVE_DIR = 'archive'
-/** OpenSpec 1.6.0's own requirement header (`requirement-blocks.js`), and a `RENAMED` block's `TO:`. */
+/**
+ * OpenSpec 1.6.0's own patterns (`requirement-blocks.js`, `markdown-parser.js`,
+ * `requirement-text.js`): a delta section, a requirement header, a REMOVED section's bulleted one, a
+ * RENAMED section's `TO:` line, any header of the spec reader, and a delta block's scenario line.
+ */
+const DELTA_SECTION = /^##\s+(ADDED|MODIFIED|REMOVED|RENAMED)\s+Requirements\s*$/i
+const TOP_SECTION = /^##\s+/
 const REQUIREMENT_HEADER = /^###\s*Requirement:\s*(.+?)\s*$/i
+const REMOVED_BULLET = /^\s*-\s*`?###\s*Requirement:\s*(.+?)`?\s*$/i
 const RENAMED_TO = /^\s*-?\s*TO:\s*`?###\s*Requirement:\s*(.+?)`?\s*$/
-/** A scenario header. OpenSpec counts every level-4 header under a requirement as a scenario. */
-const SCENARIO_HEADER = /^####\s*Scenario:\s*(.*?)\s*$/
-const LEVEL_FOUR = /^####\s/
-/** A header's text as an ID takes it: the ID in brackets, then the title. */
-const ID_TOKEN = /^\[([^\]]*)\]\s*(.*)$/
-/** A well-formed ID: `NFR-` or nothing, a prefix, and a number of three digits or more. */
-const ID_SHAPE = /^(NFR-)?([A-Z][A-Z0-9]*)-(\d{3,})$/
+const ANY_HEADER = /^(#{1,6})\s+(.+)$/
+const LEVEL_FOUR = /^####\s+/
+/** A scenario's words, once the reader has counted its header as a scenario. */
+const SCENARIO_WORDS = /^Scenario:\s*(.*)$/
+/** A header's text as an ID must open it: the ID in brackets, one space, then the title. */
+const ID_TOKEN = /^\[([^\]\s]+)\] (\S.*)$/
+/** Any bracketed token, as the archive and a merged spec are read for the IDs they carry. */
+const ANY_TOKEN = /^\[\s*([^\]]*?)\s*\]\s*(.*)$/
+/** An ID's shape: `NFR-` or nothing, a prefix, a hyphen and digits; `judge` holds the number. */
+const ID_SHAPE = /^(NFR-)?([A-Z][A-Z0-9]*)-(\d+)$/
 const PREFIX_SHAPE = /^[A-Z][A-Z0-9]*$/
 /** The directory prefix `openspec init` and `openspec update` write skills under. */
 const RETIRED_SKILL_PREFIX = 'openspec-'
@@ -274,7 +308,7 @@ export function runCheck(root, bin) {
             ` would not validate (a living-spec failure above is then the cause).`,
         )
       } else {
-        mergedDuplicates(root, scratch, id, ids.next, fail)
+        checkMerged(root, scratch, id, ids, fail)
       }
     } finally {
       rmSync(scratch, { recursive: true, force: true })
@@ -380,7 +414,9 @@ function idPrefixes(policy, fail) {
 /**
  * The ID rules of this file's header, over the living specs and the active deltas, with the archive
  * as the record of what each ID was once called. Returns what the summary and the trial archive
- * need: the living spec's ID counts, the next free ID of each prefix, and `next`, which names it.
+ * need: the living specs' ID counts, the next free ID of each prefix and `next`, which names it, and
+ * what the trial archive reads the merged spec against: the prefixes, every header already judged,
+ * the archived titles, and the IDs already refused.
  */
 function checkIds(root, prefixes, fail) {
   const highest = new Map()
@@ -394,19 +430,19 @@ function checkIds(root, prefixes, fail) {
 
   const archived = new Map()
   for (const file of specFiles(root, true)) {
-    for (const header of readHeaders(readFileSync(join(root, file.path), 'utf8'))) {
-      const token = header.text.match(ID_TOKEN)
-      const id = token?.[1].trim()
-      if (!token || !ID_SHAPE.test(id)) continue
-      note(id)
-      if (!archived.has(id)) archived.set(id, [])
-      archived.get(id).push({ title: token[2].trim(), change: file.change })
+    for (const header of deltaHeaders(readFileSync(join(root, file.path), 'utf8'))) {
+      const token = header.text.match(ANY_TOKEN)
+      if (!token || !ID_SHAPE.test(token[1])) continue
+      note(token[1])
+      if (!archived.has(token[1])) archived.set(token[1], [])
+      archived.get(token[1]).push({ title: token[2].trim(), change: file.change })
     }
   }
 
   const entries = []
   const problems = []
   const unprefixed = new Map()
+  const judged = new Set()
   for (const file of specFiles(root, false)) {
     const prefix = prefixes?.get(file.capability)
     if (prefix === undefined && prefixes !== null) {
@@ -414,7 +450,9 @@ function checkIds(root, prefixes, fail) {
       unprefixed.get(file.capability).push(file.path)
     }
     if (typeof prefix !== 'string') continue
-    for (const header of readHeaders(readFileSync(join(root, file.path), 'utf8'))) {
+    const text = readFileSync(join(root, file.path), 'utf8')
+    for (const header of file.change === undefined ? livingHeaders(text) : deltaHeaders(text)) {
+      judged.add(judgedKey(file.change, file.capability, header))
       const verdict = judge(header, prefix)
       if (verdict === null) continue
       const at = {
@@ -442,6 +480,7 @@ function checkIds(root, prefixes, fail) {
   }
   for (const at of problems) fail(problemMessage(at, next(at.namespace)))
 
+  const refused = new Set()
   const byId = new Map()
   for (const entry of entries) {
     if (!byId.has(entry.id)) byId.set(entry.id, [])
@@ -451,6 +490,7 @@ function checkIds(root, prefixes, fail) {
     const group = byId.get(id)
     const titles = [...new Set(group.map((entry) => entry.title))]
     if (titles.length > 1) {
+      refused.add(id)
       const heads = titles.map((title) => `"${title}" at ${group.find((entry) => entry.title === title).where}`)
       fail(
         `\`[${id}]\` heads ${titles.length} different ${group[0].kind}s: ${heads.join(', ')}. An ID is` +
@@ -460,10 +500,14 @@ function checkIds(root, prefixes, fail) {
       )
       continue
     }
+    // A RENAMED `TO:` line names the header its MODIFIED block must repeat, so it is not a second one.
     const byPath = new Map()
-    for (const entry of group) byPath.set(entry.path, [...(byPath.get(entry.path) ?? []), entry.header.line])
+    for (const entry of group) {
+      if (!entry.header.renamed) byPath.set(entry.path, [...(byPath.get(entry.path) ?? []), entry.header.line])
+    }
     for (const [path, lines] of byPath) {
       if (lines.length < 2) continue
+      refused.add(id)
       fail(
         `\`[${id}]\` heads ${lines.length} ${group[0].kind}s of ${path}, at lines ${lines.join(', ')}.` +
           ` An ID heads one ${group[0].kind}: give every one after the first a new ID, from the next` +
@@ -478,11 +522,8 @@ function checkIds(root, prefixes, fail) {
       const key = `${entry.id}\0${entry.title}\0${record.change}`
       if (record.title === entry.title || reported.has(key)) continue
       reported.add(key)
-      fail(
-        `${entry.where}: \`[${entry.id}]\` heads "${entry.title}", but archived change` +
-          ` \`${record.change}\` gave it "${record.title}". An ID is never reused, and a reworded` +
-          ` header takes a new ID: head this one with the next free ID, ${next(entry.namespace)}.`,
-      )
+      refused.add(entry.id)
+      fail(archiveMessage(entry.where, entry.id, entry.title, record, next(entry.namespace)))
     }
   }
 
@@ -496,32 +537,52 @@ function checkIds(root, prefixes, fail) {
     nfrs: new Set(living.filter((entry) => entry.kind === 'NFR requirement').map((entry) => entry.id)).size,
     free: namespaces.map(next),
     next,
+    prefixes,
+    judged,
+    archived,
+    refused,
   }
+}
+
+function judgedKey(change, capability, header) {
+  return `${change ?? ''}\0${capability}\0${header.kind}\0${header.text}`
 }
 
 /**
  * One header read against its capability's prefix: `{ id, title, kind, namespace }` for a
  * well-formed ID, `{ problem, ... }` for a header the rules refuse, or null for a requirement that
- * is not an NFR, which carries no ID.
+ * is not an NFR, which carries no ID. Each rule is one test, so the selftest can break each alone.
  */
 function judge(header, prefix) {
-  const token = header.text.match(ID_TOKEN)
-  const id = token ? token[1].trim() : null
-  const title = token ? token[2].trim() : header.text
   if (header.kind === 'stray') return { problem: 'stray', namespace: prefix }
   const nfr = header.kind === 'requirement'
   const namespace = nfr ? `NFR-${prefix}` : prefix
-  if (nfr && !token) return /^NFR\b/.test(header.text) ? { problem: 'unbracketed', namespace, title } : null
-  if (!token) return { problem: 'no-id', namespace, title }
+  const text = header.text
+  if (!text.startsWith('[')) {
+    if (!nfr) return { problem: 'no-id', namespace, title: text }
+    return /^NFR\b/.test(text) ? { problem: 'unbracketed', namespace, title: text } : null
+  }
+  const token = text.match(ID_TOKEN)
+  if (token === null) return { problem: 'token', namespace }
+  const [, id, title] = token
+  const malformed = (why) => ({ problem: 'malformed', why, namespace, id, title, nfr })
   const shape = id.match(ID_SHAPE)
-  const canonical = shape && Number(shape[3]) >= 1 && shape[3] === String(Number(shape[3])).padStart(3, '0')
-  if (!canonical || `${shape[1] ?? ''}${shape[2]}` !== namespace) return { problem: 'malformed', namespace, id, title, nfr }
-  if (title === '') return { problem: 'untitled', namespace, id }
+  if (shape === null) return malformed('shape')
+  if (`${shape[1] ?? ''}${shape[2]}` !== namespace) return malformed('prefix')
+  if (/^0+$/.test(shape[3])) return malformed('zero')
+  if (!/^(?:\d{3}|[1-9]\d{3,})$/.test(shape[3])) return malformed('pad')
   return { id, title, kind: nfr ? 'NFR requirement' : 'scenario', namespace }
 }
 
+const MALFORMED = {
+  shape: () => 'which is not shaped as an ID, a prefix, a hyphen and a number',
+  prefix: (at) => `which is not of capability \`${at.capability}\`'s prefix, \`${at.namespace}\``,
+  zero: () => 'which is numbered zero',
+  pad: () => 'whose number is not three digits or more, zero-padded to three and no further',
+}
+
 function problemMessage(at, free) {
-  const { where, capability, namespace, id, title, header } = at
+  const { where, namespace, id, title, header } = at
   switch (at.problem) {
     case 'no-id':
       return (
@@ -530,100 +591,208 @@ function problemMessage(at, free) {
         ` scenario they trace to.`
       )
     case 'malformed':
-      return at.nfr
-        ? `${where}: NFR requirement "${title}" carries \`[${id}]\`, which is not an NFR ID of capability` +
-            ` \`${capability}\`: an NFR requirement is headed \`[${namespace}-NNN] <title>\`, NNN three` +
-            ` digits or more from 001, and the next free is ${free}. A requirement that is not an NFR` +
-            ` carries no ID; its scenarios do.`
-        : `${where}: scenario "${title}" carries \`[${id}]\`, which is not a scenario ID of capability` +
-            ` \`${capability}\`: a scenario is headed \`[${namespace}-NNN] <title>\`, NNN three digits or` +
-            ` more from 001, and the next free is ${free}.`
+      return (
+        `${where}: ${at.nfr ? 'NFR requirement' : 'scenario'} "${title}" carries \`[${id}]\`,` +
+        ` ${MALFORMED[at.why](at)}: ${at.nfr ? 'an NFR requirement' : 'a scenario'} is headed` +
+        ` \`[${namespace}-NNN] <title>\`, and the next free ID is ${free}.` +
+        (at.nfr ? ' A requirement that is not an NFR carries no ID; its scenarios do.' : '')
+      )
+    case 'token':
+      return (
+        `${where}: \`${header.raw}\` opens with a bracketed token not written \`[<ID>] <title>\`: the` +
+        ` ID in brackets with no space inside them, one space, then the title. The next free ID of its` +
+        ` prefix is ${free}.`
+      )
     case 'unbracketed':
       return (
         `${where}: requirement "${title}" opens with \`NFR\` but carries no ID in brackets: an NFR` +
         ` requirement is headed \`### Requirement: [${namespace}-NNN] <title>\`, and the next free is ${free}.`
       )
-    case 'stray':
-      return (
-        `${where}: \`${header.raw}\` is a scenario to OpenSpec, which counts every level-4 header under a` +
-        ` requirement, and it is not headed \`#### Scenario: [${namespace}-NNN] <title>\`; the next free` +
-        ` ID is ${free}.`
-      )
     default:
-      return `${where}: \`[${id}]\` heads no title. A header is its ID and then its title.`
+      return (
+        `${where}: \`${header.raw}\` is a scenario to OpenSpec, which counts it under its requirement,` +
+        ` and it is not headed \`Scenario: [${namespace}-NNN] <title>\`; the next free ID is ${free}.`
+      )
   }
 }
 
+function archiveMessage(where, id, title, record, free) {
+  return (
+    `${where}: \`[${id}]\` heads "${title}", but archived change \`${record.change}\` gave it` +
+    ` "${record.title}". An ID is never reused, and a reworded header takes a new ID: head this one` +
+    ` with the next free ID, ${free}.`
+  )
+}
+
 /**
- * After a trial archive: an ID the merged living spec carries on two headers of one title where the
- * living spec before it did not, as when a delta restates a scenario under another requirement. Two
- * titles on one ID are left to `checkIds`, which has already refused them.
+ * After a trial archive, the merged living spec read as OpenSpec's spec reader will read it: each
+ * header neither the living spec nor the change's delta held, such as a `#####` right under a
+ * requirement that the delta reader does not count, judged as above; and an ID on two headers where
+ * the living spec before it had it on one, as when a delta restates a scenario under another
+ * requirement. An ID `checkIds` already refused is not refused again.
  */
-function mergedDuplicates(root, scratch, change, next, fail) {
-  const merged = join(scratch, OPENSPEC_DIR, 'specs')
-  for (const capability of listDirs(merged)) {
+function checkMerged(root, scratch, change, ids, fail) {
+  for (const capability of listDirs(join(scratch, OPENSPEC_DIR, 'specs'))) {
     const path = `${OPENSPEC_DIR}/specs/${capability}/spec.md`
     if (!isFile(join(scratch, path))) continue
-    const after = idLines(readFileSync(join(scratch, path), 'utf8'))
-    const before = isFile(join(root, path)) ? idLines(readFileSync(join(root, path), 'utf8')) : new Map()
-    for (const [id, { lines, titles }] of after) {
-      if (lines.length < 2 || titles.size > 1 || (before.get(id)?.lines.length ?? 0) >= 2) continue
+    const headers = livingHeaders(readFileSync(join(scratch, path), 'utf8'))
+    const prefix = ids.prefixes?.get(capability)
+    const where = (header) => `${path}:${header.line}, as the trial archive of \`${change}\` leaves it`
+    for (const header of typeof prefix === 'string' ? headers : []) {
+      const seen = [undefined, change].some((by) => ids.judged.has(judgedKey(by, capability, header)))
+      if (seen) continue
+      const verdict = judge(header, prefix)
+      if (verdict === null) continue
+      if (verdict.problem) {
+        fail(problemMessage({ ...verdict, header, capability, where: where(header) }, ids.next(verdict.namespace)))
+        continue
+      }
+      for (const record of ids.archived.get(verdict.id) ?? []) {
+        if (record.title === verdict.title) continue
+        ids.refused.add(verdict.id)
+        fail(archiveMessage(where(header), verdict.id, verdict.title, record, ids.next(verdict.namespace)))
+      }
+    }
+    const after = idLines(headers)
+    const before = isFile(join(root, path)) ? idLines(livingHeaders(readFileSync(join(root, path), 'utf8'))) : new Map()
+    for (const [id, lines] of after) {
+      if (lines.length < 2 || ids.refused.has(id) || (before.get(id)?.length ?? 0) >= 2) continue
       fail(
         `change \`${change}\`, once archived, would leave \`[${id}]\` on ${lines.length} headers of` +
           ` ${path}, at lines ${lines.join(', ')} of the merged file. An ID heads one scenario or NFR` +
-          ` requirement: give the one the change adds the next free ID, ${next(id.replace(/-\d+$/, ''))}.`,
+          ` requirement: give the one the change adds the next free ID, ${ids.next(id.replace(/-\d+$/, ''))}.`,
       )
     }
   }
 }
 
-/** Each well-formed ID of one spec file, with the lines and the titles of the headers that carry it. */
-function idLines(text) {
+/** Each ID-shaped token the headers carry, with the lines of the headers that carry it. */
+function idLines(headers) {
   const found = new Map()
-  for (const header of readHeaders(text)) {
-    const token = header.text.match(ID_TOKEN)
-    const id = token?.[1].trim()
+  for (const header of headers) {
+    const id = header.text.match(ANY_TOKEN)?.[1]
     if (id === undefined || !ID_SHAPE.test(id)) continue
-    if (!found.has(id)) found.set(id, { lines: [], titles: new Set() })
-    found.get(id).lines.push(header.line)
-    found.get(id).titles.add(token[2].trim())
+    found.set(id, [...(found.get(id) ?? []), header.line])
   }
   return found
 }
 
 /**
- * The headers of one spec file an ID can sit on, outside fenced code: every requirement header and
- * `RENAMED` `TO:` line (`requirement`), every `#### Scenario:` (`scenario`), and any other level-4
- * header after the first requirement (`stray`), which OpenSpec also counts as a scenario.
+ * The lines of `lines` inside fenced code, the fence lines included, by OpenSpec 1.6.0's own rules
+ * (`requirement-text.js`, `buildCodeFenceMask`): a fence opens on three or more backticks or tildes
+ * after any indent, and closes only on a line of the same marker, at least as long, with nothing
+ * after it but whitespace.
  */
-function readHeaders(text) {
-  const headers = []
-  let fence = null
-  let inRequirements = false
+function fenceMask(lines) {
+  const mask = new Array(lines.length).fill(false)
+  let open = null
+  for (let index = 0; index < lines.length; index++) {
+    if (open === null) {
+      const opener = lines[index].match(/^\s*(`{3,}|~{3,})/)
+      if (opener) {
+        open = opener[1]
+        mask[index] = true
+      }
+      continue
+    }
+    mask[index] = true
+    const closer = lines[index].match(/^\s*(`{3,}|~{3,})\s*$/)
+    if (closer && closer[1][0] === open[0] && closer[1].length >= open.length) open = null
+  }
+  return mask
+}
+
+/**
+ * The ID-bearing headers of a living spec, as OpenSpec 1.6.0's spec reader (`markdown-parser.js`)
+ * sees them: outside fenced code, each header nests under the nearest one above it of a lower level;
+ * each header under the first `Requirements` section is a requirement (`requirement`), whatever its
+ * level and words, and each header with any content under a requirement is a scenario (`scenario`
+ * when headed `Scenario:`, `stray` when not).
+ */
+function livingHeaders(text) {
   const lines = text.replace(/\r\n?/g, '\n').split('\n')
+  const mask = fenceMask(lines)
+  const heads = []
+  for (let index = 0; index < lines.length; index++) {
+    const match = mask[index] ? null : lines[index].match(ANY_HEADER)
+    if (match) heads.push({ index, level: match[1].length, title: match[2].trim(), parent: null })
+  }
+  const stack = []
+  for (const head of heads) {
+    while (stack.length > 0 && stack[stack.length - 1].level >= head.level) stack.pop()
+    head.parent = stack[stack.length - 1] ?? null
+    stack.push(head)
+  }
+  const section = heads.find((head) => /^requirements$/i.test(head.title))
+  const headers = []
+  if (section === undefined) return headers
+  heads.forEach((head, n) => {
+    const at = { line: head.index + 1, raw: lines[head.index].trim() }
+    if (head.parent === section) {
+      headers.push({ ...at, kind: 'requirement', text: head.title.replace(/^Requirement:\s*/i, '').trim() })
+      return
+    }
+    if (head.parent === null || head.parent.parent !== section) return
+    const end = heads.slice(n + 1).find((later) => later.level <= head.level)?.index ?? lines.length
+    if (!lines.slice(head.index + 1, end).some((line) => line.trim() !== '')) return
+    const words = head.title.match(SCENARIO_WORDS)
+    headers.push({ ...at, kind: words ? 'scenario' : 'stray', text: words ? words[1].trim() : head.title })
+  })
+  return headers
+}
+
+/**
+ * The ID-bearing headers of a delta spec, as OpenSpec 1.6.0's delta reader (`requirement-blocks.js`)
+ * and its validator see them. In an ADDED or MODIFIED section, each `### Requirement:` line
+ * (`requirement`) opens a block that runs to the next one or the next `## ` line, and each level-4
+ * header in the block outside fenced code is a scenario (`scenario` when headed `Scenario:`, `stray`
+ * when not). In a REMOVED section, each requirement header or bulleted one; in a RENAMED section,
+ * each `TO:` line (`renamed`).
+ */
+function deltaHeaders(text) {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n')
+  const headers = []
+  let section = null
+  let block = null
+  const closeBlock = (end) => {
+    if (block === null) return
+    const body = lines.slice(block, end)
+    const mask = fenceMask(body)
+    body.forEach((line, offset) => {
+      if (mask[offset] || !LEVEL_FOUR.test(line)) return
+      const title = line.replace(LEVEL_FOUR, '').trim()
+      const words = title.match(SCENARIO_WORDS)
+      headers.push({
+        line: block + offset + 1,
+        raw: line.trim(),
+        kind: words ? 'scenario' : 'stray',
+        text: words ? words[1].trim() : title,
+      })
+    })
+    block = null
+  }
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index]
-    const marker = line.match(/^\s{0,3}(`{3,}|~{3,})/)
-    if (fence !== null) {
-      if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length) fence = null
-      continue
-    }
-    if (marker) {
-      fence = marker[1]
-      continue
-    }
     const at = { line: index + 1, raw: line.trim() }
-    const requirement = line.match(REQUIREMENT_HEADER) ?? line.match(RENAMED_TO)
-    if (requirement) {
-      inRequirements = true
-      headers.push({ ...at, kind: 'requirement', text: requirement[1].trim() })
-      continue
+    if (TOP_SECTION.test(line)) {
+      closeBlock(index)
+      section = line.match(DELTA_SECTION)?.[1].toUpperCase() ?? null
+    } else if (section === 'ADDED' || section === 'MODIFIED') {
+      const requirement = line.match(REQUIREMENT_HEADER)
+      if (!requirement) continue
+      closeBlock(index)
+      headers.push({ ...at, kind: 'requirement', text: requirement[1] })
+      block = index + 1
+    } else if (section === 'REMOVED') {
+      const removed = line.match(REQUIREMENT_HEADER) ?? line.match(REMOVED_BULLET)
+      if (removed) headers.push({ ...at, kind: 'requirement', text: removed[1] })
+    } else if (section === 'RENAMED') {
+      const to = line.match(RENAMED_TO)
+      if (to) headers.push({ ...at, kind: 'requirement', text: to[1], renamed: true })
     }
-    const scenario = line.match(SCENARIO_HEADER)
-    if (scenario) headers.push({ ...at, kind: 'scenario', text: scenario[1].trim() })
-    else if (inRequirements && LEVEL_FOUR.test(line)) headers.push({ ...at, kind: 'stray', text: line.trim() })
   }
-  return headers
+  closeBlock(lines.length)
+  return headers.sort((a, b) => a.line - b.line)
 }
 
 /**
@@ -710,8 +879,9 @@ function main() {
       console.log(
         `openspec: ${specs} living spec(s) and ${changes} active change(s) validate strictly; every` +
           ` active change applies to the living spec; every scenario and NFR requirement carries its` +
-          ` capability's ID, unique and never reused (${ids.scenarios} scenario ID(s) and ${ids.nfrs}` +
-          ` NFR ID(s) in the living specs; next free: ${ids.free.join(', ')}); no retired skill under` +
+          ` capability's ID, unique, and given no other title by any archived change, within the limits` +
+          ` this gate's header names (${ids.scenarios} scenario ID(s) and ${ids.nfrs} NFR ID(s) in the` +
+          ` living specs; next free: ${ids.free.join(', ')}); no retired skill under` +
           ` ${SKILLS_DIR}/; every prompt that spells the change label cites ${LABEL_KEY} in ${POLICY_FILE}.`,
       )
     }
@@ -971,14 +1141,10 @@ function cases() {
       expect: /^openspec\/changes\/add-farewell\/specs\/greeting\/spec\.md:\d+: scenario "A reader leaves" carries no ID\./,
     },
     {
-      name: "a scenario whose ID is not of its capability's prefix",
-      doctor: (dir) => edit(dir, living, (t) => t.replace('[GRT-001]', '[GREET-1]')),
-      expect: /^openspec\/specs\/greeting\/spec\.md:\d+: scenario "A reader arrives" carries `\[GREET-1\]`, which is not a scenario ID of capability `greeting`/,
-    },
-    {
-      name: 'an ID that heads no title',
-      doctor: (dir) => edit(dir, delta, (t) => t.replace('[GRT-003] A reader leaves', '[GRT-003]')),
-      expect: /^openspec\/changes\/add-farewell\/specs\/greeting\/spec\.md:\d+: `\[GRT-003\]` heads no title\./,
+      name: "a living scenario without an ID, a level deeper, which OpenSpec's spec reader still counts",
+      doctor: (dir) =>
+        edit(dir, living, (t) => t.replace('#### Scenario: [GRT-001] A reader arrives', '##### Scenario: A reader arrives')),
+      expect: /^openspec\/specs\/greeting\/spec\.md:\d+: scenario "A reader arrives" carries no ID\./,
     },
     {
       name: 'a level-4 header not headed as a scenario, which OpenSpec counts as one',
@@ -986,14 +1152,148 @@ function cases() {
       expect: /^openspec\/changes\/add-farewell\/specs\/greeting\/spec\.md:\d+: `#### A reader leaves` is a scenario to OpenSpec/,
     },
     {
+      name: 'a bracketed token with spaces inside the brackets',
+      doctor: (dir) => edit(dir, living, (t) => t.replace('[GRT-001] A reader arrives', '[ GRT-001 ] A reader arrives')),
+      expect: /^openspec\/specs\/greeting\/spec\.md:\d+: `#### Scenario: \[ GRT-001 \] A reader arrives` opens with a bracketed token not written `\[<ID>\] <title>`/,
+    },
+    {
+      name: 'a bracketed token with no space before the title',
+      doctor: (dir) => edit(dir, living, (t) => t.replace('[GRT-001] A reader arrives', '[GRT-001]A reader arrives')),
+      expect: /^openspec\/specs\/greeting\/spec\.md:\d+: `#### Scenario: \[GRT-001\]A reader arrives` opens with a bracketed token not written/,
+    },
+    {
+      name: 'an ID that heads no title',
+      doctor: (dir) => edit(dir, delta, (t) => t.replace('[GRT-003] A reader leaves', '[GRT-003]')),
+      expect: /^openspec\/changes\/add-farewell\/specs\/greeting\/spec\.md:\d+: `#### Scenario: \[GRT-003\]` opens with a bracketed token not written/,
+    },
+    {
+      name: 'an ID not shaped as one',
+      doctor: (dir) => edit(dir, living, (t) => t.replace('[GRT-001]', '[GRT001]')),
+      expect: /^openspec\/specs\/greeting\/spec\.md:\d+: scenario "A reader arrives" carries `\[GRT001\]`, which is not shaped as an ID/,
+    },
+    {
+      name: "a well-formed ID of another capability's prefix",
+      doctor: (dir) => edit(dir, living, (t) => t.replace('[GRT-001]', '[FRW-001]')),
+      expect: /^openspec\/specs\/greeting\/spec\.md:\d+: scenario "A reader arrives" carries `\[FRW-001\]`, which is not of capability `greeting`'s prefix, `GRT`/,
+    },
+    {
+      name: 'an ID numbered zero',
+      doctor: (dir) => edit(dir, living, (t) => t.replace('[GRT-001]', '[GRT-000]')),
+      expect: /^openspec\/specs\/greeting\/spec\.md:\d+: scenario "A reader arrives" carries `\[GRT-000\]`, which is numbered zero/,
+    },
+    {
+      name: 'an ID with fewer than three digits',
+      doctor: (dir) => edit(dir, living, (t) => t.replace('[GRT-001]', '[GRT-01]')),
+      expect: /^openspec\/specs\/greeting\/spec\.md:\d+: scenario "A reader arrives" carries `\[GRT-01\]`, whose number is not three digits or more/,
+    },
+    {
+      name: 'an ID padded past three digits',
+      doctor: (dir) => edit(dir, living, (t) => t.replace('[GRT-001]', '[GRT-0001]')),
+      expect: /^openspec\/specs\/greeting\/spec\.md:\d+: scenario "A reader arrives" carries `\[GRT-0001\]`, whose number is not three digits or more/,
+    },
+    {
       name: 'an NFR requirement whose ID is not [NFR-<PREFIX>-NNN]',
       doctor: (dir) => edit(dir, living, (t) => t.replace('[NFR-GRT-001]', '[NFR-001]')),
-      expect: /^openspec\/specs\/greeting\/spec\.md:\d+: NFR requirement "Greeting is prompt" carries `\[NFR-001\]`, which is not an NFR ID of capability `greeting`/,
+      expect: /^openspec\/specs\/greeting\/spec\.md:\d+: NFR requirement "Greeting is prompt" carries `\[NFR-001\]`, which is not of capability `greeting`'s prefix, `NFR-GRT`/,
     },
     {
       name: 'an NFR requirement with its ID out of brackets',
       doctor: (dir) => edit(dir, living, (t) => t.replace('[NFR-GRT-001] Greeting', 'NFR-GRT-001 Greeting')),
       expect: /^openspec\/specs\/greeting\/spec\.md:\d+: requirement "NFR-GRT-001 Greeting is prompt" opens with `NFR` but carries no ID in brackets/,
+    },
+    {
+      name: "an NFR requirement headed without `Requirement:`, which OpenSpec's spec reader still counts",
+      doctor: (dir) =>
+        edit(dir, living, (t) => t.replace('### Requirement: [NFR-GRT-001] Greeting', '### NFR-GRT-001 Greeting')),
+      expect: /^openspec\/specs\/greeting\/spec\.md:\d+: requirement "NFR-GRT-001 Greeting is prompt" opens with `NFR` but carries no ID in brackets/,
+    },
+    {
+      name: 'a scenario after a fence that holds a line with an info string, which does not close it',
+      doctor: (dir) =>
+        edit(dir, living, (t) =>
+          t.replace(
+            'The system SHALL greet every reader politely.\n',
+            'The system SHALL greet every reader politely.\n\n```markdown\nA header, as written:\n```text\n' +
+              '#### Scenario: an example inside the fence\n```\n\n#### Scenario: A reader is greeted by name\n' +
+              '- **WHEN** a named reader arrives\n- **THEN** the system greets them by name\n',
+          ),
+        ),
+      expect: /^openspec\/specs\/greeting\/spec\.md:\d+: scenario "A reader is greeted by name" carries no ID\./,
+    },
+    {
+      name: 'a scenario after a fence closed by a line indented four spaces',
+      doctor: (dir) =>
+        edit(dir, living, (t) =>
+          t.replace(
+            'The system SHALL greet every reader politely.\n',
+            'The system SHALL greet every reader politely.\n\n```\nAn example.\n    ```\n\n' +
+              '#### Scenario: A reader is greeted by name\n- **WHEN** a named reader arrives\n' +
+              '- **THEN** the system greets them by name\n',
+          ),
+        ),
+      expect: /^openspec\/specs\/greeting\/spec\.md:\d+: scenario "A reader is greeted by name" carries no ID\./,
+    },
+    {
+      name: 'a header inside a fence opened four spaces in passes',
+      doctor: (dir) =>
+        edit(dir, living, (t) =>
+          t.replace(
+            'The system SHALL greet every reader politely.\n',
+            'The system SHALL greet every reader politely.\n\n    ```\n#### Scenario: an example inside the fence\n    ```\n',
+          ),
+        ),
+      expect: 'pass',
+    },
+    {
+      name: 'a header inside a four-backtick fence that holds a three-backtick line passes',
+      doctor: (dir) =>
+        edit(dir, living, (t) =>
+          t.replace(
+            'The system SHALL greet every reader politely.\n',
+            'The system SHALL greet every reader politely.\n\n````\n```\n#### Scenario: an example inside the fence\n```\n````\n',
+          ),
+        ),
+      expect: 'pass',
+    },
+    {
+      name: 'a header inside a tilde fence that holds a backtick line passes',
+      doctor: (dir) =>
+        edit(dir, living, (t) =>
+          t.replace(
+            'The system SHALL greet every reader politely.\n',
+            'The system SHALL greet every reader politely.\n\n~~~\n```\n#### Scenario: an example inside the fence\n~~~\n',
+          ),
+        ),
+      expect: 'pass',
+    },
+    {
+      name: 'a level-4 header with no content under a requirement, which OpenSpec does not count, passes',
+      doctor: (dir) => edit(dir, living, (t) => t.concat('\n#### A heading with nothing under it\n')),
+      expect: 'pass',
+    },
+    {
+      name: 'a level-4 header under a section after the requirements passes',
+      doctor: (dir) => {
+        edit(dir, living, (t) => t.concat('\n## Notes\n\n#### Why a greeting\nReaders asked for one.\n'))
+        edit(dir, delta, (t) => t.concat('\n## Notes\n\n#### Why a farewell\nReaders asked for one.\n'))
+      },
+      expect: 'pass',
+    },
+    {
+      name: 'a RENAMED block to a new NFR ID, with the MODIFIED block that must repeat its header, passes',
+      doctor: (dir) =>
+        edit(dir, delta, (t) =>
+          t.concat(
+            '\n## RENAMED Requirements\n',
+            '- FROM: `### Requirement: [NFR-GRT-001] Greeting is prompt`\n',
+            '- TO: `### Requirement: [NFR-GRT-002] Greeting is quick`\n',
+            '\n## MODIFIED Requirements\n\n### Requirement: [NFR-GRT-002] Greeting is quick\n',
+            'The system SHALL greet a reader within half a second of arrival.\n\n',
+            '#### Scenario: [GRT-002] A greeting is timed\n- **WHEN** a reader arrives\n',
+            '- **THEN** the greeting shows within half a second\n',
+          ),
+        ),
+      expect: 'pass',
     },
     {
       name: 'one ID on two scenarios, across the living spec and a delta',
@@ -1039,6 +1339,19 @@ function cases() {
       expect: /^change `add-farewell`, once archived, would leave `\[GRT-002\]` on 2 headers of openspec\/specs\/greeting\/spec\.md/,
     },
     {
+      name: "a delta header the delta reader does not count and the merged spec does, without an ID",
+      // A `#####` right under the requirement: no scenario to the delta's validator, one once merged.
+      doctor: (dir) =>
+        edit(dir, delta, (t) =>
+          t.replace(
+            '#### Scenario: [GRT-003] A reader leaves',
+            '##### Scenario: A reader waves goodbye\n- **WHEN** a reader waves\n- **THEN** the system waves back\n\n' +
+              '#### Scenario: [GRT-003] A reader leaves',
+          ),
+        ),
+      expect: /^openspec\/specs\/greeting\/spec\.md:\d+, as the trial archive of `add-farewell` leaves it: scenario "A reader waves goodbye" carries no ID\./,
+    },
+    {
       name: 'an ID that an archived delta gave a different title',
       doctor: (dir) =>
         writeTree(dir, {
@@ -1073,6 +1386,16 @@ function cases() {
       name: 'a prefix that is not capital letters and digits',
       doctor: (dir) => edit(dir, 'tools/policy.json', (t) => t.replace('"greeting": "GRT"', '"greeting": "grt"')),
       expect: /^tools\/policy\.json gives capability `greeting` the prefix "grt" under `specIdPrefixes`/,
+    },
+    {
+      name: 'a prefix of NFR, which opens an NFR requirement ID',
+      doctor: (dir) => edit(dir, 'tools/policy.json', (t) => t.replace('"greeting": "GRT"', '"greeting": "NFR"')),
+      expect: /^tools\/policy\.json gives capability `greeting` the prefix "NFR" under `specIdPrefixes`/,
+    },
+    {
+      name: 'a prefix that is not a string',
+      doctor: (dir) => edit(dir, 'tools/policy.json', (t) => t.replace('"greeting": "GRT"', '"greeting": ["GRT"]')),
+      expect: /^tools\/policy\.json gives capability `greeting` the prefix \["GRT"\] under `specIdPrefixes`/,
     },
     {
       name: 'two capabilities that share one prefix',
