@@ -122,5 +122,5 @@ Go back to step 2 until
 `bd list --parent <epic> --status open,in_progress,blocked,deferred --json` prints an empty list.
 
 Then run `npm run gates` and report each task closed with its commit, every issue filed along the
-way, and the gates as measured. The next stage is `change-verify`, in a fresh session given the
-change's name (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
+way, and the gates as measured. The next stage is `change-verify`, given the change's name
+(`CLAUDE.md` § Product work runs as OpenSpec-format changes).
