@@ -19,7 +19,9 @@
  *
  * THE NAME. A test's name is one string literal, the first argument of a call that opens its line
  * (`test(`, `it(`, or either with `.skip`, `.todo` or `.only`), written on that line or alone on the
- * next. It is `[<ID>] <title>`, or `[<ID>, <ID>] <title>` for several: the IDs it references, then
+ * next, with nothing joined to it; its escapes are read as JavaScript reads them. A call or a trace
+ * line inside a block comment that opens its line, `/*` after any indent, is not read. The name is
+ * `[<ID>] <title>`, or `[<ID>, <ID>] <title>` for several: the IDs it references, then
  * its title. An ID is a scenario's (`CALC-003`), an NFR requirement's (`NFR-CALC-001`) or a tracker
  * task's (`asdlc-openspec-zgh.4`, the shape `prReviewIssuePattern` in `tools/policy.json` holds). A
  * happy-path test's title is its scenario's title, as its header has it after the ID. A name is
@@ -94,15 +96,18 @@
  * INVOCATION.
  *
  *   node scripts/test-trace.mjs cite <ref> [...]   print each ref with its current hash, as a trace
- *                                                  line cites it: an ID (`CALC-003`,
- *                                                  `CALC-003:happy`, `NFR-CALC-001`),
- *                                                  `surface:<path>` or `contract:<path>#<operation>`
+ *                                                  line cites it: `CALC-003:happy`,
+ *                                                  `CALC-003:negative`, `NFR-CALC-001`,
+ *                                                  `surface:<path>` or `contract:<path>#<operation>`;
+ *                                                  any ref the trace line's grammar would refuse is
+ *                                                  refused, and the exit is 1
  *   npm run tests:trace:selftest                   its fixtures, each refusal on a doctored copy
  *
  * The verb is not `hash`: on 2026-09-28 the harness of a session isolated in a worktree refused
- * `node scripts/test-trace.mjs hash <ref>` as running a string through the shell's `hash` builtin.
- * By hand, point `TEST_TRACE_ROOT` at a doctored copy and `cite` reads the specs and the policy there
- * instead: `TEST_TRACE_ROOT=/tmp/doctored node scripts/test-trace.mjs cite CALC-003`.
+ * `node scripts/test-trace.mjs hash <ref>` as running a string through the shell's `hash` builtin,
+ * and the maintainer kept `cite` the same day. By hand, point `TEST_TRACE_ROOT` at a doctored copy and
+ * `cite` reads the specs and the policy there instead:
+ * `TEST_TRACE_ROOT=/tmp/doctored node scripts/test-trace.mjs cite CALC-003:happy`.
  *
  * NEEDS `tools/policy.json` (`testTraceHashLength`, `testTraceLayers`, `prReviewIssuePattern`) and,
  * for a hash, the specs under `openspec/` and the file a ref names. The selftest also runs the
@@ -200,6 +205,8 @@ export function tracePolicy(policy) {
  */
 export function readTests(text, policy, file = '<source>') {
   const lines = text.replace(/\r\n?/g, '\n').split('\n')
+  const comment = commentMask(lines)
+  const isTrace = (index) => !comment[index] && TRACE.test(lines[index])
   const problems = []
   const problem = (index, message) => problems.push(`${file}:${index + 1}: ${message}`)
   const tests = []
@@ -209,6 +216,7 @@ export function readTests(text, policy, file = '<source>') {
   let defaults = { layer: null, level: null, reason: null }
   let defaultsAt = null
   lines.forEach((line, index) => {
+    if (comment[index]) return
     const call = line.match(CALL)
     if (call) calls.push({ index, modifier: call[1] ?? null, rest: call[2] })
     const given = line.match(DEFAULTS)
@@ -227,20 +235,21 @@ export function readTests(text, policy, file = '<source>') {
   const names = new Map()
   for (const { index, modifier, rest } of calls) {
     let first = index
-    while (first > 0 && TRACE.test(lines[first - 1])) first--
+    while (first > 0 && isTrace(first - 1)) first--
     for (let at = first; at < index; at++) consumed.add(at)
 
     const source = rest.trim() === '' ? (lines[index + 1] ?? '').trim() : rest
     const literal = source.match(LITERAL)
-    if (!literal || (literal[1] === '`' && literal[2].includes('${'))) {
+    const after = literal ? source.slice(literal[0].length) : ''
+    if (!literal || (literal[1] === '`' && literal[2].includes('${')) || !/^\s*(?:[,)]|$)/.test(after)) {
       problem(
         index,
         'this test\'s name is not one string literal. Write it as `\'[<ID>] <title>\'`, the call\'s first' +
-          ' argument, on this line or alone on the next.',
+          ' argument, on this line or alone on the next, with nothing joined to it.',
       )
       continue
     }
-    const name = literal[2].replace(/\\(.)/g, '$1')
+    const name = decodeLiteral(literal[2])
     const test = { line: index + 1, name, modifier, ids: [], refs: [], layer: null, level: null, reason: null, noNegative: [] }
     tests.push(test)
     if (names.has(name)) {
@@ -301,8 +310,8 @@ export function readTests(text, policy, file = '<source>') {
     }
   }
 
-  lines.forEach((line, index) => {
-    if (TRACE.test(line) && !consumed.has(index)) {
+  lines.forEach((_, index) => {
+    if (isTrace(index) && !consumed.has(index)) {
       problem(index, 'a `// trace:` line that no test call directly follows; put it on the line above its test.')
     }
   })
@@ -311,6 +320,42 @@ export function readTests(text, policy, file = '<source>') {
 
 function isId(id, policy) {
   return SCENARIO_ID.test(id) || NFR_ID.test(id) || policy.task.test(id)
+}
+
+/** Escapes a string literal's body can hold, and the character each one stands for. */
+const ESCAPES = { b: '\b', f: '\f', n: '\n', r: '\r', t: '\t', v: '\v', 0: '\0' }
+
+/**
+ * A string literal's body, as JavaScript reads it: `\n`, `\t` and the other single-letter escapes,
+ * `\xHH`, `\uHHHH` and `\u{H...}`, and any other escaped character as itself. So the name read
+ * here is the name the runner reports, which the cross-check compares it with.
+ */
+function decodeLiteral(body) {
+  return body.replace(/\\(?:x([0-9a-fA-F]{2})|u([0-9a-fA-F]{4})|u\{([0-9a-fA-F]+)\}|([\s\S]))/g, (_, x, u, braced, other) => {
+    if (x ?? u ?? braced) return String.fromCodePoint(Number.parseInt(x ?? u ?? braced, 16))
+    return ESCAPES[other] ?? other
+  })
+}
+
+/**
+ * The lines of `lines` inside a block comment that opens a line, `/*` after any indent, up to the
+ * line that closes it, both included. A test or trace line there is not read, as the runner does not
+ * run it. A comment opened later on a line is not masked; the cross-check refuses a test inside one.
+ */
+function commentMask(lines) {
+  const mask = new Array(lines.length).fill(false)
+  let open = false
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index]
+    if (open) {
+      mask[index] = true
+      open = !line.includes('*/')
+    } else if (/^\s*\/\*/.test(line)) {
+      mask[index] = true
+      open = !line.slice(line.indexOf('/*') + 2).includes('*/')
+    }
+  }
+  return mask
 }
 
 /** The words of a trace line, a double-quoted reason being one word. */
@@ -607,10 +652,36 @@ export function hashRef(root, ref, policy, index = specIndex(root)) {
 
 /* --------------------------------------------------------------------------------- the CLI ------ */
 
+/**
+ * Why `ref` is not a reference a trace line carries with a hash, or null when it is one: the
+ * grammar `parseTrace` reads, so what `cite` prints is what the reader accepts.
+ */
+export function citeProblem(ref) {
+  const [head, ...more] = ref.split(':')
+  if (head === 'surface' && more.length > 0) {
+    return SURFACE_PATH.test(more.join(':')) ? null : 'a surface is `surface:apps/<app>/binding-surface.md`.'
+  }
+  if (head === 'contract' && more.length > 0) {
+    const [path, operation, ...extra] = more.join(':').split('#')
+    const ok = CONTRACT_PATH.test(path) && !path.split('/').includes('..') && OPERATION.test(operation ?? '') && extra.length === 0
+    return ok ? null : 'a contract is `contract:apps/<app>/contracts/<file>#<operationId>`.'
+  }
+  if (SCENARIO_ID.test(head)) {
+    return more.length === 1 && (more[0] === 'happy' || more[0] === 'negative')
+      ? null
+      : `a scenario is cited with its role, \`${head}:happy\` or \`${head}:negative\`.`
+  }
+  if (NFR_ID.test(head)) return more.length === 0 ? null : `an NFR requirement is cited bare, \`${head}\`.`
+  return 'it is not a scenario with its role, an NFR requirement, `surface:<path>` or `contract:<path>#<operation>`.'
+}
+
 function citeCommand(refs) {
   const root = process.env.TEST_TRACE_ROOT ? resolve(process.env.TEST_TRACE_ROOT) : REPO_ROOT
   if (refs.length === 0) {
-    console.error('test-trace: name what to hash: an ID, `surface:<path>` or `contract:<path>#<operation>`.')
+    console.error(
+      'test-trace: name what to cite: `<SCENARIO>:happy`, `<SCENARIO>:negative`, `<NFR>`, `surface:<path>` or' +
+        ' `contract:<path>#<operation>`.',
+    )
     process.exit(1)
   }
   let policy
@@ -623,6 +694,12 @@ function citeCommand(refs) {
   const index = specIndex(root)
   let failed = 0
   for (const ref of refs) {
+    const refused = citeProblem(ref)
+    if (refused !== null) {
+      failed++
+      console.error(`test-trace: ${ref}: a trace line does not carry it; ${refused}`)
+      continue
+    }
     try {
       console.log(`${ref}@${hashRef(root, ref, policy, index)}`)
     } catch (error) {
@@ -807,6 +884,35 @@ function selftest() {
     record(name, ok, ok ? 'refused for that reason' : problems.length === 0 ? 'PASSED, but should have failed' : `refused, but not for that reason: ${problems.join(' | ')}`)
   }
 
+  // What the reader must read as the runner does: escapes decoded, a commented-out test not read.
+  // The backslash is built, so that no escape in the fixture is one this file's own parse reads.
+  const bs = String.fromCharCode(92)
+  const escaped = readTests(
+    SOURCE.replace(
+      "'[GRT-001] A reader arrives'",
+      `'[GRT-001] 5 ${bs}u2212 2, ${bs}x41, ${bs}u{1F600}, ${bs}'quoted${bs}', ${bs}t and ${bs}${bs}'`,
+    ),
+    fixturePolicy,
+    'f.test.js',
+  )
+  const wantName = `[GRT-001] 5 ${String.fromCodePoint(0x2212)} 2, A, ${String.fromCodePoint(0x1f600)}, 'quoted', \t and ${bs}`
+  const readName = escaped.tests[0]?.name
+  record(
+    "a name's escapes are read as JavaScript reads them",
+    escaped.problems.length === 0 && readName === wantName,
+    `read ${JSON.stringify(readName)}${escaped.problems.length ? `, with ${escaped.problems.join(' | ')}` : ''}`,
+  )
+  const commented = readTests(
+    `${SOURCE}/*\n// trace: GRT-009:happy@aaaaaaaaaaaa\ntest('[GRT-009] Commented out', () => {})\n*/\n`,
+    fixturePolicy,
+    'f.test.js',
+  )
+  record(
+    'a traced test inside a block comment is not read',
+    commented.problems.length === 0 && isDeepStrictEqual(commented.tests, READ),
+    `read ${commented.tests.length} tests${commented.problems.length ? `, with ${commented.problems.join(' | ')}` : ''}`,
+  )
+
   // The hash: a fixture tree, each case doctoring one thing.
   const base = mkdtempSync(join(tmpdir(), 'test-trace-'))
   try {
@@ -847,6 +953,7 @@ function readerCases() {
     { name: 'a test with no trace line', edit: swap("// trace: GRT-001:happy@aaaaaaaaaaaa\n", ''), expect: /:4: the test "\[GRT-001\] A reader arrives" has no `\/\/ trace:` line directly above it/ },
     { name: 'a trace line parted from its test by a blank line', edit: swap("aaaa\ntest('[GRT-001] A reader arrives'", "aaaa\n\ntest('[GRT-001] A reader arrives'"), expect: /:4: a `\/\/ trace:` line that no test call directly follows/ },
     { name: 'a name that is not a string literal', edit: swap("test('[GRT-001] A reader arrives'", 'test(`[GRT-001] ${"A reader"} arrives`'), expect: /:5: this test's name is not one string literal/ },
+    { name: 'a name joined from two literals', edit: swap("test('[GRT-001] A reader arrives'", "test('[GRT-001] A reader' + ' arrives'"), expect: /:5: this test's name is not one string literal/ },
     { name: 'a name that does not open with its IDs', edit: swap("test('[GRT-001] A reader arrives'", "test('A reader arrives'"), expect: /"A reader arrives" does not open with the IDs it references/ },
     { name: 'a name that names one ID twice', edit: swap("test('[GRT-001] A reader arrives'", "test('[GRT-001, GRT-001] A reader arrives'"), expect: /"\[GRT-001, GRT-001\] A reader arrives" names GRT-001 twice/ },
     { name: 'a name whose IDs differ from its trace line', edit: swap("test('[GRT-001] A reader arrives'", "test('[GRT-002] A reader arrives'"), expect: /the IDs of "\[GRT-002\] A reader arrives" and of its `\/\/ trace:` line differ; the name has GRT-002 and the line does not; the line has GRT-001/ },
@@ -906,6 +1013,15 @@ function hashCases() {
       return [expect.test(error.message), error.message]
     }
   }
+  /** `cite <ref>` under the fixture tree prints nothing and exits 1, for the reason `expect` names. */
+  const citeRefused = (what, ref, expect) => ({
+    name: `cite refuses ${what}`,
+    run: (dir) => {
+      const cli = spawnSync(process.execPath, [SELF, 'cite', ref], { encoding: 'utf8', env: { ...process.env, TEST_TRACE_ROOT: dir } })
+      const ok = cli.status === 1 && cli.stdout === '' && expect.test(cli.stderr)
+      return [ok, `status ${cli.status}, printed ${JSON.stringify(cli.stdout)}, stderr ${JSON.stringify(cli.stderr.trim())}`]
+    },
+  })
   const living = 'openspec/specs/greeting/spec.md'
   const delta = 'openspec/changes/add-farewell/specs/greeting/spec.md'
   return [
@@ -927,6 +1043,14 @@ function hashCases() {
         return [cli.status === 0 && cli.stdout === want, `status ${cli.status}, printed ${JSON.stringify(cli.stdout)}${cli.stderr ? `, stderr ${cli.stderr}` : ''}`]
       },
     },
+    citeRefused('a scenario without its role', 'GRT-001', /a scenario is cited with its role, `GRT-001:happy` or `GRT-001:negative`/),
+    citeRefused('a scenario with a role the grammar does not have', 'GRT-001:bogus', /a scenario is cited with its role/),
+    citeRefused(
+      'a contract that is not under contracts/',
+      'contract:apps/greeter/binding-surface.md#x',
+      /a contract is `contract:apps\/<app>\/contracts\/<file>#<operationId>`/,
+    ),
+    citeRefused('a surface that is not a binding-surface.md', 'surface:apps/greeter/README.md', /a surface is `surface:apps\/<app>\/binding-surface\.md`/),
     {
       name: 'a role on the ID does not change its hash',
       run: (dir, policy) => {

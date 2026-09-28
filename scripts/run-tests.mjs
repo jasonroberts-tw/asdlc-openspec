@@ -175,8 +175,9 @@ function crossCheck(file, readHere, reportedHere) {
     } else if (read > reported) {
       problems.push(
         `${file}:${line}: scripts/test-trace.mjs reads the test "${name}" here, and the runner reported` +
-          ` ${reported}: a test under a condition, or one the runner never reached, would count as a proof` +
-          ' that never ran. Register every test, and skip one with the `skip` option and its reason.',
+          ` ${reported}: a test under a condition, inside a block comment opened after other code on its` +
+          ' line, or one the runner never reached, would count as a proof that never ran. Register every' +
+          ' test, and skip one with the `skip` option and its reason.',
       )
     }
   }
@@ -293,6 +294,7 @@ function writeTree(dir, files) {
  * `id`, `head` its first two lines and `trace(id)` a trace line.
  */
 function cases({ file, head, trace }) {
+  const bs = String.fromCharCode(92)
   const noTest = (path) => new RegExp(`^${path.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')} matches .* and declares no test`)
   return [
     {
@@ -375,6 +377,19 @@ function cases({ file, head, trace }) {
         ),
       },
       expect: /^test\/b\.test\.js:7: scripts\/test-trace\.mjs reads the test "\[GRT-004\] held back" here, and the runner reported 0/,
+    },
+    {
+      name: 'a name with escapes, which the reader and the runner read alike, passes',
+      // The backslash is built, so the fixture's escapes are not ones this file's own parse reads.
+      files: { 'test/b.test.js': file('GRT-003', `test('[GRT-003] 5 ${bs}u2212 2${bs}t${bs}x41', () => {})`) },
+      expect: 'pass',
+    },
+    {
+      name: 'a traced test inside a block comment, which neither reads, passes',
+      files: {
+        'test/b.test.js': file('GRT-003', `test('[GRT-003] three', () => {})\n/*\n${trace('GRT-004')}\ntest('[GRT-004] commented out', () => {})\n*/`),
+      },
+      expect: 'pass',
     },
     {
       name: 'a policy without the reader\'s keys',

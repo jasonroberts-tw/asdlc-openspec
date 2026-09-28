@@ -314,8 +314,8 @@ pre-push:
     # without the reader's keys) and its failures, against fixture trees it builds under the
     # temporary directory, with one undoctored control. Reads the runner, the reader it imports and
     # the live policy, which it copies into each tree. 0.38-0.41 s wall through `node --run`
-    # (`/usr/bin/time -p`, two runs), on the host and date of the 1.63 s above, and 0.95-0.96 s on
-    # 2026-09-28 with the reader's six cases added.
+    # (`/usr/bin/time -p`, two runs), on the host and date of the 1.63 s above, and 1.02-1.09 s on
+    # 2026-09-28 with the reader's eight cases added.
     - name: tests-selftest
       glob:
         - 'scripts/run-tests.mjs'
@@ -325,10 +325,10 @@ pre-push:
       run: node --run tests:selftest
     # The test-trace reader's refusals, each on a doctored copy of a test file's source, and its
     # hash over a fixture spec tree: the definition's text, what moves a hash and what does not, the
-    # delta that wins, the refused references, the root override, and one archive by the pinned
-    # OpenSpec CLI that must move no hash. Reads the reader, the live policy and the CLI, whose
-    # version the manifest and lockfile pin. 0.48-0.57 s wall through `node --run`
-    # (`/usr/bin/time -p`, two runs) on the host above, 2026-09-28.
+    # delta that wins, the refused references, the root override, `cite` refusing a ref no trace
+    # line carries, and one archive by the pinned OpenSpec CLI that must move no hash. Reads the
+    # reader, the live policy and the CLI, whose version the manifest and lockfile pin. 0.72-0.73 s
+    # wall through `node --run` (`/usr/bin/time -p`, two runs) on the host above, 2026-09-28.
     - name: tests-trace-selftest
       glob:
         - 'scripts/test-trace.mjs'
