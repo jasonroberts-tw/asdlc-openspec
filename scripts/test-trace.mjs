@@ -553,8 +553,13 @@ function fenceMask(lines) {
 }
 
 /**
- * Every ID-bearing block of one spec file, `{ id, line, text }` or `{ id, line, error }`, `text`
- * being what the hash reads. In a delta (`delta`), only its ADDED and MODIFIED sections are read.
+ * Every ID-bearing block of one spec file, `{ id, line, header, requirement, text }` or
+ * `{ id, line, header, requirement, error }`: `header` is the block's own header text after its
+ * hashes (`Scenario: [CALC-003] Digits build a number`), `requirement` the header text of the
+ * requirement a scenario sits under, or null for an NFR requirement and for a scenario with none,
+ * and `text` what the hash reads. In a delta (`delta`), only its ADDED and MODIFIED sections are
+ * read. The trace gate reads `header` and `requirement` for a scenario's title and whether it is an
+ * NFR's (asdlc-openspec-j09.7), so that it parses no spec itself.
  */
 function specBlocks(source, delta) {
   const lines = source.replace(/\r\n?/g, '\n').split('\n')
@@ -575,11 +580,11 @@ function specBlocks(source, delta) {
     const nfr = head.title.match(/^Requirement:\s*\[(NFR-[^\]\s]+)\]\s/i)
     const scenario = head.title.match(/^Scenario:\s*\[([^\]\s]+)\]\s/i)
     if (nfr) {
-      blocks.push({ id: nfr[1], line: head.index + 1, text: normalise(lines.slice(head.index, end(n))) })
+      blocks.push({ id: nfr[1], line: head.index + 1, header: head.title, requirement: null, text: normalise(lines.slice(head.index, end(n))) })
     } else if (scenario) {
       const above = heads.slice(0, n).reverse().find((earlier) => earlier.level < head.level)
       if (above === undefined || !/^Requirement:/i.test(above.title)) {
-        blocks.push({ id: scenario[1], line: head.index + 1, error: 'has no `Requirement:` header above it' })
+        blocks.push({ id: scenario[1], line: head.index + 1, header: head.title, requirement: null, error: 'has no `Requirement:` header above it' })
         return
       }
       const r = heads.indexOf(above)
@@ -587,6 +592,8 @@ function specBlocks(source, delta) {
       blocks.push({
         id: scenario[1],
         line: head.index + 1,
+        header: head.title,
+        requirement: above.title,
         text: `${normalise(statement)}\n${normalise(lines.slice(head.index, end(n)))}`,
       })
     }
@@ -601,7 +608,10 @@ function listDirs(dir) {
     .sort(byCodePoint)
 }
 
-/** Every ID-bearing block under `root`'s `openspec/`, keyed by ID: `[{ path, delta, line, text | error }]`. */
+/**
+ * Every ID-bearing block under `root`'s `openspec/`, keyed by ID:
+ * `[{ path, delta, line, header, requirement, text | error }]`, as `specBlocks` gives each.
+ */
 export function specIndex(root) {
   const index = new Map()
   const read = (path, delta) => {
@@ -1031,6 +1041,23 @@ function hashCases() {
         const got = ['GRT-001', 'NFR-GRT-001', 'GRT-004'].map((id) => [id, hashOf(dir, policy, id), expected(id, policy)])
         const bad = got.filter(([, a, b]) => a !== b)
         return [bad.length === 0, bad.length === 0 ? got.map(([id, h]) => `${id}@${h}`).join(' ') : `differ: ${JSON.stringify(bad)}`]
+      },
+    },
+    {
+      name: "each block carries its own header and, for a scenario, its requirement's",
+      run: (dir) => {
+        const index = specIndex(dir)
+        const got = ['GRT-001', 'GRT-003', 'NFR-GRT-001', 'GRT-004'].map((id) => {
+          const { header, requirement, delta } = index.get(id)[0]
+          return { id, header, requirement, delta }
+        })
+        const want = [
+          { id: 'GRT-001', header: 'Scenario: [GRT-001] A reader arrives', requirement: 'Requirement: Greeting is polite', delta: false },
+          { id: 'GRT-003', header: 'Scenario: [GRT-003] A greeting is timed', requirement: 'Requirement: [NFR-GRT-001] Greeting is prompt', delta: false },
+          { id: 'NFR-GRT-001', header: 'Requirement: [NFR-GRT-001] Greeting is prompt', requirement: null, delta: false },
+          { id: 'GRT-004', header: 'Scenario: [GRT-004] A reader leaves', requirement: 'Requirement: Farewell is polite', delta: true },
+        ]
+        return [isDeepStrictEqual(got, want), JSON.stringify(got)]
       },
     },
     {
