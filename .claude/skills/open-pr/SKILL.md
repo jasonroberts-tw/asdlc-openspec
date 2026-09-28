@@ -64,8 +64,8 @@ Then, at once, set the reviewer's status pending on the new head:
     PR=<number> node scripts/pr-review.mjs mark
 
 No job does it for you, and until it is done a watcher has no check to wait on. The command marks
-only a head nobody has marked, and prints why when it does not. It sets no other state, and nothing else here sets `pr-review` by hand: every verdict is the
-reviewer's workflow's.
+only a head nobody has marked, and prints why when it does not. It sets no other state, and nothing
+else here sets `pr-review` by hand: every verdict is the reviewer's workflow's.
 
 ## 6. Watch it with one watcher
 
