@@ -312,9 +312,9 @@ A test that declares a level above its default must record the reason.
 
 - Clock, randomness, and ID generation are injected through the Binding Surface and seeded per run. Seeds are recorded in the test results.
 - There are no automatic retries. A test that fails and then passes on re-run is marked flaky, reported in the gap analysis, and treated as failing until triaged by the architect.
+- Regenerated tests are recorded in the traceability record with the artifact versions they were generated against.
 
 > **Amended by D-13, item 12.** The re-run is made once, by the agent that ran the failing test: the architect in Build and the verifier in Verify, never the test runner.
-- Regenerated tests are recorded in the traceability record with the artifact versions they were generated against.
 
 ## Fitness Functions
 
