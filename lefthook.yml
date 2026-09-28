@@ -209,10 +209,12 @@ pre-push:
         - 'scripts/check-register-status.mjs'
       run: node --run check:register:selftest
     # Every living spec and active change under `openspec/` validated strictly by the pinned CLI,
-    # every active change trial-archived into a scratch copy, no retired `openspec-*` skill, and every
-    # skill and agent that spells the change label held to `tools/policy.json`. The lockfile is in the
-    # glob because a new CLI version can change the verdict. One CLI start per run plus one per active
-    # change; measured at 0.6 s with no active change, on the author's macOS host.
+    # every active change trial-archived into a scratch copy, every scenario and NFR requirement held
+    # to a unique, never-reused ID with its capability's prefix from `tools/policy.json`, no retired
+    # `openspec-*` skill, and every skill and agent that spells the change label held to
+    # `tools/policy.json`. The lockfile is in the glob because a new CLI version can change the
+    # verdict. One CLI start per run plus one per active change; measured at 0.6 s with no active
+    # change, on the author's macOS host.
     - name: openspec
       glob:
         - 'openspec/**'
@@ -225,7 +227,9 @@ pre-push:
         - 'package-lock.json'
       run: node --run openspec:check
     # The gate's refusals against a fixture tree it builds under the temporary directory, with one
-    # undoctored control. About a dozen CLI starts; measured at 2.7 s on the author's macOS host.
+    # undoctored control. One or two CLI starts per case; measured at 10.1 s (`/usr/bin/time -p`) on
+    # the author's macOS host on 2026-09-28, once the ID cases landed, where the 16 cases before them
+    # took 4.2 s the same day.
     - name: openspec-selftest
       glob:
         - 'scripts/check-openspec.mjs'
