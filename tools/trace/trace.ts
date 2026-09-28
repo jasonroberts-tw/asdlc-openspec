@@ -33,9 +33,10 @@
  *     `change` a test citing one of the epic's tasks, which only the tracker knows.
  *   - `contracts`: every operation of an OpenAPI document under `apps/<app>/contracts/`, with its
  *     file's hash and the contract tests that cite it.
- *   - `tasks`: every task ID that a commit reachable from HEAD names in the parentheses ending its
- *     subject, matched by `prReviewIssuePattern` as the pull-request reviewer reads a title, since a
- *     body names follow-ups it does not carry; the paths under `apps/` those commits change, which
+ *   - `tasks`: every task ID that a commit reachable from HEAD, a merge aside, names in the
+ *     parentheses ending its subject, matched by `prReviewIssuePattern` as the pull-request reviewer
+ *     reads a title, since a body names follow-ups it does not carry; the paths under `apps/` those
+ *     commits change, a rename as both paths, which
  *     are the implementation elements until a later issue reads symbols; and the tests citing it.
  *     It walks all of HEAD's history, not the branch's `origin/main..HEAD`: that range is empty on
  *     `main` once a branch merges, so a record written from it would go stale at every merge, where
@@ -147,6 +148,15 @@ const byCodePoint = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
 const sorted = (items: Iterable<string>) => [...new Set(items)].sort(byCodePoint)
 const testKey = (file: string, name: string) => `${file}\u0000${name}`
 const testRef = (test: { file: string; name: string }) => ({ file: test.file, name: test.name })
+const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
+
+/** What a derivation counted, in words, for the summary a run prints. */
+function counted(facts: Derived['facts']): string {
+  return (
+    `${count(facts.scenarios, 'scenario')}, ${count(facts.nfrs, 'NFR requirement')}, ${count(facts.tests, 'test')},` +
+    ` ${count(facts.operations, 'contract operation')} and ${count(facts.tasks, 'task')}`
+  )
+}
 
 /** The one serialiser both files are written with. */
 export function serialise(value: unknown): string {
@@ -250,8 +260,9 @@ const RATIFIED = {
 export function ratify(walker: typeof walk = walk): string | null {
   const dir = mkdtempSync(join(tmpdir(), 'trace-ratify-'))
   try {
-    // One `git fast-import` builds the whole history, where a commit at a time cost about twenty
-    // git starts, 0.45 s on the host this file's cost is measured on.
+    // One `git fast-import` builds the whole history: a commit at a time took about twenty git
+    // starts, measured at 0.45 s a ratification against 0.12 s this way, on the host of the cost
+    // note on `trace-check` in lefthook.yml, 2026-09-28.
     const data = (text: string) => `data ${Buffer.byteLength(text)}\n${text}\n`
     let mark = 0
     const commit = (branch: string, subject: string, from: number | null, lines: string[], merge: number | null = null) => {
@@ -823,11 +834,9 @@ export function check(root: string, { ratified: already = false } = {}): Checked
     )
   }
   const waived = derived.unmet.filter((entry) => listed.has(entry) && !derived.fresh.has(entry.split(':')[0])).length
-  const { scenarios, nfrs, tests, operations, tasks } = derived.facts
   const summary =
-    `${scenarios} scenarios and ${nfrs} NFR requirements, ${tests} tests, ${operations} contract operations and ${tasks} tasks;` +
-    ` ${derived.unmet.length} unmet obligations, ${waived} of them waived by the baseline; ${derived.advisories.length} negative tests declared not` +
-    ` applicable; ${changed} paths under apps/ changed on this branch.`
+    `${counted(derived.facts)}; ${count(derived.unmet.length, 'unmet obligation')}, ${waived} of them waived by the baseline;` +
+    ` ${count(derived.advisories.length, 'negative test')} declared not applicable; ${count(changed, 'path')} under apps/ changed on this branch.`
   return { failures, advisories: derived.advisories, notes, summary }
 }
 
@@ -838,10 +847,9 @@ export function emit(root: string, { ratified: already = false } = {}): { wrote:
   const derived = derive(root)
   mkdirSync(dirname(join(root, RECORD)), { recursive: true })
   writeFileSync(join(root, RECORD), serialise(derived.record))
-  const { scenarios, nfrs, tests, operations, tasks } = derived.facts
   return {
     wrote: true,
-    message: `wrote ${RECORD}: ${scenarios} scenarios, ${nfrs} NFR requirements, ${tests} tests, ${operations} contract operations, ${tasks} tasks.`,
+    message: `wrote ${RECORD}: ${counted(derived.facts)}.`,
     findings: derived.findings.length,
   }
 }
