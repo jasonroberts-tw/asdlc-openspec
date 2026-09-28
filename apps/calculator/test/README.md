@@ -9,7 +9,10 @@ whose name says it is not a spec scenario, names the task it served and the app'
 `npm run calculator:test` runs every file here whose name ends in `.test.js`, with Node's own test
 runner and no framework, through `scripts/run-tests.mjs`; a file named otherwise is not run, and a
 file so named that declares no test, a test whose metadata the convention refuses, or a test that
-the reader and the runner do not both see fails the run.
+the reader and the runner do not both see fails the run. `npm run trace:check` holds each scenario
+to a happy-path and a negative test at the functional layer or above, and each hash a test carries
+to the current one; the gaps that predate it are listed in the ratchet baseline,
+`artifacts/trace/baseline.json`, which may fall and never rise (the header of `tools/trace/trace.ts`).
 
 Where a row here and a test file disagree, the file wins and the row is corrected; where a test and
 the spec disagree, the spec wins and the test is corrected.
