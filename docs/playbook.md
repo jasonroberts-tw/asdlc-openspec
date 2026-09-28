@@ -256,7 +256,8 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
 2. `npm run openspec:check` passes: the deltas validate and apply to the living spec. Decided by:
    `.claude/skills/change-verify/SKILL.md` § 3. The specs are valid, and apply.
 3. Trace every scenario to a proof that was run now, reading each test rather than trusting its
-   name, into `.scratch/<change>-trace.md`. Decided by: `.claude/skills/change-verify/SKILL.md`
+   name, with `.claude/workflows/verify-change-trace.js`; `scripts/render-trace.mjs` writes its
+   result into `.scratch/<change>-trace.md`. Decided by: `.claude/skills/change-verify/SKILL.md`
    § 4. Every scenario is traced.
 4. `npm run gates` passes. Decided by: `.claude/skills/change-verify/SKILL.md` § 5. The gates are
    green.

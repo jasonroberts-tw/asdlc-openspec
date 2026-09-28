@@ -240,16 +240,21 @@ pre-push:
       run: node --run openspec:selftest
     # Every workflow under `.claude/workflows/` run against stubbed agents: the change-build review
     # with the review sizes and red-first kinds in `tools/policy.json` (how it stops, how many skeptics
-    # it sends, and what it returns), and the prompt review with the policy's `promptReview*` keys
-    # (which findings it refuses as below the threshold, how many skeptics judge each edit, which
-    # branches it lets merge, which analyses it lets be marked read, and which findings it holds), and
-    # refuses a workflow with no suite. Reads the workflows and the policy, and writes only under the
-    # temporary directory. 0.08 s wall through `node --run` (`/usr/bin/time -p`, two runs, both
-    # alike) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-28.
+    # it sends, and what it returns), the prompt review with the policy's `promptReview*` keys (which
+    # findings it refuses as below the threshold, how many skeptics judge each edit, which branches it
+    # lets merge, which analyses it lets be marked read, and which findings it holds), and the
+    # change-verify trace with the policy's `verifyTrace*` keys (how it matches rows to scenarios,
+    # which gap each row is, which gaps skeptics judge and how many, what a run again keeps), its
+    # result then rendered by the trace and pull-request-body renderers; and refuses a workflow with no
+    # suite. Reads the workflows, the policy and the renderers, and writes only under the temporary
+    # directory. MEASURE-AFTER-REBASE
     - name: workflows-selftest
       glob:
         - '.claude/workflows/**'
         - 'scripts/workflows.selftest.mjs'
+        - 'scripts/render-trace.mjs'
+        - 'scripts/render-pr-body.mjs'
+        - 'scripts/lib/trace.mjs'
         - 'tools/policy.json'
       run: node --run workflows:selftest
     # The pull-request reviewer's wiring: the policy's `prReview*` keys whole, and `pr-review.yml`,
