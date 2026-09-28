@@ -64,9 +64,9 @@ than its code does, where no scenario and no design decision states the claim. N
 report and ask the user where it goes. The routes are the ones for what the build turns up
 (`.claude/skills/change-build/SKILL.md` § 5. What the build turns up). It becomes a new child of the
 epic, which reopens step 2 until `change-build` closes it, or a follow-up filed outside the change.
-File it as the user decides, inside the bracket `CLAUDE.md` § The task store describes: a new child
-labels the epic for plan and for build (`CLAUDE.md` § Product work runs as OpenSpec-format
-changes), and a follow-up carries the labels § The task store names, with verify's found-at label.
+File it as the user decides: a new child labels the epic for plan and for build (`CLAUDE.md`
+§ Product work runs as OpenSpec-format changes), and a follow-up carries the labels `CLAUDE.md`
+§ The task store names, with verify's found-at label.
 
 **Running again.** The trace's first line names the commit it was taken at. On a run from step 2
 after a fix or a rebase, read `git diff <that commit>`. A row keeps its reading when the diff changes
