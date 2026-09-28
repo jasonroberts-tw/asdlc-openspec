@@ -6,7 +6,9 @@
 and the change route the product route. Amended 2026-09-28 by `asdlc-openspec-hvm`: the pipeline's
 commands and page are gone (`docs/decisions.md` § D-15), and an emitter's `:check` twin says what
 to regenerate. Amended 2026-09-28 by `asdlc-openspec-j09.3`, which adds the row of § 5 for an ID
-that `openspec:check` finds on two headers of different titles.
+that `openspec:check` finds on two headers of different titles. Amended 2026-09-28 by
+`asdlc-openspec-as9`: the Verify step that traces every scenario names
+`.claude/workflows/verify-change-trace.js` and `scripts/render-trace.mjs`.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
