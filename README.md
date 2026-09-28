@@ -6,19 +6,28 @@ rather than remembered.** Its name, `asdlc-openspec`, is short for an agentic so
 lifecycle run on OpenSpec. It puts two things together to get there, and each was taken for the
 failure it prevents. 
 
-- **The starter kit's conventions** (`docs/decisions.md` § D-01). An agent here keeps nothing
-  between sessions, may run beside other agents, and can state a figure it never checked. So a rule
-  lives in a tracked file and never in a memory store, the work lives in `bd` and never in a
-  checklist, a settled decision lives in the register and is not argued again, and the same checks
-  run from a hook inside the session to CI, with no tier trusting a faster one. § The guardrails
-  pairs each failure with what refuses it.
-- **OpenSpec's format for requirements** (`docs/decisions.md` § D-02). Product work needs a record
-  of what the product does that outlives the change that set it, and a proposal a person reviews
-  before the build starts. OpenSpec's living spec and delta specs are that record, and its pinned
-  CLI merges a landed change into the living spec deterministically. OpenSpec's own workflow is not
-  used: its skills track tasks in a `tasks.md` checklist, and `openspec update` rewrites them from
-  each machine's global configuration. The `change-*` skills run the same stages with the tasks in
-  `bd`.
+## Key Capabilities
+- CLAUDE.md - the rules of the repo, how all agents must function
+	- gate ladder - a ratcheted approach from fastest to slowest 
+		- agent hooks -> pre-commit hooks -> pre-push hooks -> CI verify job
+	- git workflow 
+		- worktree -> PR -> automated PR review
+	- automated harness improvement 
+		- tracked prompt files automatically reviewed after running
+	- documentation integrity 
+		- keep README files up to date for all sub-folders  
+		- ensure citations from one markdown to another are correct and not stale 
+		- decisions always recorded in a single source of truth
+- beads: how work is tracked by agents + humans
+- application development workflow (OpenSpec)
+- skills & agents - how agents operate, how they do work (not a complete list)
+	- fan-out-work: analyzes backlog, creates lanes where predicted changes don't overlap, dispatches in parallel
+	- open-pr: creates structured PR and waits for reviewer with guidance on how to reply
+	- pr-reviewer: runs in CI, measures three dimensions (correctness, maintainability, blast radius). has threshold for auto-approval
+- policy.json: conventions, definitions, configuration
+- optional dev container for increased workload isolation
+
+## Principles
 
 **A person decides; agents propose and build.** A person reviews each change's proposal before its
 build starts, decides whether each change a prompt review proposes merges, and approves every pull
@@ -42,12 +51,6 @@ what the work is done on: a demo calculator, its code under `apps/` and its requ
 requirement, goes through the `bead` skill. A change to what the product does goes through the
 `change-*` skills (`docs/decisions.md` § D-02).
 
-Why the product does what it does is not on this page. It is in `openspec/`: the living spec of
-each capability, and the proposal of each change that shaped it.
-
-This page describes and points; it holds no rule. The rules an agent follows are in `CLAUDE.md`.
-The status of work is in `bd`, never here.
-Where this page and a file it points at disagree, that file wins and this page is corrected.
 
 **On this page:** [Read in this order](#read-in-this-order)
 · [How it is laid out](#how-it-is-laid-out)
@@ -337,10 +340,6 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 
 ## The work, and what its runs leave behind
 
-<!-- kit 2.3-1 · WRITE: one paragraph saying what this repository's work is, in the three words the
-     kit uses and never defines. The WORK is whatever this repository does to a WORK ITEM, one unit
-     `bd` holds; a RUN is one execution of the work on one item. Name the skill, command
-     or job that starts a run, and where a run keeps its own files. Delete this comment when done. -->
 The **work** is what this repository does to a **work item**, one unit of the queue; a **run** is one
 execution of the work on one item. What the work is, and how a run is started, is this repository's
 own to say here.
@@ -352,23 +351,6 @@ it would change, so `bd count --by-label` shows which kind keeps needing a fix a
 leaves its analysis of itself as a note on the issue it worked, and the prompts that ran are
 reviewed from those notes in batches, as `CLAUDE.md` § Prompt reviews says. A program proposes, and
 only a person promotes (`CLAUDE.md` § A program proposes; only a person promotes).
-
-`docs/decisions.md` § D-06 retired the kit's learning loop, which wrote a record per run and
-derived reports from the records; it never had a record to read.
-
-## What is still a placeholder
-
-The kit laid down what does not depend on a subject and marked the rest. This section says how to
-find the marks, not how many remain.
-The work of clearing them is tracked in `bd`.
-
-- `KIT-CHECKLIST.md`: an unticked box is a step the bootstrap could not do for you.
-- A comment of the form `kit <section> · ADAPT` or `kit <section> · WRITE`, in any file, says what
-  to write there and when to delete the comment. List the files that carry one with
-  `git grep -l -E "kit [0-9.-]+ · (ADAPT|WRITE)"`.
-- `docs/decisions.md` D-01 is dated 1970-01-01 because the kit could not know the adoption date.
-- `count-index.md` § Rates and metrics has no row, and a metric with no row there is not reported.
-- The pipeline graph holds one worked example node, to delete when a real one exists.
 
 ## Where to read next
 
@@ -433,3 +415,15 @@ at its start: restart the session after changing it.
 | A pull request is opened, reopened, marked ready or pushed to | The reviewer sets its head's `pr-review` status pending, so an agent watching the checks waits for the review. | `.github/workflows/pr-review.yml` (`mark`) |
 | A `verify` run ends, a person applies the approval label, every 15 minutes, or by hand | The reviewer takes one action, one run at a time: it merges a pull request whose verdict allows it, or reviews the oldest head that passed `verify` and has no verdict, and runs again while more are waiting. | `.github/workflows/pr-review.yml` |
 | The dev container starts | `npm ci` when the lockfile moved, the git hooks, and the tracker's hydration; each step warns and carries on. | `.devcontainer/entrypoint.sh` |
+
+## What is still a placeholder
+
+ A comment of the form `kit <section> · ADAPT` or `kit <section> · WRITE`, in any file, says what
+  to write there and when to delete the comment. List the files that carry one with
+  `git grep -l -E "kit [0-9.-]+ · (ADAPT|WRITE)"`.
+
+## P.S.
+
+This page describes and points; it holds no rule. The rules an agent follows are in `CLAUDE.md`.
+The status of work is in `bd`, never here.
+Where this page and a file it points at disagree, that file wins and this page is corrected.
