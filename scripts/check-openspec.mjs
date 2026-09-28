@@ -29,21 +29,22 @@
  *      still spells an old value after the label moved. The label decides what the general queue
  *      offers, so a prompt spelling a stale one sweeps a change's tasks into it. Before D-03 the
  *      spelling sat in eight files, the register and seven prompts, and nothing held them together.
- *   6. A scenario or NFR requirement with no ID, or with an ID another header has or once had. A
- *      test is to name the ID it proves (asdlc-openspec-j09.5), so an ID on two scenarios would let
- *      one test stand for either, and an ID reused after its scenario was removed would let an old
- *      test pass for a scenario it never read. Nothing else reads the IDs: `openspec validate
- *      --strict` passes a header with none, with a malformed one, and with one another header
- *      already carries (each measured on the pinned 1.6.0 by this file's selftest, where the CLI
- *      reports nothing for those cases).
+ *   6. A scenario or NFR requirement with no ID, or with an ID another header has or once had. Under
+ *      D-13 a test is to name the ID it proves (asdlc-openspec-j09.5), so an ID on two scenarios
+ *      would let one test stand for either, and an ID reused after its scenario was removed would
+ *      let an old test pass for a scenario it never read. Nothing else reads the IDs: `openspec
+ *      validate --strict` passes a header with none, with a malformed one, and with one another
+ *      header already carries (each measured on the pinned 1.6.0 by this file's selftest, where the
+ *      CLI reports nothing for those cases).
  *
- * IDS (asdlc-openspec-j09.3). A scenario is headed `#### Scenario: [<PREFIX>-NNN] <title>` and an NFR
- * requirement `### Requirement: [NFR-<PREFIX>-NNN] <title>`, where the prefix is its capability's
- * under `specIdPrefixes` in `tools/policy.json` and NNN is three digits or more, zero-padded, from
- * 001. A requirement that is not an NFR carries no ID; its scenarios do. An ID is unique within its
- * prefix and never reused, and a reworded header is a removal and an addition with a new ID, because
- * the pinned OpenSpec matches a MODIFIED scenario by its whole header (the probe is in the epic,
- * asdlc-openspec-j09). Over the living specs and the active deltas, the gate refuses:
+ * IDS (`docs/decisions.md` § D-13, items 1, 2 and 11, whose table names this header their home;
+ * landed by asdlc-openspec-j09.3). A scenario is headed `#### Scenario: [<PREFIX>-NNN] <title>` and
+ * an NFR requirement `### Requirement: [NFR-<PREFIX>-NNN] <title>`, where the prefix is its
+ * capability's under `specIdPrefixes` in `tools/policy.json` and NNN is three digits or more,
+ * zero-padded, from 001. A requirement that is not an NFR carries no ID; its scenarios do. An ID is
+ * unique within its prefix and never reused, and a reworded header is a removal and an addition with
+ * a new ID, because the pinned OpenSpec matches a MODIFIED scenario by its whole header. Over the
+ * living specs and the active deltas, the gate refuses:
  *
  *   - a scenario without its capability's ID, and any other level-4 header under a requirement,
  *     which OpenSpec counts as a scenario;
