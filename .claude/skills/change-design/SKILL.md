@@ -7,8 +7,8 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 # Design a change
 
-The second of the six `change-*` stages (`docs/decisions.md` § D-02). It runs in the change's
-worktree, after the user has reviewed the proposal and its delta specs. Every tracker write below
+The second of the six `change-*` stages (`docs/decisions.md` § D-02). It runs after the user has
+reviewed the proposal and its delta specs. Every tracker write below
 sits inside the bracket `CLAUDE.md` § The task store describes. Every question below that
 recommends an option takes the form `CLAUDE.md` § A question shows where its recommendation loses
 gives.
@@ -16,8 +16,8 @@ gives.
 ## 1. Find the change and its epic
 
 - **The change.** Its name is found as `CLAUDE.md` § Product work runs as OpenSpec-format changes
-  says. The branch is `agent/<change>`. If the session is not already in the worktree, enter it
-  with `EnterWorktree` and the path `.claude/worktrees/<change>`.
+  says. If the session is not already in the worktree, enter it with `EnterWorktree` and the path
+  `.claude/worktrees/<change>`.
 - **The epic.** It is the one issue that
   `bd list --label spec-change --type epic --metadata-field change=<change> --json` returns (the
   label is `specChangeLabel` in `tools/policy.json`). If none or several come back, stop and say
@@ -28,8 +28,7 @@ Read the following before writing anything:
 - `openspec/changes/<change>/proposal.md`;
 - every delta spec under the change's `specs/`;
 - the living spec under `openspec/specs/` of each capability the change modifies;
-- the code the proposal's Impact names;
-- the epic's notes, where a send-back from `change-verify` is recorded.
+- the code the proposal's Impact names.
 
 ## 2. Decide whether it needs a design
 
@@ -44,8 +43,8 @@ Write `design.md` only when one of these holds:
 
 Otherwise write no file. An empty design is noise the next reader has to rule out. Record the
 decision on the epic instead, with `bd note <epic> "change-design: no design, because <reason>"`,
-so that `change-plan`, in a session of its own, can tell a design ruled out from a stage that has
-not run. Say so in the report and hand over to `change-plan`.
+so that `change-plan` can tell a design ruled out from a stage that has not run. Say so in the
+report and hand over to `change-plan`.
 
 ## 3. Write it
 
@@ -67,8 +66,7 @@ Every value the change makes the product compute or carry forward gets its own d
   from the rounded value or the exact one. "Rounded for display" says what is shown, not what is
   carried forward.
 
-Without that decision, the build picks a model itself and rebuilds the arithmetic each time a
-scenario disagrees with it.
+Without that decision, the build picks a model itself.
 
 A design says how, never what:
 
@@ -90,23 +88,22 @@ Work out the expected value of every scenario in the delta specs from the design
 scenario whose expected value depends on a choice the design has not made, such as which value a
 chain carries forward or where a result rounds, is a question for the user in this stage. It never
 goes to `## Open Questions` for the build to settle: the build encodes whichever value it meets
-first, and every task built on a value the user later reverses is rework. Record the answer as a
+first. Record the answer as a
 decision in the design. Where the answer changes a scenario, revise the delta spec with the user,
 with the proposal and the epic's label, as § 3 says of a behaviour no scenario states.
 
 ## 5. Commit it, and stop
 
 Stage the design and every file this stage revised with `git add`, then run `npm run openspec:check`
-and `npm run citations:check`, each as its own call. Stage first: the citations gate reads only
-tracked files, so a design not yet added passes without being read.
+and `npm run citations:check`. Stage first: the citations gate reads only tracked files, so a
+design not yet added passes without being read.
 
-Commit, with the message passed from a file under `.scratch/`. Report what the design decides, each
-question step 4 put to the user with its answer, and what the design leaves open, then stop.
+Commit. Report what the design decides, each question step 4 put to the user with its answer, and
+what the design leaves open, then stop.
 
-The user reviews it before `change-plan` turns it into tasks, in a fresh session given the change's
-name (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
+The user reviews it before `change-plan` turns it into tasks.
 
 When `change-verify` sends a design gap here (`.claude/skills/change-verify/SKILL.md` § 6. Verdict),
 the design already exists. Amend the decision the epic's latest send-back note names, and any
-comment and README row that repeats it. Stage, check and commit as above, then hand back to `change-verify`, which runs again from
-step 2.
+comment and README row that repeats it. Stage, check and commit as above, then hand back to
+`change-verify`.
