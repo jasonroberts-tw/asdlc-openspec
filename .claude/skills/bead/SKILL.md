@@ -94,9 +94,7 @@ Make the change. A defect's fix lands only after a test or selftest case that re
 been seen to fail, and the pull request's body names that run: a test first run after its fix can
 pass without it. Regenerate every derived artifact the change touches only after the last edit to
 the emitter or its inputs: an emitter's own source is one of its inputs, so even a comment edit
-stales its output. `npm run pipeline:stale` names each stale node and the command that rebuilds it.
-A first run that stamps an output which had none makes `pipeline:stale:check` bind it from then on
-(`docs/pipeline.md` § The two gates): say so in the pull request.
+stales its output, which its `:check` twin then refuses.
 
 Stage every file the change adds (`git add`) before the gates run: the citations and count-index
 gates read the files `git ls-files` lists, so a new file not yet added passes them unread. Run

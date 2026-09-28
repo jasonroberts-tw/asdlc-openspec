@@ -163,11 +163,11 @@
   "promptWordBudgetAgentPrReviewer": 1789,
   "promptWordBudgetAgentPrReviewerMeans": "The most words `.claude/agents/pr-reviewer.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
 
-  "promptWordBudgetSkillAddNpmScript": 1270,
-  "promptWordBudgetSkillAddNpmScriptMeans": "The most words `.claude/skills/add-npm-script/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+  "promptWordBudgetSkillAddNpmScript": 1230,
+  "promptWordBudgetSkillAddNpmScriptMeans": "The most words `.claude/skills/add-npm-script/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on, 1,270; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv). Lowered 2026-09-28 to 1,230 when D-15 (asdlc-openspec-hvm) removed its steps for the retired pipeline graph.",
 
-  "promptWordBudgetSkillBead": 1652,
-  "promptWordBudgetSkillBeadMeans": "The most words `.claude/skills/bead/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on, 1,857; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv). Lowered 2026-09-26 to 1,635 by its first consolidation, under D-12 (asdlc-openspec-aa0), whose pull request lists every sentence it removed and where each one went. Raised 2026-09-28 to 1,652 by D-14 (asdlc-openspec-fye): § 4's rule that a defect's fix lands only after a test that reproduces it was seen to fail added 38 words, and consolidating the file first freed 21, so the raise is the other 17.",
+  "promptWordBudgetSkillBead": 1617,
+  "promptWordBudgetSkillBeadMeans": "The most words `.claude/skills/bead/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on, 1,857; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv). Lowered 2026-09-26 to 1,635 by its first consolidation, under D-12 (asdlc-openspec-aa0), whose pull request lists every sentence it removed and where each one went. Raised 2026-09-28 to 1,652 by D-14 (asdlc-openspec-fye): § 4's rule that a defect's fix lands only after a test that reproduces it was seen to fail added 38 words, and consolidating the file first freed 21, so the raise is the other 17. Lowered 2026-09-28 to 1,617 when D-15 (asdlc-openspec-hvm) removed § 4's sentences on the retired pipeline graph.",
 
   "promptWordBudgetSkillChangeBuild": 1314,
   "promptWordBudgetSkillChangeBuildMeans": "The most words `.claude/skills/change-build/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv). Lowered 2026-09-28 from 1,316 to 1,314 by D-14 (asdlc-openspec-fye): its two consolidations freed 51 words, 47 and then 4, and § 3's `scenarios` argument, its handling of a `not-red` stop and the red records `settled` carries added 49, so the budget fell to the new count, as D-12 item 6 asks; that pull request lists every sentence the consolidations removed and where each one went.",
@@ -214,6 +214,6 @@
   "promptWordBudgetAgentsMd": 26,
   "promptWordBudgetAgentsMdMeans": "The most words `AGENTS.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
 
-  "promptWordBudgetClaudeMd": 3907,
-  "promptWordBudgetClaudeMdMeans": "The most words `CLAUDE.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv)."
+  "promptWordBudgetClaudeMd": 3906,
+  "promptWordBudgetClaudeMdMeans": "The most words `CLAUDE.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on, 3,907; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv). Lowered 2026-09-28 to 3,906 when D-15 (asdlc-openspec-hvm) replaced the digest gate in § The gate ladder."
 }

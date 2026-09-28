@@ -32,7 +32,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { gitEnv } from '../lib/sibling-root.ts'
+import { gitEnv } from '../lib/git-env.ts'
 import type { ExemptRegion } from './memory.ts'
 import {
   MEMORY_EXEMPT_REGIONS,
@@ -301,7 +301,7 @@ console.log('citation scanner selftest\n')
   ok(
     'a live file citing a retired file by its bare name is a finding',
     retiredWithoutPath(
-      'tools/pipeline/digest.ts',
+      'tools/citations/scan.ts',
       'verify-layout.md',
       'docs/retired/verify-layout.md',
     ),
@@ -309,7 +309,7 @@ console.log('citation scanner selftest\n')
   ok(
     'the same citation is fine once it spells the retired path',
     !retiredWithoutPath(
-      'tools/pipeline/digest.ts',
+      'tools/citations/scan.ts',
       'docs/retired/verify-layout.md',
       'docs/retired/verify-layout.md',
     ),
@@ -332,7 +332,7 @@ console.log('citation scanner selftest\n')
     'every declared retired root is recognised by isRetired',
     RETIRED_ROOTS.every((r) => isRetired(`${r}anything.md`)),
   )
-  ok('a live path is not', !isRetired('tools/pipeline/digest.ts'))
+  ok('a live path is not', !isRetired('tools/citations/scan.ts'))
 }
 
 /* --------------------------------------------------------------------------------------------- *
@@ -422,6 +422,17 @@ console.log('citation scanner selftest\n')
  * --------------------------------------------------------------------------------------------- */
 
 {
+  // `runGate` below builds its tree with git under `gitEnv()`, so the tree is only this section's
+  // subject if `gitEnv()` leaks no `GIT_*` key; a hook sets one, so set one here and look.
+  {
+    const saved = process.env['GIT_DIR']
+    process.env['GIT_DIR'] = join(tmpdir(), 'not-a-git-dir')
+    const leaked = Object.keys(gitEnv()).filter((k) => k.startsWith('GIT_'))
+    if (saved === undefined) delete process.env['GIT_DIR']
+    else process.env['GIT_DIR'] = saved
+    ok('gitEnv() carries no GIT_* key out of a hook', leaked.length === 0, leaked.join(', '))
+  }
+
   const CHECK = join(dirname(fileURLToPath(import.meta.url)), 'check.ts')
   const MENTION = '`bd remember` is not used here.'
 

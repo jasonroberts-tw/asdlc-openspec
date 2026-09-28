@@ -135,7 +135,7 @@ the rule. The third column wins over the first two.
 | A pointer to a file or a section that is gone | `citations:check`, over every tracked text file | `CLAUDE.md` § Citations |
 | A recorded decision argued again, or a register whose summary drifts from its entries | `check:register` | `CLAUDE.md` § Decisions live in the register |
 | Work tracked in a checklist or a status table, an issue that does not say where its work lands, or a found issue that does not say what kind of file it would change | The issue: `beads:check`, at push, refuses an open issue with no `repo:` label, and an open issue filed `discovered-from` with no label `assetLabels` in `tools/policy.json` lists; `beads:selftest` holds both refusals. The checklist or status table: review alone, because no gate scans a file for one | `CLAUDE.md` § The task store |
-| A generated artifact left stale after its input moved | `pipeline:check` and `pipeline:stale:check` | `docs/pipeline.md` § The two gates |
+| A generated artifact left stale after its input moved | Each emitter's `:check` twin, which re-derives the artifact and diffs it, at push and in CI | `CLAUDE.md` § The script suffix contract |
 | A pull request merged without being held to the issue it carries, a high-risk one merged without a person, or two merged at once | `.github/workflows/pr-review.yml`, one run at a time, deciding through `scripts/pr-review.mjs`; `pr-review:check` and `pr-review:selftest` hold its wiring and its decisions | `CLAUDE.md` § Git workflow |
 | A program that rewrites its own instructions from what it observed | The prompt reviewer only opens a pull request, and a person decides whether it merges | `CLAUDE.md` § A program proposes; only a person promotes |
 | A chained shell command whose failing step cannot be told apart, or a workaround for a refused command | Convention, and a `RUN THESE YOURSELF` block at the end of the agent's report | `CLAUDE.md` § Bash command style |
@@ -302,16 +302,6 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 | `openspec:check` | Validates every living spec and active change under `openspec/` strictly with the pinned CLI, trial-archives each active change into a scratch copy so a delta that cannot merge is refused before Finalize, refuses a living spec still carrying the archive's placeholder Purpose, refuses a retired `openspec-*` skill that `openspec init` or `openspec update` wrote back, and refuses a skill or agent that spells the change label without citing its one home, `specChangeLabel` in `tools/policy.json`. | pre-push + CI |
 | `openspec:selftest` | The OpenSpec gate, negative-tested against a fixture tree it builds. | pre-push + CI |
 
-### pipeline
-
-| Script | What it does | Gate |
-|---|---|---|
-| `pipeline:check` | Holds the graph record (`tools/pipeline/graph.ts`) to the files it names, to the jobs that run its checks and to the prose page. | pre-push + CI |
-| `pipeline:example` | Emits the worked example node's output. To delete, with the node, once a node of your own exists. | |
-| `pipeline:selftest` | Both pipeline gates, negative-tested against a synthetic record. | pre-push + CI |
-| `pipeline:stale` | Reports which node's declared inputs have moved since it stamped its output, with no exit code; `-- --verbose` says why a node is not covered. | |
-| `pipeline:stale:check` | The same report as a gate. It runs no generator, so forgetting to regenerate is visible without regenerating. | pre-push + CI |
-
 ### pr-review
 
 | Script | What it does | Gate |
@@ -359,7 +349,6 @@ only a person promotes (`CLAUDE.md` § A program proposes; only a person promote
 | `CLAUDE.md` | Read first. The only home for a rule an agent must follow here. |
 | `docs/README.md` | The documentation index, and the conventions every document follows. |
 | `docs/decisions.md` | The register of numbered decisions and risks. It wins a disagreement with any document. |
-| `docs/pipeline.md` | Which generated artifact is built from which, and what to regenerate when something moves. |
 | `docs/playbook.md` | The route one issue takes to the trunk, step by step, each step naming the file or command that decides it. |
 | `docs/plain-language-guide.md` | How work gets done here, for a reader who runs nothing. |
 | `docs/test-strategy.md` | The agentic test strategy the change process adopts, as supplied, with the register's amendments marked. |
@@ -409,7 +398,6 @@ at its start: restart the session after changing it.
 | `git push` that changes a workflow under `.claude/workflows/`, `tools/policy.json` or its selftest | `workflows:selftest`: the change-build review workflow and the prompt review workflow, run against stubbed agents with the policy's review sizes, red-first kinds, prompt-review threshold and skeptic counts. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes `apps/calculator/`, `scripts/run-tests.mjs`, `package.json` or the lockfile | `calculator:test`: the calculator's scenarios, each a test named for it, under Node's own test runner, with no matched file allowed to declare none. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes `scripts/run-tests.mjs` | `tests:selftest`: the test runner, negative-tested. | `lefthook.yml` (`pre-push`) |
-| `git push` | `pipeline:check` holds the graph record to the files it names and to the prose page; `pipeline:stale:check` refuses an output whose stamp no longer matches its declared inputs; `pipeline:selftest` holds both gates. Neither carries a glob: the record's globs may name any file. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes the reviewer's script, `tools/policy.json`, a workflow or the reviewer's agent | `pr-review:check`: the reviewer's workflow, agent and policy agree; `pr-review:selftest`: its decisions over fixtures, and the check over doctored copies. | `lefthook.yml` (`pre-push`) |
 | A pull request, a push to `main`, or a merge the reviewer made | Every gate that reads only committed files, cheapest first. It trusts none of the faster tiers. After a reviewer's merge it runs by dispatch, since that merge starts no push run. | `.github/workflows/verify.yml` |
 | A pull request is opened, reopened, marked ready or pushed to | The reviewer sets its head's `pr-review` status pending, so an agent watching the checks waits for the review. | `.github/workflows/pr-review.yml` (`mark`) |

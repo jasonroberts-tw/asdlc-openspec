@@ -4,8 +4,8 @@
 # kit 1.6-5 · ADAPT: keep the order CHEAPEST FIRST, so the commonest failure is also the quickest
 # answer. A step belongs here when its check reads only committed files; a check that reads
 # something outside the repository (another checkout, a token, a network, a language model) belongs
-# in neither this file nor the hook runner's, and a digest gate stands in for it. Delete this
-# paragraph when done.
+# in neither this file nor the hook runner's, and its selftest over fixtures is a step here in its
+# place (`docs/decisions.md` § D-15). Delete this paragraph when done.
 name: verify
 
 on:
@@ -74,15 +74,6 @@ jobs:
       # hook over scratch citation trees and scratch repositories under the temporary directory.
       - name: the Stop hook reads untracked files and places a subagent's checkout, negative-tested
         run: npm run gate-summary:selftest
-      # Milliseconds: the graph record held to the files it names, to the hook runner's
-      # configuration, to this file, to the prose page and to the tracker's formula.
-      - name: the graph record describes the repository
-        run: npm run pipeline:check
-      # A hash walk over each node's declared inputs; runs no generator, needs no sibling checkout.
-      - name: no stamped node is out of date with its declared inputs
-        run: npm run pipeline:stale:check
-      - name: the pipeline gates, negative-tested
-        run: npm run pipeline:selftest
       # Milliseconds: the register's header held to its own headings.
       - name: the register's header agrees with its entries
         run: npm run check:register
@@ -125,3 +116,8 @@ jobs:
       #     `artifacts/outcomes/`, which no longer exist, so a restored step fails on a missing
       #     script. The loop's filing step, `outcomes:propose`, was never a step: it read and wrote
       #     the tracker.
+      #   * `pipeline:check`, `pipeline:stale:check` and `pipeline:selftest`: the graph record held to
+      #     the repository, the digest stamped into each node's output, and both negative-tested.
+      #     `docs/decisions.md` § D-15 retired the pipeline with `tools/pipeline/`, whose record never
+      #     held a node but the kit's example, so a restored step fails on a missing script. An emitter
+      #     that reads only committed files is held by its own `:check` twin, a step of its own.

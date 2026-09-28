@@ -10,7 +10,6 @@ enforces it, and a document points at that home rather than restating it.
 |---|---|
 | `docs/decisions.md` | The register: the numbered decisions (`D-NN`) and risks (`R-NN`) that nobody re-litigates. An entry is never rewritten; a later decision adds a dated amendment under each entry it changes. |
 | `docs/retired/README.md` | What has been retired, each file under a banner naming the decision that retired it. Kept as the evidence a decision was recorded from, never as guidance. |
-| `docs/pipeline.md` | The pipeline graph in prose: which generated artifact is built from which, and what to regenerate, in what order, when something moves. A copy; the record under `tools/pipeline/graph.ts` wins a disagreement. |
 | `docs/playbook.md` | The route one issue takes to the trunk, by the harness route or the product route, with a glossary, a table of where the truth lives and a crib sheet. Dated, and a route rather than an authority: the file or command each step names wins a disagreement. |
 | `docs/plain-language-guide.md` | How work gets done here, for a reader who runs nothing: the parts, the loop between them, who decides what, and what has not happened yet. Dated; any technical document wins a disagreement. |
 | `docs/test-strategy.md` | The agentic test strategy as the maintainer supplied it on 2026-09-28, with the answers of `docs/decisions.md` § D-13 marked where they amend it. A dated record, the home of no rule: the register, the gates and the skills win a disagreement. |

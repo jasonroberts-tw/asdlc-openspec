@@ -185,8 +185,8 @@ The same checks run at four latencies, and a slower tier never trusts a faster o
 Where a check runs is decided by what it reads. A check that reads only committed files is a
 pre-push job **and** a `.github/workflows/verify.yml` step, even one that talks over loopback to a
 server it starts from them (`docs/decisions.md` § D-04). A check that reads something outside the
-repository (another checkout, a token, a network, a language model) runs in neither, and a digest
-gate stands in for it.
+repository (another checkout, a token, a network, a language model) runs in neither; its selftest
+over fixtures runs in both.
 A legitimately absent input skips clean and prints why; a tool that is found and then fails is a
 failure, never a skip.
 
