@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-15 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14 and D-15 added 2026-09-28).**
+**Status: every decision from D-01 to D-16 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-15` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-16` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -71,6 +71,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-13** | The agentic test strategy is adopted, and each of its rules lands in a home of its own | `docs/test-strategy.md` as the dated record; each rule's home, a gate's header, a skill or the build workflow, landed by the issue item 17's table names |
 | **D-14** | A build task sees each scenario's proof fail before the code that passes it, or reports it already green, and the build workflow stops a run that does neither | The `not-red` stop and red records of `.claude/workflows/build-change-task.js`, held by `workflows:selftest`; `buildRedFirstKinds` in `tools/policy.json`; `change-build` § 3; `bead` § 4 |
 | **D-15** | The kit's pipeline graph is retired; a check that reads outside the repository is stood in for by its selftest | `tools/pipeline/`, `docs/pipeline.md`, the `corpus-regen` formula and the sibling-checkout resolvers deleted with their scripts, jobs and steps; `gitEnv()` kept in `tools/lib/git-env.ts`; `CLAUDE.md` § The gate ladder |
+| **D-16** | A session's own review and design workflows are bounded by policy, and the build and prompt reviews send one skeptic to a major finding | `CLAUDE.md` § A workflow a session writes itself is bounded, consolidated first; `sessionReviewMaxFindings`, `sessionReviewSkeptics` and `sessionWorkflowMaxAgents` in `tools/policy.json`; `buildReviewSkeptics.major` and `promptReviewSkeptics.major` at 1, held by `workflows:selftest` |
 
 ## Risks
 
@@ -552,6 +553,8 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 
 > **Amended 2026-09-26 by D-12.** Items 3 and 4 judged a finding's edits alone. A branch may now also carry a consolidation of a file its edit would take past its word budget. The consolidation goes to `promptReviewSkeptics.blocker` skeptics, who answer two questions of its own, and the branch merges only when it is upheld too.
 
+> **Amended 2026-09-28 by D-16.** Item 3 still gives `promptReviewSkeptics` the counts `buildReviewSkeptics` gives, but those counts now send one skeptic to a major finding, not three, so a batch of 5 major findings sends 5 skeptics, not the 15 the Figures above state. The alternative "Fewer skeptics", which lost here, is what D-16 item 3 chose for a major finding, with the case where it loses that this entry gave: a single vote decides a major edit that every later run of the prompt reads. `blocker` stays at 3, and so does a consolidation's count.
+
 ### D-11 · beads:check refuses an open found issue with no asset label, as D-06 item 4 asked
 
 **Recorded 2026-09-26**, carried by `asdlc-openspec-dzi`. D-06 item 4, the maintainer's on 2026-09-24, named this gate as the one to come. This entry records that it now holds, and corrects the two places the register said no gate did.
@@ -772,6 +775,33 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 - One node in the record, `X-EXAMPLE`, at the bootstrap and ever since: `git grep -n "id: '" <commit> -- tools/pipeline/graph.ts` at `5417b33`, at `5e89232^` and at `<that commit>^`.
 - `pipeline:selftest` at 3.85 s wall and 40 of 40 cases, on a macOS laptop with Node 26.8.1 on 2026-09-28: `/usr/bin/time -p node tools/pipeline/selftest.ts` at `<that commit>^`.
 - Five issues on the engine's copied-in headers and comments, `asdlc-openspec-npe`, `v6m`, `1i1`, `egt` and `v20`: `bd search pipeline` lists them with `asdlc-openspec-qxz`, which was about the Stop hook's header, and with `asdlc-openspec-hvm`, which carries this entry.
+
+### D-16 · A session's own review and design workflows are bounded by policy, and the build and prompt reviews send one skeptic to a major finding
+
+**Recorded 2026-09-28**, carried by `asdlc-openspec-hsg`, found while the epic `asdlc-openspec-j09` was worked. On 2026-09-28 the maintainer chose items 1, 2 and 3, each from a recommendation put with the case where it loses; item 3 is the one they chose over the recommendation. The session that coordinated the run settled item 4's value, and the session that built it named the keys.
+
+**Builds on / amends:** amends D-10, whose item 3 gave `promptReviewSkeptics` the counts `buildReviewSkeptics` gives, three for a major finding, and whose alternative "Fewer skeptics" lost. Builds on D-03, whose policy file holds the new keys; on D-12, under which `CLAUDE.md` was consolidated before it took the rule; and on D-07, which leaves a pull request that changes `CLAUDE.md` or this register to a person.
+
+**Decision.** How much a session spends on a review or design workflow it writes itself, outside `.claude/workflows/`, and how many skeptics the tracked build and prompt reviews send to a major finding. `CLAUDE.md` § A workflow a session writes itself is bounded holds the rule, and `tools/policy.json` holds its numbers, each with the case where it loses in its `Means`.
+
+1. **A session's own review before a pull request comes in tiers.** A branch that changes only prompts or documents gets none beyond the pull-request reviewer. A branch with code or a gate gets one adversarial reviewer, at medium effort, that runs the code and reports at most `sessionReviewMaxFindings` findings; `sessionReviewSkeptics` sends one skeptic to each blocker or major finding, and a minor goes to the author unjudged. Where it loses: a dedicated adversary that built doctored inputs found the code-fence defect in `asdlc-openspec-j09.3`'s gate; one general reviewer may miss that kind, and the pull-request reviewer, which runs nothing, will not catch it.
+2. **The rule lives in `CLAUDE.md`, with its numbers under keys of `tools/policy.json`**, so every session reads it, and it holds over an effort level or an orchestration default that says cost is no constraint. Every such workflow, a design panel as much as a review, sets each agent's effort. `CLAUDE.md` was consolidated first, under D-12, and a person merges it. Where it loses: its words cost every session, including the many that orchestrate nothing, where a rule only in `bead` and `fan-out-work` would cost only the sessions that load them.
+3. **The tracked reviews send one skeptic to a major finding.** `buildReviewSkeptics.major` and `promptReviewSkeptics.major` fall from 3 to 1; `blocker` and `minor` stay, and so does a consolidation's count, which is the `blocker` count. The recommendation was to leave the build workflow's sizes for `asdlc-openspec-j09.11` to resize with the pilot's figures. Where the choice loses: a single vote now decides each major finding in a build or a prompt review, where D-10 chose three so that one vote would not decide an edit every later run of a prompt reads.
+4. **A workflow a session writes itself runs at most `sessionWorkflowMaxAgents` agents** unless the user asks for more, the workflow-size guideline the session's harness gave it (`bd show asdlc-openspec-hsg`). Item 1's review needs at most one reviewer and one skeptic for each of its findings. Where it loses: a design question that needs more independent readings than the cap runs as two workflows, or waits for the user to ask for more.
+
+**Why.** On 2026-09-28 the session working the epic `asdlc-openspec-j09` wrote its own review workflow and ran it on three lane branches before their pull requests, with four dimension reviewers and three skeptics for every finding, minor ones included, each skeptic rebuilding doctored copies to reproduce its finding. By the figures `bd show asdlc-openspec-hsg` gives, each with the workflow run whose state file, outside this repository, it was read from, the three reviews spent many times what building the three branches did; and a design-panel workflow the session wrote was stopped before any of its four readers finished. The session's harness had a guideline for a workflow's size, but the session was also under an effort level that told it token cost was not a constraint, and nothing in this repository's tracked rules bounded a workflow a session writes itself. The reviews did find real defects, so the choice was how much review, not none. Each item above names the case where it loses, and one alternative lost as well:
+
+- **The review that session ran:** a reviewer for each of four dimensions, and three skeptics for every finding. It found real defects, the one item 1 names among them, and it spent more than the work it reviewed.
+
+**What changed.**
+
+- **This register:** this entry; the status line, the blockquote's bound and the decisions table carry D-16; D-10 carries an amendment.
+- **`CLAUDE.md`:** consolidated under D-12 in a commit of its own, then § A workflow a session writes itself is bounded.
+- **`tools/policy.json`:** `sessionReviewMaxFindings`, `sessionReviewSkeptics` and `sessionWorkflowMaxAgents`, each with its `Means`; `buildReviewSkeptics.major` and `promptReviewSkeptics.major` at 1, and their `Means`; `promptWordBudgetClaudeMd` lowered to `CLAUDE.md`'s new count, and its `Means`; `describes`, `gatedBy`, `whatItDoesNOTDo` and `provenance` name the new keys.
+- **`tools/README.md`:** `policy.json`'s row names the new keys.
+- **Not changed:** `scripts/workflows.selftest.mjs`, which reads each count from the policy and splits a vote at the first severity of `buildReviewMajorSeverities` and `promptReviewMajorSeverities`, `blocker`, whose count stays at 3.
+
+**Figures.** `CLAUDE.md` held 3,906 words at `b6b0906`, after D-15 changed § The gate ladder; consolidating it freed 149, to 3,757, and § A workflow a session writes itself is bounded added 130, to 3,887 at this entry's commit, each `node scripts/check-prompts.mjs --counts`; the pull request names the consolidation's commit, and gives the same two steps from 3,907 at `5a939d9`, where this branch was cut. A batch of 5 major findings in a prompt review now sends 5 skeptics, 5 times `promptReviewSkeptics.major`, 1, where it sent 15. Item 1's review runs at most 9 agents: one reviewer and one skeptic for each of `sessionReviewMaxFindings`, 8, findings, as `sessionReviewSkeptics` gives, within `sessionWorkflowMaxAgents`, 10. The incident's agent and token figures are the issue's, read from workflow state files outside this repository, and are not re-derived here.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

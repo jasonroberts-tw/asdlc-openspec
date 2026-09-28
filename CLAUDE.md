@@ -194,6 +194,18 @@ file list is empty and exits 0 in a tenth of a second, which reads exactly like 
 every derived artifact, run `npm run gates`, fetch and rebase onto `origin/main`, and run it
 again.
 
+## A workflow a session writes itself is bounded
+
+A review or design workflow a session writes itself, outside `.claude/workflows/`, stays within
+keys of `tools/policy.json`, because a review nothing bounds can cost more than the work it
+reviews. A branch that changes only prompts or documents gets none beyond the pull-request
+reviewer. A branch with code or a gate gets one adversarial reviewer, at medium effort, that runs
+the code and reports at most `sessionReviewMaxFindings` findings; each goes to the skeptics
+`sessionReviewSkeptics` gives its severity, and one given none goes to the author unjudged. Every
+such workflow sets each agent's effort and runs at most `sessionWorkflowMaxAgents` agents unless
+the user asks for more. An effort level or an orchestration default that says cost is no
+constraint raises none of it.
+
 ## Standing rules for prompts and gates
 
 Each of these holds from the first file it applies to, and for every one after it.
