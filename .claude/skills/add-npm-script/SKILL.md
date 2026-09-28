@@ -22,7 +22,7 @@ The suffixes are the bare name, `:check`, `:selftest` and `:update`, and what ea
 reviewer trusts a committed artifact.
 
 A third segment only when it names a sub-artifact rather than a variation
-(`pipeline:stale:check`, `lint:ratchet:update`).
+(`check:jobs:selftest`).
 
 ## 2. Put the code where its neighbours are
 
@@ -34,7 +34,7 @@ start-up time to every run of every script it starts.
 
 Open the file with the header the neighbours use: what it emits, **the failure it exists to
 prevent** (in this repository that is the paragraph readers actually need), the `npm run <name>`
-invocation with its flags, and whether it needs the sibling `../sibling` checkout. Node emitters
+invocation with its flags, and what it needs from outside this repository. Node emitters
 carry the `KIND / INVARIANTS / RE-ENTRY / STALE WHEN` block.
 
 ## 3. If it writes an artifact, make it deterministic
@@ -47,10 +47,9 @@ in the same change among them, are `CLAUDE.md` § The script suffix contract.
 
 - **Reads only committed files** → it can be a `pre-push` job *and* a CI step, even when it talks
   over loopback to a server it starts from them (`docs/decisions.md` § D-04).
-- **Reads `../sibling`** → it can be neither. CI does not clone that checkout, so a `--check`
+- **Reads another checkout** → it can be neither. CI does not clone that checkout, so a `--check`
   there would compare a real artifact against one with every source-derived signal zeroed. Say so
-  in the header, and rely on
-  `npm run pipeline:stale` to keep the node behind an automated gate.
+  in the header; its selftest over fixtures is the job and the step (`CLAUDE.md` § The gate ladder).
 - **Legitimately-absent input** → skip clean with a message, never fail. A gate that is red on every
   fresh clone gets bypassed with `--no-verify`, which costs you every other gate too.
 
@@ -58,11 +57,9 @@ Then wire it: a job in `lefthook.yml` under `pre-push` — `run: node --run <nam
 listing every file whose change can alter its verdict, re-derived from what the script reads and
 imports (the pre-push header there states the rule; when in doubt, wider — a too-narrow glob is a
 gate that silently stops running on a real push, and `npm run gates` runs every job regardless) —
-a step in `.github/workflows/verify.yml`, or both. If it is a pipeline node's emitter or check, register it
-in `tools/pipeline/graph.ts` — `npm run pipeline:check` will tell you if the manifest no longer
-describes the repository. A script that no job runs, such as a bare emitter or an operator command,
-gets an entry in `UNJOBBED_BY_KIND` in `scripts/check-jobs.mjs`, under its kind, in the same
-change; `check:jobs` refuses it otherwise.
+a step in `.github/workflows/verify.yml`, or both. A script that no job runs, such as a bare
+emitter or an operator command, gets an entry in `UNJOBBED_BY_KIND` in `scripts/check-jobs.mjs`,
+under its kind, in the same change; `check:jobs` refuses it otherwise.
 
 ## 5. Update `README.md` § The npm scripts — this is not optional
 
@@ -86,8 +83,8 @@ addition finds its row by the failure it refuses.
 
 ## 6. Renaming or removing one
 
-Do all five, in any order. Steps 3 and 5 are held by gates, `check:jobs` and `pipeline:check`; a
-miss anywhere else stays green.
+Do all four, in any order. Step 3 is held by a gate, `check:jobs`; a miss anywhere else stays
+green.
 
 1. Delete or rewrite the `package.json` entry.
 2. Delete or rewrite its rows in `README.md`: § The npm scripts, and the sub-section if it is now
@@ -103,7 +100,6 @@ miss anywhere else stays green.
    `.claude/worktrees/`. Two files keep their hits: `docs/decisions.md`, whose entries are never
    rewritten (`CLAUDE.md` § Decisions live in the register), and `KIT-CHECKLIST.md`, left as
    `docs/decisions.md` § D-05 left it.
-5. If it was a pipeline node's check, update `tools/pipeline/graph.ts`.
 
 A retired script's references are worth leaving *only* as an explicit comment saying it is retired
 and why; the CI workflow is where such a comment belongs.

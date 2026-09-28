@@ -65,10 +65,10 @@
  *      counts only where its path is spelled on disk as it is in the glob, as in 4.
  *
  * WHAT IS NOT CHECKED, deliberately: WHERE a jobbed script runs (pre-push, CI or both) -- that is
- * `pipeline:check`'s question for the graph's regeneration nodes and the README's Gate column for
- * the rest; whether a job's OTHER commands (`git diff`, `npx prettier`, `bd hooks run`) resolve; the
- * `pre-commit` jobs' `{staged_files}` templates; an extglob such as `+(a|b)`, whose parentheses the
- * path reader takes for shell punctuation; and the case of the letters a wildcard segment matches.
+ * the README's Gate column, which a reviewer reads; whether a job's OTHER commands (`git diff`,
+ * `npx prettier`, `bd hooks run`) resolve; the `pre-commit` jobs' `{staged_files}` templates; an
+ * extglob such as `+(a|b)`, whose parentheses the path reader takes for shell punctuation; and the
+ * case of the letters a wildcard segment matches.
  * `fs.globSync` and `path.matchesGlob` both match `*.TEST.js` to `server.test.js` on macOS (measured
  * with Node 26.8.1), so neither of Node's glob matchers reads that case on a Mac; CI, on Linux,
  * refuses such a glob.
@@ -154,7 +154,7 @@ const GLOB_CHAR_RE = /[*?[{]/
  * its entry must go; add an un-jobbed script and an entry must come.
  *
  * `shape` is a regex the kind's names must match, where the kind HAS a mechanical shape. Bare
- * emitters do not (`worktree:gc`, `pipeline:example`), so that kind is a list and nothing more.
+ * emitters do not (`worktree:gc`), so that kind is a list and nothing more.
  */
 const UNJOBBED_BY_KIND = [
   {
@@ -164,8 +164,6 @@ const UNJOBBED_BY_KIND = [
       ' the gate and the job runs that.',
     names: [
       'worktree:gc',
-      'pipeline:example',
-      'pipeline:stale',
     ],
   },
   {

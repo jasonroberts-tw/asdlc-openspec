@@ -17,8 +17,8 @@ node_modules/
 # The tracker's per-machine state. `bd init` would write these rules itself, into `.beads/.gitignore`
 # and here; `bd bootstrap` writes neither, so they live here. The database is Dolt's and syncs over
 # its own git ref, never as files; the gate locks sit beside each root they guard, which puts one
-# at the checkout root; the backup is a local export. `.beads/config.yaml` and `.beads/formulas/`
-# stay tracked.
+# at the checkout root; the backup is a local export. `.beads/config.yaml` stays tracked, and so
+# does any formula under `.beads/formulas/`.
 .beads/dolt/
 .beads/embeddeddolt/
 .beads/proxieddb/

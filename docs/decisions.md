@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-14 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13 and D-14 added 2026-09-28).**
+**Status: every decision from D-01 to D-15 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14 and D-15 added 2026-09-28).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-14` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-15` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -70,6 +70,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-12** | A prompt that an edit would take past its word budget is consolidated first, and every rule it removes is accounted for | `.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated; the consolidations of `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; the refusal of `check:prompts`; `bead` consolidated and its budget lowered in `tools/policy.json` |
 | **D-13** | The agentic test strategy is adopted, and each of its rules lands in a home of its own | `docs/test-strategy.md` as the dated record; each rule's home, a gate's header, a skill or the build workflow, landed by the issue item 17's table names |
 | **D-14** | A build task sees each scenario's proof fail before the code that passes it, or reports it already green, and the build workflow stops a run that does neither | The `not-red` stop and red records of `.claude/workflows/build-change-task.js`, held by `workflows:selftest`; `buildRedFirstKinds` in `tools/policy.json`; `change-build` § 3; `bead` § 4 |
+| **D-15** | The kit's pipeline graph is retired; a check that reads outside the repository is stood in for by its selftest | `tools/pipeline/`, `docs/pipeline.md`, the `corpus-regen` formula and the sibling-checkout resolvers deleted with their scripts, jobs and steps; `gitEnv()` kept in `tools/lib/git-env.ts`; `CLAUDE.md` § The gate ladder |
 
 ## Risks
 
@@ -103,6 +104,8 @@ once it is worked through, and the commit that added these files is the lasting 
 > **Amended 2026-09-24 by D-05.** `CLAUDE.md` § Prompt reviews, as the kit laid it down, no longer holds. A review is no longer kept in a file under `docs/prompt-reviews/` and appended to on every run, and a prompt no longer carries a `Reviewed:` trailer. The reviewer runs in the background, nobody waits for it, and a review that proposes a change is the description of its own pull request.
 
 > **Amended 2026-09-24 by D-06.** The kit's learning loop, its sections 2.3 and 2.4, is retired: `tools/outcomes/`, `artifacts/outcomes/` and their scripts and jobs are deleted. `CLAUDE.md` § A program proposes; only a person promotes keeps its principle and no longer names the loop. What recurs across runs is read from labels in the tracker instead.
+
+> **Amended 2026-09-28 by D-15.** The kit's pipeline graph, its section 2.6, and the `corpus-regen` formula of its section 1.3 are retired: `tools/pipeline/`, `docs/pipeline.md`, `.beads/formulas/corpus-regen.formula.toml` and the sibling-checkout resolvers under `tools/lib/` are deleted with their scripts, jobs and steps. `CLAUDE.md` § The gate ladder no longer names a digest gate as what stands in for a check that reads outside the repository: that check's selftest over fixtures runs in both tiers.
 
 ### D-02 · Product work runs as OpenSpec-format changes, tracked in bd
 
@@ -712,6 +715,63 @@ How the strategy maps onto this repository:
 - **`lefthook.yml`:** the `workflows-selftest` job's comment and its measured cost.
 
 **Figures.** Each is `node scripts/check-prompts.mjs --counts`, at `62f5ae8` for the first figure and at this entry's commit for the second: the literals of `.claude/workflows/build-change-task.js` 2,561 and 2,670; `.claude/skills/change-build/SKILL.md` 1,316 and 1,314; `.claude/skills/bead/SKILL.md` 1,635 and 1,652. What each consolidation freed on its own is the same command at its own commit: 86 for the workflow's literals, 47 and then 4 for change-build, and 21 for bead; the pull request lists those commits.
+### D-15 · The kit's pipeline graph is retired; a check that reads outside the repository is stood in for by its selftest
+
+**Recorded 2026-09-28**, carried by `asdlc-openspec-hvm`. The maintainer asked on 2026-09-28 for the case that the pipeline was obsolete to be pressure-tested, and chose to retire it from the answer, which put the retirement with the one situation where it loses.
+
+**Builds on / amends:** amends D-01, whose conventions included the starter kit's pipeline graph (its section 2.6), the `corpus-regen` formula (its section 1.3), and the sentence of `CLAUDE.md` § The gate ladder that named a digest gate as the stand-in for a check that reads outside the repository. Builds on D-06, which deleted the only emitter this repository had and whose disposition this follows; on D-07 and D-11, whose selftests are the stand-ins that sentence now names; and on D-13, whose trace emitter (`asdlc-openspec-j09.7`) is held by its own `:check` twin.
+
+**Decision.** The pipeline graph, the record of which generated artifact is built from which, and the gates that held it, are retired.
+
+1. **They are deleted outright** (`docs/retired/README.md` § The three dispositions, *Delete it outright*): `tools/pipeline/`, the record, its gates, its stamp and its worked example; `docs/pipeline.md`; `.beads/formulas/corpus-regen.formula.toml`; the scripts `pipeline:check`, `pipeline:example`, `pipeline:selftest`, `pipeline:stale` and `pipeline:stale:check`; their three pre-push jobs and three CI steps.
+2. **The sibling-checkout resolver goes, and `gitEnv()` stays.** `tools/lib/sibling-root.ts` found a checkout beside the primary one, which nothing here reads; `tools/lib/estate-root.ts` was its copy from before a rename, and nothing imported it. `gitEnv()`, which `tools/citations/selftest.ts` needs to build a scratch tree from inside a hook, moves to `tools/lib/git-env.ts`, and its assertion that it leaks no `GIT_*` key moves from `pipeline:selftest` into `citations:selftest`.
+3. **A check that reads outside the repository is stood in for by its selftest over fixtures**, a pre-push job and a CI step, as `beads:selftest` stands in for `beads:check` (D-11) and `pr-review:selftest` for the reviewer (D-07). `CLAUDE.md` § The gate ladder, the header of `.github/workflows/verify.yml` and the pre-push header of `lefthook.yml` say so where they named a digest gate.
+4. **What to regenerate after an input moves is answered by the emitter's own `:check` twin** (`CLAUDE.md` § The script suffix contract), which re-derives the artifact and refuses one left stale. `bead` § 4, `docs/playbook.md` and `README.md` § The guardrails point there.
+5. **`asdlc-openspec-v20` is closed as obsolete**: it asked for a header of `tools/pipeline/glob.ts` to be corrected, and the file is deleted.
+
+**Why.** The record held one node, the kit's worked example `X-EXAMPLE`, from the bootstrap to this entry, so its gates proved that a summary of a four-entry list agreed with itself. The only emitter this repository ever had, `tools/outcomes/`, was never a node, and D-06 deleted it. The formula's own header said to delete it unless a multi-step regeneration cycle existed, and none could without an emitter. No sibling checkout was configured anywhere. Meanwhile the engine cost three pre-push jobs, three CI steps, and five issues spent on its copied-in headers and comments, and its stamp wrote a timestamp that `CLAUDE.md` § The script suffix contract forbids an emitter.
+
+Where this loses: an emitter that reads a language model or another checkout and commits what it writes. After this entry nothing tells a person that such an artifact's inputs moved since it was written, where a digest stamped into it would have. None exists: the trace workflow of `asdlc-openspec-as9` writes under `.scratch/`, which is not tracked. The first such emitter restores the digest gate from git (below) or brings its own, under an entry of its own. Three alternatives lost:
+
+- **Keeping it for the trace emitter, `asdlc-openspec-j09.7`.** That emitter reads committed files, so its `:check` twin holds it and catches strictly more than a digest can, as the record's own comments said. The graph would add only an order of regeneration, which a failing `:check` shows one step at a time.
+- **Keeping only the digest gate**, `stale.ts` and the stamp, for an emitter that reads outside the repository. No such emitter exists or is filed, and a gate with no subject costs a job and draws upkeep, as the five issues show.
+- **Moving it to `docs/retired/`.** Nothing live reads TypeScript tools once their jobs go, and `git show` recovers them, as D-06 chose for the learning loop.
+
+**What changed.**
+
+- **This register:** this entry; the status line, the blockquote's bound and the decisions table carry D-15; D-01 carries the amendment above.
+- **Deleted:** `tools/pipeline/`, `docs/pipeline.md`, `.beads/formulas/corpus-regen.formula.toml`, `tools/lib/sibling-root.ts` and `tools/lib/estate-root.ts`.
+- **Added:** `tools/lib/git-env.ts`.
+- **`package.json`:** the five `pipeline:*` scripts are removed.
+- **`lefthook.yml`:** the jobs `pipeline-check`, `pipeline-stale` and `pipeline-selftest` are removed, and the pre-push header names the selftest as the stand-in.
+- **`.github/workflows/verify.yml`:** the three `pipeline` steps are removed; its list of retired steps says why a restored one would be wrong, and its header names the selftest as the stand-in.
+- **`CLAUDE.md`:** § The gate ladder names the selftest over fixtures in place of a digest gate.
+- **`.claude/skills/bead/SKILL.md`:** § 4 no longer names `pipeline:stale`; the `:check` twin refuses a stale artifact.
+- **`.claude/skills/add-npm-script/SKILL.md`:** the example of a third segment, the header's needs line, the rule for a script that reads another checkout, and step 5 of removing a script.
+- **`tools/policy.json`:** the word budgets of `CLAUDE.md`, `bead` and `add-npm-script` fall to their new counts.
+- **`scripts/check-jobs.mjs`:** `pipeline:example` and `pipeline:stale` leave the list of scripts with no job, and its header no longer names `pipeline:check`.
+- **`tools/citations/selftest.ts`:** imports `gitEnv()` from its new file, asserts it leaks no `GIT_*` key, and its live-path fixture names a file that exists.
+- **`tools/citations/scan.ts`:** a passage no longer cites `tools/pipeline/check.ts:139` for a phrase that file never held.
+- **`README.md`, `docs/README.md`, `docs/playbook.md`, `tools/README.md` and `.gitignore`:** the `pipeline` scripts' section and rows, the rows for `docs/pipeline.md`, `tools/pipeline/` and `tools/lib/sibling-root.ts`, a row for `tools/lib/git-env.ts`, the guardrail row that named the pipeline's gates, the playbook's steps and its status line, and the ignore file's note on `.beads/formulas/`.
+- **Left as it is, each on purpose:**
+  - the memory rule's scope (`tools/citations/memory.ts`) and the `citations-selftest` job's glob still name `.beads/formulas/`, so a formula that returns is covered from its first commit;
+  - the header of `scripts/hooks/gate-summary.mjs` names `pipeline:check` in a dated incident, which stays true about its date;
+  - `openspec/changes/archive/2026-09-24-add-calculator-web-app/` names the record and the page, as the record of that change;
+  - the header of `scripts/check-reference-mirrors.mjs` names "the sibling-checkout resolver under `tools/lib/`", which `asdlc-openspec-b1b` carries with the rest of that unwired gate.
+
+Retirement checklist, the disposition *Delete it outright* of `docs/retired/README.md` § The three dispositions:
+
+- **Nothing live reads them.** `git grep -n -i -E "pipeline|sibling-root|estate-root|corpus-regen|X-EXAMPLE|digest gate"` finds this entry and its amendment of D-01; the list of retired steps in `.github/workflows/verify.yml`, the status line of `docs/playbook.md`, the note of what the retirement took out in `tools/lib/git-env.ts` and three budget notes in `tools/policy.json`, each a record of this retirement; the header of `scripts/hooks/gate-summary.mjs` and the archived change, left as they are above; the workflow runtime's `pipeline()` function in `.claude/workflows/` and `scripts/workflows.selftest.mjs`, which is another thing of the same name; and "a pipeline" as a plain word in `tools/citations/memory.ts`.
+- **The recovery.** `git log -1 --diff-filter=D --format=%H -- tools/pipeline/graph.ts` names the deleting commit, and `git show <that commit>^:<path>` recovers any of its files, the digest gate's `tools/pipeline/stale.ts`, `assess.ts`, `digest.ts`, `glob.ts` and `provenance.ts` among them.
+- **Their return is not refused by a gate.** Review holds it, and `.github/workflows/verify.yml` says why a restored step would be wrong.
+
+**Figures.**
+
+- 16 files deleted, 12 under `tools/pipeline/`: `git log -1 --diff-filter=D --name-only --format= -- tools/pipeline/ docs/pipeline.md .beads/formulas/ tools/lib/sibling-root.ts tools/lib/estate-root.ts` lists them.
+- 2,481 lines in the 12 files under `tools/pipeline/`: `git grep -c "" <that commit>^ -- tools/pipeline` gives each file's count.
+- One node in the record, `X-EXAMPLE`, at the bootstrap and ever since: `git grep -n "id: '" <commit> -- tools/pipeline/graph.ts` at `5417b33`, at `5e89232^` and at `<that commit>^`.
+- `pipeline:selftest` at 3.85 s wall and 40 of 40 cases, on a macOS laptop with Node 26.8.1 on 2026-09-28: `/usr/bin/time -p node tools/pipeline/selftest.ts` at `<that commit>^`.
+- Five issues on the engine's copied-in headers and comments, `asdlc-openspec-npe`, `v6m`, `1i1`, `egt` and `v20`: `bd search pipeline` lists them with `asdlc-openspec-qxz`, which was about the Stop hook's header, and with `asdlc-openspec-hvm`, which carries this entry.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

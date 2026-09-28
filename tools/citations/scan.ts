@@ -62,9 +62,8 @@
  *     `SECTION_RE` below both require a locator, so a bare name is outside the definition of a
  *     citation used here. **That was measured and refused, not overlooked: see a later decision.** A tracked
  *     issue walked every one of them. A blanket rule produces 327 findings, of which the large
- *     majority are correct writing: shorthand for a path the document states once, deliberate
- *     mentions of files a later decision deleted (where the mention IS the record), and per-slice deliverables
- *     that `tools/pipeline/check.ts:139` already tolerates as "no slice is admitted yet". The
+ *     majority are correct writing: shorthand for a path the document states once, and deliberate
+ *     mentions of files a later decision deleted (where the mention IS the record). The
  *     narrow version -- a live file naming a RETIRED file by bare basename must spell the
  *     `docs/retired/` path -- flags 11, of which 10 are correct; one of those 10 is a frozen grep
  *     result its own document declares literal, so the rule would demand falsifying evidence.

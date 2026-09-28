@@ -85,8 +85,8 @@ pre-push:
   # a suite in sequence.
   #
   # DELIBERATELY ABSENT: any check that reads something outside the repository (another checkout, a
-  # token, a network, a language model). It runs in neither this file nor `.github/workflows/verify.yml`, and a digest gate
-  # stands in for it. Name each one here, with its reason, when you have one.
+  # token, a network, a language model). It runs in neither this file nor `.github/workflows/verify.yml`, and its selftest
+  # over fixtures is a job here in its place. Name each one here, with its reason, when you have one.
   #
   # A RETIRED JOB stays as a comment carrying the rule text worth keeping and the shape the job
   # would take if it came back.
@@ -308,24 +308,6 @@ pre-push:
       glob:
         - 'scripts/check-count-index.mjs'
       run: node --run counts:selftest
-    # The graph record, held to the files it names, to this file, to `.github/workflows/verify.yml`, to the prose page and
-    # to the tracker's formula. No glob, deliberately: the record's input, output and generator
-    # globs may name any file in the repository, so a push that deletes or renames any file can
-    # change the verdict. A hash-free walk of the declared globs; re-measure it as the record grows.
-    - name: pipeline-check
-      run: node --run pipeline:check
-    # Re-folds each node's declared inputs into a digest and compares it with the stamp the node
-    # wrote into its own output, so forgetting to regenerate is visible without regenerating. No
-    # glob for the same reason: its inputs are whatever the record declares.
-    - name: pipeline-stale
-      run: node --run pipeline:stale:check
-    # Both gates, the formula check and the sibling-checkout resolver, negative-tested against a
-    # synthetic record under the temp directory. One Node process per case, so seconds.
-    - name: pipeline-selftest
-      glob:
-        - 'tools/pipeline/**'
-        - 'tools/lib/sibling-root.ts'
-      run: node --run pipeline:selftest
     # The tracker's own pre-push hook, preserved, and the label and foreign-id rules over its open
     # issues: a `repo:` label on every one, and a label `assetLabels` in `tools/policy.json` lists on
     # every one filed `discovered-from`. Neither carries a glob: both read the tracker's database, not

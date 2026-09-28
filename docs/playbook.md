@@ -3,7 +3,9 @@
 **Written:** 2026-09-28, against `main` at `7c1383f`.
 
 **Status:** amended 2026-09-28 by `asdlc-openspec-iom`. The issue route is named the harness route,
-and the change route the product route.
+and the change route the product route. Amended 2026-09-28 by `asdlc-openspec-hvm`: the pipeline's
+commands and page are gone (`docs/decisions.md` § D-15), and an emitter's `:check` twin says what
+to regenerate.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -81,7 +83,7 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 | what runs automatically, and on what trigger | `README.md` § What runs automatically |
 | what an npm script does, and which tier runs it | `README.md` § The npm scripts |
 | what a gate refuses, and why it exists | the gate's own header; `scripts/README.md` and `tools/README.md` list them |
-| what to regenerate after an input moves | `npm run pipeline:stale`, and `docs/pipeline.md` |
+| what to regenerate after an input moves | the emitter's `:check` twin, which `npm run gates` runs |
 | what a worktree is for, and how to finish in it | `.worktree/CONTEXT.md` inside it, rendered from `.claude/worktree-CONTEXT.md.tmpl` |
 | what the reviewer said about a pull request | its `pr-review` status, and `gh pr view <number> --comments` |
 | why a prompt says what it says | the pull requests that changed it, found as `CLAUDE.md` § Standing rules for prompts and gates says |
@@ -147,10 +149,9 @@ code back to its spec (`docs/decisions.md` § D-02, item 2).
 2. Make the change. A file that is generated output is never edited by hand; the correction goes
    into its hand-maintained source, and `scripts/hooks/block-generated-edit.mjs` names where.
    Decided by: `CLAUDE.md` § Three kinds of file, and never a fourth.
-3. After the last edit to an emitter or its inputs, regenerate what it writes;
-   `npm run pipeline:stale` names each stale node and the command that rebuilds it. Decided by:
-   `.claude/skills/bead/SKILL.md` § 4. Implement, regenerate, gate, and `docs/pipeline.md` § The
-   two gates.
+3. After the last edit to an emitter or its inputs, regenerate what it writes; its `:check` twin
+   refuses an artifact left stale. Decided by: `.claude/skills/bead/SKILL.md` § 4. Implement,
+   regenerate, gate, and `CLAUDE.md` § The script suffix contract.
 4. A defect found on the way is fixed here only when it sits in a file the issue already changes.
    Anything else is searched for (`bd search`, then `bd list --all --desc-contains`, each with a
    second phrasing), and noted on a match or filed as a found issue before the pull request opens.
@@ -348,7 +349,6 @@ person merges it (`CLAUDE.md` § A program proposes; only a person promotes).
 | ``<id>: no `repo:` label`` from `beads:check` | An open issue does not say where its work lands. | Add its `repo:` label (`CLAUDE.md` § The task store). |
 | ``<id>: filed `discovered-from` … and carries no label that `assetLabels` `` from `beads:check` | A found issue does not say what kind of file it would fix. | Add the `assetLabels` label that fits (`CLAUDE.md` § The task store). |
 | `<path>: <count> words, over its budget of <budget>` from `check:prompts` | An edit took a prompt past its word budget. | Consolidate it first (`.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated); a raise is a person's to merge. |
-| `STALE` from `pipeline:stale:check` | A declared input moved since its node's output was written. | Run the command the report names (`docs/pipeline.md` § The two gates). |
 | `TBD - created by archiving change` refused by `openspec:check` | A new capability still has the archive's placeholder Purpose. | Write its Purpose (`.claude/skills/change-finalize/SKILL.md` § 4. Settle the living spec). |
 | `change-verify` lists children that are not closed | The build has not finished. | Run `change-build` in a fresh session (`.claude/skills/change-verify/SKILL.md` § 2. Every task is closed). |
 | `gh pr checks --watch` exits at once with "no checks reported" | Nothing had registered yet. | Start the one watcher again; it is not a second one (`.claude/skills/open-pr/SKILL.md` § 6. Watch it with one watcher). |
@@ -370,7 +370,6 @@ git fetch origin main                                # read code as trunk has
 git show origin/main:<path>                          # one file at the trunk
 bd update <id> --claim                               # claim it inside the bracket
 npm ci                                               # first command in a worktree
-npm run pipeline:stale                               # stale nodes and their rebuilders
 bd search "<words>"                                  # a follow-up filed already, titles
 bd list --all --desc-contains "<words>"              # the same search over descriptions
 git add <new file>                                   # stage before the gates run
