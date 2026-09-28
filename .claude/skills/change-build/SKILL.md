@@ -45,8 +45,9 @@ Run `.claude/workflows/build-change-task.js` with the Workflow tool, once for th
 `scriptPath` set to that file inside the worktree, so the script and the policy it reads come from
 one commit. Its header says what each argument means and what it returns. Pass:
 
-- `task`, the task's id, title and body as `bd show <id>` prints them; `change`; `worktree`, as
-  `git rev-parse --show-toplevel` prints it there; and `branch`.
+- `task`, the task's id, title and body as `bd show <id>` prints them, and `scenarios`, the
+  scenarios it names, as it names them; `change`; `worktree`, as `git rev-parse --show-toplevel`
+  prints it there; and `branch`.
 - `kind`, the `assetLabels` key in `tools/policy.json` for what the task mainly changes.
 - `lenses`, only where the task needs its own probes, mutations or cases for a lens its kind runs;
   `guide`, only where the builder needs a reading order; `settled`, for what the user or an earlier
@@ -55,10 +56,11 @@ one commit. Its header says what each argument means and what it returns. Pass:
 
 Then act on what it returns:
 
-- **`stopped`.** `spec-contradiction` is a spec that is wrong (§ 5). `proof-failing` and
-  `agent-died`: find the cause, fix it or run the workflow again, and report it if neither works;
-  never commit around it. `refused`: correct what `why` names and run it again. `nothing-major` and
-  `round-limit`: carry on below.
+- **`stopped`.** `spec-contradiction` is a spec that is wrong (§ 5). `proof-failing`, `not-red`
+  and `agent-died`: find the cause, fix it or run the workflow again, and report it if neither works;
+  never commit around it. After `not-red`, discard the build's changes before it runs again, or the
+  next builder finds every proof already passing. `refused`: correct what `why` names and run it
+  again. `nothing-major` and `round-limit`: carry on below.
 - **Each `unverified` finding:** judge it yourself against the delta specs, the design and the task.
   Fix one that holds, and ask the user about one you cannot settle.
 - **Each of `followUps`:** file it as out of scope (§ 5), once a search of the tracker finds no match.
