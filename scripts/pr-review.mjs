@@ -5,11 +5,11 @@
  * verdict; this file alone turns a verdict into a status, a label and a merge, by the `prReview*`
  * keys of `tools/policy.json` (`docs/decisions.md` § D-07).
  *
- *   node scripts/pr-review.mjs mark     a new head: set its status pending (pull_request_target)
  *   PR=<n> node scripts/pr-review.mjs mark
- *                                       the same, from the session that just opened pull request <n>
- *                                       (the `open-pr` skill): the head is read from GitHub, and one
- *                                       that already carries the reviewer's status is left alone
+ *                                       set pull request <n>'s head pending, from the session that
+ *                                       just opened it (the `open-pr` skill) or by a person: the head
+ *                                       is read from GitHub, and one that already carries the
+ *                                       reviewer's status is left alone. No job runs it.
  *   node scripts/pr-review.mjs next     choose this run's one action: review, merge or none
  *   node scripts/pr-review.mjs brief    write the reviewer's brief for one head commit
  *   node scripts/pr-review.mjs act      post the verdict, set labels and status, and merge
@@ -26,11 +26,13 @@
  *
  * The subcommands read their inputs from the environment the workflow sets (PR, SHA, ACTION, MORE,
  * VERDICT, FACTS, REVIEW_RESULT, REVIEW_DIR, FORCE_PR, GH_TOKEN), never from the command line, so no
- * value from a pull request is ever interpolated into a shell. A session sets PR alone, for `mark`.
- * The workflow's `mark` job sets the status seconds after the create: 11 s on #47, created at
- * 21:27:59Z and marked at 21:28:10Z on 2026-09-25. Until then, `gh pr checks --watch` can exit at once
- * with "no checks reported". So the session that opens a pull request marks it too, and both marks
- * set the same pending status.
+ * value from a pull request is ever interpolated into a shell. `mark` reads PR alone.
+ * The workflow's `mark` job set the status seconds after the create: 11 s on #47, created at
+ * 21:27:59Z and marked at 21:28:10Z on 2026-09-25. Until a head is marked, `gh pr checks --watch` can
+ * exit at once with "no checks reported". So the session that opens a pull request marks it itself.
+ * The job was retired on 2026-09-28 (asdlc-openspec-08a), since nothing waits on the pending status:
+ * the queue reviews a head that passed verify whether or not it was marked, and a person who wants
+ * one marked runs `mark` by hand.
  *
  * THE INCIDENT, AND WHAT ELSE IT WOULD LET THROUGH. The first local run of the reviewer, over pull
  * request #40 on 2026-09-25 (asdlc-openspec-mi6), returned its whole verdict as text: 31 turns,
@@ -99,6 +101,8 @@ const WORKFLOW_BOT = 'github-actions[bot]'
 /** The first line of a verdict comment: `<!-- pr-review:verdict {"sha":…,"outcome":…} -->`. */
 const MARKER_RE = /^<!-- pr-review:verdict (\{[^\n]*\}) -->$/
 const SUBCOMMANDS = ['mark', 'next', 'brief', 'act']
+/** The subcommands the workflow must run. Not `mark`: a session or a person runs it, and no job (asdlc-openspec-08a). */
+const WORKFLOW_SUBCOMMANDS = ['next', 'brief', 'act']
 /** Every tool the reviewer has: it reads, it searches, and it answers in the verdict's schema. */
 const AGENT_TOOLS = ['Read', 'Grep', 'Glob', 'StructuredOutput']
 /** What the run denies as well, so the agent's own list is not the one thing between a verdict and a write. */
@@ -614,28 +618,19 @@ export function statusFor(decision) {
 }
 
 /**
- * The head `mark` sets pending, and whether it sets it. The workflow passes `SHA`, `DRAFT`,
- * `BASE_REF` and `HEAD_REPO` from its event, and then every value comes from the environment, as it
- * always has. A session that has just opened a pull request (the `open-pr` skill) passes `PR` alone:
- * `pull` is then that pull request as GitHub returns it, and `current` the reviewer's status on its
- * head, or null. A session marks only a head nobody has marked, so a second call, or one after the
- * verdict, never turns a verdict back to pending: the queue re-marks no head it has judged.
+ * The head `mark` sets pending, and whether it sets it. The session that has just opened a pull
+ * request (the `open-pr` skill), or a person, passes `PR` alone: `pull` is that pull request as
+ * GitHub returns it, and `current` the reviewer's status on its head, or null. `mark` sets only a
+ * head nobody has marked, so a second call, or one after the verdict, never turns a verdict back to
+ * pending: the queue re-marks no head it has judged.
  */
-export function markTarget(environment, { pull = null, current = null, repo }) {
-  const need = (name) => {
-    const value = environment[name]
-    if (value === undefined || value === '') throw new Error(`${name} is not set; the workflow sets it, and a session sets PR alone`)
-    return value
-  }
-  const fromEvent = Boolean(environment.SHA)
-  const head = fromEvent
-    ? { sha: need('SHA'), draft: need('DRAFT') === 'true', base: need('BASE_REF'), headRepo: need('HEAD_REPO') }
-    : { sha: pull.head.sha, draft: Boolean(pull.draft), base: pull.base.ref, headRepo: pull.head.repo?.full_name ?? '' }
+export function markTarget(environment, { pull, current = null, repo }) {
+  const head = { sha: pull.head.sha, draft: Boolean(pull.draft), base: pull.base.ref, headRepo: pull.head.repo?.full_name ?? '' }
   if (head.draft || head.base !== TRUNK || head.headRepo !== repo) {
     return { sha: head.sha, mark: false, why: `#${environment.PR} is a draft, from a fork, or not against ${TRUNK}: the reviewer does not take it.` }
   }
-  if (!fromEvent && current) {
-    return { sha: head.sha, mark: false, why: `${short(head.sha)} already carries the reviewer's status (${current.state}): a session marks only a head nobody has marked.` }
+  if (current) {
+    return { sha: head.sha, mark: false, why: `${short(head.sha)} already carries the reviewer's status (${current.state}): \`mark\` sets only a head nobody has marked.` }
   }
   return { sha: head.sha, mark: true, why: `${short(head.sha)} waits for its review` }
 }
@@ -855,14 +850,10 @@ function env(name, { required = true } = {}) {
 function mark({ dryRun }) {
   const policy = readPolicy(ROOT)
   const repo = repoName()
-  const pr = env('PR')
-  let pull = null
-  let current = null
-  if (!process.env.SHA) {
-    if (!/^[0-9]+$/.test(pr)) throw new Error(`PR is ${JSON.stringify(pr)}, not a pull request number`)
-    pull = ghJson(`repos/${repo}/pulls/${pr}`)
-    current = currentStatus(repo, pull.head.sha, policy.prReviewStatusContext)
-  }
+  const pr = process.env.PR ?? ''
+  if (!/^[0-9]+$/.test(pr)) throw new Error(`PR is ${JSON.stringify(pr)}, not a pull request number: set PR to the number of the pull request to mark`)
+  const pull = ghJson(`repos/${repo}/pulls/${pr}`)
+  const current = currentStatus(repo, pull.head.sha, policy.prReviewStatusContext)
   const target = markTarget(process.env, { pull, current, repo })
   console.log(target.why)
   if (!target.mark) return
@@ -1122,7 +1113,7 @@ function act({ dryRun }) {
     const verdict = parse(env('VERDICT', { required: false }))
     const result = env('REVIEW_RESULT', { required: false }) || 'unknown'
     // A push while the review ran moves the head: that verdict judged a commit nobody will merge,
-    // and `mark` has already set the new head pending, so there is nothing to record.
+    // and the queue reviews the new head once its verify run passes, so there is nothing to record.
     const head = ghJson(`repos/${repo}/pulls/${pr}`).head.sha
     if (head !== sha) {
       console.log(`#${pr} moved to ${short(head)} while ${short(sha)} was reviewed; the queue takes the new head.`)
@@ -1173,8 +1164,8 @@ function frontmatter(text) {
 
 /**
  * The reviewer's four files held to each other: the policy is whole; `pr-review.yml` queues rather
- * than cancels, wakes on `verify.yml`'s runs, filters on the policy's approval label, runs only
- * subcommands this file has, and names an agent that exists; the agent allows exactly its four
+ * than cancels, wakes on `verify.yml`'s runs, filters on the policy's approval label, runs `next`,
+ * `brief` and `act` and no subcommand this file lacks, and names an agent that exists; the agent allows exactly its four
  * tools and the run denies every one that runs, writes or reaches out; the review job alone may
  * mint an OIDC token, and authenticates by workload identity federation, its ids Actions secrets and
  * no stored credential beside them to win over them; `next` is told the event, so a run whose token
@@ -1231,7 +1222,7 @@ export async function runCheck(root) {
   for (const sub of subcommands) {
     if (!SUBCOMMANDS.includes(sub)) fail(`${WORKFLOW} runs \`node scripts/pr-review.mjs ${sub}\`, which is not one of ${SUBCOMMANDS.join(', ')}.`)
   }
-  for (const sub of SUBCOMMANDS) {
+  for (const sub of WORKFLOW_SUBCOMMANDS) {
     if (!subcommands.includes(sub)) fail(`${WORKFLOW} never runs \`node scripts/pr-review.mjs ${sub}\`; the queue needs every step.`)
   }
 
@@ -1449,7 +1440,6 @@ function helperCases(policy) {
   const pr = (number, extra = {}) => ({ number, sha: `${number}`.padEnd(40, 'a'), draft: false, base: TRUNK, sameRepo: true, verify: 'success', mergeable: true, verdict: null, approved: false, status: null, ...extra })
   const green = { verify: 'success' }
   const REPO = 'owner/repo'
-  const eventSha = 'e'.repeat(40)
   const openedSha = 'f'.repeat(40)
   const opened = (extra = {}) => ({ head: { sha: openedSha, repo: { full_name: REPO } }, base: { ref: TRUNK }, draft: false, ...extra })
   /** A mark that is refused, and refused for the reason `why` matches. */
@@ -1570,28 +1560,16 @@ function helperCases(policy) {
         ['success', 'success', 'failure', 'error'],
         'states',
       )),
-    h('mark, control: the workflow passes the head in its event, and it is marked whatever status it carries', () => {
-      const out = markTarget({ PR: '7', SHA: eventSha, DRAFT: 'false', BASE_REF: TRUNK, HEAD_REPO: REPO }, { repo: REPO, current: { state: 'success' } })
-      return assertEqual([out.mark, out.sha], [true, eventSha], 'mark')
-    }),
-    h('mark: a session passes PR alone, and the head is read from the pull request', () => {
+    h('mark, control: PR alone, and the head is read from the pull request', () => {
       const out = markTarget({ PR: '7' }, { pull: opened(), repo: REPO })
       return assertEqual([out.mark, out.sha], [true, openedSha], 'mark')
     }),
-    h('mark: a session\'s draft is not marked, by its reason', () =>
+    h('mark: a draft is not marked, by its reason', () =>
       because(markTarget({ PR: '7' }, { pull: opened({ draft: true }), repo: REPO }), /#7 is a draft, from a fork, or not against main/)),
-    h('mark: a session\'s pull request from a deleted fork is not marked, by its reason', () =>
+    h('mark: a pull request from a deleted fork is not marked, by its reason', () =>
       because(markTarget({ PR: '7' }, { pull: opened({ head: { sha: openedSha, repo: null } }), repo: REPO }), /is a draft, from a fork, or not against main/)),
-    h('mark: a session leaves a head that already carries the reviewer\'s status, by its reason', () =>
+    h('mark: a head that already carries the reviewer\'s status is left alone, by its reason', () =>
       because(markTarget({ PR: '7' }, { pull: opened(), current: { state: 'success' }, repo: REPO }), /already carries the reviewer's status \(success\)/)),
-    h('mark: an event with SHA and no DRAFT names what is missing', () => {
-      try {
-        markTarget({ PR: '7', SHA: eventSha }, { repo: REPO })
-        return 'returned, where it should have thrown'
-      } catch (error) {
-        return /DRAFT is not set/.test(error.message) ? null : `threw for another reason: ${error.message}`
-      }
-    }),
   ]
 }
 
@@ -1625,6 +1603,7 @@ function wiringCases() {
     { name: 'the queue cancels a pending run', doctor: edit(WORKFLOW, /^  queue: max\n/m, ''), expect: /must set `queue: max`/ },
     { name: 'the workflow wakes on another workflow\'s runs', doctor: edit(WORKFLOW, "workflows: ['verify']", "workflows: ['build']"), expect: /wakes on the runs of \["build"\]/ },
     { name: 'the workflow runs a subcommand that does not exist', doctor: edit(WORKFLOW, 'node scripts/pr-review.mjs act', 'node scripts/pr-review.mjs merge'), expect: /runs `node scripts\/pr-review\.mjs merge`, which is not one of/ },
+    { name: 'the workflow stops running a step the queue needs', doctor: edit(WORKFLOW, 'node scripts/pr-review.mjs act', 'node scripts/pr-review.mjs next'), expect: /never runs `node scripts\/pr-review\.mjs act`; the queue needs every step/ },
     { name: 'the agent is renamed without the workflow', doctor: edit(AGENT, /^name: pr-reviewer$/m, 'name: reviewer'), expect: /runs the agent `pr-reviewer`, but .* is named `reviewer`/ },
     { name: 'the agent is given Bash', doctor: edit(AGENT, /^tools: Read, /m, 'tools: Bash, Read, '), expect: /pr-reviewer\.md gives Bash/ },
     { name: 'the agent loses its allowlist, and a denylist leaks', doctor: edit(AGENT, /^tools: .*\n/m, ''), expect: /lists no `tools:`/ },

@@ -34,7 +34,13 @@
 # INVOCATION. It runs on its triggers. By hand, `gh workflow run pr-review.yml` wakes the queue, and
 # `gh workflow run pr-review.yml -f pr=<number>` reviews that pull request again at its head.
 # `node scripts/pr-review.mjs next --dry-run`, from any checkout with `gh`, prints what a run would do
-# and writes nothing.
+# and writes nothing. No job here marks a new head pending: the session that opens a pull request
+# does (`.claude/skills/open-pr/SKILL.md` § 5. Push, open, and mark it pending), and a person can:
+#
+#     PR=<number> node scripts/pr-review.mjs mark
+#
+# The queue reviews a head that passed `verify` whether or not it was marked. The `mark` job that did
+# it on every new head was retired on 2026-09-28 (asdlc-openspec-08a).
 #
 # NEEDS. An Anthropic federation rule that accepts this workflow's OIDC token when it runs on `main`,
 # with audience `https://api.anthropic.com`. While the repository's `use_immutable_subject` is on,
@@ -57,9 +63,10 @@ on:
   workflow_run:
     workflows: ['verify']
     types: [completed]
-  # The base branch's copy of this file runs, never the pull request's, and no job checks out its head.
+  # A person applied a label, which wakes the queue if it is the approval label. The base branch's copy
+  # of this file runs, never the pull request's, and no job checks out its head.
   pull_request_target:
-    types: [opened, reopened, synchronize, ready_for_review, labeled]
+    types: [labeled]
   # The safety net for a wake-up that never came: a merge GitHub was still computing, say.
   schedule:
     - cron: '*/15 * * * *'
@@ -70,42 +77,16 @@ on:
         required: false
         default: ''
 
-# Every run that reviews or merges shares `pr-review-queue`, so one runs at a time, and `queue: max`
-# keeps each pending run rather than letting the newest cancel it. Marking a new head pending is not
-# queue work: it takes a group per pull request, so a long review never delays the pending status an
-# agent's `gh pr checks --watch` waits on.
+# Any run may review or merge, so every run shares `pr-review-queue`: one runs at a time, and
+# `queue: max` keeps each pending run rather than letting the newest cancel it.
 concurrency:
-  group: >-
-    ${{ github.event_name == 'pull_request_target' && github.event.action != 'labeled'
-    && format('pr-review-mark-{0}', github.event.pull_request.number) || 'pr-review-queue' }}
+  group: pr-review-queue
   cancel-in-progress: false
   queue: max
 
 permissions: {}
 
 jobs:
-  mark:
-    if: github.event_name == 'pull_request_target' && github.event.action != 'labeled'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      statuses: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: package.json
-      - name: the new head waits for its review
-        run: node scripts/pr-review.mjs mark
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
-          SHA: ${{ github.event.pull_request.head.sha }}
-          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
-          BASE_REF: ${{ github.event.pull_request.base.ref }}
-          DRAFT: ${{ github.event.pull_request.draft }}
-
   select:
     # Any label but the approval one is not the queue's business.
     if: >-
