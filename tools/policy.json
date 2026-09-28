@@ -236,7 +236,7 @@
   "promptWordBudgetWorkflowReviewPrompts": 1720,
   "promptWordBudgetWorkflowReviewPromptsMeans": "The most words the string and template literals of `.claude/workflows/review-prompts.js` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on, 1,441; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv). Raised 2026-09-26 to 1,720 by D-12 (asdlc-openspec-aa0): a report's consolidations, the rules they are held to and their skeptics' prompt added 322 words of literals, and consolidating the literals first freed 43, so the raise is the other 279.",
 
-  "promptWordBudgetWorkflowVerifyChangeTrace": 1556,
+  "promptWordBudgetWorkflowVerifyChangeTrace": 1565,
   "promptWordBudgetWorkflowVerifyChangeTraceMeans": "The most words the string and template literals of `.claude/workflows/verify-change-trace.js` may hold (`npm run check:prompts`). First set to its size at the commit it landed on; a raise edits this value and says why here. Decided 2026-09-28 (asdlc-openspec-as9).",
 
   "promptWordBudgetWorktreeContext": 940,

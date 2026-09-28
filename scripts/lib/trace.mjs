@@ -29,8 +29,34 @@ const ROW_FIELDS = ['capability', 'requirement', 'scenario', 'proofKind', 'proof
 
 const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
 const isRecord = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
-const keyOf = (r) => `${r.capability}\u0000${r.requirement}\u0000${r.scenario}`
 const short = (commit) => String(commit).slice(0, 12)
+
+/**
+ * A scenario or requirement header's ID token and title: `[CALC-001] Digits build a number` is
+ * `CALC-001` and `Digits build a number`, and a header with no token is its title alone. The form is
+ * the one `scripts/check-openspec.mjs` holds every living header to (`docs/decisions.md` § D-13,
+ * item 1). A row matches its header by title, so a row may name its scenario with the ID or without.
+ */
+const ID_TOKEN = /^\[([^\]\s]+)\] (\S.*)$/
+export function splitId(name) {
+  const text = String(name).trim()
+  const m = ID_TOKEN.exec(text)
+  return m ? { id: m[1], title: m[2].trim() } : { id: null, title: text }
+}
+const keyOf = (r) => `${r.capability}\u0000${splitId(r.requirement).title}\u0000${splitId(r.scenario).title}`
+
+/**
+ * Why a row's ID token clashes with its header's, or null. Only two IDs that differ clash: a delta
+ * written before its capability had IDs carries none, and a row may name one from the living spec.
+ */
+function idClash(row, header) {
+  for (const part of ['requirement', 'scenario']) {
+    const a = splitId(row[part]).id
+    const b = splitId(header[part]).id
+    if (a && b && a !== b) return `the row for ${header.capability} / ${header[part]} names its ${part} [${a}], not [${b}]`
+  }
+  return null
+}
 
 /** Text made safe for one cell of a Markdown table. */
 export const cell = (text) => String(text).replaceAll('\\', '\\\\').replaceAll('|', '\\|').replace(/\s*\n\s*/g, ' ').trim()
@@ -104,7 +130,10 @@ export function deltaScenarios(root, dir) {
   return capabilities.flatMap((capability) => parseScenarios(readFileSync(join(root, dir, capability, 'spec.md'), 'utf8'), capability))
 }
 
-/** Why the rows are not one to each scenario, one message per scenario missing, doubled or unknown. */
+/**
+ * Why the rows are not one to each scenario, one message per scenario missing, doubled or unknown,
+ * and per row whose ID token is not its header's.
+ */
 export function matchProblems(rows, scenarios) {
   const wanted = new Map(scenarios.map((s) => [keyOf(s), s]))
   const seen = new Map()
@@ -116,15 +145,20 @@ export function matchProblems(rows, scenarios) {
     if (n > 1) problems.push(`${n} rows for ${s.capability} / ${s.requirement} / ${s.scenario}`)
   }
   for (const r of rows) {
-    if (!wanted.has(keyOf(r))) problems.push(`a row for ${r.capability} / ${r.requirement} / ${r.scenario}, which no delta spec holds`)
+    const header = wanted.get(keyOf(r))
+    if (!header) problems.push(`a row for ${r.capability} / ${r.requirement} / ${r.scenario}, which no delta spec holds`)
+    else if (idClash(r, header)) problems.push(idClash(r, header))
   }
   return [...new Set(problems)]
 }
 
-/** The rows in the delta specs' order, which the match has made one to each scenario. */
+/**
+ * The rows in the delta specs' order, which the match has made one to each scenario, each naming its
+ * requirement and scenario as the header spells them, ID token included.
+ */
 const inSpecOrder = (rows, scenarios) => {
   const byKey = new Map(rows.map((r) => [keyOf(r), r]))
-  return scenarios.map((s) => byKey.get(keyOf(s)))
+  return scenarios.map((s) => ({ ...byKey.get(keyOf(s)), requirement: s.requirement, scenario: s.scenario }))
 }
 
 /** `n in cap` for each capability, in code-point order. */
