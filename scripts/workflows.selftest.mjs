@@ -67,9 +67,9 @@
  *
  * NEEDS only committed files: the workflows, `tools/policy.json`, and the trace renderers with
  * `scripts/lib/trace.mjs`; each renderer runs twice as a child process. It writes only under the
- * temporary directory. No agent, no network. 0.24-0.25 s wall through `node --run` (`/usr/bin/time -p`,
- * two runs, with the change-build suite's red-first cases) on a macOS 26.7 laptop with Node 26.8.1,
- * 2026-09-28, most of it those four child processes.
+ * temporary directory. No agent, no network. 0.35-0.39 s wall through `node --run` (`/usr/bin/time -p`,
+ * two runs, while other worktrees ran, with the change-build suite's red-first cases) on a macOS 26.7
+ * laptop with Node 26.8.1, 2026-09-28, much of it those four child processes.
  */
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
