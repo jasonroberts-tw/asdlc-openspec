@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-12 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26).**
+**Status: every decision from D-01 to D-13 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13 added 2026-09-28).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-12` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-13` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -68,6 +68,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-10** | A prompt review proposes an edit only for a finding that recurs or is severe, and carries it once skeptics uphold it | The threshold check and the skeptic step of `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; `promptReviewHeldMarker`, `promptReviewRecurrenceCount`, `promptReviewMajorSeverities` and `promptReviewSkeptics` in `tools/policy.json`; `CLAUDE.md` § Prompt reviews; the `continuous-prompt-improvement` agent |
 | **D-11** | `beads:check` refuses an open found issue with no asset label, as D-06 item 4 asked | Rule 4 of `scripts/check-beads.mjs`, held by `beads:selftest` at pre-push and in CI; `gatedBy` in `tools/policy.json` |
 | **D-12** | A prompt that an edit would take past its word budget is consolidated first, and every rule it removes is accounted for | `.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated; the consolidations of `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; the refusal of `check:prompts`; `bead` consolidated and its budget lowered in `tools/policy.json` |
+| **D-13** | The agentic test strategy is adopted, and each of its rules lands in a home of its own | `docs/test-strategy.md` as the dated record; each rule's home, a gate's header, a skill or the build workflow, landed by the issue item 17's table names |
 
 ## Risks
 
@@ -189,6 +190,8 @@ Retirement checklist for the deleted skills, each item done in this change:
 **Figures.** Ten generated skills deleted. `git log --diff-filter=D --name-only --format= -- '.claude/skills/openspec-*/SKILL.md'` lists them.
 
 > **Amended 2026-09-23 by D-03.** Item 3's last sentence no longer holds: `tools/policy.json` exists, and the label's spelling lives there under `specChangeLabel`. Every skill and agent that spells the label cites that key, and `npm run openspec:check` holds them to its value.
+
+> **Amended 2026-09-28 by D-13.** Item 2's list of what a change's folder holds gains one file: a `findings.md`, the brief of an `explore` run that preceded the change, which `change-propose` commits there. The six stages stand, and Explore is not a stage.
 
 ### D-03 · The workflow's constants live in tools/policy.json, starting with the change label
 
@@ -605,6 +608,73 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 - **`README.md`, `scripts/README.md` and `.claude/README.md`:** the rows that say what the workflow and its selftest hold.
 
 **Figures.** Each is `node scripts/check-prompts.mjs --counts`, at `d69527a` for the first figure and at this entry's commit for the second: `.claude/skills/bead/SKILL.md` 1,857 and 1,635; `.claude/agents/continuous-prompt-improvement.md` 2,261 and 2,516; the literals of `.claude/workflows/review-prompts.js` 1,441 and 1,720. What each consolidation freed on its own, 229, 126 and 43, is the same command at its own commit, and the pull request lists those commits; bead's 7 words back came from the review, which found that removing one qualifier had broadened a rule. The ACE figures are the paper's.
+
+### D-13 · The agentic test strategy is adopted, and each of its rules lands in a home of its own
+
+**Recorded 2026-09-28**, carried by `asdlc-openspec-j09.1`, a child of the epic `asdlc-openspec-j09`. On 2026-09-28 the maintainer supplied the strategy, chose items 1 to 5 when the epic was filed, and chose items 6 to 15 and the first sentence of item 17 when this entry was worked, each from a recommendation put with the case where it loses. Item 7 is the one they chose over the recommendation. Item 16 and item 17's table map the strategy onto the children the epic filed.
+
+**Builds on / amends:** amends D-02, whose item 2 lists what a change's folder holds. Builds on D-02's six stages, which it keeps; on D-03, whose policy file holds the prefixes, thresholds and samples below; on D-06, whose send-back label marks a change that goes back to Propose; and on D-12, under which every child of the epic that edits a prompt consolidates it first.
+
+**Decision.** This repository adopts the agentic test strategy the maintainer supplied on 2026-09-28. Its text, with this entry's answers marked where they amend it, is `docs/test-strategy.md`, a dated record over which the register, the gates and the skills win. A rule of the strategy binds from the pull request that lands its home, which item 17 names; until then, the change process runs as it stood.
+
+What the epic decided:
+
+1. **A scenario's ID is a token in its header**, `#### Scenario: [<PREFIX>-NNN] <title>`, unique within its capability's prefix and never reused. Each capability's prefix is a key of `tools/policy.json`. Where it loses: two changes in flight take the same next ID, and the second to merge re-keys its scenario and its tests.
+2. **An NFR is a spec requirement**, with its ID in its header, `### Requirement: [NFR-<PREFIX>-NNN] <title>`, which `openspec archive` merges like any requirement. The strategy defines an NFR in `design.md`; here a design refers to one by its ID and never defines one.
+3. **A change to a scenario or to an NFR goes back to Propose**, and the epic gets the `rerouteLabels` label for propose. A re-design pass changes neither.
+4. **Explore is optional, and it is the existing `explore` skill.** There is no seventh stage. Where an explore brief preceded a change, `change-propose` commits it in the change's folder as `findings.md`, which OpenSpec 1.6.0 validates and archives with the change.
+5. **The calculator's existing gaps go into a ratchet.** Its unmet obligations sit in a committed baseline that may fall and never rise, and every new or modified scenario meets every obligation.
+
+What was settled when this entry was worked:
+
+6. **Traceability rule 3 binds `asset:product` tasks.** A change's plan lists every other task as exempt beside its draft. Where it loses: an `asset:tool` task that rewires an app's npm script changes behaviour, cites no scenario, and passes the draft.
+7. **A scenario no harness here can observe is proved by an automated test in a real browser**, never by hand. The recommendation was a manual proof recorded with its reason, which loses where a later handler breaks the behaviour and nobody checks again by hand; the browser costs a download at install and a tier to decide. That work is `asdlc-openspec-9j8`, a follow-up rather than a child of the epic. Until it lands, the scenario "Space presses the focused button" has no proof, and its gap sits in item 5's baseline.
+8. **The coverage threshold measures changed lines**: the coverable lines and branches a branch adds or changes under `apps/`, against `origin/main`. The whole product's figure is reported and not gated. Where it loses: an untested file stays untested until some change edits it.
+9. **A rate below its minimum sample is not a rate.** The mutation score and the coverage each have a minimum sample in `tools/policy.json`, whose value comes from the spike `asdlc-openspec-j09.2`. Below it, the gate prints the counts and no rate, and fails on any surviving mutant or uncovered changed line not listed with a reason. Where it loses: a change with six mutants, one of them equivalent, fails until someone records why.
+10. **A scenario's happy-path test may declare its negative test not applicable**, with the reason. The trace gate accepts the declaration, and the verification report lists every one as an advisory item. Where it loses: a builder declares a hard negative not applicable to save the work, and only a reviewer who reads the reason catches it.
+11. **A reworded scenario header is a removal and an addition.** The old ID retires and is never reused, the new scenario takes the next ID, and its tests are regenerated. A modified scenario is a new body under the same header, which is how OpenSpec 1.6.0 matches a MODIFIED block: it refuses one that renames a scenario or gives one an ID. Where it loses: a typo fixed in a title retires its ID and re-keys its tests.
+12. **The agent that ran a failing test runs it once more**: the architect in Build and the verifier in Verify, never the test runner. A test that fails and then passes is flaky, and counts as failing. Where it loses: a flaky E2E test costs a second full run each time it fails.
+13. **A contract states only what its scenarios state.** Every operation of a contract artifact cites the scenario IDs it serves, and its wire form, the paths, media types and schemas, is the design's how. Where it loses: a status code no scenario states cannot enter a contract until a scenario for it has gone back through Propose.
+14. **An NFR's scenarios owe no happy-path or negative test.** OpenSpec's strict validation refuses a requirement without a scenario, so every NFR carries one; a fitness function, or a test that references the NFR, satisfies traceability rule 2 for it. Where it loses: an NFR proved by one fitness function gets no negative test.
+15. **Where the design's artifacts live.** Contract artifacts live in the product tree, under `apps/<app>/contracts/`, since an archived change is history and nothing edits it. Each app's Binding Surface is one hand-maintained file, `apps/<app>/binding-surface.md`, which `change-design` edits on the change's branch, and a change's `design.md` names what it changes there. Where it loses: two changes in flight that both edit one app's Binding Surface conflict when the second rebases.
+
+How the strategy maps onto this repository:
+
+16. **The strategy's roles.** The app-builder and the test-builder are agents of the build workflow, `.claude/workflows/build-change-task.js`. The architect is that workflow's triage together with the session running `change-build`, which acts on the route the workflow returns. The verifier is the session running `change-verify`. Where Verify rejects a change, the user picks the route, as `.claude/skills/change-verify/SKILL.md` § 6. Verdict has it.
+17. **Every rule a program can check goes into a gate**, whose header is a home for a rule (`CLAUDE.md` § Rules for agents live in tracked files, and nowhere else) that costs no prompt words and that CI holds. A prompt carries a pointer, and the rules that need judgement. Where it loses: a builder that never read a gate's header learns its rule only when the gate refuses its push, a round-trip that the rule stated in the build prompt would have saved. The home of each of the strategy's rules, and the issue that lands it:
+
+| The strategy's rule | Its home | Landed by |
+|---|---|---|
+| Scenario and NFR IDs, stable for the life of the system (items 1, 2 and 11) | the header of `scripts/check-openspec.mjs` | `asdlc-openspec-j09.3` |
+| Propose writes the IDs and the NFRs, and keeps an explore brief (items 1 to 4) | `.claude/skills/change-propose/SKILL.md` | `asdlc-openspec-j09.4` |
+| Traceability rules 7 and 8, a test's layer and its orchestration level, and a declared negative (item 10) | the header of the tool that reads a test's metadata | `asdlc-openspec-j09.5` |
+| The Binding Surface, contract artifacts and fitness-function declarations (items 13 and 15) | `.claude/skills/change-design/SKILL.md` | `asdlc-openspec-j09.6` |
+| Traceability rules 4 to 8, the happy-path-and-negative obligation, Finalize's rules for tests on removed or modified IDs, and the ratchet (item 5) | the header of the trace gate, `trace:check` | `asdlc-openspec-j09.7` |
+| Traceability rules 1 to 3 (item 6), which read task bodies in `bd` and so no CI gate can hold | `.claude/skills/change-plan/SKILL.md`, and again at Verify | `asdlc-openspec-j09.8` |
+| No test deleted, skipped, disabled or weakened without a recorded architect decision | the header of the test-inventory gate | `asdlc-openspec-j09.9` |
+| The thresholds and their minimum samples (items 8 and 9) | keys of `tools/policy.json`, `count-index.md` § Rates and metrics, and the header of the gate that measures them | `asdlc-openspec-j09.10` |
+| The build agents, their shared inputs and independence, test ownership, the architect's triage, the feedback's four fields, the pyramid's agent responsibilities, test data isolation and dependency mocking | `.claude/workflows/build-change-task.js` | `asdlc-openspec-j09.11` |
+| Finalize retires or regenerates the tests on a removed or modified ID | `.claude/skills/change-finalize/SKILL.md`, which runs the trace gate | `asdlc-openspec-j09.12` |
+| The Build exit criteria and re-design passes (item 3) | `.claude/skills/change-build/SKILL.md` | `asdlc-openspec-j09.13` |
+| Verify: a fresh environment, the regression suite, flaky tests (item 12), the verification report and the pyramid's shape | `.claude/skills/change-verify/SKILL.md` | `asdlc-openspec-j09.14` |
+| Orchestration levels 2 and 3, a test in a container or under compose | not adopted until a product needs them | `asdlc-openspec-sm3` |
+| A scenario no harness here can observe (item 7) | the calculator's tests | `asdlc-openspec-9j8` |
+
+**Why.** The maintainer supplied the strategy on 2026-09-28 and asked for a plan to bring it into the change process. Until then a change's proof was a trace written by hand under `.scratch/` at Verify (`.claude/skills/change-verify/SKILL.md` § 4. Every scenario is traced), a test traced to its scenario by the scenario's exact name (`apps/calculator/test/README.md`), one agent wrote the code and every test of a task (`.claude/workflows/build-change-task.js`), and nothing measured coverage or a mutation score. Each item above names the case where it loses. Four alternatives lost as well:
+
+- **Explore as a seventh stage with a skill of its own.** It would change D-02's six stages for a step the `explore` skill already does, where keeping its brief as `findings.md` is enough for the later stages to read it.
+- **NFRs defined in `design.md`, as the strategy has them.** A design is archived with its change and nothing edits it afterwards, so an NFR's ID would outlive the only file that stated it; `openspec archive` merges a spec requirement into the living spec.
+- **Holding the calculator to every obligation at once.** Every change would wait until the existing gaps were closed, where the ratchet lets each change close some of them and refuses new ones.
+- **The strategy's text as the home of its rules.** A document under `docs/` is a dated record that points at the home of each rule (`CLAUDE.md` § Rules for agents live in tracked files, and nowhere else), so every rule gets its home in item 17's table, and the text stays as supplied.
+
+**What changed.**
+
+- **This register:** this entry; the status line, the blockquote's bound and the decisions table carry D-13; D-02 carries an amendment.
+- **`docs/test-strategy.md`:** added: the strategy as the maintainer supplied it, with each of this entry's answers marked where it amends the text.
+- **`docs/README.md` and `README.md` § Where to read next:** a row each.
+- **To come:** each home in item 17's table, in the issue it names.
+
+**Figures.** None.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

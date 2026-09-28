@@ -373,6 +373,7 @@ The work of clearing them is tracked in `bd`.
 | `docs/pipeline.md` | Which generated artifact is built from which, and what to regenerate when something moves. |
 | `docs/playbook.md` | The route one issue takes to the trunk, step by step, each step naming the file or command that decides it. |
 | `docs/plain-language-guide.md` | How work gets done here, for a reader who runs nothing. |
+| `docs/test-strategy.md` | The agentic test strategy the change process adopts, as supplied, with the register's amendments marked. |
 | `count-index.md` | Every count describing the current measured state, under a key. |
 | `scripts/README.md` | The single-file gates and git-job scripts, one row each. |
 | `scripts/hooks/README.md` | The harness hooks, one row each. |
