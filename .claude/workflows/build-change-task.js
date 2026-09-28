@@ -4,7 +4,7 @@ export const meta = {
   whenToUse: 'Step 3 of the change-build skill, once for each task of a planned change, from the change worktree',
   phases: [
     { title: 'Setup', detail: 'read the review sizes from tools/policy.json, and list the listeners already on 127.0.0.1' },
-    { title: 'Build', detail: 'one agent builds the task and runs its proofs' },
+    { title: 'Build', detail: "one agent sees each scenario's proof fail, then builds the task and runs its proofs" },
     { title: 'Review', detail: 'one reviewer for each lens the policy names for the kind' },
     { title: 'Merge', detail: 'findings of one kind on one file that describe one defect become one' },
     { title: 'Confirm', detail: 'skeptics, as many as the policy gives the severity, judge each defect and spec contradiction' },
@@ -32,10 +32,17 @@ export const meta = {
  * reviewer's mutant copy of apps/calculator/serve.js was left listening on 127.0.0.1:8080 for 74
  * minutes. `bd show asdlc-openspec-d6b` gives each figure and the file it was measured from.
  *
+ * Since asdlc-openspec-fye (`docs/decisions.md` § D-14) it also refuses a build that never saw a
+ * scenario's proof fail. No incident yet: were that check wrong, a test first run after the code that
+ * passes it, which may pass without that code, would reach review, where only the honesty lens's
+ * mutants can catch it, and only for the mutations a reviewer thinks of.
+ *
  * INVOCATION. The Workflow tool, with `scriptPath` set to this file inside the change's worktree, so
  * that the script and the policy it reads come from one commit, and `args`:
  *
  *   task      { id, title, body }: the tracker task, as `bd show <id>` prints it
+ *   scenarios [string]: each scenario the task names, as it names it (`<capability>: <scenario name>`),
+ *             and [] when it names none. Required, so that no run skips the red run by omission
  *   change    the change's name; its delta specs and design are under openspec/changes/<change>/
  *   worktree  the worktree's absolute path, as `git rev-parse --show-toplevel` prints it there
  *   branch    the worktree's branch
@@ -47,10 +54,14 @@ export const meta = {
  *
  * WHAT IT RETURNS. { task, stopped, why, build, lastFix, fixUnreviewed, rounds, confirmed, unverified,
  * refuted, unplanned, followUps, listeners }. Every count in it is computed here, never by an agent.
- * `rounds` has one entry per round, round 0 being the build's own findings. `stopped` is one of:
+ * `rounds` has one entry per round, round 0 being the build's own findings. `build` carries the
+ * builder's `red` records and `alreadyGreen` reports beside its work. `stopped` is one of:
  *
  *   refused             an argument or the policy did not hold; `why` names it. Only Setup ran
  *   agent-died          the builder, the fixer or every reviewer of a round returned nothing
+ *   not-red             the task's kind is in `buildRedFirstKinds`, and for a scenario `why` names the
+ *                       builder returned neither a red record nor an already-green report; no review
+ *                       followed it
  *   proof-failing       a proof the builder or the fixer ran did not pass; no review followed it
  *   spec-contradiction  a spec contradiction was confirmed; nothing after it was fixed
  *   nothing-major       a round confirmed no defect at a `buildReviewMajorSeverities` severity
@@ -76,9 +87,22 @@ export const meta = {
  *   coverage gap to file. Coverage gaps, out-of-scope and unplanned findings are never confirmed: the
  *   parent searches the tracker before filing one, and whoever works it checks its premise first.
  *
- *   Stop order, after each round's confirmation: a confirmed spec contradiction stops the run; else the
- *   confirmed defects are fixed and the proofs run again; then a round that confirmed no defect at a
- *   major severity stops it, and so does the last round allowed; else the next round reviews the fix.
+ *   Red first. Before it changes the code under test, the builder runs the task's proof for each
+ *   scenario in `args.scenarios`, sees it fail on the scenario's THEN, and returns a red record for it:
+ *   the scenario, the command, and the failure it printed. It reports a scenario whose proof passes
+ *   first, because the code already has its behaviour, as already green, with the command and its
+ *   evidence. Each already-green report goes to the parent among `unverified`, never as passed, for
+ *   the parent to judge. For a kind in `buildRedFirstKinds`, a scenario with neither stops the run as
+ *   not-red; a scenario is matched by its text, trimmed, so a record for another scenario covers
+ *   nothing. A task of another kind is asked for the same records and not held to them. The lenses
+ *   that set `red` read the red records, and the spec lens holds each failure to its scenario's THEN.
+ *
+ *   Stop order, after the build: a confirmed spec contradiction among the builder's findings stops the
+ *   run, since a spec revision rebuilds the task anyway; then not-red, since the parent discards that
+ *   build (`.claude/skills/change-build/SKILL.md` § 3. Build it, and prove it); then a failing proof.
+ *   After each round's confirmation: a confirmed spec contradiction stops the run; else the confirmed
+ *   defects are fixed and the proofs run again; then a round that confirmed no defect at a major
+ *   severity stops it, and so does the last round allowed; else the next round reviews the fix.
  *
  *   Sweep. Setup lists the listeners on 127.0.0.1. Every exit after Setup lists them again, and each one
  *   that was not there before is `listeners.leftBehind`, for the parent to stop.
@@ -98,7 +122,7 @@ const SEVERITIES = ['blocker', 'major', 'minor']
 const KINDS = ['defect', 'spec-contradiction', 'coverage-gap', 'out-of-scope', 'unplanned']
 const BUILDER_KINDS = ['spec-contradiction', 'coverage-gap', 'out-of-scope', 'unplanned']
 const CONFIRMED_KINDS = ['defect', 'spec-contradiction']
-const POLICY_KEYS = ['buildReviewLenses', 'buildReviewSkeptics', 'buildReviewMaxRounds', 'buildReviewMajorSeverities', 'assetLabels']
+const POLICY_KEYS = ['buildReviewLenses', 'buildReviewSkeptics', 'buildReviewMaxRounds', 'buildReviewMajorSeverities', 'buildRedFirstKinds', 'assetLabels']
 const ROUTES = '`.claude/skills/change-build/SKILL.md` § 5. What the build turns up'
 
 /* ------------------------------------------------------------------------------ the lenses ----- */
@@ -106,10 +130,12 @@ const ROUTES = '`.claude/skills/change-build/SKILL.md` § 5. What the build turn
 const LENSES = {
   spec: {
     label: 'the tests prove the scenarios',
+    red: true,
     prompt: [
       'For each scenario the task names, find the test the task names as its proof.',
       "The test must drive exactly the scenario's WHEN and assert every THEN and AND, including a value shown part-way through a sequence, with each expected value written out rather than computed by the code under test.",
       'Where the design or the task sets a rule for test names, hold each name to it character for character.',
+      "Hold each red record below to its scenario: its failure must be the scenario's THEN failing, not an error before it, such as an import error, a syntax error or a missing file.",
       "Run the task's proof and read what it reports.",
       'Report a scenario with no test or with a test that under-asserts it, and a test named like a scenario that is not one.',
     ].join(' '),
@@ -257,6 +283,21 @@ const WORK_SCHEMA = {
   required: ['summary', 'filesChanged', 'proofs', 'decisions', 'findings'],
 }
 
+const STRING = { type: 'string' }
+
+/** One record per scenario: the scenario as `args.scenarios` gives it, the command, and `field`. */
+const perScenario = (field) => ({
+  type: 'array',
+  items: { type: 'object', properties: { scenario: STRING, command: STRING, [field]: STRING }, required: ['scenario', 'command', field] },
+})
+
+/** The builder's work, with its red run: the fixer returns WORK_SCHEMA alone. */
+const BUILD_SCHEMA = {
+  type: 'object',
+  properties: { ...WORK_SCHEMA.properties, red: perScenario('failure'), alreadyGreen: perScenario('evidence') },
+  required: [...WORK_SCHEMA.required, 'red', 'alreadyGreen'],
+}
+
 const REVIEW_SCHEMA = {
   type: 'object',
   properties: { checked: STRINGS, findings: { type: 'array', items: findingSchema(KINDS) } },
@@ -291,6 +332,9 @@ const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArr
 function argsProblem() {
   if (!isPlainObject(A.task) || !isText(A.task.id) || !isText(A.task.title) || !isText(A.task.body)) {
     return 'args.task must be { id, title, body }, each a non-empty string, as `bd show <id>` prints them'
+  }
+  if (!Array.isArray(A.scenarios) || A.scenarios.some((s) => !isText(s))) {
+    return 'args.scenarios must be an array of non-empty strings'
   }
   for (const key of ['change', 'worktree', 'branch', 'kind']) {
     if (!isText(A[key])) return `args.${key} must be a non-empty string`
@@ -344,6 +388,10 @@ function readPolicy(setup) {
   if (!Array.isArray(majors) || majors.some((s) => !SEVERITIES.includes(s))) {
     return { problem: `tools/policy.json \`buildReviewMajorSeverities\` must be a list drawn from ${SEVERITIES.join(', ')}` }
   }
+  const redFirst = p.buildRedFirstKinds
+  if (!Array.isArray(redFirst) || redFirst.some((kind) => !labels.includes(kind))) {
+    return { problem: 'tools/policy.json `buildRedFirstKinds` must be a list of `assetLabels` keys' }
+  }
 
   if (!Object.prototype.hasOwnProperty.call(lensSets, A.kind)) {
     return { problem: `args.kind ${A.kind} has no lens set in tools/policy.json \`buildReviewLenses\` (it has: ${Object.keys(lensSets).join(', ')})` }
@@ -387,6 +435,19 @@ function newRound(round, lenses) {
 }
 
 const work = (w) => ({ summary: w.summary, filesChanged: w.filesChanged, proofs: w.proofs, decisions: w.decisions })
+
+/** An already-green report as the parent receives it: among the unverified findings, never passed. */
+const greenFinding = (g) => ({
+  round: 0,
+  source: 'build',
+  raisedBy: ['build'],
+  kind: 'already-green',
+  title: `Never seen to fail: ${g.scenario}`,
+  command: g.command,
+  against: g.scenario,
+  evidence: g.evidence,
+  fix: 'Where the code lacked this behaviour before the build, make the proof fail without it.',
+})
 
 function summary(stopped, why, listeners) {
   return {
@@ -607,12 +668,13 @@ function reviewPrompt(lens, round) {
   const seen = [
     ...S.confirmed.map((f) => `- [confirmed${f.fixed ? ' and fixed' : ''}] ${f.title} (${f.file})`),
     ...S.refuted.map((f) => `- [refuted] ${f.title} (${f.file})`),
-    ...S.unverified.map((f) => `- [unverified, with the parent] ${f.title} (${f.file})`),
+    ...S.unverified.map((f) => `- [unverified, with the parent] ${f.title} (${f.file || f.command})`),
     ...S.followUps.map((f) => `- [returned for filing] ${f.title} (${f.file})`),
     ...S.unplanned.map((f) => `- [returned to the parent] ${f.title} (${f.file})`),
   ]
   const prior = seen.length ? `\n\n## Judged already; raise one again only with new evidence\n\n${seen.join('\n')}` : ''
   const fixNote = round > 1 && S.lastFix ? `\n\n## The fix after round ${round - 1} reported\n\n${S.lastFix.summary}` : ''
+  const red = def.red ? `\n\n## The build's red records\n\n${S.build.red.map((r) => `- ${r.scenario} (${r.command}): ${r.failure}`).join('\n') || 'None.'}` : ''
   return [
     rules(),
     '',
@@ -624,7 +686,7 @@ function reviewPrompt(lens, round) {
     '',
     `## Your lens: ${def.label}`,
     '',
-    def.prompt + focus + settledBlock() + prior + fixNote,
+    def.prompt + focus + red + settledBlock() + prior + fixNote,
   ].join('\n')
 }
 
@@ -635,9 +697,15 @@ function buildPrompt() {
     '',
     taskBlock() + guide + settledBlock(),
     '',
+    '## The scenarios this task names',
+    '',
+    A.scenarios.map((s) => `- ${s}`).join('\n') || 'None.',
+    '',
     '## How to work',
     '',
-    "Read the task, the delta specs and the design first. Build what the task asks, and run every proof it names until each passes as measured. Regenerate every derived artifact the change touches with its emitter, never by hand. A defect in your own work is fixed, never reported.",
+    "Read the task, the delta specs and the design first. Before you change the code under test, give each scenario above its test and run the task's proof: each must fail on the scenario's THEN, not on an error before it. Return each failure as a red record, with the scenario as written above and the command. A scenario whose proof passes first, because the code already has its behaviour, goes under alreadyGreen instead, with the command and what shows it.",
+    '',
+    "Then build what the task asks, and run every proof it names until each passes as measured. Regenerate every derived artifact the change touches with its emitter, never by hand. A defect in your own work is fixed, never reported.",
     '',
     'Report as findings only what you found and did not fix, by this rule:',
     '',
@@ -696,9 +764,10 @@ const maxRounds = policy.buildReviewMaxRounds
 log(`Task ${A.task.id} (${A.kind}): lenses ${lensKeys.join(', ')}; at most ${maxRounds} round(s)`)
 
 phase('Build')
-const built = await agent(buildPrompt(), { label: 'build', phase: 'Build', schema: WORK_SCHEMA })
+const built = await agent(buildPrompt(), { label: 'build', phase: 'Build', schema: BUILD_SCHEMA })
 if (!built) return finish('agent-died', 'the builder returned nothing, so nothing was built or reviewed')
-S.build = work(built)
+S.build = { ...work(built), red: built.red, alreadyGreen: built.alreadyGreen }
+for (const g of built.alreadyGreen) S.unverified.push(greenFinding(g))
 const buildRound = newRound(0, ['build'])
 buildRound.raised = built.findings.length
 const buildToConfirm = route(built.findings.map((f) => ({ ...f, raisedBy: ['build'] })), buildRound, 0, 'build')
@@ -706,6 +775,11 @@ if (buildToConfirm.length) {
   const judged = await judge(buildToConfirm, buildRound, 0)
   const spec = confirmedSpec(judged)
   if (spec.length) return finish('spec-contradiction', `the build found ${spec.length} spec contradiction(s) the skeptics confirmed: ${titles(spec)}; no reviewer ran`)
+}
+const recorded = new Set([...built.red, ...built.alreadyGreen].map((r) => r.scenario.trim()))
+const notRed = policy.buildRedFirstKinds.includes(A.kind) ? A.scenarios.filter((s) => !recorded.has(s.trim())) : []
+if (notRed.length) {
+  return finish('not-red', `the builder returned no red record and no already-green report for ${notRed.length} scenario(s): ${titles(notRed.map((s) => ({ title: s.trim() })))}; no reviewer ran`)
 }
 const buildFailing = built.proofs.filter((p) => !p.passed)
 if (buildFailing.length) {

@@ -90,7 +90,9 @@ to the user with its evidence before anything is filed, even a part the session 
 
 ## 4. Implement, regenerate, gate
 
-Make the change. Regenerate every derived artifact the change touches only after the last edit to
+Make the change. A defect's fix lands only after a test or selftest case that reproduces it has
+been seen to fail, and the pull request's body names that run: a test first run after its fix can
+pass without it. Regenerate every derived artifact the change touches only after the last edit to
 the emitter or its inputs: an emitter's own source is one of its inputs, so even a comment edit
 stales its output. `npm run pipeline:stale` names each stale node and the command that rebuilds it.
 A first run that stamps an output which had none makes `pipeline:stale:check` bind it from then on
