@@ -2,6 +2,8 @@
 
 **Written:** 2026-09-28.
 
+**Status:** amended 2026-09-28 by `asdlc-openspec-iom`, which names the harness.
+
 **Which document wins.** This page simplifies. Where it and a technical document disagree, the
 technical document is right and this page needs correcting.
 
@@ -18,7 +20,9 @@ anything risky, and decide whether the agents' own instructions change.
 
 ## What the repository is for
 
-The subject of this repository is the way of working, not a product. The product in it is a demo: a
+The subject of this repository is the way of working, not a product. That way of working, meaning
+the rules, checks, instructions and tools the agents work under, is called the harness. The product
+in it is a demo: a
 calculator that runs in a browser on one machine, served to that machine alone. It exists so the
 way of working has something real to act on, with requirements to write, code to build and tests
 to hold the code to them, and it is small enough for one change to go all the way through. Nobody
@@ -31,7 +35,9 @@ as the worked example (`docs/decisions.md` § D-04).
 document. Each item says where its work lands. An agent takes an item, first checks that what the
 item claims is still true of the code, and only then does the work, in a private copy of the
 repository, so that agents working at the same time do not tread on each other. A problem the agent
-finds outside its item is not fixed on the side: it becomes a new item of its own.
+finds outside its item is not fixed on the side: it becomes a new item of its own. An item that
+changes the harness goes straight to work this way. An item that changes what the product does
+first becomes a written agreement, below.
 
 **The written agreement of what the product does.** A change to what the product does starts as a
 written proposal: the requirements it adds or alters, each with concrete examples of the form
@@ -97,7 +103,7 @@ source when someone needs them, and are not copied onto this page.
 - **A person's approval can still be imitated.** Anything holding the maintainer's own credentials
   outside an agent's session could apply the approval (`docs/decisions.md` § R-01). The rule that
   only a person approves rests on that rule and a partial guard.
-- **The product-change route has met only the demo.** It has run end to end on the calculator,
+- **The product route has met only the demo.** It has run end to end on the calculator,
   which has no users, no stored data and no deployment. How the route copes with those is untested.
 - **The starter kit's setup is not finished.** Some of its steps are still open, and some files still
   carry placeholder notes saying what to write there (`README.md` § What is still a placeholder).
@@ -108,6 +114,8 @@ source when someone needs them, and are not copied onto this page.
 |---|---|
 | agent | An AI model working in the repository through a session, under the rules in `CLAUDE.md`. |
 | repository | The project's files and their full history, shared through a server. |
+| harness | Everything in the repository that runs the work: the rules, checks, instructions and tools. Everything but the product. |
+| product | What the work is done on. Here, a demo calculator. |
 | to-do list | The tracker, called `bd`: every piece of work, one item each. |
 | item | One entry on the to-do list; the technical documents call it an issue. |
 | private copy | A separate checkout of the repository for one piece of work; the technical documents call it a worktree. |

@@ -2,20 +2,28 @@
 
 **Written:** 2026-09-28, against `main` at `7c1383f`.
 
+**Status:** amended 2026-09-28 by `asdlc-openspec-iom`. The issue route is named the harness route,
+and the change route the product route.
+
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
 where it and the register (`docs/decisions.md`) disagree, the register wins.
 
-The unit of work here is one issue in `bd`. It takes one of two routes to the trunk: most issues
-take the issue route (§ 4.2), and an issue asking for a change to what the product does, stated as
-requirements, takes the change route (§ 4.3). Both end in the same pull request and the same
-reviewer (§ 4.4).
+The unit of work here is one issue in `bd`. It takes one of two routes to the trunk:
+
+- **The harness route (§ 4.2)** carries a harness change: a change to the rules, skills, agents,
+  gates, tools or documents that run the work. A product fix that changes no requirement takes it
+  too.
+- **The product route (§ 4.3)** carries a product change: a change to what the product does, stated
+  as requirements.
+
+Both end in the same pull request and the same reviewer (§ 4.4).
 
 **The product is a demo.** `apps/calculator/` is a calculator served on loopback only, carried so
-that the change route has something real to act on (`docs/decisions.md` § D-04). Nobody ships it.
+that the product route has something real to act on (`docs/decisions.md` § D-04). Nobody ships it.
 This page uses it only as the worked example: the change `add-calculator-web-app`, archived at
 `openspec/changes/archive/2026-09-24-add-calculator-web-app/`, was the first to run every stage of
-the change route, and its epic is `asdlc-openspec-zgh`.
+the product route, and its epic is `asdlc-openspec-zgh`.
 
 ## 1. Words you will meet
 
@@ -27,7 +35,9 @@ the change route, and its epic is `asdlc-openspec-zgh`.
 | tracker bracket | `bd dolt pull` before a run's first tracker write and `bd dolt push` after its last; a rejected push is reported, never forced (`CLAUDE.md` § The task store). |
 | premise | What an issue claims is true of the repository, checked against the trunk before any work (`.claude/skills/bead/SKILL.md` § 1. Verify the premise before any work). |
 | found issue | An issue a run files `discovered-from` the one it worked, carrying a `foundAtLabels` label and `assetLabels` labels from `tools/policy.json` (`CLAUDE.md` § The task store). |
-| change | A change to what the product does, stated as requirements: one worktree, one pull request and one epic (`docs/decisions.md` § D-02). |
+| harness | Everything in this repository that runs the work: the rules, skills, agents, gates, hooks, tools and documents. A harness change takes the harness route (§ 4.2). |
+| product | What the work is done on: the demo calculator's code under `apps/` and its requirements under `openspec/` (`docs/decisions.md` § D-04). |
+| change | A product change: a change to what the product does, stated as requirements. One worktree, one pull request and one epic (`docs/decisions.md` § D-02). |
 | epic | The issue that carries a change. Its tasks are its children, and it carries the change label, `specChangeLabel` in `tools/policy.json`, which keeps them out of the general queue (`docs/decisions.md` § D-02). |
 | capability | One area of the product's behaviour with a living spec of its own, such as `calculator` (`openspec/README.md`). |
 | living spec | `openspec/specs/<capability>/spec.md`: what the product does now. It wins over any archived change (`openspec/README.md`). |
@@ -92,9 +102,9 @@ with any long prose passed from a file under `.scratch/` (`CLAUDE.md` § Bash co
 
 | Phase | What happens | What it leaves behind | How it can end |
 |---|---|---|---|
-| 4.1 Pick and check | An issue is taken from the queue and its premise checked against the trunk | A claim; a note on the issue when the premise does not hold | Claimed; stopped with the evidence; or handed to the change route |
-| 4.2 The issue route | The work, in a worktree, gated before and after a rebase | Commits on `agent/<name>`; any found issues | Ready for a pull request; or a red gate, reported |
-| 4.3 The change route | The `change-*` stages, each in a fresh session, each stopping where a person decides | A proposal and delta specs, a design or a note ruling one out, child issues, commits, the archive | Ready for a pull request; stopped for review; or sent back to an earlier stage |
+| 4.1 Pick and check | An issue is taken from the queue and its premise checked against the trunk | A claim; a note on the issue when the premise does not hold | Claimed; stopped with the evidence; or handed to the product route |
+| 4.2 The harness route | The work, in a worktree, gated before and after a rebase | Commits on `agent/<name>`; any found issues | Ready for a pull request; or a red gate, reported |
+| 4.3 The product route | The `change-*` stages, each in a fresh session, each stopping where a person decides | A proposal and delta specs, a design or a note ruling one out, child issues, commits, the archive | Ready for a pull request; stopped for review; or sent back to an earlier stage |
 | 4.4 The pull request | Opened, watched to the reviewer's verdict, and merged | A pull request and its `pr-review` verdict | Merged; changes requested; left to a person; or a review that did not complete |
 | 4.5 Close and account | The issue closed, the run's analysis written, a prompt review launched if one is due | A closed issue whose reason names the pull request; an analysis note | Closed; or open, waiting on a person or on an issue |
 
@@ -117,16 +127,18 @@ with any long prose passed from a file under `.scratch/` (`CLAUDE.md` § Bash co
    `.claude/skills/bead/SKILL.md` § 1. Verify the premise before any work.
 5. Choose the route. An issue that would make a requirement read differently, something a user or a
    caller of the product can observe, goes to `change-propose` (§ 4.3). A refactor, a gate, a
-   document or the tooling goes on by the issue route (§ 4.2). Decided by:
+   document or the tooling goes on by the harness route (§ 4.2). Decided by:
    `.claude/skills/change-propose/SKILL.md` § 1. Decide that it is a change, and `CLAUDE.md`
    § Product work runs as OpenSpec-format changes.
 6. Claim it inside a tracker bracket: `bd update <id> --claim`. A deferred issue refuses the claim
    until `bd undefer <id>`, which only someone who means to work it now runs. Decided by:
    `.claude/skills/bead/SKILL.md` § 3. Claim, then work in a worktree.
 
-### 4.2 The issue route
+### 4.2 The harness route
 
-This is the route of the `bead` skill (`.claude/skills/bead/SKILL.md`).
+This is the route of the `bead` skill (`.claude/skills/bead/SKILL.md`). It carries every harness
+change, and any product fix that changes no requirement, such as a refactor or a fix that brings the
+code back to its spec (`docs/decisions.md` § D-02, item 2).
 
 1. Make the worktree with `EnterWorktree`, whose hook provisions it through
    `scripts/new-worktree.sh`, never with `git worktree add`. Run `npm ci`, then read
@@ -155,7 +167,7 @@ This is the route of the `bead` skill (`.claude/skills/bead/SKILL.md`).
 
 Then open the pull request (§ 4.4).
 
-### 4.3 The change route
+### 4.3 The product route
 
 Each stage is a skill, run in a fresh session that picks the change up from its name, its epic and
 its worktree, never from an earlier stage's conversation (`CLAUDE.md` § Product work runs as
@@ -348,7 +360,7 @@ person merges it (`CLAUDE.md` § A program proposes; only a person promotes).
 Each line is its own call, never chained. `<specChangeLabel>` and `<marker>` stand for the values of
 `specChangeLabel` and `promptReviewAnalysisMarker` in `tools/policy.json`.
 
-The issue route:
+The harness route:
 
 ```bash
 bd dolt pull                                         # sync tracker before any write
@@ -377,7 +389,7 @@ bd list --all --notes-contains "<marker>" --json -n 0   # is a prompt review due
 bd dolt push                                         # sync tracker after the last write
 ```
 
-The change route adds:
+The product route adds:
 
 ```bash
 bd list --label <specChangeLabel> --type epic --metadata-field change=<change> --json   # find the change's epic
