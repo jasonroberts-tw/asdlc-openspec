@@ -4,6 +4,8 @@
 it, and the record of every change that landed.** It uses OpenSpec's on-disk format, so the pinned
 OpenSpec CLI can validate it and merge a change into it. The work itself is run by the `change-*`
 skills under `.claude/skills/`. The decision and its reasons are `docs/decisions.md` § D-02.
+Work that changes no requirement, a harness change or a product fix, does not come here: it goes
+through the `bead` skill.
 
 **Which wins.**
 

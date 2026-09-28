@@ -2,7 +2,7 @@
 
 **Single-file gates and git-job scripts: each one either refuses something or does one job a hook
 or an operator calls.** An emitter, or a check that is a multi-file module, lives under
-`tools/`; a harness hook lives under `scripts/hooks/`.
+`tools/`; a Claude Code hook lives under `scripts/hooks/`.
 
 Each file's header is the authority on it: what it checks, the failure it exists to prevent, its
 invocation and what it needs (`CLAUDE.md` § Standing rules for prompts and gates). Where a row here

@@ -1,16 +1,16 @@
 # `.claude/`
 
-**Session configuration, not project content.** What the harness loads when a session starts here.
+**Session configuration, not project content.** What Claude Code loads when a session starts here.
 
 | Path | What it is |
 |---|---|
 | `settings.json` | Tracked. Two things and nothing else: the enabled plugins and the hook registrations, each with a `statusMessage` and an explicit `timeout` sized to the hook. |
 | `settings.local.json` | Untracked (`.gitignore`). Machine-specific permissions: the allow-list that pre-empts the permission classifier on command shapes it cannot resolve. Never a hook, never a plugin. |
 | `skills/<name>/SKILL.md` | Skills a session can invoke. Each opens, on the first line after its frontmatter, with the line `CLAUDE.md` § Standing rules for prompts and gates requires. No skill is judged too small to carry it, and `check:prompts` refuses one that does not, and one over its word budget in `tools/policy.json`. |
-| `agents/<name>.md` | Agent definitions the harness can spawn, under the same opening line, a word budget of their own and the same gate. |
+| `agents/<name>.md` | Agent definitions Claude Code can spawn, under the same opening line, a word budget of their own and the same gate. |
 | `workflows/<name>.js` | Workflow scripts a skill or an agent runs through the Workflow tool, each named for what it does, with its header naming what runs it. `build-change-task.js` builds and reviews one task of a product change (`change-build` step 3), with the sizes `tools/policy.json` gives it. `review-prompts.js` runs one agent per prompt file in a batched prompt review, each in a worktree of its own, on the findings that met the threshold `tools/policy.json` gives, has skeptics judge each edit and each consolidation of a prompt that an edit would take past its word budget, and says which branches the `continuous-prompt-improvement` agent may merge, which analyses it may mark read and which findings it holds (`CLAUDE.md` § Prompt reviews). `check:prompts` holds the words of each one's string literals, where its agents' prompts are, to a budget in `tools/policy.json`, but asks no opening line of it: each opens with the `meta` literal the runtime needs first, with its header right after. `workflows:selftest` runs each against stubbed agents. |
 | `worktree-CONTEXT.md.tmpl` | The briefing `scripts/render-worktree-context.mjs` renders into a new worktree as `.worktree/CONTEXT.md`, which `CLAUDE.md` imports. `check:prompts` holds it to a word budget in `tools/policy.json`. |
-| `worktrees/` | Where the harness provisions worktrees. Gitignored; the rule is load-bearing (see `.gitignore`). |
+| `worktrees/` | Where Claude Code provisions worktrees. Gitignored; the rule is load-bearing (see `.gitignore`). |
 
 ## The hooks
 
@@ -19,7 +19,7 @@ hand with `node scripts/hooks/<name>.mjs < /dev/null` because the shared stdin r
 empty input.
 
 **A registration names its script as `node "$CLAUDE_PROJECT_DIR"/scripts/hooks/<name>.mjs`, never
-by a relative path.** The harness runs a hook in the session's current directory, so a relative path
+by a relative path.** Claude Code runs a hook in the session's current directory, so a relative path
 stops loading after a Bash `cd`, and a guard that fails to load blocks nothing
 (`asdlc-openspec-7dj`). `worktree:selftest` loads every registration from a subdirectory and from
 outside the checkout. `CLAUDE_PROJECT_DIR` names the directory the session started in and does not
@@ -35,7 +35,7 @@ no git rule in any entered worktree until `asdlc-openspec-bvf`.
 | `PreToolUse` on Write and Edit | `block-generated-edit.mjs` | yes | Refuses an edit to generated output and names where the change belongs. |
 | `PostToolUse` on Write and Edit | `check-emitted-drift.mjs` | never | Re-runs the `:check` twin of any emitter whose input was just edited. |
 | `Stop` and `SubagentStop` | `gate-summary.mjs` | never | Runs the fastest gates concurrently over the checkout the stopping agent worked in, untracked files included, and prints one verdict line into the transcript; a subagent's verdict says it is one. It never denies the stop: a hook people disable is a lie in version control. |
-| `WorktreeCreate` | `worktree-create.mjs` | yes | Provisions through `scripts/new-worktree.sh`: `agent/<name>` cut from `origin/main`, with a rendered briefing, never the harness's native fallback off the default branch. |
+| `WorktreeCreate` | `worktree-create.mjs` | yes | Provisions through `scripts/new-worktree.sh`: `agent/<name>` cut from `origin/main`, with a rendered briefing, never Claude Code's native fallback off the default branch. |
 | `WorktreeRemove` | `worktree-remove.mjs` | no | Removes the checkout, keeps the branch, and runs the branch sweep for paths under `.claude/worktrees/` only. |
 
 **Hook configuration is snapshotted at session start.** A session that began before a hook was

@@ -35,6 +35,13 @@ incident it exists to prevent.
 What a run shows lands in the skill, gate or decision that should have caught it, so the next run
 does not meet it again.
 
+**The harness and the product.** The harness, which this page's title names, is everything here
+that runs the work: the rules, skills, agents, gates, hooks, tools and documents. The product is
+what the work is done on: a demo calculator, its code under `apps/` and its requirements under
+`openspec/` (`docs/decisions.md` § D-04). A harness change, or a product fix that changes no
+requirement, goes through the `bead` skill. A change to what the product does goes through the
+`change-*` skills (`docs/decisions.md` § D-02).
+
 Why the product does what it does is not on this page. It is in `openspec/`: the living spec of
 each capability, and the proposal of each change that shaped it.
 
@@ -66,14 +73,14 @@ Where this page and a file it points at disagree, that file wins and this page i
 ## How it is laid out
 
 Every directory that holds more than one file of a kind has its own `README.md`; this table is the
-level above them.
+level above them. `apps/` and `openspec/` hold the product; every other path is the harness.
 
 | Path | What it holds |
 |---|---|
 | `CLAUDE.md` | The only home for a rule an agent must follow. `AGENTS.md` is one line pointing at it, so a second home never grows. |
-| `.claude/` | What the agent harness loads at session start: `settings.json` (the plugins and the hook registrations, nothing else), the skills under `skills/`, the agents under `agents/`, the workflow scripts a skill runs under `workflows/`, and the template for a worktree's briefing. |
+| `.claude/` | What Claude Code loads at session start: `settings.json` (the plugins and the hook registrations, nothing else), the skills under `skills/`, the agents under `agents/`, the workflow scripts a skill runs under `workflows/`, and the template for a worktree's briefing. |
 | `scripts/` | Single-file gates, and the scripts a git hook or an operator calls. Each refuses one thing, and its header says which incident it exists to prevent. |
-| `scripts/hooks/` | The in-session hooks: the fastest tier of checks, run by the harness around an agent's tool calls. |
+| `scripts/hooks/` | The in-session hooks: the fastest tier of checks, run by Claude Code around an agent's tool calls. |
 | `tools/` | Emitters and multi-file checks, one directory each, TypeScript run directly by Node. |
 | `artifacts/` | Generated output. Nothing here is edited by hand; each file names the emitter that wrote it, and a correction goes into that emitter's hand-maintained source. |
 | `docs/` | What a person reads: the documentation index, and the documents it lists. |
@@ -206,7 +213,7 @@ holds platform-native binaries. Use one clone per platform.
 | To do this | Use this | Notes |
 |---|---|---|
 | See what is ready to be worked | `bd ready` | The queue. There is no status table anywhere else, by rule. |
-| Have an agent work one issue end to end | the `bead` skill | Verifies the issue's premise first, then claims, implements, gates, opens the pull request and closes on green. |
+| Change the harness, or fix the product without changing a requirement | the `bead` skill | Verifies the issue's premise first, then claims, implements, gates, opens the pull request and closes on green. |
 | Change what the product does | the `change-*` skills, in order: `change-propose`, `change-design`, `change-plan`, `change-build`, `change-verify`, `change-finalize` | One worktree, one pull request and one `bd` epic per change. The proposal and the delta specs are reviewed before any code is written, and the archive merges them into the living spec under `openspec/` before the merge. |
 | Run the calculator on your machine | `npm run calculator:serve` | It prints the URL to open, on `127.0.0.1` only, and serves until Ctrl-C. Set `PORT` to serve on another port, such as when its default is taken. |
 | Have agents work the ready issues in parallel | the `fan-out-work` agent | One fresh agent per lane, each in its own worktree, integrated on the dispatcher's branch. |
@@ -277,7 +284,7 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 
 | Script | What it does | Gate |
 |---|---|---|
-| `gate-summary:selftest` | The Stop and SubagentStop hook, run as the harness runs it over scratch trees: an untracked file with a broken pointer must turn its verdict to FAIL for that reason, an ignored one must not, and a subagent's verdict must say so. A copy of the hook in a scratch repository must run its gates in the linked worktree the payload's `cwd` names, and its verdict must say what that worktree's own gate read. Without it the hook could go back to reporting PASS over files it never read, or over a checkout it never gated. | pre-push + CI |
+| `gate-summary:selftest` | The Stop and SubagentStop hook, run as Claude Code runs it over scratch trees: an untracked file with a broken pointer must turn its verdict to FAIL for that reason, an ignored one must not, and a subagent's verdict must say so. A copy of the hook in a scratch repository must run its gates in the linked worktree the payload's `cwd` names, and its verdict must say what that worktree's own gate read. Without it the hook could go back to reporting PASS over files it never read, or over a checkout it never gated. | pre-push + CI |
 
 ### gates
 
@@ -376,11 +383,11 @@ The work of clearing them is tracked in `bd`.
 | `docs/test-strategy.md` | The agentic test strategy the change process adopts, as supplied, with the register's amendments marked. |
 | `count-index.md` | Every count describing the current measured state, under a key. |
 | `scripts/README.md` | The single-file gates and git-job scripts, one row each. |
-| `scripts/hooks/README.md` | The harness hooks, one row each. |
+| `scripts/hooks/README.md` | The Claude Code hooks, one row each. |
 | `.github/workflows/README.md` | The CI workflow and the pull-request reviewer, one row each. |
 | `tools/README.md` | The emitters and multi-file checks, one row each. |
 | `apps/calculator/README.md` | The calculator demo app: what each file and directory holds, and which specs win over it. |
-| `.claude/README.md` | What the harness loads when a session starts here. |
+| `.claude/README.md` | What Claude Code loads when a session starts here. |
 | `.devcontainer/README.md` | The dev container's mounts, each with its failure mode. |
 | `KIT-CHECKLIST.md` | What the kit laid down, and what is still to adapt. |
 
@@ -402,8 +409,8 @@ at its start: restart the session after changing it.
 | A session has written or edited a file | `scripts/hooks/check-emitted-drift.mjs` re-runs the `:check` twin of any emitter whose input was just edited. | `.claude/settings.json` (`PostToolUse`) |
 | A session stops | `scripts/hooks/gate-summary.mjs` runs the fastest gates over the session's checkout, untracked files included, and prints one verdict line. It never blocks the stop. | `.claude/settings.json` (`Stop`) |
 | A subagent stops | The same hook, over the checkout the subagent worked in, with a verdict that says it is a subagent's. | `.claude/settings.json` (`SubagentStop`) |
-| The harness creates a worktree | `scripts/hooks/worktree-create.mjs` provisions it through `scripts/new-worktree.sh`: `agent/<name>` off `origin/main`, with a rendered briefing. | `.claude/settings.json` (`WorktreeCreate`) |
-| The harness removes a worktree | `scripts/hooks/worktree-remove.mjs` removes the checkout, keeps the branch, and sweeps merged agent branches. | `.claude/settings.json` (`WorktreeRemove`) |
+| Claude Code creates a worktree | `scripts/hooks/worktree-create.mjs` provisions it through `scripts/new-worktree.sh`: `agent/<name>` off `origin/main`, with a rendered briefing. | `.claude/settings.json` (`WorktreeCreate`) |
+| Claude Code removes a worktree | `scripts/hooks/worktree-remove.mjs` removes the checkout, keeps the branch, and sweeps merged agent branches. | `.claude/settings.json` (`WorktreeRemove`) |
 | `git commit`, with a staged path under `artifacts/` | `scripts/assert-not-hand-edited.mjs` refuses a generated file that no longer matches its generator. | `lefthook.yml` (`pre-commit`) |
 | `git commit`, `git checkout`, `git merge`, `git push` | The tracker's own git hooks, preserved as hook-runner jobs, so installing the hook runner does not turn the tracker's git integration off. | `lefthook.yml` (`pre-commit`, `prepare-commit-msg`, `post-checkout`, `post-merge`, `pre-push`) |
 | `git push` | `beads:check` holds the open issues to the label and identifier rules. It reads the tracker's database, so it is not a `.github/workflows/verify.yml` step. | `lefthook.yml` (`pre-push`) |
