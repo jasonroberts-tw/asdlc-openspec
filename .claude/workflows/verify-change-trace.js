@@ -24,8 +24,8 @@ export const meta = {
  *
  * THE FAILURE IT EXISTS TO PREVENT. On 2026-09-24 the add-calculator-web-app verify ran an untracked
  * ancestor of this script, run wf_a6d4492d-9ca: 5 tracers, 3 design lenses and 3 skeptics for each
- * gap, 23 agents and 1.87M tokens (`bd show asdlc-openspec-as9`). It named that change, its scenario
- * groups and its one manual-proof issue in its prompts, and told a skeptic that could not verify a
+ * gap, 23 agents and 1.87M tokens (`bd show asdlc-openspec-as9`). It named that change, its paths
+ * and its one manual-proof issue in its prompts, and told a skeptic that could not verify a
  * gap to answer refuted, the rule `.claude/workflows/build-change-task.js`'s header records
  * rejecting a real gap. `npm run worktree:gc` then deleted its two renderers with the change's
  * worktree, so the next change would have written all three again. Were this script wrong, it would
@@ -101,8 +101,12 @@ export const meta = {
  *   no-gap      every scenario traced and every lens read, and each gap reported was refuted
  *
  * EXTENDING IT. asdlc-openspec-j09.14 adds the verification report on top of this script and its
- * renderers. A field added to the result is read by `scripts/lib/trace.mjs`, and the selftest runs
- * the renderers on this script's result, so a change on either side shows there.
+ * renderers, the home `docs/decisions.md` § D-13 gives Verify's rules in its item 17. Two of that
+ * entry's items change what this script does once their own pull requests land, and not before:
+ * item 7 retires the manual proof, which `args.manual` and the `manual` proof kind carry until
+ * asdlc-openspec-9j8 lands, and item 12 has the session re-run a test that failed. A field added to
+ * the result is read by `scripts/lib/trace.mjs`, and the selftest runs the renderers on this script's
+ * result, so a change on either side shows there.
  *
  * LABELS. Each tracer is labelled `trace <key>`, each design lens `design <key>`, and each skeptic
  * `skeptic <i>/<n> <key>: <title>`. scripts/workflows.selftest.mjs routes its stubbed agents by them:
