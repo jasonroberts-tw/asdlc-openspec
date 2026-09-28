@@ -167,7 +167,7 @@ const LENSES = {
     label: 'the repository around the change',
     prompt: [
       "Hold the files around the change to what the task's acceptance criteria ask of them.",
-      'An npm script it adds is wired as the add-npm-script skill says, with a cost note measured on this host and a .github/workflows/verify.yml step where the script reads only committed files.',
+      'An npm script it adds is wired as the add-npm-script skill says, with a cost note measured on this host.',
       "A file it adds has its row in its directory's README.md. A script, emitter or hook it adds opens with the header CLAUDE.md asks of one.",
       'Every comment and README sentence it touches is true of the code.',
       'Run npm run check:jobs and npm run citations:check, and report what they print.',
@@ -197,7 +197,7 @@ const LENSES = {
 const KIND_RULE = [
   'Read ' + ROUTES + ' before you give any finding a kind: one case below is decided there, not here.',
   'Give every finding one kind. First quote, in `against`, the sentence of the delta specs, the design or the task that says what should happen.',
-  '- No sentence to quote: coverage-gap. The behaviour may well be right, but nothing states it, so nothing proves it. A mutant you can call wrong only by your own judgement is one.',
+  '- No sentence to quote: coverage-gap, since nothing states it, so nothing proves it. A mutant you can call wrong only by your own judgement is one.',
   '- The code as it stands breaks the sentence: defect.',
   "- Only a known-wrong implementation, a mutant, breaks it: when no scenario is about that sentence, coverage-gap; when a faithful test of the scenario would fail the mutant but the task's own test passes it, defect, because the task's proof does not prove its scenario; " +
     'otherwise, the kind ' + ROUTES + ' gives it.',
@@ -216,7 +216,6 @@ function rules() {
     '- Use no Node API or syntax newer than the engines floor in package.json, and match the style of the files beside the one you edit.',
     '- Throwaway files go under .scratch/ only.',
     '- A probe that needs a listener binds port 0 on 127.0.0.1, in its own script, never through a command that fixes the port. Stop every process you start before you return, and check that nothing you started still listens.',
-    '- Run each command as its own Bash call, as CLAUDE.md asks.',
   ].join('\n')
 }
 
@@ -481,7 +480,7 @@ const keyOf = (l) => `${String(l.pid).trim()}:${String(l.port).trim()}`
 async function finish(stopped, why) {
   phase('Sweep')
   const sweep = await agent(
-    'List the TCP listeners on 127.0.0.1 now, and do nothing else: on macOS run `lsof -nP -iTCP@127.0.0.1 -sTCP:LISTEN`, on Linux `ss -ltnpH src 127.0.0.1`, as one Bash call. Return one entry per listening socket with its pid, its port and its command, as printed. Change nothing and stop nothing.',
+    'List the TCP listeners on 127.0.0.1 now, and do nothing else: on macOS run `lsof -nP -iTCP@127.0.0.1 -sTCP:LISTEN`, on Linux `ss -ltnpH src 127.0.0.1`. Return one entry per listening socket with its pid, its port and its command, as printed. Change nothing and stop nothing.',
     { label: 'sweep', phase: 'Sweep', schema: SWEEP_SCHEMA, effort: 'low' },
   )
   const seen = new Set(before.map(keyOf))
@@ -708,7 +707,7 @@ function buildPrompt() {
     '',
     "Read the task, the delta specs and the design first. Before you change the code under test, give each scenario above its test and run the task's proof: each must fail on the scenario's THEN, not on an error before it. Return each failure as a red record, with the scenario as written above and the command. A scenario whose proof passes first, because the code already has its behaviour, goes under alreadyGreen instead, with the command and what shows it.",
     '',
-    "Then build what the task asks, and run every proof it names until each passes as measured. Regenerate every derived artifact the change touches with its emitter, never by hand. A defect in your own work is fixed, never reported.",
+    "Then build what the task asks, and run every proof it names until each passes as measured. Regenerate every derived artifact the change touches. A defect in your own work is fixed, never reported.",
     '',
     'Report as findings only what you found and did not fix, by this rule:',
     '',
@@ -745,7 +744,7 @@ if (badArgs) return refuse(badArgs)
 phase('Setup')
 const setup = await agent(
   [
-    `Work in ${A.worktree}. Run each of these as its own Bash call, and return what each prints, verbatim, even where it looks wrong.`,
+    `Work in ${A.worktree}. Run each of these, and return what each prints, verbatim, even where it looks wrong.`,
     '',
     `1. policyJson: node -p "JSON.stringify(Object.fromEntries(${JSON.stringify(POLICY_KEYS).replace(/"/g, "'")}.map((k) => [k, require('./tools/policy.json')[k]])))"`,
     '2. toplevel: git rev-parse --show-toplevel',
