@@ -2,12 +2,12 @@
  * The page's scenarios: the keypad, the display, the names assistive technology reads, and keyboard
  * input, driven through the committed `public/index.html` in a DOM that jsdom builds in Node.
  *
- * Each `describe` is a requirement's name and each `test` a scenario's name, both verbatim from
- * capability `calculator`'s spec, so a scenario traces to its test by exact string. The last
- * `describe` is named so that it cannot be taken for a requirement: its tests are wiring the spec
- * states without a scenario of its own, such as a chain clicked through every button. A scenario's
- * expected values are literals copied from the spec, and the chain's are plain arithmetic worked by
- * hand: none is computed with the code under test.
+ * Each `describe` is a requirement's name and each `test` a scenario's title, its header after its
+ * ID, both verbatim from capability `calculator`'s spec, so a scenario traces to its test by exact
+ * string. The last `describe` is named so that it cannot be taken for a requirement: its tests are
+ * wiring the spec states without a scenario of its own, such as a chain clicked through every
+ * button. A scenario's expected values are literals copied from the spec, and the chain's are plain
+ * arithmetic worked by hand: none is computed with the code under test.
  *
  * jsdom does not run `<script type="module">`, so `main.js` never loads here: each test builds a
  * fresh DOM from the page and calls `mount` on its document itself. Nor is jsdom a browser: layout,

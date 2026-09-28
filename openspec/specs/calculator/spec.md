@@ -16,13 +16,13 @@ decimal point (`.`), the four operators add (`+`), subtract (`−`), multiply (`
 equals (`=`) and clear (`C`). Every button SHALL have an accessible name, and the display SHALL be a
 polite live region, so that assistive technology announces each value it shows.
 
-#### Scenario: The page opens showing zero
+#### Scenario: [CALC-001] The page opens showing zero
 
 - **WHEN** a person opens the calculator page
 - **THEN** the display shows `0`
 - **AND** the keypad shows the digits `0` to `9`, `.`, `+`, `−`, `×`, `÷`, `=` and `C`
 
-#### Scenario: Every button can be named by assistive technology
+#### Scenario: [CALC-002] Every button can be named by assistive technology
 
 - **WHEN** the accessible names of the keypad's buttons are read
 - **THEN** each digit button is named by its digit
@@ -36,28 +36,28 @@ as typed. A leading zero SHALL be replaced by the next digit rather than kept. A
 most one decimal point, and a further press of the decimal point SHALL change nothing. Pressing the
 decimal point before any digit SHALL start the number as `0.`.
 
-#### Scenario: Digits build a number
+#### Scenario: [CALC-003] Digits build a number
 
 - **WHEN** a person presses `1`, `2`, `3`
 - **THEN** the display shows `123`
 
-#### Scenario: A leading zero is replaced
+#### Scenario: [CALC-004] A leading zero is replaced
 
 - **WHEN** a person presses `0`, `7`
 - **THEN** the display shows `7`
 
-#### Scenario: A second decimal point is ignored
+#### Scenario: [CALC-005] A second decimal point is ignored
 
 - **WHEN** a person presses `1`, `.`, `5`, `.`, `2`
 - **THEN** the display shows `1.52`
 
-#### Scenario: A number can start with the decimal point
+#### Scenario: [CALC-006] A number can start with the decimal point
 
 - **WHEN** a person presses `.`
 - **THEN** the display shows `0.`
 - **AND** when the person then presses `5`, the display shows `0.5`
 
-#### Scenario: A number is shown as typed
+#### Scenario: [CALC-007] A number is shown as typed
 
 - **WHEN** a person presses `1`, `.`, `5`, `0`
 - **THEN** the display shows `1.50`
@@ -68,22 +68,22 @@ Pressing an operator, a second number and then equals SHALL apply that operator 
 before the operator and the number entered after it, and the display SHALL show the result. A
 negative result SHALL be shown with a leading `-`.
 
-#### Scenario: Addition
+#### Scenario: [CALC-008] Addition
 
 - **WHEN** a person presses `2`, `+`, `3`, `=`
 - **THEN** the display shows `5`
 
-#### Scenario: Subtraction below zero
+#### Scenario: [CALC-009] Subtraction below zero
 
 - **WHEN** a person presses `3`, `−`, `5`, `=`
 - **THEN** the display shows `-2`
 
-#### Scenario: Multiplication
+#### Scenario: [CALC-010] Multiplication
 
 - **WHEN** a person presses `6`, `×`, `7`, `=`
 - **THEN** the display shows `42`
 
-#### Scenario: Division
+#### Scenario: [CALC-011] Division
 
 - **WHEN** a person presses `7`, `÷`, `2`, `=`
 - **THEN** the display shows `3.5`
@@ -96,13 +96,13 @@ the first number of the new operation. It SHALL NOT apply operator precedence. P
 again before the second number is started, by a digit or the decimal point, SHALL replace the
 pending operator.
 
-#### Scenario: A chain ignores operator precedence
+#### Scenario: [CALC-012] A chain ignores operator precedence
 
 - **WHEN** a person presses `2`, `+`, `3`, `×`
 - **THEN** the display shows `5`
 - **AND** when the person then presses `4`, `=`, the display shows `20`
 
-#### Scenario: A second operator replaces the first
+#### Scenario: [CALC-013] A second operator replaces the first
 
 - **WHEN** a person presses `8`, `+`, `−`, `3`, `=`
 - **THEN** the display shows `5`
@@ -114,33 +114,33 @@ SHALL start a new calculation, and an operator SHALL continue from the result. E
 operation pending, or before the pending operation's second number is started by a digit or the
 decimal point, SHALL change nothing.
 
-#### Scenario: A digit after a result starts a new calculation
+#### Scenario: [CALC-014] A digit after a result starts a new calculation
 
 - **WHEN** a person presses `2`, `+`, `3`, `=`, `4`
 - **THEN** the display shows `4`
 - **AND** when the person then presses `+`, `1`, `=`, the display shows `5`
 
-#### Scenario: A decimal point after a result starts a new calculation
+#### Scenario: [CALC-015] A decimal point after a result starts a new calculation
 
 - **WHEN** a person presses `2`, `+`, `3`, `=`, `.`, `5`
 - **THEN** the display shows `0.5`
 
-#### Scenario: An operator after a result continues from it
+#### Scenario: [CALC-016] An operator after a result continues from it
 
 - **WHEN** a person presses `2`, `+`, `3`, `=`, `+`, `4`, `=`
 - **THEN** the display shows `9`
 
-#### Scenario: Equals with nothing pending changes nothing
+#### Scenario: [CALC-017] Equals with nothing pending changes nothing
 
 - **WHEN** a person presses `2`, `+`, `3`, `=`, `=`
 - **THEN** the display shows `5`
 
-#### Scenario: Equals with only a number typed changes nothing
+#### Scenario: [CALC-018] Equals with only a number typed changes nothing
 
 - **WHEN** a person presses `5`, `=`, `3`
 - **THEN** the display shows `53`
 
-#### Scenario: Equals before the second number changes nothing
+#### Scenario: [CALC-019] Equals before the second number changes nothing
 
 - **WHEN** a person presses `2`, `+`, `=`
 - **THEN** the display shows `2`
@@ -151,13 +151,13 @@ decimal point, SHALL change nothing.
 Clear SHALL set the display to `0` and discard the number being entered, any pending operation and
 any error.
 
-#### Scenario: Clear discards a pending operation
+#### Scenario: [CALC-020] Clear discards a pending operation
 
 - **WHEN** a person presses `7`, `×`, `8`, `C`
 - **THEN** the display shows `0`
 - **AND** when the person then presses `2`, `=`, the display shows `2`
 
-#### Scenario: Clear discards an error
+#### Scenario: [CALC-021] Clear discards an error
 
 - **WHEN** a person presses `5`, `÷`, `0`, `=`, `C`
 - **THEN** the display shows `0`
@@ -170,57 +170,57 @@ show `Error` in the display, never a number, `Infinity` or `NaN`. While `Error` 
 operator or equals SHALL change nothing, and a digit or the decimal point SHALL start a new
 calculation.
 
-#### Scenario: Dividing by zero shows an error
+#### Scenario: [CALC-022] Dividing by zero shows an error
 
 - **WHEN** a person presses `5`, `÷`, `0`, `=`
 - **THEN** the display shows `Error`
 
-#### Scenario: A chain that divides by zero shows an error
+#### Scenario: [CALC-023] A chain that divides by zero shows an error
 
 - **WHEN** a person presses `5`, `÷`, `0`, `+`
 - **THEN** the display shows `Error`
 
-#### Scenario: An operator after an error changes nothing
+#### Scenario: [CALC-024] An operator after an error changes nothing
 
 - **WHEN** a person presses `5`, `÷`, `0`, `=`, `+`
 - **THEN** the display shows `Error`
 
-#### Scenario: Equals after an error changes nothing
+#### Scenario: [CALC-025] Equals after an error changes nothing
 
 - **WHEN** a person presses `5`, `÷`, `0`, `=`, `=`
 - **THEN** the display shows `Error`
 
-#### Scenario: A digit after an error starts a new calculation
+#### Scenario: [CALC-026] A digit after an error starts a new calculation
 
 - **WHEN** a person presses `5`, `÷`, `0`, `=`, `3`, `+`, `4`, `=`
 - **THEN** the display shows `7`
 
-#### Scenario: A decimal point after an error starts a new calculation
+#### Scenario: [CALC-027] A decimal point after an error starts a new calculation
 
 - **WHEN** a person presses `5`, `÷`, `0`, `=`, `.`, `5`
 - **THEN** the display shows `0.5`
 
-#### Scenario: A result too large to be a finite number shows an error
+#### Scenario: [CALC-028] A result too large to be a finite number shows an error
 
 - **WHEN** a person presses `9` ten times, then thirty times presses `×` followed by `9` ten times, then presses `=`
 - **THEN** the display shows `Error`
 
-#### Scenario: A typed number too large to be a finite number shows an error
+#### Scenario: [CALC-029] A typed number too large to be a finite number shows an error
 
 - **WHEN** a person presses `1`, then `0` three hundred and nine times, then `+`
 - **THEN** the display shows `Error`
 
-#### Scenario: A typed divisor too large to be a finite number shows an error
+#### Scenario: [CALC-030] A typed divisor too large to be a finite number shows an error
 
 - **WHEN** a person presses `5`, `÷`, `1`, then `0` three hundred and nine times, then `=`
 - **THEN** the display shows `Error`
 
-#### Scenario: A typed divisor taken by an operator shows an error
+#### Scenario: [CALC-031] A typed divisor taken by an operator shows an error
 
 - **WHEN** a person presses `5`, `÷`, `1`, then `0` three hundred and nine times, then `×`
 - **THEN** the display shows `Error`
 
-#### Scenario: A result just under the largest number is shown
+#### Scenario: [CALC-032] A result just under the largest number is shown
 
 - **WHEN** a person presses `1`, `7`, `9`, `7`, `6`, `9`, `3`, `1`, `3`, `4`, `8`, then `0` two hundred and ninety-eight times, then `×`, `1`, `=`
 - **THEN** the display shows `1.797693135e+308`
@@ -237,63 +237,63 @@ exponent notation, its mantissa trimmed the same way. A number being entered is 
 not rounded. A result carried into a later operation SHALL be its exact value, not the rounded one
 the display shows: only the display is rounded.
 
-#### Scenario: Floating-point error is not shown
+#### Scenario: [CALC-033] Floating-point error is not shown
 
 - **WHEN** a person presses `0`, `.`, `1`, `+`, `0`, `.`, `2`, `=`
 - **THEN** the display shows `0.3`
 
-#### Scenario: A chain carries the exact result
+#### Scenario: [CALC-034] A chain carries the exact result
 
 - **WHEN** a person presses `1`, `÷`, `3`, `×`
 - **THEN** the display shows `0.3333333333`
 - **AND** when the person then presses `3`, `=`, the display shows `1`
 
-#### Scenario: A subtraction that cancels shows no floating-point error
+#### Scenario: [CALC-035] A subtraction that cancels shows no floating-point error
 
 - **WHEN** a person presses `1`, `.`, `0`, `0`, `0`, `0`, `0`, `1`, `−`, `1`, `=`
 - **THEN** the display shows `0.000001`
 
-#### Scenario: An addition that cancels shows no floating-point error
+#### Scenario: [CALC-036] An addition that cancels shows no floating-point error
 
 - **WHEN** a person presses `0`, `−`, `1`, `=`, `+`, `1`, `.`, `0`, `0`, `0`, `0`, `0`, `1`, `=`
 - **THEN** the display shows `0.000001`
 
-#### Scenario: Small numbers add in exponent form
+#### Scenario: [CALC-037] Small numbers add in exponent form
 
 - **WHEN** a person presses `.`, then `0` six times, then `1`, `+`, `.`, then `0` six times, then `1`, `=`
 - **THEN** the display shows `2e-7`
 
-#### Scenario: Numbers past a hundred decimal places add exactly
+#### Scenario: [CALC-038] Numbers past a hundred decimal places add exactly
 
 - **WHEN** a person presses `.`, then `0` one hundred and forty-nine times, then `1`, `+`, `.`, then `0` one hundred and forty-nine times, then `1`, `=`
 - **THEN** the display shows `2e-150`
 
-#### Scenario: A tie at the tenth significant digit rounds away from zero
+#### Scenario: [CALC-039] A tie at the tenth significant digit rounds away from zero
 
 - **WHEN** a person presses `3`, `.`, then `0` eight times, then `3`, `×`, `0`, `.`, `5`, `=`
 - **THEN** the display shows `1.500000002`
 
-#### Scenario: A result is rounded once, from its exact value
+#### Scenario: [CALC-040] A result is rounded once, from its exact value
 
 - **WHEN** a person presses `1`, `+`, `.`, then `0` nine times, then `4`, then `9` nine times, then `=`
 - **THEN** the display shows `1`
 
-#### Scenario: A whole-number result keeps its zeros
+#### Scenario: [CALC-041] A whole-number result keeps its zeros
 
 - **WHEN** a person presses `1`, `0`, `0`, `0`, `0`, `0`, `×`, `1`, `0`, `0`, `0`, `0`, `=`
 - **THEN** the display shows `1000000000`
 
-#### Scenario: A repeating result is cut to ten significant digits
+#### Scenario: [CALC-042] A repeating result is cut to ten significant digits
 
 - **WHEN** a person presses `2`, `÷`, `3`, `=`
 - **THEN** the display shows `0.6666666667`
 
-#### Scenario: A large result is shown in exponent notation
+#### Scenario: [CALC-043] A large result is shown in exponent notation
 
 - **WHEN** a person presses `1`, `0`, `0`, `0`, `0`, `0`, `×`, `1`, `0`, `0`, `0`, `0`, `0`, `=`
 - **THEN** the display shows `1e+10`
 
-#### Scenario: A small result is shown in exponent notation
+#### Scenario: [CALC-044] A small result is shown in exponent notation
 
 - **WHEN** a person presses `1`, `÷`, `1`, `0`, `0`, `0`, `0`, `0`, `0`, `0`, `=`
 - **THEN** the display shows `1e-7`
@@ -305,22 +305,22 @@ the matching buttons, `Enter` and `=` SHALL act as equals, and `Escape` SHALL ac
 modifier the keyboard layout needs to type them. Any other key SHALL change nothing, except that
 `Space` SHALL press a keypad button that has focus, as a browser does for any button.
 
-#### Scenario: A calculation typed on the keyboard
+#### Scenario: [CALC-045] A calculation typed on the keyboard
 
 - **WHEN** a person types `6`, `*`, `7`, `Enter`
 - **THEN** the display shows `42`
 
-#### Scenario: Escape clears
+#### Scenario: [CALC-046] Escape clears
 
 - **WHEN** a person types `9`, `Escape`
 - **THEN** the display shows `0`
 
-#### Scenario: Other keys are ignored
+#### Scenario: [CALC-047] Other keys are ignored
 
 - **WHEN** a person types `4`, `a`
 - **THEN** the display shows `4`
 
-#### Scenario: Space presses the focused button
+#### Scenario: [CALC-048] Space presses the focused button
 
 - **WHEN** a person clicks `7`, then presses `Space` while that button still has focus
 - **THEN** the display shows `77`
