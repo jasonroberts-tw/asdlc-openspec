@@ -7,10 +7,9 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 # Build a change
 
-The fourth of the six `change-*` stages (`docs/decisions.md` § D-02). It runs in the change's
-worktree until no child of the change's epic is open. The general queue never offers these tasks,
-because their `spec-change` label (`specChangeLabel` in `tools/policy.json`) keeps them out, so
-this stage is the only one that works them.
+The fourth of the six `change-*` stages (`docs/decisions.md` § D-02). The general queue never
+offers these tasks, because their `spec-change` label (`specChangeLabel` in `tools/policy.json`)
+keeps them out, so this stage is the only one that works them.
 Every tracker write below sits inside the bracket `CLAUDE.md` § The task store describes. Every
 question below that recommends an option takes the form
 `CLAUDE.md` § A question shows where its recommendation loses gives.
@@ -18,8 +17,8 @@ question below that recommends an option takes the form
 ## 1. Find the change and its epic
 
 - **The change.** Its name is found as `CLAUDE.md` § Product work runs as OpenSpec-format changes
-  says. The branch is `agent/<change>`. From the primary checkout, enter the worktree with
-  `EnterWorktree` and the path `.claude/worktrees/<change>`.
+  says. From the primary checkout, enter the worktree with `EnterWorktree` and the path
+  `.claude/worktrees/<change>`.
 - **The epic.** It is the one issue that
   `bd list --label spec-change --type epic --metadata-field change=<change> --json` returns. If none
   or several come back, stop and say what was found.
@@ -49,8 +48,6 @@ one commit. Its header says what each argument means and what it returns. Pass:
 - `task`, the task's id, title and body as `bd show <id>` prints them; `change`; `worktree`, as
   `git rev-parse --show-toplevel` prints it there; and `branch`.
 - `kind`, the `assetLabels` key in `tools/policy.json` for what the task mainly changes.
-  `buildReviewLenses` there maps it to the review's lenses, and the workflow reads the rest of the
-  review's sizes from that file itself.
 - `lenses`, only where the task needs its own probes, mutations or cases for a lens its kind runs;
   `guide`, only where the builder needs a reading order; `settled`, for what the user or an earlier
   run has already decided, read from the task's notes and the design, not from an earlier
@@ -74,7 +71,7 @@ Then, whatever the workflow reported:
 
 - Run the proof the task names yourself, and see it pass as measured. A proof you did not run is not
   a proof.
-- Regenerate every derived artifact the change touches with its emitter, never by hand.
+- Regenerate every derived artifact the change touches.
 - Put any doubt about a scenario's expected value to the user, and have the answer, before the
   commit below (§ 5). `build.decisions` and `lastFix.decisions` can raise one.
 - Commit, with the message passed from a file under `.scratch/`, naming the task's id.
