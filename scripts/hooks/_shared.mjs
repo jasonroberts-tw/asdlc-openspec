@@ -149,6 +149,12 @@ const REDIRECTS = [
     command: 'npm run trace',
   },
   {
+    owns: (rel) => rel === 'artifacts/trace/README.md',
+    what: "README of the trace record's directory (tools/trace/trace.ts)",
+    where: '`README_TEXT` in tools/trace/trace.ts',
+    command: 'npm run trace',
+  },
+  {
     owns: (rel) => rel === 'artifacts/trace/baseline.json',
     what: 'ratchet baseline (tools/trace/trace.ts), which may fall and never rise',
     where: 'the test that meets an obligation it lists; nothing adds one',

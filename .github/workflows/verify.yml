@@ -113,7 +113,8 @@ jobs:
       - name: the traceability record is current, and every scenario, test, contract and task holds to it
         run: npm run trace:check
       # About ten seconds (lefthook.yml's `trace-selftest` job has the measurement): fixture
-      # repositories under the temporary directory, four trial archives by the pinned CLI.
+      # repositories under the temporary directory, and eight trial archives by the pinned CLI, two
+      # in each of four cases.
       - name: the trace gate, negative-tested
         run: npm run trace:selftest
       - name: the OpenSpec gate, negative-tested

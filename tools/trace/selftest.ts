@@ -13,8 +13,8 @@
  * INVOCATION. `npm run trace:selftest`. Nothing to point at a copy: it builds its own.
  *
  * NEEDS git, the live `tools/policy.json`, which each fixture copies so a change to a key the gate
- * reads is felt here, and the pinned OpenSpec CLI (`npm ci`), which four cases run to trial-archive
- * an active change. No network; it writes only under the temporary directory.
+ * reads is felt here, and the pinned OpenSpec CLI (`npm ci`), which trial-archives an active change
+ * eight times, two in each of four cases. No network; it writes only under the temporary directory.
  */
 import { spawnSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -23,7 +23,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { hashRef, readTracePolicy } from '../../scripts/test-trace.mjs'
 import { ROOT } from '../lib/paths.ts'
-import { BASELINE, RECORD, SCRATCH_GIT_ENV, baselineText, check, derive, emit, gitIn, ratify, serialise, update, walk } from './trace.ts'
+import { BASELINE, README, RECORD, SCRATCH_GIT_ENV, baselineText, check, derive, emit, gitIn, ratify, serialise, update, walk } from './trace.ts'
 
 const TRACE = fileURLToPath(new URL('./trace.ts', import.meta.url))
 const SPEC = 'openspec/specs/greeting/spec.md'
@@ -228,6 +228,14 @@ function cases(): Case[] {
       expect: 'pass',
     },
     {
+      name: 'rule 5: a commit naming no task, to a path an earlier task-naming commit already changed',
+      doctor: (dir) => {
+        edit(dir, 'apps/greeter/greet.js', (text) => text.replace('Hello again', 'Hello once more'))
+        commitAll(dir, 'Tidy the greeting')
+      },
+      expect: /^rule 5: the commit [0-9a-f]+ "Tidy the greeting" changes apps\/greeter\/greet\.js and names no task in the parentheses ending its subject/,
+    },
+    {
       name: 'rule 5: origin/main missing, so the branch cannot be measured',
       doctor: (dir) => scratchGit(dir)(['update-ref', '-d', 'refs/remotes/origin/main']),
       expect: /^rule 5: origin\/main is not a ref here, so the branch cannot be measured/,
@@ -249,6 +257,24 @@ function cases(): Case[] {
         reemit(dir)
       },
       expect: /^rule 6: `POST \/greeting` in apps\/greeter\/contracts\/api\.json has no operationId a test can cite/,
+    },
+    {
+      name: 'rule 6: two operations of one contract sharing an operationId',
+      doctor: (dir) => {
+        edit(dir, CONTRACT, (text) => text.replace('"get": {', '"post": { "operationId": "getGreeting", "x-scenarios": ["GRT-001"] },\n      "get": {'))
+        writeTests(dir)
+        reemit(dir)
+      },
+      expect: /^rule 6: two operations of apps\/greeter\/contracts\/api\.json are `getGreeting`, so a test citing it names neither/,
+    },
+    {
+      name: 'rule 6: a contract that is not JSON',
+      doctor: (dir) => {
+        put(dir, CONTRACT, '{ "openapi": "3.1.0", \n')
+        writeTests(dir)
+        reemit(dir)
+      },
+      expect: /^rule 6: apps\/greeter\/contracts\/api\.json is not JSON \(.*\), so its operations cannot be read/,
     },
     {
       name: 'rule 6: a contract test that is skipped does not cover its operation',
@@ -429,6 +455,27 @@ function cases(): Case[] {
       expect: /^baseline: artifacts\/trace\/baseline\.json does not exist; run `npm run trace:update`/,
     },
     {
+      name: 'baseline: a file that is not JSON',
+      doctor: (dir) => put(dir, BASELINE, 'CALC-001:negative\n'),
+      expect: /^baseline: artifacts\/trace\/baseline\.json cannot be read: it is not JSON/,
+    },
+    {
+      name: 'baseline: a file with no unmet list',
+      doctor: (dir) => put(dir, BASELINE, serialise({ _: ['a baseline'], entries: ['GRT-004:negative'] })),
+      expect: /^baseline: artifacts\/trace\/baseline\.json cannot be read: it has no `unmet` list/,
+    },
+    {
+      name: 'baseline: the one at the merge base cannot be read',
+      doctor: (dir) => {
+        const good = readFileSync(join(dir, BASELINE), 'utf8')
+        put(dir, BASELINE, 'not a baseline\n')
+        commitAll(dir, 'A broken baseline on the trunk (asdlc-openspec-abc.2)')
+        scratchGit(dir)(['update-ref', 'refs/remotes/origin/main', 'HEAD'])
+        put(dir, BASELINE, good)
+      },
+      expect: /^baseline: artifacts\/trace\/baseline\.json at the merge base [0-9a-f]{12} cannot be read: it is not JSON/,
+    },
+    {
       name: "baseline: a scenario an active change removes owes nothing, its entry must go and its tests are to retire",
       doctor: (dir) => {
         addChange(dir, 'no-farewell', '## REMOVED Requirements\n\n### Requirement: Farewell is polite\n**Reason**: nobody leaves.\n**Migration**: none.\n')
@@ -451,6 +498,16 @@ function cases(): Case[] {
       name: 'record: none',
       doctor: (dir) => rmSync(join(dir, RECORD)),
       expect: /^record: artifacts\/trace\/record\.json does not exist; run `npm run trace` and commit it/,
+    },
+    {
+      name: 'record: the README edited by hand',
+      doctor: (dir) => edit(dir, README, (text) => text.replace('nothing edits by hand', 'hardly anything edits by hand')),
+      expect: /^record: artifacts\/trace\/README\.md is stale, line \d+: .*it is never edited by hand: `npm run trace` writes it/,
+    },
+    {
+      name: 'record: a file in artifacts/trace/ that neither command writes',
+      doctor: (dir) => put(dir, 'artifacts/trace/record.old.json', '{}\n'),
+      expect: /^record: artifacts\/trace\/record\.old\.json is a file neither `npm run trace` nor `npm run trace:update` writes/,
     },
     {
       name: 'record: a policy whose obligation layers name one testTraceLayers does not',

@@ -340,7 +340,7 @@ pre-push:
     # The traceability record re-derived and diffed, and the rules its header holds: rules 5 to 8,
     # every scenario's happy-path and negative test, IDs that resolve, hashes that are current, and
     # the ratchet baseline against the one at the branch's merge base with origin/main. It reads the
-    # specs, the tests, contracts and Binding Surfaces under apps/, both files under artifacts/trace/,
+    # specs, the tests, contracts and Binding Surfaces under apps/, everything under artifacts/trace/,
     # the policy, the manifest's test patterns, the reader and the helpers it imports, and git
     # history: a commit that changes the record's tasks changes a path under apps/, which the glob
     # holds. The lockfile pins the OpenSpec CLI it trial-archives an active change with. 0.31-0.33 s
@@ -362,7 +362,8 @@ pre-push:
     # The trace gate's refusals, each on a doctored copy of a fixture repository it builds under the
     # temporary directory with the live policy copied in, asserting the reason, beside a control; the
     # baseline's update; the history walk against its ratified fixture; and the command line through
-    # TRACE_ROOT. Four cases trial-archive an active change with the pinned CLI, twice each.
+    # TRACE_ROOT. Eight trial archives of an active change by the pinned CLI, two in each of four
+    # cases.
     # 10.71-10.92 s wall through `node --run` (`/usr/bin/time -p`, two runs, while other worktrees
     # ran) on the host and date above, most of it git and CLI starts; the jobs run in parallel.
     - name: trace-selftest
