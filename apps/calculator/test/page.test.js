@@ -2,12 +2,15 @@
  * The page's scenarios: the keypad, the display, the names assistive technology reads, and keyboard
  * input, driven through the committed `public/index.html` in a DOM that jsdom builds in Node.
  *
- * Each `describe` is a requirement's name and each `test` a scenario's title, its header after its
- * ID, both verbatim from capability `calculator`'s spec, so a scenario traces to its test by exact
- * string. The last `describe` is named so that it cannot be taken for a requirement: its tests are
- * wiring the spec states without a scenario of its own, such as a chain clicked through every
- * button. A scenario's expected values are literals copied from the spec, and the chain's are plain
- * arithmetic worked by hand: none is computed with the code under test.
+ * Each `describe` is a requirement's name, verbatim from capability `calculator`'s spec. Each test is
+ * named `[<ID>] <title>` for the scenario it proves, its title verbatim too, and carries a `// trace:`
+ * line with its role and the version of the scenario it was written against: the convention is the
+ * header of `scripts/test-trace.mjs`. The last `describe` is named so that it cannot be taken for a
+ * requirement: its tests are wiring the spec states without a scenario of its own, such as a chain
+ * clicked through every button, and each names the task it served, asdlc-openspec-zgh.2, and the
+ * version of the app's Binding Surface it was written against. A scenario's expected values are
+ * literals copied from the spec, and the chain's are plain arithmetic worked by hand: none is
+ * computed with the code under test.
  *
  * jsdom does not run `<script type="module">`, so `main.js` never loads here: each test builds a
  * fresh DOM from the page and calls `mount` on its document itself. Nor is jsdom a browser: layout,
@@ -25,6 +28,8 @@ import { readFileSync } from 'node:fs'
 import { describe, test } from 'node:test'
 import { JSDOM, VirtualConsole } from 'jsdom'
 import { mount } from '../public/app.js'
+
+// trace-defaults: layer=functional level=1
 
 /** The committed page, read once. Each test builds a DOM of its own from it. */
 const PAGE = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8')
@@ -115,7 +120,8 @@ function click(page, text) {
 }
 
 describe('Keypad and display', () => {
-  test('The page opens showing zero', () => {
+  // trace: CALC-001:happy@6d7f72cf9648
+  test('[CALC-001] The page opens showing zero', () => {
     const page = openPage()
     assert.equal(page.display.textContent, '0')
     // The scenario lists the buttons, not their order on the keypad, so both sides are sorted.
@@ -124,7 +130,8 @@ describe('Keypad and display', () => {
     assert.deepEqual(shown, expected)
   })
 
-  test('Every button can be named by assistive technology', () => {
+  // trace: CALC-002:happy@2b7e87dc48ac
+  test('[CALC-002] Every button can be named by assistive technology', () => {
     const page = openPage()
     const digits = page.buttons.filter((button) => DIGITS.includes(textOf(button)))
     const others = page.buttons.filter((button) => !DIGITS.includes(textOf(button)))
@@ -141,7 +148,8 @@ describe('Keypad and display', () => {
 })
 
 describe('Keyboard input', () => {
-  test('A calculation typed on the keyboard', () => {
+  // trace: CALC-045:happy@83cdb385941d
+  test('[CALC-045] A calculation typed on the keyboard', () => {
     const page = openPage()
     for (const key of ['6', '*', '7', 'Enter']) {
       assert.equal(type(page, key), true, `${key} taken`)
@@ -149,7 +157,8 @@ describe('Keyboard input', () => {
     assert.equal(page.display.textContent, '42')
   })
 
-  test('Escape clears', () => {
+  // trace: CALC-046:happy@ae28369e86d7
+  test('[CALC-046] Escape clears', () => {
     const page = openPage()
     assert.equal(type(page, '9'), true)
     // Checked first, so the `0` below is Escape's doing and not a display that never changed.
@@ -158,7 +167,8 @@ describe('Keyboard input', () => {
     assert.equal(page.display.textContent, '0')
   })
 
-  test('Other keys are ignored', () => {
+  // trace: CALC-047:happy@902638662612
+  test('[CALC-047] Other keys are ignored', () => {
     const page = openPage()
     assert.equal(type(page, '4'), true)
     // A key the page ignores keeps whatever the browser would do with it.
@@ -175,7 +185,8 @@ describe('Keyboard input', () => {
 })
 
 describe('Page wiring (not a spec scenario)', () => {
-  test('A chain clicked through every button reaches the logic', () => {
+  // trace: asdlc-openspec-zgh.2 surface:apps/calculator/binding-surface.md@e52392e73c00
+  test('[asdlc-openspec-zgh.2] A chain clicked through every button reaches the logic', () => {
     const page = openPage()
     const clickAll = (texts) => texts.forEach((text) => click(page, text))
     // Each step's value is plain arithmetic on the one before, and the chain between them presses
@@ -201,7 +212,8 @@ describe('Page wiring (not a spec scenario)', () => {
     assert.equal(page.display.textContent, '67890')
   })
 
-  test('A calculator key typed with AltGr still counts', () => {
+  // trace: asdlc-openspec-zgh.2 surface:apps/calculator/binding-surface.md@e52392e73c00
+  test('[asdlc-openspec-zgh.2] A calculator key typed with AltGr still counts', () => {
     // The spec's keys work "whatever modifier the keyboard layout needs". Windows reports AltGr as
     // Ctrl+Alt, which the page otherwise reads as a shortcut, so AltGr is told apart by its own
     // modifier state.

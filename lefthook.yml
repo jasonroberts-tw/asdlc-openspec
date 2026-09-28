@@ -281,10 +281,13 @@ pre-push:
         - '.github/workflows/*.yml'
         - '.claude/agents/pr-reviewer.md'
       run: node --run pr-review:selftest
-    # The calculator's scenarios, each a test named for its scenario under a suite named for its
+    # The calculator's scenarios, each a test named for the IDs it proves under a suite named for its
     # requirement, run by Node's own test runner over `apps/calculator/test/` through
-    # `scripts/run-tests.mjs`, which also refuses a matched file that declares no test. The runner
-    # is in the glob because it decides the verdict. The manifest is in
+    # `scripts/run-tests.mjs`, which also refuses a matched file that declares no test, a test whose
+    # `// trace:` metadata `scripts/test-trace.mjs` refuses, and a test that reader and the runner
+    # do not both see. The runner, the reader, the helper it imports and the policy it reads its
+    # hash length, layers and task shape from are in the glob because they decide the verdict. The
+    # manifest is in
     # the glob for three reasons: it holds the runner's file pattern, its `"type": "module"` is
     # what makes these `.js` files ES modules, and a test asserts the command `calculator:serve`
     # runs. The lockfile is in it because it pins any package a test imports, jsdom among them. The
@@ -293,23 +296,47 @@ pre-push:
     # address on another interface, which a host that drops it unanswered waits 0.5 s on.
     # 1.63 s wall through `node --run`, both of two runs (`/usr/bin/time -p`), on a macOS 26.7
     # laptop (Apple M3 Max) with Node 26.8.1, 2026-09-25. The same host measured 1.59-1.61 s on
-    # 2026-09-24, before the runner, when the script called `node --test` directly. That host drops
-    # the connection, so 0.5 s of it is that wait.
+    # 2026-09-24, before the runner, when the script called `node --test` directly, and 1.92-2.36 s
+    # on 2026-09-28, once the runner read each file through the reader, which itself took 3.4 ms of
+    # it. That host drops the connection, so 0.5 s of it is that wait.
     - name: calculator-test
       glob:
         - 'apps/calculator/**'
         - 'scripts/run-tests.mjs'
+        - 'scripts/test-trace.mjs'
+        - 'scripts/lib/bin-path.mjs'
+        - 'tools/policy.json'
         - 'package.json'
         - 'package-lock.json'
       run: node --run calculator:test
     # The test runner's refusals (a matched file that declares no test, a pattern that matches no
-    # file) and its failures, against fixture trees it builds under the temporary directory, with
-    # one undoctored control. Reads nothing but the runner itself. 0.38-0.41 s wall through
-    # `node --run` (`/usr/bin/time -p`, two runs), on the host and date of the 1.63 s above.
+    # file, a test the reader refuses or does not see, one the runner never registers, and a policy
+    # without the reader's keys) and its failures, against fixture trees it builds under the
+    # temporary directory, with one undoctored control. Reads the runner, the reader it imports and
+    # the live policy, which it copies into each tree. 0.38-0.41 s wall through `node --run`
+    # (`/usr/bin/time -p`, two runs), on the host and date of the 1.63 s above, and 0.95-0.96 s on
+    # 2026-09-28 with the reader's six cases added.
     - name: tests-selftest
       glob:
         - 'scripts/run-tests.mjs'
+        - 'scripts/test-trace.mjs'
+        - 'scripts/lib/bin-path.mjs'
+        - 'tools/policy.json'
       run: node --run tests:selftest
+    # The test-trace reader's refusals, each on a doctored copy of a test file's source, and its
+    # hash over a fixture spec tree: the definition's text, what moves a hash and what does not, the
+    # delta that wins, the refused references, the root override, and one archive by the pinned
+    # OpenSpec CLI that must move no hash. Reads the reader, the live policy and the CLI, whose
+    # version the manifest and lockfile pin. 0.48-0.57 s wall through `node --run`
+    # (`/usr/bin/time -p`, two runs) on the host above, 2026-09-28.
+    - name: tests-trace-selftest
+      glob:
+        - 'scripts/test-trace.mjs'
+        - 'scripts/lib/bin-path.mjs'
+        - 'tools/policy.json'
+        - 'package.json'
+        - 'package-lock.json'
+      run: node --run tests:trace:selftest
     # Every value in the count index re-derived from the source the index names for it. No glob: a
     # key's source may be any tracked file, so any push can change its verdict. Milliseconds.
     - name: count-index

@@ -1,12 +1,15 @@
 # `apps/calculator/test/`
 
-**The calculator's tests: each `describe` is a requirement's name and each `test` a scenario's
-title, the text of its header after its ID, verbatim from the spec, so a scenario traces to the test
-that proves it by exact string, except the last suite in `page.test.js`, `serve.test.js` and
-`server.test.js`, whose name says it is not a spec scenario.**
+**The calculator's tests: each `describe` is a requirement's name, and each test names the IDs it
+proves and carries its metadata in the convention whose one home is the header of
+`scripts/test-trace.mjs`.** A scenario's test is named for its scenario's ID and title, verbatim
+from the spec. A test in the last suite of `page.test.js`, `serve.test.js` and `server.test.js`,
+whose name says it is not a spec scenario, names the task it served and the app's Binding Surface,
+`apps/calculator/binding-surface.md`. Each file's `// trace-defaults:` line gives its tests' layer and level.
 `npm run calculator:test` runs every file here whose name ends in `.test.js`, with Node's own test
 runner and no framework, through `scripts/run-tests.mjs`; a file named otherwise is not run, and a
-file so named that declares no test fails the run.
+file so named that declares no test, a test whose metadata the convention refuses, or a test that
+the reader and the runner do not both see fails the run.
 
 Where a row here and a test file disagree, the file wins and the row is corrected; where a test and
 the spec disagree, the spec wins and the test is corrected.
