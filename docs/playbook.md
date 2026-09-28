@@ -10,7 +10,9 @@ that `openspec:check` finds on two headers of different titles. Amended 2026-09-
 `asdlc-openspec-as9`: the Verify step that traces every scenario names
 `.claude/workflows/verify-change-trace.js` and `scripts/render-trace.mjs`. Amended 2026-09-28 by
 `asdlc-openspec-j09.8`: the Plan stage's first step names each task's kind and IDs and traceability
-rules 1 to 3, where it had a scenario marked manual.
+rules 1 to 3, where it had a scenario marked manual. Amended 2026-09-28 by `asdlc-openspec-j09.12`:
+the Finalize step that settles the living spec runs `npm run trace` before the gates, and sends a
+test `trace:check` refuses back to `change-build`.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -277,8 +279,9 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
 2. Archive with the pinned CLI, merging the deltas into `openspec/specs/`. Decided by:
    `.claude/skills/change-finalize/SKILL.md` § 3. Archive.
 3. Write each new capability's Purpose, read each living spec the archive touched, repoint every
-   path the archive moved, run `npm run gates`, and commit. Decided by:
-   `.claude/skills/change-finalize/SKILL.md` § 4. Settle the living spec.
+   path the archive moved, run `npm run trace` and `npm run gates`, and commit. A test `trace:check`
+   refuses, on an ID the change removed or modified, undoes the archive and sends the change back to
+   `change-build`. Decided by: `.claude/skills/change-finalize/SKILL.md` § 4. Settle the living spec.
 4. Open the pull request (§ 4.4), titled `<change>: <what changed> (<epic id>)`, then leave the
    worktree with `ExitWorktree`, keeping it. Decided by: `.claude/skills/change-finalize/SKILL.md`
    § 5. Open the pull request, and § 6. Leave the worktree.
