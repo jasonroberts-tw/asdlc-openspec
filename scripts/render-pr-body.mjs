@@ -3,8 +3,10 @@
  * the scenarios, by capability and by how each is proved, and the trace condensed to one row per
  * scenario, rendered from the result `.claude/workflows/verify-change-trace.js` returned. It puts
  * the rest of the body, written by the session, before and after the section. It refuses to write
- * when the rows are not one to each scenario of the change's delta specs, or when the trace has a gap
- * no majority of its skeptics refuted, since the section says every scenario is proved.
+ * when the rows are not one to each scenario of the change's delta specs, when the trace has a gap
+ * no majority of its skeptics refuted, when a row's proof is missing, does not exercise its scenario
+ * or did not pass, or when a design lens was not read or kept: the section says every scenario is
+ * proved, and no verdict may make it contradict its own table.
  *
  * THE FAILURE IT EXISTS TO PREVENT. On 2026-09-24 the add-calculator-web-app finalize built its body
  * with `.scratch/render-pr-body.mjs`, which refused to write when its rows per capability disagreed

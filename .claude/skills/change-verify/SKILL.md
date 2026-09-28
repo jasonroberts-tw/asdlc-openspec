@@ -8,9 +8,10 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 # Verify a change
 
 The fifth of the six `change-*` stages (`docs/decisions.md` § D-02). It runs in the change's worktree
-and changes no tracked file: it writes only the trace under `.scratch/`, any issue the user has it
-file in step 4, and the epic's label and note for a send-back (steps 4 and 6). When it finds a gap, the gap is fixed in the stage that owns it (step 6), and verification then
-runs again from step 2.
+and changes no tracked file: it writes only the trace and its JSON under `.scratch/`, any issue the
+user has it file in step 4, and the epic's label and note for a send-back (steps 4 and 6). When it
+finds a gap, the gap is fixed in the stage that owns it (step 6), and verification then runs again
+from step 2.
 
 ## 1. Find the change and its epic
 

@@ -135,8 +135,13 @@ function perCapability(rows) {
   return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts.join('')
 }
 
-const voteLine = (g) => `${g.upheld} upheld, ${g.refuted} refuted and ${g.skeptics - g.upheld - g.refuted} unverified of ${g.skeptics}`
-const gapCell = (r) => (r.gap ? `${r.gap.kind}, ${r.gap.outcome ?? 'not judged'}` : '')
+const voteLine = (g) =>
+  g.outcome === 'measured'
+    ? 'measured when the proof ran, so no skeptic judges it'
+    : `${g.upheld} upheld, ${g.refuted} refuted and ${g.skeptics - g.upheld - g.refuted} unverified of ${g.skeptics}`
+const gapCell = (r) =>
+  (r.gap ? `${r.gap.kind}, ${r.gap.outcome ?? 'not judged'}` : '') +
+  (r.traced ? `${r.gap ? '; ' : ''}the skeptics' reading, where the tracer read ${r.traced.proofKind}: ${r.traced.proof}, exercises ${r.traced.exercises ? 'yes' : 'no'}` : '')
 
 /** The trace `.claude/skills/change-verify/SKILL.md` § 4 asks for, its first line naming the commit. */
 export function renderTrace(result, scenarios, dir) {
@@ -181,7 +186,11 @@ export function renderTrace(result, scenarios, dir) {
   return lines.join('\n')
 }
 
-/** Why a trace cannot go into a pull request's body, one message per reason. */
+/**
+ * Why a trace cannot go into a pull request's body, one message per reason. Besides the verdict and
+ * the gaps, each row is held to what the section claims of it, a proof that exercises its scenario
+ * and passed, so no vote and no outcome can make the section contradict its own table.
+ */
 export function prBodyProblems(result) {
   const problems = []
   if (result.stopped !== 'no-gap') problems.push(`the trace stopped \`${result.stopped}\`, not \`no-gap\`: ${result.why}`)
@@ -189,6 +198,16 @@ export function prBodyProblems(result) {
   if (open.length) problems.push(`${open.length} row(s) have a gap no majority refuted: ${open.map((r) => r.scenario).join(', ')}`)
   const design = result.gaps.filter((g) => g.kind === 'design' && g.outcome !== 'refuted')
   if (design.length) problems.push(`${design.length} design gap(s) no majority refuted: ${design.map((g) => g.title).join(', ')}`)
+  for (const r of result.rows) {
+    const where = `${r.capability} / ${r.scenario}`
+    const wanted = r.proofKind === 'manual' ? 'recorded' : 'pass'
+    if (!PROVED_BY[r.proofKind]) problems.push(`${where} has no proof`)
+    else if (r.exercises !== true) problems.push(`${where}: its proof does not exercise it`)
+    if (r.result !== wanted) problems.push(`${where}: its result is ${r.result}, not ${wanted}`)
+  }
+  for (const l of result.design.lenses) {
+    if (l.status !== 'read' && l.status !== 'kept') problems.push(`the design lens ${l.key} is ${l.status}, not read or kept`)
+  }
   return problems
 }
 
@@ -207,6 +226,8 @@ export function renderPrSection(result, scenarios) {
     `${by('test')} are proved by a test, gate or check, ${by('test+manual')} by one and by hand, and ${by('manual')} by hand only${hand && issues.length ? `, as ${issues.join(' and ')} record${issues.length === 1 ? 's' : ''}` : ''}.`,
   ]
   if (refuted) sentences.push(`The skeptics refuted ${refuted} gap(s) a tracer or a design lens reported; the trace lists each with its votes.`)
+  const corrected = rows.filter((r) => r.traced).length
+  if (corrected) sentences.push(`${corrected} row(s) carry the reading the skeptics established in place of the tracer's.`)
   if (kept) sentences.push(`${kept} row(s) kept their reading from the trace at \`${short(result.previous)}\`, and their proofs were run again.`)
   return [
     '## Scenario trace',

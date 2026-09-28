@@ -52,15 +52,18 @@ export const meta = {
  *                files      optional [path]: the proof files to start from
  *                focus      optional: what this group's tracer should also know
  *                kept       optional, on a run again only: [{ requirement, scenario, proofKind, proof,
- *                           exercises }], each a row of the earlier result that keeps its reading,
- *                           as the rule "Running again" in that section decides
+ *                           exercises, readAt }], each a row of the earlier result that keeps its
+ *                           reading, as the rule "Running again" in that section decides; `readAt`
+ *                           is the commit the reading was taken at, and without it, previous.commit
  *   design     true when openspec/changes/<change>/design.md exists
  *   lenses     [{ key, label, focus }], one agent each: its label, and the design decisions it reads.
  *              None without a design; `verifyTraceDesignLenses` on a first run with one; on a run
  *              again, one for each part of the design the diff changes
  *   previous   on a run again: { commit, design }, the commit the earlier trace's first line names,
- *              and the design readings it keeps, [{ key, label, checked }] as the earlier result's
- *              `design.lenses` gives them; with `lenses`, one per part of the design
+ *              and the design readings it keeps, [{ key, label, status, checked, readAt }] as the
+ *              earlier result's `design.lenses` gives them: each `read` or `kept` there, with a
+ *              decision checked, once, under a key no group or lens here has; with `lenses`, one per
+ *              part of the design
  *   manual     optional [{ issue, covers }]: each manual proof the plan recorded, and what it proves
  *   policy     the `verifyTrace*` keys of `tools/policy.json`, as this prints them in the worktree:
  *                node -p "JSON.stringify(Object.fromEntries(Object.entries(require('./tools/policy.json')).filter(([k]) => k.startsWith('verifyTrace') && !k.endsWith('Means'))))"
@@ -69,44 +72,55 @@ export const meta = {
  * WHAT IT JUDGES IN CODE.
  *
  *   The input, before any agent runs: every scenario in exactly one group, their sum `args.scenarios`,
- *   no group over `verifyTraceMaxScenarios`, the lens count above, and a kept row only on a run again,
- *   for a scenario of its own group.
+ *   no group over `verifyTraceMaxScenarios`, the lens count above, a kept row only on a run again,
+ *   for a scenario of its own group, and a kept design reading only as `previous` says.
  *
  *   A group. Its tracer returns `head`, the commit it read, and one row per scenario, matched by
  *   requirement and scenario verbatim. A group whose tracer returned nothing is `died`; read at
- *   another commit, `stale`; with a row for a scenario not its own, two rows for one, or none for
- *   one, `mismatched`. Only a `traced` group's rows count and its gaps go to skeptics; the others
- *   come back with what the tracer returned, for the session to run again. A kept row's reading,
- *   its proofKind, proof and exercises, is the one `args` gives; its result is the one run now.
+ *   another commit, or at a head that is not a commit of 7 to 40 hex digits, `stale`; with a row for
+ *   a scenario not its own, two rows for one, or none for one, `mismatched`. Only a `traced` group's
+ *   rows count and its gaps go on; the others come back with what the tracer returned, for the
+ *   session to run again. A kept row's reading, its proofKind, proof and exercises, is the one `args`
+ *   gives, and so is its `readAt`; its result is the one run now.
  *
  *   A row's gap, from its reading, in this order: no proof, or a manual proof that names no issue of
  *   `args.manual`, is `no-proof`; a proof that does not exercise the scenario, `not-exercised`; one
- *   that failed, `fails`; a test, gate or check that did not pass, or a manual proof not `recorded`,
- *   `not-run`. A design lens reports its gaps itself, each `design`, and is `died`, `stale` or `read`.
+ *   that failed, `fails`; a test, gate or check whose result is not `pass`, or a manual proof whose
+ *   result is not `recorded`, `not-run`. The last two are measured: no skeptic judges them, and they
+ *   stay gaps, since a test that fails and then passes counts as failing (`docs/decisions.md` § D-13,
+ *   item 12). A design lens reports its gaps itself, each `design`, and is `died`, `stale` or `read`.
  *
- *   The tally. Each gap goes to `verifyTraceSkeptics` skeptics, who answer upheld, refuted or
- *   unverified. With n sent, floor(n/2)+1 upheld upholds it and as many refuted refutes it; anything
- *   else, a skeptic that returns nothing included, leaves it unverified, never refuted. A finding
- *   below a gap goes to no skeptic: the session asks the user where it goes.
+ *   The tally. Each gap that is not measured goes to `verifyTraceSkeptics` skeptics, who answer
+ *   upheld, refuted or unverified. With n sent, floor(n/2)+1 upheld upholds it and as many refuted
+ *   refutes it; anything else, a skeptic that returns nothing included, leaves it unverified, never
+ *   refuted. A row's gap is refuted only with the reading a refuting skeptic established, a proof
+ *   that exercises the scenario, which the row then carries in place of the tracer's, kept as
+ *   `traced`; without one it is unverified. The corrected row's gap is taken again from its reading,
+ *   so a proof that failed stays a measured gap. A finding below a gap goes to no skeptic: the
+ *   session asks the user where it goes.
  *
  * WHAT IT RETURNS. { change, commit, branch, previous, stopped, why, rows, gaps, below, design,
  * manual, groups, counts }, the contract `scripts/lib/trace.mjs` reads. Each row carries its group,
  * capability, requirement, scenario, reading, result, notes, `readAt`, `kept` and `gap`, its kind
- * and outcome or null; `rows` is in the order of `args.groups`. `stopped` is one of:
+ * and outcome (`upheld`, `refuted`, `unverified` or `measured`) or null, and `traced`, the tracer's
+ * own reading, where skeptics corrected it; `rows` is in the order of `args.groups`. `stopped` is one
+ * of:
  *
  *   refused     an argument or the policy did not hold; `why` names it, and no agent ran
  *   agent-died  every tracer returned nothing, so no scenario was traced
  *   incomplete  a group or a lens is not `traced` or `read`; the session runs the workflow again
- *   gaps        every scenario traced and every lens read, and a gap was upheld or left unverified
+ *   gaps        every scenario traced and every lens read, and a gap was upheld, left unverified or
+ *               measured
  *   no-gap      every scenario traced and every lens read, and each gap reported was refuted
  *
- * EXTENDING IT. asdlc-openspec-j09.14 adds the verification report on top of this script and its
- * renderers, the home `docs/decisions.md` § D-13 gives Verify's rules in its item 17. Two of that
- * entry's items change what this script does once their own pull requests land, and not before:
- * item 7 retires the manual proof, which `args.manual` and the `manual` proof kind carry until
- * asdlc-openspec-9j8 lands, and item 12 has the session re-run a test that failed. A field added to
- * the result is read by `scripts/lib/trace.mjs`, and the selftest runs the renderers on this script's
- * result, so a change on either side shows there.
+ * EXTENDING IT. `docs/decisions.md` § D-13 makes `.claude/skills/change-verify/SKILL.md` the home of
+ * Verify's rules, in its item 17, and asdlc-openspec-j09.14 is the issue that lands them, adding the
+ * verification report on top of this script and its renderers. Two more of that entry's items change
+ * what this script does once their own pull requests land, and not before: item 7 retires the manual
+ * proof, which `args.manual` and the `manual` proof kind carry until asdlc-openspec-9j8 lands, and
+ * item 12 has the session run a failing test once more, which this script leaves to the session. A
+ * field added to the result is read by `scripts/lib/trace.mjs`, and the selftest runs the renderers
+ * on this script's result, so a change on either side shows there.
  *
  * LABELS. Each tracer is labelled `trace <key>`, each design lens `design <key>`, and each skeptic
  * `skeptic <i>/<n> <key>: <title>`. scripts/workflows.selftest.mjs routes its stubbed agents by them:
@@ -122,6 +136,10 @@ const A = args || {}
 const PROOF_KINDS = ['test', 'manual', 'test+manual', 'none']
 const RESULTS = ['pass', 'fail', 'not-run', 'recorded']
 const OUTCOMES = ['upheld', 'refuted', 'unverified']
+/** The gaps a proof's run measured, which no skeptic's vote clears. */
+const MEASURED = ['fails', 'not-run']
+/** The design readings a run again may keep: read, or kept by the run before it. */
+const KEEPABLE = ['read', 'kept']
 const POLICY_KEYS = ['verifyTraceMaxScenarios', 'verifyTraceDesignLenses', 'verifyTraceSkeptics']
 const HOME = '`.claude/skills/change-verify/SKILL.md` § 4. Every scenario is traced'
 const NAME = /^[a-z0-9][a-z0-9-]*$/
@@ -191,9 +209,16 @@ const LENS_SCHEMA = {
   required: ['head', 'checked', 'gaps', 'below'],
 }
 
+// The reading is optional: a skeptic that refutes a row's gap returns the one it established.
 const VERDICT_SCHEMA = {
   type: 'object',
-  properties: { verdict: { type: 'string', enum: OUTCOMES }, reason: { type: 'string' } },
+  properties: {
+    verdict: { type: 'string', enum: OUTCOMES },
+    reason: { type: 'string' },
+    proofKind: { type: 'string', enum: PROOF_KINDS },
+    proof: { type: 'string' },
+    exercises: { type: 'boolean' },
+  },
   required: ['verdict', 'reason'],
 }
 
@@ -203,10 +228,13 @@ const isText = (v) => typeof v === 'string' && v.trim() !== ''
 const isWhole = (v) => Number.isInteger(v) && v >= 1
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
 const scenarioKey = (capability, requirement, scenario) => `${capability.trim()}\u0000${requirement.trim()}\u0000${scenario.trim()}`
+const isCommit = (v) => typeof v === 'string' && COMMIT.test(v.trim())
+/** Whether two commits, each 7 to 40 hex digits, name the same one: the shorter is the longer's prefix. */
 const sameCommit = (a, b) => {
-  const x = String(a).trim().toLowerCase()
-  const y = String(b).trim().toLowerCase()
-  return x !== '' && y !== '' && (x.startsWith(y) || y.startsWith(x))
+  if (!isCommit(a) || !isCommit(b)) return false
+  const x = a.trim()
+  const y = b.trim()
+  return x.startsWith(y) || y.startsWith(x)
 }
 
 /** Why the policy the session passed cannot drive a run, or null when it can. */
@@ -234,6 +262,31 @@ function keptProblem(g, own) {
     if (!PROOF_KINDS.includes(r.proofKind) || typeof r.proof !== 'string' || typeof r.exercises !== 'boolean') {
       return `${where} must carry the reading it keeps: proofKind, proof and exercises, as the earlier result gives them`
     }
+    if (r.readAt !== undefined && !isCommit(r.readAt)) return `${where}: readAt must be the commit its reading was taken at, as the earlier result gives it`
+  }
+  return null
+}
+
+/** Why the design readings a run again keeps cannot be kept, or null. `names` holds every group's and lens's key. */
+function keptLensProblem(kept, lensKeys, names) {
+  const seen = new Set()
+  for (const [i, d] of kept.entries()) {
+    const where = `args.previous.design[${i}]`
+    if (!isPlainObject(d) || !isText(d.key) || !isText(d.label) || !Array.isArray(d.checked)) {
+      return `${where} must be { key, label, status, checked, readAt }, a reading as the earlier result's design.lenses gives it`
+    }
+    const key = d.key.trim()
+    if (!KEEPABLE.includes(d.status)) {
+      return `${where}: the lens ${key} came back ${JSON.stringify(d.status)} from the earlier run, not ${KEEPABLE.join(' or ')}, so it has no reading to keep; run it again`
+    }
+    if (!d.checked.length || !d.checked.every((c) => isPlainObject(c) && isText(c.decision) && typeof c.verified === 'string')) {
+      return `${where}: the lens ${key} keeps no decision it checked, so it has no reading to keep; run it again`
+    }
+    if (d.readAt !== undefined && !isCommit(d.readAt)) return `${where}: readAt must be the commit the lens read, as the earlier result gives it`
+    if (seen.has(key)) return `args.previous.design keeps the lens ${key} twice`
+    seen.add(key)
+    if (lensKeys.has(key)) return `the lens ${key} both runs again and keeps its earlier reading`
+    if (names.has(key)) return `${where}: the kept lens ${key} has the key of a group; a kept lens keeps its own key`
   }
   return null
 }
@@ -271,6 +324,7 @@ function groupProblem(g, i, names, placed) {
 function lensProblem(names) {
   const lenses = A.lenses === undefined ? [] : A.lenses
   if (!Array.isArray(lenses)) return 'args.lenses must be a list of { key, label, focus }'
+  const groupKeys = new Set(names)
   for (const [i, l] of lenses.entries()) {
     if (!isPlainObject(l) || !isText(l.key) || !NAME.test(l.key)) return `args.lenses[${i}].key must be lower case letters, digits and dashes`
     if (names.has(l.key)) return `the key ${l.key} names two groups or lenses`
@@ -278,9 +332,8 @@ function lensProblem(names) {
     if (!isText(l.label) || !isText(l.focus)) return `lens ${l.key}: label and focus must be non-empty: its name, and the decisions it reads`
   }
   const kept = (A.previous && A.previous.design) || []
-  const run = new Set(lenses.map((l) => l.key))
-  const again = kept.find((d) => run.has(d.key))
-  if (again) return `the lens ${again.key} both runs again and keeps its earlier reading`
+  const badKept = keptLensProblem(kept, new Set(lenses.map((l) => l.key)), groupKeys)
+  if (badKept) return badKept
   const n = A.policy.verifyTraceDesignLenses
   if (!A.design) return lenses.length || kept.length ? 'args.design says the change has no design.md, so it takes no lens and keeps no lens reading' : null
   if (!A.previous) return lenses.length === n ? null : `a first run of a change with a design takes ${n} lens(es), as \`verifyTraceDesignLenses\` gives, not ${lenses.length}`
@@ -303,10 +356,8 @@ function argsProblem() {
     if (!isPlainObject(p) || !isText(p.commit) || !COMMIT.test(p.commit.trim())) {
       return 'args.previous must be { commit, design }, with the commit the earlier trace names on its first line'
     }
-    const reading = (d) =>
-      isPlainObject(d) && isText(d.key) && isText(d.label) && Array.isArray(d.checked) && d.checked.every((c) => isPlainObject(c) && typeof c.decision === 'string' && typeof c.verified === 'string')
-    if (p.design !== undefined && (!Array.isArray(p.design) || !p.design.every(reading))) {
-      return 'args.previous.design must list each design reading kept, { key, label, checked }, as the earlier result gives it'
+    if (p.design !== undefined && !Array.isArray(p.design)) {
+      return 'args.previous.design must list each design reading kept, as the earlier result gives it'
     }
   }
   if (!Array.isArray(A.groups) || !A.groups.length) return 'args.groups must be a non-empty list of { key, capability, scenarios }'
@@ -403,7 +454,7 @@ function skepticPrompt(g, i, n) {
     `You are skeptic ${i} of ${n} on one gap. Judge it against the delta specs, the design and the manual proofs below, and nothing else. Read the files it names and, where it helps, run the proof it names.`,
     '',
     '- upheld: you checked it, and it holds, as the kind it claims.',
-    '- refuted: you checked it, and it is wrong: the proof does exercise the scenario and pass, the code does follow the decision, or it is not a gap as that section defines one.',
+    '- refuted: you checked it, and it is wrong: a proof does exercise the scenario, the code does follow the decision, or it is not a gap as that section defines one. Refuting a scenario\'s gap, also return the reading you established, proofKind, proof and exercises, as a tracer gives them: without a proof that exercises the scenario, a refutation clears nothing.',
     '- unverified: you could not establish either. Say what stopped you. Never answer refuted because you could not verify it.',
     '',
     manualBlock() + settledBlock(),
@@ -432,9 +483,25 @@ function gapOf(row) {
   }
   if (!row.exercises) return { kind: 'not-exercised', why: WHY['not-exercised'] }
   if (row.result === 'fail') return { kind: 'fails', why: WHY.fails }
-  const passed = row.result === 'pass' || (row.proofKind === 'manual' && row.result === 'recorded')
+  const passed = row.proofKind === 'manual' ? row.result === 'recorded' : row.result === 'pass'
   return passed ? null : { kind: 'not-run', why: WHY['not-run'] }
 }
+
+/** The gap entry of `row`'s gap `gap`, as the skeptics and the trace read it. */
+const gapEntry = (row, gap) => ({
+  kind: gap.kind,
+  source: row.group,
+  capability: row.capability,
+  requirement: row.requirement,
+  scenario: row.scenario,
+  decision: '',
+  where: row.proof.trim() || '(no proof)',
+  title: `${row.scenario}: ${gap.why}`,
+  evidence: row.notes,
+})
+
+/** A measured gap's entry: no skeptic judges it. */
+const measuredEntry = (entry) => ({ ...entry, outcome: 'measured', skeptics: 0, upheld: 0, refuted: 0, votes: [] })
 
 /** What group `g`'s tracer returned, judged: its status, and, when traced, its rows and gaps. */
 function judgeTrace(g, out) {
@@ -471,13 +538,13 @@ function judgeTrace(g, out) {
       ...reading,
       result: r.result,
       notes: r.notes,
-      readAt: k ? A.previous.commit.trim() : A.commit.trim(),
+      readAt: k ? (k.readAt || A.previous.commit).trim() : A.commit.trim(),
       kept: Boolean(k),
       gap: null,
     }
     const gap = gapOf(row)
     if (gap) {
-      gaps.push({ kind: gap.kind, source: g.key, capability: row.capability, requirement: row.requirement, scenario: row.scenario, decision: '', where: row.proof.trim() || '(no proof)', title: `${row.scenario}: ${gap.why}`, evidence: row.notes })
+      gaps.push(gapEntry(row, gap))
       row.gap = { kind: gap.kind, outcome: null }
     }
     rows.push(row)
@@ -502,7 +569,9 @@ function tally(votes) {
   const upheld = cast.filter((v) => v.verdict === 'upheld').length
   const refuted = cast.filter((v) => v.verdict === 'refuted').length
   const outcome = upheld >= majority ? 'upheld' : refuted >= majority ? 'refuted' : 'unverified'
-  return { outcome, skeptics: n, upheld, refuted, votes: cast.map((v) => `${v.verdict}: ${v.reason}`) }
+  const proving = cast.find((v) => v.verdict === 'refuted' && PROOF_KINDS.includes(v.proofKind) && v.proofKind !== 'none' && isText(v.proof) && v.exercises === true)
+  const reading = proving ? { proofKind: proving.proofKind, proof: proving.proof.trim(), exercises: true } : null
+  return { outcome, skeptics: n, upheld, refuted, votes: cast.map((v) => `${v.verdict}: ${v.reason}`), reading }
 }
 
 /** Each gap with the outcome of its skeptics. */
@@ -522,17 +591,46 @@ async function confirm(gaps) {
   return gaps.map((g, i) => ({ ...g, ...(judged[i] || tally(Array.from({ length: n }, () => null))) }))
 }
 
-/** A traced group with its gaps judged, and each row's gap carrying its outcome. */
+/**
+ * A row whose gap was judged, with the gap entries it now carries, as the header's tally says: a
+ * refutation clears a gap only with a proving reading, which the row then carries, and the
+ * corrected row's gap is taken again from it.
+ */
+function settle(r, judged) {
+  const { reading, ...entry } = judged
+  const stands = (why) => ({ row: { ...r, gap: { kind: entry.kind, outcome: 'unverified' } }, gaps: [{ ...entry, outcome: 'unverified', votes: [...entry.votes, why] }] })
+  if (entry.outcome !== 'refuted') return { row: { ...r, gap: { kind: entry.kind, outcome: entry.outcome } }, gaps: [entry] }
+  if (!reading) return stands('a majority refuted it, but no refuting skeptic gave a reading whose proof exercises the scenario, so it stands unverified')
+  const corrected = { ...r, ...reading, traced: { proofKind: r.proofKind, proof: r.proof, exercises: r.exercises } }
+  const again = gapOf(corrected)
+  if (!again) return { row: { ...corrected, gap: { kind: entry.kind, outcome: 'refuted' } }, gaps: [entry] }
+  if (!MEASURED.includes(again.kind)) return stands(`a majority refuted it, but the reading a skeptic gave still has a gap: ${again.why}`)
+  return { row: { ...corrected, gap: { kind: again.kind, outcome: 'measured' } }, gaps: [entry, measuredEntry(gapEntry(corrected, again))] }
+}
+
+/** A traced group with its gaps settled: measured ones kept, the rest judged, each row carrying its outcome. */
 async function confirmGroup(t) {
   if (t.status !== 'traced') return t
-  const gaps = await confirm(t.gaps)
-  const outcomeOf = new Map(gaps.map((g) => [scenarioKey(g.capability, g.requirement, g.scenario), g.outcome]))
-  const rows = t.rows.map((r) => (r.gap ? { ...r, gap: { kind: r.gap.kind, outcome: outcomeOf.get(scenarioKey(r.capability, r.requirement, r.scenario)) } } : r))
+  const judged = await confirm(t.gaps.filter((g) => !MEASURED.includes(g.kind)))
+  const byScenario = new Map(judged.map((g) => [scenarioKey(g.capability, g.requirement, g.scenario), g]))
+  const rows = []
+  const gaps = []
+  for (const r of t.rows) {
+    if (!r.gap) rows.push(r)
+    else if (MEASURED.includes(r.gap.kind)) {
+      rows.push({ ...r, gap: { kind: r.gap.kind, outcome: 'measured' } })
+      gaps.push(measuredEntry(gapEntry(r, { kind: r.gap.kind, why: WHY[r.gap.kind] })))
+    } else {
+      const settled = settle(r, byScenario.get(scenarioKey(r.capability, r.requirement, r.scenario)))
+      rows.push(settled.row)
+      gaps.push(...settled.gaps)
+    }
+  }
   return { ...t, rows, gaps }
 }
 
 async function confirmLens(d) {
-  return d.status === 'read' ? { ...d, gaps: await confirm(d.gaps) } : d
+  return d.status === 'read' ? { ...d, gaps: (await confirm(d.gaps)).map(({ reading, ...g }) => g) } : d
 }
 
 /* ---------------------------------------------------------------------------------- the run ----- */
@@ -543,7 +641,15 @@ function result(stopped, why, groups, lenses) {
   const rows = groups.flatMap((g) => g.rows)
   const gaps = [...groups.flatMap((g) => g.gaps), ...lenses.flatMap((l) => l.gaps)]
   const below = [...groups.flatMap((g) => g.below), ...lenses.flatMap((l) => l.below)]
-  const kept = ((A.previous && A.previous.design) || []).map((d) => ({ key: d.key, label: d.label, readAt: A.previous.commit.trim(), kept: true, status: 'kept', problems: [], checked: d.checked }))
+  const kept = ((A.previous && A.previous.design) || []).map((d) => ({
+    key: d.key.trim(),
+    label: d.label,
+    readAt: (d.readAt || A.previous.commit).trim(),
+    kept: true,
+    status: 'kept',
+    problems: [],
+    checked: d.checked,
+  }))
   const byCapability = {}
   for (const capability of [...new Set(rows.map((r) => r.capability))].sort(byCodePoint)) byCapability[capability] = rows.filter((r) => r.capability === capability).length
   const byProofKind = {}
@@ -558,9 +664,12 @@ function result(stopped, why, groups, lenses) {
     keptLenses: kept.length,
     rows: rows.length,
     keptRows: rows.filter((r) => r.kept).length,
+    correctedRows: rows.filter((r) => r.traced).length,
     byCapability,
     byProofKind,
     gaps: gaps.length,
+    measured: outcome('measured'),
+    judged: gaps.length - outcome('measured'),
     upheld: outcome('upheld'),
     refuted: outcome('refuted'),
     unverified: outcome('unverified'),
@@ -617,7 +726,8 @@ if (lensList.length) {
 for (const g of groups.filter((x) => x.status !== 'traced')) log(`Group ${g.key} ${g.status}: ${g.problems.join('; ')}`)
 for (const l of lenses.filter((x) => x.status !== 'read')) log(`Lens ${l.key} ${l.status}: ${l.problems.join('; ')}`)
 
-const tallied = (c) => `${c.gaps} gap(s) judged by ${c.skeptics} skeptic(s): ${c.upheld} upheld, ${c.unverified} unverified, ${c.refuted} refuted; ${c.below} finding(s) below a gap`
+const tallied = (c) =>
+  `${c.gaps} gap(s), ${c.measured} measured and ${c.judged} judged by ${c.skeptics} skeptic(s): ${c.upheld} upheld, ${c.unverified} unverified, ${c.refuted} refuted; ${c.below} finding(s) below a gap`
 let out
 if (groups.every((g) => g.status === 'died')) {
   out = result('agent-died', 'every tracer returned nothing, so no scenario was traced', groups, lenses)
