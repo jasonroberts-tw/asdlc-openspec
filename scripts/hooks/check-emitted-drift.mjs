@@ -9,7 +9,8 @@
  * The failure mode is a property of emitted output, not of any one generator: the hook outlived
  * the generator that was the first example of it, and every emitter that has been retired since took
  * its trigger rows with it in the same change. The last was the learning loop's, so `TRIGGERS` is
- * empty until an emitter of this repository's own has an input to watch.
+ * empty: the one emitter of this repository's own, the trace record's, is left out on purpose, for
+ * the reason the table gives.
  *
  * Only fires for the inputs listed in `TRIGGERS`. A write to a README or a story file cannot change
  * emitted output, and paying two seconds to prove that on every edit is how a hook gets turned off.
@@ -29,7 +30,10 @@ import { npmRun, readHookInput, editTarget, toRepoRel } from './_shared.mjs'
  */
 const TRIGGERS = [
   // Empty. Its one row was the learning loop's two hand-authored inputs, re-checked by
-  // `outcomes:check`, and left with the loop (`docs/decisions.md` § D-06).
+  // `outcomes:check`, and left with the loop (`docs/decisions.md` § D-06). The trace record's inputs
+  // have none on purpose: its `trace:check` also refuses a scenario still owed a test, so it would
+  // fail after nearly every edit to a spec or a test while a change is written, which is noise, and
+  // a record its commits stale is stale until they exist; `trace:check` holds it at push and in CI.
 ]
 
 /** What to do about each gate's failure, appended to the report. */

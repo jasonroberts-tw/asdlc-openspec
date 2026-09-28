@@ -163,6 +163,7 @@ const UNJOBBED_BY_KIND = [
       'writes an artifact or drives an operator procedure. Where it has a `:check` twin, the twin is' +
       ' the gate and the job runs that.',
     names: [
+      'trace',
       'worktree:gc',
     ],
   },
@@ -170,7 +171,7 @@ const UNJOBBED_BY_KIND = [
     kind: ':update baseline',
     shape: /:update$/,
     why: 'rewrites a ratchet or golden; a job that ran it would move the baseline it is meant to hold.',
-    names: [],
+    names: ['trace:update'],
   },
   {
     kind: 'lint and format',

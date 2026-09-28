@@ -169,7 +169,7 @@ const BASELINE_BANNER = [
 type Git = (args: string[]) => string
 
 /** git in `root`, with no inherited `GIT_*` key, so a hook's `GIT_DIR` cannot point it elsewhere. */
-function gitIn(root: string, env: NodeJS.ProcessEnv = gitEnv()): Git {
+export function gitIn(root: string, env: NodeJS.ProcessEnv = gitEnv()): Git {
   return (args) => {
     const run = spawnSync('git', ['-c', 'core.quotepath=off', ...args], { cwd: root, env, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
     if (run.error) throw new Error(`git could not start: ${run.error.message}`)
@@ -229,18 +229,6 @@ function taskPaths(commits: Commit[]): Map<string, string[]> {
 
 /** The environment of a scratch repository: no `GIT_*` key, and no configuration of this machine's. */
 export const SCRATCH_GIT_ENV: NodeJS.ProcessEnv = { ...gitEnv(), GIT_CONFIG_GLOBAL: devNull, GIT_CONFIG_SYSTEM: devNull }
-const AS = ['-c', 'user.name=trace', '-c', 'user.email=trace@example.invalid', '-c', 'commit.gpgsign=false']
-
-/** A git command in a scratch repository, committing as a fixed identity. */
-export function scratchGit(dir: string): Git {
-  const git = gitIn(dir, SCRATCH_GIT_ENV)
-  return (args) => git(args[0] === 'commit' || args[0] === 'merge' ? [...AS, ...args] : args)
-}
-
-function put(dir: string, path: string, text: string) {
-  mkdirSync(dirname(join(dir, path)), { recursive: true })
-  writeFileSync(join(dir, path), text)
-}
 
 /**
  * The walk of a history built here and ratified by hand: the task each commit names and the paths
@@ -262,34 +250,33 @@ const RATIFIED = {
 export function ratify(walker: typeof walk = walk): string | null {
   const dir = mkdtempSync(join(tmpdir(), 'trace-ratify-'))
   try {
-    const git = scratchGit(dir)
-    git(['init', '-q', '-b', 'main'])
-    const commit = (subject: string) => git(['commit', '-q', '-m', subject])
-    put(dir, 'apps/x/a.js', 'a\n')
-    put(dir, 'docs/n.md', 'n\n')
-    git(['add', '-A'])
-    commit('Add a (asdlc-openspec-abc.1)')
-    put(dir, 'apps/x/b.js', 'b\n')
-    git(['add', '-A'])
-    commit('Add b, naming no task')
-    git(['checkout', '-q', '-b', 'side'])
-    put(dir, 'apps/x/c.js', 'c\n')
-    git(['add', '-A'])
-    commit('Add c (asdlc-openspec-abc.2)')
-    git(['checkout', '-q', 'main'])
-    put(dir, 'apps/x/e.js', 'e\n')
-    git(['add', '-A'])
-    commit('Add e (asdlc-openspec-abc.3, asdlc-openspec-abc.4)')
-    git(['merge', '-q', '--no-ff', '-m', 'Merge side (asdlc-openspec-abc.9)', 'side'])
-    git(['mv', 'apps/x/a.js', 'apps/x/d.js'])
-    commit('Rename a (asdlc-openspec-abc.5)')
-    put(dir, 'docs/n.md', 'n, again\n')
-    git(['add', '-A'])
-    commit('Only a document (asdlc-openspec-abc.6)')
-    put(dir, 'apps/x/b.js', 'b, again\n')
-    git(['add', '-A'])
-    commit('Name asdlc-openspec-abc.7 in passing (not an ID: see the notes)')
-    const read = Object.fromEntries(taskPaths(walker(gitIn(dir, SCRATCH_GIT_ENV), 'asdlc-openspec-[a-z0-9]+(?:\\.[0-9]+)*', ['HEAD'])))
+    // One `git fast-import` builds the whole history, where a commit at a time cost about twenty
+    // git starts, 0.45 s on the host this file's cost is measured on.
+    const data = (text: string) => `data ${Buffer.byteLength(text)}\n${text}\n`
+    let mark = 0
+    const commit = (branch: string, subject: string, from: number | null, lines: string[], merge: number | null = null) => {
+      mark++
+      return (
+        `commit refs/heads/${branch}\nmark :${mark}\ncommitter trace <trace@example.invalid> ${1700000000 + mark} +0000\n${data(subject)}` +
+        `${from === null ? '' : `from :${from}\n`}${merge === null ? '' : `merge :${merge}\n`}${lines.join('')}\n`
+      )
+    }
+    const file = (path: string, text: string) => `M 100644 inline ${path}\n${data(text)}`
+    const stream = [
+      commit('main', 'Add a (asdlc-openspec-abc.1)', null, [file('apps/x/a.js', 'a\n'), file('docs/n.md', 'n\n')]),
+      commit('main', 'Add b, naming no task', 1, [file('apps/x/b.js', 'b\n')]),
+      commit('side', 'Add c (asdlc-openspec-abc.2)', 2, [file('apps/x/c.js', 'c\n')]),
+      commit('main', 'Add e (asdlc-openspec-abc.3, asdlc-openspec-abc.4)', 2, [file('apps/x/e.js', 'e\n')]),
+      commit('main', 'Merge side (asdlc-openspec-abc.9)', 4, [file('apps/x/c.js', 'c\n')], 3),
+      commit('main', 'Rename a (asdlc-openspec-abc.5)', 5, ['R apps/x/a.js apps/x/d.js\n']),
+      commit('main', 'Only a document (asdlc-openspec-abc.6)', 6, [file('docs/n.md', 'n, again\n')]),
+      commit('main', 'Name asdlc-openspec-abc.7 in passing (not an ID: see the notes)', 7, [file('apps/x/b.js', 'b, again\n')]),
+    ].join('')
+    const git = gitIn(dir, SCRATCH_GIT_ENV)
+    git(['init', '-q', '--bare'])
+    const imported = spawnSync('git', ['fast-import', '--quiet'], { cwd: dir, env: SCRATCH_GIT_ENV, input: stream, encoding: 'utf8' })
+    if (imported.status !== 0) throw new Error(`git fast-import refused the fixture: ${imported.stderr.trim()}`)
+    const read = Object.fromEntries(taskPaths(walker(git, 'asdlc-openspec-[a-z0-9]+(?:\\.[0-9]+)*', ['main'])))
     const want = JSON.stringify(RATIFIED)
     const got = JSON.stringify(read)
     return got === want ? null : `the history walk read the hand-ratified fixture as ${got}, where it is ${want}`
@@ -724,7 +711,7 @@ function parseBaseline(text: string): { entries: string[] } | { problem: string 
 }
 
 /** The baseline file for `entries`, as `trace:update` writes it. */
-function baselineText(entries: string[]): string {
+export function baselineText(entries: string[]): string {
   return serialise({ _: BASELINE_BANNER, unmet: sorted(entries) })
 }
 
@@ -752,11 +739,14 @@ function firstDifference(a: string, b: string): string {
 
 export type Checked = { failures: string[]; advisories: string[]; notes: string[]; summary: string }
 
-/** Every refusal of `trace:check` under `root`. Writes nothing. */
-export function check(root: string): Checked {
+/**
+ * Every refusal of `trace:check` under `root`. Writes nothing. `ratified` says the caller has
+ * already held the walk to the ratified fixture, as the selftest does once for all its cases.
+ */
+export function check(root: string, { ratified: already = false } = {}): Checked {
   const failures: string[] = []
   const notes: string[] = []
-  const ratified = ratify()
+  const ratified = already ? null : ratify()
   if (ratified !== null) return { failures: [`record: ${ratified}; nothing is checked until it agrees.`], advisories: [], notes, summary: '' }
   let derived: Derived
   try {
@@ -842,8 +832,8 @@ export function check(root: string): Checked {
 }
 
 /** `npm run trace`: write the record. Refuses to write what it cannot derive, or when the walk is wrong. */
-export function emit(root: string): { wrote: boolean; message: string; findings: number } {
-  const ratified = ratify()
+export function emit(root: string, { ratified: already = false } = {}): { wrote: boolean; message: string; findings: number } {
+  const ratified = already ? null : ratify()
   if (ratified !== null) return { wrote: false, message: `${ratified}; refusing to write ${RECORD}.`, findings: 0 }
   const derived = derive(root)
   mkdirSync(dirname(join(root, RECORD)), { recursive: true })
@@ -857,8 +847,8 @@ export function emit(root: string): { wrote: boolean; message: string; findings:
 }
 
 /** `npm run trace:update`: move the baseline down to the obligations still unmet that it may keep. */
-export function update(root: string): { kept: string[]; dropped: string[]; refused: string[] } {
-  const ratified = ratify()
+export function update(root: string, { ratified: already = false } = {}): { kept: string[]; dropped: string[]; refused: string[] } {
+  const ratified = already ? null : ratify()
   if (ratified !== null) throw new Error(`${ratified}; refusing to write ${BASELINE}.`)
   const derived = derive(root)
   const git = gitIn(root)
