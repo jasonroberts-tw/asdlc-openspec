@@ -25,19 +25,28 @@
  * A TEST is its file and its name, as the reader reads them. A test at the base whose file and name
  * the head does not have is removed, unless it was RENAMED: the head has, in any file, a test that
  * is not at the base whose call is the old one's after its name, token for token (its modifier, its
- * options and its function, whitespace and comments aside), and each such test pairs with one
- * removed test, its own file first. A renamed test is reported as one, and held to the two rules
- * below as its new name. A name that changes with any other edit to the call is a removal and an
- * addition. Where that loses: a test renamed and edited in one commit needs a decision recorded as
- * removed, where a gate that paired tests by their titles would let it through.
+ * options and its function, whitespace and comments aside), and whose name keeps every ID the old
+ * name gave, as the reader parses them; each such test pairs with one removed test, its own file
+ * first. So a rename may add IDs, as prefixing a name with its scenario's does, and may not drop
+ * one: the scenario whose ID goes would lose a test with no decision. A renamed test is reported as
+ * one, and held to the two rules below as its new name. A name that changes with any other edit to
+ * the call is a removal and an addition. Where that loses: a test renamed and edited in one commit
+ * needs a decision recorded as removed, where a gate that paired tests by their titles would let it
+ * through.
  *
  * A SKIP, TODO OR ONLY IS ADDED when the head's test carries more than the base's of any one of: its
  * modifier (`test.skip(`, `.todo(`, `.only(`); a `skip`, `todo` or `only` key of its options object
  * literal, with its value's text, so that a changed condition counts as a new skip, unless the value
  * is `false`, `null`, `undefined`, `0` or an empty string; a call `<context>.skip(` or `.todo(` in its
- * body; and each modifier or key of a `describe` or `suite` call around it. A test new on the branch
- * adds every one it carries. Where that loses: a new test skipped on one platform, with the reason
- * the runner prints, needs a decision recorded too.
+ * body; a `<context>.skip(` or `.todo(` in a `before` or `beforeEach` hook of the file, or of a
+ * suite around it, outside every test; and each modifier or key of a `describe` or `suite` call
+ * around it. A value that is one name, `{ skip: SIGNAL_SKIP }`, is read as that name and the
+ * initializer of the file's top-level `const`, `let` or `var` of it, up to the line break that ends
+ * its statement, so a constant switched on is a skip added. A `describe` or `suite` used other than
+ * as a call of its own name (`describe['skip'](`, `const xdescribe = describe.skip`, or passed as a
+ * value) fails the run, as a test call it cannot read does: a suite it skips would go unseen. A test
+ * new on the branch adds every one it carries. Where that loses: a new test skipped on one platform,
+ * with the reason the runner prints, needs a decision recorded too.
  *
  * ASSERTIONS ARE COUNTED statically, per test, as the call sites inside its call after its name:
  *   - a call on an assert binding: `assert`, or a name an import from `node:assert`,
@@ -50,8 +59,12 @@
  * A test is weakened when its count at the head is below its count at the base. It cannot see an
  * assertion in a helper named otherwise, or a helper edited to assert less; how many times a call
  * site runs, in a loop or behind a condition; an assertion replaced by a weaker one (`deepEqual` by
- * `ok`), or its expected value changed; a skip in an options object held in a variable or spread
- * into it; and a skip called from a helper. Review holds those.
+ * `ok`), by one that cannot fail (`assert.ok(true)`), or its expected value changed; a skip in an
+ * options object held in a variable or spread into it, one whose value is an expression over names
+ * (`skip: !HAS_X`), a name imported or declared below the top level, or a `let` assigned again; a
+ * skip called from a helper, or from a hook in another file; and a test's own alias
+ * (`const xit = it.skip`), which the runner's cross-check with the reader refuses instead. Review
+ * holds those.
  *
  * THE DECISION is a trailer in the last paragraph of a commit message on the branch, where git reads
  * trailers, its key `testInventoryTrailer` in `tools/policy.json`, today:
@@ -62,7 +75,9 @@
  * fewer assertions; then the test's file, its name in double quotes as the refusal prints it, and a
  * reason, which must not be empty. A renamed test is named by its file and name at the head. A
  * refusal prints the line to write. One trailer clears one kind for one test, from any commit on
- * the branch, `git log <merge base>..HEAD`. The gate holds that a decision is recorded, not who
+ * the branch, `git log <merge base>..HEAD`. Its key must be the policy's spelled exactly, case
+ * included: the gate reads every trailer and keeps those, where git's own `%(trailers:key=)` filter
+ * would match a key in any case. The gate holds that a decision is recorded, not who
  * recorded it: the architect is the build workflow's triage together with the session running
  * `change-build` (`docs/decisions.md` § D-13, item 16), and the pull-request reviewer reads the
  * trailer beside the diff.
@@ -393,23 +408,72 @@ function callAt(tokens, at) {
 }
 
 const FALSY = new Set(['false', 'null', 'undefined', '0', "''", '""'])
+const OPENERS = new Set(['(', '[', '{'])
+const CLOSERS = new Set([')', ']', '}'])
 
-/** A call's modifier and the `skip`, `todo` and `only` keys of its options object literal. */
-function ownDisablers(tokens, call) {
+/**
+ * The initializer of each top-level `const`, `let` or `var` of one name, rendered: the tokens after
+ * its `=` up to a `;`, a `,` or a line break that ends the statement, at the depth it opened. A line
+ * break ends it unless the line ends in punctuation other than a closing bracket, or the next line
+ * opens with punctuation other than an opening bracket, as a ternary or a concatenation continues.
+ */
+function topLevelValues(tokens) {
+  const values = new Map()
+  let depth = 0
+  for (let k = 0; k < tokens.length; k++) {
+    const token = tokens[k]
+    if (token.type === 'punct' && OPENERS.has(token.value)) depth++
+    else if (token.type === 'punct' && CLOSERS.has(token.value)) depth--
+    if (depth !== 0 || !['const', 'let', 'var'].some((word) => isId(token, word)) || isDot(tokens[k - 1])) continue
+    if (!isId(tokens[k + 1]) || !isPunct(tokens[k + 2], '=') || isPunct(tokens[k + 3], '=')) continue
+    let inner = 0
+    let m = k + 3
+    for (; m < tokens.length; m++) {
+      const next = tokens[m]
+      if (inner === 0 && m > k + 3) {
+        const prev = tokens[m - 1]
+        if (isPunct(next, ';') || isPunct(next, ',')) break
+        const continues = (prev.type === 'punct' && !CLOSERS.has(prev.value)) || (next.type === 'punct' && !OPENERS.has(next.value))
+        if (next.line > prev.line && !continues) break
+      }
+      if (next.type === 'punct' && OPENERS.has(next.value)) inner++
+      else if (next.type === 'punct' && CLOSERS.has(next.value)) {
+        if (inner === 0) break
+        inner--
+      }
+    }
+    if (!values.has(tokens[k + 1].value)) values.set(tokens[k + 1].value, render(tokens, k + 3, m))
+  }
+  return values
+}
+
+/**
+ * A call's modifier and the `skip`, `todo` and `only` keys of its options object literal. A value
+ * that is one name of a top-level `const`, `let` or `var` is read as that name and its initializer.
+ */
+function ownDisablers(tokens, call, constants) {
   const found = call.modifier === null ? [] : [`.${call.modifier}`]
   const options = parts(tokens, call.open + 1, call.close)[1]
   if (options === undefined || !isPunct(tokens[options[0]], '{') || !isPunct(tokens[options[1] - 1], '}')) return found
   for (const [from, to] of parts(tokens, options[0] + 1, options[1] - 1)) {
     const first = tokens[from]
     let key = null
-    let value = null
+    let at = null
     if (to - from >= 3 && (first.type === 'id' || first.type === 'str') && isPunct(tokens[from + 1], ':')) {
       key = first.type === 'str' ? first.value.slice(1, -1) : first.value
-      value = render(tokens, from + 2, to)
+      at = from + 2
     } else if (to - from === 1 && first.type === 'id') {
-      key = value = first.value
+      key = first.value
+      at = from
     }
-    if (['skip', 'todo', 'only'].includes(key) && !FALSY.has(value)) found.push(`${key}: ${value}`)
+    if (!['skip', 'todo', 'only'].includes(key)) continue
+    let value = render(tokens, at, to)
+    let decides = value
+    if (to - at === 1 && tokens[at].type === 'id' && constants.has(value)) {
+      decides = constants.get(value)
+      value = `${value} (= ${decides})`
+    }
+    if (!FALSY.has(decides)) found.push(`${key}: ${value}`)
   }
   return found
 }
@@ -460,23 +524,54 @@ function bodySkips(tokens, from, to) {
   return found
 }
 
+/** The index spans of every `import ... from` clause, where a name is bound and not used. */
+function importClauses(tokens) {
+  const spans = []
+  tokens.forEach((token, at) => {
+    if (!isId(token, 'import') || isDot(tokens[at - 1])) return
+    let k = at + 1
+    while (k < tokens.length && !isId(tokens[k], 'from') && tokens[k].type !== 'str' && !isPunct(tokens[k], ';') && !isPunct(tokens[k], '(')) k++
+    spans.push([at, k])
+  })
+  return spans
+}
+
 /**
- * The inventory of one test file's source: each test the reader reads, with its line, its
- * assertion count, what skips it and the text of its call after its name, and the problems that
- * kept a test from being read to its end.
+ * The inventory of one test file's source: each test the reader reads, with its line, its IDs, its
+ * assertion count, what skips it and the text of its call after its name; and the problems that
+ * kept a test, or a suite around one, from being read.
  */
 export function readInventory(file, source, policy) {
   const { tests } = readTests(source, policy, file)
   const tokens = lex(source)
   const roots = assertRoots(tokens)
+  const constants = topLevelValues(tokens)
+  const imports = importClauses(tokens)
+  const problems = []
+  const problem = (at, message) => problems.push(`${file}:${tokens[at].line}: ${message}`)
+
+  // Every suite, read as a call; any other use of `describe` or `suite` hides what it skips.
   const suites = []
   tokens.forEach((token, at) => {
     if (!isId(token) || !['describe', 'suite'].includes(token.value) || isDot(tokens[at - 1])) return
+    if (imports.some(([from, to]) => from < at && at < to)) return
+    if ((isPunct(tokens[at - 1], '{') || isPunct(tokens[at - 1], ',')) && isPunct(tokens[at + 1], ':')) return
     const call = callAt(tokens, at)
-    if (call !== null && call.close > 0) suites.push({ ...call, disablers: ownDisablers(tokens, call) })
+    if (call === null) {
+      problem(
+        at,
+        `\`${token.value}\` is used other than as a call, \`${token.value}(\` or \`${token.value}.skip(\`, \`.todo(\` or` +
+          ' `.only(`: reached through brackets, bound to another name or passed as a value, a suite it skips' +
+          ' cannot be seen. Call it by its own name.',
+      )
+    } else if (call.close < 0) {
+      problem(at, `the \`${token.value}\` call here cannot be read to its closing parenthesis, so what it skips cannot be counted.`)
+    } else {
+      suites.push({ ...call, disablers: ownDisablers(tokens, call, constants), hooks: [] })
+    }
   })
-  const problems = []
-  const read = []
+
+  const calls = []
   for (const test of tests) {
     const at = tokens.findIndex((token, k) => token.line === test.line && isId(token) && ['test', 'it'].includes(token.value) && !isDot(tokens[k - 1]) && callAt(tokens, k) !== null)
     const call = at < 0 ? null : callAt(tokens, at)
@@ -488,22 +583,42 @@ export function readInventory(file, source, policy) {
       )
       continue
     }
+    calls.push({ test, call })
+  }
+
+  // A skip called in a `before` or `beforeEach` hook outside every test skips the tests of the
+  // innermost suite around it, or of the whole file.
+  const fileHooks = []
+  const inside = (outer, at) => outer.open < at && at < outer.close
+  tokens.forEach((token, at) => {
+    if (!isId(token) || !['before', 'beforeEach'].includes(token.value) || isDot(tokens[at - 1]) || !isPunct(tokens[at + 1], '(')) return
+    if (calls.some(({ call }) => inside(call, at))) return
+    const close = closing(tokens, at + 1)
+    if (close < 0) return
+    const skips = bodySkips(tokens, at + 1, close).map((skip) => `hook ${skip}`)
+    const around = suites.filter((suite) => inside(suite, at)).sort((a, b) => b.open - a.open)[0]
+    ;(around === undefined ? fileHooks : around.hooks).push(...skips)
+  })
+
+  const read = calls.map(({ test, call }) => {
     const [name] = parts(tokens, call.open + 1, call.close)
     const after = name === undefined ? call.open + 1 : name[1]
     const around = suites
       .filter((suite) => suite.open < call.open && call.close < suite.close)
-      .flatMap((suite) => suite.disablers.map((disabler) => `describe ${disabler}`))
-    read.push({
+      .flatMap((suite) => [...suite.disablers, ...suite.hooks].map((disabler) => `describe ${disabler}`))
+    return {
       file,
       name: test.name,
+      ids: test.ids,
       line: test.line,
       assertions: countAssertions(tokens, after, call.close, roots),
-      disablers: [...ownDisablers(tokens, call), ...bodySkips(tokens, after, call.close), ...around].sort(byCodePoint),
+      disablers: [...ownDisablers(tokens, call, constants), ...bodySkips(tokens, after, call.close), ...around, ...fileHooks.map((skip) => `file ${skip}`)].sort(byCodePoint),
       call: `${call.modifier ?? ''} ${render(tokens, after, call.close + 1)}`,
-    })
-  }
+    }
+  })
   return { tests: read, problems }
 }
+
 
 /* --------------------------------------------------------------------------------- compare ------ */
 
@@ -536,8 +651,9 @@ export function compare(base, head) {
   const added = [...heads.values()].flat()
   const renamed = []
   const gone = []
+  const keeps = (old) => (a) => a.call === old.call && old.ids.every((id) => a.ids.includes(id))
   for (const test of removed) {
-    const match = added.find((a) => a.call === test.call && a.file === test.file) ?? added.find((a) => a.call === test.call)
+    const match = added.find((a) => keeps(test)(a) && a.file === test.file) ?? added.find(keeps(test))
     if (match === undefined) {
       gone.push(test)
       continue
@@ -548,14 +664,17 @@ export function compare(base, head) {
   }
   const findings = []
   for (const test of gone) {
-    const near = added.filter((a) => a.file === test.file).map((a) => `"${a.name}"`)
+    const near = added.filter((a) => a.file === test.file)
+    const dropped = near.filter((a) => a.call === test.call).map((a) => `"${a.name}", whose call is unchanged and whose name drops ${test.ids.filter((id) => !a.ids.includes(id)).join(', ')}`)
+    const changed = near.filter((a) => a.call !== test.call).map((a) => `"${a.name}"`)
     findings.push({
       kind: 'remove',
       file: test.file,
       name: test.name,
       what:
-        `was at line ${test.line} at the merge base and is not at HEAD, and no test new at HEAD has its call unchanged` +
-        (near.length > 0 ? ` (new in the same file, each with its call changed: ${near.join(', ')})` : ''),
+        `was at line ${test.line} at the merge base and is not at HEAD, and no test new at HEAD keeps its call and every ID it names` +
+        (dropped.length > 0 ? ` (new in the same file: ${dropped.join('; ')})` : '') +
+        (changed.length > 0 ? ` (new in the same file, each with its call changed: ${changed.join(', ')})` : ''),
     })
   }
   for (const { base: was, head: now } of pairs) {
@@ -614,7 +733,7 @@ export function judge({ sides, policy, trailer, values }) {
     return { commit, files, tests }
   })
   if (problems.length > 0) {
-    return { ok: false, report: [`test-inventory: ${problems.length} test call(s) could not be read, so nothing was compared:`, ...problems.map((p) => `  - ${p}`)] }
+    return { ok: false, report: [`test-inventory: ${problems.length} place(s) in the test files could not be read, so nothing was compared:`, ...problems.map((p) => `  - ${p}`)] }
   }
   const [base, head] = read
   const { findings, renamed } = compare(base.tests, head.tests)
@@ -685,8 +804,15 @@ export function checkInventory(root) {
     commit,
     files: paths.map((path) => ({ path, source: blobs.get(`${commit}:${path}`) })).filter(({ source }) => source !== null),
   }))
-  const log = gitText(root, ['log', `--format=%(trailers:key=${trailer},valueonly=true,unfold=true)`, `${base}..${head}`], "the branch's commit messages")
-  const values = log.split('\n').map((value) => value.trim()).filter((value) => value !== '')
+  // Every trailer, and only those whose key is the policy's spelled exactly: git's own `key=`
+  // filter matches a key in any case.
+  const log = gitText(root, ['log', '--format=%(trailers:only=true,unfold=true)', `${base}..${head}`], "the branch's commit messages")
+  const values = log
+    .split('\n')
+    .map((line) => line.match(/^([^:\s]+):(.*)$/))
+    .filter((match) => match !== null && match[1] === trailer)
+    .map((match) => match[2].trim())
+    .filter((value) => value !== '')
   return judge({ sides, policy, trailer, values })
 }
 
@@ -720,6 +846,13 @@ function assertPair(a, b) {
   assert.equal(a, b)
 }
 
+/** Whether the slow tests skip: never, in this fixture; its initializer runs over four lines. */
+const SKIP_SLOW =
+  process.env.FIXTURE_NEVER_SET === 'yes'
+    ? 'slow here'
+    : false
+const UNRELATED = [1]
+
 describe('arithmetic', () => {
   // trace: FIX-001:happy@aaaaaaaaaaaa
   test('[FIX-001] adds', () => {
@@ -731,7 +864,7 @@ describe('arithmetic', () => {
   })
 
   // trace: FIX-002:happy@aaaaaaaaaaaa
-  test('[FIX-002] subtracts', async (t) => {
+  test('[FIX-002] subtracts', { skip: SKIP_SLOW }, async (t) => {
     t.assert.equal(3 - 1, 2)
     assertPair(5 - 5, 0)
     for (const n of [1, 2]) {
@@ -751,10 +884,12 @@ describe('arithmetic', () => {
 const B_TEST = `import assert from 'node:assert/strict'
 import { test } from 'node:test'
 // trace-defaults: layer=functional level=1
+const SKIP_NEVER = false
 
 // trace: FIX-004:happy@aaaaaaaaaaaa
 test(
   '[FIX-004] multiplies',
+  { skip: SKIP_NEVER },
   () => {
     // assert.equal(1, 2)
     const note = 'assert.ok(false)'
@@ -766,7 +901,7 @@ test(
 /** What `readInventory` must make of the fixture's two files, written out by hand. */
 const HAND = {
   '[FIX-001] adds': { assertions: 3, disablers: [] },
-  '[FIX-002] subtracts': { assertions: 3, disablers: [] },
+  '[FIX-002] subtracts': { assertions: 3, disablers: ["skip: SKIP_SLOW (= process.env.FIXTURE_NEVER_SET==='yes'?'slow here':false)"] },
   '[FIX-003] divides': { assertions: 1, disablers: ["skip: process.platform==='win32'"] },
   '[FIX-004] multiplies': { assertions: 1, disablers: [] },
 }
@@ -950,7 +1085,7 @@ function judgeCases() {
       }),
       expect: { pass: /^test-inventory: 4 test\(s\) in 2 file\(s\) at the merge base ba5e000, 5 test\(s\) in 2 file\(s\) at HEAD 4ead000; 0 renamed with the call unchanged, 0 change\(s\) cleared/ },
     },
-    { name: 'a test removed', edit: removeB, expect: { refuse: /- remove: test\/b\.test\.js "\[FIX-004\] multiplies" was at line 6 at the merge base and is not at HEAD/ } },
+    { name: 'a test removed', edit: removeB, expect: { refuse: /- remove: test\/b\.test\.js "\[FIX-004\] multiplies" was at line 7 at the merge base and is not at HEAD/ } },
     { name: 'a test removed, with the decision recorded, passes', edit: removeB, values: ['remove test/b.test.js "[FIX-004] multiplies" its scenario retires'], expect: { pass: /1 change\(s\) cleared by a `[\w-]+` trailer, and none removed/ } },
     { name: 'a decision with no reason', edit: removeB, values: ['remove test/b.test.js "[FIX-004] multiplies"'], expect: { refuse: removedB } },
     { name: 'a decision whose reason is blank', edit: removeB, values: ['remove test/b.test.js "[FIX-004] multiplies"   '], expect: { refuse: removedB } },
@@ -971,6 +1106,16 @@ function judgeCases() {
       edit: (tree) => ({ 'test/b.test.js': tree['test/b.test.js'].replace("'[FIX-004] multiplies'", "'[FIX-004] multiplies twice'").replace('[2 * 2], [4]', '[2 * 3], [6]') }),
       expect: { refuse: /- remove: test\/b\.test\.js "\[FIX-004\] multiplies" .*new in the same file, each with its call changed: "\[FIX-004\] multiplies twice"/ },
     },
+    {
+      name: 'a test renamed with its call unchanged and an ID dropped',
+      edit: swap('test/b.test.js', "'[FIX-004] multiplies'", "'[FIX-077] multiplies'"),
+      expect: { refuse: /- remove: test\/b\.test\.js "\[FIX-004\] multiplies" .*new in the same file: "\[FIX-077\] multiplies", whose call is unchanged and whose name drops FIX-004/ },
+    },
+    {
+      name: 'a test renamed with its call unchanged and an ID added passes, as renamed',
+      edit: swap('test/b.test.js', "'[FIX-004] multiplies'", "'[FIX-004, FIX-009] multiplies'"),
+      expect: { pass: /1 renamed with the call unchanged.*-> test\/b\.test\.js "\[FIX-004, FIX-009\] multiplies"/ },
+    },
     { name: 'a pattern narrowed until a file drops out', edit: swap('package.json', 'test/*.test.js', 'test/a.test.js'), expect: { refuse: removedB } },
     { name: 'a .skip modifier added', edit: swap('test/b.test.js', 'test(\n', 'test.skip(\n'), expect: { refuse: /- skip: test\/b\.test\.js "\[FIX-004\] multiplies" adds \.skip\./ } },
     { name: 'an .only modifier added', edit: swap('test/a.test.js', "test('[FIX-001]", "test.only('[FIX-001]"), expect: { refuse: /- skip: test\/a\.test\.js "\[FIX-001\] adds" adds \.only\./ } },
@@ -986,7 +1131,42 @@ function judgeCases() {
       edit: swap('test/a.test.js', "describe('arithmetic'", "describe.skip('arithmetic'"),
       expect: { refuse: /- skip: test\/a\.test\.js "\[FIX-001\] adds" adds describe \.skip\..*- skip: test\/a\.test\.js "\[FIX-002\] subtracts" adds describe \.skip\..*- skip: test\/a\.test\.js "\[FIX-003\] divides" adds describe \.skip\./ },
     },
-    { name: 'a new test that carries a skip', edit: addSquares("{ skip: 'no time' }, "), expect: { refuse: /- skip: test\/b\.test\.js "\[FIX-006\] squares" is new on this branch, and carries skip: 'no time'\./ } },
+    {
+      name: 'the top-level constant a skip names switched on',
+      edit: swap('test/b.test.js', 'const SKIP_NEVER = false', 'const SKIP_NEVER = true'),
+      expect: { refuse: /- skip: test\/b\.test\.js "\[FIX-004\] multiplies" adds skip: SKIP_NEVER \(= true\)\./ },
+    },
+    {
+      name: "a multi-line constant's condition widened",
+      edit: swap('test/a.test.js', "    ? 'slow here'\n    : false\n", "    ? 'slow here'\n    : 'always'\n"),
+      expect: { refuse: /- skip: test\/a\.test\.js "\[FIX-002\] subtracts" adds skip: SKIP_SLOW \(= process\.env\.FIXTURE_NEVER_SET==='yes'\?'slow here':'always'\)\./ },
+    },
+    {
+      name: 'a skip called in a beforeEach hook of the suite around the tests',
+      edit: swap('test/a.test.js', "describe('arithmetic', () => {\n", "describe('arithmetic', () => {\n  beforeEach((t) => t.skip('flaky'))\n"),
+      expect: { refuse: /- skip: test\/a\.test\.js "\[FIX-001\] adds" adds describe hook <context>\.skip\(\)\..*"\[FIX-003\] divides" adds describe hook <context>\.skip\(\)\./ },
+    },
+    {
+      name: 'a skip called in a before hook of the file',
+      edit: swap('test/b.test.js', 'const SKIP_NEVER = false\n', "const SKIP_NEVER = false\nbefore((t) => t.skip('later'))\n"),
+      expect: { refuse: /- skip: test\/b\.test\.js "\[FIX-004\] multiplies" adds file hook <context>\.skip\(\)\./ },
+    },
+    {
+      name: 'a suite reached through brackets',
+      edit: swap('test/a.test.js', "describe('arithmetic'", "describe['skip']('arithmetic'"),
+      expect: { refuse: /could not be read.*test\/a\.test\.js:\d+: `describe` is used other than as a call/ },
+    },
+    {
+      name: "a suite's skip bound to another name",
+      edit: swap('test/a.test.js', "describe('arithmetic'", "const xdescribe = describe.skip\nxdescribe('arithmetic'"),
+      expect: { refuse: /could not be read.*test\/a\.test\.js:\d+: `describe` is used other than as a call/ },
+    },
+    {
+      name: 'a suite bound to another name',
+      edit: swap('test/a.test.js', "describe('arithmetic'", "const group = describe\ngroup.skip('arithmetic'"),
+      expect: { refuse: /could not be read.*test\/a\.test\.js:\d+: `describe` is used other than as a call/ },
+    },
+    { name: 'a new test that carries a skip', edit: addSquares("{ skip: 'no time' }, "),expect: { refuse: /- skip: test\/b\.test\.js "\[FIX-006\] squares" is new on this branch, and carries skip: 'no time'\./ } },
     { name: 'an assertion removed', edit: swap('test/a.test.js', '    assert.equal(1 + 1, 2)\n', ''), expect: { refuse: /- weaken: test\/a\.test\.js "\[FIX-001\] adds" has 2 assertion call site\(s\), where it had 3\./ } },
     {
       name: 'an assertion moved into a comment',
@@ -1009,7 +1189,7 @@ function judgeCases() {
     {
       name: 'a test call that cannot be read to its end',
       edit: swap('test/b.test.js', '    assert.deepEqual([2 * 2], [4], note)\n', '    assert.deepEqual([2 * 2], [4], note\n'),
-      expect: { refuse: /at HEAD, test\/b\.test\.js:6: the call of "\[FIX-004\] multiplies" cannot be read to its closing parenthesis/ },
+      expect: { refuse: /at HEAD, test\/b\.test\.js:7: the call of "\[FIX-004\] multiplies" cannot be read to its closing parenthesis/ },
     },
   ]
 }
@@ -1050,6 +1230,11 @@ function gitCases(files, trailer) {
       name: 'a decision outside the last paragraph, which git does not read as a trailer',
       commits: [{ edits: removeB, message: ['a change', `${trailer}: remove test/b.test.js "[FIX-004] multiplies" retired`, 'A closing paragraph.'] }],
       expect: { refuse: removedB },
+    },
+    {
+      name: "a decision whose key differs from the policy's in case, which git's own filter would match",
+      commits: [{ edits: removeB, message: ['a change', `${trailer.toLowerCase()}: remove test/b.test.js "[FIX-004] multiplies" retired\nCo-Authored-By: selftest <selftest@example.invalid>`] }],
+      expect: trailer.toLowerCase() === trailer ? { pass: /this case needs a key with a capital/ } : { refuse: removedB },
     },
     { name: "a pattern narrowed in HEAD's package.json", commits: [{ edits: swap('package.json', 'test/*.test.js', 'test/a.test.js') }], expect: { refuse: removedB } },
     {
