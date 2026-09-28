@@ -76,9 +76,11 @@ export const meta = {
  *   for a scenario of its own group, and a kept design reading only as `previous` says.
  *
  *   A group. Its tracer returns `head`, the commit it read, and one row per scenario, matched by
- *   requirement and scenario verbatim. A group whose tracer returned nothing is `died`; read at
- *   another commit, or at a head that is not a commit of 7 to 40 hex digits, `stale`; with a row for
- *   a scenario not its own, two rows for one, or none for one, `mismatched`. Only a `traced` group's
+ *   requirement and scenario title, each written with or without the `[<ID>]` token that
+ *   scripts/check-openspec.mjs holds a living header to (`docs/decisions.md` § D-13, item 1). A group
+ *   whose tracer returned nothing is `died`; read at another commit, or at a head that is not a
+ *   commit of 7 to 40 hex digits, `stale`; with a row for a scenario not its own, two rows for one,
+ *   none for one, or a row whose ID differs from the one its scenario carries, `mismatched`. Only a `traced` group's
  *   rows count and its gaps go on; the others come back with what the tracer returned, for the
  *   session to run again. A kept row's reading, its proofKind, proof and exercises, is the one `args`
  *   gives, and so is its `readAt`; its result is the one run now.
@@ -227,7 +229,20 @@ const VERDICT_SCHEMA = {
 const isText = (v) => typeof v === 'string' && v.trim() !== ''
 const isWhole = (v) => Number.isInteger(v) && v >= 1
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
-const scenarioKey = (capability, requirement, scenario) => `${capability.trim()}\u0000${requirement.trim()}\u0000${scenario.trim()}`
+/** A header's ID token and title, `[<ID>] <title>` as scripts/check-openspec.mjs holds it; a header with no token is its title. */
+const ID_TOKEN = /^\[([^\]\s]+)\] (\S.*)$/
+const splitId = (name) => {
+  const m = ID_TOKEN.exec(String(name).trim())
+  return m ? { id: m[1], title: m[2].trim() } : { id: null, title: String(name).trim() }
+}
+/** Scenarios match by capability, requirement and title, each name with or without its ID token. */
+const scenarioKey = (capability, requirement, scenario) => `${capability.trim()}\u0000${splitId(requirement).title}\u0000${splitId(scenario).title}`
+/** The requirement or scenario whose ID the row gives differently from its header, or null; only two IDs clash. */
+const idClash = (row, s) => ['requirement', 'scenario'].find((part) => {
+  const a = splitId(row[part]).id
+  const b = splitId(s[part]).id
+  return a && b && a !== b
+})
 const isCommit = (v) => typeof v === 'string' && COMMIT.test(v.trim())
 /** Whether two commits, each 7 to 40 hex digits, name the same one: the shorter is the longer's prefix. */
 const sameCommit = (a, b) => {
@@ -517,6 +532,7 @@ function judgeTrace(g, out) {
     const key = scenarioKey(g.capability, r.requirement, r.scenario)
     if (!own.has(key)) problems.push(`a row for ${r.requirement.trim()} / ${r.scenario.trim()}, which is not one of its scenarios`)
     else if (byKey.has(key)) problems.push(`two rows for ${r.scenario.trim()}`)
+    else if (idClash(r, own.get(key))) problems.push(`the row for ${own.get(key).scenario.trim()} gives its ${idClash(r, own.get(key))} another ID`)
     else byKey.set(key, r)
   }
   const missing = [...own.keys()].filter((key) => !byKey.has(key))

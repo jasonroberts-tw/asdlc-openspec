@@ -1254,6 +1254,12 @@ const SPECS = {
 }
 const scenariosOf = (capability) => SPECS[capability].map(([requirement, scenario]) => ({ requirement, scenario }))
 
+/** The fixture's scenarios with the `[<ID>] <title>` token a living header carries, as scripts/check-openspec.mjs holds it. */
+const ID_PREFIX = { alpha: 'ALP', beta: 'BET' }
+const withId = (capability, i, title) => `[${ID_PREFIX[capability]}-${String(i + 1).padStart(3, '0')}] ${title}`
+const SPECS_WITH_IDS = Object.fromEntries(Object.entries(SPECS).map(([capability, list]) => [capability, list.map(([requirement, scenario], i) => [requirement, withId(capability, i, scenario)])]))
+const bare = (name) => name.replace(/^\[[^\]\s]+\] /, '')
+
 /** The policy's `verifyTrace*` keys, as the workflow's header prints them. */
 const verifyPolicy = (policy) => Object.fromEntries(Object.entries(policy).filter(([k]) => k.startsWith('verifyTrace') && !k.endsWith('Means')))
 
@@ -1491,6 +1497,35 @@ function verifyCases(policy) {
       scenario: { traces: { beta: (g) => ({ ...cleanTrace(g), rows: [...cleanTrace(g).rows, traceRow(g.scenarios[0])] }) } },
       expect: ['incomplete', /^group beta mismatched; 3 of 5 /],
       check: ({ result }) => (/two rows for The page is served/.test(groupOf(result, 'beta').problems.join()) ? null : `beta's problems were ${groupOf(result, 'beta').problems}`),
+    },
+    {
+      name: "a scenario named with its ID token on one side and without it on the other is traced, and its row keeps the name args gives",
+      args: verifyArgs(policy, {
+        groups: [
+          { key: 'alpha', capability: 'alpha', scenarios: SPECS_WITH_IDS.alpha.map(([requirement, scenario]) => ({ requirement, scenario })) },
+          { key: 'beta', capability: 'beta', scenarios: scenariosOf('beta') },
+        ],
+      }),
+      scenario: {
+        traces: {
+          alpha: (g) => ({ ...cleanTrace(g), rows: g.scenarios.map((s) => traceRow({ ...s, scenario: bare(s.scenario) })) }),
+          beta: (g) => ({ ...cleanTrace(g), rows: g.scenarios.map((s, i) => traceRow({ ...s, scenario: withId('beta', i, s.scenario) })) }),
+        },
+      },
+      expect: ['no-gap', /^every one of the 5 scenario\(s\) traced/],
+      check: ({ result }) => {
+        const names = result.rows.map((r) => r.scenario).join(' | ')
+        const want = [...SPECS_WITH_IDS.alpha.map(([, s]) => s), ...SPECS.beta.map(([, s]) => s)].join(' | ')
+        return names === want ? null : `the rows came back named ${names}`
+      },
+    },
+    {
+      name: 'a row that gives its scenario another ID than the one its scenario carries is mismatched',
+      args: verifyArgs(policy, { groups: [{ key: 'alpha', capability: 'alpha', scenarios: SPECS_WITH_IDS.alpha.map(([requirement, scenario]) => ({ requirement, scenario })) }, verifyArgs(policy).groups[1]] }),
+      scenario: { traces: { alpha: (g) => ({ ...cleanTrace(g), rows: g.scenarios.map((s, i) => traceRow(i === 0 ? { ...s, scenario: `[ALP-009] ${bare(s.scenario)}` } : s)) }) } },
+      expect: ['incomplete', /^group alpha mismatched; 2 of 5 /],
+      check: ({ result }) =>
+        /the row for \[ALP-001\] Two plus two gives its scenario another ID/.test(groupOf(result, 'alpha').problems.join('; ')) ? null : `alpha's problems were ${groupOf(result, 'alpha').problems}`,
     },
     {
       name: 'a tracer that read another commit is stale, and its rows count for nothing',
@@ -1765,6 +1800,21 @@ async function rendererResults(body, policy) {
         if (lib.specsDir(root, CHANGE).dir !== archived) return `found ${JSON.stringify(lib.specsDir(root, CHANGE))}`
         writeSpecs(root, active, SPECS)
         return /are in 2 places/.test(lib.specsDir(root, CHANGE).problem ?? '') ? null : 'two folders were not refused'
+      },
+    },
+    {
+      file: 'scripts/render-trace.mjs',
+      name: "matches rows to delta-spec headers that carry ID tokens, a row named with its ID or without, shows each header's ID, and refuses a row whose ID is another",
+      test: () => {
+        const specs = Object.entries(SPECS_WITH_IDS).flatMap(([capability, list]) => list.map(([requirement, scenario]) => ({ capability, requirement, scenario })))
+        const mixed = clean.rows.map((r, i) => (i === 1 ? { ...r, scenario: withId(r.capability, 1, r.scenario) } : r))
+        const problems = lib.matchProblems(mixed, specs)
+        if (problems.length) return `rows with and without the ID did not match: ${problems.join(' | ')}`
+        if (!lib.renderTrace({ ...clean, rows: mixed }, specs, 'specs').includes('| alpha | Adds | [ALP-001] Two plus two |')) return "the trace does not show the header's ID"
+        const clashing = mixed.map((r, i) => (i === 0 ? { ...r, scenario: `[ALP-009] ${r.scenario}` } : r))
+        return lib.matchProblems(clashing, specs).some((p) => /^the row for alpha \/ \[ALP-001\] Two plus two names its scenario \[ALP-009\], not \[ALP-001\]$/.test(p))
+          ? null
+          : `a clashing ID was not refused by its reason: ${lib.matchProblems(clashing, specs).join(' | ')}`
       },
     },
     {
