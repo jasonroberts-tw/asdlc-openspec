@@ -7,17 +7,16 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 # Plan a change
 
-The third of the six `change-*` stages (`docs/decisions.md` § D-02). It runs in the change's
-worktree. A change's tasks are issues in `bd` under its epic, never a `tasks.md`. Every tracker write
-below sits inside the bracket `CLAUDE.md` § The task store describes. Every question below that
+The third of the six `change-*` stages (`docs/decisions.md` § D-02). Every tracker write below sits
+inside the bracket `CLAUDE.md` § The task store describes. Every question below that
 recommends an option takes the form `CLAUDE.md` § A question shows where its recommendation loses
 gives.
 
 ## 1. Find the change and its epic
 
 - **The change.** Its name is found as `CLAUDE.md` § Product work runs as OpenSpec-format changes
-  says. The branch is `agent/<change>`. From the primary checkout, enter the worktree with
-  `EnterWorktree` and the path `.claude/worktrees/<change>`.
+  says. From the primary checkout, enter the worktree with `EnterWorktree` and the path
+  `.claude/worktrees/<change>`.
 - **The epic.** It is the one issue that
   `bd list --label spec-change --type epic --metadata-field change=<change> --json` returns (the
   label is `specChangeLabel` in `tools/policy.json`). If none or several come back, stop and say
@@ -44,17 +43,15 @@ Then check the draft as a whole:
   saying who verifies it and how.
 - **Each task is small enough** to finish and prove in one sitting, **and whole**: what must land
   together is one task. A new npm script comes with its job or its `UNJOBBED_BY_KIND` entry in
-  `scripts/check-jobs.mjs` (the `add-npm-script` skill), never in a later task. `change-build`
-  commits each task on its own and runs `npm run gates` once, at the end, and no pre-commit job runs
-  `check:jobs` (`lefthook.yml`), so nothing would catch the split.
+  `scripts/check-jobs.mjs` (the `add-npm-script` skill), never in a later task: nothing would catch
+  the split.
 - **Nothing is left out:** regenerating any artifact whose input the change moves, and adding the
   `README.md` row for any new file (`CLAUDE.md` § Every directory and document says what it is, and
   who wins).
 - **The living spec is never a task.** The archive in `change-finalize` edits it.
 
-Then draft the epic's acceptance criteria in the same file. The reviewer holds the change's pull
-request to them, and `change-finalize` checks them before it closes the epic. They are the bullets
-under `## Acceptance Criteria` in the epic's description and its `acceptance_criteria` field, as
+Then draft the epic's acceptance criteria in the same file. They are the bullets under
+`## Acceptance Criteria` in the epic's description and its `acceptance_criteria` field, as
 `bd show <epic> --json` prints them. An epic that already states criteria, as one seeded from an
 issue with criteria does, keeps them: the draft lists them as they stand. An epic with none gets
 them drafted here:
@@ -105,5 +102,4 @@ Afterwards, `bd ready --parent <epic>` lists exactly the tasks that wait on noth
 
 Report the epic, its acceptance criteria and whether this stage wrote them or the epic kept its own,
 each task's id with the scenarios it covers, what was marked manual, and the first ready task. The
-next stage is `change-build`, in a fresh session given the change's name
-(`CLAUDE.md` § Product work runs as OpenSpec-format changes).
+next stage is `change-build` (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
