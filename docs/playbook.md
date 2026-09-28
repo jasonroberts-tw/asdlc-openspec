@@ -8,7 +8,9 @@ commands and page are gone (`docs/decisions.md` § D-15), and an emitter's `:che
 to regenerate. Amended 2026-09-28 by `asdlc-openspec-j09.3`, which adds the row of § 5 for an ID
 that `openspec:check` finds on two headers of different titles. Amended 2026-09-28 by
 `asdlc-openspec-as9`: the Verify step that traces every scenario names
-`.claude/workflows/verify-change-trace.js` and `scripts/render-trace.mjs`.
+`.claude/workflows/verify-change-trace.js` and `scripts/render-trace.mjs`. Amended 2026-09-28 by
+`asdlc-openspec-j09.8`: the Plan stage's first step names each task's kind and IDs and traceability
+rules 1 to 3, where it had a scenario marked manual.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -221,10 +223,11 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
 
 #### Plan
 
-1. Draft the tasks to `.scratch/<change>-plan.md`, in dependency order, each with the scenarios it
-   satisfies, its proof and what it waits on, and draft the epic's acceptance criteria. Every
-   scenario is covered or marked manual. Decided by: `.claude/skills/change-plan/SKILL.md` § 2.
-   Draft the tasks and the epic's criteria.
+1. Draft the tasks to `.scratch/<change>-plan.md`, in dependency order, each with its kind, the
+   scenario and NFR IDs it satisfies, its proof and what it waits on, and draft the epic's
+   acceptance criteria. The draft holds traceability rules 1 to 3, lists every task that is not
+   `asset:product` as exempt from rule 3, and proves no scenario by hand. Decided by:
+   `.claude/skills/change-plan/SKILL.md` § 2. Draft the tasks and the epic's criteria.
 2. Show the draft and write nothing to the tracker until the user approves it. Decided by:
    `.claude/skills/change-plan/SKILL.md` § 3. Stop for approval.
 3. File each task as a child of the epic with `bd create --parent`, and write the approved criteria
