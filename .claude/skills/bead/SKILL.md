@@ -99,8 +99,7 @@ A first run that stamps an output which had none makes `pipeline:stale:check` bi
 Stage every file the change adds (`git add`) before the gates run: the citations and count-index
 gates read the files `git ls-files` lists, so a new file not yet added passes them unread. Run
 `npm run gates`, the build check here. There is no `tsc` to run: the repository has no
-`tsconfig.json` and no TypeScript package, and `package.json` runs its `.ts` files with `node`
-directly. Run no script name `package.json` does not list. A red gate is fixed or reported, never
+`tsconfig.json`. Run no script name `package.json` does not list. A red gate is fixed or reported, never
 bypassed.
 
 A defect found on the way is fixed in this branch only when it sits in a file the issue already
@@ -125,9 +124,8 @@ Fetch, rebase onto `origin/main`, and run `npm run gates` again (`CLAUDE.md` § 
 Open it with the `open-pr` skill. Its body opens with any register entry or prerequisite step 1
 named, and names every issue filed in step 4.
 
-When a review did not complete for a cause in the reviewer's own workflow, file that cause as
-step 4 says, and leave the issue open with a note naming the pull request and the issue that
-carries the cause.
+When a review did not complete for a cause in the reviewer's own workflow, leave the issue open
+with a note naming the pull request and the issue that carries the cause.
 
 ## 7. Close on green, with a reason
 
