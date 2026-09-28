@@ -93,7 +93,8 @@ export const meta = {
  *   the scenario, the command, and the failure it printed. It reports a scenario whose proof passes
  *   first, because the code already has its behaviour, as already green, with the command and its
  *   evidence. Each already-green report goes to the parent among `unverified`, never as passed, for
- *   the parent to judge. For a kind in `buildRedFirstKinds`, a scenario with neither stops the run as
+ *   the parent to judge, and round 0 counts it in its `unverified`, so the rounds' counts sum to the
+ *   list. For a kind in `buildRedFirstKinds`, a scenario with neither stops the run as
  *   not-red; a scenario is matched by its text, trimmed, so a record for another scenario covers
  *   nothing. A task of another kind is asked for the same records and not held to them. The lenses
  *   that set `red` read the red records, and the spec lens holds each failure to its scenario's THEN.
@@ -769,9 +770,10 @@ phase('Build')
 const built = await agent(buildPrompt(), { label: 'build', phase: 'Build', schema: BUILD_SCHEMA })
 if (!built) return finish('agent-died', 'the builder returned nothing, so nothing was built or reviewed')
 S.build = { ...work(built), red: built.red, alreadyGreen: built.alreadyGreen }
-for (const g of built.alreadyGreen) S.unverified.push(greenFinding(g))
 const buildRound = newRound(0, ['build'])
 buildRound.raised = built.findings.length
+for (const g of built.alreadyGreen) S.unverified.push(greenFinding(g))
+buildRound.unverified += built.alreadyGreen.length
 const buildToConfirm = route(built.findings.map((f) => ({ ...f, raisedBy: ['build'] })), buildRound, 0, 'build')
 if (buildToConfirm.length) {
   const judged = await judge(buildToConfirm, buildRound, 0)

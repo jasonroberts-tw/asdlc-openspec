@@ -658,6 +658,11 @@ function buildCases(policy) {
           if (g.against !== SCENARIO || g.evidence !== EVIDENCE || g.command !== PASSING.command) return `it came back as ${JSON.stringify(g)}`
           if (result.build.red.length || !result.build.alreadyGreen.length) return 'the build does not report it among alreadyGreen alone'
           if (count(calls, /^skeptic /) || result.confirmed.length || result.refuted.length) return 'it was sent to skeptics'
+          if (result.rounds[0].unverified !== result.build.alreadyGreen.length) {
+            return `round 0 counts ${result.rounds[0].unverified} unverified, not the ${result.build.alreadyGreen.length} already-green report(s)`
+          }
+          const counted = result.rounds.reduce((n, r) => n + r.unverified, 0)
+          if (counted !== result.unverified.length) return `the rounds count ${counted} unverified, but ${result.unverified.length} are returned`
           const review = options.find((o) => o.label.startsWith('review '))
           return review.prompt.includes(`- [unverified, with the parent] ${g.title} (${PASSING.command})`) ? null : "a reviewer's prompt does not list it as with the parent"
         },
