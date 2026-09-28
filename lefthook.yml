@@ -377,6 +377,30 @@ pre-push:
         - 'package.json'
         - 'package-lock.json'
       run: node --run trace:selftest
+    # No test removed, skipped or weakened on this branch without an architect decision recorded in
+    # a commit's trailer: the tests at HEAD against the tests at its merge base with origin/main,
+    # read from git through the reader. No glob: its verdict also turns on the branch's commit
+    # messages and on where origin/main is, which no file glob sees, so a push that only rewords a
+    # commit, dropping a trailer, must run it too. Seven git processes; 0.22-0.23 s wall through
+    # `node --run` (`/usr/bin/time -p`, two runs) on a macOS 26.7 laptop with Node 26.8.1,
+    # 2026-09-28, over 75 tests at each commit.
+    - name: tests-inventory
+      run: node --run tests:inventory:check
+    # The gate's refusals: in-process over doctored copies of a fixture's test files, and through
+    # git over fixture repositories under the temporary directory, a shallow clone and one with no
+    # origin/main among them, with undoctored controls and one run of the CLI through
+    # TEST_INVENTORY_ROOT. Reads the gate, the reader it imports and the helper that imports, the
+    # helper that strips a hook's GIT_* keys, and the live policy's trailer key. 39 cases:
+    # 2.11-2.16 s wall through `node --run` (`/usr/bin/time -p`, two runs) on the host above,
+    # 2026-09-28.
+    - name: tests-inventory-selftest
+      glob:
+        - 'scripts/check-test-inventory.mjs'
+        - 'scripts/test-trace.mjs'
+        - 'scripts/lib/bin-path.mjs'
+        - 'tools/lib/git-env.ts'
+        - 'tools/policy.json'
+      run: node --run tests:inventory:selftest
     # Every value in the count index re-derived from the source the index names for it. No glob: a
     # key's source may be any tracked file, so any push can change its verdict. Milliseconds.
     - name: count-index

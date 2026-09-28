@@ -27,6 +27,8 @@
     "check:register:selftest": "node scripts/check-register-status.mjs --selftest",
     "openspec:check": "node scripts/check-openspec.mjs",
     "openspec:selftest": "node scripts/check-openspec.mjs --selftest",
+    "tests:inventory:check": "node scripts/check-test-inventory.mjs",
+    "tests:inventory:selftest": "node scripts/check-test-inventory.mjs --selftest",
     "tests:selftest": "node scripts/run-tests.mjs --selftest",
     "tests:trace:selftest": "node scripts/test-trace.mjs --selftest",
     "trace": "node tools/trace/trace.ts",

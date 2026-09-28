@@ -13,6 +13,9 @@ the reader and the runner do not both see fails the run. `npm run trace:check` h
 to a happy-path and a negative test at the functional layer or above, and each hash a test carries
 to the current one; the gaps that predate it are listed in the ratchet baseline,
 `artifacts/trace/baseline.json`, which may fall and never rise (the header of `tools/trace/trace.ts`).
+A test removed, skipped or left with fewer assertions on a branch needs an architect's decision
+recorded in a commit's trailer, which `npm run tests:inventory:check` holds; the header of
+`scripts/check-test-inventory.mjs` is the rule's home.
 
 Where a row here and a test file disagree, the file wins and the row is corrected; where a test and
 the spec disagree, the spec wins and the test is corrected.

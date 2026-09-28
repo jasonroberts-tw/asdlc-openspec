@@ -34,7 +34,9 @@ jobs:
     steps:
       # The whole history, not the default single commit: `trace:check` walks every commit on HEAD
       # for the tasks its record links, and measures the branch from its merge base with
-      # origin/main, which a shallow clone has neither of (the header of tools/trace/trace.ts).
+      # origin/main, which a shallow clone has neither of (the header of tools/trace/trace.ts). The
+      # test-inventory gate compares HEAD with that same merge base, and fails rather than pass in a
+      # shallow clone (the header of scripts/check-test-inventory.mjs).
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -117,6 +119,15 @@ jobs:
       # in each of four cases.
       - name: the trace gate, negative-tested
         run: npm run trace:selftest
+      # Under a second (lefthook.yml's `tests-inventory` job has the measurement): the tests at HEAD
+      # against those at its merge base with origin/main, read from git. On a push to main HEAD is
+      # its own merge base, and it passes; on a pull request HEAD is the merge commit.
+      - name: no test removed, skipped or weakened without an architect decision
+        run: npm run tests:inventory:check
+      # Seconds (lefthook.yml's `tests-inventory-selftest` job has the measurement): fixture
+      # repositories under the temporary directory.
+      - name: the test-inventory gate, negative-tested
+        run: npm run tests:inventory:selftest
       - name: the OpenSpec gate, negative-tested
         run: npm run openspec:selftest
       #
