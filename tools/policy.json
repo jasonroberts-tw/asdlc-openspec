@@ -200,8 +200,8 @@
   "promptWordBudgetSkillChangePlan": 1024,
   "promptWordBudgetSkillChangePlanMeans": "The most words `.claude/skills/change-plan/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
 
-  "promptWordBudgetSkillChangePropose": 1164,
-  "promptWordBudgetSkillChangeProposeMeans": "The most words `.claude/skills/change-propose/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+  "promptWordBudgetSkillChangePropose": 1179,
+  "promptWordBudgetSkillChangeProposeMeans": "The most words `.claude/skills/change-propose/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on, 1,164; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv). Raised 2026-09-28 to 1,179 by asdlc-openspec-j09.4, under D-13 items 1 to 4: § 5's `findings.md`, § 6's scenario and NFR header forms with its pointer to `npm run openspec:check` for the ID rules, and the send-back of a change to a scenario or an NFR added 100 words, and consolidating the file first, under D-12, freed 85, so the raise is the other 15; that pull request lists every clause the consolidation removed and where each one went.",
 
   "promptWordBudgetSkillChangeVerify": 987,
   "promptWordBudgetSkillChangeVerifyMeans": "The most words `.claude/skills/change-verify/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
