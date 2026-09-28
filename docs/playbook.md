@@ -5,7 +5,8 @@
 **Status:** amended 2026-09-28 by `asdlc-openspec-iom`. The issue route is named the harness route,
 and the change route the product route. Amended 2026-09-28 by `asdlc-openspec-hvm`: the pipeline's
 commands and page are gone (`docs/decisions.md` § D-15), and an emitter's `:check` twin says what
-to regenerate.
+to regenerate. Amended 2026-09-28 by `asdlc-openspec-j09.3`, which adds the row of § 5 for an ID
+that `openspec:check` finds on two headers of different titles.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
