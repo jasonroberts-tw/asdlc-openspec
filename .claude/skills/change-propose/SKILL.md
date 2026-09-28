@@ -62,7 +62,8 @@ Inside it, read `.worktree/CONTEXT.md`.
 ## 5. Write the proposal
 
 Read `openspec/specs/` first. A requirement that is already specified gets modified, not added a
-second time.
+second time. Where an `explore` brief preceded the change, write it as it stands to
+`openspec/changes/<change>/findings.md`, for the later stages to read.
 
 Then write `openspec/changes/<change>/proposal.md` with these sections, in order:
 
@@ -85,13 +86,18 @@ the living spec mechanically, so the grammar is exact:
   `## MODIFIED Requirements`, `## REMOVED Requirements`, `## RENAMED Requirements`. A new capability
   uses ADDED only.
 - **Requirements.** Each one is `### Requirement: <name>`, then its text, stated with SHALL or MUST.
-- **Scenarios.** Each requirement has at least one `#### Scenario: <name>` with exactly four
-  hashes. Three hashes, or a bullet, is silently not a scenario. Under it go `- **WHEN** <condition>`
-  and `- **THEN** <outcome>` lines, with `- **AND** ...` lines as needed. A later stage traces every
-  scenario to a test, so write each one so it can become one.
+  A non-functional requirement (NFR) is proposed here too, headed
+  `### Requirement: [NFR-<PREFIX>-NNN] <title>`.
+- **Scenarios.** Each requirement has at least one `#### Scenario: [<PREFIX>-NNN] <title>` with
+  exactly four hashes. Three hashes, or a bullet, is silently not a scenario. Under it go
+  `- **WHEN** <condition>` and `- **THEN** <outcome>` lines, with `- **AND** ...` lines as needed. A
+  later stage traces every scenario to a test, so write each one so it can become one.
+- **IDs.** `<PREFIX>` is the capability's, under `specIdPrefixes` in `tools/policy.json`; a new
+  capability adds its own in this change. `npm run openspec:check` holds the rules an ID follows
+  (the header of `scripts/check-openspec.mjs`) and prints each prefix's next free ID.
 - **MODIFIED.** Copy the whole requirement block from `openspec/specs/<capability>/spec.md`, with
-  its header text exactly as it stands there, then edit the copy. A partial block loses the rest of
-  the requirement at archive.
+  its header and each scenario's exactly as they stand there, then edit the copy. A partial block
+  loses the rest of the requirement at archive.
 - **REMOVED.** Give the requirement's `### Requirement: <name>` header, then a `**Reason**:` line and
   a `**Migration**:` line.
 - **RENAMED.** Give a `` - FROM: `### Requirement: <old name>` `` line followed by a
@@ -111,9 +117,10 @@ The user reviews the proposal and the specs before anything else happens. Revisi
 this stage. The next stage is `change-design` (`CLAUDE.md` § Product work runs as OpenSpec-format
 changes).
 
-When `change-verify` sends a spec gap here (`.claude/skills/change-verify/SKILL.md` § 6. Verdict),
-the change already exists: skip steps 1 to 4. Find the change and its epic as
-`.claude/skills/change-verify/SKILL.md` § 1. Find the change and its epic says, and read the gap in
-the epic's latest note. Revise the proposal and the delta specs with the user under steps 5 and 6,
-check and commit them as step 7 says, then hand back to `change-verify`, which runs again from its
-step 2.
+A later stage's change to a scenario or an NFR comes back here, as does a spec gap `change-verify`
+finds (`.claude/skills/change-verify/SKILL.md` § 6. Verdict). Label the epic for propose
+(`rerouteLabels` in `tools/policy.json`). The change already exists: skip steps 1 to 4. Find the
+change and its epic as `.claude/skills/change-verify/SKILL.md` § 1. Find the change and its epic
+says, and read the reason in the epic's latest note. Revise the proposal and the delta specs with
+the user under steps 5 and 6, check and commit them as step 7 says, then hand back to the stage that
+sent it; `change-verify` runs again from its step 2.
