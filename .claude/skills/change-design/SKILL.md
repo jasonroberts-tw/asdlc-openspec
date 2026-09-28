@@ -8,10 +8,9 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 # Design a change
 
 The second of the six `change-*` stages (`docs/decisions.md` § D-02). It runs after the user has
-reviewed the proposal and its delta specs. Every tracker write below
-sits inside the bracket `CLAUDE.md` § The task store describes. Every question below that
-recommends an option takes the form `CLAUDE.md` § A question shows where its recommendation loses
-gives.
+reviewed the proposal and its delta specs. Every tracker write below sits inside the bracket
+`CLAUDE.md` § The task store describes. Every question below that recommends an option takes the
+form `CLAUDE.md` § A question shows where its recommendation loses gives.
 
 ## 1. Find the change and its epic
 
@@ -25,10 +24,10 @@ gives.
 
 Read the following before writing anything:
 
-- `openspec/changes/<change>/proposal.md`;
+- `openspec/changes/<change>/proposal.md`, and its `findings.md` where there is one;
 - every delta spec under the change's `specs/`;
 - the living spec under `openspec/specs/` of each capability the change modifies;
-- the code the proposal's Impact names.
+- the code the proposal's Impact names, and each such app's Binding Surface (§ 3).
 
 ## 2. Decide whether it needs a design
 
@@ -39,10 +38,12 @@ Write `design.md` only when one of these holds:
 - it carries a security, performance or migration risk;
 - it makes the product compute a value, or carry one forward from one step to the next, such as a
   number, an amount, a date or a duration;
-- the specs leave open a technical choice that the build should not make on its own.
+- the specs leave open a technical choice that the build should not make on its own;
+- it changes an app's Binding Surface, or an NFR needs a fitness function.
 
 Otherwise write no file. An empty design is noise the next reader has to rule out. Record the
-decision on the epic instead, with `bd note <epic> "change-design: no design, because <reason>"`,
+decision on the epic instead, with
+`bd note <epic> "change-design: no design, because <reason>; the Binding Surface is unchanged"`,
 so that `change-plan` can tell a design ruled out from a stage that has not run. Say so in the
 report and hand over to `change-plan`.
 
@@ -53,6 +54,8 @@ Write `openspec/changes/<change>/design.md` with these sections, in this order:
 - **`## Context`:** the current state, and the constraints on the change.
 - **`## Goals / Non-Goals`**
 - **`## Decisions`:** each choice, with the alternative that lost and why.
+- **`## Binding Surface`:** what the change adds to or changes in each app's Binding Surface, or
+  that it changes nothing.
 - **`## Risks / Trade-offs`:** each as a risk and its mitigation.
 - **`## Migration Plan`** and **`## Open Questions`**, when they apply.
 
@@ -68,12 +71,29 @@ Every value the change makes the product compute or carry forward gets its own d
 
 Without that decision, the build picks a model itself.
 
+**The Binding Surface** is all a test may depend on and the code must keep: one hand-maintained
+file per app, `apps/<app>/binding-surface.md`, holding at least the seven items
+`docs/test-strategy.md` § Binding Surface lists (`docs/decisions.md` § D-13, item 15). Edit it, and
+what it names, in this stage:
+
+- **A contract artifact** is an OpenAPI or JSON Schema document, in JSON, under
+  `apps/<app>/contracts/`. Each operation, or a schema's root, lists in `x-scenarios` the IDs of the
+  scenarios it serves, and states nothing they do not.
+- **A fitness function** is declared in `apps/<app>/fitness/<name>.json`, a decision record
+  (`CLAUDE.md` § Three kinds of file) whose data are the seven fields of `docs/test-strategy.md`
+  § Fitness Functions, as `property`, `nfrIds`, `measurement`, `threshold`, `scope`,
+  `executionEnvironment` and `failureSemantics`. Every ID in `nfrIds` heads an NFR requirement in
+  the specs.
+
+Each contract and fitness record gets a row in its directory's `README.md`.
+
 A design says how, never what:
 
-- **A behaviour the design needs that no scenario states** belongs in a delta spec. Revise the spec
-  with the user; never hide the requirement here. Bring the proposal's `## What Changes` into line
-  with the revised spec in the same commit, or the proposal restates the old behaviour. Label the
-  epic for propose (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
+- **A behaviour or an NFR the design needs that the delta specs do not state** belongs in a delta
+  spec, and the design cites an NFR only by its ID. Revise the spec with the user; never hide the
+  requirement here. Bring the proposal's `## What Changes` into line with the revised spec in the
+  same commit, or the proposal restates the old behaviour. Label the epic for propose (`CLAUDE.md`
+  § Product work runs as OpenSpec-format changes).
 - **A decision that binds the repository beyond this change**, such as a rule or a convention, is a
   register entry (`CLAUDE.md` § Decisions live in the register), not a line of this design. Propose
   it to the user. An entry the user accepts is written by a build task, not in this stage; until it
@@ -88,9 +108,9 @@ Work out the expected value of every scenario in the delta specs from the design
 scenario whose expected value depends on a choice the design has not made, such as which value a
 chain carries forward or where a result rounds, is a question for the user in this stage. It never
 goes to `## Open Questions` for the build to settle: the build encodes whichever value it meets
-first. Record the answer as a
-decision in the design. Where the answer changes a scenario, revise the delta spec with the user,
-with the proposal and the epic's label, as § 3 says of a behaviour no scenario states.
+first. Record the answer as a decision in the design. Where the answer changes a scenario, revise
+the delta spec with the user, with the proposal and the epic's label, as § 3 says of a behaviour no
+scenario states.
 
 ## 5. Commit it, and stop
 
