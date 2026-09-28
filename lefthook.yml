@@ -247,7 +247,8 @@ pre-push:
     # which gap each row is, which gaps skeptics judge and how many, what a run again keeps), its
     # result then rendered by the trace and pull-request-body renderers; and refuses a workflow with no
     # suite. Reads the workflows, the policy and the renderers, and writes only under the temporary
-    # directory. MEASURE-AFTER-REBASE
+    # directory. 0.24-0.25 s wall through `node --run` (`/usr/bin/time -p`, two runs) on a macOS 26.7
+    # laptop with Node 26.8.1, 2026-09-28, most of it the trace renderers' four child processes.
     - name: workflows-selftest
       glob:
         - '.claude/workflows/**'
