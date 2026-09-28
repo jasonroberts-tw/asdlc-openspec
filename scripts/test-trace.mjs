@@ -23,9 +23,10 @@
  * its title. An ID is a scenario's (`CALC-003`), an NFR requirement's (`NFR-CALC-001`) or a tracker
  * task's (`asdlc-openspec-zgh.4`, the shape `prReviewIssuePattern` in `tools/policy.json` holds). A
  * happy-path test's title is its scenario's title, as its header has it after the ID. A name is
- * unique in its file. A test registered in a loop, by a helper, under a condition or inside another
- * test's body is refused, by this reader or by the runner's cross-check: write each as a literal call,
- * and skip one with the `skip` option and its reason rather than an `if`.
+ * unique in its file. A test registered in a loop, by a helper or inside another test's body is
+ * refused by the runner's cross-check, and so is one under a condition that does not hold where it
+ * runs: write each as a literal call, and skip one with the `skip` option and its reason, never an
+ * `if`.
  *
  * THE TRACE LINE. Directly above that line, one or more consecutive lines `// trace: <token> ...`,
  * read as one, whose tokens are separated by spaces, and whose reasons are in double quotes:
