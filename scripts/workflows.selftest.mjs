@@ -7,7 +7,13 @@
  * with groups of findings built here and the policy's `promptReview*` keys, and its cases assert
  * which findings it refuses as below the threshold, how many skeptics it sends each change and each
  * consolidation, which reports it refuses, which branches it lets the session merge, which analyses
- * it lets the session mark read and which findings it holds. It holds every script to what the Workflow runtime accepts: a pure `meta`
+ * it lets the session mark read and which findings it holds. `verify-change-trace.js` runs with a
+ * two-capability change built here and the policy's `verifyTrace*` keys, and its cases assert which
+ * inputs it refuses, how it matches each tracer's rows to its scenarios, which gap it gives each
+ * row, how many skeptics it sends each gap, how it tallies them, and what a run again keeps. Its
+ * result then goes through `scripts/render-trace.mjs` and `scripts/render-pr-body.mjs`, over delta
+ * specs written under the temporary directory, and their cases assert what each writes and what each
+ * refuses. It holds every script to what the Workflow runtime accepts: a pure `meta`
  * literal first, every phase declared there, and no clock or randomness. A script under
  * `.claude/workflows/` with no suite here is refused, so a workflow cannot land unheld.
  *
@@ -25,7 +31,11 @@
  * uphold; a finding below the threshold passed to an agent; an analysis marked read whose file's
  * agent returned nothing; or a finding read and not proposed that is not returned to be held (since
  * asdlc-openspec-pnm); or a consolidation merged whose rows do not say where each removed rule went,
- * or that a majority of its skeptics did not uphold (since asdlc-openspec-aa0). Each costs millions
+ * or that a majority of its skeptics did not uphold (since asdlc-openspec-aa0). For the trace (since
+ * asdlc-openspec-as9): a scenario left out of every group, a group a tracer returned short or read at
+ * another commit counted as traced, a row's gap taken from the tracer's words rather than its
+ * reading, a gap nobody could verify counted refuted, and a trace or a pull-request body written with
+ * a scenario missing or a gap open. Each costs millions
  * of tokens, a wrong verdict, a rule lost from a prompt or a finding never reviewed,
  * before anyone sees it, and no other gate reads their logic: `check:prompts` counts only the words
  * of their string literals, and `openspec:check` reads only skills and agents.
@@ -54,9 +64,13 @@
  * temporary directory holding only the suites' scripts must report nothing, and the same with one
  * more script must report it, by its reason.
  *
- * NEEDS only committed files: the workflows and `tools/policy.json`. It writes only under the
- * temporary directory. No agent, no network. Milliseconds.
+ * NEEDS only committed files: the workflows, `tools/policy.json`, and the trace renderers with
+ * `scripts/lib/trace.mjs`; each renderer runs twice as a child process. It writes only under the
+ * temporary directory. No agent, no network. 0.26 s wall through `node --run` (`/usr/bin/time -p`,
+ * two runs, both alike) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-28, most of it those four
+ * child processes.
  */
+import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -68,9 +82,11 @@ const ROOT = process.env.WORKFLOWS_ROOT ?? REPO_ROOT
 const WORKFLOWS = '.claude/workflows'
 const BUILD = `${WORKFLOWS}/build-change-task.js`
 const REVIEW = `${WORKFLOWS}/review-prompts.js`
+const VERIFY = `${WORKFLOWS}/verify-change-trace.js`
 const POLICY = 'tools/policy.json'
 const POLICY_KEYS = ['buildReviewLenses', 'buildReviewSkeptics', 'buildReviewMaxRounds', 'buildReviewMajorSeverities', 'buildRedFirstKinds', 'assetLabels']
 const REVIEW_POLICY_KEYS = ['promptReviewRecurrenceCount', 'promptReviewMajorSeverities', 'promptReviewSkeptics']
+const VERIFY_POLICY_KEYS = ['verifyTraceMaxScenarios', 'verifyTraceDesignLenses', 'verifyTraceSkeptics']
 const HEAD = 'export const meta = {'
 
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
@@ -1203,6 +1219,484 @@ function reviewCases(policy) {
   return list
 }
 
+/* ------------------------------------------------------- verify-change-trace.js: fixtures ----- */
+
+const CHANGE = 'example-change'
+const COMMIT = '0123456789abcdef0123456789abcdef01234567'
+const PREVIOUS = 'fedcba9876543210fedcba9876543210fedcba98'
+const RECORDED = 'example-1.7'
+
+/** The fixture change's scenarios, by capability: the delta specs the renderer cases write, too. */
+const SPECS = {
+  alpha: [
+    ['Adds', 'Two plus two'],
+    ['Adds', 'Zero plus zero'],
+    ['Clears', 'Clear empties the display'],
+  ],
+  beta: [
+    ['Serves', 'The page is served'],
+    ['Serves', 'An unknown path is not found'],
+  ],
+}
+const scenariosOf = (capability) => SPECS[capability].map(([requirement, scenario]) => ({ requirement, scenario }))
+
+/** The policy's `verifyTrace*` keys, as the workflow's header prints them. */
+const verifyPolicy = (policy) => Object.fromEntries(Object.entries(policy).filter(([k]) => k.startsWith('verifyTrace') && !k.endsWith('Means')))
+
+const lensesOf = (n, from = 1) => Array.from({ length: n }, (_, i) => ({ key: `lens-${i + from}`, label: `Lens ${i + from}`, focus: `The decisions of part ${i + from}.` }))
+
+/** A first run over both capabilities, with a design and the lenses the policy gives, unless `extra` says otherwise. */
+const verifyArgs = (policy, extra = {}) => ({
+  change: CHANGE,
+  worktree: '/tmp/worktrees/example-change',
+  branch: 'agent/example-change',
+  commit: COMMIT,
+  scenarios: 5,
+  groups: [
+    { key: 'alpha', capability: 'alpha', scenarios: scenariosOf('alpha'), files: ['test/alpha.test.js'] },
+    { key: 'beta', capability: 'beta', scenarios: scenariosOf('beta') },
+  ],
+  design: true,
+  lenses: lensesOf(policy.verifyTraceDesignLenses),
+  manual: [{ issue: RECORDED, covers: 'The page is served, in a real browser' }],
+  policy: verifyPolicy(policy),
+  ...extra,
+})
+
+/** A row that proves `s` by a test that exercises it and passes, unless `extra` says otherwise. */
+const traceRow = (s, extra = {}) => ({
+  requirement: s.requirement,
+  scenario: s.scenario,
+  proofKind: 'test',
+  proof: `test/example.test.js: ${s.scenario}`,
+  exercises: true,
+  result: 'pass',
+  notes: 'Read the test and ran the file once; it passed.',
+  ...extra,
+})
+
+/** A tracer's clean answer for group `g`, each row changed by `change(scenario)` where it returns something. */
+const cleanTrace = (g, change = () => ({})) => ({ head: COMMIT, rows: g.scenarios.map((s) => traceRow(s, change(s.scenario) ?? {})), below: [] })
+
+const cleanLens = (key) => ({ head: COMMIT, checked: [{ decision: `The decision ${key} reads`, verified: 'The code does what it says.' }], gaps: [], below: [] })
+
+/**
+ * Answers each agent of the trace: `traces[key]` and `lenses[key]` are a function of the group or
+ * lens, or null for an agent that returns nothing; each skeptic is answered by
+ * `verdict(title, i, n, source)`, upheld by default.
+ */
+function verifyAnswer(args, s = {}) {
+  return (label) => {
+    let m = /^trace (\S+)$/.exec(label)
+    if (m) {
+      const make = s.traces?.[m[1]]
+      if (make === null) return null
+      const group = args.groups.find((g) => g.key === m[1])
+      return make ? make(group) : cleanTrace(group)
+    }
+    m = /^design (\S+)$/.exec(label)
+    if (m) {
+      const make = s.lenses?.[m[1]]
+      if (make === null) return null
+      return make ? make(m[1]) : cleanLens(m[1])
+    }
+    m = /^skeptic (\d+)\/(\d+) (\S+): (.+)$/.exec(label)
+    if (m) return s.verdict ? s.verdict(m[4], Number(m[1]), Number(m[2]), m[3]) : reviewVote('upheld')
+    throw new Error(`no stub answers the label "${label}"`)
+  }
+}
+
+const skepticsFrom = (calls, source) => calls.filter((label) => new RegExp(`^skeptic \\d+/\\d+ ${source}: `).test(label)).length
+const rowOf = (result, scenario) => result.rows.find((r) => r.scenario === scenario)
+const groupOf = (result, key) => result.groups.find((g) => g.key === key)
+
+/* ---------------------------------------------------------- verify-change-trace.js: cases ----- */
+
+function verifyCases(policy) {
+  const n = policy.verifyTraceSkeptics
+  const lenses = policy.verifyTraceDesignLenses
+  const most = policy.verifyTraceMaxScenarios
+  const beforeAnyAgent = ({ calls }) => (calls.length ? `ran ${calls.join(', ')} before refusing` : null)
+  const unexercised = (name, why) => ({ name, args: verifyArgs(policy), check: () => `cannot be exercised: ${why}` })
+  const refused = (name, args, reason) => ({ name, args, expect: ['refused', reason], check: beforeAnyAgent })
+  const tallyOf = (upheld, unverified, refuted) => new RegExp(`; ${upheld + unverified + refuted} gap\\(s\\) judged by ${(upheld + unverified + refuted) * n} skeptic\\(s\\): ${upheld} upheld, ${unverified} unverified, ${refuted} refuted; `)
+  const notExercised = { traces: { alpha: (g) => cleanTrace(g, (s) => (s === 'Two plus two' ? { exercises: false, notes: 'It asserts the sum and never the display.' } : null)) } }
+
+  return [
+    {
+      name: `control: a clean first run sends one tracer per group and the ${lenses} lens(es) the policy gives, no skeptic, and stops no-gap with every row in its group's order`,
+      control: true,
+      args: verifyArgs(policy),
+      scenario: {},
+      expect: ['no-gap', new RegExp(`^every one of the 5 scenario\\(s\\) traced, ${lenses} design lens\\(es\\) read and 0 kept; 0 gap\\(s\\) judged by 0 skeptic\\(s\\)`)],
+      check: ({ result, calls, options }) => {
+        const want = ['trace alpha', 'trace beta', ...lensesOf(lenses).map((l) => `design ${l.key}`)]
+        if (calls.join() !== want.join()) return `ran ${calls.join(', ')}, not ${want.join(', ')}`
+        const alpha = options.find((o) => o.label === 'trace alpha').prompt
+        if (!alpha.includes('Adds / Two plus two') || alpha.includes('An unknown path is not found')) return "the alpha tracer's prompt does not list its own scenarios alone"
+        if (!alpha.includes('§ 4. Every scenario is traced') || !alpha.includes(RECORDED) || !alpha.includes(COMMIT)) {
+          return "the alpha tracer's prompt does not send it to the section, name the manual proof and the commit"
+        }
+        const order = result.rows.map((r) => r.scenario).join()
+        if (order !== [...SPECS.alpha, ...SPECS.beta].map(([, s]) => s).join()) return `rows came back as ${order}`
+        if (result.rows.some((r) => r.gap || r.kept || r.readAt !== COMMIT)) return 'a clean row carries a gap, a kept flag or another commit'
+        if (JSON.stringify(result.counts.byCapability) !== '{"alpha":3,"beta":2}') return `counted ${JSON.stringify(result.counts.byCapability)}`
+        return result.design.lenses.every((l) => l.status === 'read') && result.design.lenses.length === lenses ? null : `the lenses came back ${JSON.stringify(result.design.lenses)}`
+      },
+    },
+    {
+      name: `a row whose proof does not exercise its scenario is a gap, sent to the ${n} skeptic(s) the policy gives; upheld, it stops the run gaps`,
+      args: verifyArgs(policy),
+      scenario: notExercised,
+      expect: ['gaps', tallyOf(1, 0, 0)],
+      check: ({ result, calls }) => {
+        if (skepticsFrom(calls, 'alpha') !== n) return `sent ${skepticsFrom(calls, 'alpha')} skeptic(s), not ${n}`
+        const gap = rowOf(result, 'Two plus two').gap
+        return gap?.kind === 'not-exercised' && gap.outcome === 'upheld' ? null : `the row's gap came back ${JSON.stringify(gap)}`
+      },
+    },
+    {
+      name: 'a gap a majority refutes leaves the run no-gap, with the gap listed refuted',
+      args: verifyArgs(policy),
+      scenario: { ...notExercised, verdict: () => reviewVote('refuted') },
+      expect: ['no-gap', tallyOf(0, 0, 1)],
+      check: ({ result }) => (result.gaps[0]?.outcome === 'refuted' && rowOf(result, 'Two plus two').gap.outcome === 'refuted' ? null : 'the gap is not listed refuted'),
+    },
+    n >= 3
+      ? {
+          name: 'votes with no majority leave a gap unverified, never refuted, and the run stops gaps',
+          args: verifyArgs(policy),
+          scenario: { ...notExercised, verdict: (title, i) => reviewVote(i === 1 ? 'upheld' : i === 2 ? 'refuted' : 'unverified') },
+          expect: ['gaps', tallyOf(0, 1, 0)],
+          check: ({ result }) => (result.gaps[0].outcome === 'unverified' ? null : `the gap came back ${result.gaps[0].outcome}`),
+        }
+      : unexercised('votes with no majority on a gap', `the policy sends a gap ${n} skeptic(s), fewer than 3, so no vote can split`),
+    {
+      name: 'skeptics that return nothing leave a gap unverified, not refuted',
+      args: verifyArgs(policy),
+      scenario: { ...notExercised, verdict: () => null },
+      expect: ['gaps', tallyOf(0, 1, 0)],
+      check: ({ result }) => (result.gaps[0].votes.every((v) => v === 'unverified: the skeptic returned nothing') ? null : `the votes were ${result.gaps[0].votes.join(' | ')}`),
+    },
+    most >= 6
+      ? {
+          name: "each row's gap is decided from its reading: no proof, a manual proof no plan recorded, not exercised, failing, not run; a recorded manual proof is none",
+          args: verifyArgs(policy, {
+            scenarios: 6,
+            groups: [
+              {
+                key: 'kinds',
+                capability: 'alpha',
+                scenarios: ['none', 'unrecorded', 'unexercised', 'failing', 'unrun', 'recorded'].map((scenario) => ({ requirement: 'Kinds', scenario })),
+              },
+            ],
+            design: false,
+            lenses: [],
+          }),
+          scenario: {
+            traces: {
+              kinds: (g) =>
+                cleanTrace(g, (s) => ({
+                  none: { proofKind: 'none', proof: '', result: 'not-run' },
+                  unrecorded: { proofKind: 'manual', proof: 'bd show example-9.9', result: 'recorded' },
+                  unexercised: { exercises: false },
+                  failing: { result: 'fail' },
+                  unrun: { result: 'not-run' },
+                  recorded: { proofKind: 'manual', proof: `bd show ${RECORDED}, its note`, result: 'recorded' },
+                })[s]),
+            },
+          },
+          expect: ['gaps', tallyOf(5, 0, 0)],
+          check: ({ result, calls }) => {
+            const kinds = result.rows.map((r) => r.gap?.kind ?? 'none').join()
+            if (kinds !== 'no-proof,no-proof,not-exercised,fails,not-run,none') return `the rows' gaps came back ${kinds}`
+            if (!/names no manual proof the plan recorded/.test(result.gaps[1].title)) return `the unrecorded proof's gap reads ${result.gaps[1].title}`
+            return skepticsFrom(calls, 'kinds') === 5 * n ? null : `sent ${skepticsFrom(calls, 'kinds')} skeptic(s), not ${5 * n}`
+          },
+        }
+      : unexercised("each row's gap from its reading", `the policy gives a tracer ${most} scenario(s), fewer than the 6 the case needs`),
+    {
+      name: 'a tracer that returns a row for a scenario not its own and none for one of its own is mismatched; the run is incomplete and its gaps go to no skeptic',
+      args: verifyArgs(policy),
+      scenario: { traces: { alpha: (g) => cleanTrace(g, (s) => (s === 'Two plus two' ? { scenario: 'Two plus three', exercises: false } : null)) } },
+      expect: ['incomplete', /^group alpha mismatched; 2 of 5 scenario\(s\) traced; 0 gap\(s\) judged/],
+      check: ({ result, calls }) => {
+        const problems = groupOf(result, 'alpha').problems.join('; ')
+        if (!/a row for Adds \/ Two plus three, which is not one of its scenarios/.test(problems) || !/no row for Two plus two/.test(problems)) return `alpha's problems were ${problems}`
+        if (calls.some((l) => l.startsWith('skeptic '))) return 'a skeptic judged a mismatched group'
+        return groupOf(result, 'alpha').returned.length === 3 ? null : "alpha's rows did not come back for the session"
+      },
+    },
+    {
+      name: 'a tracer that returns two rows for one scenario is mismatched',
+      args: verifyArgs(policy),
+      scenario: { traces: { beta: (g) => ({ ...cleanTrace(g), rows: [...cleanTrace(g).rows, traceRow(g.scenarios[0])] }) } },
+      expect: ['incomplete', /^group beta mismatched; 3 of 5 /],
+      check: ({ result }) => (/two rows for The page is served/.test(groupOf(result, 'beta').problems.join()) ? null : `beta's problems were ${groupOf(result, 'beta').problems}`),
+    },
+    {
+      name: 'a tracer that read another commit is stale, and its rows count for nothing',
+      args: verifyArgs(policy),
+      scenario: { traces: { beta: (g) => ({ ...cleanTrace(g), head: PREVIOUS }) } },
+      expect: ['incomplete', /^group beta stale; 3 of 5 /],
+      check: ({ result }) => (/^the tracer read fedcba98\w+, not 0123456789/.test(groupOf(result, 'beta').problems[0]) ? null : `beta's problems were ${groupOf(result, 'beta').problems}`),
+    },
+    {
+      name: 'a tracer that returns nothing leaves the run incomplete',
+      args: verifyArgs(policy),
+      scenario: { traces: { beta: null } },
+      expect: ['incomplete', /^group beta died; 3 of 5 /],
+      check: () => null,
+    },
+    {
+      name: 'every tracer returning nothing stops the run agent-died',
+      args: verifyArgs(policy),
+      scenario: { traces: { alpha: null, beta: null } },
+      expect: ['agent-died', /^every tracer returned nothing/],
+      check: ({ result }) => (result.rows.length ? `returned ${result.rows.length} row(s)` : null),
+    },
+    lenses >= 1
+      ? {
+          name: 'a design lens that returns nothing leaves the run incomplete, though every scenario traced',
+          args: verifyArgs(policy),
+          scenario: { lenses: { 'lens-1': null } },
+          expect: ['incomplete', /^lens lens-1 died; 5 of 5 /],
+          check: () => null,
+        }
+      : unexercised('a design lens that returns nothing', 'the policy gives no design lens'),
+    lenses >= 1
+      ? {
+          name: `a design lens's gap goes to the ${n} skeptic(s) the policy gives, and upheld stops the run gaps`,
+          args: verifyArgs(policy),
+          scenario: {
+            lenses: { 'lens-1': (key) => ({ ...cleanLens(key), gaps: [{ decision: 'Serve only the app folder', where: 'serve.js:12', title: 'It serves the repository root', evidence: 'A request for /package.json returned 200.' }] }) },
+          },
+          expect: ['gaps', tallyOf(1, 0, 0)],
+          check: ({ result, calls }) => (skepticsFrom(calls, 'lens-1') === n && result.gaps[0].kind === 'design' ? null : `the design gap came back ${JSON.stringify(result.gaps[0])}`),
+        }
+      : unexercised("a design lens's gap", 'the policy gives no design lens'),
+    {
+      name: 'a finding below a gap goes to no skeptic and comes back with where it was found',
+      args: verifyArgs(policy),
+      scenario: { traces: { alpha: (g) => ({ ...cleanTrace(g), below: [{ where: 'test/alpha.test.js:4', title: 'Its name claims a rounding check', evidence: 'It checks no rounding.' }] }) } },
+      expect: ['no-gap', /; 0 gap\(s\) judged by 0 skeptic\(s\): 0 upheld, 0 unverified, 0 refuted; 1 finding\(s\) below a gap$/],
+      check: ({ result, calls }) => (!calls.some((l) => l.startsWith('skeptic ')) && result.below[0]?.source === 'alpha' ? null : `below came back ${JSON.stringify(result.below)}`),
+    },
+    lenses >= 1
+      ? {
+          name: 'a run again: a kept row keeps the reading args gives, whatever its tracer says, with the new result and the earlier commit, and a kept lens is not run',
+          args: verifyArgs(policy, {
+            previous: { commit: PREVIOUS, design: [{ key: 'lens-1', label: 'Lens 1', checked: [{ decision: 'The decision lens-1 reads', verified: 'Unchanged since.' }] }] },
+            lenses: lensesOf(lenses - 1, 2),
+            groups: [
+              { key: 'alpha', capability: 'alpha', scenarios: scenariosOf('alpha'), kept: [{ requirement: 'Adds', scenario: 'Two plus two', proofKind: 'test', proof: 'test/kept.test.js: Two plus two', exercises: true }] },
+              { key: 'beta', capability: 'beta', scenarios: scenariosOf('beta') },
+            ],
+          }),
+          scenario: { traces: { alpha: (g) => cleanTrace(g, (s) => (s === 'Two plus two' ? { proofKind: 'none', proof: '', exercises: false } : null)) } },
+          expect: ['no-gap', new RegExp(`^every one of the 5 scenario\\(s\\) traced, ${lenses - 1} design lens\\(es\\) read and 1 kept; `)],
+          check: ({ result, calls, options }) => {
+            const row = rowOf(result, 'Two plus two')
+            if (row.proof !== 'test/kept.test.js: Two plus two' || !row.exercises || !row.kept || row.readAt !== PREVIOUS || row.gap) return `the kept row came back ${JSON.stringify(row)}`
+            if (rowOf(result, 'Zero plus zero').kept) return 'a row the args did not keep is marked kept'
+            if (calls.includes('design lens-1')) return 'the kept lens ran again'
+            if (!options.find((o) => o.label === 'trace alpha').prompt.includes(`Kept from the trace at ${PREVIOUS}`)) return "the alpha tracer's prompt does not say which rows keep their reading"
+            const kept = result.design.lenses.find((l) => l.key === 'lens-1')
+            return kept?.status === 'kept' && kept.readAt === PREVIOUS ? null : `lens-1 came back ${JSON.stringify(kept)}`
+          },
+        }
+      : unexercised('a run again', 'the policy gives no design lens to keep'),
+    refused(
+      'refused: a policy without verifyTraceSkeptics, before any agent runs',
+      verifyArgs(policy, { policy: Object.fromEntries(Object.entries(verifyPolicy(policy)).filter(([k]) => k !== 'verifyTraceSkeptics')) }),
+      /^args\.policy has no `verifyTraceSkeptics`/,
+    ),
+    refused(
+      `refused: a group of more scenarios than verifyTraceMaxScenarios (${most}) gives one tracer`,
+      verifyArgs(policy, {
+        scenarios: most + 1,
+        groups: [{ key: 'big', capability: 'alpha', scenarios: Array.from({ length: most + 1 }, (_, i) => ({ requirement: 'Many', scenario: `Case ${i + 1}` })) }],
+        design: false,
+        lenses: [],
+      }),
+      new RegExp(`^group big: ${most + 1} scenarios, more than the ${most} \`verifyTraceMaxScenarios\` gives one tracer`),
+    ),
+    refused('refused: groups that hold fewer scenarios than the delta specs', verifyArgs(policy, { scenarios: 6 }), /^args\.groups hold 5 scenario\(s\), but args\.scenarios says the delta specs hold 6/),
+    refused(
+      'refused: one scenario in two groups',
+      verifyArgs(policy, {
+        scenarios: 6,
+        groups: [...verifyArgs(policy).groups, { key: 'again', capability: 'alpha', scenarios: [{ requirement: 'Adds', scenario: 'Two plus two' }] }],
+      }),
+      /^the scenario alpha \/ Adds \/ Two plus two is in groups alpha and again/,
+    ),
+    refused(
+      `refused: a first run of a change with a design given ${lenses + 1} lens(es), not the ${lenses} the policy gives`,
+      verifyArgs(policy, { lenses: lensesOf(lenses + 1) }),
+      new RegExp(`^a first run of a change with a design takes ${lenses} lens\\(es\\)`),
+    ),
+    refused('refused: a lens for a change with no design', verifyArgs(policy, { design: false }), /^args\.design says the change has no design\.md/),
+    refused(
+      'refused: kept rows on a first run',
+      verifyArgs(policy, { groups: [{ ...verifyArgs(policy).groups[0], kept: [{ requirement: 'Adds', scenario: 'Two plus two', proofKind: 'test', proof: 'x', exercises: true }] }, verifyArgs(policy).groups[1]] }),
+      /^group alpha: kept rows need args\.previous/,
+    ),
+    refused(
+      "refused: a kept row for a scenario not of its group",
+      verifyArgs(policy, {
+        previous: { commit: PREVIOUS },
+        groups: [{ ...verifyArgs(policy).groups[0], kept: [{ requirement: 'Serves', scenario: 'The page is served', proofKind: 'test', proof: 'x', exercises: true }] }, verifyArgs(policy).groups[1]],
+      }),
+      /^group alpha: kept\[0\] is Serves \/ The page is served, which is not one of the group's scenarios/,
+    ),
+    refused(
+      'refused: a run again whose lenses and kept readings do not add up to the policy',
+      verifyArgs(policy, { previous: { commit: PREVIOUS, design: [{ key: 'lens-0', label: 'Lens 0', checked: [] }] } }),
+      new RegExp(`^a run again runs a lens for each part of the design the diff changes and keeps the rest: ${lenses} run and 1 kept`),
+    ),
+    lenses >= 1
+      ? refused(
+          'refused: a lens that both runs again and keeps its reading',
+          verifyArgs(policy, { previous: { commit: PREVIOUS, design: [{ key: 'lens-1', label: 'Lens 1', checked: [] }] } }),
+          /^the lens lens-1 both runs again and keeps its earlier reading/,
+        )
+      : unexercised('a lens run again and kept', 'the policy gives no design lens'),
+    refused('refused: a commit that is not one', verifyArgs(policy, { commit: 'HEAD' }), /^args\.commit must be the commit traced/),
+    lenses >= 1
+      ? refused(
+          'refused: one key naming a group and a lens',
+          verifyArgs(policy, { lenses: [{ key: 'alpha', label: 'Alpha', focus: 'x' }, ...lensesOf(lenses - 1, 2)] }),
+          /^the key alpha names two groups or lenses/,
+        )
+      : unexercised('one key naming a group and a lens', 'the policy gives no design lens'),
+  ]
+}
+
+/* ------------------------------------------------------------------------ the trace renderers ----- */
+
+/** Delta specs for the fixture change under `root`/`dir`, from `specs`. */
+function writeSpecs(root, dir, specs) {
+  for (const [capability, list] of Object.entries(specs)) {
+    const lines = ['## ADDED Requirements', '']
+    let last = null
+    for (const [requirement, scenario] of list) {
+      if (requirement !== last) lines.push(`### Requirement: ${requirement}`, '', 'The system SHALL do it.', '')
+      last = requirement
+      lines.push(`#### Scenario: ${scenario}`, '', '- **WHEN** it happens', '- **THEN** it is done', '')
+    }
+    mkdirSync(join(root, dir, capability), { recursive: true })
+    writeFileSync(join(root, dir, capability, 'spec.md'), lines.join('\n'))
+  }
+}
+
+/**
+ * The renderers of `scripts/render-trace.mjs` and `scripts/render-pr-body.mjs`, run on this file's
+ * stubbed runs of the trace workflow, over delta specs written under the temporary directory: a
+ * control through both command lines, then each refusal by its reason.
+ */
+async function rendererResults(body, policy) {
+  const lib = await import('./lib/trace.mjs')
+  const clean = (await run(body, verifyArgs(policy), verifyAnswer(verifyArgs(policy)))).result
+  const gapped = (await run(body, verifyArgs(policy), verifyAnswer(verifyArgs(policy), { traces: { alpha: (g) => cleanTrace(g, (s) => (s === 'Two plus two' ? { exercises: false } : null)) } }))).result
+  const active = `openspec/changes/${CHANGE}/specs`
+  const archived = `openspec/changes/archive/2026-09-28-${CHANGE}/specs`
+  const base = mkdtempSync(join(tmpdir(), 'workflows-renderers-'))
+  let n = 0
+  const tree = (setup) => {
+    const root = join(base, String(n++))
+    setup(root)
+    return root
+  }
+  const cli = (script, root, argv) => spawnSync(process.execPath, [join(REPO_ROOT, 'scripts', script), ...argv], { env: { ...process.env, TRACE_ROOT: root }, encoding: 'utf8' })
+  const save = (root, result) => {
+    mkdirSync(join(root, '.scratch'), { recursive: true })
+    writeFileSync(join(root, '.scratch', `${CHANGE}-trace.json`), JSON.stringify(result))
+  }
+  const refusedFor = (out, reason) => (out.status === 1 && reason.test(out.stderr) ? null : `exited ${out.status}: ${out.stderr || out.stdout}`)
+
+  const cases = [
+    {
+      file: 'scripts/render-trace.mjs',
+      name: 'control: both command lines write from a clean result, the trace opening on the commit and a row for every scenario in the delta specs',
+      control: true,
+      test: () => {
+        const root = tree((r) => {
+          writeSpecs(r, active, SPECS)
+          save(r, clean)
+          writeFileSync(join(r, '.scratch', 'head.md'), '# Head\n')
+        })
+        const trace = cli('render-trace.mjs', root, [CHANGE])
+        if (trace.status !== 0) return `render-trace exited ${trace.status}: ${trace.stderr}`
+        const text = readFileSync(join(root, '.scratch', `${CHANGE}-trace.md`), 'utf8')
+        if (text.split('\n')[0] !== `# Scenario trace of ${CHANGE} at ${COMMIT}`) return `the trace opens "${text.split('\n')[0]}"`
+        if (text.split('\n').filter((l) => /^\| (alpha|beta) \|/.test(l)).length !== 5) return 'the trace does not hold 5 rows'
+        const body = cli('render-pr-body.mjs', root, [CHANGE, '--head', '.scratch/head.md'])
+        if (body.status !== 0) return `render-pr-body exited ${body.status}: ${body.stderr}`
+        const pr = readFileSync(join(root, '.scratch', `${CHANGE}-pr.md`), 'utf8')
+        return pr.startsWith('# Head\n\n## Scenario trace\n') && pr.includes('every one of the 5 scenarios') ? null : `the body reads ${pr.slice(0, 200)}`
+      },
+    },
+    {
+      file: 'scripts/render-trace.mjs',
+      name: 'refuses a result missing a scenario the delta specs hold, by its reason',
+      test: () => {
+        const root = tree((r) => {
+          writeSpecs(r, active, { ...SPECS, beta: [...SPECS.beta, ['Serves', 'A third path']] })
+          save(r, clean)
+        })
+        return refusedFor(cli('render-trace.mjs', root, [CHANGE]), /no row for beta \/ Serves \/ A third path/)
+      },
+    },
+    {
+      file: 'scripts/render-trace.mjs',
+      name: 'refuses a row no delta spec holds',
+      test: () => lib.matchProblems(clean.rows, SPECS.alpha.map(([requirement, scenario]) => ({ capability: 'alpha', requirement, scenario }))).some((p) => /^a row for beta \/ Serves \/ The page is served, which no delta spec holds$/.test(p)) ? null : 'no problem names the row',
+    },
+    {
+      file: 'scripts/render-trace.mjs',
+      name: "refuses a refused run's result, which traced nothing",
+      test: () => (/^the workflow refused its arguments/.test(lib.parseResult(JSON.stringify({ change: CHANGE, stopped: 'refused', why: 'x' })).problem ?? '') ? null : 'it did not refuse'),
+    },
+    {
+      file: 'scripts/render-trace.mjs',
+      name: "reads a workflow state file's result, and finds an archived change's delta specs, but not two folders for one change",
+      test: () => {
+        if (lib.parseResult(JSON.stringify({ result: clean })).problem) return 'it did not read through { result }'
+        const root = tree((r) => writeSpecs(r, archived, SPECS))
+        if (lib.specsDir(root, CHANGE).dir !== archived) return `found ${JSON.stringify(lib.specsDir(root, CHANGE))}`
+        writeSpecs(root, active, SPECS)
+        return /are in 2 places/.test(lib.specsDir(root, CHANGE).problem ?? '') ? null : 'two folders were not refused'
+      },
+    },
+    {
+      file: 'scripts/render-pr-body.mjs',
+      name: 'refuses a trace with a gap no majority refuted, by its reason',
+      test: () => {
+        const root = tree((r) => {
+          writeSpecs(r, active, SPECS)
+          save(r, gapped)
+        })
+        return refusedFor(cli('render-pr-body.mjs', root, [CHANGE]), /the trace stopped `gaps`, not `no-gap`[\s\S]*1 row\(s\) have a gap no majority refuted: Two plus two/)
+      },
+    },
+  ]
+  const results = []
+  try {
+    for (const c of cases) {
+      let detail
+      try {
+        detail = c.test()
+      } catch (error) {
+        detail = `threw: ${error.stack ?? error.message}`
+      }
+      results.push({ file: c.file, name: c.name, control: Boolean(c.control), ok: detail === null, detail: detail ?? 'holds' })
+    }
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+  return results
+}
+
 /* ---------------------------------------------------------------- the unheld-file refusal ----- */
 
 /**
@@ -1253,7 +1747,7 @@ function judge(c, outcome) {
 }
 
 async function main() {
-  const suites = [{ file: BUILD }, { file: REVIEW }]
+  const suites = [{ file: BUILD }, { file: REVIEW }, { file: VERIFY }]
   const staticProblems = unheld(ROOT, suites)
   for (const s of suites) {
     Object.assign(s, readWorkflow(ROOT, s.file))
@@ -1265,7 +1759,7 @@ async function main() {
   } catch (error) {
     staticProblems.push(`${POLICY} could not be read: ${error.message}`)
   }
-  const missing = policy ? [...POLICY_KEYS, ...REVIEW_POLICY_KEYS].filter((k) => policy[k] === undefined) : []
+  const missing = policy ? [...POLICY_KEYS, ...REVIEW_POLICY_KEYS, ...VERIFY_POLICY_KEYS].filter((k) => policy[k] === undefined) : []
   if (missing.length) staticProblems.push(`${POLICY} has no ${missing.join(', ')}`)
   if (staticProblems.length || suites.some((s) => !s.body)) {
     console.error(`workflows selftest: a workflow or the policy cannot be run.\n`)
@@ -1274,6 +1768,7 @@ async function main() {
   }
   suites[0].cases = buildCases(policy).map((c) => ({ ...c, answer: scenario(policy, c.scenario) }))
   suites[1].cases = reviewCases(policy).map((c) => ({ ...c, answer: reviewAnswer(c.args, c.reports, c.verdict) }))
+  suites[2].cases = verifyCases(policy).map((c) => ({ ...c, answer: verifyAnswer(c.args, c.scenario) }))
 
   const results = unheldResults(suites)
   if (!results[0].ok) {
@@ -1290,10 +1785,17 @@ async function main() {
       }
     }
   }
+  const rendered = await rendererResults(suites[2].body, policy)
+  if (!rendered[0].ok) {
+    console.error(`workflows selftest: the trace renderers fail on a clean result, so none of their cases can be trusted: ${rendered[0].detail}`)
+    process.exit(1)
+  }
+  results.push(...rendered)
 
   const failed = results.filter((r) => !r.ok)
   for (const { file, name, ok, detail } of results) console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${file.split('/').pop()}: ${name} -- ${detail}`)
-  const tally = [...suites.map((s) => s.file), WORKFLOWS].map((file) => {
+  const renderers = [...new Set(rendered.map((r) => r.file))]
+  const tally = [...suites.map((s) => s.file), ...renderers, WORKFLOWS].map((file) => {
     const mine = results.filter((r) => r.file === file)
     const controls = mine.filter((r) => r.control).length
     return `${file === WORKFLOWS ? 'the unheld-file check' : file}: ${controls} control(s) and ${mine.length - controls} scenario(s)`

@@ -15,8 +15,8 @@ runs again from step 2.
 ## 1. Find the change and its epic
 
 - **The change.** Its name is found as `CLAUDE.md` § Product work runs as OpenSpec-format changes
-  says. From the primary checkout, enter the worktree with
-  `EnterWorktree` and the path `.claude/worktrees/<change>`.
+  says. From the primary checkout, enter the worktree with `EnterWorktree` and the path
+  `.claude/worktrees/<change>`.
 - **The epic.** It is the one issue that
   `bd list --label spec-change --type epic --metadata-field change=<change> --json` returns (the
   label is `specChangeLabel` in `tools/policy.json`). If none or several come back, stop and say
@@ -42,6 +42,9 @@ the living spec as it stands on this branch.
 ## 4. Every scenario is traced
 
 Write the trace to `.scratch/<change>-trace.md`, one row per `#### Scenario:` in every delta spec.
+Take it with `.claude/workflows/verify-change-trace.js`, through the Workflow tool: its header says
+what to pass, on a run again too, and what each result means. Save what it returns to
+`.scratch/<change>-trace.json`, and `node scripts/render-trace.mjs <change>` writes the trace.
 Each row gives the capability, the scenario, its proof and the result as measured. The proof is one of:
 
 - the test, gate or check that exercises the scenario, together with the result of running it now;
@@ -86,6 +89,6 @@ way, and each row carries the new result.
   `bd note <epic> --file <file>`: each gap, its file, its scenario or design decision, and the
   route the user picked. Verification then runs again from step 2.
 - **No gap:** report the trace, the gates as measured and each finding below a gap, with where
-  it went. The trace goes into
-  the pull request's body. The next stage is `change-finalize` (`CLAUDE.md` § Product work runs as
+  it went. The trace goes into the pull request's body, as `node scripts/render-pr-body.mjs <change>`
+  renders it. The next stage is `change-finalize` (`CLAUDE.md` § Product work runs as
   OpenSpec-format changes).
