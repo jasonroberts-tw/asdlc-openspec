@@ -16,7 +16,7 @@ option takes the form `CLAUDE.md` § A question shows where its recommendation l
 ## 1. Find the change and its epic
 
 - **The change.** Its name is found as `CLAUDE.md` § Product work runs as OpenSpec-format changes
-  says. The branch is `agent/<change>`. From the primary checkout, enter the worktree with
+  says. From the primary checkout, enter the worktree with
   `EnterWorktree` and the path `.claude/worktrees/<change>`.
 - **The epic.** It is the one issue that
   `bd list --label spec-change --type epic --metadata-field change=<change> --json` returns (the
@@ -30,7 +30,6 @@ anticipate, stop and report it.
 
 Then repeat `change-verify` from its step 2 on the rebased branch. A change that landed in the
 meantime can leave this one's MODIFIED block naming a requirement that no longer reads the same.
-`npm run openspec:check` says so.
 
 ## 3. Archive
 
@@ -67,20 +66,15 @@ Write the body to `.scratch/<change>-pr.md`. It covers:
 - what changed, from the proposal's What Changes;
 - each requirement added, modified, removed or renamed, and the living spec files now holding them;
 - the scenario trace from `change-verify`, as re-run in step 2;
-- the epic and its closed tasks, each with the subject of the commit that closed it, not its id.
-  The rebase in step 2 rewrote every id on the branch, and GitHub's rebase merge rewrites them
-  again, so an id in a task's close reason never reaches the trunk;
+- the epic and its closed tasks, each with the subject of the commit that closed it, not its id:
+  an id in a task's close reason never reaches the trunk;
 - what was deliberately left undone, and every issue filed along the way.
   `bd dep list <epic> --direction=up` lists the tasks (`via parent-child`) and the filed issues
   (`via discovered-from`).
 
-Every figure in the body is re-derived (`CLAUDE.md` § Verification before claiming).
-
 Then open it with the `open-pr` skill, from the branch `agent/<change>`, with that body file and the
-title `<change>: <what changed> (<epic id>)`. The epic's id ends the title, because the reviewer
-holds the pull request to the acceptance criteria of the issues its title cites
-(`CLAUDE.md` § Git workflow). The skill watches the checks to the reviewer's verdict, and a fix it
-asks for is made here, in the worktree.
+title `<change>: <what changed> (<epic id>)`. The skill watches the checks to the reviewer's verdict,
+and a fix it asks for is made here, in the worktree.
 
 ## 6. Leave the worktree
 
@@ -89,11 +83,9 @@ or discard it. The session is back in the primary checkout.
 
 ## 7. Merge, through the reviewer
 
-The pull-request reviewer merges it (`docs/decisions.md` § D-07). It reviews the pull request once
-`verify` passes, against the epic's acceptance criteria, and merges it when every dimension passes
-and its risk is not high. Its verdict is the `pr-review` check and a comment on the pull request.
+The pull-request reviewer merges it (`docs/decisions.md` § D-07).
 
-Step 5's `open-pr` skill watched the checks to that verdict. Read
+Step 5's `open-pr` skill watched the checks to the reviewer's verdict. Read
 `gh pr view <number> --json state,mergedAt,labels`:
 
 - **`MERGED`.** Carry on from the remote branch below, and then step 8.
@@ -103,7 +95,7 @@ Step 5's `open-pr` skill watched the checks to that verdict. Read
   (`CLAUDE.md` § Git workflow). Wait for `MERGED` as above.
 - **The review requests changes.** Read its comment, go back into the worktree with `EnterWorktree`,
   and fix, gate, commit and push as the earlier steps do. Then mark and watch the new head as the
-  `open-pr` skill's steps 5 and 6 say. The reviewer judges the new head.
+  `open-pr` skill's steps 5 and 6 say.
 
 `scripts/hooks/guard-git.mjs` refuses a merge from a worktree.
 
@@ -159,9 +151,7 @@ Report:
 - both gate runs, as measured;
 - every issue filed along the way;
 - the counts across runs, as each command prints them, with the number of changes behind them.
-  They are the evidence a person reads for what keeps needing a fix (`CLAUDE.md` § A program
-  proposes; only a person promotes), and the end of the analysis a prompt review is handed
-  (`CLAUDE.md` § Prompt reviews). Report the counts, never a rate:
+  Report the counts, never a rate:
   - `bd count -t epic -l <the change label> --by-label`, where the label is `specChangeLabel` in
     `tools/policy.json`: its total is the number of changes, and its `rerouteLabels` rows are how
     many of them were sent back to each stage;
