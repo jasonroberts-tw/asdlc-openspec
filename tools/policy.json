@@ -178,8 +178,8 @@
   "promptWordBudgetSkillChangeBuild": 1314,
   "promptWordBudgetSkillChangeBuildMeans": "The most words `.claude/skills/change-build/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv). Lowered 2026-09-28 from 1,316 to 1,314 by D-14 (asdlc-openspec-fye): its two consolidations freed 51 words, 47 and then 4, and § 3's `scenarios` argument, its handling of a `not-red` stop and the red records `settled` carries added 49, so the budget fell to the new count, as D-12 item 6 asks; that pull request lists every sentence the consolidations removed and where each one went.",
 
-  "promptWordBudgetSkillChangeDesign": 1048,
-  "promptWordBudgetSkillChangeDesignMeans": "The most words `.claude/skills/change-design/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+  "promptWordBudgetSkillChangeDesign": 1177,
+  "promptWordBudgetSkillChangeDesignMeans": "The most words `.claude/skills/change-design/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on, 1,048; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv). Raised 2026-09-28 to 1,177 by asdlc-openspec-j09.6, under docs/decisions.md § D-13, items 13 and 15: the Binding Surface, contract artifacts, fitness-function records, NFRs cited by ID and a change's findings.md added 214 words, and consolidating the file first under D-12 freed 85, so the raise is the other 129; that pull request lists every clause the consolidation removed and where each one went.",
 
   "promptWordBudgetSkillChangeFinalize": 1648,
   "promptWordBudgetSkillChangeFinalizeMeans": "The most words `.claude/skills/change-finalize/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
