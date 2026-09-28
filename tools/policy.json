@@ -57,7 +57,7 @@
   "foundAtLabelsMeans": "Where an issue a run files `discovered-from` was found: exactly one label, the stage that was running, each key the label and each value when it applies (CLAUDE.md § The task store says when). `found:review` is the count of what got through every stage and was caught only looking back. An issue filed before D-06 carries one only where its own text says which stage found it. Decided 2026-09-24 with D-06 (asdlc-openspec-6dn), after a second opinion on the retirement pointed out that the loop's recurrence signal is the pair of where a correction was found and what it would fix.",
 
   "rerouteLabels": {
-    "reroute:build": "change-verify sent work back to change-build: a gap in the code, or a finding the user made a new task",
+    "reroute:build": "change-verify or change-finalize sent work back to change-build: a gap in the code, a finding the user made a new task, or a test trace:check refused after the archive",
     "reroute:design": "a later stage revised the design",
     "reroute:plan": "a later stage added a task to the epic",
     "reroute:propose": "a later stage revised the proposal or a delta spec"
@@ -221,8 +221,8 @@
   "promptWordBudgetSkillChangeDesign": 1177,
   "promptWordBudgetSkillChangeDesignMeans": "The most words `.claude/skills/change-design/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on, 1,048; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv). Raised 2026-09-28 to 1,177 by asdlc-openspec-j09.6, under docs/decisions.md § D-13, items 13 and 15: the Binding Surface, contract artifacts, fitness-function records, NFRs cited by ID and a change's findings.md added 214 words, and consolidating the file first under D-12 freed 85, so the raise is the other 129; that pull request lists every clause the consolidation removed and where each one went.",
 
-  "promptWordBudgetSkillChangeFinalize": 1648,
-  "promptWordBudgetSkillChangeFinalizeMeans": "The most words `.claude/skills/change-finalize/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+  "promptWordBudgetSkillChangeFinalize": 1602,
+  "promptWordBudgetSkillChangeFinalizeMeans": "The most words `.claude/skills/change-finalize/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on, 1,648; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv). Lowered 2026-09-28 from 1,648 to 1,602 by asdlc-openspec-j09.12, under docs/decisions.md § D-13, item 17's table: consolidating the file first under D-12 freed 148 words, and § 4's `npm run trace` and `trace:check` after the archive, with the send-back to change-build of a test it refuses, added 102, so the budget fell to the new count, as D-12 item 6 asks; that pull request lists every clause the consolidation removed and where each one went.",
 
   "promptWordBudgetSkillChangePlan": 1079,
   "promptWordBudgetSkillChangePlanMeans": "The most words `.claude/skills/change-plan/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on, 1,024; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv). Raised 2026-09-28 to 1,079 by asdlc-openspec-j09.8, under docs/decisions.md § D-13, items 6, 7 and 14: each task's kind, its scenario and NFR IDs, a real-browser proof for a scenario no harness here can observe, traceability rules 1 to 3 checked in the draft with every task but an `asset:product` one listed as exempt, a child's own labels, and a change's findings.md added 128 words, and consolidating the file first under D-12 freed 73, so the raise is the other 55; that pull request lists every clause the consolidation removed and where each one went.",

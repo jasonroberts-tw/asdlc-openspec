@@ -55,9 +55,16 @@ in step 2, so a refusal here means stop and read it.
   file that still names a path the archive moved. Point each at the living spec or the archive
   path, except a `docs/decisions.md` entry, which stays as recorded (`CLAUDE.md` § Decisions live in
   the register). The citations gate does not catch these: a bare path is not a citation it checks.
-- Then run `npm run gates`.
-- **Commit** the archive move, the living spec, the Purpose and every file repointed together, with
-  the message passed from a file under `.scratch/`.
+- **Then run `npm run trace`**, which rewrites the record the archive staled, **and `npm run gates`**.
+  Among them, `trace:check` refuses a test that still cites an ID the change removed, or the old
+  version of one it modified (`unknown` and `stale` in the header of `tools/trace/trace.ts`). Never
+  retire or regenerate such a test here, where neither the build's review nor verification sees it.
+  Undo the archive (`git restore --staged --worktree .`, then `git clean -fd openspec/`), label the
+  epic for build (`rerouteLabels` in `tools/policy.json`), note each refused test on it as
+  `.claude/skills/change-verify/SKILL.md` § 6. Verdict notes a gap, and stop. The next stage is
+  `change-build`.
+- **Commit** the archive move, the living spec, the Purpose, the record and every file repointed
+  together, with the message passed from a file under `.scratch/`.
 
 ## 5. Open the pull request
 
