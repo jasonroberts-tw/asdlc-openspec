@@ -34,8 +34,9 @@
  * or that a majority of its skeptics did not uphold (since asdlc-openspec-aa0). For the trace (since
  * asdlc-openspec-as9): a scenario left out of every group, a group a tracer returned short or read at
  * another commit counted as traced, a row's gap taken from the tracer's words rather than its
- * reading, a gap nobody could verify counted refuted, and a trace or a pull-request body written with
- * a scenario missing or a gap open. Each costs millions
+ * reading, a gap nobody could verify counted refuted, a failed proof cleared by a skeptic's vote, a
+ * dead lens's reading kept on a run again, and a trace or a pull-request body written with a
+ * scenario missing, a gap open or a row that did not pass. Each costs millions
  * of tokens, a wrong verdict, a rule lost from a prompt or a finding never reviewed,
  * before anyone sees it, and no other gate reads their logic: `check:prompts` counts only the words
  * of their string literals, and `openspec:check` reads only skills and agents.
@@ -1224,7 +1225,20 @@ function reviewCases(policy) {
 const CHANGE = 'example-change'
 const COMMIT = '0123456789abcdef0123456789abcdef01234567'
 const PREVIOUS = 'fedcba9876543210fedcba9876543210fedcba98'
+const OLDEST = '1111111111111111111111111111111111111111'
 const RECORDED = 'example-1.7'
+
+/** A design reading a run again keeps, as the earlier result's `design.lenses` gives it, unless `extra` says otherwise. */
+const keptLens = (key, extra = {}) => ({
+  key,
+  label: `Lens ${key}`,
+  status: 'read',
+  checked: [{ decision: `The decision ${key} reads`, verified: 'Unchanged since.' }],
+  ...extra,
+})
+
+/** A skeptic that refutes a row's gap with the reading it established: a proof that exercises the scenario. */
+const PROVING = { verdict: 'refuted', reason: 'Another assertion drives the display.', proofKind: 'test', proof: 'test/alpha.test.js: Two plus two, its display assertion', exercises: true }
 
 /** The fixture change's scenarios, by capability: the delta specs the renderer cases write, too. */
 const SPECS = {
@@ -1319,8 +1333,13 @@ function verifyCases(policy) {
   const beforeAnyAgent = ({ calls }) => (calls.length ? `ran ${calls.join(', ')} before refusing` : null)
   const unexercised = (name, why) => ({ name, args: verifyArgs(policy), check: () => `cannot be exercised: ${why}` })
   const refused = (name, args, reason) => ({ name, args, expect: ['refused', reason], check: beforeAnyAgent })
-  const tallyOf = (upheld, unverified, refuted) => new RegExp(`; ${upheld + unverified + refuted} gap\\(s\\) judged by ${(upheld + unverified + refuted) * n} skeptic\\(s\\): ${upheld} upheld, ${unverified} unverified, ${refuted} refuted; `)
-  const notExercised = { traces: { alpha: (g) => cleanTrace(g, (s) => (s === 'Two plus two' ? { exercises: false, notes: 'It asserts the sum and never the display.' } : null)) } }
+  const tallyOf = (upheld, unverified, refuted, measured = 0) => {
+    const judged = upheld + unverified + refuted
+    return new RegExp(`; ${judged + measured} gap\\(s\\), ${measured} measured and ${judged} judged by ${judged * n} skeptic\\(s\\): ${upheld} upheld, ${unverified} unverified, ${refuted} refuted; `)
+  }
+  const alphaRow = (change) => ({ traces: { alpha: (g) => cleanTrace(g, (s) => (s === 'Two plus two' ? change : null)) } })
+  const notExercised = alphaRow({ exercises: false, notes: 'It asserts the sum and never the display.' })
+  const keptRun = (design, extra = {}) => verifyArgs(policy, { previous: { commit: PREVIOUS, design }, lenses: lensesOf(lenses - 1, 2), ...extra })
 
   return [
     {
@@ -1328,7 +1347,7 @@ function verifyCases(policy) {
       control: true,
       args: verifyArgs(policy),
       scenario: {},
-      expect: ['no-gap', new RegExp(`^every one of the 5 scenario\\(s\\) traced, ${lenses} design lens\\(es\\) read and 0 kept; 0 gap\\(s\\) judged by 0 skeptic\\(s\\)`)],
+      expect: ['no-gap', new RegExp(`^every one of the 5 scenario\\(s\\) traced, ${lenses} design lens\\(es\\) read and 0 kept; 0 gap\\(s\\), 0 measured and 0 judged by 0 skeptic\\(s\\)`)],
       check: ({ result, calls, options }) => {
         const want = ['trace alpha', 'trace beta', ...lensesOf(lenses).map((l) => `design ${l.key}`)]
         if (calls.join() !== want.join()) return `ran ${calls.join(', ')}, not ${want.join(', ')}`
@@ -1356,11 +1375,49 @@ function verifyCases(policy) {
       },
     },
     {
-      name: 'a gap a majority refutes leaves the run no-gap, with the gap listed refuted',
+      name: "a gap a majority refutes with a proving reading leaves the run no-gap, the row carrying the skeptics' reading and the tracer's kept as traced",
+      args: verifyArgs(policy),
+      scenario: { ...notExercised, verdict: () => PROVING },
+      expect: ['no-gap', tallyOf(0, 0, 1)],
+      check: ({ result }) => {
+        const row = rowOf(result, 'Two plus two')
+        if (result.gaps[0]?.outcome !== 'refuted' || row.gap?.outcome !== 'refuted') return 'the gap is not listed refuted'
+        if (row.proof !== PROVING.proof || row.exercises !== true) return `the row carries ${row.proof}, exercises ${row.exercises}, not the skeptics' reading`
+        return row.traced?.exercises === false && result.counts.correctedRows === 1 ? null : `the tracer's reading came back ${JSON.stringify(row.traced)}`
+      },
+    },
+    {
+      name: "a refutation with no reading whose proof exercises the scenario clears nothing: the gap stands unverified, and says why",
       args: verifyArgs(policy),
       scenario: { ...notExercised, verdict: () => reviewVote('refuted') },
-      expect: ['no-gap', tallyOf(0, 0, 1)],
-      check: ({ result }) => (result.gaps[0]?.outcome === 'refuted' && rowOf(result, 'Two plus two').gap.outcome === 'refuted' ? null : 'the gap is not listed refuted'),
+      expect: ['gaps', tallyOf(0, 1, 0)],
+      check: ({ result }) => {
+        const row = rowOf(result, 'Two plus two')
+        if (row.gap?.outcome !== 'unverified' || row.traced || row.exercises !== false) return `the row came back ${JSON.stringify(row)}`
+        return /no refuting skeptic gave a reading whose proof exercises the scenario/.test(result.gaps[0].votes.at(-1)) ? null : `the votes were ${result.gaps[0].votes.join(' | ')}`
+      },
+    },
+    {
+      name: 'a proof that failed is a measured gap: no skeptic judges it, and it stays a gap however they would vote',
+      args: verifyArgs(policy),
+      scenario: { ...alphaRow({ result: 'fail', notes: 'It failed: expected 4, got 5.' }), verdict: () => PROVING },
+      expect: ['gaps', tallyOf(0, 0, 0, 1)],
+      check: ({ result, calls }) => {
+        if (calls.some((l) => l.startsWith('skeptic '))) return 'a skeptic judged a measured failure'
+        const gap = rowOf(result, 'Two plus two').gap
+        return gap?.kind === 'fails' && gap.outcome === 'measured' && result.gaps[0].outcome === 'measured' ? null : `the gap came back ${JSON.stringify(gap)}`
+      },
+    },
+    {
+      name: "a refuted gap on a proof that failed: the row carries the skeptics' reading, and its failure stays a measured gap",
+      args: verifyArgs(policy),
+      scenario: { ...alphaRow({ exercises: false, result: 'fail' }), verdict: () => PROVING },
+      expect: ['gaps', tallyOf(0, 0, 1, 1)],
+      check: ({ result }) => {
+        const row = rowOf(result, 'Two plus two')
+        if (!row.traced || row.exercises !== true) return "the row does not carry the skeptics' reading"
+        return row.gap?.kind === 'fails' && row.gap.outcome === 'measured' ? null : `the row's gap came back ${JSON.stringify(row.gap)}`
+      },
     },
     n >= 3
       ? {
@@ -1378,16 +1435,16 @@ function verifyCases(policy) {
       expect: ['gaps', tallyOf(0, 1, 0)],
       check: ({ result }) => (result.gaps[0].votes.every((v) => v === 'unverified: the skeptic returned nothing') ? null : `the votes were ${result.gaps[0].votes.join(' | ')}`),
     },
-    most >= 6
+    most >= 7
       ? {
-          name: "each row's gap is decided from its reading: no proof, a manual proof no plan recorded, not exercised, failing, not run; a recorded manual proof is none",
+          name: "each row's gap is decided from its reading: no proof, a manual proof no plan recorded, not exercised, failing, not run, a manual proof answered pass; only the first three go to skeptics, and a recorded manual proof is none",
           args: verifyArgs(policy, {
-            scenarios: 6,
+            scenarios: 7,
             groups: [
               {
                 key: 'kinds',
                 capability: 'alpha',
-                scenarios: ['none', 'unrecorded', 'unexercised', 'failing', 'unrun', 'recorded'].map((scenario) => ({ requirement: 'Kinds', scenario })),
+                scenarios: ['none', 'unrecorded', 'unexercised', 'failing', 'unrun', 'manual-pass', 'recorded'].map((scenario) => ({ requirement: 'Kinds', scenario })),
               },
             ],
             design: false,
@@ -1402,24 +1459,25 @@ function verifyCases(policy) {
                   unexercised: { exercises: false },
                   failing: { result: 'fail' },
                   unrun: { result: 'not-run' },
+                  'manual-pass': { proofKind: 'manual', proof: `bd show ${RECORDED}`, result: 'pass' },
                   recorded: { proofKind: 'manual', proof: `bd show ${RECORDED}, its note`, result: 'recorded' },
                 })[s]),
             },
           },
-          expect: ['gaps', tallyOf(5, 0, 0)],
+          expect: ['gaps', tallyOf(3, 0, 0, 3)],
           check: ({ result, calls }) => {
             const kinds = result.rows.map((r) => r.gap?.kind ?? 'none').join()
-            if (kinds !== 'no-proof,no-proof,not-exercised,fails,not-run,none') return `the rows' gaps came back ${kinds}`
+            if (kinds !== 'no-proof,no-proof,not-exercised,fails,not-run,not-run,none') return `the rows' gaps came back ${kinds}`
             if (!/names no manual proof the plan recorded/.test(result.gaps[1].title)) return `the unrecorded proof's gap reads ${result.gaps[1].title}`
-            return skepticsFrom(calls, 'kinds') === 5 * n ? null : `sent ${skepticsFrom(calls, 'kinds')} skeptic(s), not ${5 * n}`
+            return skepticsFrom(calls, 'kinds') === 3 * n ? null : `sent ${skepticsFrom(calls, 'kinds')} skeptic(s), not ${3 * n}`
           },
         }
-      : unexercised("each row's gap from its reading", `the policy gives a tracer ${most} scenario(s), fewer than the 6 the case needs`),
+      : unexercised("each row's gap from its reading", `the policy gives a tracer ${most} scenario(s), fewer than the 7 the case needs`),
     {
       name: 'a tracer that returns a row for a scenario not its own and none for one of its own is mismatched; the run is incomplete and its gaps go to no skeptic',
       args: verifyArgs(policy),
       scenario: { traces: { alpha: (g) => cleanTrace(g, (s) => (s === 'Two plus two' ? { scenario: 'Two plus three', exercises: false } : null)) } },
-      expect: ['incomplete', /^group alpha mismatched; 2 of 5 scenario\(s\) traced; 0 gap\(s\) judged/],
+      expect: ['incomplete', /^group alpha mismatched; 2 of 5 scenario\(s\) traced; 0 gap\(s\), 0 measured and 0 judged/],
       check: ({ result, calls }) => {
         const problems = groupOf(result, 'alpha').problems.join('; ')
         if (!/a row for Adds \/ Two plus three, which is not one of its scenarios/.test(problems) || !/no row for Two plus two/.test(problems)) return `alpha's problems were ${problems}`
@@ -1440,6 +1498,13 @@ function verifyCases(policy) {
       scenario: { traces: { beta: (g) => ({ ...cleanTrace(g), head: PREVIOUS }) } },
       expect: ['incomplete', /^group beta stale; 3 of 5 /],
       check: ({ result }) => (/^the tracer read fedcba98\w+, not 0123456789/.test(groupOf(result, 'beta').problems[0]) ? null : `beta's problems were ${groupOf(result, 'beta').problems}`),
+    },
+    {
+      name: 'a tracer whose head is a prefix of the commit but not a commit, one character, is stale',
+      args: verifyArgs(policy),
+      scenario: { traces: { beta: (g) => ({ ...cleanTrace(g), head: COMMIT[0] }) } },
+      expect: ['incomplete', /^group beta stale; 3 of 5 /],
+      check: ({ result }) => (/^the tracer read 0, not 0123456789/.test(groupOf(result, 'beta').problems[0]) ? null : `beta's problems were ${groupOf(result, 'beta').problems}`),
     },
     {
       name: 'a tracer that returns nothing leaves the run incomplete',
@@ -1479,17 +1544,23 @@ function verifyCases(policy) {
       name: 'a finding below a gap goes to no skeptic and comes back with where it was found',
       args: verifyArgs(policy),
       scenario: { traces: { alpha: (g) => ({ ...cleanTrace(g), below: [{ where: 'test/alpha.test.js:4', title: 'Its name claims a rounding check', evidence: 'It checks no rounding.' }] }) } },
-      expect: ['no-gap', /; 0 gap\(s\) judged by 0 skeptic\(s\): 0 upheld, 0 unverified, 0 refuted; 1 finding\(s\) below a gap$/],
+      expect: ['no-gap', /; 0 gap\(s\), 0 measured and 0 judged by 0 skeptic\(s\): 0 upheld, 0 unverified, 0 refuted; 1 finding\(s\) below a gap$/],
       check: ({ result, calls }) => (!calls.some((l) => l.startsWith('skeptic ')) && result.below[0]?.source === 'alpha' ? null : `below came back ${JSON.stringify(result.below)}`),
     },
     lenses >= 1
       ? {
-          name: 'a run again: a kept row keeps the reading args gives, whatever its tracer says, with the new result and the earlier commit, and a kept lens is not run',
-          args: verifyArgs(policy, {
-            previous: { commit: PREVIOUS, design: [{ key: 'lens-1', label: 'Lens 1', checked: [{ decision: 'The decision lens-1 reads', verified: 'Unchanged since.' }] }] },
-            lenses: lensesOf(lenses - 1, 2),
+          name: "a run again: a kept row keeps the reading args gives, whatever its tracer says, with the new result and the commit it was read at, the earlier run's where it names none; a kept lens is not run, and keeps its own commit",
+          args: keptRun([keptLens('lens-1', { status: 'kept', readAt: OLDEST })], {
             groups: [
-              { key: 'alpha', capability: 'alpha', scenarios: scenariosOf('alpha'), kept: [{ requirement: 'Adds', scenario: 'Two plus two', proofKind: 'test', proof: 'test/kept.test.js: Two plus two', exercises: true }] },
+              {
+                key: 'alpha',
+                capability: 'alpha',
+                scenarios: scenariosOf('alpha'),
+                kept: [
+                  { requirement: 'Adds', scenario: 'Two plus two', proofKind: 'test', proof: 'test/kept.test.js: Two plus two', exercises: true, readAt: OLDEST },
+                  { requirement: 'Adds', scenario: 'Zero plus zero', proofKind: 'test', proof: 'test/kept.test.js: Zero plus zero', exercises: true },
+                ],
+              },
               { key: 'beta', capability: 'beta', scenarios: scenariosOf('beta') },
             ],
           }),
@@ -1497,12 +1568,13 @@ function verifyCases(policy) {
           expect: ['no-gap', new RegExp(`^every one of the 5 scenario\\(s\\) traced, ${lenses - 1} design lens\\(es\\) read and 1 kept; `)],
           check: ({ result, calls, options }) => {
             const row = rowOf(result, 'Two plus two')
-            if (row.proof !== 'test/kept.test.js: Two plus two' || !row.exercises || !row.kept || row.readAt !== PREVIOUS || row.gap) return `the kept row came back ${JSON.stringify(row)}`
-            if (rowOf(result, 'Zero plus zero').kept) return 'a row the args did not keep is marked kept'
+            if (row.proof !== 'test/kept.test.js: Two plus two' || !row.exercises || !row.kept || row.readAt !== OLDEST || row.gap) return `the kept row came back ${JSON.stringify(row)}`
+            if (rowOf(result, 'Zero plus zero').readAt !== PREVIOUS) return `a kept row naming no commit was stamped ${rowOf(result, 'Zero plus zero').readAt}, not the earlier run's`
+            if (rowOf(result, 'Clear empties the display').kept) return 'a row the args did not keep is marked kept'
             if (calls.includes('design lens-1')) return 'the kept lens ran again'
             if (!options.find((o) => o.label === 'trace alpha').prompt.includes(`Kept from the trace at ${PREVIOUS}`)) return "the alpha tracer's prompt does not say which rows keep their reading"
             const kept = result.design.lenses.find((l) => l.key === 'lens-1')
-            return kept?.status === 'kept' && kept.readAt === PREVIOUS ? null : `lens-1 came back ${JSON.stringify(kept)}`
+            return kept?.status === 'kept' && kept.readAt === OLDEST ? null : `lens-1 came back ${JSON.stringify(kept)}`
           },
         }
       : unexercised('a run again', 'the policy gives no design lens to keep'),
@@ -1551,16 +1623,43 @@ function verifyCases(policy) {
     ),
     refused(
       'refused: a run again whose lenses and kept readings do not add up to the policy',
-      verifyArgs(policy, { previous: { commit: PREVIOUS, design: [{ key: 'lens-0', label: 'Lens 0', checked: [] }] } }),
+      verifyArgs(policy, { previous: { commit: PREVIOUS, design: [keptLens('lens-0')] } }),
       new RegExp(`^a run again runs a lens for each part of the design the diff changes and keeps the rest: ${lenses} run and 1 kept`),
     ),
     lenses >= 1
       ? refused(
           'refused: a lens that both runs again and keeps its reading',
-          verifyArgs(policy, { previous: { commit: PREVIOUS, design: [{ key: 'lens-1', label: 'Lens 1', checked: [] }] } }),
+          verifyArgs(policy, { previous: { commit: PREVIOUS, design: [keptLens('lens-1')] } }),
           /^the lens lens-1 both runs again and keeps its earlier reading/,
         )
       : unexercised('a lens run again and kept', 'the policy gives no design lens'),
+    ...(lenses >= 1
+      ? [
+          refused(
+            'refused: a kept design reading of a lens that died in the earlier run, so it cannot stand in for one',
+            keptRun([keptLens('lens-1', { status: 'died', checked: [] })]),
+            /^args\.previous\.design\[0\]: the lens lens-1 came back "died" from the earlier run, not read or kept, so it has no reading to keep/,
+          ),
+          refused(
+            'refused: a kept design reading that checked no decision',
+            keptRun([keptLens('lens-1', { checked: [] })]),
+            /^args\.previous\.design\[0\]: the lens lens-1 keeps no decision it checked/,
+          ),
+          refused('refused: one lens kept twice', keptRun([keptLens('lens-1'), keptLens('lens-1')]), /^args\.previous\.design keeps the lens lens-1 twice/),
+          refused(
+            'refused: a kept design reading under the key of a group',
+            keptRun([keptLens('alpha')]),
+            /^args\.previous\.design\[0\]: the kept lens alpha has the key of a group/,
+          ),
+          refused(
+            "refused: a kept row whose readAt is not a commit",
+            keptRun([keptLens('lens-1')], {
+              groups: [{ ...verifyArgs(policy).groups[0], kept: [{ requirement: 'Adds', scenario: 'Two plus two', proofKind: 'test', proof: 'x', exercises: true, readAt: 'HEAD~1' }] }, verifyArgs(policy).groups[1]],
+            }),
+            /^group alpha: kept\[0\]: readAt must be the commit its reading was taken at/,
+          ),
+        ]
+      : [unexercised('a kept design reading', 'the policy gives no design lens')]),
     refused('refused: a commit that is not one', verifyArgs(policy, { commit: 'HEAD' }), /^args\.commit must be the commit traced/),
     lenses >= 1
       ? refused(
@@ -1677,6 +1776,26 @@ async function rendererResults(body, policy) {
           save(r, gapped)
         })
         return refusedFor(cli('render-pr-body.mjs', root, [CHANGE]), /the trace stopped `gaps`, not `no-gap`[\s\S]*1 row\(s\) have a gap no majority refuted: Two plus two/)
+      },
+    },
+    {
+      file: 'scripts/render-pr-body.mjs',
+      name: 'refuses, under a no-gap verdict, a row that failed, one whose proof does not exercise it, one with no proof, a manual proof not recorded, and a design lens that was not read',
+      test: () => {
+        const doctor = [{ result: 'fail' }, { exercises: false }, { proofKind: 'none', proof: '' }, { proofKind: 'manual', result: 'pass' }]
+        const rows = clean.rows.map((r, i) => ({ ...r, ...(doctor[i] ?? {}) }))
+        const design = { ...clean.design, lenses: clean.design.lenses.map((l, i) => (i === 0 ? { ...l, status: 'died' } : l)) }
+        const problems = lib.prBodyProblems({ ...clean, rows, design }).join(' | ')
+        const wanted = [
+          /alpha \/ Two plus two: its result is fail, not pass/,
+          /alpha \/ Zero plus zero: its proof does not exercise it/,
+          /alpha \/ Clear empties the display has no proof/,
+          /beta \/ The page is served: its result is pass, not recorded/,
+          /the design lens lens-1 is died, not read or kept/,
+        ]
+        const missed = wanted.filter((w) => !w.test(problems))
+        if (missed.length) return `no problem matched ${missed.join(', ')}: ${problems}`
+        return lib.prBodyProblems(clean).length ? `the clean result was refused: ${lib.prBodyProblems(clean).join(' | ')}` : null
       },
     },
   ]
