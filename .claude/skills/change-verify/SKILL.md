@@ -10,13 +10,12 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 The fifth of the six `change-*` stages (`docs/decisions.md` § D-02). It runs in the change's worktree
 and changes no tracked file: it writes only the trace under `.scratch/`, any issue the user has it
 file in step 4, and the epic's label and note for a send-back (steps 4 and 6). When it finds a gap, the gap is fixed in the stage that owns it (step 6), and verification then
-runs again from step 2. Every question below that recommends an option takes the form
-`CLAUDE.md` § A question shows where its recommendation loses gives.
+runs again from step 2.
 
 ## 1. Find the change and its epic
 
 - **The change.** Its name is found as `CLAUDE.md` § Product work runs as OpenSpec-format changes
-  says. The branch is `agent/<change>`. From the primary checkout, enter the worktree with
+  says. From the primary checkout, enter the worktree with
   `EnterWorktree` and the path `.claude/worktrees/<change>`.
 - **The epic.** It is the one issue that
   `bd list --label spec-change --type epic --metadata-field change=<change> --json` returns (the
@@ -29,13 +28,11 @@ runs again from step 2. Every question below that recommends an option takes the
 
 Anything else means the build has not finished. Report each child the command printed, with its
 status, and stop: steps 3 to 5 would measure code those children have yet to change. The next stage
-is `change-build`, in a fresh session given the change's name, and it takes the children up from the
-tracker (`.claude/skills/change-build/SKILL.md` § 2. Take the next task).
+is `change-build`.
 
-This refusal writes nothing: no trace, no note and no label. The epic is labelled for a stage whose
-work a later stage reopens (`CLAUDE.md` § Product work runs as OpenSpec-format changes), and a child
-never closed reopens nothing. The work left is already an issue, and `change-build` finds it without
-a note: the note is for a gap that leaves no child open.
+This refusal writes nothing: no trace, no note and no label. A child never closed reopens no stage,
+and is already an issue that `change-build` takes up (`.claude/skills/change-build/SKILL.md` § 2.
+Take the next task).
 
 ## 3. The specs are valid, and apply
 
@@ -87,9 +84,8 @@ way, and each row carries the new result.
   that repeated its claim. Label the epic for the stage the user picks (`CLAUDE.md` § Product work
   runs as OpenSpec-format changes), and record the send-back on the epic with
   `bd note <epic> --file <file>`: each gap, its file, its scenario or design decision, and the
-  route the user picked. That stage runs in a session of its own and reads the note there; the
-  rework stays commits inside the change, never an issue. Verification then runs again from step 2.
+  route the user picked. Verification then runs again from step 2.
 - **No gap:** report the trace, the gates as measured and each finding below a gap, with where
   it went. The trace goes into
-  the pull request's body. The next stage is `change-finalize`, in a fresh session given the
-  change's name (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
+  the pull request's body. The next stage is `change-finalize` (`CLAUDE.md` § Product work runs as
+  OpenSpec-format changes).
