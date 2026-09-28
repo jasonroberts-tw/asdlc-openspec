@@ -307,7 +307,7 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 | Script | What it does | Gate |
 |---|---|---|
 | `pr-review:check` | Holds the pull-request reviewer's four files to each other: the policy's `prReview*` keys whole, and a floor that covers the reviewer itself; `pr-review.yml` queuing rather than cancelling, waking on `verify`'s runs and filtering on the policy's approval label; the agent it names read-only; the review job installing `bd` with `CI` unset and running `bd --version` in the same step; and `verify.yml` carrying the required check and a dispatch trigger. Without it a renamed label or check leaves approvals and merges waiting on the schedule, and nothing says why. | pre-push + CI |
-| `pr-review:selftest` | Every decision the reviewer makes, over fixtures built from the live policy, each case asserting its reason: which verdicts merge, ask a person or request changes, which approvals count, what the queue takes next, and which heads `mark` sets pending, from the workflow's event or from the session that opened the pull request. It also runs the wiring gate over doctored copies with an undoctored control. Without it a change to the decisions shows only in a merge nobody meant. | pre-push + CI |
+| `pr-review:selftest` | Every decision the reviewer makes, over fixtures built from the live policy, each case asserting its reason: which verdicts merge, ask a person or request changes, which approvals count, what the queue takes next, and which heads `mark` sets pending when the session that opened the pull request, or a person, runs it. It also runs the wiring gate over doctored copies with an undoctored control. Without it a change to the decisions shows only in a merge nobody meant. | pre-push + CI |
 
 ### tests
 
@@ -400,7 +400,6 @@ at its start: restart the session after changing it.
 | `git push` that changes `scripts/run-tests.mjs` | `tests:selftest`: the test runner, negative-tested. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes the reviewer's script, `tools/policy.json`, a workflow or the reviewer's agent | `pr-review:check`: the reviewer's workflow, agent and policy agree; `pr-review:selftest`: its decisions over fixtures, and the check over doctored copies. | `lefthook.yml` (`pre-push`) |
 | A pull request, a push to `main`, or a merge the reviewer made | Every gate that reads only committed files, cheapest first. It trusts none of the faster tiers. After a reviewer's merge it runs by dispatch, since that merge starts no push run. | `.github/workflows/verify.yml` |
-| A pull request is opened, reopened, marked ready or pushed to | The reviewer sets its head's `pr-review` status pending, so an agent watching the checks waits for the review. | `.github/workflows/pr-review.yml` (`mark`) |
 | A `verify` run ends, a person applies the approval label, every 15 minutes, or by hand | The reviewer takes one action, one run at a time: it merges a pull request whose verdict allows it, or reviews the oldest head that passed `verify` and has no verdict, and runs again while more are waiting. | `.github/workflows/pr-review.yml` |
 | The dev container starts | `npm ci` when the lockfile moved, the git hooks, and the tracker's hydration; each step warns and carries on. | `.devcontainer/entrypoint.sh` |
 
