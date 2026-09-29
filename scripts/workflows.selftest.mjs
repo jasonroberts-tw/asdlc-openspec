@@ -1980,6 +1980,23 @@ function verifyCases(policy) {
         return gap?.kind === 'no-proof' && gap.outcome === 'measured' && /the record gives it no test/.test(gap.title) ? null : `the gap came back ${JSON.stringify(gap)}`
       },
     },
+    {
+      name: "a test dropped from a scenario the record gives no test leaves it no proof: the tracer's own result clears nothing, and the gap is measured",
+      args: verifyArgs(policy, {
+        groups: [{ key: 'alpha', capability: 'alpha', scenarios: SPECS_WITH_IDS.alpha.map(([requirement, scenario]) => ({ requirement, scenario })) }, verifyArgs(policy).groups[1]],
+        run: stubRun({ specs: (s) => (s.id === 'ALP-003' ? { ...s, tests: { happy: [], negative: [] } } : s) }),
+      }),
+      scenario: {
+        traces: { alpha: (g) => cleanTrace(g, (s) => (s === '[ALP-003] Clear empties the display' ? { tests: [{ file: TEST_FILE, name: '[BET-001] The page is served' }], result: 'pass' } : null)) },
+        verdict: () => PROVING,
+      },
+      expect: ['gaps', tallyOf(0, 0, 0, 1)],
+      check: ({ result, calls }) => {
+        if (calls.some((l) => l.startsWith('skeptic '))) return 'a skeptic judged it'
+        const row = rowOf(result, '[ALP-003] Clear empties the display')
+        return !row.checked && row.gap?.kind === 'no-proof' && row.gap.outcome === 'measured' ? null : `the row came back checked ${row.checked}, gap ${JSON.stringify(row.gap)}`
+      },
+    },
     n >= 3
       ? {
           name: 'votes with no majority leave a gap unverified, never refuted, and the run stops gaps',
@@ -2395,6 +2412,41 @@ async function rendererResults(body, policy) {
         }
         const layers = r.layers.map((l) => `${l.component}/${l.layer}/${l.tests}`).join(', ')
         return layers === 'example/e2e/2, example/functional/13' && r.tasks[0].paths[0] === 'apps/example/app.js' ? null : `layers ${layers}, tasks ${JSON.stringify(r.tasks)}`
+      },
+    },
+    {
+      file: 'scripts/render-verify-report.mjs',
+      name: 'a scenario whose tests were all skipped reads `no test`, and each skipped blocking test is a reason to reject',
+      test: () => {
+        const r = report.verifyReport(stubRun({ tests: (t) => (t.ids.includes('ALP-001') ? { ...t, status: 'skip' } : t) }))
+        const status = r.scenarios.find((s) => s.id === 'ALP-001').status
+        if (status !== 'no test') return `ALP-001 reads ${status}`
+        const skipped = r.reasons.filter((x) => /" is skipped or todo, so it proves nothing$/.test(x)).length
+        return r.verdict === 'reject' && skipped === 2 ? null : `verdict ${r.verdict}: ${r.reasons.join(' | ')}`
+      },
+    },
+    {
+      file: 'scripts/render-verify-report.mjs',
+      name: 'a scenario one of whose tests no script ran reads `not run`, never `pass`, in the model and the table',
+      test: () => {
+        const r = report.verifyReport(stubRun({ tests: (t) => (t.name === '[ALP-001] Two plus two, refused' ? null : t) }))
+        const status = r.scenarios.find((s) => s.id === 'ALP-001').status
+        if (status !== 'not run') return `ALP-001 reads ${status}`
+        return /\| ALP-001 \|[^\n]*\(\?, not run\) \| not run \|/.test(report.renderVerifySection(r)) ? null : 'the table does not show it not run'
+      },
+    },
+    {
+      file: 'scripts/render-verify-report.mjs',
+      name: 'a run whose commit or base is not 7 to 40 hex digits is refused, and render-pr-body refuses an empty one',
+      test: () => {
+        const problems = report.verifyProblems(stubRun({ commit: '' })).join(' | ')
+        if (!/its `commit` is not a commit of 7 to 40 hex digits/.test(problems)) return `the problems were ${problems}`
+        if (!report.verifyProblems(stubRun({ base: 'main' })).some((p) => /its `base` is not a commit/.test(p))) return 'a base of main was taken'
+        const root = tree((r) => {
+          writeSpecs(r, active, SPECS)
+          save(r, clean, stubRun({ commit: '' }))
+        })
+        return refusedFor(cli('render-pr-body.mjs', root, [CHANGE]), /its `commit` is not a commit of 7 to 40 hex digits/)
       },
     },
     {
