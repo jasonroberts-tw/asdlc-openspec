@@ -7,27 +7,20 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 # Build a change
 
-The fourth of the six `change-*` stages (`docs/decisions.md` § D-02). The general queue never
-offers these tasks, because their `spec-change` label (`specChangeLabel` in `tools/policy.json`)
-keeps them out, so this stage is the only one that works them.
-Every tracker write below sits inside the bracket `CLAUDE.md` § The task store describes. Every
-question below that recommends an option takes the form
-`CLAUDE.md` § A question shows where its recommendation loses gives.
-
 ## 1. Find the change and its epic
 
 - **The change.** Its name is found as `CLAUDE.md` § Product work runs as OpenSpec-format changes
   says. From the primary checkout, enter the worktree with `EnterWorktree` and the path
   `.claude/worktrees/<change>`.
 - **The epic.** It is the one issue that
-  `bd list --label spec-change --type epic --metadata-field change=<change> --json` returns. If none
-  or several come back, stop and say what was found.
+  `bd list --label spec-change --type epic --metadata-field change=<change> --json` returns (the
+  label is `specChangeLabel` in `tools/policy.json`). If none or several come back, stop and say
+  what was found.
 
 ## 2. Take the next task
 
-A child already in progress (`bd list --parent <epic> --status in_progress --json`) is one an
-earlier session claimed and did not close. Take it first: its notes and the branch's commits since
-it was claimed (`git log`) show how far it got.
+Take a child already in progress (`bd list --parent <epic> --status in_progress --json`) first: its
+notes and the branch's commits since it was claimed (`git log`) show how far it got.
 
 Otherwise run `bd ready --parent <epic> --json`, take the first task it lists, read it, and claim it
 with `bd update <id> --claim`.
@@ -42,18 +35,9 @@ fixed and in which commit subject, then go to step 6.
 ## 3. Build it, and prove it
 
 Run `.claude/workflows/build-change-task.js` with the Workflow tool, once for the task, with
-`scriptPath` set to that file inside the worktree, so the script and the policy it reads come from
-one commit. Its header says what each argument means and what it returns. Pass:
-
-- `task`, the task's id, title and body as `bd show <id>` prints them, and `scenarios`, the
-  scenarios it names, as it names them; `change`; `worktree`, as `git rev-parse --show-toplevel`
-  prints it there; and `branch`.
-- `kind`, the `assetLabels` key in `tools/policy.json` for what the task mainly changes, and, for a
-  kind `buildIndependentKinds` lists, `app`, the directory under `apps/` the task builds.
-- `lenses`, only where the task needs its own probes, mutations or cases for a lens its kind runs;
-  `guide`, only where the builder needs a reading order; `settled`, for what the user or an earlier
-  run has already decided, read from the task's notes and the design, not from an earlier
-  session's conversation.
+`scriptPath` set to that file inside the worktree. Its header says what each argument means and what
+it returns. Pass each as it says, reading `settled` from the task's notes and the design, not from
+an earlier session's conversation.
 
 Then act on what it returns:
 
@@ -79,8 +63,6 @@ Then, whatever the workflow reported:
 
 - Run the proof the task names yourself, and see it pass as measured.
 - Regenerate every derived artifact the change touches.
-- Put any doubt about a scenario's expected value to the user, and have the answer, before the
-  commit below (§ 5). `build.decisions` and `lastFix.decisions` can raise one.
 - After `nothing-major` or `round-limit`, write each of `independent.files` at its path, whole.
 - Commit, naming the task's id.
 
@@ -101,10 +83,10 @@ Run `bd close <id> --reason "<the subject of the commit that built it>"`. The su
 - **A scenario that a known-wrong implementation satisfies**, every WHEN and THEN as written, is a
   spec that is wrong (below), not a coverage gap: the spec states the behaviour, and the scenario
   that states it cannot fail.
-- **A doubt about a scenario's expected value**, whether you hold it yourself or a decision the
-  build reports raises it: put it to the user before the task that encodes the value is committed,
-  and never hold it for the report in step 6. Every task built on the value before the user
-  reverses it is rework. Record the answer on the task with `bd note`, where a later session's
+- **A doubt about a scenario's expected value**, whether you hold it yourself or `build.decisions`
+  or `lastFix.decisions` raises it: put it to the user before the task that encodes the value is
+  committed, and never hold it for the report in step 6. Every task built on the value before the
+  user reverses it is rework. Record the answer on the task with `bd note`, where a later session's
   `settled` finds it.
 - **A test whose assertions depend on the environment**, such as whether a port is free, fails or
   skips visibly where the environment is not the one it needs, and never passes on a weaker branch
