@@ -43,7 +43,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { deltaScenarios, matchProblems, parseResult, prBodyProblems, renderPrSection, specsDir } from './lib/trace.mjs'
-import { renderVerifySection, verifyProblems, verifyReport } from './lib/verify-report.mjs'
+import { renderVerifySection, sameCommit, verifyProblems, verifyReport } from './lib/verify-report.mjs'
 
 const ROOT = process.env.TRACE_ROOT ?? resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -103,7 +103,7 @@ problems.push(...runProblems.map((p) => `${verifyInput}: ${p}`))
 let report = null
 if (!runProblems.length) {
   if (run.change !== change) problems.push(`${verifyInput} is the run for ${run.change}, not ${change}`)
-  const same = String(run.commit).startsWith(result.commit) || String(result.commit).startsWith(run.commit)
+  const same = sameCommit(run.commit, result.commit)
   if (!same) problems.push(`${verifyInput} is the run at ${run.commit}, and the trace was taken at ${result.commit}: both are of one commit`)
   report = verifyReport(run)
   if (report.verdict !== 'accept') problems.push(`the verification report's verdict is \`${report.verdict}\`, not \`accept\`: ${report.reasons.join('; ')}`)

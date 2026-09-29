@@ -23,8 +23,9 @@
  *   - A test blocks unless the record sorts it `retire` (a test on an ID the change removes, which
  *     Finalize retires) or it is a fitness test every fitness record of whose NFRs is `advisory`.
  *   - A scenario's status: `to retire` when the change removes it; else `fail` or `flaky` when one of
- *     its tests is; else `no test` for an obligation the record finds unmet and the baseline does not
- *     waive, `waived (baseline)` for one it waives, and `pass`. An NFR's: its tests' and fitness
+ *     its tests is; else `not run` when the record lists a test of it no script ran; else `no test`
+ *     for an obligation the record finds unmet and the baseline does not waive, or when every test of
+ *     it was skipped or todo, `waived (baseline)` for one it waives, and `pass`. An NFR's: its tests' and fitness
  *     records', or `no coverage`. A task's: its tests', with the paths under `apps/` its commits
  *     changed (rule 4). A contract operation's: its contract tests', or `no contract test`.
  *   - The gaps. 1: each unmet happy-path or negative obligation, from the record, a waived one listed
@@ -33,7 +34,8 @@
  *     block too. Advisory, never blocking: each negative test declared not applicable, each advisory
  *     fitness test that failed, and each component with more E2E tests than functional ones
  *     (`docs/test-strategy.md` § Measuring the shape).
- *   - The verdict is `reject` for any failing blocking test, any gap not waived, any other refusal of
+ *   - The verdict is `reject` for any failing blocking test, any blocking test skipped or todo (a
+ *     skipped test proves nothing, and the trace workflow scores its row `not-run`), any gap not waived, any other refusal of
  *     the trace gate or a trace not checked, a Commands' mutation run that did not pass, and any
  *     problem the run reports; otherwise `accept`.
  *
@@ -65,6 +67,7 @@ export function verifyProblems(run) {
   const missing = RUN_FIELDS.filter((f) => !(f in run))
   if (missing.length) return [`it has no ${missing.map((f) => `\`${f}\``).join(', ')}, so it is not what scripts/fresh-run.mjs writes`]
   const problems = []
+  for (const f of ['commit', 'base']) if (!COMMIT.test(String(run[f]))) problems.push(`its \`${f}\` is not a commit of 7 to 40 hex digits: ${JSON.stringify(run[f])}`)
   for (const f of ['tasks', 'tests', 'specs', 'contracts', 'taskPaths', 'baseline', 'fitness', 'problems']) if (!Array.isArray(run[f])) problems.push(`its \`${f}\` is not a list`)
   if (!problems.length) {
     const bad = run.tests.findIndex((t) => TEST_FIELDS.some((f) => !(f in t)))
@@ -81,13 +84,25 @@ export function statusOf(test) {
 
 const failing = (status) => status === 'fail' || status === 'flaky'
 
-/** The status of a set of tests: the worst of theirs, `fail` over `flaky` over `pass`, or null for none. */
+/**
+ * The status of a set of tests: the worst of theirs, `fail` over `flaky` over `not run` (a test the
+ * record lists that no script ran), then `skipped` when every one is skipped or todo, else `pass`;
+ * null for none.
+ */
 function worst(statuses) {
   if (!statuses.length) return null
   if (statuses.includes('fail')) return 'fail'
   if (statuses.includes('flaky')) return 'flaky'
+  if (statuses.includes('not run')) return 'not run'
   if (statuses.every((s) => s === 'skip' || s === 'todo')) return 'skipped'
   return 'pass'
+}
+
+const COMMIT = /^[0-9a-f]{7,40}$/
+/** Whether two commits, each 7 to 40 hex digits, name the same one: the shorter is the longer's prefix, as the trace workflow's rule has it. */
+export function sameCommit(a, b) {
+  if (!COMMIT.test(String(a)) || !COMMIT.test(String(b))) return false
+  return a.startsWith(b) || b.startsWith(a)
 }
 
 /** The verification report's model; see the header for how each part is derived. */
@@ -126,8 +141,9 @@ export function verifyReport(run) {
     }
     let status = worst([...happy, ...negative].map((t) => t.effective))
     if (spec.state === 'removed') status = 'to retire'
-    else if (!failing(status)) {
-      if (unmet.includes('unmet')) status = 'no test'
+    else if (!failing(status) && status !== 'not run') {
+      // A scenario whose tests were all skipped or todo has none that proves it.
+      if (unmet.includes('unmet') || status === 'skipped') status = 'no test'
       else if (unmet.includes('waived')) status = 'waived (baseline)'
       else if (status === null) status = spec.obligation?.happy === 'exempt' ? 'exempt' : 'no test'
     }
@@ -170,6 +186,7 @@ export function verifyReport(run) {
   const reasons = []
   const blocking = tests.filter((t) => blocks(t) && t.effective === 'fail')
   for (const t of blocking) reasons.push(`${t.file}: "${t.name}" fails${t.rerun ? ', and failed again when run once more' : ', and has not been run once more yet'}`)
+  for (const t of tests.filter((x) => blocks(x) && (x.effective === 'skip' || x.effective === 'todo'))) reasons.push(`${t.file}: "${t.name}" is skipped or todo, so it proves nothing`)
   const count = (list, what) => list.length && reasons.push(`${list.length} ${what}`)
   count(gaps.coverage, 'unmet obligation(s) of a happy-path or negative test the baseline does not waive (gap 1)')
   count(gaps.nfrs, 'NFR(s) without coverage (gap 2)')

@@ -93,8 +93,8 @@ export const meta = {
  *   other a tracer names is dropped, and its notes say so. The result is the fresh run's: `fail` when
  *   one of its tests failed, or failed and then passed its one re-run, which counts as failing
  *   (`docs/decisions.md` § D-13, item 12); `pass` when all passed; `not-run` otherwise, a test the run
- *   did not hold included. Only a row with no test takes its tracer's result, of the gate or check
- *   it ran.
+ *   did not hold included. Only a row naming no test at all takes its tracer's result, of the gate
+ *   or check it ran; one whose tests were all dropped has no proof.
  *
  *   A row's gap, from its reading, in this order: no proof, a manual proof that names no issue of
  *   `args.manual`, or no test and no gate or check that ran, is `no-proof`; a proof that does not
@@ -620,8 +620,9 @@ function judgeTrace(g, out) {
     const tests = allowed ? named.filter((t) => allowed.some((a) => testKey(a) === testKey(t))) : named
     const dropped = named.filter((t) => !tests.includes(t))
     const reading = { proofKind: from.proofKind, proof: from.proof, exercises: from.exercises, tests: tests.map((t) => ({ file: t.file, name: t.name })) }
-    const checked = !tests.length && reading.proofKind !== 'manual' && RESULTS.includes(r.result)
-    const { result, measured } = measure(reading, r.result)
+    // A tracer's own result stands only for a row naming no test at all: never beside a dropped one.
+    const checked = !named.length && reading.proofKind !== 'manual' && RESULTS.includes(r.result)
+    const { result, measured } = measure(reading, checked || reading.proofKind === 'manual' ? r.result : undefined)
     const note = dropped.length ? ` [dropped, as not the record's tests for it: ${dropped.map((t) => `${t.file}: ${t.name}`).join('; ')}]` : ''
     const row = {
       group: g.key,
