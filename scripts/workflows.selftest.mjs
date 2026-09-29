@@ -1961,7 +1961,7 @@ function verifyCases(policy) {
       check: ({ result, options }) => {
         const row = rowOf(result, '[ALP-001] Two plus two')
         if (row.gap?.kind !== 'no-proof' || row.tests.length) return `the row came back ${JSON.stringify(row)}`
-        if (!/dropped in code, as tests the record does not give this scenario: apps\/example\/test\/example\.test\.js: Two plus two/.test(row.notes)) return `its notes read ${row.notes}`
+        if (!/dropped, as not the record's tests for it: apps\/example\/test\/example\.test\.js: Two plus two/.test(row.notes)) return `its notes read ${row.notes}`
         const prompt = options.find((o) => o.label === 'trace alpha').prompt
         return prompt.includes(`${TEST_FILE}: [ALP-001] Two plus two (happy); ${TEST_FILE}: [ALP-001] Two plus two, refused (negative)`) ? null : "the tracer's prompt does not list the record's tests"
       },
