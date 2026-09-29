@@ -15,7 +15,7 @@ You are the dispatcher. You do not implement; you partition, brief, integrate an
 
 ## 1. Pre-flight the trunk
 
-On a fresh branch cut from `origin/main`, run `npm run gates`: the forced full suite. A sweep
+On a fresh branch cut from `origin/main`, run `npm run gates`. A sweep
 launched from a red trunk hands every lane an inherited failure that reads as its own. If the trunk
 is red, stop and report the failing gate; do not dispatch.
 
@@ -37,8 +37,7 @@ An issue whose premise you cannot verify from the checkout is not dispatched; no
 
 Write the partition down before you claim anything: one row per lane, with its issues, the files
 each touches, the overlap kind and the anchor. Claiming is the first step another session or a
-watching user would want to catch, and the record is the brief of step 4 and the first columns of
-the report in step 7.
+watching user would want to catch.
 
 ## 3. Pre-claim every issue in one tracker bracket
 
@@ -71,8 +70,7 @@ renumber any register entry that collided, then run `npm run gates`.
 ## 6. Open the pull request and watch its checks
 
 Open it with the `open-pr` skill. Its title ends with the id of every issue the lanes carried. When
-every check is green, close each of those issues as `.claude/skills/bead/SKILL.md` § 7 says, with a
-reason naming the pull request.
+every check is green, close each of those issues as `.claude/skills/bead/SKILL.md` § 7 says.
 
 ## 7. Report one table
 
