@@ -36,8 +36,9 @@
  *     V8 reports the branches inside a function only once something runs it, so a count is printed
  *     with every rate. The whole product's figures, every code line counted as changed, are printed
  *     on every run and never gated (D-13, item 8).
- *   - Mutation. StrykerJS 10 makes the mutants and the count; the build workflow's honesty lens only
- *     judges the ones this gate lists as undetected. A Command is a file whose code the tests reach by
+ *   - Mutation. StrykerJS 10 makes the mutants and the count, and the build workflow's honesty lens
+ *     is to judge only the ones this gate lists as undetected (asdlc-openspec-j09.2's notes, answer
+ *     2; asdlc-openspec-4vo changes the lens). A Command is a file whose code the tests reach by
  *     spawning a process, each a key of `mutationCommands` with the test files its run runs; every
  *     other file counted is a Routine. The Routines' run uses the tap runner over every test file no
  *     Command lists, since a test file that spawns a server leaves it running when the tap runner
@@ -129,7 +130,7 @@
  * at run time (its dashboard reporter would, and is never configured), so `thresholds:check` is a
  * pre-push job and a CI step. `thresholds:commands:check` is a CI step and a change-verify run and
  * not a pre-push job, the maintainer's recorded exception to the ladder (asdlc-openspec-j09.2's
- * notes, answer 3), for its cost: 181.05 s and 185.99 s wall (`/usr/bin/time -p`, two runs) for
+ * notes, answer 3; asdlc-openspec-j09.14 adds the run to `change-verify`), for its cost: 181.05 s and 185.99 s wall (`/usr/bin/time -p`, two runs) for
  * `serve.js`'s 72 mutants one at a time, on a macOS laptop (Apple M3 Max) with Node 26.8.1,
  * 2026-09-28, where the spike measured 182-213 s. Where it loses: a push that drops an assertion of
  * `serve.js`'s tests passes pre-push and is caught minutes later in CI. It starts no Stryker when no
