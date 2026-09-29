@@ -349,6 +349,22 @@ pre-push:
               - 'package.json'
               - 'package-lock.json'
             run: node --run thresholds:check
+    # The calculator's contract, fitness and E2E tests, which the build workflow's test-builder writes
+    # under `apps/calculator/test/independent/` (the header of `.claude/workflows/build-change-task.js`),
+    # every test file at any depth there, through `scripts/run-tests.mjs --dir`, which passes and says so
+    # while the directory holds none. Its glob is `calculator-test`'s, for the same reasons. 0.07-0.08 s
+    # wall through `node --run` (`/usr/bin/time -p`, two runs) on a macOS 26.7 laptop with Node 26.8.1,
+    # 2026-09-29, with no test file there yet.
+    - name: calculator-test-independent
+      glob:
+        - 'apps/calculator/**'
+        - 'scripts/run-tests.mjs'
+        - 'scripts/test-trace.mjs'
+        - 'scripts/lib/bin-path.mjs'
+        - 'tools/policy.json'
+        - 'package.json'
+        - 'package-lock.json'
+      run: node --run calculator:test:independent
     # The test runner's refusals (a matched file that declares no test, a pattern that matches no
     # file, a test the reader refuses or does not see, one the runner never registers, and a policy
     # without the reader's keys) and its failures, against fixture trees it builds under the

@@ -1,14 +1,15 @@
 export const meta = {
   name: 'build-change-task',
-  description: 'Build one task of a product change in its worktree, review it through the lenses tools/policy.json names for its kind, confirm each finding with skeptics sized to its severity, and fix until a round confirms nothing major',
+  description: "Build one task of a product change in its worktree, with an independent test-builder's tests beside it, review it through the lenses tools/policy.json names for its kind, confirm each finding with skeptics sized to its severity, fix until a round confirms nothing major, then run the test-builder's tests and triage each failure",
   whenToUse: 'Step 3 of the change-build skill, once for each task of a planned change, from the change worktree',
   phases: [
-    { title: 'Setup', detail: 'read the review sizes from tools/policy.json, and list the listeners already on 127.0.0.1' },
-    { title: 'Build', detail: "one agent sees each scenario's proof fail, then builds the task and runs its proofs" },
+    { title: 'Setup', detail: "read the sizes from tools/policy.json, list the listeners on 127.0.0.1, and read the test-builder's inputs" },
+    { title: 'Build', detail: "the app-builder sees each scenario's proof fail and builds the task, while the test-builder writes its tests" },
     { title: 'Review', detail: 'one reviewer for each lens the policy names for the kind' },
     { title: 'Merge', detail: 'findings of one kind on one file that describe one defect become one' },
     { title: 'Confirm', detail: 'skeptics, as many as the policy gives the severity, judge each defect and spec contradiction' },
     { title: 'Fix', detail: 'one agent fixes the confirmed defects and runs the proofs again' },
+    { title: 'Architect', detail: "run the test-builder's tests against the build, route each failure, and act on the route" },
     { title: 'Sweep', detail: 'list the listeners on 127.0.0.1 again, and report any the run left behind' },
   ],
 }
@@ -38,36 +39,60 @@ export const meta = {
  * after the code that passes it, which may pass without that code, would reach review, where only the
  * honesty lens's mutants can catch it, and only for the mutations a reviewer thinks of.
  *
+ * Since asdlc-openspec-j09.11 (`docs/decisions.md` § D-13, items 12, 16 and 17) it runs the strategy's
+ * three build roles (`docs/test-strategy.md` § Build Agents). The builder and the fixers are the
+ * app-builder. For a kind `buildIndependentKinds` lists, a test-builder that sees none of the
+ * app-builder's work writes the contract, fitness and E2E tests, and the architect's triage runs them
+ * against the build and routes each failure. No incident yet: were this wrong, the Binding Surface
+ * would be verified only by the agent that implements it, or a fixer would be handed a test's source
+ * and fit the code to that test rather than to the spec.
+ *
  * INVOCATION. The Workflow tool, with `scriptPath` set to this file inside the change's worktree, so
  * that the script and the policy it reads come from one commit, and `args`:
  *
  *   task      { id, title, body }: the tracker task, as `bd show <id>` prints it
- *   scenarios [string]: each scenario the task names, as it names it (`<capability>: <scenario name>`),
- *             and [] when it names none. Required, so that no run skips the red run by omission
+ *   scenarios [string]: each scenario and NFR the task names, as it names them (`[<ID>] <title>`), and
+ *             [] when it names none. Required, so that no run skips the red run by omission
  *   change    the change's name; its delta specs and design are under openspec/changes/<change>/
  *   worktree  the worktree's absolute path, as `git rev-parse --show-toplevel` prints it there
  *   branch    the worktree's branch
  *   kind      the `assetLabels` key for what the task mainly changes; `buildReviewLenses` maps it to lenses
+ *   app       the directory under apps/ whose Binding Surface the task builds against. Required for a
+ *             kind in `buildIndependentKinds`, and optional otherwise
  *   lenses    optional { <lens key>: focus }: this task's own probes, mutations or cases for a lens the
  *             kind runs. The policy picks the lenses; this adds to them and never adds one
  *   guide     optional: what the builder reads first, or builds in what order
  *   settled   optional [string]: decided already, by the parent or the user; no agent raises it again
  *
  * WHAT IT RETURNS. { task, stopped, why, build, lastFix, fixUnreviewed, rounds, confirmed, unverified,
- * refuted, unplanned, followUps, listeners }. Every count in it is computed here, never by an agent.
- * `rounds` has one entry per round, round 0 being the build's own findings. `build` carries the
- * builder's `red` records and `alreadyGreen` reports beside its work. `stopped` is one of:
+ * refuted, unplanned, followUps, independent, listeners }. Every count in it is computed here, never by
+ * an agent. `rounds` has one entry per round, round 0 being the build's own findings. `build` carries
+ * the builder's `red` records and `alreadyGreen` reports beside its work. `independent` is null for a
+ * kind the test-builder does not run for, and otherwise { app, dir, skipped, complete, files, e2e,
+ * rounds, untriaged }: `files` the test-builder's files as it last returned them, whole, for the parent
+ * to write and commit with the task, since the runner removes them; `e2e` the paths written and not
+ * run here; `rounds` one entry per run with each file's result and each failure's route. `stopped` is
+ * one of:
  *
- *   refused             an argument or the policy did not hold; `why` names it. Only Setup ran
- *   agent-died          the builder, the fixer or every reviewer of a round returned nothing
+ *   refused             an argument or the policy did not hold, or Setup's copy of the inputs does not
+ *                       match its checksum; `why` names it. Only Setup ran
+ *   agent-died          the builder, the test-builder, a fixer, the runner or every reviewer of a round
+ *                       returned nothing
  *   not-red             the task's kind is in `buildRedFirstKinds`, and for a scenario `why` names the
  *                       builder returned neither a red record nor an already-green report; no review
  *                       followed it
- *   proof-failing       a proof the builder or the fixer ran did not pass; no review followed it
+ *   proof-failing       a proof the builder or a fixer ran did not pass; no review followed it
  *   spec-contradiction  a spec contradiction was confirmed; nothing after it was fixed
- *   nothing-major       a round confirmed no defect at a `buildReviewMajorSeverities` severity
- *   round-limit         the last round `buildReviewMaxRounds` allows confirmed a major defect; its fix
- *                       is unreviewed
+ *   not-independent     the app-builder changed a file under `independentTestDir`, the test-builder
+ *                       returned a file outside it, or the runner left one of its files in the worktree
+ *   re-design           a failure the architect routed to a re-design pass was confirmed by skeptics;
+ *                       nothing after it was fixed
+ *   architect-failing   a test-builder's test still failed at the last run `buildArchitectMaxRounds`
+ *                       allows; `independent.rounds` gives each failure's route
+ *   nothing-major       a round confirmed no defect at a `buildReviewMajorSeverities` severity, and
+ *                       every test-builder test run here passed
+ *   round-limit         the last round `buildReviewMaxRounds` allows confirmed a major defect, its fix
+ *                       unreviewed, and every test-builder test run here passed
  *
  * THE MECHANICS, whose one home is this header. The kinds of finding are defined in KIND_RULE below,
  * which every agent reads, but for one case, a scenario a known-wrong implementation satisfies, whose
@@ -105,18 +130,69 @@ export const meta = {
  *   it); then a failing proof.
  *   After each round's confirmation: a confirmed spec contradiction stops the run; else the confirmed
  *   defects are fixed and the proofs run again; then a round that confirmed no defect at a major
- *   severity stops it, and so does the last round allowed; else the next round reviews the fix.
+ *   severity ends the review, and so does the last round allowed; else the next round reviews the fix.
+ *   A test-builder's test then runs, as below, and the review's end is the run's stop only once every
+ *   one run here passes. The whole order: spec-contradiction, not-red and proof-failing after the
+ *   build; then the test-builder's death and not-independent; then the review rounds; then the
+ *   architect's runs.
+ *
+ *   Independence (test-builder). For a kind in `buildIndependentKinds`, Setup's agent runs one command
+ *   that reads every file under the paths `independentInputs` gives, with `{change}` and `{app}` filled
+ *   in, a script there as its header alone (the home of the rule it states), and the epic's children
+ *   from the tracker, their notes left out; it prints them with a checksum this script re-derives, so
+ *   a copy that is not verbatim is refused. Any path outside those given is dropped here and logged.
+ *   A `cite` agent then prints the hash of each artifact the tests may cite (the header of
+ *   scripts/test-trace.mjs): each ID in `args.scenarios`, the Binding Surface, and each operation of
+ *   the app's contracts. The test-builder runs beside the builder, by `agentType`, as the agent
+ *   `.claude/agents/test-builder.md` defines: its only tool is its structured output, so nothing on
+ *   disk or in git reaches it, and its prompt is built from Setup's inputs alone, before the builder
+ *   returns, and never from `settled` or `guide`. A spike on 2026-09-28 held that premise: one agent of
+ *   this agentType, run through the Workflow tool from a session started in a worktree holding the
+ *   file, listed StructuredOutput as its only tool and found no Read, Bash, ToolSearch or MCP tool
+ *   (asdlc-openspec-j09.11's pull request gives the script and its answer). The same spike found that
+ *   an `agentType` is resolved from the agents of the checkout the calling session started in: a
+ *   session started where that file is absent gets no test-builder, and the run stops agent-died.
+ *   It returns its files as data. Every path must be
+ *   `independentTestDir` for the app, then a layer `independentLayers` lists, then `<name>.test.js`,
+ *   or the run stops not-independent; and so does a builder or fixer whose `filesChanged` enters
+ *   `independentTestDir` for any app. A task naming no ID gets no test-builder, and says so.
+ *
+ *   Running (architect). After the review, a runner agent in the worktree writes the files whose layer
+ *   `architectRunLayers` lists and that run at build, runs `scripts/run-tests.mjs` on each as this
+ *   script builds the command, runs a failing one once more (D-13, item 12), removes every file it
+ *   wrote and prints `git status --porcelain` of the directory. Here, a first pass is a pass, a
+ *   failure then a pass is flaky and counts as failing, and two failures fail. A file left behind stops
+ *   the run as not-independent before any fixer runs. A file whose tests name an ID the task does not
+ *   is routed to rewrite-test here, and runs at no architect.
+ *
+ *   Triage (architect). One architect agent per failing file sees the test, how it failed, the design,
+ *   the Binding Surface and the text its IDs reference, and returns one route of
+ *   `docs/test-strategy.md` § Architect triage loop: rewrite-test, fix-app or re-design, with the ID
+ *   violated, the expected behaviour copied from the delta specs or the design, the observed
+ *   behaviour, and the lower layer where the defect is observable. An answer whose ID the test does not
+ *   name, or whose expected text is not found verbatim in the change's delta specs or design, is
+ *   untriaged and acted on by no one. A re-design goes to `buildReviewSkeptics.blocker` skeptics, and
+ *   a majority upheld stops the run as re-design. The fix-app routes go to one fixer, whose feedback
+ *   this script builds from the four fields alone (`docs/test-strategy.md` § Independence): the ID, the
+ *   expected text, the observed text with every line dropped that holds a stack frame, an assertion,
+ *   the test's path or a line or string of its source of two words or more, and the environment the
+ *   runner reported; a lower layer adds the ask for the lowest-layer test that reproduces it. The
+ *   rewrite-test routes go back to the test-builder with the architect's reason. Each run is a round,
+ *   at most `buildArchitectMaxRounds`; the last one's failures are triaged and not acted on, and stop
+ *   the run as architect-failing.
  *
  *   Sweep. Setup lists the listeners on 127.0.0.1. Every exit after Setup lists them again, and each one
  *   that was not there before is `listeners.leftBehind`, for the parent to stop.
  *
- * LABELS. Agents are labelled `setup`, `build`, `review <lens> r<n>`, `merge r<n>`,
- * `skeptic <i>/<n> r<round>: <title>`, `fix r<n>` and `sweep`. scripts/workflows.selftest.mjs routes its
- * stubbed agents by them: change one here and change it there.
+ * LABELS. Agents are labelled `setup`, `cite`, `build`, `test-builder`, `review <lens> r<n>`,
+ * `merge r<n>`, `skeptic <i>/<n> r<round>: <title>`, `fix r<n>`, `run a<n>`, `architect a<n>: <path>`,
+ * `redesign <i>/<n> a<n>: <path>`, `fix a<n>`, `test-builder a<n>` and `sweep`.
+ * scripts/workflows.selftest.mjs routes its stubbed agents by them: change one here and change it there.
  *
- * NEEDS a change worktree with node and git, `lsof` (macOS) or `ss` (Linux) for the listeners, and the
- * Workflow tool. Nothing here reads a file: Setup's agent reads the policy. `npm run workflows:selftest`
- * runs this script against stubbed agents.
+ * NEEDS a change worktree with node, git and bd, `lsof` (macOS) or `ss` (Linux) for the listeners, the
+ * Workflow tool, and a calling session started where `.claude/agents/test-builder.md` exists. Nothing
+ * here reads a file: Setup's agent reads the policy and the inputs. `npm run workflows:selftest` runs
+ * this script against stubbed agents.
  */
 
 const A = args || {}
@@ -125,8 +201,18 @@ const SEVERITIES = ['blocker', 'major', 'minor']
 const KINDS = ['defect', 'spec-contradiction', 'coverage-gap', 'out-of-scope', 'unplanned']
 const BUILDER_KINDS = ['spec-contradiction', 'coverage-gap', 'out-of-scope', 'unplanned']
 const CONFIRMED_KINDS = ['defect', 'spec-contradiction']
-const POLICY_KEYS = ['buildReviewLenses', 'buildReviewSkeptics', 'buildReviewMaxRounds', 'buildReviewMajorSeverities', 'buildRedFirstKinds', 'assetLabels']
+const POLICY_KEYS = [
+  'buildReviewLenses', 'buildReviewSkeptics', 'buildReviewMaxRounds', 'buildReviewMajorSeverities', 'buildRedFirstKinds', 'assetLabels',
+  'buildIndependentKinds', 'buildArchitectMaxRounds', 'independentInputs', 'independentTestDir', 'independentLayers', 'architectRunLayers', 'testTraceLayers',
+]
 const ROUTES = '`.claude/skills/change-build/SKILL.md` § 5. What the build turns up'
+const TRIAGE = ['rewrite-test', 'fix-app', 're-design']
+const TEST_BUILDER = 'test-builder'
+const NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
+/** An ID token at the head of a scenario as `args.scenarios` names it. */
+const ID_TOKEN = /^\s*\[([^\]\s]+)\]/
+/** The IDs a test's name references (the header of scripts/test-trace.mjs), from each call opening a line. */
+const TEST_NAME = /^\s*(?:test|it)(?:\.\w+)?\(\s*['"`]\[([^\]]+)\]/gm
 
 /* ------------------------------------------------------------------------------ the lenses ----- */
 
@@ -259,11 +345,72 @@ const LISTENERS = {
 }
 
 // No enum here: a policy that is wrong must reach the code below whole, to be refused with a reason,
-// not be tidied by the agent that read it.
-const SETUP_SCHEMA = {
+// not be tidied by the agent that read it. The inputs are asked for only where an app is named.
+function setupSchema() {
+  const properties = { policyJson: { type: 'string' }, toplevel: { type: 'string' }, branch: { type: 'string' }, listeners: LISTENERS }
+  const required = ['policyJson', 'toplevel', 'branch', 'listeners']
+  if (A.app !== undefined) {
+    properties.inputsJson = { type: 'string' }
+    required.push('inputsJson')
+  }
+  return { type: 'object', properties, required }
+}
+
+const CITE_SCHEMA = { type: 'object', properties: { output: { type: 'string' } }, required: ['output'] }
+
+/** The test-builder's files, as data: it writes nothing itself. */
+const TESTS_SCHEMA = {
   type: 'object',
-  properties: { policyJson: { type: 'string' }, toplevel: { type: 'string' }, branch: { type: 'string' }, listeners: LISTENERS },
-  required: ['policyJson', 'toplevel', 'branch', 'listeners'],
+  properties: {
+    files: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: { path: { type: 'string' }, layer: { type: 'string' }, runAt: { type: 'string', enum: ['build', 'verify'] }, content: { type: 'string' } },
+        required: ['path', 'layer', 'runAt', 'content'],
+      },
+    },
+    complete: { type: 'boolean' },
+    findings: { type: 'array', items: findingSchema(BUILDER_KINDS) },
+  },
+  required: ['files', 'complete', 'findings'],
+}
+
+const RUN_SCHEMA = {
+  type: 'object',
+  properties: {
+    results: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          path: { type: 'string' },
+          attempts: {
+            type: 'array',
+            items: { type: 'object', properties: { passed: { type: 'boolean' }, output: { type: 'string' } }, required: ['passed', 'output'] },
+          },
+        },
+        required: ['path', 'attempts'],
+      },
+    },
+    platform: { type: 'string' },
+    node: { type: 'string' },
+    status: { type: 'string' },
+  },
+  required: ['results', 'platform', 'node', 'status'],
+}
+
+const TRIAGE_SCHEMA = {
+  type: 'object',
+  properties: {
+    route: { type: 'string', enum: TRIAGE },
+    id: { type: 'string' },
+    expected: { type: 'string' },
+    observed: { type: 'string' },
+    lowerLayer: { type: 'string' },
+    reason: { type: 'string' },
+  },
+  required: ['route', 'id', 'expected', 'observed', 'lowerLayer', 'reason'],
 }
 
 const WORK_SCHEMA = {
@@ -341,6 +488,9 @@ function argsProblem() {
   for (const key of ['change', 'worktree', 'branch', 'kind']) {
     if (!isText(A[key])) return `args.${key} must be a non-empty string`
   }
+  if (A.app !== undefined && !(isText(A.app) && NAME_PATTERN.test(A.app) && NAME_PATTERN.test(A.change))) {
+    return 'args.app must be the name of a directory under apps/, and args.change a name of letters, digits, dots, dashes and underscores'
+  }
   if (A.lenses !== undefined && (!isPlainObject(A.lenses) || Object.values(A.lenses).some((v) => !isText(v)))) {
     return 'args.lenses must be an object mapping a lens key to the focus text for this task'
   }
@@ -394,6 +544,8 @@ function readPolicy(setup) {
   if (!Array.isArray(redFirst) || redFirst.some((kind) => !labels.includes(kind))) {
     return { problem: 'tools/policy.json `buildRedFirstKinds` must be a list of `assetLabels` keys' }
   }
+  const independentProblem = independentPolicyProblem(p, labels)
+  if (independentProblem) return { problem: independentProblem }
 
   if (!Object.prototype.hasOwnProperty.call(lensSets, A.kind)) {
     return { problem: `args.kind ${A.kind} has no lens set in tools/policy.json \`buildReviewLenses\` (it has: ${Object.keys(lensSets).join(', ')})` }
@@ -409,7 +561,33 @@ function readPolicy(setup) {
   if (setup.branch.trim() !== A.branch.trim()) {
     return { problem: `args.branch is ${A.branch}, but the worktree is on ${setup.branch.trim()}` }
   }
+  if (p.buildIndependentKinds.includes(A.kind) && A.app === undefined) {
+    return { problem: `args.app must name the app under apps/ for a task of kind ${A.kind}, which \`buildIndependentKinds\` gives a test-builder` }
+  }
   return { policy: p }
+}
+
+/** Why the test-builder's and the architect's keys cannot be used, or null. */
+function independentPolicyProblem(p, labels) {
+  const isRelative = (path) => isText(path) && !path.startsWith('/') && !path.split('/').includes('..')
+  const layers = isPlainObject(p.testTraceLayers) ? Object.keys(p.testTraceLayers) : []
+  if (!Array.isArray(p.buildIndependentKinds) || p.buildIndependentKinds.some((kind) => !labels.includes(kind))) {
+    return 'tools/policy.json `buildIndependentKinds` must be a list of `assetLabels` keys'
+  }
+  if (!isWhole(p.buildArchitectMaxRounds)) return 'tools/policy.json `buildArchitectMaxRounds` must be a whole number of at least 1'
+  if (!Array.isArray(p.independentInputs) || !p.independentInputs.length || !p.independentInputs.every(isRelative)) {
+    return 'tools/policy.json `independentInputs` must be a non-empty list of paths relative to the worktree, none climbing out of it'
+  }
+  if (!isRelative(p.independentTestDir) || !p.independentTestDir.includes('{app}')) {
+    return 'tools/policy.json `independentTestDir` must be a path relative to the worktree that holds `{app}`'
+  }
+  if (!Array.isArray(p.independentLayers) || !p.independentLayers.length || p.independentLayers.some((l) => !layers.includes(l))) {
+    return 'tools/policy.json `independentLayers` must be a non-empty list of `testTraceLayers` keys'
+  }
+  if (!Array.isArray(p.architectRunLayers) || p.architectRunLayers.some((l) => !p.independentLayers.includes(l))) {
+    return 'tools/policy.json `architectRunLayers` must be a list drawn from `independentLayers`'
+  }
+  return null
 }
 
 /* ---------------------------------------------------------------------------- the run state ----- */
@@ -424,9 +602,12 @@ const S = {
   refuted: [],
   unplanned: [],
   followUps: [],
+  independent: null,
 }
 let policy = null
 let before = []
+/** For a kind the test-builder runs for: the app, its directory, the task's IDs, and the inputs. */
+let I = null
 
 function newRound(round, lenses) {
   const byKind = {}
@@ -465,6 +646,7 @@ function summary(stopped, why, listeners) {
     refuted: S.refuted,
     unplanned: S.unplanned,
     followUps: S.followUps,
+    independent: S.independent,
     listeners,
   }
 }
@@ -652,7 +834,7 @@ async function judge(findings, record, round) {
     }
     else if (f.outcome === 'unverified') S.unverified.push(f)
     else {
-      S.refuted.push({ round, title: f.title, file: f.file, reason: f.votes.find((v) => v.startsWith('refuted')) || f.votes[0], followUp: f.followUp })
+      S.refuted.push({ round, source: f.source, title: f.title, file: f.file, reason: f.votes.find((v) => v.startsWith('refuted')) || f.votes[0], followUp: f.followUp })
       if (f.followUp) S.followUps.push({ ...f, kind: 'coverage-gap' })
     }
   }
@@ -667,12 +849,14 @@ const titles = (fs) => fs.map((f) => `"${f.title}"`).join(', ')
 function reviewPrompt(lens, round) {
   const def = LENSES[lens]
   const focus = A.lenses && A.lenses[lens] ? `\n\n## For this task, also\n\n${A.lenses[lens]}` : ''
+  // The test-builder's findings are its own: no app-builder's reviewer is shown them.
+  const own = (list) => list.filter((f) => f.source !== TEST_BUILDER)
   const seen = [
-    ...S.confirmed.map((f) => `- [confirmed${f.fixed ? ' and fixed' : ''}] ${f.title} (${f.file})`),
-    ...S.refuted.map((f) => `- [refuted] ${f.title} (${f.file})`),
-    ...S.unverified.map((f) => `- [unverified, with the parent] ${f.title} (${f.file || f.command})`),
-    ...S.followUps.map((f) => `- [returned for filing] ${f.title} (${f.file})`),
-    ...S.unplanned.map((f) => `- [returned to the parent] ${f.title} (${f.file})`),
+    ...own(S.confirmed).map((f) => `- [confirmed${f.fixed ? ' and fixed' : ''}] ${f.title} (${f.file})`),
+    ...own(S.refuted).map((f) => `- [refuted] ${f.title} (${f.file})`),
+    ...own(S.unverified).map((f) => `- [unverified, with the parent] ${f.title} (${f.file || f.command})`),
+    ...own(S.followUps).map((f) => `- [returned for filing] ${f.title} (${f.file})`),
+    ...own(S.unplanned).map((f) => `- [returned to the parent] ${f.title} (${f.file})`),
   ]
   const prior = seen.length ? `\n\n## Judged already; raise one again only with new evidence\n\n${seen.join('\n')}` : ''
   const fixNote = round > 1 && S.lastFix ? `\n\n## The fix after round ${round - 1} reported\n\n${S.lastFix.summary}` : ''
@@ -692,12 +876,25 @@ function reviewPrompt(lens, round) {
   ].join('\n')
 }
 
+/** The app-builder's part, for a kind the test-builder runs for: empty for any other kind. */
+function appBuilderBlock() {
+  if (!I) return ''
+  return [
+    '',
+    '## You are the app-builder',
+    '',
+    `You write the code and its unit, functional, integration and mutation tests. Contract, fitness and E2E tests are the test-builder's, under ${I.dir}: never read, run or change a file there, or it proves nothing independent of you.`,
+    "Cover each scenario's variants with functional tests before any integration test, each behaviour at the lowest layer that can observe it.",
+    "Each test sets up its own state, through the Binding Surface's seeding interface where there is one, and uses no other test's data. Stub an external dependency behind an interface; a separate-process stub only where that cannot work, validated against its contract artifact where it has one.",
+  ].join('\n')
+}
+
 function buildPrompt() {
   const guide = A.guide ? `\n\n## The parent session's guide\n\n${A.guide}` : ''
   return [
     rules(),
     '',
-    taskBlock() + guide + settledBlock(),
+    taskBlock() + guide + settledBlock() + appBuilderBlock(),
     '',
     '## The scenarios this task names',
     '',
@@ -724,13 +921,254 @@ function fixPrompt(defects) {
   return [
     rules(),
     '',
-    taskBlock() + settledBlock(),
+    taskBlock() + settledBlock() + appBuilderBlock(),
     '',
     '## Fix these confirmed defects, and nothing else',
     '',
     list,
     '',
-    "Then run every proof the task names again, and return their real output. Report as findings only what you could not fix without contradicting the specs, and what you found outside this task, by this rule:",
+    FIX_TAIL,
+    '',
+    KIND_RULE,
+  ].join('\n')
+}
+
+const FIX_TAIL = "Then run every proof the task names again, and return their real output. Report as findings only what you could not fix without contradicting the specs, and what you found outside this task, by this rule:"
+
+/* ------------------------------------------------------------------ the independent tests ----- */
+
+/** A fence longer than any run of backticks in `text`, so no file's text can close it. */
+function fenced(text) {
+  const runs = text.match(/`+/g) || []
+  const fence = '`'.repeat(Math.max(3, ...runs.map((r) => r.length + 1)))
+  return `${fence}\n${text}\n${fence}`
+}
+
+/** FNV-1a over the UTF-16 code units of `s`, as Setup's command computes it. */
+function fnv(s) {
+  let h = 2166136261
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619) >>> 0
+  }
+  return h
+}
+
+const fill = (path, app) => path.split('{change}').join(A.change).split('{app}').join(app)
+const under = (path, root) => path === root || path.startsWith(root + '/')
+const idsOf = (scenarios) => scenarios.map((s) => ID_TOKEN.exec(s)).filter(Boolean).map((m) => m[1])
+const testIds = (content) => [...content.matchAll(TEST_NAME)].flatMap((m) => m[1].split(',').map((id) => id.trim()))
+
+/** Setup's command: the inputs the policy allows, with the epic's children, and a checksum over both. */
+function inputsCommand() {
+  const epic = /\.\d+$/.test(A.task.id) ? A.task.id.replace(/\.\d+$/, '') : ''
+  const js = [
+    "const fs=require('fs'),cp=require('child_process');",
+    `const sub=(p)=>p.split('{change}').join('${A.change}').split('{app}').join('${A.app}');`,
+    "const roots=require('./tools/policy.json').independentInputs.map(sub);",
+    "const listed=cp.execFileSync('git',['ls-files','-co','--exclude-standard','-z','--'].concat(roots)).toString().split(String.fromCharCode(0));",
+    "const paths=[...new Set(listed)].filter((p)=>p&&fs.existsSync(p)&&fs.statSync(p).isFile()).sort();",
+    "const files=paths.map((path)=>{const t=fs.readFileSync(path,'utf8');return {path,text:path.endsWith('.mjs')?t.slice(0,t.indexOf('*/')+2):t}});",
+    `const tasks='${epic}'?JSON.parse(cp.execFileSync('bd',['list','--parent','${epic}','--all','--json','-n','0']).toString()).map((t)=>({id:t.id,status:t.status,title:t.title,description:t.description||''})):[];`,
+    'const s=JSON.stringify({files,tasks});let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0}',
+    'console.log(JSON.stringify({files,tasks,fnv:h}))',
+  ].join('')
+  return `node -e "${js}"`
+}
+
+/**
+ * Setup's inputs, checked: the files under the paths the policy allows, the task list, and the
+ * refs to cite; or the reason they cannot be used.
+ */
+function readInputs(text) {
+  let parsed
+  try {
+    parsed = JSON.parse(text)
+  } catch (error) {
+    return { problem: `Setup's inputs are not the JSON its command prints: ${JSON.stringify(String(text).slice(0, 200))}` }
+  }
+  if (!isPlainObject(parsed) || !Array.isArray(parsed.files) || !Array.isArray(parsed.tasks) || !Number.isInteger(parsed.fnv)) {
+    return { problem: "Setup's inputs do not hold files, tasks and a checksum" }
+  }
+  if (fnv(JSON.stringify({ files: parsed.files, tasks: parsed.tasks })) !== parsed.fnv) {
+    return { problem: "Setup's copy of the test-builder's inputs does not match the checksum its command printed, so it was not copied verbatim" }
+  }
+  const roots = policy.independentInputs.map((p) => fill(p, A.app))
+  const files = []
+  for (const f of parsed.files) {
+    if (roots.some((root) => under(f.path, root))) files.push(f)
+    else log(`Dropped from the test-builder's inputs: ${f.path}, under no path \`independentInputs\` gives`)
+  }
+  return { files, tasks: parsed.tasks }
+}
+
+/** The refs the tests of this task may cite: its IDs, the Binding Surface, and each contract operation. */
+function refsToCite(files, ids) {
+  const refs = []
+  for (const id of ids) refs.push(...(id.startsWith('NFR-') ? [id] : [`${id}:happy`, `${id}:negative`]))
+  const surface = `apps/${A.app}/binding-surface.md`
+  if (files.some((f) => f.path === surface)) refs.push(`surface:${surface}`)
+  for (const f of files.filter((f) => under(f.path, `apps/${A.app}/contracts`) && f.path.endsWith('.json'))) {
+    for (const m of f.text.matchAll(/"operationId"\s*:\s*"([A-Za-z0-9_.-]+)"/g)) refs.push(`contract:${f.path}#${m[1]}`)
+  }
+  return refs
+}
+
+function testBuilderPrompt(rewrite) {
+  const tasks = I.tasks.map((t) => `- ${t.id} [${t.status}] ${t.title}\n${t.description.replace(/^/gm, '    ')}`).join('\n')
+  const redo = rewrite
+    ? `\n\n## Rewrite these, and return each whole\n\n${rewrite.map((r) => `### ${r.path}\n\n${r.reason}\n\n${fenced(r.content)}`).join('\n\n')}`
+    : ''
+  return [
+    `You are the test-builder of task ${A.task.id} of the product change ${A.change}, for the app ${A.app}. Your instructions are your agent file's; everything you may read is below.`,
+    '',
+    taskBlock(),
+    '',
+    '## The IDs this task names',
+    '',
+    A.scenarios.filter((s) => ID_TOKEN.test(s)).map((s) => `- ${s}`).join('\n'),
+    '',
+    '## Where your files go',
+    '',
+    `${I.dir}/<layer>/<name>.test.js, <layer> one of ${policy.independentLayers.join(', ')}; your files there so far are among the inputs.`,
+    '',
+    '## The hashes to cite',
+    '',
+    I.cites.join('\n') || 'None.',
+    '',
+    "## The change's tasks",
+    '',
+    tasks || 'None.',
+    '',
+    '## The inputs',
+    '',
+    I.files.map((f) => `### ${f.path}\n\n${fenced(f.text)}`).join('\n\n'),
+  ].join('\n') + redo
+}
+
+/** Why the test-builder's files cannot be written where it put them, or null. */
+function misplaced(files) {
+  const shape = new RegExp(`^${I.dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(${policy.independentLayers.join('|')})/[^/]+\\.test\\.js$`)
+  const bad = files.filter((f) => {
+    const m = shape.exec(f.path)
+    return !m || m[1] !== f.layer
+  })
+  return bad.length ? `the test-builder returned ${bad.map((f) => `${f.path} (${f.layer})`).join(', ')}, outside ${I.dir}/<layer>/<name>.test.js for a layer \`independentLayers\` lists` : null
+}
+
+/** The app-builder's files under any app's `independentTestDir`, or null. */
+function intrudes(filesChanged, who) {
+  const any = new RegExp(`^${policy.independentTestDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace('\\{app\\}', '[^/]+')}(?:/|$)`)
+  const hit = filesChanged.map(normalise).filter((path) => any.test(path))
+  return hit.length ? `${who} changed ${hit.join(', ')}, under the test-builder's directory` : null
+}
+
+const runCommand = (path) => `node scripts/run-tests.mjs "${path}"`
+
+function runPrompt(files) {
+  return [
+    `Work in ${A.worktree}. For the architect of task ${A.task.id}, run tests another agent wrote against the code as it stands, and change nothing else.`,
+    '',
+    '1. Write each file below at its path, exactly as given.',
+    '2. Run each command below; run one that fails once more, at once, and never a third time.',
+    `3. Remove what you wrote: \`git restore -- <path>\` for a tracked file, delete the rest, then run \`git status --porcelain -- ${I.dir}\`.`,
+    '',
+    "Return each file's attempts in order, each passed or not, with its output trimmed to what failed; the platform; `node --version`; and, as status, what step 3 printed last, verbatim.",
+    '',
+    '## The commands',
+    '',
+    files.map((f) => `- ${runCommand(f.path)}`).join('\n'),
+    '',
+    '## The files',
+    '',
+    files.map((f) => `### ${f.path}\n\n${fenced(f.content)}`).join('\n\n'),
+  ].join('\n')
+}
+
+function architectPrompt(f, result) {
+  const tries = result.attempts.map((a, i) => `Attempt ${i + 1}, ${a.passed ? 'passed' : 'failed'}:\n${fenced(a.output)}`).join('\n\n')
+  return [
+    rules(),
+    '',
+    `You are the architect of task ${A.task.id}. This test, written from the specs, the design and the Binding Surface (apps/${A.app}/binding-surface.md) alone, failed against the build. Give the failure one route:`,
+    '',
+    '- rewrite-test: the test contradicts the scenario or NFR it references, or depends on something the Binding Surface does not declare.',
+    '- fix-app: the test is consistent with its references, and the code is not.',
+    '- re-design: both are consistent with the text, or the text is ambiguous or contradictory, or an NFR is unattainable.',
+    '',
+    "Return the route; id, the one ID of the test's names it violates; expected, the sentence of the delta specs or the design stating the behaviour, copied exactly; observed, what the application did, as behaviour, never the test's code, an assertion or a stack frame; lowerLayer, for fix-app, the lowest layer at which a test could observe the defect, or empty; and reason, which for rewrite-test says what in the test is wrong, naming no application code. Change nothing.",
+    '',
+    `## The test: ${f.path} (${f.layer})`,
+    '',
+    fenced(f.content),
+    '',
+    '## How it failed',
+    '',
+    tries,
+  ].join('\n')
+}
+
+function redesignPrompt(t, content, i, n) {
+  return [
+    rules(),
+    '',
+    `You are skeptic ${i} of ${n} on the architect's call that a failing test of task ${A.task.id} needs a re-design pass. Judge it against the delta specs, the design and the Binding Surface alone, and change nothing.`,
+    '',
+    '- upheld: neither the test nor the code can hold as the text is written: it is ambiguous or contradictory, or the NFR is unattainable.',
+    '- refuted: the test or the code is wrong against the text as written.',
+    '- unverified: you could not establish either; say what stopped you.',
+    '',
+    `ID: ${t.id}`,
+    `Expected, as written: ${t.expected}`,
+    `The architect's reason: ${t.reason}`,
+    '',
+    `## The test: ${t.path}`,
+    '',
+    fenced(content),
+  ].join('\n')
+}
+
+const STACK_FRAME = /^at\s|(?:file:\/\/|\/)\S*:\d+:\d+|\bAssertionError\b|\bassert(?:\.\w+)*\s*\(|\bexpect\s*\(/
+const QUOTABLE = /\w+\W+\w+/
+
+/** The observed text with every line dropped that quotes the test, an assertion or a stack frame. */
+function screen(observed, f) {
+  const source = f.content.split('\n').map((l) => l.trim()).filter((l) => QUOTABLE.test(l))
+  const literals = [...f.content.matchAll(/(['"`])((?:\\.|(?!\1)[^\\\n])*)\1/g)].map((m) => m[2]).filter((s) => QUOTABLE.test(s))
+  const name = f.path.split('/').pop()
+  let dropped = 0
+  const kept = []
+  for (const line of observed.split('\n')) {
+    const t = line.trim()
+    if (!t) continue
+    const quotes = STACK_FRAME.test(t) || t.includes(name) || [...source, ...literals].some((s) => t.includes(s) || (QUOTABLE.test(t) && s.includes(t)))
+    if (quotes) dropped++
+    else kept.push(t)
+  }
+  return { text: kept.join(' '), dropped }
+}
+
+/** The app-builder's feedback on one failure, built from the four fields alone. */
+function feedback(t, i, env) {
+  const observed = t.screened.text || 'withheld: every line of the account quoted the test, an assertion or a stack frame'
+  const lines = [`${i + 1}. ${t.id}`, `   Expected, as written: ${t.expected}`, `   Observed: ${observed}`, `   Environment: ${env}, orchestration level ${t.level}`]
+  if (t.lowerLayer) lines.push(`   The defect shows below the failing test: add the lowest-layer test that reproduces it, a ${t.lowerLayer} test, and see it fail before you fix it.`)
+  return lines.join('\n')
+}
+
+function architectFixPrompt(routes, env) {
+  return [
+    rules(),
+    '',
+    taskBlock() + settledBlock() + appBuilderBlock(),
+    '',
+    '## Fix the application where it fails these, and nothing else',
+    '',
+    "Each is a behaviour a test you do not see found wrong, told by its ID, the behaviour the text asks for, what the application did, and where it ran.",
+    '',
+    routes.map((t, i) => feedback(t, i, env)).join('\n\n'),
+    '',
+    FIX_TAIL,
     '',
     KIND_RULE,
   ].join('\n')
@@ -750,10 +1188,11 @@ const setup = await agent(
     '2. toplevel: git rev-parse --show-toplevel',
     '3. branch: git branch --show-current',
     '4. listeners: the TCP listeners on 127.0.0.1, with `lsof -nP -iTCP@127.0.0.1 -sTCP:LISTEN` on macOS or `ss -ltnpH src 127.0.0.1` on Linux; one entry per listening socket with its pid, its port and its command, and an empty list when there is none.',
+    ...(A.app === undefined ? [] : [`5. inputsJson, the one line this prints: ${inputsCommand()}`]),
     '',
     'Change nothing and stop nothing.',
   ].join('\n'),
-  { label: 'setup', phase: 'Setup', schema: SETUP_SCHEMA, effort: 'low' },
+  { label: 'setup', phase: 'Setup', schema: setupSchema(), effort: 'low' },
 )
 if (!setup) return refuse('the Setup agent returned nothing, so tools/policy.json was not read')
 const read = readPolicy(setup)
@@ -765,15 +1204,47 @@ const majors = policy.buildReviewMajorSeverities
 const maxRounds = policy.buildReviewMaxRounds
 log(`Task ${A.task.id} (${A.kind}): lenses ${lensKeys.join(', ')}; at most ${maxRounds} round(s)`)
 
+if (policy.buildIndependentKinds.includes(A.kind)) {
+  const inputs = readInputs(setup.inputsJson)
+  if (inputs.problem) return refuse(inputs.problem, setup.listeners)
+  const dir = fill(policy.independentTestDir, A.app)
+  const ids = idsOf(A.scenarios)
+  I = { app: A.app, dir, ids, files: inputs.files, tasks: inputs.tasks, cites: [] }
+  S.independent = { app: A.app, dir, skipped: null, complete: null, files: [], e2e: [], rounds: [], untriaged: [] }
+  if (!ids.length) {
+    S.independent.skipped = 'the task names no scenario or NFR by its ID, so the test-builder has nothing to write'
+    log(`No test-builder: ${S.independent.skipped}`)
+  } else {
+    const refs = refsToCite(I.files, ids)
+    const cited = await agent(`Work in ${A.worktree}. Run this, and return everything it prints, verbatim, even where it fails: node scripts/test-trace.mjs cite ${refs.join(' ')}`, {
+      label: 'cite',
+      phase: 'Setup',
+      schema: CITE_SCHEMA,
+      effort: 'low',
+    })
+    const printed = new Set(cited ? cited.output.split('\n').map((l) => l.trim()) : [])
+    I.cites = refs.map((ref) => [...printed].find((l) => l.startsWith(`${ref}@`) && /@[0-9a-f]+$/.test(l))).filter(Boolean)
+    const uncited = refs.filter((ref) => !I.cites.some((c) => c.startsWith(`${ref}@`)))
+    if (uncited.length) log(`No hash printed for ${uncited.join(', ')}; the test-builder may not cite them`)
+  }
+}
+
 phase('Build')
-const built = await agent(buildPrompt(), { label: 'build', phase: 'Build', schema: BUILD_SCHEMA })
+const tested = I && I.ids.length
+const [built, tests] = await parallel([
+  () => agent(buildPrompt(), { label: 'build', phase: 'Build', schema: BUILD_SCHEMA }),
+  async () => (tested ? await agent(testBuilderPrompt(null), { label: TEST_BUILDER, phase: 'Build', schema: TESTS_SCHEMA, agentType: TEST_BUILDER }) : null),
+])
 if (!built) return finish('agent-died', 'the builder returned nothing, so nothing was built or reviewed')
 S.build = { ...work(built), red: built.red, alreadyGreen: built.alreadyGreen }
-const buildRound = newRound(0, ['build'])
-buildRound.raised = built.findings.length
+const buildRound = newRound(0, tests ? ['build', TEST_BUILDER] : ['build'])
+buildRound.raised = built.findings.length + (tests ? tests.findings.length : 0)
 for (const g of built.alreadyGreen) S.unverified.push(greenFinding(g))
 buildRound.unverified += built.alreadyGreen.length
-const buildToConfirm = route(built.findings.map((f) => ({ ...f, raisedBy: ['build'] })), buildRound, 0, 'build')
+const buildToConfirm = [
+  ...route(built.findings.map((f) => ({ ...f, raisedBy: ['build'] })), buildRound, 0, 'build'),
+  ...(tests ? route(tests.findings.map((f) => ({ ...f, raisedBy: [TEST_BUILDER] })), buildRound, 0, TEST_BUILDER) : []),
+]
 if (buildToConfirm.length) {
   const judged = await judge(buildToConfirm, buildRound, 0)
   const spec = confirmedSpec(judged)
@@ -788,7 +1259,24 @@ const buildFailing = built.proofs.filter((p) => !p.passed)
 if (buildFailing.length) {
   return finish('proof-failing', `the build's proof(s) ${buildFailing.map((p) => p.command).join(', ')} did not pass; no reviewer ran`)
 }
+if (tested && !tests) {
+  return finish(
+    'agent-died',
+    `the test-builder returned nothing, so no independent test was written; an \`agentType\` is resolved from the agents of the checkout the calling session started in, which must hold .claude/agents/${TEST_BUILDER}.md`,
+  )
+}
+if (I) {
+  const bad = intrudes(built.filesChanged, 'the app-builder') || (tests && misplaced(tests.files))
+  if (bad) return finish('not-independent', `${bad}; no reviewer ran`)
+}
+if (tests) {
+  S.independent.files = tests.files
+  S.independent.complete = tests.complete
+  S.independent.e2e = tests.files.filter((f) => !policy.architectRunLayers.includes(f.layer) || f.runAt !== 'build').map((f) => f.path)
+  if (!tests.complete) log('The test-builder did not declare its tests complete')
+}
 
+let reviewEnd = ['round-limit', `no round ran: \`buildReviewMaxRounds\` is ${maxRounds}`]
 for (let round = 1; round <= maxRounds; round++) {
   const record = newRound(round, lensKeys)
   phase('Review')
@@ -825,6 +1313,8 @@ for (let round = 1; round <= maxRounds; round++) {
     S.fixUnreviewed = true
     record.fixed = defects.length
     for (const d of defects) d.fixed = true
+    const intruded = I && intrudes(fix.filesChanged, `the fixer of round ${round}`)
+    if (intruded) return finish('not-independent', intruded)
     const fixToConfirm = route(fix.findings.map((f) => ({ ...f, raisedBy: [`fix r${round}`] })), record, round, 'fix')
     if (fixToConfirm.length) {
       const fixSpec = confirmedSpec(await judge(fixToConfirm, record, round))
@@ -844,11 +1334,141 @@ for (let round = 1; round <= maxRounds; round++) {
     : ''
   if (!major.length) {
     const fixed = defects.length ? `, and the ${defects.length} it did confirm were fixed` : ''
-    return finish('nothing-major', `round ${round} confirmed no ${majors.join(' or ')} defect${fixed}${missing}`)
+    reviewEnd = ['nothing-major', `round ${round} confirmed no ${majors.join(' or ')} defect${fixed}${missing}`]
+    break
   }
   if (round === maxRounds) {
-    return finish('round-limit', `round ${round}, the last of ${maxRounds}, confirmed ${major.length} ${majors.join(' or ')} defect(s) and they were fixed; that fix is unreviewed${missing}`)
+    reviewEnd = ['round-limit', `round ${round}, the last of ${maxRounds}, confirmed ${major.length} ${majors.join(' or ')} defect(s) and they were fixed; that fix is unreviewed${missing}`]
   }
 }
 
-return finish('round-limit', `no round ran: \`buildReviewMaxRounds\` is ${maxRounds}`)
+if (!tests) return finish(...reviewEnd)
+
+/* The architect: run the test-builder's tests, route each failure, act on the routes. */
+const files = new Map(tests.files.map((f) => [f.path, f]))
+const allowed = new Set([...I.ids, A.task.id])
+const env = { platform: '', node: '' }
+const levelOf = (f) => (/trace-defaults:[^\n]*\blevel=(\d)/.exec(f.content) || [])[1] || policy.testTraceLayers[f.layer] || 1
+const appLayers = Object.keys(policy.testTraceLayers).filter((l) => !policy.independentLayers.includes(l))
+const flat = (text) => text.replace(/\s+/g, ' ').trim()
+const specTexts = I.files.filter((x) => under(x.path, `openspec/changes/${A.change}`)).map((x) => flat(x.text))
+
+/** The architect's answer, held to what code can check; an answer that fails is untriaged. */
+const triage = (t, f) => {
+  const record = { path: f.path, layer: f.layer, by: 'architect', route: null, id: '', expected: '', observed: '', screened: null, lowerLayer: '', level: levelOf(f), reason: '' }
+  const why = !t
+    ? 'the architect returned nothing'
+    : !testIds(f.content).includes(t.id.trim())
+      ? `it names ${t.id}, which the test's names do not carry`
+      : !flat(t.expected) || !specTexts.some((s) => s.includes(flat(t.expected)))
+        ? 'its expected text is not found verbatim in the delta specs or the design'
+        : t.lowerLayer.trim() && !appLayers.includes(t.lowerLayer.trim())
+          ? `its lower layer ${t.lowerLayer} is not one the app-builder writes (${appLayers.join(', ')})`
+          : null
+  if (why) {
+    S.independent.untriaged.push({ path: f.path, why })
+    return { ...record, reason: `untriaged: ${why}` }
+  }
+  const lowerLayer = t.route === 'fix-app' ? t.lowerLayer.trim() : ''
+  return { ...record, route: t.route, id: t.id.trim(), expected: flat(t.expected), observed: t.observed, screened: screen(t.observed, f), lowerLayer, reason: t.reason }
+}
+
+for (let round = 1; round <= policy.buildArchitectMaxRounds; round++) {
+  phase('Architect')
+  const last = round === policy.buildArchitectMaxRounds
+  const record = { round, ran: [], passed: [], failed: [], flaky: [], routes: [] }
+  S.independent.rounds.push(record)
+  const runnable = [...files.values()].filter((f) => policy.architectRunLayers.includes(f.layer) && f.runAt === 'build')
+  const rewrite = []
+  const toRun = []
+  for (const f of runnable) {
+    const ids = testIds(f.content)
+    const stray = ids.filter((id) => !allowed.has(id))
+    if (!ids.length || stray.length) {
+      const reason = ids.length ? `its tests name ${stray.join(', ')}, which task ${A.task.id} does not` : 'no test in it carries a name the convention reads'
+      record.routes.push({ path: f.path, route: 'rewrite-test', by: 'code', reason })
+      rewrite.push({ path: f.path, reason, content: f.content })
+    } else toRun.push(f)
+  }
+  if (toRun.length) {
+    const ran = await agent(runPrompt(toRun), { label: `run a${round}`, phase: 'Architect', schema: RUN_SCHEMA })
+    if (!ran) {
+      return finish('agent-died', `the runner of architect round ${round} returned nothing, so the test-builder's files may be left under ${I.dir}: remove them before any fix`)
+    }
+    if (ran.status.trim()) return finish('not-independent', `the runner of architect round ${round} left the test-builder's files in the worktree: ${ran.status.trim()}`)
+    env.platform = ran.platform.trim()
+    env.node = ran.node.trim()
+    const resultOf = (f) => ran.results.find((r) => normalise(r.path) === f.path) || { attempts: [] }
+    for (const f of toRun) {
+      record.ran.push(f.path)
+      const attempts = resultOf(f).attempts
+      if (attempts[0] && attempts[0].passed) record.passed.push(f.path)
+      else if (attempts[1] && attempts[1].passed) record.flaky.push(f.path)
+      else record.failed.push(f.path)
+    }
+    const failing = toRun.filter((f) => !record.passed.includes(f.path))
+    const triaged = await pipeline(
+      failing,
+      (f) => agent(architectPrompt(f, resultOf(f)), { label: `architect a${round}: ${f.path}`, phase: 'Architect', schema: TRIAGE_SCHEMA }),
+      (t, f) => triage(t, f),
+    )
+    record.routes.push(...triaged.filter(Boolean))
+  }
+  log(`Architect round ${round}: ${record.ran.length} run, ${record.passed.length} passed, ${record.failed.length} failed, ${record.flaky.length} flaky, ${rewrite.length} sent back unrun`)
+  if (!record.routes.length) return finish(reviewEnd[0], `${reviewEnd[1]}; the ${record.passed.length} test-builder file(s) run here passed`)
+
+  const redesigns = record.routes.filter((t) => t.route === 're-design')
+  if (redesigns.length) {
+    const n = policy.buildReviewSkeptics.blocker
+    const judged = await pipeline(
+      redesigns,
+      (t) =>
+        parallel(
+          Array.from({ length: n }, (_, i) => () =>
+            agent(redesignPrompt(t, files.get(t.path).content, i + 1, n), { label: `redesign ${i + 1}/${n} a${round}: ${t.path}`, phase: 'Architect', schema: VERDICT_SCHEMA }),
+          ),
+        ),
+      (votes, t) => Object.assign(t, { outcome: tally(t, votes).outcome, skeptics: n }),
+    )
+    const confirmed = judged.filter((t) => t && t.outcome === 'confirmed')
+    if (confirmed.length) {
+      return finish('re-design', `architect round ${round}: ${n} skeptics confirmed a re-design pass for ${confirmed.map((t) => `${t.id} (${t.path})`).join(', ')}; nothing was fixed after it`)
+    }
+  }
+  const fixes = record.routes.filter((t) => t.route === 'fix-app')
+  rewrite.push(...record.routes.filter((t) => t.route === 'rewrite-test' && t.by !== 'code').map((t) => ({ path: t.path, reason: t.reason, content: files.get(t.path).content })))
+  if (last || (!fixes.length && !rewrite.length)) break
+
+  if (fixes.length) {
+    const fix = await agent(architectFixPrompt(fixes, `${env.platform}, Node ${env.node}`), { label: `fix a${round}`, phase: 'Architect', schema: WORK_SCHEMA })
+    if (!fix) return finish('agent-died', `the fixer of architect round ${round} returned nothing, so ${fixes.length} failure(s) are unfixed`)
+    S.lastFix = work(fix)
+    S.fixUnreviewed = true
+    const intruded = intrudes(fix.filesChanged, `the fixer of architect round ${round}`)
+    if (intruded) return finish('not-independent', intruded)
+    const fixToConfirm = route(fix.findings.map((f) => ({ ...f, raisedBy: [`fix a${round}`] })), newRound(`a${round}`, [`fix a${round}`]), round, 'fix')
+    if (fixToConfirm.length) {
+      const fixSpec = confirmedSpec(await judge(fixToConfirm, S.rounds[S.rounds.length - 1], round))
+      if (fixSpec.length) return finish('spec-contradiction', `the fix of architect round ${round} found ${fixSpec.length} spec contradiction(s) the skeptics confirmed: ${titles(fixSpec)}`)
+    }
+    const fixFailing = fix.proofs.filter((p) => !p.passed)
+    if (fixFailing.length) return finish('proof-failing', `after the fix of architect round ${round}, the proof(s) ${fixFailing.map((p) => p.command).join(', ')} did not pass`)
+  }
+
+  if (rewrite.length) {
+    const again = await agent(testBuilderPrompt(rewrite), { label: `${TEST_BUILDER} a${round}`, phase: 'Architect', schema: TESTS_SCHEMA, agentType: TEST_BUILDER })
+    if (!again) return finish('agent-died', `the test-builder of architect round ${round} returned nothing, so ${rewrite.length} test(s) were not rewritten`)
+    const bad = misplaced(again.files)
+    if (bad) return finish('not-independent', bad)
+    for (const f of again.files) files.set(f.path, f)
+    S.independent.files = [...files.values()]
+    S.independent.complete = again.complete
+    S.independent.e2e = S.independent.files.filter((f) => !policy.architectRunLayers.includes(f.layer) || f.runAt !== 'build').map((f) => f.path)
+  }
+}
+
+const lastRound = S.independent.rounds[S.independent.rounds.length - 1]
+return finish(
+  'architect-failing',
+  `at architect round ${lastRound.round} of at most ${policy.buildArchitectMaxRounds}, ${lastRound.failed.length + lastRound.flaky.length} test-builder file(s) still fail and ${lastRound.routes.filter((t) => t.by === 'code').length} were sent back unrun: ${lastRound.routes.map((t) => `${t.path} (${t.route || 'untriaged'})`).join(', ')}`,
+)
