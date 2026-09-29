@@ -23,9 +23,10 @@ pull request's title carries. Its first line is
 `promptReviewAnalysisMarker`, a space, and the run id: the issue's id, `@`, and the UTC second the
 note is written, as `date -u +%Y-%m-%dT%H:%M:%SZ` prints it. The next lines name every prompt file
 the run loaded and the commit it read them at. Then comes the analysis: what made the run slower or
-wrong, each point with the prompt it concerns. It ends with the counts across runs that
-`.claude/skills/change-finalize/SKILL.md` § 9. Report prints, so the reviewer can tell a finding
-that recurs from one seen once. The tracker is public, so an analysis quotes no secret.
+wrong, each point with the prompt it concerns. It ends with the counts, so the reviewer can tell a
+finding that recurs from one seen once: `bd count -t epic -l <specChangeLabel> --by-label`,
+`bd count --by-label`, and `bd count -l <label> --by-label` for each `foundAtLabels` label the
+second lists (`.claude/skills/change-finalize/SKILL.md` § 9. Report). The tracker is public, so an analysis quotes no secret.
 
 ## 2. Check whether a review is due
 
