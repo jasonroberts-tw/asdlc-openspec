@@ -39,9 +39,9 @@ This refusal writes nothing: no trace, no note and no label.
 
 ## 4. Every scenario is traced
 
-**The fresh run.** `npm run tests:fresh -- <change> --tasks <ids>`, the ids of every child
-`bd list --parent <epic> --all --json` prints, runs what the header of `scripts/fresh-run.mjs` names
-in a clone of HEAD and writes `.scratch/<change>-verify.json`. For each failing test it prints a
+**The fresh run.** `npm run tests:fresh -- <change> --tasks <ids>`, given the task ids and the Bash
+timeout the header of `scripts/fresh-run.mjs` names, runs what it names in a clone of HEAD and writes
+`.scratch/<change>-verify.json`. For each failing test it prints a
 command: run each once, as its own Bash call, and never again, since an unasked retry hides a flaky
 test. A test that fails and then passes is flaky, and counts as failing.
 

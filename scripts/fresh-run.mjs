@@ -39,9 +39,19 @@
  *      fitness records under `apps/<app>/fitness/`; joins each result to the record's test of the
  *      same file and name; and gives each test the record's partition, moved to `change` when it
  *      cites one of `--tasks`, the epic's children, which only the tracker knows and a clone has not.
- *   5. Writes the JSON, and removes the clone whatever happened.
+ *   5. Writes the JSON, with a problem for a run given no `--tasks`.
  *
- * INVOCATION, from the change's worktree:
+ * WHEN IT STOPS. Each long child runs in a process group of its own, under one deadline for the whole
+ * call, `freshRunDeadlineSeconds` in `tools/policy.json`: a child still running then is killed with
+ * every process it started, and the run is refused, saying so. The clone is removed when the run
+ * ends, refuses or throws, and on SIGINT or SIGTERM, whose handler kills every child's group first
+ * and exits 130 or 143, writing no JSON. A SIGKILL, which no handler sees, leaves the clone, a
+ * `fresh-run-*` directory under the temporary root, and any child then running, until it ends.
+ * Before the pre-PR review of asdlc-openspec-j09.14 a killed call left both: the Bash tool's default
+ * timeout is 120 s and the Commands' run can take 181-186 s.
+ *
+ * INVOCATION, from the change's worktree, each as a Bash call given a 600000 ms timeout, the most a
+ * call may wait and above the deadline, so the deadline and its cleanup end the call first:
  *
  *   npm run tests:fresh -- <change> --tasks <id>[,<id>...]   the run; `--tasks` from
  *                                                           `bd list --parent <epic> --all --json`
@@ -62,14 +72,16 @@
  * `calculator:test:independent` 0.20 s, the trace gate 0.36 s and `thresholds:commands:check` 0.26 s;
  * the Commands' run is minutes when a Command's lines change (the header of
  * `scripts/check-thresholds.mjs`), and a `--rerun` is a clone and an install again, about 3 s. The
- * selftest took 8.82-8.87 s alone and 15-29 s inside `npm run gates`. The clone gets no probed port pair, so a future test that binds a fixed port collides with one serving
- * in the worktree (the maintainer's choice 1, where it loses).
+ * selftest took 8.82-8.87 s alone and 15-29 s inside `npm run gates` before its deadline, signal and
+ * `--tasks` cases, and 15.7 s alone after. The clone gets no probed port pair, so a future test that
+ * binds a fixed port collides with one serving in the worktree (the maintainer's choice 1, where it
+ * loses).
  */
-import { spawnSync } from 'node:child_process'
+import { spawn as childSpawn, spawnSync } from 'node:child_process'
 import { cpSync, existsSync, globSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { arch, platform, release, tmpdir } from 'node:os'
 import { delimiter, dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { words } from './lib/test-dirs.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -116,6 +128,96 @@ function git(cwd, args) {
 class Refusal extends Error {}
 const refuse = (message) => {
   throw new Refusal(message)
+}
+
+/* ---------------------------------------------------------- children, the deadline, signals ---- */
+
+/** The long children now running, each the leader of a process group of its own, and the clone directory to remove on a signal. */
+const live = new Set()
+let current = null
+/** When the run must be over, from `freshRunDeadlineSeconds` or the caller's `deadlineMs`. */
+let deadlineAt = Infinity
+let deadlineSeconds = 0
+
+/** Kills `child` and every process it started: its whole group, where the platform has groups. */
+function killGroup(child) {
+  try {
+    if (process.platform === 'win32') child.kill('SIGKILL')
+    else process.kill(-child.pid, 'SIGKILL')
+  } catch {
+    // It had exited already.
+  }
+}
+
+/**
+ * Runs a long child in `cwd` in a process group of its own, killed with everything it started when
+ * the run's deadline passes; `{ status, stdout, stderr, ms, timedOut }`. Never throws on an exit.
+ */
+function runChild(command, args, cwd) {
+  const started = performance.now()
+  return new Promise((done) => {
+    const child = childSpawn(command, args, { cwd, env: childEnv(), detached: process.platform !== 'win32', shell: process.platform === 'win32' && command === 'npm' })
+    live.add(child)
+    let stdout = ''
+    let stderr = ''
+    let timedOut = false
+    child.stdout.on('data', (d) => (stdout += d))
+    child.stderr.on('data', (d) => (stderr += d))
+    const timer = setTimeout(() => {
+      timedOut = true
+      killGroup(child)
+    }, Math.max(0, deadlineAt - Date.now()))
+    const finish = (status, error) => {
+      clearTimeout(timer)
+      live.delete(child)
+      if (!timedOut) killGroup(child) // a grandchild left running when its parent exits
+      done({ status, stdout, stderr: error ? `could not start ${command}: ${error.message}` : stderr, ms: Math.round(performance.now() - started), timedOut })
+    }
+    child.once('error', (error) => finish(null, error))
+    child.once('close', (status) => finish(status, null))
+  })
+}
+
+/** A child's run, refused when the deadline killed it. */
+function withinDeadline(run, what) {
+  if (run.timedOut) {
+    refuse(`\`${what}\` did not finish within the run's deadline of ${deadlineSeconds} s (\`freshRunDeadlineSeconds\` in tools/policy.json), so it and every process it started were killed.`)
+  }
+  return run
+}
+
+/** On SIGINT or SIGTERM: kill every child's group, remove the clone, and exit as the signal would. */
+function onSignal(signal) {
+  for (const child of live) killGroup(child)
+  if (current) rmSync(current, { recursive: true, force: true })
+  process.exit(signal === 'SIGINT' ? 130 : 143)
+}
+
+/**
+ * Runs `work` with the deadline set and the signal handlers installed, and takes both away after, so
+ * an in-process caller such as the selftest is left as it was.
+ */
+async function guarded(root, deadlineMs, work) {
+  let seconds
+  try {
+    seconds = readJson(join(root, 'tools/policy.json')).freshRunDeadlineSeconds
+  } catch {
+    seconds = undefined
+  }
+  if (deadlineMs === undefined && !(Number.isInteger(seconds) && seconds > 0)) {
+    refuse('tools/policy.json has no whole number of seconds under `freshRunDeadlineSeconds`, the most a run may take before its children are killed.')
+  }
+  deadlineSeconds = deadlineMs === undefined ? seconds : deadlineMs / 1000
+  deadlineAt = Date.now() + deadlineSeconds * 1000
+  process.on('SIGINT', onSignal)
+  process.on('SIGTERM', onSignal)
+  try {
+    return await work()
+  } finally {
+    process.off('SIGINT', onSignal)
+    process.off('SIGTERM', onSignal)
+    deadlineAt = Infinity
+  }
 }
 
 /** The last lines of a child's output, for a refusal to quote. */
@@ -165,11 +267,12 @@ function temporaryRoot(tmp) {
 
 /**
  * A clone of `commit` under a new directory of `tmp`, installed, handed to `work(clone, out)`, and
- * removed afterwards whatever `work` did. `out` is a directory beside the clone for the children's
- * results.
+ * removed when `work` returns, refuses or throws, or by the signal handler (the header's WHEN IT
+ * STOPS). `out` is a directory beside the clone for the children's results.
  */
 async function withClone({ common, commit, base, tmp, install }, work) {
   const dir = mkdtempSync(join(tmp, 'fresh-run-'))
+  current = dir
   const clone = join(dir, 'repo')
   const out = join(dir, 'out')
   mkdirSync(out)
@@ -180,16 +283,18 @@ async function withClone({ common, commit, base, tmp, install }, work) {
     git(clone, ['update-ref', `refs/remotes/${TRUNK}`, base])
     if (git(clone, ['rev-parse', 'HEAD']) !== commit) refuse(`the clone's HEAD is not ${commit}.`)
     const installed = await install(clone)
+    withinDeadline(installed, installed.command)
     if (installed.status !== 0) refuse(`\`${installed.command}\` failed in the clone, so nothing ran there:\n${tail(installed)}`)
     return await work(clone, out, installed)
   } finally {
     rmSync(dir, { recursive: true, force: true })
+    current = null
   }
 }
 
 /** `npm ci` in `clone`: the install step the selftest stands in for. */
 export async function npmCi(clone) {
-  const run = spawn(INSTALL[0], INSTALL.slice(1), clone)
+  const run = await runChild(INSTALL[0], INSTALL.slice(1), clone)
   return { ...run, command: INSTALL.join(' ') }
 }
 
@@ -208,21 +313,23 @@ export function testScripts(scripts) {
 const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'))
 
 /** Each test script in the clone, with its exit and its results. */
-function runScripts(clone, out, scripts) {
-  return testScripts(scripts).map((script) => {
+async function runScripts(clone, out, scripts) {
+  const ran = []
+  for (const script of testScripts(scripts)) {
     const file = join(out, `${script.replace(/[^a-z0-9]+/gi, '-')}.json`)
-    const run = spawn('npm', ['run', '--silent', script, '--', '--results', file], clone)
+    const run = withinDeadline(await runChild('npm', ['run', '--silent', script, '--', '--results', file], clone), `npm run --silent ${script}`)
     const results = existsSync(file) ? readJson(file) : null
-    return { script, status: run.status, ms: run.ms, results, output: results ? null : tail(run) }
-  })
+    ran.push({ script, status: run.status, ms: run.ms, results, output: results ? null : tail(run) })
+  }
+  return ran
 }
 
 const TRACE_CHILD = "const m = await import('./tools/trace/trace.ts'); process.stdout.write(JSON.stringify(m.check(process.cwd())))"
 
 /** `check()` of the clone's trace gate, in a child: its failures, advisories, notes and summary, or why none came back. */
-function traceCheck(clone) {
+async function traceCheck(clone) {
   if (!existsSync(join(clone, 'tools/trace/trace.ts'))) return { error: 'the commit has no tools/trace/trace.ts, so no rule was checked' }
-  const run = spawn(process.execPath, ['--input-type=module', '-e', TRACE_CHILD], clone)
+  const run = withinDeadline(await runChild(process.execPath, ['--input-type=module', '-e', TRACE_CHILD], clone), 'the trace gate')
   try {
     const checked = JSON.parse(run.stdout)
     return { failures: checked.failures, advisories: checked.advisories, notes: checked.notes, summary: checked.summary, ms: run.ms }
@@ -232,9 +339,9 @@ function traceCheck(clone) {
 }
 
 /** The Commands' mutation run, as the gate prints it, or why it did not run. */
-function commandsCheck(clone, scripts) {
+async function commandsCheck(clone, scripts) {
   if (!scripts[COMMANDS_CHECK]) return { script: COMMANDS_CHECK, skipped: `package.json at this commit has no \`${COMMANDS_CHECK}\`` }
-  const run = spawn('npm', ['run', '--silent', COMMANDS_CHECK], clone)
+  const run = withinDeadline(await runChild('npm', ['run', '--silent', COMMANDS_CHECK], clone), `npm run --silent ${COMMANDS_CHECK}`)
   return { script: COMMANDS_CHECK, status: run.status, ms: run.ms, output: `${run.stdout}${run.stderr}`.replace(/\s+$/, '') }
 }
 
@@ -293,6 +400,7 @@ export function assemble({ change, head, base, tasks, install, scripts, record, 
   }
   for (const t of record.tests) if (!seen.has(testKey(t.file, t.name))) problems.push(`${t.file}: "${t.name}" is in the record, and no test script ran it`)
   tests.sort((a, b) => byCodePoint(a.file, b.file) || byCodePoint(a.name, b.name))
+  if (!tasks.length) problems.push('no --tasks were given, so no test citing one of the epic\'s tasks could be sorted into the change: pass the ids `bd list --parent <epic> --all --json` prints')
   const wanted = new Set(tasks)
   return {
     change,
@@ -317,19 +425,19 @@ export function assemble({ change, head, base, tasks, install, scripts, record, 
 }
 
 /** The whole run: step 1 to 5 of the header. Returns the JSON it wrote and where. */
-export async function freshRun(root, change, { tasks = [], tmp = tmpdir(), install = npmCi } = {}) {
+export async function freshRun(root, change, { tasks = [], tmp = tmpdir(), install = npmCi, deadlineMs } = {}) {
   const src = source(root)
   const temporary = temporaryRoot(tmp)
-  const run = await withClone({ ...src, commit: src.head, tmp: temporary, install }, (clone, out, installed) => {
+  const run = await guarded(root, deadlineMs, () => withClone({ ...src, commit: src.head, tmp: temporary, install }, async (clone, out, installed) => {
     const pkg = readJson(join(clone, 'package.json'))
-    const scripts = runScripts(clone, out, pkg.scripts ?? {})
-    const trace = traceCheck(clone)
-    const thresholds = commandsCheck(clone, pkg.scripts ?? {})
+    const scripts = await runScripts(clone, out, pkg.scripts ?? {})
+    const trace = await traceCheck(clone)
+    const thresholds = await commandsCheck(clone, pkg.scripts ?? {})
     if (!existsSync(join(clone, RECORD))) refuse(`the commit has no ${RECORD}, so no test can be sorted: run \`npm run trace\` and commit it.`)
     const record = readJson(join(clone, RECORD))
     const baseline = existsSync(join(clone, BASELINE)) ? readJson(join(clone, BASELINE)).unmet ?? [] : []
     return assemble({ change, head: src.head, base: src.base, tasks, install: installed, scripts, record, baseline, trace, thresholds, fitness: fitnessRecords(clone) })
-  })
+  }))
   const file = verifyFile(change)
   mkdirSync(join(root, '.scratch'), { recursive: true })
   writeFileSync(join(root, file), `${JSON.stringify(run, null, 2)}\n`)
@@ -341,7 +449,7 @@ export async function freshRun(root, change, { tasks = [], tmp = tmpdir(), insta
  * fresh clone of the run's commit, its result recorded beside the first. Refuses a test that did not
  * fail, one already run again, a name two failing tests share, and a run not of the root's HEAD.
  */
-export async function rerun(root, change, name, { tmp = tmpdir(), install = npmCi } = {}) {
+export async function rerun(root, change, name, { tmp = tmpdir(), install = npmCi, deadlineMs } = {}) {
   const file = verifyFile(change)
   if (!existsSync(join(root, file))) refuse(`${file} does not exist: run the fresh run first.`)
   const run = readJson(join(root, file))
@@ -356,15 +464,15 @@ export async function rerun(root, change, name, { tmp = tmpdir(), install = npmC
   if (test.rerun !== null) refuse(`"${name}" was run once more already (${test.rerun.status}); a failing test is run again once, never more (docs/decisions.md § D-13, item 12).`)
   const { common } = source(root)
   const command = `node ${RUNNER} --name ${JSON.stringify(name)} ${JSON.stringify(test.file)}`
-  const second = await withClone({ common, commit: run.commit, base: run.base, tmp: temporaryRoot(tmp), install }, (clone, out) => {
+  const second = await guarded(root, deadlineMs, () => withClone({ common, commit: run.commit, base: run.base, tmp: temporaryRoot(tmp), install }, async (clone, out) => {
     const results = join(out, 'rerun.json')
-    const again = spawn(process.execPath, [RUNNER, '--name', name, test.file, '--results', results], clone)
+    const again = withinDeadline(await runChild(process.execPath, [RUNNER, '--name', name, test.file, '--results', results], clone), command)
     const got = existsSync(results) ? readJson(results) : null
     const ran = got ? got.results.filter((r) => r.name === name) : []
     if (again.status === 0 && ran.length === 1 && ran[0].status === 'pass') return { status: 'pass', durationMs: ran[0].durationMs, command, output: null }
     if (ran.length === 1 && ran[0].status === 'fail') return { status: 'fail', durationMs: ran[0].durationMs, command, output: tail(again) }
     refuse(`the re-run of "${name}" did not run that one test (exit ${again.status}):\n${tail(again)}`)
-  })
+  }))
   test.rerun = second
   writeFileSync(join(root, file), `${JSON.stringify(run, null, 2)}\n`)
   return { file, test }
@@ -431,6 +539,9 @@ const HAPPY = '[CALC-001] Two plus two'
 const NEGATIVE = '[CALC-001] Two plus three is not four'
 const TASK_TEST = `[${TASK}] A task of the change`
 const FLAKY_ENV = 'FRESH_RUN_SELFTEST_FLAKY'
+const SLEEP_ENV = 'FRESH_RUN_SELFTEST_SLEEP'
+/** The selftest's task id that no fixture test cites, passed where a case does not choose its own. */
+const OTHER_TASK = 'asdlc-openspec-fx.9'
 const SPEC = `# calculator Specification
 
 ## Purpose
@@ -494,7 +605,20 @@ async function buildFixture(base) {
     [COMMANDS_CHECK]: 'node stub/commands.mjs',
   }
   write(dir, 'package.json', `${JSON.stringify({ type: 'module', scripts }, null, 2)}\n`)
-  write(dir, 'stub/commands.mjs', "console.log('thresholds:commands:check: every threshold holds, as the stub prints it.')\n")
+  write(
+    dir,
+    'stub/commands.mjs',
+    [
+      "import { writeFileSync } from 'node:fs'",
+      `const marker = process.env.${SLEEP_ENV}`,
+      '// Asked to, it writes its pid and sleeps, as a Commands run of minutes does.',
+      'if (marker) {',
+      '  writeFileSync(marker, String(process.pid))',
+      '  setTimeout(() => {}, 20000)',
+      "} else console.log('thresholds:commands:check: every threshold holds, as the stub prints it.')",
+      '',
+    ].join('\n'),
+  )
   write(dir, 'openspec/specs/calculator/spec.md', SPEC)
   write(dir, 'apps/calculator/binding-surface.md', '# The binding surface\n')
   write(dir, 'apps/calculator/fitness/latency.json', `${JSON.stringify({ property: 'latency', nfrIds: [], executionEnvironment: 'verify', failureSemantics: 'advisory' })}\n`)
@@ -569,6 +693,30 @@ function selftestCases() {
       name: 'a test citing one of --tasks moves from regression into the change\'s partition',
       tasks: [TASK],
       expect: ran(({ run }) => (byName(run, TASK_TEST)?.partition === 'change' && byName(run, HAPPY).partition === 'regression' ? null : `partitions: ${run.tests.map((t) => t.partition).join(', ')}`)),
+    },
+    {
+      name: 'a run given no --tasks says so among its problems',
+      tasks: [],
+      expect: ran(({ run }) => (run.problems.some((p) => /^no --tasks were given/.test(p)) ? null : `problems: ${run.problems.join(' | ') || '(none)'}`)),
+    },
+    {
+      name: "a child that outlives the run's deadline is killed with the processes it started, the run refused by that reason and the clone removed",
+      sleep: true,
+      deadlineMs: 3000,
+      expect: (o) =>
+        refusedFor(/^`npm run --silent thresholds:commands:check` did not finish within the run's deadline of 3 s/)(o) ??
+        (o.leftovers.length ? `left ${o.leftovers.join(', ')}` : o.sleeperAlive ? `the sleeping child ${o.sleeper} still runs` : null),
+    },
+    {
+      name: 'SIGTERM in the middle of a child kills the children, removes the clone and exits 143, writing no run',
+      signal: true,
+      expect: (o) => {
+        const s = o.signalled
+        if (!s || s.code !== 143) return `the run exited ${JSON.stringify(s)}`
+        if (o.leftovers.length) return `left ${o.leftovers.join(', ')}`
+        if (o.sleeperAlive) return `the sleeping child ${o.sleeper} still runs`
+        return existsSync(join(o.dir, verifyFile(CHANGE))) ? 'it wrote the run' : null
+      },
     },
     {
       name: 'a tree with a change no commit holds is refused',
@@ -657,11 +805,16 @@ async function selftest() {
       const seen = []
       const install = stubInstall(seen, { status: c.install ?? 0 })
       if (c.flaky) process.env[FLAKY_ENV] = join(tmp, 'flaky-marker')
+      const sleeper = join(base, `sleeper-${n}.pid`)
+      if (c.sleep || c.signal) process.env[SLEEP_ENV] = sleeper
       const outcome = { seen, fx, dir }
       try {
-        const first = await attempt(() => freshRun(dir, CHANGE, { tasks: c.tasks ?? [], tmp: c.tmp ? c.tmp(dir) : tmp, install }))
-        outcome.refused = first.refused ?? (first.threw ? `(it threw, which is no refusal) ${first.threw}` : undefined)
-        outcome.run = first.value?.run
+        if (c.signal) outcome.signalled = await signalRun(dir, tmp, sleeper)
+        else {
+          const first = await attempt(() => freshRun(dir, CHANGE, { tasks: c.tasks ?? [OTHER_TASK], tmp: c.tmp ? c.tmp(dir) : tmp, install, deadlineMs: c.deadlineMs }))
+          outcome.refused = first.refused ?? (first.threw ? `(it threw, which is no refusal) ${first.threw}` : undefined)
+          outcome.run = first.value?.run
+        }
         if (c.after) c.after(dir)
         if (c.rerun && outcome.run) {
           outcome.reruns = []
@@ -672,6 +825,12 @@ async function selftest() {
         }
       } finally {
         delete process.env[FLAKY_ENV]
+        delete process.env[SLEEP_ENV]
+      }
+      if (existsSync(sleeper)) {
+        outcome.sleeper = Number(readFileSync(sleeper, 'utf8'))
+        outcome.sleeperAlive = await stillAlive(outcome.sleeper)
+        if (outcome.sleeperAlive) process.kill(outcome.sleeper, 'SIGKILL')
       }
       outcome.leftovers = readdirList(tmp).filter((name) => name.startsWith('fresh-run-'))
       let detail
@@ -697,6 +856,43 @@ async function selftest() {
 }
 
 const readdirList = (dir) => (existsSync(dir) ? readdirSync(dir) : [])
+const pause = (ms) => new Promise((done) => setTimeout(done, ms))
+
+/** Whether `pid` still runs after up to two seconds' grace, for a kill to land. */
+async function stillAlive(pid) {
+  for (let i = 0; i < 20; i++) {
+    try {
+      process.kill(pid, 0)
+    } catch {
+      return false
+    }
+    await pause(100)
+  }
+  return true
+}
+
+/**
+ * The fresh run over `dir` in a child process, signalled SIGTERM once the stub's sleeping child has
+ * written its pid: `{ code, signal }` of the run's exit.
+ */
+async function signalRun(dir, tmp, sleeper) {
+  const self = pathToFileURL(fileURLToPath(import.meta.url)).href
+  const code = [
+    `const { freshRun } = await import(${JSON.stringify(self)})`,
+    "const install = async () => ({ status: 0, stdout: '', stderr: '', ms: 0, command: 'stub install' })",
+    `await freshRun(${JSON.stringify(dir)}, ${JSON.stringify(CHANGE)}, { tasks: [${JSON.stringify(OTHER_TASK)}], tmp: ${JSON.stringify(tmp)}, install })`,
+  ].join('\n')
+  const child = childSpawn(process.execPath, ['--input-type=module', '-e', code], { env: process.env, stdio: 'ignore' })
+  const exited = new Promise((done) => child.once('exit', (c, s) => done({ code: c, signal: s })))
+  for (let i = 0; i < 300 && !existsSync(sleeper); i++) await pause(100)
+  if (!existsSync(sleeper)) {
+    child.kill('SIGKILL')
+    await exited
+    return { code: null, signal: null, problem: 'the stub never started' }
+  }
+  child.kill('SIGTERM')
+  return exited
+}
 
 /** A copy of the fixture, its git directory included. */
 const cpSyncTree = (from, to) => cpSync(from, to, { recursive: true })
