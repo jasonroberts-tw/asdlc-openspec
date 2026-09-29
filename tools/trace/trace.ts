@@ -27,7 +27,9 @@
  *     not its living one); or `removed`, when a trial archive of the active changes by the pinned
  *     OpenSpec CLI, into a scratch copy, leaves it out of the living specs.
  *   - `tests`: every test in the files matched by the quoted patterns of each package script that
- *     runs `scripts/run-tests.mjs`, read through the reader: its layer, level, modifier and IDs, each
+ *     runs `scripts/run-tests.mjs`, and in the files under each `--dir` of one, as
+ *     `scripts/lib/test-dirs.mjs` expands it (the test-builder's contract, fitness and E2E tests),
+ *     read through the reader: its layer, level, modifier and IDs, each
  *     reference with its hash and its status, and its partition. A test is `change` when it cites an
  *     added or modified ID, `retire` when every ID it cites is removed, `unresolved` when it cites an
  *     ID nothing heads, and `regression` otherwise, a task-only test included; Verify moves into
@@ -117,10 +119,10 @@
  *   or checked.
  * RE-ENTRY: a second `npm run trace` over the same inputs writes the same bytes, and `trace:check`
  *   passes exactly when it would write none; `trace:update` run twice drops nothing more.
- * STALE WHEN: a living spec or an active delta changes; a test file the runner's patterns match, or
- *   a pattern in `package.json`; a contract or a Binding Surface; a key of `tools/policy.json` it
- *   reads; a commit that names a task and changes `apps/` joins HEAD's history; this file or
- *   `scripts/test-trace.mjs`.
+ * STALE WHEN: a living spec or an active delta changes; a test file the runner's patterns or
+ *   `--dir` directories match, or a pattern or a `--dir` in `package.json`; a contract or a Binding
+ *   Surface; a key of `tools/policy.json` it reads; a commit that names a task and changes `apps/`
+ *   joins HEAD's history; this file, `scripts/test-trace.mjs` or `scripts/lib/test-dirs.mjs`.
  */
 import { spawnSync } from 'node:child_process'
 import { cpSync, existsSync, globSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
@@ -128,6 +130,7 @@ import { devNull, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { findBin } from '../../scripts/lib/bin-path.mjs'
+import { dirGlob, scriptDirs } from '../../scripts/lib/test-dirs.mjs'
 import { POLICY_FILE, hashRef, readTests, readTracePolicy, specIndex } from '../../scripts/test-trace.mjs'
 import { gitEnv } from '../lib/git-env.ts'
 import { ROOT as REPO_ROOT } from '../lib/paths.ts'
@@ -347,7 +350,10 @@ function tracePolicyExtras(root: string): { layers: string[]; task: string } {
   return { layers, task: policy[TASK_KEY] }
 }
 
-/** The test files: every file the quoted patterns of a package script running the runner match. */
+/**
+ * The test files: every file the quoted patterns of a package script running the runner match, and
+ * every file under a `--dir` of one, as `scripts/lib/test-dirs.mjs` expands it.
+ */
 function testFiles(root: string, findings: string[]): string[] {
   const scripts = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).scripts ?? {}
   const patterns: string[] = []
@@ -356,6 +362,11 @@ function testFiles(root: string, findings: string[]): string[] {
     for (const call of String(command).matchAll(invocation)) {
       for (const quoted of call[1].matchAll(/"([^"]+)"/g)) patterns.push(quoted[1])
     }
+  }
+  try {
+    patterns.push(...scriptDirs(scripts).map(dirGlob))
+  } catch (error) {
+    findings.push(`reader: ${(error as Error).message}`)
   }
   if (patterns.length === 0) {
     findings.push(`reader: no script in package.json runs \`node ${RUNNER}\` over a quoted pattern, so no test file can be read.`)

@@ -24,7 +24,8 @@
  * `code` globs of `thresholdScope` match and its `tests` globs do not.
  *
  *   - Coverage. Every test file the quoted patterns of a package script running
- *     `scripts/run-tests.mjs` match (as `tools/trace/trace.ts` reads them) runs once with Node's own
+ *     `scripts/run-tests.mjs` match (as `tools/trace/trace.ts` reads them), and every one under a
+ *     `--dir` of one (`scripts/lib/test-dirs.mjs`), runs once with Node's own
  *     coverage, through `runTests()`, which changes to the root because `run()` at the floor has no
  *     `cwd` option. The figures come from the runner's `test:coverage` summary, whose per-line and
  *     per-branch counts were the same at 22.22.2 and 26.8.1; its lcov export was not (an instance at
@@ -174,6 +175,7 @@ import { delimiter, dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gitEnv } from '../tools/lib/git-env.ts'
 import { runTests } from './run-tests.mjs'
+import { dirGlob, scriptDirs } from './lib/test-dirs.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const POLICY_FILE = 'tools/policy.json'
@@ -522,6 +524,9 @@ function testPatterns(root) {
   }
   return [...new Set(patterns)].sort(byCodePoint)
 }
+
+/** The `--dir` directories of every package script that runs the runner (`scripts/lib/test-dirs.mjs`). */
+const testDirs = (root) => scriptDirs(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).scripts)
 
 /** Every file under `root` that the scope's `code` globs match and its `tests` globs do not. */
 function scopeFiles(root, scope) {
@@ -910,7 +915,7 @@ const describe = (entry) => `${entry.file}'s ${entry.mutator} mutant ${JSON.stri
 function setUp(root, { product }) {
   const policy = readPolicy(root)
   const inScope = scopeFiles(root, policy.scope)
-  const tests = testPatterns(root)
+  const tests = [...testPatterns(root), ...testDirs(root).map(dirGlob)]
     .flatMap((pattern) => globSync(pattern, { cwd: root }).map(posix))
     .sort(byCodePoint)
   if (product) {
@@ -987,7 +992,7 @@ export async function check(given, { commands = false, product = false, stages =
   }
 
   if (!commands && stages.coverage) {
-    const { failures, coverage } = await runTests(root, testPatterns(root), { coverage: { include: policy.scope.code, exclude: policy.scope.tests } })
+    const { failures, coverage } = await runTests(root, testPatterns(root), { coverage: { include: policy.scope.code, exclude: policy.scope.tests }, dirs: testDirs(root) })
     if (failures.length > 0) return { refusals: [...refusals, ...failures.map((failure) => `suite: it does not pass, so its coverage is not judged: ${failure}`)], printed }
     if (coverage === null) return { refusals: [...refusals, "suite: Node's test runner sent no coverage summary, so no line can be judged; this Node does not measure coverage through run()."], printed }
     const judged = judgeCoverage(root, changed, inScope, coverage, policy)
@@ -1273,6 +1278,16 @@ function cases(f, policy) {
       stages: only.coverage,
       expect: lineSample,
       printed: /uncovered: apps\/calculator\/public\/unloaded\.js:1, in a file no test loads/,
+    },
+    {
+      name: 'a changed Routine that only a test under a --dir directory runs counts as covered',
+      files: {
+        ...withNew(g),
+        'package.json': `${JSON.stringify({ type: 'module', scripts: { 'calculator:test': 'node scripts/run-tests.mjs "apps/calculator/test/*.test.js"', 'calculator:test:independent': 'node scripts/run-tests.mjs --dir apps/calculator/test/independent' } }, null, 2)}\n`,
+        'apps/calculator/test/independent/contract/g1.test.js': `import assert from 'node:assert/strict'\nimport { test } from 'node:test'\n// trace-defaults: layer=contract level=1\n${gTest({}).replace("'../public/calc.js'", "'../../../public/calc.js'")}`,
+      },
+      stages: only.coverage,
+      expect: 'pass',
     },
     { name: 'a change of comments only has no code line, and passes with its counts', files: withNew('// a note on the Routines above\n'), stages: only.coverage, expect: 'pass', printed: /^coverage: lines: 0 of 0 changed code lines covered; below the minimum sample/ },
     { name: 'a failing test fails the gate before any coverage is judged', files: withNew(g, `\n// trace: GRT-801:happy@${f.hash}\ntest('[GRT-801] wrong', () => { assert.equal(1, 2) })\n`), stages: only.coverage, expect: /^suite: it does not pass, so its coverage is not judged: 1 test\(s\) failed/ },
