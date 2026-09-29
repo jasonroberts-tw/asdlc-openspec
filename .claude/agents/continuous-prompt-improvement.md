@@ -183,7 +183,8 @@ session to at a step. Remove only:
   `git log -S "<text>" -- <file>` finds the commit;
 - explanation past the one clause that states a kept rule's failure.
 
-Keep every heading another file cites: `git grep` the prompt's path and its name.
+Keep each condition that limits a kept rule or its failure clause, through any rewording: dropped, it
+broadens what the prompt says. Keep every heading another file cites: `git grep` the prompt's path and its name.
 
 Commit the consolidation alone, before the edit. The pull request's description gives one row for
 each sentence or clause removed: kept, naming the file and section that state it and what loads that
