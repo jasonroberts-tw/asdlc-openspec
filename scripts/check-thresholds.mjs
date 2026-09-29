@@ -2,10 +2,10 @@
  * Thresholds gate: the coverage of the code a branch changes under `apps/`, and the mutation score of
  * the Routines and Commands it changes, each held to its threshold and its minimum sample in
  * `tools/policy.json`, with a ratchet baseline, `artifacts/thresholds/baseline.json`, of the mutants
- * the product left undetected when the gate landed. This header is the one home of the rules behind
- * the strategy's two thresholds and their minimum samples (`docs/decisions.md` § D-13, items 8 and 9,
- * and item 17's table; landed by asdlc-openspec-j09.10). What each metric counts is defined once, in
- * `count-index.md` § Rates and metrics.
+ * the product left undetected where it measured below a threshold when the gate landed. This header
+ * is the one home of the rules behind the strategy's two thresholds and their minimum samples
+ * (`docs/decisions.md` § D-13, items 8 and 9, and item 17's table; landed by asdlc-openspec-j09.10).
+ * What each metric counts is defined once, in `count-index.md` § Rates and metrics.
  *
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet; this is what it would let through if it were
  * wrong or absent. Before it nothing measured either figure: a change could land code no test runs,
@@ -49,9 +49,11 @@
  *     process runs: 25 of `serve.js`'s 72 mutants were invisible to it. Every test process runs on
  *     the node that runs this gate, put first in PATH, since the tap runner spawns `node` from PATH.
  *     Stryker's sandbox holds `apps/` and `package.json` only, under the temporary directory. A
- *     Routine or Command is mutated over its changed lines, Stryker taking only the mutants that lie
- *     wholly inside them; and wholly when a test file its run runs has changed, since a dropped
- *     assertion changes no line of the code it tested. The score is Stryker's own: killed and timed
+ *     Routine or Command is mutated over its changed lines alone, Stryker taking only the mutants
+ *     that lie wholly inside them, so a change to a test file alone mutates nothing: the
+ *     maintainer's choice of 2026-09-29 (asdlc-openspec-j09.10's notes), over mutating the file
+ *     whole when its test changes, which catches a weakened test with no source line changed but
+ *     costs a whole-file run on every test-only change. The score is Stryker's own: killed and timed
  *     out over those plus survived and without coverage; an invalid mutant, one whose test run
  *     errored, is left out, and so is one a comment ignores.
  *
@@ -60,7 +62,9 @@
  *   - `coverage: lines`, `coverage: branches`, and each mutation run over its changed code: a rate
  *     below its threshold in `thresholdPercents`; or, below its minimum sample in
  *     `thresholdMinSamples`, where no rate is given, any one uncovered, untaken or undetected.
- *   - `coverage`: a changed `node:coverage` directive with no reason, or one that disables a range.
+ *   - `coverage`: a changed `node:coverage` directive with no reason, one that disables a range, and
+ *     one that ignores more than the next line, which excuses a range under one reason as a
+ *     `disable` does.
  *   - `mutation`: a mutant a `Stryker disable` comment ignores with no reason, and a changed
  *     `Stryker disable` without `next-line`, which silences every mutant after it with one reason.
  *   - `baseline`: below.
@@ -71,53 +75,61 @@
  *     is refused under the run's own name, with Stryker's reason.
  *
  * WHERE A REASON IS WRITTEN. In the product's source, beside the line it excuses, in the directive
- * the tool that counts it already honours: `/* node:coverage ignore next *\/ // <reason>` (or
- * `ignore next <n>`) for a line no test can reach, and `// Stryker disable next-line <mutators>:
- * <reason>` for a mutant no test should detect, such as an equivalent one. Node then leaves the line
- * out of its figures and Stryker reports the mutant as ignored, so the gate's figures and each tool's
- * own agree; the reason moves with its line and goes when the line does. Node honours the directive
- * only spelled exactly so, a block comment holding nothing else, so its reason is the line comment
- * after it; where Node recorded a file, a line it counted is counted whatever a comment says. The gate
- * prints every excused line and mutant as advisory, for the reviewer and the verification report.
- * Where it loses: the product's code carries the tools' comments, and a builder can write a reason
- * as easily as a reviewer can; review holds what the reason says. The alternative was a list in a
- * file of its own, which keeps the product's code clean and loses where an edit above a line moves
- * every line number it names, or leaves an entry behind for a line that is gone.
+ * the tool that counts it already honours: `/* node:coverage ignore next *\/ // <reason>` for a line
+ * no test can reach, one directive to a line, and `// Stryker disable next-line <mutators>: <reason>`
+ * for a mutant no test should detect, such as an equivalent one. Node then leaves the line out of its
+ * figures and Stryker reports the mutant as ignored, so the gate's figures and each tool's own agree;
+ * the reason moves with its line and goes when the line does. Node honours the directive only spelled
+ * exactly so, a block comment holding nothing else, so its reason is the line comment after it;
+ * where Node recorded a file, a line it counted is counted whatever a comment says. The gate prints
+ * every excused line and mutant as advisory, for the reviewer and the verification report. Where it
+ * loses: the product's code carries the tools' comments, and a builder can write a reason as easily
+ * as a reviewer can; review holds what the reason says. A statement over three lines that no test
+ * can reach takes three directives, each with its reason. The alternative was a list in a file of
+ * its own, which keeps the product's code clean and loses where an edit above a line moves every line
+ * number it names, or leaves an entry behind for a line that is gone.
  *
- * THE RATCHET. `artifacts/thresholds/baseline.json` lists each mutant the product left undetected
- * when the gate landed, as its file, its mutator, its replacement, the code it replaces and which
- * occurrence of that code it is among the lines the branch does not change. It is generated output
- * under `artifacts/`, which only `npm run thresholds:update` writes (`CLAUDE.md` § Three kinds of
- * file, and never a fourth). A mutant of code the branch does not change, made because a test file
- * changed, must be detected or listed: one that is neither is refused, which is how a weakened
- * assertion is caught, and the baseline may never rise, so `thresholds:check` also refuses an entry
- * the baseline at the merge base does not list, and a file that is not as `thresholds:update` writes
- * it. A mutant of changed code is never waived by the baseline, since changed code meets every
- * threshold as a new or modified scenario meets every obligation (D-13, item 5). A listed mutant now
- * detected is printed as advisory rather than refused, because a test that fails under load kills a
- * mutant for the wrong reason, as one did at 13 at once in the spike; `thresholds:update` drops it.
- * It is a baseline of its own, not an entry kind of `artifacts/trace/baseline.json`: that one's
- * `trace:update` re-derives it from committed files in a third of a second, where this one needs a
- * mutation run of minutes, and `trace:check` refuses an entry that is not a scenario's obligation.
+ * THE RATCHET. `artifacts/thresholds/baseline.json` records where the product measured below a
+ * threshold when the gate landed, as the epic's decision 4 has the trace's baseline record its unmet
+ * obligations: the undetected mutants of each mutation run whose whole-product score fell below it.
+ * An entry is a mutant's file, mutator, replacement, the code it replaces, and which occurrence of
+ * that code in the file it is, counted over the file's text as committed beside the baseline. It
+ * waives nothing, since the gate mutates changed lines alone: a listed mutant whose line a branch
+ * changes is that branch's to answer for, counted as any mutant of changed code, as a modified
+ * scenario meets every obligation (D-13, item 5), and the gate prints it as advisory. It may fall and
+ * never rise. `thresholds:check` reads the merge base's baseline against the merge base's own text,
+ * carries each entry through the diff's hunks to where its code now sits, and refuses a listed entry
+ * that is not one carried so: one the merge base did not list, which is a rise; one whose line the
+ * branch changed or removed; and one whose occurrence an edit elsewhere in its file has moved. Then
+ * `npm run thresholds:update` re-keys what stays, drops what the branch changed, mutates the lines
+ * of what stays and drops each now detected. It adds an entry only on the branch that creates the
+ * baseline. Counted over the working tree alone, an occurrence moves when an earlier line holding the
+ * same code is edited, and a later mutant of the same code can take a key an edit freed; counted in
+ * the merge base's text and carried through the hunks, an entry names its own mutant or none. It is a
+ * baseline of its own, not an entry kind of `artifacts/trace/baseline.json`: that one's
+ * `trace:update` re-derives it from committed files in a third of a second, where this one's
+ * creation needs a mutation run of minutes, and `trace:check` refuses an entry that is not a
+ * scenario's obligation.
  *
  * THE CALCULATOR'S FIRST MEASUREMENT, 2026-09-28, with `--product` and `--commands --product` below,
  * over its code as origin/main has it at 6c79a6a and its tests as this gate's branch has them, every
  * code line counted as changed: code lines 97.74% (303 of 310 covered) and branches 94.27% (148 of
  * 157 taken), both above their threshold; the Routines 90.03% (343 of 381 detected, one invalid),
- * above it; and `serve.js`, its one Command, 77.78% (56 of 72), below it. The baseline lists the
- * undetected mutants of both runs, 38 and 16, since a test change mutates each file whole and would
- * otherwise refuse the ones the product already had.
+ * above it; and `serve.js`, its one Command, 77.78% (56 of 72), below it. The baseline lists the 16
+ * undetected mutants of `serve.js`'s run, and none of the Routines'.
  *
  * NOT THIS GATE'S. Whether a surviving mutant matters, which the honesty lens judges from the list
- * this gate prints; whether a test was deleted, skipped or weakened, the test-inventory gate's
- * (asdlc-openspec-j09.9); code outside `apps/`, a gate's own selftest among it, which Stryker cannot
- * mutate and the lens still does; and the whole product's figure, which it prints and never gates.
+ * this gate prints; a test deleted, skipped or weakened, which a change to a test file alone does not
+ * reach here, since it mutates nothing: the test-inventory gate's (asdlc-openspec-j09.9), which
+ * counts assertions and does not judge their strength; code outside `apps/`, a gate's own selftest
+ * among it, which Stryker cannot mutate and the lens still does; and the whole product's figure,
+ * which it prints and never gates.
  *
  * INVOCATION.
  *
  *   npm run thresholds:check            coverage and the changed Routines' mutants; pre-push and CI
  *   npm run thresholds:commands:check   the changed Commands' mutants; CI and change-verify only
- *   npm run thresholds:update           move the baseline down to the mutants still undetected
+ *   npm run thresholds:update           re-key the baseline to the branch's edits, and let it fall
  *   npm run thresholds:selftest         each refusal on a doctored fixture repository, beside a control
  *   node scripts/check-thresholds.mjs [--commands] --product
  *                                       every line of code counted as changed: the whole product's
@@ -130,12 +142,13 @@
  * at run time (its dashboard reporter would, and is never configured), so `thresholds:check` is a
  * pre-push job and a CI step. `thresholds:commands:check` is a CI step and a change-verify run and
  * not a pre-push job, the maintainer's recorded exception to the ladder (asdlc-openspec-j09.2's
- * notes, answer 3; asdlc-openspec-j09.14 adds the run to `change-verify`), for its cost: 181.05 s and 185.99 s wall (`/usr/bin/time -p`, two runs) for
- * `serve.js`'s 72 mutants one at a time, on a macOS laptop (Apple M3 Max) with Node 26.8.1,
- * 2026-09-28, where the spike measured 182-213 s. Where it loses: a push that drops an assertion of
- * `serve.js`'s tests passes pre-push and is caught minutes later in CI. It starts no Stryker when no
- * Command's code or tests changed. `thresholds:check` costs the suite's one run with coverage, and
- * the Routines' mutants when their code or tests changed; `lefthook.yml` carries its measurement.
+ * notes, answer 3; asdlc-openspec-j09.14 adds the run to `change-verify`), for its cost: 181.05 s and
+ * 185.99 s wall (`/usr/bin/time -p`, two runs) for all 72 of `serve.js`'s mutants one at a time, a
+ * change to every line of it, on a macOS laptop (Apple M3 Max) with Node 26.8.1, 2026-09-28, where
+ * the spike measured 182-213 s. Where it loses: a push that leaves a mutant of a changed `serve.js`
+ * line undetected passes pre-push and is refused minutes later in CI. It starts no Stryker when no
+ * Command's code changed. `thresholds:check` costs the suite's one run with coverage, and the
+ * Routines' mutants when their code changed; `lefthook.yml` carries its measurement.
  *
  * NEEDS git and `origin/main` (a shallow clone has no merge base, so CI checks out with
  * `fetch-depth: 0`), the gate's keys in `tools/policy.json`, and `@stryker-mutator/core` and
@@ -144,12 +157,13 @@
  * KIND: gate, and the emitter of the baseline: `thresholds:update` writes it, and the two checks
  *   write nothing.
  * INVARIANTS: no timestamp, commit id or randomness in the baseline; its list sorted by code point;
- *   one serialiser.
+ *   one serialiser; an occurrence counted over the file's own text, whole.
  * RE-ENTRY: a second `thresholds:update` over the same tree writes the same bytes and drops nothing
  *   more, as long as Stryker's outcomes repeat, which they did over three runs of each runner on the
  *   calculator (the same 38 and 16 undetected).
- * STALE WHEN: a mutant it lists is detected, or its code is gone; `thresholds:check` then prints it
- *   as advisory, and `thresholds:update` drops it.
+ * STALE WHEN: a branch edits a file the baseline lists a mutant of, so that the mutant's line
+ *   changes or its occurrence moves, which `thresholds:check` refuses until `thresholds:update` runs;
+ *   or a test comes to detect a listed mutant, which only `thresholds:update` measures, and drops.
  */
 import { spawnSync } from 'node:child_process'
 import { cpSync, existsSync, globSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
@@ -178,8 +192,8 @@ const DETECTED = new Set(['Killed', 'Timeout'])
 const UNDETECTED = new Set(['Survived', 'NoCoverage'])
 const INVALID = new Set(['RuntimeError', 'CompileError'])
 const BASELINE_BANNER = [
-  'GENERATED by `npm run thresholds:update` (scripts/check-thresholds.mjs). Do not edit by hand: it lists the mutants the product left undetected when the gate landed, and it may fall and never rise.',
-  "Each entry is a mutant of code a branch did not change: its file, its mutator, its replacement, the code it replaces and which occurrence of that code it is. npm run thresholds:check refuses an entry the baseline at the merge base with origin/main does not list; the header of scripts/check-thresholds.mjs is the rule.",
+  'GENERATED by `npm run thresholds:update` (scripts/check-thresholds.mjs). Do not edit by hand: it lists the mutants the product left undetected where it measured below a threshold when the gate landed, and it may fall and never rise.',
+  'Each entry is a mutant: its file, its mutator, its replacement, the code it replaces and which occurrence of that code in the file, as committed beside this baseline, it is. It waives nothing; the header of scripts/check-thresholds.mjs is the rule.',
 ]
 
 const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
@@ -256,47 +270,85 @@ function mergeBase(root) {
 }
 
 /**
- * The lines the branch adds or changes, as the working tree has them against `base`: for each
- * path under apps/, the set of its new-side line numbers. A file git does not track yet counts
- * whole, so that a module not yet added is not invisible.
+ * What the branch changed under apps/, as the working tree has it against `base`: for each path, the
+ * `-U0` hunks, the new-side lines they add or change, the old-side lines they change or remove, and
+ * whether the file is new or gone. A file git does not track yet is new, every line of it changed,
+ * so a module not yet added is not invisible.
  */
-export function changedLines(root, base) {
+export function readDiff(root, base) {
   const out = git(root, ['diff', '-U0', '--no-color', '--no-ext-diff', '--no-renames', '--src-prefix=a/', '--dst-prefix=b/', base, '--', 'apps/'])
-  const changed = new Map()
-  let file = null
+  const files = new Map()
+  let from = null
+  let current = null
+  // A file's `---` and `+++` lines come between its `diff --git` line and its first hunk; inside a
+  // hunk, a removed line of `-- x` reads `--- x` too.
+  let header = false
   for (const line of out.split('\n')) {
-    if (line.startsWith('+++ ')) {
-      file = line === '+++ /dev/null' ? null : line.slice('+++ b/'.length)
-      if (file !== null && !changed.has(file)) changed.set(file, new Set())
+    if (line.startsWith('diff --git ')) {
+      header = true
       continue
     }
-    const hunk = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line)
-    if (hunk && file !== null) {
-      const start = Number(hunk[1])
-      const count = hunk[2] === undefined ? 1 : Number(hunk[2])
-      for (let n = start; n < start + count; n++) changed.get(file).add(n)
+    if (header && line.startsWith('--- ')) {
+      from = line === '--- /dev/null' ? null : line.slice('--- a/'.length)
+      continue
+    }
+    if (header && line.startsWith('+++ ')) {
+      header = false
+      const to = line === '+++ /dev/null' ? null : line.slice('+++ b/'.length)
+      current = { hunks: [], changed: new Set(), oldChanged: new Set(), added: from === null, deleted: to === null }
+      files.set(to ?? from, current)
+      continue
+    }
+    const hunk = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(line)
+    if (hunk && current !== null) {
+      const h = { oldStart: Number(hunk[1]), oldCount: hunk[2] === undefined ? 1 : Number(hunk[2]), newStart: Number(hunk[3]), newCount: hunk[4] === undefined ? 1 : Number(hunk[4]) }
+      current.hunks.push(h)
+      for (let k = h.newStart; k < h.newStart + h.newCount; k++) current.changed.add(k)
+      for (let k = h.oldStart; k < h.oldStart + h.oldCount; k++) current.oldChanged.add(k)
     }
   }
   for (const path of git(root, ['ls-files', '--others', '--exclude-standard', '-z', '--', 'apps/']).split('\0')) {
-    if (path !== '') changed.set(path, allLines(readFileSync(join(root, path), 'utf8')))
+    if (path !== '') files.set(path, { hunks: [], changed: allLines(readFileSync(join(root, path), 'utf8')), oldChanged: new Set(), added: true, deleted: false })
   }
-  for (const [path, lines] of changed) if (lines.size === 0) changed.delete(path)
-  return changed
+  return files
+}
+
+/** The new-side line numbers `diff` changes, per path still in the working tree. */
+function changedOf(diff) {
+  return new Map([...diff].filter(([, file]) => !file.deleted && file.changed.size > 0).map(([path, file]) => [path, file.changed]))
+}
+
+/**
+ * Where the merge base's line `line` of a file sits in the working tree, carried through the
+ * file's hunks, or null where the branch changed or removed it.
+ */
+function carryLine(file, line) {
+  if (file === undefined) return line
+  if (file.deleted || file.oldChanged.has(line)) return null
+  let shift = 0
+  for (const h of file.hunks) {
+    const before = h.oldCount > 0 ? h.oldStart + h.oldCount - 1 < line : h.oldStart < line
+    if (before) shift += h.newCount - h.oldCount
+  }
+  return line + shift
 }
 
 /* --------------------------------------------------------------------------------- sources ------ */
 
 const KEYWORDS_BEFORE_REGEX = new Set(['return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void', 'throw', 'case', 'do', 'else', 'yield', 'await'])
+/** The keywords whose parenthesised head a statement follows, after whose `)` a `/` opens a regular expression. */
+const KEYWORDS_BEFORE_HEAD = new Set(['if', 'while', 'for', 'with'])
 
 /**
  * What a JavaScript source holds, line by line: `code`, the lines with a character outside a
  * comment and outside whitespace, every line a string or template literal spans among them; and
  * `comments`, each comment with its first and last line, whether it is a block comment, its text,
  * and the text of a line comment that follows a block comment on its last line. A `/` opens a
- * regular expression after an operator, an opening bracket, a keyword such as `return`, or nothing,
- * and divides after a name, a number or a closing bracket. Where it loses: a regular expression
- * after a closing brace that ends an object literal, or a division after one that ends a block, is
- * read the other way round, which matters only when what follows holds `//`, `/*` or a quote.
+ * regular expression after an operator, an opening bracket, a keyword such as `return`, the `)` that
+ * closes an `if`, `while`, `for` or `with` head, or nothing, and divides after a name, a number or
+ * any other closing bracket. Where it loses: a regular expression after a closing brace that ends an
+ * object literal, or a division after one that ends a block, is read the other way round, which
+ * matters only when what follows holds `//`, `/*`, a quote or a backquote.
  */
 export function scanSource(text) {
   const code = new Set()
@@ -304,6 +356,8 @@ export function scanSource(text) {
   let line = 1
   let i = 0
   let prev = null
+  let lastWord = null
+  const parens = []
   const stack = []
   let depth = 0
   const n = text.length
@@ -341,6 +395,8 @@ export function scanSource(text) {
       continue
     }
     mark()
+    const word = lastWord
+    lastWord = null
     if (c === "'" || c === '"') {
       i++
       while (i < n && text[i] !== c && text[i] !== '\n') {
@@ -406,12 +462,16 @@ export function scanSource(text) {
     if (/[A-Za-z0-9_$\u0080-\uffff]/.test(c)) {
       const start = i
       while (i < n && /[A-Za-z0-9_$.\u0080-\uffff]/.test(text[i])) i++
-      prev = KEYWORDS_BEFORE_REGEX.has(text.slice(start, i)) ? null : 'value'
+      lastWord = text.slice(start, i)
+      prev = KEYWORDS_BEFORE_REGEX.has(lastWord) ? null : 'value'
       continue
     }
     if (c === '{') depth++
     if (c === '}') depth--
-    prev = c === ')' || c === ']' ? 'value' : null
+    if (c === '(') parens.push(KEYWORDS_BEFORE_HEAD.has(word))
+    // The `)` of a statement's head is followed by a statement, where a `/` opens a regular expression.
+    if (c === ')') prev = parens.pop() ? null : 'value'
+    else prev = c === ']' ? 'value' : null
     i++
   }
   return { code, comments }
@@ -435,11 +495,10 @@ export function coverageDirectives(comments, total) {
     const match = /^ node:coverage (ignore next(?: (\d+))?|disable|enable) $/.exec(comment.text)
     if (!match) continue
     const kind = match[1].startsWith('ignore') ? 'ignore next' : match[1]
-    const directive = { line: comment.endLine, kind, reason: comment.trailing || null }
+    const directive = { line: comment.endLine, kind, count: match[2] === undefined ? 1 : Number(match[2]), reason: comment.trailing || null }
     directives.push(directive)
     if (kind === 'ignore next') {
-      const count = match[2] === undefined ? 1 : Number(match[2])
-      for (let k = directive.line + 1; k <= directive.line + count; k++) ignored.set(k, directive)
+      for (let k = directive.line + 1; k <= directive.line + directive.count; k++) ignored.set(k, directive)
     } else if (kind === 'disable' && open === null) open = directive
     else if (kind === 'enable' && open !== null) {
       for (let k = open.line + 1; k <= directive.line; k++) ignored.set(k, open)
@@ -519,6 +578,12 @@ export function judgeCoverage(root, changed, inScope, summary, policy) {
       if (directive.kind === 'disable') {
         refusals.push(`coverage: ${path}:${directive.line} disables coverage up to an \`enable\`, excusing every line between with one reason; excuse each line with \`ignore next\` and its own reason.`)
       }
+      if (directive.kind === 'ignore next' && directive.count > 1) {
+        refusals.push(
+          `coverage: ${path}:${directive.line} ignores the next ${directive.count} lines under one reason, as a \`disable\` would; excuse each line with its own` +
+            ' `/* node:coverage ignore next */ // <reason>`.',
+        )
+      }
     }
     const record = records.get(path)
     const hits = new Map((record?.lines ?? []).map(({ line, count }) => [line, count]))
@@ -563,11 +628,6 @@ export function judgeCoverage(root, changed, inScope, summary, policy) {
 
 /* --------------------------------------------------------------------------------- mutants ------ */
 
-/** The offset in `text` of Stryker's one-based `{ line, column }`. */
-function offsetOf(starts, { line, column }) {
-  return starts[line - 1] + column - 1
-}
-
 function lineStarts(text) {
   const starts = [0]
   for (let i = 0; i < text.length; i++) if (text[i] === '\n') starts.push(i + 1)
@@ -586,13 +646,32 @@ function lineAt(starts, at) {
   return low + 1
 }
 
+/** How many times `code` occurs in `text` at an offset before `at`. */
+function occurrencesBefore(text, code, at) {
+  let seen = 0
+  for (let from = text.indexOf(code); from !== -1 && from < at; from = text.indexOf(code, from + 1)) seen++
+  return seen
+}
+
+/** The offset of an entry's code in `text`, at its occurrence, or -1 where it has none. */
+function locate(text, entry) {
+  if (entry.code === '') return -1
+  let at = -1
+  for (let k = 0; k < entry.occurrence; k++) {
+    at = text.indexOf(entry.code, at + 1)
+    if (at === -1) return -1
+  }
+  return at
+}
+
+const entryKey = (entry) => JSON.stringify([entry.file, entry.mutator, entry.replacement, entry.code, entry.occurrence])
+
 /**
- * Each mutant of `results` as the gate reads it: its path, lines and outcome, whether any of its
- * lines is one `changed` holds, and its key, the file, mutator, replacement, the code it replaces
- * and which occurrence of that code it is among the lines the branch does not change, which is what
- * the baseline lists.
+ * Each mutant of `results` as the gate reads it: its path, place and outcome, and its entry, the
+ * file, mutator, replacement, the code it replaces and which occurrence of that code in the working
+ * tree's text it is, which is what the baseline lists.
  */
-export function readMutants(root, results, changed) {
+export function readMutants(root, results) {
   const texts = new Map()
   const read = (path) => {
     if (!texts.has(path)) {
@@ -606,53 +685,29 @@ export function readMutants(root, results, changed) {
       const path = posix(relative(root, result.fileName))
       const { text, starts } = read(path)
       const { start, end } = result.location
-      const from = offsetOf(starts, start)
-      const code = text.slice(from, offsetOf(starts, end))
-      const mine = changed.get(path) ?? new Set()
-      let isChanged = false
-      for (let k = start.line; k <= end.line; k++) if (mine.has(k)) isChanged = true
-      let occurrence = 1
-      for (let at = code === '' ? -1 : text.indexOf(code); at !== -1 && at < from; at = text.indexOf(code, at + 1)) {
-        if (!mine.has(lineAt(starts, at))) occurrence++
-      }
-      const entry = { file: path, mutator: result.mutatorName, replacement: result.replacement ?? '', code, occurrence }
-      return { path, start, status: result.status, reason: result.statusReason ?? '', changed: isChanged, entry, key: entryKey(entry), text: `${path}:${start.line}:${start.column} ${result.mutatorName} ${JSON.stringify(result.replacement ?? '')} (${result.status})` }
+      // Stryker's positions here are one-based, columns included.
+      const from = starts[start.line - 1] + start.column - 1
+      const code = text.slice(from, starts[end.line - 1] + end.column - 1)
+      const entry = { file: path, mutator: result.mutatorName, replacement: result.replacement ?? '', code, occurrence: occurrencesBefore(text, code, from) + 1 }
+      return { path, start, status: result.status, reason: result.statusReason ?? '', entry, key: entryKey(entry), text: `${path}:${start.line}:${start.column} ${result.mutatorName} ${JSON.stringify(result.replacement ?? '')} (${result.status})` }
     })
     .sort((a, b) => byCodePoint(a.path, b.path) || a.start.line - b.start.line || a.start.column - b.start.column || byCodePoint(a.key, b.key))
 }
 
-const entryKey = (entry) => JSON.stringify([entry.file, entry.mutator, entry.replacement, entry.code, entry.occurrence])
-
-/** Whether a baseline entry's code is still in its file, at its occurrence, among the lines the branch does not change. */
-function stillThere(root, entry, changed) {
-  const path = join(root, entry.file)
-  if (!existsSync(path) || entry.code === '') return false
-  const text = readFileSync(path, 'utf8')
-  const starts = lineStarts(text)
-  const mine = changed.get(entry.file) ?? new Set()
-  let seen = 0
-  for (let at = text.indexOf(entry.code); at !== -1; at = text.indexOf(entry.code, at + 1)) if (!mine.has(lineAt(starts, at))) seen++
-  return seen >= entry.occurrence
-}
-
-/**
- * One mutation run's mutants judged: those of changed code against the threshold and the minimum
- * sample, and those of unchanged code, made because a test file changed, against the baseline.
- */
-export function judgeMutation(label, mutants, policy, listed) {
+/** One mutation run's mutants, all of changed code, judged against the threshold and the minimum sample. */
+export function judgeMutation(label, mutants, policy) {
   const refusals = []
   const advisories = []
-  const mine = mutants.filter((mutant) => mutant.changed)
-  const detected = mine.filter((mutant) => DETECTED.has(mutant.status))
-  const undetected = mine.filter((mutant) => UNDETECTED.has(mutant.status))
-  const invalid = mine.filter((mutant) => INVALID.has(mutant.status))
-  const ignored = mine.filter((mutant) => mutant.status === 'Ignored')
+  const detected = mutants.filter((mutant) => DETECTED.has(mutant.status))
+  const undetected = mutants.filter((mutant) => UNDETECTED.has(mutant.status))
+  const invalid = mutants.filter((mutant) => INVALID.has(mutant.status))
+  const ignored = mutants.filter((mutant) => mutant.status === 'Ignored')
   for (const mutant of mutants) {
     if (!DETECTED.has(mutant.status) && !UNDETECTED.has(mutant.status) && !INVALID.has(mutant.status) && mutant.status !== 'Ignored') {
       refusals.push(`${label}: ${mutant.text} has an outcome this gate does not count; read Stryker's report and this file's header.`)
     }
   }
-  for (const mutant of mutants.filter((m) => m.status === 'Ignored')) {
+  for (const mutant of ignored) {
     const reason = mutant.reason.trim()
     if (reason === '' || reason === STRYKER_DEFAULT_REASON) {
       refusals.push(`${label}: ${mutant.text} is ignored by a \`Stryker disable\` comment that gives no reason; write it after a colon, as \`// Stryker disable next-line <mutator>: <reason>\`.`)
@@ -660,30 +715,13 @@ export function judgeMutation(label, mutants, policy, listed) {
   }
   const judgement = judge({ label, good: detected.length, total: detected.length + undetected.length, min: policy.samples.mutants, threshold: policy.percents.mutation, unit: 'mutant', verb: 'detected' })
   refusals.push(...judgement.refusals)
-
-  const others = mutants.filter((mutant) => !mutant.changed)
-  let waived = 0
-  for (const mutant of others) {
-    if (UNDETECTED.has(mutant.status)) {
-      if (listed.has(mutant.key)) waived++
-      else {
-        refusals.push(
-          `baseline: ${mutant.text} is in code this branch does not change, is not detected, and the baseline does not list it: a test that detected it` +
-            ' was weakened or removed, and the baseline may never rise (D-13, item 5). Detect it again, or excuse it with a reason.',
-        )
-      }
-    } else if (DETECTED.has(mutant.status) && listed.has(mutant.key)) {
-      advisories.push(`${mutant.text} is listed in ${BASELINE} and is now detected; \`npm run thresholds:update\` drops it`)
-    }
-  }
   const printed = [
-    `${label}: ${plural(mine.length, 'mutant')} of changed code; ${detected.length} detected, ${undetected.length} undetected, ${invalid.length} invalid (its test run errored, which the score leaves out), ${ignored.length} ignored by a comment.`,
+    `${label}: ${plural(mutants.length, 'mutant')} of changed code; ${detected.length} detected, ${undetected.length} undetected, ${invalid.length} invalid (its test run errored, which the score leaves out), ${ignored.length} ignored by a comment.`,
     ...undetected.map((mutant) => `  undetected: ${mutant.text}`),
     judgement.line,
+    ...advisories.map((entry) => `  advisory: ${entry}`),
   ]
-  if (others.length > 0) printed.push(`${label}: ${plural(others.length, 'mutant')} of unchanged code, made because a test file changed; ${waived} undetected and listed in the baseline.`)
-  printed.push(...advisories.map((entry) => `  advisory: ${entry}`))
-  return { refusals, printed, counts: { mutants: mine.length, detected: detected.length, undetected: undetected.length } }
+  return { refusals, printed, counts: { mutants: mutants.length, detected: detected.length, undetected: undetected.length } }
 }
 
 /**
@@ -723,49 +761,46 @@ async function strykerRun(root, runner, mutate, tests) {
   }
 }
 
-/**
- * The mutation runs a branch needs, each `{ runner, tests, mutate, files }`: the Routines' over
- * every test file no Command lists, and each Command's over its own, each mutating a file over its
- * changed lines, or wholly when a test file its run runs has changed or `whole` is set.
- */
-function mutationRuns(kind, { policy, inScope, changed, tests, whole = false }) {
-  const commandFiles = new Set(Object.keys(policy.commands))
-  const changedTests = new Set(tests.filter((test) => changed.has(test)))
-  const plan = (files, runTests_, runner) => {
-    const all = whole || runTests_.some((test) => changedTests.has(test))
-    const chosen = [...files].filter((file) => all || changed.has(file)).sort(byCodePoint)
-    if (chosen.length === 0) return null
-    const mutate = all ? chosen : mutateRanges(changed, chosen)
-    return { runner, tests: runTests_, mutate, files: chosen, whole: all }
-  }
-  if (kind === 'routines') {
-    const commandTests = new Set(Object.values(policy.commands).flat())
-    const run = plan([...inScope].filter((file) => !commandFiles.has(file)), tests.filter((test) => !commandTests.has(test)), 'tap')
-    return run === null ? [] : [run]
-  }
-  const byTests = new Map()
-  for (const file of [...inScope].filter((path) => commandFiles.has(path))) {
-    const key = JSON.stringify(policy.commands[file])
-    byTests.set(key, [...(byTests.get(key) ?? []), file])
-  }
-  return [...byTests].map(([key, files]) => plan(files, JSON.parse(key), 'command')).filter((run) => run !== null)
+/** The runner and the test files that mutate `file`: a Command's own, or the Routines' tap run over every test file no Command lists. */
+function runnerOf(file, policy, tests) {
+  if (Object.hasOwn(policy.commands, file)) return { runner: 'command', tests: policy.commands[file] }
+  const commandTests = new Set(Object.values(policy.commands).flat())
+  return { runner: 'tap', tests: tests.filter((test) => !commandTests.has(test)) }
 }
 
-/** The changed lines of `files`, merged into Stryker's `<file>:<start>-<end>` ranges. */
-function mutateRanges(changed, files) {
-  const ranges = []
-  for (const path of files) {
-    let start = null
-    let end = null
-    for (const k of [...changed.get(path)].sort((a, b) => a - b)) {
-      if (start !== null && k === end + 1) end = k
-      else {
-        if (start !== null) ranges.push(`${path}:${start}-${end}`)
-        start = end = k
-      }
-    }
-    if (start !== null) ranges.push(`${path}:${start}-${end}`)
+/**
+ * The mutation runs of one kind, `routines` or `commands`, each `{ runner, tests, mutate, files }`:
+ * a file mutated over the ranges `lines` gives it (its changed lines, as a check reads them), or
+ * wholly where `whole` is set, grouped by the runner and test files that mutate it.
+ */
+function mutationRuns(kind, { policy, inScope, lines, tests, whole = false }) {
+  const groups = new Map()
+  for (const file of [...inScope].sort(byCodePoint)) {
+    const run = runnerOf(file, policy, tests)
+    if ((run.runner === 'command') !== (kind === 'commands')) continue
+    if (!whole && !lines.has(file)) continue
+    const key = JSON.stringify([run.runner, run.tests])
+    if (!groups.has(key)) groups.set(key, { ...run, mutate: [], files: [] })
+    const group = groups.get(key)
+    group.files.push(file)
+    group.mutate.push(...(whole ? [file] : mutateRanges(file, lines.get(file))))
   }
+  return [...groups.values()]
+}
+
+/** A file's lines merged into Stryker's `<file>:<start>-<end>` ranges. */
+function mutateRanges(path, lines) {
+  const ranges = []
+  let start = null
+  let end = null
+  for (const k of [...lines].sort((a, b) => a - b)) {
+    if (start !== null && k === end + 1) end = k
+    else {
+      if (start !== null) ranges.push(`${path}:${start}-${end}`)
+      start = end = k
+    }
+  }
+  if (start !== null) ranges.push(`${path}:${start}-${end}`)
   return ranges
 }
 
@@ -789,6 +824,7 @@ function parseBaseline(text) {
     entry !== null &&
     typeof entry === 'object' &&
     ['file', 'mutator', 'replacement', 'code'].every((key) => typeof entry[key] === 'string') &&
+    entry.code !== '' &&
     Number.isInteger(entry.occurrence) &&
     entry.occurrence >= 1 &&
     Object.keys(entry).length === 5
@@ -798,29 +834,77 @@ function parseBaseline(text) {
   return { entries: parsed.undetected }
 }
 
-/** The baseline under `root`: its keys, and each problem with the file itself. */
+/** The baseline under `root`: its entries, and each problem with the file itself. */
 function readBaseline(root) {
   const path = join(root, BASELINE)
-  if (!existsSync(path)) return { listed: new Set(), entries: [], problems: [`baseline: ${BASELINE} does not exist; run \`npm run thresholds:update\` and commit it.`] }
+  if (!existsSync(path)) return { entries: [], problems: [`baseline: ${BASELINE} does not exist; run \`npm run thresholds:update\` and commit it.`] }
   const text = readFileSync(path, 'utf8')
   const parsed = parseBaseline(text)
-  if ('problem' in parsed) return { listed: new Set(), entries: [], problems: [`baseline: ${BASELINE} cannot be read: ${parsed.problem}; \`npm run thresholds:update\` writes it.`] }
-  const problems = []
+  if ('problem' in parsed) return { entries: [], problems: [`baseline: ${BASELINE} cannot be read: ${parsed.problem}; \`npm run thresholds:update\` writes it.`] }
   const keys = parsed.entries.map(entryKey)
+  const problems = []
   if (text !== baselineText(parsed.entries) || new Set(keys).size !== keys.length) {
     problems.push(`baseline: ${BASELINE} is not as \`npm run thresholds:update\` writes it; it is never edited by hand.`)
   }
-  return { listed: new Set(keys), entries: parsed.entries, problems }
+  return { entries: parsed.entries, problems }
 }
 
-/** The baseline's keys at the merge base, or null where that commit has none. */
+/** The baseline's entries at the merge base, or null where that commit has none. */
 function baseBaseline(root, base) {
   const shown = spawnSync('git', ['show', `${base}:${BASELINE}`], { cwd: root, env: gitEnv(), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
   if (shown.status !== 0) return null
   const parsed = parseBaseline(shown.stdout)
   if ('problem' in parsed) throw new Error(`${BASELINE} at the merge base ${base.slice(0, 12)} cannot be read: ${parsed.problem}.`)
-  return new Set(parsed.entries.map(entryKey))
+  return parsed.entries
 }
+
+/**
+ * The merge base's entries carried through the branch's edits: `kept`, each an entry still on a line
+ * the branch leaves as it was, re-keyed to its occurrence in the working tree's text; `answered`,
+ * each whose line the branch changed or removed, which that branch answers for; and `gone`, each
+ * whose code the merge base's own text does not hold at its occurrence.
+ */
+function carry(root, base, diff, entries) {
+  const baseTexts = new Map()
+  const baseText = (file) => {
+    if (!baseTexts.has(file)) {
+      const shown = spawnSync('git', ['show', `${base}:${file}`], { cwd: root, env: gitEnv(), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+      baseTexts.set(file, shown.status === 0 ? shown.stdout : null)
+    }
+    return baseTexts.get(file)
+  }
+  const kept = []
+  const answered = []
+  const gone = []
+  for (const entry of entries) {
+    const before = baseText(entry.file)
+    const at = before === null ? -1 : locate(before, entry)
+    if (at === -1) {
+      gone.push(entry)
+      continue
+    }
+    const starts = lineStarts(before)
+    const first = lineAt(starts, at)
+    const last = lineAt(starts, at + entry.code.length - 1)
+    const file = diff.get(entry.file)
+    const lines = []
+    for (let k = first; k <= last; k++) lines.push(carryLine(file, k))
+    if (lines.some((k) => k === null) || !existsSync(join(root, entry.file))) {
+      answered.push(entry)
+      continue
+    }
+    const after = readFileSync(join(root, entry.file), 'utf8')
+    const moved = lineStarts(after)[lines[0] - 1] + (at - starts[first - 1])
+    if (!after.startsWith(entry.code, moved)) {
+      gone.push(entry)
+      continue
+    }
+    kept.push({ ...entry, occurrence: occurrencesBefore(after, entry.code, moved) + 1 })
+  }
+  return { kept, answered, gone }
+}
+
+const describe = (entry) => `${entry.file}'s ${entry.mutator} mutant ${JSON.stringify(entry.replacement)} of ${JSON.stringify(entry.code)}, occurrence ${entry.occurrence},`
 
 /* --------------------------------------------------------------------------------- the gate ----- */
 
@@ -833,12 +917,13 @@ function setUp(root, { product }) {
     .sort(byCodePoint)
   if (product) {
     const changed = new Map([...inScope].map((path) => [path, allLines(readFileSync(join(root, path), 'utf8'))]))
-    return { policy, inScope, tests, changed, base: null, said: `the whole product: every line of ${plural(inScope.size, 'file')} of code under apps/ counts as changed.` }
+    return { policy, inScope, tests, changed, diff: null, base: null, said: `the whole product: every line of ${plural(inScope.size, 'file')} of code under apps/ counts as changed.` }
   }
   const base = mergeBase(root)
-  const changed = changedLines(root, base)
+  const diff = readDiff(root, base)
+  const changed = changedOf(diff)
   const count = [...changed.keys()].filter((path) => inScope.has(path)).length
-  return { policy, inScope, tests, changed, base, said: `measured against the merge base ${base.slice(0, 12)} with ${TRUNK}: ${plural(count, 'file')} of code under apps/ changed.` }
+  return { policy, inScope, tests, changed, diff, base, said: `measured against the merge base ${base.slice(0, 12)} with ${TRUNK}: ${plural(count, 'file')} of code under apps/ changed.` }
 }
 
 /**
@@ -858,7 +943,7 @@ export async function check(given, { commands = false, product = false, stages =
   } catch (error) {
     return { refusals: [`${error.message.startsWith(POLICY_FILE) ? 'policy' : 'branch'}: ${error.message}`], printed }
   }
-  const { policy, inScope, tests, changed, base } = context
+  const { policy, inScope, tests, changed, diff, base } = context
   printed.push(context.said)
 
   // A `Stryker disable` without `next-line` on a changed line silences every mutant after it.
@@ -871,21 +956,31 @@ export async function check(given, { commands = false, product = false, stages =
     }
   }
 
-  const baseline = readBaseline(root)
-  if (!product) {
+  // The baseline, carried from the merge base through the branch's edits.
+  if (!product && !commands) {
+    const baseline = readBaseline(root)
     refusals.push(...baseline.problems)
-    if (!commands && baseline.problems.length === 0) {
+    if (baseline.problems.length === 0) {
       try {
         const prior = baseBaseline(root, base)
-        if (prior === null) printed.push(`note: the merge base ${base.slice(0, 12)} has no ${BASELINE}, so no entry is held to it: this branch creates the baseline.`)
-        else for (const entry of baseline.entries) if (!prior.has(entryKey(entry))) refusals.push(`baseline: ${entry.file}'s ${entry.mutator} mutant of ${JSON.stringify(entry.code)} is listed, and the baseline at the merge base with ${TRUNK} does not list it: the baseline may fall and never rise (D-13, item 5).`)
-        for (const entry of baseline.entries) {
-          if (!stillThere(root, entry, changed)) {
-            printed.push(
-              `  advisory: ${entry.file}'s ${entry.mutator} mutant of ${JSON.stringify(entry.code)} is listed in ${BASELINE}, and its code is gone or on a line this branch changes,` +
-                ' where the change answers for it; `npm run thresholds:update` drops it',
+        if (prior === null) {
+          printed.push(`note: the merge base ${base.slice(0, 12)} has no ${BASELINE}, so no entry is held to it: this branch creates the baseline.`)
+          for (const entry of baseline.entries) {
+            const path = join(root, entry.file)
+            if (!existsSync(path) || locate(readFileSync(path, 'utf8'), entry) === -1) refusals.push(`baseline: ${describe(entry)} is listed, and its file holds no such occurrence; \`npm run thresholds:update\` writes the baseline.`)
+          }
+        } else {
+          const carried = carry(root, base, diff, prior)
+          const kept = new Set(carried.kept.map(entryKey))
+          for (const entry of baseline.entries) {
+            if (kept.has(entryKey(entry))) continue
+            refusals.push(
+              `baseline: ${describe(entry)} is listed, and no entry of the baseline at the merge base with ${TRUNK} sits there once this branch's edits are carried through:` +
+                ' a rise, which the baseline never takes (D-13, item 5), or an entry an edit to its file has moved or answered for. `npm run thresholds:update` re-keys what stays and drops the rest.',
             )
           }
+          for (const entry of carried.answered) printed.push(`  advisory: ${describe(entry)} is listed at the merge base, on a line this branch changes or removes; the branch answers for it as for any mutant of changed code, and \`npm run thresholds:update\` drops it`)
+          for (const entry of carried.gone) printed.push(`  advisory: ${describe(entry)} is listed at the merge base, where its file holds no such occurrence; \`npm run thresholds:update\` drops it`)
         }
       } catch (error) {
         refusals.push(`baseline: ${error.message}`)
@@ -913,48 +1008,83 @@ export async function check(given, { commands = false, product = false, stages =
 
   const kind = commands ? 'Commands' : 'Routines'
   const label = `mutation of the ${kind}`
-  const runs = mutationRuns(commands ? 'commands' : 'routines', { policy, inScope, changed, tests })
+  const runs = mutationRuns(commands ? 'commands' : 'routines', { policy, inScope, lines: changed, tests })
   if (runs.length === 0) {
-    printed.push(`${label}: neither the code of a ${kind === 'Commands' ? 'Command' : 'Routine'} nor a test file its run runs changed, so no mutant is made.`)
+    printed.push(`${label}: no line of a ${kind === 'Commands' ? 'Command' : 'Routine'} changed, so no mutant is made; a change to a test alone mutates nothing (the header says why).`)
     return { refusals, printed }
   }
   const results = []
   for (const run of runs) {
-    printed.push(`${label}: ${run.runner} runner over ${plural(run.tests.length, 'test file')}, mutating ${run.whole ? `${plural(run.files.length, 'file')} wholly, since a test file its run runs changed` : `the changed lines of ${plural(run.files.length, 'file')}`}.`)
+    printed.push(`${label}: ${run.runner} runner over ${plural(run.tests.length, 'test file')}, mutating the changed lines of ${plural(run.files.length, 'file')}.`)
     try {
       results.push(...(await strykerRun(root, run.runner, run.mutate, run.tests)))
     } catch (error) {
       return { refusals: [...refusals, `${label}: Stryker could not run: ${error.message}`], printed }
     }
   }
-  const judged = judgeMutation(label, readMutants(root, results, changed), policy, product ? new Set() : baseline.listed)
+  const judged = judgeMutation(label, readMutants(root, results), policy)
   return { refusals: [...refusals, ...judged.refusals], printed: [...printed, ...judged.printed] }
 }
 
 /**
- * `thresholds:update`: measure every Routine and Command wholly, and write the baseline of the
- * undetected mutants of code the branch does not change that the baseline at the merge base lists,
- * or every one where it has none. Returns what it kept, dropped and would not add.
+ * `thresholds:update`. Where the merge base has a baseline: carry its entries through the branch's
+ * edits, drop each the branch answers for or whose code is gone, mutate the lines of the rest, and
+ * keep each still undetected, re-keyed to the working tree's text. Where it has none, on the branch
+ * that creates it: mutate every Routine and Command wholly, and list the undetected mutants of each
+ * run whose score falls below its threshold, or below its minimum sample with any undetected, on
+ * lines the branch leaves as they were. Returns what it wrote and why each entry went.
  */
 export async function update(given) {
   const root = realpathSync(given)
-  const { policy, inScope, tests, changed, base } = setUp(root, { product: false })
-  const results = []
-  for (const kind of ['routines', 'commands']) {
-    for (const run of mutationRuns(kind, { policy, inScope, changed, tests, whole: true })) results.push(...(await strykerRun(root, run.runner, run.mutate, run.tests)))
-  }
-  const candidates = readMutants(root, results, changed).filter((mutant) => !mutant.changed && UNDETECTED.has(mutant.status))
+  const { policy, inScope, tests, changed, diff, base } = setUp(root, { product: false })
   const prior = baseBaseline(root, base)
-  const kept = candidates.filter((mutant) => prior === null || prior.has(mutant.key))
-  const before = readBaseline(root).entries
-  const keptKeys = new Set(kept.map((mutant) => mutant.key))
-  mkdirSync(dirname(join(root, BASELINE)), { recursive: true })
-  writeFileSync(join(root, BASELINE), baselineText(kept.map((mutant) => mutant.entry)))
-  return {
-    kept: kept.length,
-    dropped: before.filter((entry) => !keptKeys.has(entryKey(entry))).length,
-    refused: candidates.filter((mutant) => !keptKeys.has(mutant.key)).map((mutant) => mutant.text),
+  const write = (entries) => {
+    mkdirSync(dirname(join(root, BASELINE)), { recursive: true })
+    writeFileSync(join(root, BASELINE), baselineText(entries))
   }
+  if (prior === null) {
+    const entries = []
+    const runs = []
+    for (const kind of ['routines', 'commands']) {
+      for (const run of mutationRuns(kind, { policy, inScope, lines: changed, tests, whole: true })) {
+        const mutants = readMutants(root, await strykerRun(root, run.runner, run.mutate, run.tests))
+        const detected = mutants.filter((mutant) => DETECTED.has(mutant.status)).length
+        const undetected = mutants.filter((mutant) => UNDETECTED.has(mutant.status))
+        const total = detected + undetected.length
+        const below = total < policy.samples.mutants ? undetected.length > 0 : (100 * detected) / total < policy.percents.mutation
+        runs.push({ runner: run.runner, files: run.files, detected, undetected: undetected.length, below })
+        if (!below) continue
+        for (const mutant of undetected) {
+          const mine = changed.get(mutant.path) ?? new Set()
+          const span = mutant.entry.code.split('\n').length
+          let untouched = true
+          for (let k = mutant.start.line; k < mutant.start.line + span; k++) if (mine.has(k)) untouched = false
+          if (untouched) entries.push(mutant.entry)
+        }
+      }
+    }
+    write(entries)
+    return { created: true, entries, runs, dropped: { answered: 0, gone: 0, detected: 0 } }
+  }
+  const carried = carry(root, base, diff, prior)
+  const byFile = new Map()
+  for (const entry of carried.kept) {
+    const text = readFileSync(join(root, entry.file), 'utf8')
+    const starts = lineStarts(text)
+    const at = locate(text, entry)
+    const lines = byFile.get(entry.file) ?? new Set()
+    for (let k = lineAt(starts, at); k <= lineAt(starts, at + entry.code.length - 1); k++) lines.add(k)
+    byFile.set(entry.file, lines)
+  }
+  const undetected = new Set()
+  for (const kind of ['routines', 'commands']) {
+    for (const run of mutationRuns(kind, { policy, inScope: new Set(byFile.keys()), lines: byFile, tests })) {
+      for (const mutant of readMutants(root, await strykerRun(root, run.runner, run.mutate, run.tests))) if (UNDETECTED.has(mutant.status)) undetected.add(mutant.key)
+    }
+  }
+  const entries = carried.kept.filter((entry) => undetected.has(entryKey(entry)))
+  write(entries)
+  return { created: false, entries, runs: [], dropped: { answered: carried.answered.length, gone: carried.gone.length, detected: carried.kept.length - entries.length } }
 }
 
 /* --------------------------------------------------------------------------------- the CLI ------ */
@@ -968,9 +1098,16 @@ async function main(argv) {
   }
   if (argv.includes('--update')) {
     try {
-      const { kept, dropped, refused } = await update(root)
-      console.log(`thresholds:update: wrote ${BASELINE} with ${plural(kept, 'entry', 'entries')}; dropped ${dropped}.`)
-      if (refused.length > 0) console.log(`It may not add ${refused.length}, which the baseline at the merge base does not list; each is detected or excused in the change:\n${refused.map((text) => `  ${text}`).join('\n')}`)
+      const { created, entries, runs, dropped } = await update(root)
+      if (created) {
+        for (const run of runs) {
+          console.log(`thresholds:update: the ${run.runner} runner over ${plural(run.files.length, 'file')}: ${run.detected} detected, ${run.undetected} undetected; ${run.below ? 'below the threshold, so its undetected mutants are listed' : 'at or above the threshold, so none is listed'}.`)
+        }
+      }
+      console.log(
+        `thresholds:update: wrote ${BASELINE} with ${plural(entries.length, 'entry', 'entries')}${created ? ', creating it' : ''}; dropped ${dropped.answered} on a line this branch changes,` +
+          ` ${dropped.gone} whose code is gone and ${dropped.detected} now detected.`,
+      )
       process.exit(0)
     } catch (error) {
       console.error(`thresholds:update: ${error.message}`)
@@ -994,17 +1131,19 @@ async function main(argv) {
 
 /**
  * The fixture: a repository laid out as the calculator is, so the live policy's scope and its one
- * Command apply unchanged. `public/calc.js` holds Routines, each `if (x > n) return a; return b`, and
- * `serve.js` is a Command its test spawns. `legacy` is tested without its boundary, so one mutant of
- * it survives, and the merge base's baseline lists it. Sized from the live minimum samples, so the
- * control's changed code is over each of them: a Routine has four code lines, at least two branches
- * and seven mutants.
+ * Command apply unchanged. `public/calc.js` holds Routines, each an `if (x > n)` or a ternary on it,
+ * and `serve.js` is a Command its test spawns. `twin`, `legacy` and `triplet` each hold `x > 5`, its
+ * first, second and third occurrence; `legacy` alone is tested without its boundary, so one mutant of
+ * it survives, and the merge base's baseline lists it at occurrence 2. Sized from the live minimum
+ * samples, so the control's changed code is over each of them: a Routine `f`/`g` has four code
+ * lines, at least two branches and seven mutants.
  */
 function fixture(policy, hashLength) {
   const { samples } = policy
   const k = Math.max(Math.ceil(samples.lines / 4), Math.ceil(samples.branches / 2), Math.ceil(samples.mutants / 7)) + 1
   const hash = 'a'.repeat(hashLength)
   const fn = (name, n) => `export function ${name}(x) {\n  if (x > ${n}) return '${name}-a'\n  return '${name}-b'\n}\n`
+  const ternary = (name) => `export const ${name} = (x) => (x > 5 ? '${name}-a' : '${name}-b')\n`
   let id = 0
   const test = (name, n, { boundary = true, above = true } = {}) => {
     id++
@@ -1015,9 +1154,17 @@ function fixture(policy, hashLength) {
   const head = (names) => `import assert from 'node:assert/strict'\nimport { test } from 'node:test'\nimport { ${names.join(', ')} } from '../public/calc.js'\n// trace-defaults: layer=functional level=1\n`
   const olds = Array.from({ length: k }, (_, n) => `f${n + 1}`)
   const news = Array.from({ length: k }, (_, n) => `g${n + 1}`)
-  const calc = (names) => [fn('legacy', 5), ...names.map((name, n) => fn(name, n + 10))].join('\n')
-  const calcTest = (names, options = {}) =>
-    [head(['legacy', ...names]), test('legacy', 5, { boundary: false }), ...names.map((name, n) => test(name, n + 10, options[name] ?? {}))].join('\n')
+  /** The Routines: `twin`, `legacy` unless left out, `triplet`, then `names`; and a comment appended to `twin`'s line, where given. */
+  const calc = (names, { legacy = true, twinNote = '' } = {}) =>
+    [ternary('twin').replace('\n', `${twinNote}\n`), ...(legacy ? [fn('legacy', 5)] : []), ternary('triplet'), ...names.map((name, n) => fn(name, n + 10))].join('\n')
+  const calcTest = (names, options = {}, { legacy = true } = {}) =>
+    [
+      head(['twin', ...(legacy ? ['legacy'] : []), 'triplet', ...names]),
+      test('twin', 5, options.twin ?? {}),
+      ...(legacy ? [test('legacy', 5, { boundary: false, ...(options.legacy ?? {}) })] : []),
+      test('triplet', 5, options.triplet ?? {}),
+      ...names.map((name, n) => test(name, n + 10, options[name] ?? {})),
+    ].join('\n')
   const serve = (n, words = ['big', 'small']) => `const n = Number(process.argv[2])\nif (n > ${n}) console.log('${words[0]}')\nelse console.log('${words[1]}')\n`
   const serveTest = (n, { boundary = true, words = ['big', 'small'] } = {}) => {
     const run = (value, word) => `  assert.equal(execFileSync(process.execPath, [SERVE, '${value}'], { encoding: 'utf8' }).trim(), '${word}')`
@@ -1028,7 +1175,7 @@ function fixture(policy, hashLength) {
       `// trace: GRT-900:happy@${hash}\ntest('[GRT-900] serve', () => {\n${body}\n})\n`
     )
   }
-  const legacyEntry = { file: 'apps/calculator/public/calc.js', mutator: 'EqualityOperator', replacement: 'x >= 5', code: 'x > 5', occurrence: 1 }
+  const legacyEntry = { file: 'apps/calculator/public/calc.js', mutator: 'EqualityOperator', replacement: 'x >= 5', code: 'x > 5', occurrence: 2 }
   const base = {
     'package.json': `${JSON.stringify({ type: 'module', scripts: { 'calculator:test': 'node scripts/run-tests.mjs "apps/calculator/test/*.test.js"' } }, null, 2)}\n`,
     'apps/calculator/public/calc.js': calc(olds),
@@ -1065,7 +1212,9 @@ function writeTree(dir, files) {
 /**
  * The cases, each doctoring one thing of the control's branch. `expect` is `pass` or the expression
  * one refusal must match; `printed`, where given, one printed line must match too. `stages` leaves
- * out a stage the case does not measure, and `commands` runs the Commands' check.
+ * out a stage the case does not measure, `commands` runs the Commands' check, `update` runs
+ * `thresholds:update` and holds what it writes, `git` runs a git command in the copy first, and
+ * `scan` holds the reader's code lines for a source.
  */
 function cases(f, policy) {
   const { percents, samples } = policy
@@ -1076,12 +1225,21 @@ function cases(f, policy) {
     const lines = [...(options.above === false ? [] : ["  assert.equal(g1(51), 'g1-a')"]), ...(options.boundary === false ? [] : ["  assert.equal(g1(50), 'g1-b')"]), "  assert.equal(g1(49), 'g1-b')"]
     return `import { g1 } from '../public/calc.js'\n// trace: GRT-800:happy@${f.hash}\ntest('[GRT-800] g1', () => {\n${lines.join('\n')}\n})\n`
   }
+  const excuse = (reason) => `/* node:coverage ignore next */ // ${reason}\n`
+  const gExcused = `export function g1(x) {\n  ${excuse('reached only by hand, in this fixture')}  if (x > 50) return 'g1-a'\n  ${excuse('reached only by hand, in this fixture')}  return 'g1-b'\n${excuse('reached only by hand, in this fixture')}}\n`
+  const strengthened = f.calcTest(f.olds, { legacy: { boundary: true } })
   const lineRefusal = new RegExp(`^coverage: lines: [\\d.]+% of \\d+ changed code lines covered, below the threshold of ${percents.lines}%`)
   const branchRefusal = new RegExp(`^coverage: branches: [\\d.]+% of \\d+ changed branches taken, below the threshold of ${percents.branches}%`)
   const lineSample = new RegExp(`^coverage: lines: \\d+ changed code lines? not covered, below the minimum sample of ${samples.lines}`)
   const mutantSample = (kind) => new RegExp(`^mutation of the ${kind}: \\d+ mutants? not detected, below the minimum sample of ${samples.mutants}`)
+  const notCarried = (occurrence) => new RegExp(`^baseline: apps/calculator/public/calc\\.js's EqualityOperator mutant "x >= 5" of "x > 5", occurrence ${occurrence}, is listed, and no entry of the baseline at the merge base`)
   return [
-    { name: 'control: the branch adds Routines, each covered and every mutant detected, over every minimum sample', files: f.branch, expect: 'pass', printed: /^mutation of the Routines: \d+ mutants of unchanged code, made because a test file changed; 1 undetected and listed in the baseline\.$/ },
+    {
+      name: 'control: the branch adds Routines, each covered and every mutant detected, over every minimum sample',
+      files: f.branch,
+      expect: 'pass',
+      printed: new RegExp(`^mutation of the Routines: ${f.k * 7} mutants of changed code; ${f.k * 7} detected, 0 undetected`),
+    },
     {
       name: 'a new Routine no test calls, so its changed lines fall below the line threshold',
       files: { ...f.branch, 'apps/calculator/test/calc.test.js': f.calcTest([...f.olds, ...f.news.slice(0, -1)]) },
@@ -1096,19 +1254,20 @@ function cases(f, policy) {
     },
     { name: 'below the line sample, one uncovered changed line fails', files: withNew(g), stages: only.coverage, expect: lineSample },
     {
-      name: 'below the line sample, the uncovered lines excused by a directive with a reason pass',
-      files: withNew(`/* node:coverage ignore next 4 */ // reached only by hand, in this fixture\n${g}`),
+      name: 'below the line sample, the uncovered lines excused one by one, each with a reason, pass',
+      files: withNew(gExcused),
       stages: only.coverage,
       expect: 'pass',
       printed: /^ {2}advisory: apps\/calculator\/public\/calc\.js:\d+ excused from coverage \(reached only by hand, in this fixture\)$/,
     },
+    { name: 'a directive spelled as Node does not honour it excuses nothing', files: withNew(`/*node:coverage ignore next 4*/ // reached only by hand, in this fixture\n${g}`), stages: only.coverage, expect: lineSample },
+    { name: 'a coverage directive with no reason', files: withNew(`/* node:coverage ignore next */\n${g}`), stages: only.coverage, expect: /holds a `node:coverage ignore next` directive with no reason/ },
     {
-      name: 'a directive spelled as Node does not honour it excuses nothing',
-      files: withNew(`/*node:coverage ignore next 4*/ // reached only by hand, in this fixture\n${g}`),
+      name: 'a coverage directive that ignores several lines under one reason',
+      files: withNew(`/* node:coverage ignore next 4 */ // reached only by hand, in this fixture\n${g}`),
       stages: only.coverage,
-      expect: lineSample,
+      expect: /ignores the next 4 lines under one reason, as a `disable` would/,
     },
-    { name: 'a coverage directive with no reason', files: withNew(`/* node:coverage ignore next 4 */\n${g}`), stages: only.coverage, expect: /holds a `node:coverage ignore next` directive with no reason/ },
     { name: 'a coverage directive that disables a range', files: withNew(`/* node:coverage disable */ // not reached\n${g}/* node:coverage enable */\n`), stages: only.coverage, expect: /disables coverage up to an `enable`/ },
     {
       name: 'a changed file no test loads counts as uncovered',
@@ -1143,40 +1302,52 @@ function cases(f, policy) {
     },
     { name: 'a Stryker disable without next-line', files: withNew(`// Stryker disable all: every mutant below\n${g}`), stages: only.none, expect: /disables mutants up to a `restore` with one reason/ },
     {
-      name: "a dropped assertion of an unchanged Routine's test leaves a mutant of unchanged code undetected, which the baseline does not list",
+      name: "a change to a test alone mutates nothing, a dropped assertion among it, which the inventory gate holds",
       files: { 'apps/calculator/test/calc.test.js': f.calcTest(f.olds, { f1: { boundary: false } }) },
       stages: only.mutation,
-      expect: /^baseline: apps\/calculator\/public\/calc\.js:\d+:\d+ EqualityOperator "x >= 10" \(Survived\) is in code this branch does not change, is not detected, and the baseline does not list it/,
-    },
-    {
-      name: 'a listed mutant now detected is advisory, not refused',
-      files: { 'apps/calculator/test/calc.test.js': f.calcTest(f.olds).replace("assert.equal(legacy(4), 'legacy-b')", "assert.equal(legacy(5), 'legacy-b')\n  assert.equal(legacy(4), 'legacy-b')") },
-      stages: only.mutation,
       expect: 'pass',
-      printed: /advisory: .*EqualityOperator "x >= 5" \(Killed\) is listed in artifacts\/thresholds\/baseline\.json and is now detected/,
+      printed: /^mutation of the Routines: no line of a Routine changed, so no mutant is made; a change to a test alone mutates nothing/,
     },
     {
-      name: "a listed mutant whose code is gone is advisory, not refused",
-      files: { 'apps/calculator/public/calc.js': f.calc(f.olds).replace(`${f.fn('legacy', 5)}\n`, '') },
+      name: 'an edit to an earlier line holding a listed mutant\'s code leaves the entry where it was',
+      files: { 'apps/calculator/public/calc.js': f.calc(f.olds, { twinNote: ' // the twin of legacy' }) },
       stages: only.none,
       expect: 'pass',
-      printed: /advisory: apps\/calculator\/public\/calc\.js's EqualityOperator mutant of "x > 5" is listed in artifacts\/thresholds\/baseline\.json, and its code is gone or on a line this branch changes/,
-    },
-    { name: 'a baseline entry the merge base does not list', files: { ...f.branch, [BASELINE]: baselineText([f.legacyEntry, { ...f.legacyEntry, occurrence: 2 }]) }, stages: only.none, expect: /the baseline at the merge base with origin\/main does not list it: the baseline may fall and never rise/ },
-    { name: 'a baseline edited by hand', files: { ...f.branch, [BASELINE]: baselineText([f.legacyEntry]).replace('\n  "undetected"', '\n\n  "undetected"') }, stages: only.none, expect: /is not as `npm run thresholds:update` writes it/ },
-    { name: 'no baseline', files: { ...f.branch, [BASELINE]: null }, stages: only.none, expect: /^baseline: artifacts\/thresholds\/baseline\.json does not exist/ },
-    {
-      name: 'update drops a listed mutant now detected',
-      files: { 'apps/calculator/test/calc.test.js': f.calcTest(f.olds).replace("assert.equal(legacy(4), 'legacy-b')", "assert.equal(legacy(5), 'legacy-b')\n  assert.equal(legacy(4), 'legacy-b')") },
-      update: { kept: 0, dropped: 1, refused: null },
     },
     {
-      name: 'update adds no mutant the merge base does not list, and names it',
-      files: { 'apps/calculator/test/calc.test.js': f.calcTest(f.olds, { f1: { boundary: false } }) },
-      update: { kept: 1, dropped: 0, refused: /EqualityOperator "x >= 10" \(Survived\)/ },
+      name: "a listed mutant's function removed leaves its entry refused, not moved onto the next occurrence of its code",
+      files: { 'apps/calculator/public/calc.js': f.calc(f.olds, { legacy: false }), 'apps/calculator/test/calc.test.js': f.calcTest(f.olds, {}, { legacy: false }) },
+      stages: only.none,
+      expect: notCarried(2),
+      printed: /advisory: apps\/calculator\/public\/calc\.js's EqualityOperator mutant "x >= 5" of "x > 5", occurrence 2, is listed at the merge base, on a line this branch changes or removes/,
+    },
+    { name: 'a baseline entry the merge base does not list', files: { [BASELINE]: baselineText([f.legacyEntry, { ...f.legacyEntry, occurrence: 3 }]) }, stages: only.none, expect: notCarried(3) },
+    { name: 'a baseline edited by hand', files: { [BASELINE]: baselineText([f.legacyEntry]).replace('\n  "undetected"', '\n\n  "undetected"') }, stages: only.none, expect: /is not as `npm run thresholds:update` writes it/ },
+    { name: 'no baseline', files: { [BASELINE]: null }, stages: only.none, expect: /^baseline: artifacts\/thresholds\/baseline\.json does not exist/ },
+    { name: 'update drops a listed mutant a test now detects', files: { 'apps/calculator/test/calc.test.js': strengthened }, update: { keep: [], dropped: { answered: 0, gone: 0, detected: 1 } } },
+    {
+      name: "update drops the entry of a function the branch removes, and lists no later survivor of the same code in its place",
+      files: { 'apps/calculator/public/calc.js': f.calc(f.olds, { legacy: false }), 'apps/calculator/test/calc.test.js': f.calcTest(f.olds, { triplet: { boundary: false } }, { legacy: false }) },
+      update: { keep: [], dropped: { answered: 1, gone: 0, detected: 0 } },
+    },
+    {
+      name: 'update re-keys an entry an edit above it moves, to its occurrence in the working tree',
+      files: { 'apps/calculator/public/calc.js': f.calc(f.olds).replace(`export const twin = (x) => (x > 5 ? 'twin-a' : 'twin-b')\n`, `export const twin = (x) => (x >= 6 ? 'twin-a' : 'twin-b')\n`) },
+      update: { keep: [{ ...f.legacyEntry, occurrence: 1 }], dropped: { answered: 0, gone: 0, detected: 0 } },
+    },
+    {
+      name: 'update, where the merge base has no baseline, lists the undetected mutants of a run below its threshold and none of a run above it',
+      files: { 'apps/calculator/test/calc.test.js': f.calcTest([]) },
+      git: ['rm', '-q', BASELINE],
+      commit: true,
+      update: { created: true, onlyFile: 'apps/calculator/public/calc.js' },
     },
     { name: "control: the Command's changed line, every mutant detected", files: { 'apps/calculator/serve.js': f.serve(3, ['large', 'small']), 'apps/calculator/test/serve.test.js': f.serveTest(3, { words: ['large', 'small'] }) }, commands: true, expect: 'pass' },
     { name: "the Command's changed line leaves a mutant undetected, below the mutant sample", files: { 'apps/calculator/serve.js': f.serve(4), 'apps/calculator/test/serve.test.js': f.serveTest(4, { boundary: false }) }, commands: true, expect: mutantSample('Commands') },
+    {
+      name: 'the reader takes a / after the head of an if, a while or a for for a regular expression',
+      scan: { text: "if (a) /'/.test(b)\n// a comment\nif (c) /`/.test(d)\n// another\nwhile (e) /\\/*/.test(f)\n// a third\nx()\n", code: [1, 3, 5, 7] },
+    },
   ]
 }
 
@@ -1196,20 +1367,31 @@ async function selftest() {
     gitSelftest(base, ['commit', '-q', '-m', 'base'])
     gitSelftest(base, ['update-ref', 'refs/remotes/origin/main', 'HEAD'])
     for (const [n, testCase] of cases(f, policy).entries()) {
+      if (testCase.scan) {
+        const got = [...scanSource(testCase.scan.text).code].sort((a, b) => a - b)
+        const ok = got.join(',') === testCase.scan.code.join(',')
+        results.push({ name: testCase.name, ok, detail: ok ? `reads code on lines ${got.join(', ')}` : `reads code on lines ${got.join(', ')}, where ${testCase.scan.code.join(', ')} hold it` })
+        continue
+      }
       const dir = join(temp, `case-${n}`)
       cpSync(base, dir, { recursive: true })
-      writeTree(dir, testCase.files)
       if (testCase.git) gitSelftest(dir, testCase.git)
+      if (testCase.commit) {
+        gitSelftest(dir, ['commit', '-q', '-m', 'the merge base, doctored'])
+        gitSelftest(dir, ['update-ref', 'refs/remotes/origin/main', 'HEAD'])
+      }
+      writeTree(dir, testCase.files)
       if (testCase.update) {
         const want = testCase.update
         const got = await update(dir)
         const written = readFileSync(join(dir, BASELINE), 'utf8')
-        const ok =
-          got.kept === want.kept &&
-          got.dropped === want.dropped &&
-          (want.refused === null ? got.refused.length === 0 : got.refused.some((text) => want.refused.test(text))) &&
-          written === baselineText(parseBaseline(written).entries ?? [])
-        results.push({ name: testCase.name, ok, detail: ok ? `kept ${got.kept}, dropped ${got.dropped}` : `kept ${got.kept}, dropped ${got.dropped}, would not add ${got.refused.join(' | ') || 'none'}` })
+        const parsed = parseBaseline(written)
+        let ok = 'entries' in parsed && written === baselineText(parsed.entries)
+        if (want.created) ok = ok && got.created && got.entries.length > 0 && got.entries.every((entry) => entry.file === want.onlyFile) && got.runs.some((run) => !run.below)
+        else ok = ok && !got.created && written === baselineText(want.keep) && JSON.stringify(got.dropped) === JSON.stringify(want.dropped)
+        const shown = got.entries.slice(0, 3).map((entry) => `${entry.file} ${JSON.stringify(entry.code)} at occurrence ${entry.occurrence}`)
+        const detail = `wrote ${plural(got.entries.length, 'entry', 'entries')} (${shown.join('; ') || 'none'}${got.entries.length > 3 ? '; ...' : ''}), dropped ${JSON.stringify(got.dropped)}`
+        results.push({ name: testCase.name, ok, detail })
         continue
       }
       const { refusals, printed } = await check(dir, { commands: testCase.commands ?? false, stages: testCase.stages ?? { coverage: true, mutation: true } })
