@@ -114,9 +114,9 @@ jobs:
       # its merge base with origin/main, which the whole-history checkout above provides.
       - name: the traceability record is current, and every scenario, test, contract and task holds to it
         run: npm run trace:check
-      # About ten seconds (lefthook.yml's `trace-selftest` job has the measurement): fixture
-      # repositories under the temporary directory, and eight trial archives by the pinned CLI, two
-      # in each of four cases.
+      # About ten seconds (lefthook.yml's `trace-selftest` job has the measurement and the count of
+      # trial archives): fixture repositories under the temporary directory, and trial archives by
+      # the pinned CLI.
       - name: the trace gate, negative-tested
         run: npm run trace:selftest
       # Under a second (lefthook.yml's `tests-inventory` job has the measurement): the tests at HEAD
