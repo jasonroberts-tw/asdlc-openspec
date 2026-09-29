@@ -159,11 +159,12 @@ pre-push:
     # from outside the checkout, through a stand-in `node` that runs no hook, so the settings file is
     # in the glob, and renders the briefing template through a scratch copy of its renderer, so both
     # are in it too. It provisions twice through a scratch copy of `scripts/new-worktree.sh`, from a
-    # checkout that trails its remote, and the guard reads the approval label from
-    # `tools/policy.json`, so the policy is in the glob too. About a hundred and twenty git spawns,
-    # two bash runs and four renders: 7.59-7.82 s wall through `node --run` (`/usr/bin/time -p`, two
-    # runs, while other worktrees ran their gates) on a macOS 26.7 laptop with Node 26.8.1,
-    # 2026-09-26, so re-measure it on your host before trusting the suite's total.
+    # checkout that trails its remote, and the guard reads the approval label and the gc sweep its
+    # `worktreeGcMinAgeHours` from `tools/policy.json`, so the policy is in the glob too. Over a
+    # hundred and twenty git spawns, two bash runs, four renders and, on macOS, three `lsof` calls:
+    # 9.09 s wall through `node --run` (`/usr/bin/time -p`, one run, while other worktrees ran their
+    # gates) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-29, up from 7.59-7.82 s before the gc
+    # sweep's liveness and age cases, so re-measure it on your host before trusting the suite's total.
     - name: worktree-hooks
       glob:
         - 'scripts/hooks/**'

@@ -48,12 +48,38 @@
  *   - `git status --porcelain` there prints nothing -- no modified, staged or untracked file. Ignored
  *     files (`node_modules/`, `.worktree/`, `.scratch/`) do not count. `git worktree remove` without
  *     `--force` refuses a dirty tree on its own, which makes this a second layer over git's;
- *   - no process has its working directory inside it, read from `/proc/<pid>/cwd`. A Claude Code
+ *   - no process has its working directory inside it (THE LIVENESS CHECK, below). A Claude Code
  *     session `chdir`s into the worktree it enters, so a live session shows here, and so does a
  *     lingering MSBuild node for the minutes it takes to idle out -- conservative, and self-correcting
- *     on the next run. Linux and WSL2 only: where `/proc` is absent the check is skipped and the
- *     clean-and-contained proof stands alone;
- *   - its branch is contained in the trunk by one of the two proofs above.
+ *     on the next run;
+ *   - its branch is contained in the trunk by one of the two proofs above;
+ *   - where no liveness check works, HEAD there has not moved for `worktreeGcMinAgeHours`
+ *     (`tools/policy.json`).
+ *
+ * THE LIVENESS CHECK, and the defect it closes. Until 2026-09-29 it read only `/proc/<pid>/cwd`, and
+ * where `/proc` was absent it was skipped and the clean-and-contained proof stood alone. On
+ * 2026-09-28, on macOS, two lanes of a fan-out run lost their worktrees mid-run
+ * (asdlc-openspec-zlz): one freshly cut from `origin/main`, one just rebased onto a branch that had
+ * since merged. Each was clean and its branch contained, so nothing told it from an abandoned one,
+ * and the `WorktreeRemove` hook runs this sweep whenever any other worktree is torn down. One lane
+ * then wrote a file at its removed worktree's path, and its `git rebase`, resolving upward from that
+ * directory, rebased the primary checkout's `main`. Each platform now does this, first that works:
+ *
+ *   - Linux and WSL2: `/proc/<pid>/cwd`, as before;
+ *   - macOS and other BSDs: `lsof -w -a -d cwd -Fpn`, every process's working directory in one call
+ *     (measured 2026-09-29 on macOS: 0.25 s for about 500 processes), run once per sweep. `lsof`
+ *     found but exiting non-zero is no answer, and falls through to the age rule rather than to
+ *     "nobody is there";
+ *   - anywhere neither works (native Windows, or a host with no `lsof`): no check, and a clean,
+ *     contained worktree is removed only once HEAD there has not moved for `worktreeGcMinAgeHours`.
+ *     HEAD's last move is the newest mtime of the worktree's `.git` file (written when it was cut)
+ *     and of `HEAD` and `logs/HEAD` in its admin directory (moved by a commit, a checkout or a
+ *     rebase). The index is not read: `git status`, this sweep's own, can rewrite it. With the
+ *     policy unreadable, nothing is removed on that platform.
+ *
+ * `WORKTREE_GC_LIVENESS` (`proc`, `lsof` or `none`) forces one check alone, for the selftest and a
+ * by-hand run; unset, each is tried in the order above. The report's `liveness:` line names the one
+ * that ran.
  *
  * A kept worktree keeps its branch with it, reported as `checked out by <path> (<reason>)`.
  *
@@ -64,7 +90,8 @@
  *
  * WHAT IT WILL NOT TOUCH, regardless of proof:
  *   - the primary checkout, the worktree it runs from, a locked worktree, a worktree outside
- *     `.claude/worktrees/`, or any worktree with a change or a process in it;
+ *     `.claude/worktrees/`, any worktree with a change or a process in it, or, where no liveness
+ *     check works, one whose HEAD moved within `worktreeGcMinAgeHours`;
  *   - any branch a kept worktree has checked out;
  *   - `main`, `release`, and anything not named `agent/*` or `worktree-*`. Human branches are
  *     not this script's business and prefix is how it knows.
@@ -80,8 +107,16 @@
  * read as a failed teardown. Only a broken invocation (not a git repository, bad flag) exits 1.
  */
 import { execFileSync } from 'node:child_process'
-import { appendFileSync, readdirSync, readlinkSync, realpathSync } from 'node:fs'
-import { join, relative, sep } from 'node:path'
+import {
+  appendFileSync,
+  readFileSync,
+  readdirSync,
+  readlinkSync,
+  realpathSync,
+  statSync,
+} from 'node:fs'
+import { dirname, join, relative, resolve, sep } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 /* ============================================================================================= *
  * Arguments
@@ -110,6 +145,15 @@ for (let i = 0; i < argv.length; i += 1) {
     console.error(`prune-worktree-branches: unknown argument ${arg}`)
     process.exit(1)
   }
+}
+
+const LIVENESS_METHODS = ['proc', 'lsof']
+const livenessArg = process.env.WORKTREE_GC_LIVENESS || null
+if (livenessArg !== null && livenessArg !== 'none' && !LIVENESS_METHODS.includes(livenessArg)) {
+  console.error(
+    `prune-worktree-branches: WORKTREE_GC_LIVENESS=${livenessArg} is not one of proc, lsof, none`,
+  )
+  process.exit(1)
 }
 
 /** Branches this script must never delete, whatever the proof says: the protected branches
@@ -326,29 +370,128 @@ function listWorktrees() {
 }
 
 /**
- * PIDs whose working directory is `dir` or inside it, read from `/proc`. `null` where `/proc` is
- * not available, which the caller treats as "unknown" rather than "none". Another user's `cwd` link
- * is unreadable and is skipped; every process this repository cares about runs as the operator.
+ * Every process's working directory from `/proc`, as `[pid, cwd]` pairs, or `{ why }` where `/proc`
+ * is not available. Another user's `cwd` link is unreadable and is skipped; every process this
+ * repository cares about runs as the operator.
  */
-function processesIn(dir) {
+function cwdsFromProc() {
   let pids
   try {
     pids = readdirSync('/proc').filter((name) => /^\d+$/.test(name))
   } catch {
-    return null
+    return { why: 'no /proc' }
   }
-  const prefix = dir.endsWith(sep) ? dir : dir + sep
-  const hits = []
+  const cwds = []
   for (const pid of pids) {
-    let cwd
     try {
-      cwd = readlinkSync(`/proc/${pid}/cwd`)
+      cwds.push([Number(pid), readlinkSync(`/proc/${pid}/cwd`)])
     } catch {
-      continue
+      /* gone, or another user's */
     }
-    if (cwd === dir || cwd.startsWith(prefix)) hits.push(Number(pid))
   }
-  return hits
+  return cwds
+}
+
+/**
+ * Every process's working directory from `lsof`, or `{ why }`. `-Fpn` prints a `p<pid>` line and
+ * then an `n<path>` line for its cwd; `-w` drops the warnings about processes it may not inspect.
+ */
+function cwdsFromLsof() {
+  let out
+  try {
+    out = execFileSync('lsof', ['-w', '-a', '-d', 'cwd', '-Fpn'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: 64 * 1024 * 1024,
+    })
+  } catch (err) {
+    return { why: err.code === 'ENOENT' ? 'no lsof' : `lsof exited ${err.status ?? err.code}` }
+  }
+  const cwds = []
+  let pid = null
+  for (const line of out.split('\n')) {
+    if (line.startsWith('p')) pid = Number(line.slice(1))
+    else if (line.startsWith('n') && pid !== null) cwds.push([pid, line.slice(1)])
+  }
+  if (cwds.length === 0) return { why: 'lsof listed no process' }
+  return cwds
+}
+
+/**
+ * The liveness check, run once per sweep: `{ method, cwds }` from the first method that works, or
+ * `{ method: null, why }` naming why none did.
+ */
+let livenessCache = null
+function liveness() {
+  if (livenessCache !== null) return livenessCache
+  if (livenessArg === 'none') {
+    livenessCache = { method: null, why: 'WORKTREE_GC_LIVENESS=none' }
+    return livenessCache
+  }
+  const probes = { proc: cwdsFromProc, lsof: cwdsFromLsof }
+  const whys = []
+  for (const method of livenessArg === null ? LIVENESS_METHODS : [livenessArg]) {
+    const cwds = probes[method]()
+    if (Array.isArray(cwds)) {
+      livenessCache = { method, cwds }
+      return livenessCache
+    }
+    whys.push(cwds.why)
+  }
+  livenessCache = { method: null, why: whys.join(', ') }
+  return livenessCache
+}
+
+/**
+ * PIDs whose working directory is `dir` or inside it, or `null` where no liveness check works,
+ * which the caller treats as "unknown" rather than "none".
+ */
+function processesIn(dir) {
+  const live = liveness()
+  if (live.method === null) return null
+  const prefix = dir.endsWith(sep) ? dir : dir + sep
+  return live.cwds
+    .filter(([, cwd]) => cwd === dir || cwd.startsWith(prefix))
+    .map(([pid]) => pid)
+}
+
+/**
+ * `worktreeGcMinAgeHours` from `tools/policy.json` beside this script, or `null` if it cannot be
+ * read as a positive number -- which the caller treats as "remove nothing unproven".
+ */
+let minAgeCache
+function minAgeHours() {
+  if (minAgeCache !== undefined) return minAgeCache
+  minAgeCache = null
+  try {
+    const here = dirname(fileURLToPath(import.meta.url))
+    const policy = JSON.parse(readFileSync(resolve(here, '..', 'tools', 'policy.json'), 'utf8'))
+    const hours = policy.worktreeGcMinAgeHours
+    if (typeof hours === 'number' && hours > 0) minAgeCache = hours
+  } catch {
+    /* unreadable: stays null */
+  }
+  return minAgeCache
+}
+
+/**
+ * Hours since HEAD last moved in the worktree at `path`: the newest mtime of its `.git` file and of
+ * `HEAD` and `logs/HEAD` in its admin directory. `null` if none of them can be read.
+ */
+function hoursSinceHeadMoved(path) {
+  const adminDir = gitOut(['rev-parse', '--path-format=absolute', '--git-dir'], path)
+  const files = [join(path, '.git')]
+  if (adminDir !== null) files.push(join(adminDir, 'HEAD'), join(adminDir, 'logs', 'HEAD'))
+  let newest = null
+  for (const file of files) {
+    try {
+      const mtime = statSync(file).mtimeMs
+      if (newest === null || mtime > newest) newest = mtime
+    } catch {
+      /* absent: `logs/HEAD` is, where reflogs are off */
+    }
+  }
+  return newest === null ? null : (Date.now() - newest) / 3_600_000
 }
 
 const worktrees = listWorktrees()
@@ -391,7 +534,23 @@ function worktreeVerdict(wt, index) {
   }
   const verdict = containment(wt.branch)
   if (!verdict.contained) return { remove: false, reason: `branch ${wt.branch}: ${verdict.reason}` }
-  return { remove: true, proof: `clean, ${verdict.proof}` }
+  if (pids !== null) return { remove: true, proof: `clean, ${verdict.proof}` }
+
+  // No liveness check: a clean, contained worktree is what a lane looks like the moment it is cut,
+  // so only one whose HEAD has sat still for the policy's threshold is taken as abandoned.
+  const minAge = minAgeHours()
+  if (minAge === null) {
+    return { remove: false, reason: 'no liveness check, and no worktreeGcMinAgeHours to wait out' }
+  }
+  const idle = hoursSinceHeadMoved(wt.path)
+  if (idle === null) return { remove: false, reason: 'no liveness check, and no HEAD age' }
+  if (idle < minAge) {
+    return {
+      remove: false,
+      reason: `no liveness check, and HEAD moved ${idle.toFixed(1)}h ago, under worktreeGcMinAgeHours (${minAge})`,
+    }
+  }
+  return { remove: true, proof: `clean, HEAD idle ${idle.toFixed(1)}h, ${verdict.proof}` }
 }
 
 const removedWorktrees = []
@@ -491,6 +650,13 @@ console.log(`worktree gc: ${ROOT}`)
 console.log(
   `  trunk: ${TRUNK}${trunkMissing ? ' (MISSING -- worktree and branch sweeps skipped)' : ''}`,
 )
+if (livenessCache !== null) {
+  console.log(
+    livenessCache.method !== null
+      ? `  liveness: ${livenessCache.method}`
+      : `  liveness: none (${livenessCache.why}) -- a clean, contained worktree goes only once HEAD is idle ${minAgeHours() ?? '(unset)'}h`,
+  )
+}
 
 if (orphans.length > 0) {
   console.log(`  ${verb} ${orphans.length} config section(s) with no branch:`)
