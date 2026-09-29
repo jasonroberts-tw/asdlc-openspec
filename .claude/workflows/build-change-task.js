@@ -87,8 +87,11 @@ export const meta = {
  *                       returned a file outside it, or the runner left one of its files in the worktree
  *   re-design           a failure the architect routed to a re-design pass was confirmed by skeptics;
  *                       nothing after it was fixed
- *   architect-failing   a test-builder's test still failed at the last run `buildArchitectMaxRounds`
- *                       allows; `independent.rounds` gives each failure's route
+ *   architect-failing   a test-builder's test still fails and nothing is left to act on it: at the last
+ *                       run `buildArchitectMaxRounds` allows, or at an earlier one whose every failure
+ *                       is untriaged (its architect returned nothing, or an answer code could not
+ *                       hold) or a re-design its skeptics refuted or left unverified, which `why`
+ *                       names; `independent.rounds` gives each failure's route
  *   nothing-major       a round confirmed no defect at a `buildReviewMajorSeverities` severity, and
  *                       every test-builder test run here passed
  *   round-limit         the last round `buildReviewMaxRounds` allows confirmed a major defect, its fix
@@ -169,17 +172,22 @@ export const meta = {
  *   the Binding Surface and the text its IDs reference, and returns one route of
  *   `docs/test-strategy.md` § Architect triage loop: rewrite-test, fix-app or re-design, with the ID
  *   violated, the expected behaviour copied from the delta specs or the design, the observed
- *   behaviour, and the lower layer where the defect is observable. An answer whose ID the test does not
- *   name, or whose expected text is not found verbatim in the change's delta specs or design, is
- *   untriaged and acted on by no one. A re-design goes to `buildReviewSkeptics.blocker` skeptics, and
- *   a majority upheld stops the run as re-design. The fix-app routes go to one fixer, whose feedback
- *   this script builds from the four fields alone (`docs/test-strategy.md` § Independence): the ID, the
- *   expected text, the observed text with every line dropped that holds a stack frame, an assertion,
- *   the test's path or a line or string of its source of two words or more, and the environment the
- *   runner reported; a lower layer adds the ask for the lowest-layer test that reproduces it. The
- *   rewrite-test routes go back to the test-builder with the architect's reason. Each run is a round,
- *   at most `buildArchitectMaxRounds`; the last one's failures are triaged and not acted on, and stop
- *   the run as architect-failing.
+ *   behaviour, the lower layer where the defect is observable, and, for rewrite-test, the line of the
+ *   test or the sentence of the inputs that shows it wrong. An answer whose ID the test does not name,
+ *   whose expected text is not found verbatim in the change's delta specs or design, or whose
+ *   rewrite-test quote is not found verbatim in the test or the inputs, is untriaged and acted on by
+ *   no one. A re-design goes to `buildReviewSkeptics.blocker` skeptics, and a majority upheld stops
+ *   the run as re-design. The fix-app routes go to one fixer, whose feedback this script builds from
+ *   the four fields alone (`docs/test-strategy.md` § Independence): the ID; the expected text; the
+ *   observed text with every line dropped that holds a stack frame, an assertion, the test's file
+ *   name, or a line or string of its source of two words or more, compared with whitespace removed,
+ *   unless the inputs outside the test-builder's directory state that line or string too; and the
+ *   platform and Node version the runner reported, each only in a form code accepts, else `unknown`.
+ *   A lower layer adds the ask for the lowest-layer test that reproduces it. The rewrite-test routes
+ *   go back to the test-builder as the ID and that quote, built here, and never the architect's own
+ *   words, which may name the app-builder's code. Each run is a round, at most
+ *   `buildArchitectMaxRounds`; the last one's failures are triaged and not acted on, and stop the run
+ *   as architect-failing.
  *
  *   Sweep. Setup lists the listeners on 127.0.0.1. Every exit after Setup lists them again, and each one
  *   that was not there before is `listeners.leftBehind`, for the parent to stop.
@@ -408,9 +416,10 @@ const TRIAGE_SCHEMA = {
     expected: { type: 'string' },
     observed: { type: 'string' },
     lowerLayer: { type: 'string' },
+    contradicts: { type: 'string' },
     reason: { type: 'string' },
   },
-  required: ['route', 'id', 'expected', 'observed', 'lowerLayer', 'reason'],
+  required: ['route', 'id', 'expected', 'observed', 'lowerLayer', 'contradicts', 'reason'],
 }
 
 const WORK_SCHEMA = {
@@ -489,7 +498,7 @@ function argsProblem() {
     if (!isText(A[key])) return `args.${key} must be a non-empty string`
   }
   if (A.app !== undefined && !(isText(A.app) && NAME_PATTERN.test(A.app) && NAME_PATTERN.test(A.change))) {
-    return 'args.app must be the name of a directory under apps/, and args.change a name of letters, digits, dots, dashes and underscores'
+    return 'args.app must name a directory under apps/, and args.change be a plain name'
   }
   if (A.lenses !== undefined && (!isPlainObject(A.lenses) || Object.values(A.lenses).some((v) => !isText(v)))) {
     return 'args.lenses must be an object mapping a lens key to the focus text for this task'
@@ -576,10 +585,10 @@ function independentPolicyProblem(p, labels) {
   }
   if (!isWhole(p.buildArchitectMaxRounds)) return 'tools/policy.json `buildArchitectMaxRounds` must be a whole number of at least 1'
   if (!Array.isArray(p.independentInputs) || !p.independentInputs.length || !p.independentInputs.every(isRelative)) {
-    return 'tools/policy.json `independentInputs` must be a non-empty list of paths relative to the worktree, none climbing out of it'
+    return 'tools/policy.json `independentInputs` must be a non-empty list of relative paths, none climbing out'
   }
   if (!isRelative(p.independentTestDir) || !p.independentTestDir.includes('{app}')) {
-    return 'tools/policy.json `independentTestDir` must be a path relative to the worktree that holds `{app}`'
+    return 'tools/policy.json `independentTestDir` must be a relative path holding `{app}`'
   }
   if (!Array.isArray(p.independentLayers) || !p.independentLayers.length || p.independentLayers.some((l) => !layers.includes(l))) {
     return 'tools/policy.json `independentLayers` must be a non-empty list of `testTraceLayers` keys'
@@ -1056,10 +1065,16 @@ function misplaced(files) {
   return bad.length ? `the test-builder returned ${bad.map((f) => `${f.path} (${f.layer})`).join(', ')}, outside ${I.dir}/<layer>/<name>.test.js for a layer \`independentLayers\` lists` : null
 }
 
-/** The app-builder's files under any app's `independentTestDir`, or null. */
+/** A relative path with its `.` and `..` segments resolved, as a file system resolves them. */
+const resolved = (path) => path.split('/').reduce((parts, seg) => (seg === '..' ? parts.slice(0, -1) : seg === '.' || seg === '' ? parts : [...parts, seg]), []).join('/')
+
+/**
+ * The app-builder's files under any app's `independentTestDir`, or null. The match ignores case,
+ * since a file system that ignores case (macOS's default) holds one directory under both spellings.
+ */
 function intrudes(filesChanged, who) {
-  const any = new RegExp(`^${policy.independentTestDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace('\\{app\\}', '[^/]+')}(?:/|$)`)
-  const hit = filesChanged.map(normalise).filter((path) => any.test(path))
+  const any = new RegExp(`^${policy.independentTestDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace('\\{app\\}', '[^/]+')}(?:/|$)`, 'i')
+  const hit = filesChanged.map((file) => resolved(normalise(file))).filter((path) => any.test(path))
   return hit.length ? `${who} changed ${hit.join(', ')}, under the test-builder's directory` : null
 }
 
@@ -1067,13 +1082,13 @@ const runCommand = (path) => `node scripts/run-tests.mjs "${path}"`
 
 function runPrompt(files) {
   return [
-    `Work in ${A.worktree}. For the architect of task ${A.task.id}, run tests another agent wrote against the code as it stands, and change nothing else.`,
+    `Work in ${A.worktree}. Run, for task ${A.task.id}'s architect, tests another agent wrote against the code as it stands, changing nothing else.`,
     '',
     '1. Write each file below at its path, exactly as given.',
     '2. Run each command below; run one that fails once more, at once, and never a third time.',
     `3. Remove what you wrote: \`git restore -- <path>\` for a tracked file, delete the rest, then run \`git status --porcelain -- ${I.dir}\`.`,
     '',
-    "Return each file's attempts in order, each passed or not, with its output trimmed to what failed; the platform; `node --version`; and, as status, what step 3 printed last, verbatim.",
+    "Return each file's attempts in order, each passed or not, with its output trimmed to what failed; what `node -p process.platform` and `node --version` print; and, as status, what step 3 printed last, verbatim.",
     '',
     '## The commands',
     '',
@@ -1096,7 +1111,7 @@ function architectPrompt(f, result) {
     '- fix-app: the test is consistent with its references, and the code is not.',
     '- re-design: both are consistent with the text, or the text is ambiguous or contradictory, or an NFR is unattainable.',
     '',
-    "Return the route; id, the one ID of the test's names it violates; expected, the sentence of the delta specs or the design stating the behaviour, copied exactly; observed, what the application did, as behaviour, never the test's code, an assertion or a stack frame; lowerLayer, for fix-app, the lowest layer at which a test could observe the defect, or empty; and reason, which for rewrite-test says what in the test is wrong, naming no application code. Change nothing.",
+    "Return the route; id, the one ID of the test's names it violates; expected, the sentence of the delta specs or the design stating the behaviour, copied exactly; observed, what the application did, as behaviour, never the test's code, an assertion or a stack frame; lowerLayer, for fix-app, the lowest layer at which a test could observe the defect, or empty; contradicts, for rewrite-test, the line of the test, or the sentence of the specs, design or Binding Surface, that shows it wrong, copied exactly; and reason, for the parent. Change nothing.",
     '',
     `## The test: ${f.path} (${f.layer})`,
     '',
@@ -1130,18 +1145,30 @@ function redesignPrompt(t, content, i, n) {
 
 const STACK_FRAME = /^at\s|(?:file:\/\/|\/)\S*:\d+:\d+|\bAssertionError\b|\bassert(?:\.\w+)*\s*\(|\bexpect\s*\(/
 const QUOTABLE = /\w+\W+\w+/
+const PLATFORM = /^(?:darwin|linux|win32)$/
+const NODE_VERSION = /^v\d+\.\d+\.\d+$/
+/** Text with its whitespace removed, so a quote with its spaces moved still matches. */
+const squash = (text) => text.replace(/\s+/g, '')
 
-/** The observed text with every line dropped that quotes the test, an assertion or a stack frame. */
+/**
+ * The observed text with every line dropped that quotes the test, an assertion or a stack frame. A
+ * line or literal of the test that the inputs outside the test-builder's directory also state, such
+ * as a request a scenario names, is the app-builder's to read, and does not drop a line.
+ */
 function screen(observed, f) {
-  const source = f.content.split('\n').map((l) => l.trim()).filter((l) => QUOTABLE.test(l))
-  const literals = [...f.content.matchAll(/(['"`])((?:\\.|(?!\1)[^\\\n])*)\1/g)].map((m) => m[2]).filter((s) => QUOTABLE.test(s))
+  const shared = I.files.filter((x) => !under(x.path, I.dir)).map((x) => squash(x.text))
+  const literals = [...f.content.matchAll(/(['"`])((?:\\.|(?!\1)[^\\\n])*)\1/g)].map((m) => m[2])
+  const quotable = [...f.content.split('\n'), ...literals]
+    .map(squash)
+    .filter((s) => QUOTABLE.test(s) && !shared.some((x) => x.includes(s)))
   const name = f.path.split('/').pop()
   let dropped = 0
   const kept = []
   for (const line of observed.split('\n')) {
     const t = line.trim()
+    const s = squash(t)
     if (!t) continue
-    const quotes = STACK_FRAME.test(t) || t.includes(name) || [...source, ...literals].some((s) => t.includes(s) || (QUOTABLE.test(t) && s.includes(t)))
+    const quotes = STACK_FRAME.test(t) || t.includes(name) || quotable.some((q) => s.includes(q) || (QUOTABLE.test(s) && q.includes(s)))
     if (quotes) dropped++
     else kept.push(t)
   }
@@ -1150,9 +1177,9 @@ function screen(observed, f) {
 
 /** The app-builder's feedback on one failure, built from the four fields alone. */
 function feedback(t, i, env) {
-  const observed = t.screened.text || 'withheld: every line of the account quoted the test, an assertion or a stack frame'
+  const observed = t.screened.text || 'withheld: every line quoted the test, an assertion or a stack frame'
   const lines = [`${i + 1}. ${t.id}`, `   Expected, as written: ${t.expected}`, `   Observed: ${observed}`, `   Environment: ${env}, orchestration level ${t.level}`]
-  if (t.lowerLayer) lines.push(`   The defect shows below the failing test: add the lowest-layer test that reproduces it, a ${t.lowerLayer} test, and see it fail before you fix it.`)
+  if (t.lowerLayer) lines.push(`   Add the lowest-layer test that reproduces it, a ${t.lowerLayer} test, and see it fail before you fix it.`)
   return lines.join('\n')
 }
 
@@ -1164,7 +1191,7 @@ function architectFixPrompt(routes, env) {
     '',
     '## Fix the application where it fails these, and nothing else',
     '',
-    "Each is a behaviour a test you do not see found wrong, told by its ID, the behaviour the text asks for, what the application did, and where it ran.",
+    'Each is a behaviour a test you do not see found wrong: its ID, what the text asks, what the application did, and where.',
     '',
     routes.map((t, i) => feedback(t, i, env)).join('\n\n'),
     '',
@@ -1212,7 +1239,7 @@ if (policy.buildIndependentKinds.includes(A.kind)) {
   I = { app: A.app, dir, ids, files: inputs.files, tasks: inputs.tasks, cites: [] }
   S.independent = { app: A.app, dir, skipped: null, complete: null, files: [], e2e: [], rounds: [], untriaged: [] }
   if (!ids.length) {
-    S.independent.skipped = 'the task names no scenario or NFR by its ID, so the test-builder has nothing to write'
+    S.independent.skipped = 'the task names no scenario or NFR by its ID'
     log(`No test-builder: ${S.independent.skipped}`)
   } else {
     const refs = refsToCite(I.files, ids)
@@ -1262,7 +1289,7 @@ if (buildFailing.length) {
 if (tested && !tests) {
   return finish(
     'agent-died',
-    `the test-builder returned nothing, so no independent test was written; an \`agentType\` is resolved from the agents of the checkout the calling session started in, which must hold .claude/agents/${TEST_BUILDER}.md`,
+    `the test-builder returned nothing; an \`agentType\` is resolved from the agents of the checkout the calling session started in, which must hold .claude/agents/${TEST_BUILDER}.md`,
   )
 }
 if (I) {
@@ -1364,13 +1391,17 @@ const triage = (t, f) => {
         ? 'its expected text is not found verbatim in the delta specs or the design'
         : t.lowerLayer.trim() && !appLayers.includes(t.lowerLayer.trim())
           ? `its lower layer ${t.lowerLayer} is not one the app-builder writes (${appLayers.join(', ')})`
-          : null
+          : t.route === 'rewrite-test' && (!flat(t.contradicts) || ![f.content, ...I.files.map((x) => x.text)].some((s) => flat(s).includes(flat(t.contradicts))))
+            ? 'its contradicted text is not found verbatim in the test or the inputs'
+            : null
   if (why) {
     S.independent.untriaged.push({ path: f.path, why })
     return { ...record, reason: `untriaged: ${why}` }
   }
   const lowerLayer = t.route === 'fix-app' ? t.lowerLayer.trim() : ''
-  return { ...record, route: t.route, id: t.id.trim(), expected: flat(t.expected), observed: t.observed, screened: screen(t.observed, f), lowerLayer, reason: t.reason }
+  // The test-builder is told only the ID and a quote it could read already: never the architect's words.
+  const redo = t.route === 'rewrite-test' ? `${t.id.trim()} is violated here: "${flat(t.contradicts)}"` : ''
+  return { ...record, route: t.route, id: t.id.trim(), expected: flat(t.expected), observed: t.observed, screened: screen(t.observed, f), lowerLayer, redo, reason: t.reason }
 }
 
 for (let round = 1; round <= policy.buildArchitectMaxRounds; round++) {
@@ -1396,8 +1427,9 @@ for (let round = 1; round <= policy.buildArchitectMaxRounds; round++) {
       return finish('agent-died', `the runner of architect round ${round} returned nothing, so the test-builder's files may be left under ${I.dir}: remove them before any fix`)
     }
     if (ran.status.trim()) return finish('not-independent', `the runner of architect round ${round} left the test-builder's files in the worktree: ${ran.status.trim()}`)
-    env.platform = ran.platform.trim()
-    env.node = ran.node.trim()
+    // The environment reaches the fixer, so it is built from values code accepts, never the runner's words.
+    env.platform = PLATFORM.test(ran.platform.trim()) ? ran.platform.trim() : 'unknown'
+    env.node = NODE_VERSION.test(ran.node.trim()) ? ran.node.trim() : 'unknown'
     const resultOf = (f) => ran.results.find((r) => normalise(r.path) === f.path) || { attempts: [] }
     for (const f of toRun) {
       record.ran.push(f.path)
@@ -1436,7 +1468,7 @@ for (let round = 1; round <= policy.buildArchitectMaxRounds; round++) {
     }
   }
   const fixes = record.routes.filter((t) => t.route === 'fix-app')
-  rewrite.push(...record.routes.filter((t) => t.route === 'rewrite-test' && t.by !== 'code').map((t) => ({ path: t.path, reason: t.reason, content: files.get(t.path).content })))
+  rewrite.push(...record.routes.filter((t) => t.route === 'rewrite-test' && t.by !== 'code').map((t) => ({ path: t.path, reason: t.redo, content: files.get(t.path).content })))
   if (last || (!fixes.length && !rewrite.length)) break
 
   if (fixes.length) {
@@ -1470,5 +1502,5 @@ for (let round = 1; round <= policy.buildArchitectMaxRounds; round++) {
 const lastRound = S.independent.rounds[S.independent.rounds.length - 1]
 return finish(
   'architect-failing',
-  `at architect round ${lastRound.round} of at most ${policy.buildArchitectMaxRounds}, ${lastRound.failed.length + lastRound.flaky.length} test-builder file(s) still fail and ${lastRound.routes.filter((t) => t.by === 'code').length} were sent back unrun: ${lastRound.routes.map((t) => `${t.path} (${t.route || 'untriaged'})`).join(', ')}`,
+  `at architect round ${lastRound.round} of at most ${policy.buildArchitectMaxRounds}, ${lastRound.failed.length + lastRound.flaky.length} test-builder file(s) still fail and ${lastRound.routes.filter((t) => t.by === 'code').length} were sent back unrun: ${lastRound.routes.map((t) => `${t.path} (${t.route === 're-design' ? `re-design, ${t.outcome || 'unjudged'}` : t.route || 'untriaged'})`).join(', ')}`,
 )

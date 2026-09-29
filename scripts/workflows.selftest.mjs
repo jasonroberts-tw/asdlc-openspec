@@ -31,7 +31,9 @@
  * record nor an already-green report, a task of another kind stopped for one, or an already-green
  * report counted as passed (since asdlc-openspec-fye); or a test-builder that can read the
  * app-builder's work, an app-builder that writes the test-builder's tests, a flaky test counted as
- * passing, or a fixer handed a test's source (since asdlc-openspec-j09.11). For the
+ * passing, a fixer handed a test's source, even with its spaces moved, or the runner's words as its
+ * environment, or a test-builder handed the architect's words (since asdlc-openspec-j09.11; the last
+ * three were found by the session's review of 2026-09-29, each case seen failing before its fix). For the
  * prompt review: a branch merged that changed another group's file, failed its gates, was never
  * provisioned by the WorktreeCreate hook, or carried an edit a majority of its skeptics did not
  * uphold; a finding below the threshold passed to an agent; an analysis marked read whose file's
@@ -298,6 +300,8 @@ const PLANTED = ['planted-source-line', 'planted-assertion-text', 'TestContext.<
 const FRAME = `    at TestContext.<anonymous> (file://${WORKTREE}/${CONTRACT}:9:3)`
 const EXPECTED = 'the display shows 1'
 const OBSERVED = 'The display showed 0.'
+/** The line of the test a rewrite-test route quotes as wrong: text the test-builder wrote itself. */
+const QUOTED = "assert.equal(marker, 'planted-assertion-text')"
 
 const args = (kind, extra = {}) => ({
   task: { id: 'example-1.2', title: 'An example task', body: 'Build the example.' },
@@ -364,6 +368,7 @@ const routed = (route, extra = {}) => ({
   expected: EXPECTED,
   observed: [OBSERVED, "  assert.equal(marker, 'planted-assertion-text')", FRAME, "const marker = 'planted-source-line'", 'It failed in display.test.js.'].join('\n'),
   lowerLayer: route === 'fix-app' ? 'functional' : '',
+  contradicts: route === 'rewrite-test' ? QUOTED : '',
   reason: route === 'rewrite-test' ? 'The test asserts a value no scenario states.' : 'The text holds.',
   ...extra,
 })
@@ -835,6 +840,10 @@ function independentCases(policy) {
     return hits.length ? hits.join('; ') : null
   }
   const passedAfter = /; the 1 test-builder file\(s\) run here passed$/
+  const APP_CODE = "apps/example/public/app.js has export const leaked = 'app-builder-code', so import leaked"
+  const REQUEST = '/sum?a=1&b=2'
+  /** The default test file with `lines` added to its test's body. */
+  const sourced = (lines) => testFile({ content: testFile().content.split('\n').slice(0, -1).concat(lines, '})').join('\n') })
   return [
     {
       name: `the test-builder's prompt holds the inputs and hashes Setup gave it, and no input outside \`independentInputs\`, nor \`settled\` or \`guide\`; the dropped path is logged`,
@@ -887,7 +896,7 @@ function independentCases(policy) {
       name: 'agent-died: a test-builder that returns nothing stops the run, naming where its agentType is resolved',
       args: args(kind),
       scenario: { tests: null },
-      expect: ['agent-died', /^the test-builder returned nothing, .*resolved from the agents of the checkout the calling session started in/],
+      expect: ['agent-died', /^the test-builder returned nothing; an `agentType` is resolved from the agents of the checkout the calling session started in/],
       check: ({ calls }) => (count(calls, /^review /) ? 'a reviewer ran' : null),
     },
     {
@@ -909,7 +918,7 @@ function independentCases(policy) {
       },
     },
     {
-      name: "rewrite-test: the test-builder is asked again, by agentType, with the architect's reason, no fixer runs, and the next run passes",
+      name: 'rewrite-test: the test-builder is asked again, by agentType, with the ID and the line the architect quotes, no fixer runs, and the next run passes',
       args: args(kind),
       scenario: { run: failFirst(1), architect: () => routed('rewrite-test') },
       expect: ['nothing-major', passedAfter],
@@ -917,7 +926,17 @@ function independentCases(policy) {
         if (count(calls, /^fix a/)) return 'a fixer ran on a rewrite-test route'
         const again = options.filter((o) => o.label === 'test-builder a1')
         if (again.length !== 1 || again[0].agentType !== 'test-builder') return `the test-builder was asked again ${again.length} time(s), as ${again[0]?.agentType}`
-        return again[0].prompt.includes('## Rewrite these') && again[0].prompt.includes('The test asserts a value no scenario states.') ? null : "its prompt lacks the architect's reason"
+        return again[0].prompt.includes('## Rewrite these') && again[0].prompt.includes(`EXA-001 is violated here: "${QUOTED}"`) ? null : 'its prompt lacks the ID and the quoted line'
+      },
+    },
+    {
+      name: 'untriaged: a rewrite-test whose quote is found in neither the test nor the inputs is acted on by no one',
+      args: args(kind),
+      scenario: { run: failFirst(maxA), architect: () => routed('rewrite-test', { contradicts: 'export const leaked' }) },
+      expect: ['architect-failing', /\(untriaged\)$/],
+      check: ({ result, calls }) => {
+        if (count(calls, /^(fix|test-builder) a/)) return `ran ${calls.join(', ')}`
+        return result.independent.untriaged.some((u) => /contradicted text is not found verbatim/.test(u.why)) ? null : `untriaged: ${JSON.stringify(result.independent.untriaged)}`
       },
     },
     {
@@ -934,7 +953,7 @@ function independentCases(policy) {
       name: 're-design: one the skeptics refute stops nothing as re-design, is acted on by no one, and the run stops architect-failing',
       args: args(kind),
       scenario: { run: failFirst(maxA), architect: () => routed('re-design'), redesign: () => vote('refuted') },
-      expect: ['architect-failing', new RegExp(`^at architect round 1 of at most ${maxA}, 1 test-builder file\\(s\\) still fail .*\\(re-design\\)`)],
+      expect: ['architect-failing', new RegExp(`^at architect round 1 of at most ${maxA}, 1 test-builder file\\(s\\) still fail .*\\(re-design, refuted\\)`)],
       check: ({ calls }) => (count(calls, /^(fix|test-builder) a/) ? `ran ${calls.join(', ')}` : null),
     },
     {
@@ -980,6 +999,67 @@ function independentCases(policy) {
         if (count(calls, /^(fix|test-builder) a/)) return `ran ${calls.join(', ')}`
         return result.independent.untriaged.some((u) => /not found verbatim/.test(u.why)) ? null : `untriaged: ${JSON.stringify(result.independent.untriaged)}`
       },
+    },
+    {
+      name: "rewrite-test: the architect's free-text reason, which may name the app-builder's code, reaches no test-builder prompt",
+      args: args(kind),
+      scenario: { run: failFirst(1), architect: () => routed('rewrite-test', { reason: APP_CODE }) },
+      expect: ['nothing-major', passedAfter],
+      check: ({ options }) => {
+        const held = options.filter((o) => o.label.startsWith('test-builder') && o.prompt.includes('app-builder-code'))
+        return held.length ? `${held.map((o) => o.label).join(', ')} holds the architect's reason` : null
+      },
+    },
+    {
+      name: 'fix-app: a line of the test quoted with its spaces moved reaches no builder or fixer',
+      args: args(kind),
+      scenario: {
+        tests: tests([sourced(['  const shown = display.readPlanted(key)'])]),
+        run: failFirst(1),
+        architect: () => routed('fix-app', { observed: `${OBSERVED}\nconst shown=display.readPlanted( key )` }),
+      },
+      expect: ['nothing-major', passedAfter],
+      check: ({ options }) => {
+        const held = builderPrompts(options).filter((o) => o.prompt.includes('readPlanted'))
+        return held.length ? `${held.map((o) => o.label).join(', ')} holds the test's source line` : null
+      },
+    },
+    {
+      name: "fix-app: the environment is built from a platform and a Node version code accepts, never from the runner's words",
+      args: args(kind),
+      scenario: { run: (round, prompt) => ({ ...failFirst(1)(round, prompt), platform: "linux; assert.equal(marker, 'planted-assertion-text')" }) },
+      expect: ['nothing-major', passedAfter],
+      check: ({ options }) => {
+        const leak = leaks(options)
+        if (leak) return leak
+        return options.find((o) => o.label === 'fix a1').prompt.includes('Environment: unknown, Node v22.22.2, orchestration level 1') ? null : "the fixer's environment is not built from checked values"
+      },
+    },
+    {
+      name: 'fix-app: an observed line naming a request the spec states survives the screen, though the test holds it as a literal',
+      args: args(kind),
+      scenario: {
+        inputsJson: inputsJson(INPUT_FILES.map((f) => (f.path.endsWith('spec.md') ? { ...f, text: `${f.text}- AND GET ${REQUEST} answers the sum\n` } : f))),
+        tests: tests([sourced([`  const reply = get('${REQUEST}')`])]),
+        run: failFirst(1),
+        architect: () => routed('fix-app', { observed: `GET ${REQUEST} answered 500.` }),
+      },
+      expect: ['nothing-major', passedAfter],
+      check: ({ options }) => (options.find((o) => o.label === 'fix a1').prompt.includes(`Observed: GET ${REQUEST} answered 500.`) ? null : 'the spec-stated request was screened out'),
+    },
+    {
+      name: 're-design: one no skeptic could judge is named unverified, acted on by no one, and the run stops architect-failing',
+      args: args(kind),
+      scenario: { run: failFirst(maxA), architect: () => routed('re-design'), redesign: () => null },
+      expect: ['architect-failing', /\(re-design, unverified\)/],
+      check: ({ calls }) => (count(calls, /^(fix|test-builder) a/) ? `ran ${calls.join(', ')}` : null),
+    },
+    {
+      name: `not-independent: an app-builder's path that climbs into ${IDIR}, or spells it in another case, stops the run before any reviewer`,
+      args: args(kind),
+      scenario: { build: built({ filesChanged: [`apps/${APP}/test/unit/../independent/contract/x.test.js`, `apps/${APP}/test/Independent/contract/y.test.js`] }) },
+      expect: ['not-independent', new RegExp(`^the app-builder changed ${escape(IDIR)}/contract/x\\.test\\.js, apps/${APP}/test/Independent/contract/y\\.test\\.js, under`)],
+      check: ({ calls }) => (count(calls, /^review /) ? 'a reviewer ran' : null),
     },
     {
       name: 'a task that names no ID gets no test-builder, and says so',
