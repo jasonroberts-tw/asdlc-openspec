@@ -202,8 +202,8 @@ const UNJOBBED_BY_KIND = [
         why:
           "runs the test-builder's E2E tests and Verify-deferred fitness functions, which" +
           ' `docs/test-strategy.md` § Build exit criteria runs at Verify, not at a push or in CI.' +
-          ' asdlc-openspec-j09.14 is to run it in change-verify\'s fresh clone; until then no job and' +
-          ' no stage runs it, and its directory holds no test. Its `--dir` is also how the trace,' +
+          ' change-verify\'s fresh run, `scripts/fresh-run.mjs`, runs it in a clone of HEAD, as it runs' +
+          ' every script that runs the test runner; no job does. Its `--dir` is also how the trace,' +
           ' test-inventory and thresholds gates find those tests (`scripts/lib/test-dirs.mjs`).',
       },
       {
