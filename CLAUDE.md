@@ -106,6 +106,11 @@ order: `change-propose`, `change-design`, `change-plan`, `change-build`, `change
 children; the shape and its reasons are `docs/decisions.md` § D-02. Never track a change's tasks in a
 `tasks.md`, and never run `openspec init` or `openspec update` here.
 
+A change's branch is first pushed by `change-finalize`'s `open-pr`: until `change-build` has
+written their tests, the pre-push trace gate rightly refuses the delta's new and modified scenarios.
+A backup push before then is the user's to run, with `--no-verify`, which skips every
+pre-push job; no CI runs on a branch without a pull request.
+
 Each stage starts in a fresh session and never depends on an earlier stage's conversation, because
 one session that runs every stage carries each stage's context into the next. It picks the change
 up from what the earlier stages wrote down:
