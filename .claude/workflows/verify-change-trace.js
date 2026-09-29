@@ -162,8 +162,8 @@ const COMMIT = /^[0-9a-f]{7,40}$/
 const WHY = {
   'no-proof': 'no proof',
   'no-record': 'it names no manual proof the plan recorded',
-  'no-test': 'it names no test the record gives the scenario, and no gate or check that ran',
-  'no-record-test': 'the record gives it no test, and no gate or check proves it',
+  'no-test': 'it names no test the record gives it, and no check that ran',
+  'no-record-test': 'the record gives it no test, and no check proves it',
   'not-exercised': 'the proof does not exercise what the scenario states',
   fails: 'the proof fails',
   'not-run': 'the proof did not pass when run now',
@@ -302,7 +302,7 @@ function keptProblem(g, own) {
       return `${where} must carry the reading it keeps: proofKind, proof and exercises, as the earlier result gives them`
     }
     if (r.readAt !== undefined && !isCommit(r.readAt)) return `${where}: readAt must be the commit its reading was taken at, as the earlier result gives it`
-    if (r.tests !== undefined && (!Array.isArray(r.tests) || r.tests.some((t) => !isPlainObject(t) || !isText(t.file) || !isText(t.name)))) return `${where}: tests must be the { file, name } of each test the earlier result gives it`
+    if (r.tests !== undefined && (!Array.isArray(r.tests) || r.tests.some((t) => !isPlainObject(t) || !isText(t.file) || !isText(t.name)))) return `${where}: tests must be a list of { file, name }`
   }
   return null
 }
@@ -447,13 +447,13 @@ function manualBlock() {
 function keptBlock(g) {
   if (!g.kept || !g.kept.length) return ''
   const list = g.kept.map((r) => `- ${r.requirement.trim()} / ${r.scenario.trim()}: ${r.proofKind}, ${r.proof}`).join('\n')
-  return `\n\n## Kept from the trace at ${A.previous.commit.trim()}\n\nThese keep their reading, under "Running again" in that section: return their rows, and read none again; code takes each result from the fresh run.\n\n${list}`
+  return `\n\n## Kept from the trace at ${A.previous.commit.trim()}\n\nThese keep their reading, under "Running again" in that section: return their rows and read none again.\n\n${list}`
 }
 
 /** A scenario's line in its tracer's prompt, with the tests the record gives it. */
 function scenarioLine(s) {
   const tests = recordTests(s.scenario)
-  const given = tests === null ? 'the record lists no ID for it; find its tests yourself' : tests.length ? tests.map((t) => `${t.file}: ${t.name} (${t.role})`).join('; ') : 'the record gives it no test'
+  const given = tests === null ? 'no ID the record lists; find them yourself' : tests.length ? tests.map((t) => `${t.file}: ${t.name} (${t.role})`).join('; ') : 'the record gives it no test'
   return `- ${s.requirement.trim()} / ${s.scenario.trim()}\n  tests: ${given}`
 }
 
@@ -465,15 +465,15 @@ function tracePrompt(g) {
     '',
     `## Your group: ${g.key}`,
     '',
-    `The capability ${g.capability.trim()}, in openspec/changes/${A.change}/specs/${g.capability.trim()}/spec.md. Its scenarios, each as requirement / scenario, with the tests the traceability record gives it:`,
+    `The capability ${g.capability.trim()}, in openspec/changes/${A.change}/specs/${g.capability.trim()}/spec.md. Its scenarios, each as requirement / scenario, with the record's tests for it:`,
     '',
     g.scenarios.map(scenarioLine).join('\n') + files,
     '',
     '## For each scenario',
     '',
-    'A fresh clone has run every test, and code reads each result from that run. You judge only whether its tests exercise it.',
+    'Code reads each result from a fresh run of every test. You judge only whether a test exercises its scenario.',
     "1. Read each test given line by line: it exercises the scenario only when it drives the WHEN and asserts every THEN and AND, with the values the spec writes out. Never trust a test's name. Return in tests those that do, with proofKind test and exercises true when together they do; say why not in notes.",
-    '2. Where the record gives no test, name the gate or check that proves it, run it as its own call, and give its result: pass, fail or not-run. Or proofKind none. A manual proof counts only as one below.',
+    '2. With no test given, name the gate or check that proves it, run it, and give its result; or proofKind none. A manual proof counts only if listed below.',
     '',
     'Return one row per scenario above, its requirement and scenario verbatim, and head as `git rev-parse HEAD` prints it. Report each finding below a gap under below.' +
       keptBlock(g) +
@@ -623,7 +623,7 @@ function judgeTrace(g, out) {
     const reading = { proofKind: from.proofKind, proof: from.proof, exercises: from.exercises, tests: tests.map((t) => ({ file: t.file, name: t.name })) }
     const checked = !tests.length && reading.proofKind !== 'manual' && RESULTS.includes(r.result)
     const { result, measured } = measure(reading, r.result)
-    const note = dropped.length ? ` [dropped in code, as tests the record does not give this scenario: ${dropped.map((t) => `${t.file}: ${t.name}`).join('; ')}]` : ''
+    const note = dropped.length ? ` [dropped, as not the record's tests for it: ${dropped.map((t) => `${t.file}: ${t.name}`).join('; ')}]` : ''
     const row = {
       group: g.key,
       capability: g.capability.trim(),
