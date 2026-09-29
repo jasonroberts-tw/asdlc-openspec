@@ -516,7 +516,8 @@ async function buildFixture(base) {
 /** A stub for `npm ci` that installs nothing and records what the clone's git says. */
 function stubInstall(seen, { status = 0 } = {}) {
   return async (clone) => {
-    seen.push({ remotes: git(clone, ['remote']), trunk: git(clone, ['rev-parse', TRUNK]), head: git(clone, ['rev-parse', 'HEAD']) })
+    const trunk = spawn('git', ['rev-parse', '--verify', '--quiet', `${TRUNK}^{commit}`], clone)
+    seen.push({ remotes: git(clone, ['remote']), trunk: trunk.status === 0 ? trunk.stdout.trim() : '(none)', head: git(clone, ['rev-parse', 'HEAD']) })
     return { status, stdout: '', stderr: status ? 'the stub install failed on purpose' : '', ms: 0, command: 'stub install' }
   }
 }
@@ -619,8 +620,7 @@ async function attempt(fn) {
   try {
     return { value: await fn() }
   } catch (error) {
-    if (error instanceof Refusal) return { refused: error.message }
-    throw error
+    return error instanceof Refusal ? { refused: error.message } : { threw: error.stack ?? String(error) }
   }
 }
 
@@ -643,14 +643,14 @@ async function selftest() {
       const outcome = { seen, fx, dir }
       try {
         const first = await attempt(() => freshRun(dir, CHANGE, { tasks: c.tasks ?? [], tmp: c.tmp ? c.tmp(dir) : tmp, install }))
-        outcome.refused = first.refused
+        outcome.refused = first.refused ?? (first.threw ? `(it threw, which is no refusal) ${first.threw}` : undefined)
         outcome.run = first.value?.run
         if (c.after) c.after(dir)
         if (c.rerun && outcome.run) {
           outcome.reruns = []
           for (const name of c.rerun) {
             const again = await attempt(() => rerun(dir, CHANGE, name, { tmp, install }))
-            outcome.reruns.push(again.refused ? { refused: again.refused } : again.value)
+            outcome.reruns.push(again.value ?? { refused: again.refused, threw: again.threw })
           }
         }
       } finally {
