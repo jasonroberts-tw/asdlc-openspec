@@ -1,9 +1,13 @@
 /**
  * Workflow selftest: runs each workflow script under `.claude/workflows/` against stubbed agents and
- * asserts how it stops and what it returns. `build-change-task.js` runs with the review sizes and the
- * red-first kinds `tools/policy.json` holds, and its cases assert how many skeptics it sends and which
- * kinds it stops as not-red when a named scenario has neither a red record nor an already-green
- * report; `review-prompts.js` runs
+ * asserts how it stops and what it returns. `build-change-task.js` runs with the review sizes, the
+ * red-first kinds and the independent-test keys `tools/policy.json` holds, and its cases assert how
+ * many skeptics it sends, which kinds it stops as not-red when a named scenario has neither a red
+ * record nor an already-green report, and, for its test-builder and architect, each stop and each
+ * triage route, by its reason: the test-builder called by its agent type with a prompt built from
+ * the allowed inputs alone, and no planted test source, assertion text or stack frame in any
+ * builder's or fixer's prompt. It also holds `.claude/agents/test-builder.md` to a `tools:` line of
+ * StructuredOutput alone, on the tracked file and on a copy given Read; `review-prompts.js` runs
  * with groups of findings built here and the policy's `promptReview*` keys, and its cases assert
  * which findings it refuses as below the threshold, how many skeptics it sends each change and each
  * consolidation, which reports it refuses, which branches it lets the session merge, which analyses
@@ -25,7 +29,9 @@
  * left on 127.0.0.1 and not reported, or a policy key renamed so that every run refuses; or a task of
  * a kind `buildRedFirstKinds` lists let through to review with a named scenario that has neither a red
  * record nor an already-green report, a task of another kind stopped for one, or an already-green
- * report counted as passed (since asdlc-openspec-fye). For the
+ * report counted as passed (since asdlc-openspec-fye); or a test-builder that can read the
+ * app-builder's work, an app-builder that writes the test-builder's tests, a flaky test counted as
+ * passing, or a fixer handed a test's source (since asdlc-openspec-j09.11). For the
  * prompt review: a branch merged that changed another group's file, failed its gates, was never
  * provisioned by the WorktreeCreate hook, or carried an edit a majority of its skeptics did not
  * uphold; a finding below the threshold passed to an agent; an analysis marked read whose file's
@@ -65,11 +71,11 @@
  * temporary directory holding only the suites' scripts must report nothing, and the same with one
  * more script must report it, by its reason.
  *
- * NEEDS only committed files: the workflows, `tools/policy.json`, and the trace renderers with
- * `scripts/lib/trace.mjs`; each renderer runs twice as a child process. It writes only under the
- * temporary directory. No agent, no network. 0.35-0.39 s wall through `node --run` (`/usr/bin/time -p`,
- * two runs, while other worktrees ran, with the change-build suite's red-first cases) on a macOS 26.7
- * laptop with Node 26.8.1, 2026-09-28, much of it those four child processes.
+ * NEEDS only committed files: the workflows, `tools/policy.json`, `.claude/agents/test-builder.md`, and
+ * the trace renderers with `scripts/lib/trace.mjs`; each renderer runs twice as a child process. It
+ * writes only under the temporary directory. No agent, no network. 0.27 s wall, both of two runs,
+ * through `node --run` (`/usr/bin/time -p`) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-29, with
+ * the test-builder and architect cases, much of it those four child processes.
  */
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'

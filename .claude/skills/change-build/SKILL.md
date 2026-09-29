@@ -48,7 +48,8 @@ one commit. Its header says what each argument means and what it returns. Pass:
 - `task`, the task's id, title and body as `bd show <id>` prints them, and `scenarios`, the
   scenarios it names, as it names them; `change`; `worktree`, as `git rev-parse --show-toplevel`
   prints it there; and `branch`.
-- `kind`, the `assetLabels` key in `tools/policy.json` for what the task mainly changes.
+- `kind`, the `assetLabels` key in `tools/policy.json` for what the task mainly changes, and, for a
+  kind `buildIndependentKinds` lists, `app`, the directory under `apps/` the task builds.
 - `lenses`, only where the task needs its own probes, mutations or cases for a lens its kind runs;
   `guide`, only where the builder needs a reading order; `settled`, for what the user or an earlier
   run has already decided, read from the task's notes and the design, not from an earlier
@@ -61,7 +62,11 @@ Then act on what it returns:
   never commit around it. After `not-red`, keep the build: for each scenario `why` names, revert
   the change under test, see its proof fail and restore the change before the workflow runs again;
   a discarded build is paid for twice. `refused`: correct what `why` names and run it again.
-  `nothing-major` and `round-limit`: carry on below.
+  `not-independent`: delete any test-builder file left in the worktree, then as `agent-died`.
+  `re-design`: the design cannot hold as written; put it to the user, as for a spec that is wrong
+  (§ 5). `architect-failing`: never fix the code against a test you read, or the fix fits that
+  test; run the workflow again with each route's ID and expected text in `settled`, or put a
+  re-design to the user. `nothing-major` and `round-limit`: carry on below.
 - **Each `unverified` finding:** judge it yourself against the delta specs, the design and the task.
   Fix one that holds, and ask the user about one you cannot settle.
 - **Each of `followUps`:** file it as out of scope (§ 5), once a search of the tracker finds no match.
@@ -76,6 +81,7 @@ Then, whatever the workflow reported:
 - Regenerate every derived artifact the change touches.
 - Put any doubt about a scenario's expected value to the user, and have the answer, before the
   commit below (§ 5). `build.decisions` and `lastFix.decisions` can raise one.
+- Write each of `independent.files` at its path, whole: the runner removed them.
 - Commit, naming the task's id.
 
 After a spec revision (§ 5), run the workflow for the task again. Whenever it runs again for a task,
