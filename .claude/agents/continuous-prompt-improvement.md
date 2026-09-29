@@ -25,7 +25,7 @@ no review starts, leaving out the session your name names.
 
 ## 2. Collect the pending analyses
 
-Print the trunk's prompt-review keys first, as one call; this section, § 3 and § 4 apply them:
+Print the trunk's prompt-review keys first, as one call:
 
     gh api "repos/{owner}/{repo}/contents/tools/policy.json?ref=main" -H "Accept: application/vnd.github.raw" --jq "with_entries(select((.key | startswith(\"promptReview\")) and (.key | endswith(\"Means\") | not)))"
 
@@ -141,8 +141,6 @@ sections are the value.
    check, named.
 
 ## How a file is judged
-
-Each agent the workflow runs reads this section before anything else, for the files it was given.
 
 Read each file as it stands on `origin/main`, where your worktree was cut. Then read its earlier
 reviews, the descriptions of the pull requests that changed it, found as `CLAUDE.md` § Standing
