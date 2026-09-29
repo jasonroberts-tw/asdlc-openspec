@@ -12,7 +12,9 @@ that `openspec:check` finds on two headers of different titles. Amended 2026-09-
 `asdlc-openspec-j09.8`: the Plan stage's first step names each task's kind and IDs and traceability
 rules 1 to 3, where it had a scenario marked manual. Amended 2026-09-28 by `asdlc-openspec-j09.12`:
 the Finalize step that settles the living spec runs `npm run trace` before the gates, and sends a
-test `trace:check` refuses back to `change-build`.
+test `trace:check` refuses back to `change-build`. Amended 2026-09-29 by `asdlc-openspec-j09.13`:
+the Build step for what the build turns up sends a scenario or NFR that must change back to Propose
+and runs a re-design pass, and the step that hands over holds the Build exit criteria.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -250,11 +252,15 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
    the rebase merge rewrite every id. Decided by: `.claude/skills/change-build/SKILL.md` § 4. Close
    it.
 5. What the build turns up: a defect out of scope is a found issue, without the change label; work
-   in scope but missing from the plan is a new child, once the user agrees; a spec that is wrong
-   stops the build, and the spec is revised before the code it allows. Decided by:
+   in scope but missing from the plan is a new child, once the user agrees; a scenario or NFR that
+   must change stops the build and goes back to `change-propose`; a design that cannot hold gets a
+   re-design pass, a new `design.md` and contract artifacts and no delta spec, committed before the
+   code it allows; either reopens the tasks the trace record links to what changed. Decided by:
    `.claude/skills/change-build/SKILL.md` § 5. What the build turns up.
-6. Repeat until no child of the epic is open, then run `npm run gates`. Decided by:
-   `.claude/skills/change-build/SKILL.md` § 6. Repeat, then hand over.
+6. Repeat until no child of the epic is open, then run `npm run trace`, commit the record and run
+   `npm run gates`, and hand over only when each Build exit criterion holds, each shown by the gate
+   or the workflow result the skill names. Decided by: `.claude/skills/change-build/SKILL.md` § 6.
+   Repeat, then hand over.
 
 #### Verify
 
