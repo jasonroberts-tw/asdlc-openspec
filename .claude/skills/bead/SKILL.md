@@ -138,7 +138,7 @@ with its label at creation; step 4 says how to search for it and what its body c
 
 ## 8. Report
 
-First write this run's analysis and check whether a review is due (`CLAUDE.md` § Prompt reviews).
+First close the run with the `close-prompt-run` skill.
 
 Then one short report: what was verified in step 1 and where, what changed, what was regenerated,
 both gate runs as measured, the pull request and, when it waits for a person or on an issue, why,
