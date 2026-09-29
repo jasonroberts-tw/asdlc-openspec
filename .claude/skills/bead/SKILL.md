@@ -90,11 +90,14 @@ proposed itself.
 
 ## 4. Implement, regenerate, gate
 
-Make the change. A defect's fix lands only after a test or selftest case that reproduces it has
-been seen to fail, and the pull request's body names that run: a test first run after its fix can
-pass without it. Regenerate every derived artifact the change touches only after the last edit to
-the emitter or its inputs: an emitter's own source is one of its inputs, so even a comment edit
-stales its output.
+Make the change. A prompt it would take past its word budget
+(`node scripts/check-prompts.mjs --counts`) is consolidated first, as
+`.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated says, not once
+`check:prompts` refuses it at the gate. A defect's fix lands only after a test or selftest case
+that reproduces it has been seen to fail, and the pull request's body names that run: a test first
+run after its fix can pass without it. Regenerate every derived artifact the change touches only
+after the last edit to the emitter or its inputs: an emitter's own source is one of its inputs, so
+even a comment edit stales its output.
 
 Stage every file the change adds (`git add`) before the gates run: the citations and count-index
 gates read the files `git ls-files` lists, so a new file not yet added passes them unread. Run
