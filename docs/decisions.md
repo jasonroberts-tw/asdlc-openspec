@@ -379,6 +379,8 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 
 > **Amended 2026-09-26 by D-11.** Item 4 no longer holds for `assetLabels`: `beads:check` refuses an open issue filed `discovered-from` that carries none of its labels, and `beads:selftest` holds that refusal in CI. `foundAtLabels` and `rerouteLabels` are still held by no gate.
 
+> **Amended 2026-09-29 by D-17.** Item 5's second reader is unchanged, but the rule that an analysis ends with the counts is no longer in `CLAUDE.md` § Prompt reviews: `.claude/skills/close-prompt-run/SKILL.md` § 1. Write the analysis, or none, holds it.
+
 ### D-07 · A reviewer merges each pull request that satisfies the issues it carries, one at a time
 
 **Recorded 2026-09-25**, carried by `asdlc-openspec-mi6`. The maintainer asked for it on 2026-09-25. They allowed the rules in the prompts to be updated, and responsibilities moved, to make it work.
@@ -560,7 +562,7 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 
 > **Amended 2026-09-28 by D-16.** Item 3 still gives `promptReviewSkeptics` the counts `buildReviewSkeptics` gives, but those counts now send one skeptic to a major finding, not three, so a batch of 5 major findings sends 5 skeptics, not the 15 the Figures above state. The alternative "Fewer skeptics", which lost here, is what D-16 item 3 chose for a major finding, with the case where it loses that this entry gave: a single vote decides a major edit that every later run of the prompt reads. `blocker` stays at 3, and so does a consolidation's count.
 
-> **Amended 2026-09-29 by D-17.** Item 7's source of the policy no longer holds: the session prints the `promptReview*` keys from `main`'s `tools/policy.json` through one `gh api` call, before it applies any threshold and before any worktree exists, where it printed them from the review worktree's copy. Both read the trunk, so `args.policy` carries the same values; the script still reads no file and refuses a key that is missing or of the wrong shape.
+> **Amended 2026-09-29 by D-17.** The held line's form is no longer in `CLAUDE.md` § Prompt reviews: `.claude/agents/continuous-prompt-improvement.md` § 6. Mark what was read spells it, and the rule stands. Item 7's source of the policy no longer holds: the session prints the `promptReview*` keys from `main`'s `tools/policy.json` through one `gh api` call, before it applies any threshold and before any worktree exists, where it printed them from the review worktree's copy. Both read the trunk, so `args.policy` carries the same values; the script still reads no file and refuses a key that is missing or of the wrong shape.
 
 ### D-11 · beads:check refuses an open found issue with no asset label, as D-06 item 4 asked
 
@@ -816,7 +818,7 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 
 **Recorded 2026-09-29**, carried by `asdlc-openspec-03c`. On 2026-09-29 the maintainer read `.claude/agents/continuous-prompt-improvement.md` through with a session and chose items 1 to 6; the session that built it chose the skill's name, the launch prompt that carries the review's name, and reading the policy through `gh api`.
 
-**Builds on / amends:** amends D-08, whose decision put the rule and the launch in `CLAUDE.md` § Prompt reviews, whose item 5 counted a session by one name, and whose item 7 gave every review that name; D-10, whose item 7 had the session print the policy from the review worktree; and D-12, whose item 4 the agent had applied to a workflow's literals only in part. Builds on D-03, whose policy file holds the skill's budget; and on D-07, which leaves a pull request that changes `CLAUDE.md`, a budget or this register to a person.
+**Builds on / amends:** amends D-06, whose item 5 found the analysis's closing counts in `CLAUDE.md` § Prompt reviews; D-08, whose decision put the rule and the launch in that section, whose item 5 counted a session by one name, and whose item 7 gave every review that name; D-10, whose decision put the held line's form in that section and whose item 7 had the session print the policy from the review worktree; and D-12, whose item 4 the agent had applied to a workflow's literals only in part. Builds on D-03, whose policy file holds the skill's budget; and on D-07, which leaves a pull request that changes `CLAUDE.md`, a budget or this register to a person.
 
 **Decision.** How a run of a prompt hands over to the batched review, and how the reviewer starts. `.claude/skills/close-prompt-run/SKILL.md` holds the analysis note, the due check and the launch; `.claude/agents/continuous-prompt-improvement.md` holds what a review does and leaves.
 
@@ -834,7 +836,7 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 
 **What changed.**
 
-- **This register:** this entry; the status line, the blockquote's bound and the decisions table carry D-17; D-08, D-10 and D-12 carry an amendment each.
+- **This register:** this entry; the status line, the blockquote's bound and the decisions table carry D-17; D-06, D-08, D-10 and D-12 carry an amendment each.
 - **Added:** `.claude/skills/close-prompt-run/SKILL.md`.
 - **`CLAUDE.md`:** § Prompt reviews reduced to the rule and its pointers; § Bash command style names a directory `mktemp -d` makes.
 - **`.claude/agents/continuous-prompt-improvement.md`:** consolidated under D-12 in a commit of its own, then items 2 to 6.
@@ -844,7 +846,7 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 - **`.claude/workflows/review-prompts.js`:** a header comment points at the agent's § 6 for the held line.
 - **`README.md` and `docs/playbook.md`:** a row for the skill, and the rows and steps that cited `CLAUDE.md` § Prompt reviews for what moved.
 
-**Figures.** Each word count is `node scripts/check-prompts.mjs --counts`, at `658d708` for the first figure and at this entry's commit for the second: `CLAUDE.md` 3,886 and 3,262; `.claude/agents/continuous-prompt-improvement.md` 2,516 and 2,161, through 2,069 at the consolidation's commit; `.claude/skills/bead/SKILL.md` 1,617 and 1,609; the new skill 664. The probe is workflow run `wf_d0754fca-d86`, whose record is outside this repository.
+**Figures.** Each word count is `node scripts/check-prompts.mjs --counts`, at `658d708` for the first figure and at this entry's commit for the second: `CLAUDE.md` 3,886 and 3,262; `.claude/agents/continuous-prompt-improvement.md` 2,516 and 2,161, through 2,069 at the consolidation's commit; `.claude/skills/bead/SKILL.md` 1,617 and 1,609; the new skill 672. The probe is workflow run `wf_d0754fca-d86`, whose record is outside this repository.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

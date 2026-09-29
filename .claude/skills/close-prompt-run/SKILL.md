@@ -7,8 +7,9 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 # Close a prompt run
 
-This skill is the one home of the prompt review's markers, of the rule for what is pending, and of
-a review's name. The markers and thresholds below are keys of `tools/policy.json`.
+This skill is the one home of the analysis's form, of the rule for what is pending, and of a
+review's name; the read and held lines' form is the agent's. The markers and thresholds below are
+keys of `tools/policy.json`.
 
 ## 1. Write the analysis, or none
 
