@@ -45,7 +45,13 @@ export const meta = {
  * app-builder's work writes the contract, fitness and E2E tests, and the architect's triage runs them
  * against the build and routes each failure. No incident yet: were this wrong, the Binding Surface
  * would be verified only by the agent that implements it, or a fixer would be handed a test's source
- * and fit the code to that test rather than to the spec.
+ * and fit the code to that test rather than to the spec. Two gaps were found in review before any
+ * such test existed, on 2026-09-29. The review of pull request #72 at 98754a8 found that the package
+ * script meant for Build ran every file under the test-builder's directory, E2E tests included,
+ * since a file's `runAt` never reached the disk; its stage is now its directory. The review at
+ * b5b6e73 found that the architect ran only the files this task's test-builder returned, so an
+ * earlier task's contract test was never rerun after a later task changed the code it covers; every
+ * committed build-stage file now runs beside this task's.
  *
  * INVOCATION. The Workflow tool, with `scriptPath` set to this file inside the change's worktree, so
  * that the script and the policy it reads come from one commit, and `args`:
@@ -161,17 +167,24 @@ export const meta = {
  *   `filesChanged` enters `independentTestDir` for any app. The stage is `build` for a file at a
  *   layer `architectRunLayers` lists that declares `runAt` build, and `verify` for every other, so
  *   the package script that runs the build stage at push and in CI runs no E2E test or
- *   Verify-deferred fitness function (`docs/test-strategy.md` § Build exit criteria). The review of
- *   pull request #72 found on 2026-09-29, before any such test existed, that the script ran every
- *   file under the directory, since `runAt` never reached the disk. A task naming no ID gets no test-builder, and says so.
+ *   Verify-deferred fitness function (`docs/test-strategy.md` § Build exit criteria). A task naming
+ *   no ID gets no test-builder, and says so.
  *
- *   Running (architect). After the review, a runner agent in the worktree writes the files whose layer
- *   `architectRunLayers` lists and that run at build, runs `scripts/run-tests.mjs` on each as this
- *   script builds the command, runs a failing one once more (D-13, item 12), removes every file it
- *   wrote and prints `git status --porcelain` of the directory. Here, a first pass is a pass, a
- *   failure then a pass is flaky and counts as failing, and two failures fail. A file left behind stops
- *   the run as not-independent before any fixer runs. A file whose tests name an ID the task does not
- *   is routed to rewrite-test here, and runs at no architect.
+ *   Running (architect). After the review, a runner agent in the worktree runs every build-stage file:
+ *   this task's, which it writes, and every one an earlier task committed under the app's
+ *   `independentTestDir`, which Setup read among the inputs and which it runs where it stands. It runs
+ *   `scripts/run-tests.mjs` on each as this script builds the command, runs a failing one once more
+ *   (D-13, item 12), removes every file it wrote and prints `git status --porcelain` of the directory.
+ *   Here, a first pass is a pass, a failure then a pass is flaky and counts as failing, and two
+ *   failures fail. A file left behind, or a committed one changed or removed, stops the run as
+ *   not-independent before any fixer runs. A file of this task's whose tests name an ID the task does
+ *   not is routed to rewrite-test here, and runs at no architect; an earlier file names earlier tasks'
+ *   IDs, and is exempt. An earlier file that fails is triaged as this task's are, and a rewrite of it
+ *   comes back in `independent.files` for the parent to write; one left unchanged never does. Every
+ *   earlier file runs, not only those whose scope the task touches: the strategy reruns the tests of
+ *   the elements a task changes, and no rule here could tell which those are without reading the code,
+ *   so a rule that guessed would pass a test it skipped. The cost is one run of each build-stage file
+ *   per architect round, and it grows with the change's tests.
  *
  *   Triage (architect). One architect agent per failing file sees the test, how it failed, the design,
  *   the Binding Surface and the text its IDs reference, and returns one route of
@@ -1044,7 +1057,7 @@ function testBuilderPrompt(rewrite) {
     '',
     '## Where your files go',
     '',
-    `${I.dir}/<runAt>/<layer>/<name>.test.js, <layer> one of ${policy.independentLayers.join(', ')}; your files there so far are among the inputs.`,
+    `${I.dir}/<runAt>/<layer>/<name>.test.js, <layer> one of ${policy.independentLayers.join(', ')}; your earlier files are among the inputs.`,
     '',
     '## The hashes to cite',
     '',
@@ -1109,7 +1122,7 @@ function runPrompt(files) {
     '',
     '## The files',
     '',
-    files.map((f) => `### ${f.path}\n\n${fenced(f.content)}`).join('\n\n'),
+    files.filter((f) => !f.earlier).map((f) => `### ${f.path}\n\n${fenced(f.content)}`).join('\n\n'),
   ].join('\n')
 }
 
@@ -1384,8 +1397,16 @@ for (let round = 1; round <= maxRounds; round++) {
 
 if (!tests) return finish(...reviewEnd)
 
-/* The architect: run the test-builder's tests, route each failure, act on the routes. */
-const files = new Map(tests.files.map((f) => [f.path, f]))
+/*
+ * The architect: run the test-builder's tests, route each failure, act on the routes. Every
+ * build-stage file an earlier task committed, as Setup read it, runs beside this task's: `earlier`
+ * files are run where they stand, never written or removed, and come back to the parent only rewritten.
+ */
+const buildDir = `${I.dir}/build/`
+const earlier = I.files
+  .filter((x) => x.path.startsWith(buildDir) && /\.test\.js$/.test(x.path) && !tests.files.some((f) => f.path === x.path))
+  .map((x) => ({ path: x.path, layer: x.path.slice(buildDir.length).split(/\//)[0], runAt: 'build', content: x.text, earlier: true }))
+const files = new Map([...earlier, ...tests.files].map((f) => [f.path, f]))
 const allowed = new Set([...I.ids, A.task.id])
 const env = { platform: '', node: '' }
 const levelOf = (f) => (/trace-defaults:[^\n]*\blevel=(\d)/.exec(f.content) || [])[1] || policy.testTraceLayers[f.layer] || 1
@@ -1428,7 +1449,7 @@ for (let round = 1; round <= policy.buildArchitectMaxRounds; round++) {
   for (const f of runnable) {
     const ids = testIds(f.content)
     const stray = ids.filter((id) => !allowed.has(id))
-    if (!ids.length || stray.length) {
+    if (!f.earlier && (!ids.length || stray.length)) {
       const reason = ids.length ? `its tests name ${stray.join(', ')}, which task ${A.task.id} does not` : 'no test in it carries a name the convention reads'
       record.routes.push({ path: f.path, route: 'rewrite-test', by: 'code', reason })
       rewrite.push({ path: f.path, reason, content: f.content })
@@ -1506,7 +1527,7 @@ for (let round = 1; round <= policy.buildArchitectMaxRounds; round++) {
     const bad = misplaced(again.files)
     if (bad) return finish('not-independent', bad)
     for (const f of again.files) files.set(f.path, f)
-    S.independent.files = [...files.values()]
+    S.independent.files = [...files.values()].filter((f) => !f.earlier)
     S.independent.complete = again.complete
     S.independent.e2e = S.independent.files.filter((f) => stageOf(f) === 'verify').map((f) => f.path)
   }
