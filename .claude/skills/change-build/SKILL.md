@@ -62,9 +62,9 @@ Then act on what it returns:
   never commit around it. After `not-red`, keep the build: for each scenario `why` names, revert
   the change under test, see its proof fail and restore the change before the workflow runs again;
   a discarded build is paid for twice. `refused`: correct what `why` names and run it again.
-  `not-independent`: delete any test-builder file left in the worktree, then as `agent-died`.
-  `re-design`: the design cannot hold as written; put it to the user, as for a spec that is wrong
-  (§ 5). `architect-failing`: never fix the code against a test you read, or the fix fits that
+  `not-independent`: delete every uncommitted file under the app's `independentTestDir`, then as
+  `agent-died`. `re-design`: the design cannot hold as written; put it to the user as for a wrong
+  spec (§ 5). `architect-failing`: never fix the code against a test you read, or the fix fits that
   test; run the workflow again with each route's ID and expected text in `settled`, or put a
   re-design to the user. `nothing-major` and `round-limit`: carry on below.
 - **Each `unverified` finding:** judge it yourself against the delta specs, the design and the task.
@@ -81,7 +81,7 @@ Then, whatever the workflow reported:
 - Regenerate every derived artifact the change touches.
 - Put any doubt about a scenario's expected value to the user, and have the answer, before the
   commit below (§ 5). `build.decisions` and `lastFix.decisions` can raise one.
-- Write each of `independent.files` at its path, whole: the runner removed them.
+- After `nothing-major` or `round-limit`, write each of `independent.files` at its path, whole.
 - Commit, naming the task's id.
 
 After a spec revision (§ 5), run the workflow for the task again. Whenever it runs again for a task,
