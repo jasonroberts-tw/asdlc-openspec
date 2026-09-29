@@ -245,14 +245,16 @@ pre-push:
     # lets merge, which analyses it lets be marked read, and which findings it holds), and the
     # change-verify trace with the policy's `verifyTrace*` keys (how it matches rows to scenarios,
     # which gap each row is, which gaps skeptics judge and how many, what a run again keeps), its
-    # result then rendered by the trace and pull-request-body renderers; and refuses a workflow with no
-    # suite. Reads the workflows, the policy and the renderers, and writes only under the temporary
-    # directory. 0.35-0.39 s wall through `node --run` (`/usr/bin/time -p`, two runs, while other
-    # worktrees ran) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-28, much of it the trace
-    # renderers' four child processes.
+    # result then rendered by the trace and pull-request-body renderers; the change-build workflow's
+    # test-builder and architect, each stop and route by its reason, and the test-builder agent's tools
+    # line; and refuses a workflow with no suite. Reads the workflows, the policy, the test-builder's
+    # agent file and the renderers, and writes only under the temporary directory. 0.27 s wall, both of
+    # two runs, through `node --run` (`/usr/bin/time -p`) on a macOS 26.7 laptop with Node 26.8.1,
+    # 2026-09-29, much of it the trace renderers' four child processes.
     - name: workflows-selftest
       glob:
         - '.claude/workflows/**'
+        - '.claude/agents/test-builder.md'
         - 'scripts/workflows.selftest.mjs'
         - 'scripts/render-trace.mjs'
         - 'scripts/render-pr-body.mjs'
@@ -366,12 +368,13 @@ pre-push:
         - 'package-lock.json'
       run: node --run calculator:test:independent
     # The test runner's refusals (a matched file that declares no test, a pattern that matches no
-    # file, a test the reader refuses or does not see, one the runner never registers, and a policy
-    # without the reader's keys) and its failures, against fixture trees it builds under the
-    # temporary directory, with one undoctored control. Reads the runner, the reader it imports and
-    # the live policy, which it copies into each tree. 0.38-0.41 s wall through `node --run`
-    # (`/usr/bin/time -p`, two runs), on the host and date of the 1.63 s above, and 1.02-1.09 s on
-    # 2026-09-28 with the reader's eight cases added.
+    # file, a `--dir` that is not a directory, a test the reader refuses or does not see, one the
+    # runner never registers, and a policy without the reader's keys) and its failures, against
+    # fixture trees it builds under the temporary directory, with one undoctored control. Reads the
+    # runner, the reader it imports and the live policy, which it copies into each tree. 0.38-0.41 s
+    # wall through `node --run` (`/usr/bin/time -p`, two runs), on the host and date of the 1.63 s
+    # above, 1.02-1.09 s on 2026-09-28 with the reader's eight cases added, and 0.92-0.94 s on
+    # 2026-09-29 with the three `--dir` cases added.
     - name: tests-selftest
       glob:
         - 'scripts/run-tests.mjs'
