@@ -65,12 +65,20 @@ const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
  * Run the files `patterns` match under `root`. Returns the failures rather than exiting, so the
  * selftest can run it against doctored trees. `report`, when given, receives the runner's usual
  * report.
+ *
+ * `coverage`, when given as `{ include, exclude }` (globs relative to `root`), turns on Node's own
+ * coverage and returns the runner's `test:coverage` summary as `coverage`, or null when it sent
+ * none. It is judged by `scripts/check-thresholds.mjs`, never by `run()`'s own thresholds, which
+ * this file's `process.exit(0)` would swallow. At the engines floor `run()` has no `cwd` option and
+ * resolves the globs and the reported paths against `process.cwd()`, so the run changes to `root`
+ * and back; a flag such as `--experimental-test-coverage` given to this process does not reach
+ * `run()` at the floor either, since its own `coverage` option, false unless set, overrides it.
  */
-export async function runTests(root, patterns, { report = null } = {}) {
+export async function runTests(root, patterns, { report = null, coverage = null } = {}) {
   const failures = []
   if (patterns.length === 0) {
     failures.push('no pattern given: name the test files to run, as a quoted glob.')
-    return { failures, files: 0, tests: 0 }
+    return { failures, files: 0, tests: 0, coverage: null }
   }
 
   const files = []
@@ -84,7 +92,7 @@ export async function runTests(root, patterns, { report = null } = {}) {
     }
     for (const file of matched) files.push(file)
   }
-  if (files.length === 0) return { failures, files: 0, tests: 0 }
+  if (files.length === 0) return { failures, files: 0, tests: 0, coverage: null }
 
   /**
    * Declared tests per file, keyed by the path the runner reports: the real path, since a root
@@ -111,17 +119,28 @@ export async function runTests(root, patterns, { report = null } = {}) {
     }
   }
 
-  const stream = run({ files: [...declared.keys()], concurrency: true })
+  const options = { files: [...declared.keys()], concurrency: true }
+  if (coverage !== null) {
+    Object.assign(options, { coverage: true, coverageIncludeGlobs: coverage.include, coverageExcludeGlobs: coverage.exclude })
+  }
+  const cwd = process.cwd()
+  if (coverage !== null) process.chdir(root)
+  let summary = null
   const reporter = report === null ? null : new spec()
   if (reporter !== null) reporter.pipe(report, { end: false })
-  for await (const event of stream) {
-    if (reporter !== null) reporter.write(event)
-    if (event.type !== 'test:pass' && event.type !== 'test:fail') continue
-    const { name, file, line, details, todo } = event.data
-    if (event.type === 'test:fail' && (todo === undefined || todo === false)) failed++
-    if (details?.type !== 'test' || name === file || !declared.has(file)) continue
-    declared.set(file, declared.get(file) + 1)
-    reported.get(file).push({ line, name })
+  try {
+    for await (const event of run(options)) {
+      if (reporter !== null) reporter.write(event)
+      if (event.type === 'test:coverage') summary = event.data.summary
+      if (event.type !== 'test:pass' && event.type !== 'test:fail') continue
+      const { name, file, line, details, todo } = event.data
+      if (event.type === 'test:fail' && (todo === undefined || todo === false)) failed++
+      if (details?.type !== 'test' || name === file || !declared.has(file)) continue
+      declared.set(file, declared.get(file) + 1)
+      reported.get(file).push({ line, name })
+    }
+  } finally {
+    if (coverage !== null) process.chdir(cwd)
   }
   if (reporter !== null) {
     reporter.end()
@@ -142,7 +161,7 @@ export async function runTests(root, patterns, { report = null } = {}) {
     )
   }
   const tests = [...declared.values()].reduce((sum, count) => sum + count, 0)
-  return { failures, files: files.length, tests }
+  return { failures, files: files.length, tests, coverage: summary }
 }
 
 /**
@@ -399,6 +418,10 @@ function cases({ file, head, trace }) {
   ]
 }
 
-const args = process.argv.slice(2)
-if (args.includes('--selftest')) await selftest()
-else await main(args)
+// The command line runs only when this file is the one invoked: `scripts/check-thresholds.mjs`
+// imports `runTests` and must not start a run of its own.
+if (process.argv[1] !== undefined && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const args = process.argv.slice(2)
+  if (args.includes('--selftest')) await selftest()
+  else await main(args)
+}
