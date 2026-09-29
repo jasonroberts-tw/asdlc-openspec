@@ -18,7 +18,9 @@ and runs a re-design pass, and the step that hands over holds the Build exit cri
 2026-09-29 by `asdlc-openspec-j09.14`: the Verify step that traces every scenario takes a fresh run
 of every test in a clone of HEAD, runs each failing test once more, checks traceability rules 1 to 3
 and writes the verification report, and the verdict step rejects on the report and puts it on the
-epic and in the pull request.
+epic and in the pull request. Amended 2026-09-29 by the prompt review in #74: the step that
+watches the checks ends the turn to wait only if the watcher's exit wakes the session, as
+`.claude/skills/open-pr/SKILL.md` § 6 now says.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -323,8 +325,8 @@ Every pull request is opened with the `open-pr` skill, whoever opens it.
 4. Push, open it with `--base main` typed, then mark the reviewer's status pending with
    `PR=<number> node scripts/pr-review.mjs mark`. Decided by: `.claude/skills/open-pr/SKILL.md`
    § 5. Push, open, and mark it pending.
-5. Watch it with one watcher, `gh pr checks <number> --watch`, in the background, and do not end
-   the turn while it runs. Decided by: `.claude/skills/open-pr/SKILL.md` § 6. Watch it with one
+5. Watch it with one watcher, `gh pr checks <number> --watch`, in the background, and end the turn
+   to wait only if the watcher's exit wakes the session. Decided by: `.claude/skills/open-pr/SKILL.md` § 6. Watch it with one
    watcher.
 6. Act on the outcome. `verify` runs every gate that reads only committed files; once it passes, the
    reviewer judges the head against the cited issues' acceptance criteria, its maintainability and
