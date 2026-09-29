@@ -85,7 +85,11 @@ const BUILD = `${WORKFLOWS}/build-change-task.js`
 const REVIEW = `${WORKFLOWS}/review-prompts.js`
 const VERIFY = `${WORKFLOWS}/verify-change-trace.js`
 const POLICY = 'tools/policy.json'
-const POLICY_KEYS = ['buildReviewLenses', 'buildReviewSkeptics', 'buildReviewMaxRounds', 'buildReviewMajorSeverities', 'buildRedFirstKinds', 'assetLabels']
+const POLICY_KEYS = [
+  'buildReviewLenses', 'buildReviewSkeptics', 'buildReviewMaxRounds', 'buildReviewMajorSeverities', 'buildRedFirstKinds', 'assetLabels',
+  'buildIndependentKinds', 'buildArchitectMaxRounds', 'independentInputs', 'independentTestDir', 'independentLayers', 'architectRunLayers', 'testTraceLayers',
+]
+const TEST_BUILDER_AGENT = '.claude/agents/test-builder.md'
 const REVIEW_POLICY_KEYS = ['promptReviewRecurrenceCount', 'promptReviewMajorSeverities', 'promptReviewSkeptics']
 const VERIFY_POLICY_KEYS = ['verifyTraceMaxScenarios', 'verifyTraceDesignLenses', 'verifyTraceSkeptics']
 const HEAD = 'export const meta = {'
@@ -227,7 +231,7 @@ async function run(body, args, answer) {
   const agent = async (prompt, opts = {}) => {
     const label = opts.label ?? ''
     calls.push(label)
-    options.push({ label, prompt, isolation: opts.isolation })
+    options.push({ label, prompt, isolation: opts.isolation, agentType: opts.agentType })
     const reply = answer(label, prompt)
     if (reply === null || reply === undefined) return null
     if (opts.schema) {
@@ -275,18 +279,86 @@ const WORKTREE = '/tmp/worktrees/example'
 const BRANCH = 'agent/example'
 const BASELINE = [{ pid: '100', port: '5000', command: 'already-listening' }]
 const PASSING = { command: 'npm run example:test', passed: true, output: 'ok' }
-const SCENARIO = 'example: The display shows 1'
-const SECOND = 'example: The display clears'
+const SCENARIO = '[EXA-001] The display shows 1'
+const SECOND = '[EXA-002] The display clears'
 const FAILURE = 'expected 1, got 0'
 const EVIDENCE = 'The proof passed before any change: the display already showed 1.'
 
+const APP = 'example'
+const IDIR = `apps/${APP}/test/independent`
+const CONTRACT = `${IDIR}/contract/display.test.js`
+/** Planted in the test-builder's file, the runner's output and the architect's account: no builder or fixer prompt may hold one. */
+const PLANTED = ['planted-source-line', 'planted-assertion-text', 'TestContext.<anonymous>', 'display.test.js']
+const FRAME = `    at TestContext.<anonymous> (file://${WORKTREE}/${CONTRACT}:9:3)`
+const EXPECTED = 'the display shows 1'
+const OBSERVED = 'The display showed 0.'
+
 const args = (kind, extra = {}) => ({
-  task: { id: 'example-1', title: 'An example task', body: 'Build the example.' },
+  task: { id: 'example-1.2', title: 'An example task', body: 'Build the example.' },
   scenarios: [SCENARIO],
   change: 'example-change',
   worktree: WORKTREE,
   branch: BRANCH,
   kind,
+  app: APP,
+  ...extra,
+})
+
+/** A test-builder's file: one contract test of SCENARIO, its source holding the planted markers. */
+const testFile = (extra = {}, id = 'EXA-001') => ({
+  path: CONTRACT,
+  layer: 'contract',
+  runAt: 'build',
+  content: [
+    "import { test } from 'node:test'",
+    "import assert from 'node:assert/strict'",
+    '// trace-defaults: layer=contract level=1',
+    `// trace: ${id}:happy@aaaaaaaaaaaa`,
+    `test('[${id}] The display shows 1', () => {`,
+    "  const marker = 'planted-source-line'",
+    "  assert.equal(marker, 'planted-assertion-text')",
+    '})',
+  ].join('\n'),
+  ...extra,
+})
+const tests = (files = [testFile()]) => ({ files, complete: true, findings: [] })
+
+/** FNV-1a over UTF-16 code units, as the workflow's Setup command computes it. */
+function fnv(s) {
+  let h = 2166136261
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619) >>> 0
+  }
+  return h
+}
+const INPUT_FILES = [
+  { path: 'openspec/changes/example-change/design.md', text: '# Design\n\nThe display shows what was pressed.\n' },
+  { path: 'openspec/changes/example-change/specs/example/spec.md', text: '#### Scenario: [EXA-001] The display shows 1\n\n- WHEN 1 is pressed\n- THEN the display shows 1\n' },
+  { path: `apps/${APP}/binding-surface.md`, text: '# Binding Surface\n\n`press(key)` and `displayText()`.\n' },
+]
+const LEAKED = { path: `apps/${APP}/public/app.js`, text: "export const leaked = 'app-builder-code'\n" }
+const TASKS = [{ id: 'example-1.2', status: 'in_progress', title: 'An example task', description: 'Build the example.' }]
+/** Setup's inputs as its command prints them; `doctor` changes the printed object after the checksum. */
+const inputsJson = (files = INPUT_FILES, doctor = (x) => x) => JSON.stringify(doctor({ files, tasks: TASKS, fnv: fnv(JSON.stringify({ files, tasks: TASKS })) }))
+const CITED = ['EXA-001:happy@aaaaaaaaaaaa', 'EXA-001:negative@aaaaaaaaaaaa', `surface:apps/${APP}/binding-surface.md@bbbbbbbbbbbb`]
+
+const attempt = (passed, output = passed ? 'ok' : `not ok 1 - [EXA-001] The display shows 1\n${FRAME}\n  planted-assertion-text`) => ({ passed, output })
+/** The runner's answer: `outcome(path)` gives each file's attempts; clean status unless `status` is given. */
+const ranWith = (prompt, outcome = () => [attempt(true)], status = '') => ({
+  results: [...prompt.matchAll(/^- node scripts\/run-tests\.mjs "([^"]+)"$/gm)].map((m) => ({ path: m[1], attempts: outcome(m[1]) })),
+  platform: 'linux',
+  node: 'v22.22.2',
+  status,
+})
+/** An architect's answer, its observed account quoting the planted source, assertion and frame. */
+const routed = (route, extra = {}) => ({
+  route,
+  id: 'EXA-001',
+  expected: EXPECTED,
+  observed: [OBSERVED, "  assert.equal(marker, 'planted-assertion-text')", FRAME, "const marker = 'planted-source-line'", 'It failed in display.test.js.'].join('\n'),
+  lowerLayer: route === 'fix-app' ? 'functional' : '',
+  reason: route === 'rewrite-test' ? 'The test asserts a value no scenario states.' : 'The text holds.',
   ...extra,
 })
 
@@ -321,11 +393,24 @@ function scenario(policy, s = {}) {
   const policyJson = s.policyJson ?? JSON.stringify(Object.fromEntries(POLICY_KEYS.map((k) => [k, policy[k]])))
   return (label, prompt) => {
     if (label === 'setup') {
-      return { policyJson, toplevel: s.toplevel ?? WORKTREE, branch: s.branch ?? BRANCH, listeners: BASELINE }
+      const answer = { policyJson, toplevel: s.toplevel ?? WORKTREE, branch: s.branch ?? BRANCH, listeners: BASELINE }
+      return prompt.includes('inputsJson') ? { ...answer, inputsJson: s.inputsJson ?? inputsJson() } : answer
     }
+    if (label === 'cite') return { output: CITED.join('\n') }
     if (label === 'build') return s.build === undefined ? built() : s.build
+    if (label === 'test-builder') return s.tests === undefined ? tests() : s.tests
     if (label === 'sweep') return s.sweep === undefined ? { listeners: BASELINE } : s.sweep
-    let m = /^review (\S+) r(\d+)$/.exec(label)
+    let m = /^run a(\d+)$/.exec(label)
+    if (m) return s.run ? s.run(Number(m[1]), prompt) : ranWith(prompt)
+    m = /^architect a(\d+): (.*)$/.exec(label)
+    if (m) return s.architect ? s.architect(Number(m[1]), m[2]) : routed('fix-app')
+    m = /^redesign (\d+)\/(\d+) a(\d+): (.*)$/.exec(label)
+    if (m) return s.redesign ? s.redesign(Number(m[1])) : vote('upheld')
+    m = /^fix a(\d+)$/.exec(label)
+    if (m) return work({ summary: `fixed in architect round ${m[1]}` })
+    m = /^test-builder a(\d+)$/.exec(label)
+    if (m) return s.rewrite === undefined ? tests() : s.rewrite
+    m = /^review (\S+) r(\d+)$/.exec(label)
     if (m) {
       const findings = s.reviews?.[m[2]]?.[m[1]]
       return findings === null ? null : { checked: ['the example'], findings: findings ?? [] }
@@ -378,7 +463,7 @@ function buildCases(policy) {
       args: args(kind),
       scenario: {},
       expect: ['nothing-major', /^round 1 confirmed no /],
-      check: ({ result, calls }) => {
+      check: ({ result, calls, options }) => {
         const reviews = calls.filter((l) => l.startsWith('review '))
         const want = policy.buildReviewLenses[kind].map((l) => `review ${l} r1`)
         if (reviews.join() !== want.join()) return `reviewed with ${reviews.join(', ')}, not ${want.join(', ')}`
@@ -387,7 +472,15 @@ function buildCases(policy) {
         if (result.fixUnreviewed) return 'reported an unreviewed fix with no fix'
         if (!result.listeners.checked || result.listeners.leftBehind.length) return 'did not report a clean sweep'
         if (result.rounds.length !== 2 || result.rounds[1].raised !== 0) return `counted rounds ${JSON.stringify(result.rounds)}`
-        return null
+        if (!policy.buildIndependentKinds.includes(kind)) {
+          return result.independent === null && !calls.includes('test-builder') ? null : 'a kind the test-builder does not run for ran one'
+        }
+        const tb = options.find((o) => o.label === 'test-builder')
+        if (!tb || tb.agentType !== 'test-builder' || tb.isolation !== undefined) return `the test-builder ran as ${JSON.stringify(tb && { agentType: tb.agentType, isolation: tb.isolation })}`
+        if (calls.join() !== ['setup', 'cite', 'build', 'test-builder', ...want, 'run a1', 'sweep'].join()) return `the calls ran ${calls.join(', ')}`
+        const [r] = result.independent.rounds
+        if (result.independent.rounds.length !== 1 || r.passed.join() !== CONTRACT) return `the architect's rounds are ${JSON.stringify(result.independent.rounds)}`
+        return result.independent.files.map((f) => f.path).join() === CONTRACT ? null : 'the test-builder\'s file is not returned for the parent to commit'
       },
     })
   }
@@ -714,7 +807,203 @@ function buildCases(policy) {
       check: ({ calls }) => (calls.join() === 'setup' ? null : `ran ${calls.join(', ')}`),
     },
   )
+  list.push(...independentCases(policy))
   return list
+}
+
+/**
+ * The test-builder and the architect, for the first kind `buildIndependentKinds` lists: a case for
+ * each stop they add and each route of the triage, each asserting its reason.
+ */
+function independentCases(policy) {
+  const kind = policy.buildIndependentKinds[0]
+  if (kind === undefined) {
+    return [{ name: 'the test-builder and the architect', args: args(Object.keys(policy.buildReviewLenses)[0]), scenario: {}, check: () => 'cannot be exercised: tools/policy.json `buildIndependentKinds` lists no kind' }]
+  }
+  const maxA = policy.buildArchitectMaxRounds
+  const blocker = policy.buildReviewSkeptics.blocker
+  const failFirst = (failRounds) => (round, prompt) => ranWith(prompt, () => (round <= failRounds ? [attempt(false), attempt(false)] : [attempt(true)]))
+  const builderPrompts = (options) => options.filter((o) => o.label === 'build' || /^fix [ra]\d+$/.test(o.label))
+  const leaks = (options) => {
+    const hits = builderPrompts(options).flatMap((o) => PLANTED.filter((p) => o.prompt.includes(p)).map((p) => `${o.label} holds ${p}`))
+    return hits.length ? hits.join('; ') : null
+  }
+  const passedAfter = /; the 1 test-builder file\(s\) run here passed$/
+  return [
+    {
+      name: `the test-builder's prompt holds the inputs and hashes Setup gave it, and no input outside \`independentInputs\`, nor \`settled\` or \`guide\`; the dropped path is logged`,
+      args: args(kind, { settled: ['A red record: settled-by-the-parent'], guide: 'guide-for-the-builder' }),
+      scenario: { inputsJson: inputsJson([...INPUT_FILES, LEAKED]) },
+      expect: ['nothing-major', passedAfter],
+      check: ({ options, logs }) => {
+        const { prompt } = options.find((o) => o.label === 'test-builder')
+        const held = [LEAKED.path, 'app-builder-code', 'settled-by-the-parent', 'guide-for-the-builder'].filter((s) => prompt.includes(s))
+        if (held.length) return `the test-builder's prompt holds ${held.join(', ')}`
+        const missing = [...INPUT_FILES.map((f) => f.text.trim()), ...CITED, SCENARIO, IDIR].filter((s) => !prompt.includes(s))
+        if (missing.length) return `the test-builder's prompt lacks ${missing.join(' | ')}`
+        return logs.some((l) => l.startsWith(`Dropped from the test-builder's inputs: ${LEAKED.path}`)) ? null : 'no log line names the dropped path'
+      },
+    },
+    {
+      name: "the test-builder's prompt is byte-identical whatever the builder returns, since it is built before the builder returns",
+      args: args(kind),
+      scenario: {},
+      twin: { build: built({ summary: 'another build', filesChanged: ['apps/example/other.js'], red: [{ scenario: SCENARIO, command: 'node other', failure: 'other' }] }) },
+      expect: ['nothing-major', passedAfter],
+      check: ({ options, twin }) => {
+        const first = options.find((o) => o.label === 'test-builder').prompt
+        const second = twin.options.find((o) => o.label === 'test-builder').prompt
+        return first === second ? null : "the test-builder's prompt differs between two builds"
+      },
+    },
+    {
+      name: `not-independent: an app-builder that changes a file under ${IDIR} stops the run before any reviewer`,
+      args: args(kind),
+      scenario: { build: built({ filesChanged: ['apps/example.js', `${WORKTREE}/${IDIR}/contract/mine.test.js`] }) },
+      expect: ['not-independent', new RegExp(`^the app-builder changed ${escape(IDIR)}/contract/mine\\.test\\.js, under the test-builder's directory; no reviewer ran`)],
+      check: ({ calls }) => (count(calls, /^review /) ? 'a reviewer ran' : null),
+    },
+    {
+      name: 'not-independent: a test-builder file outside its directory, or at a layer `independentLayers` does not list, stops the run before any reviewer',
+      args: args(kind),
+      scenario: { tests: tests([testFile({ path: `apps/${APP}/test/display.test.js` }), testFile({ path: `${IDIR}/unit/display.test.js`, layer: 'unit' })]) },
+      expect: ['not-independent', new RegExp(`^the test-builder returned apps/${APP}/test/display\\.test\\.js \\(contract\\), ${escape(IDIR)}/unit/display\\.test\\.js \\(unit\\), outside `)],
+      check: ({ calls }) => (count(calls, /^review /) ? 'a reviewer ran' : null),
+    },
+    {
+      name: "not-independent: a runner that leaves the test-builder's file in the worktree stops the run before any architect or fixer",
+      args: args(kind),
+      scenario: { run: (round, prompt) => ranWith(prompt, () => [attempt(false), attempt(false)], `?? ${CONTRACT}`) },
+      expect: ['not-independent', new RegExp(`^the runner of architect round 1 left the test-builder's files in the worktree: \\?\\? ${escape(CONTRACT)}`)],
+      check: ({ calls }) => (count(calls, /^(architect|fix) a/) ? `ran ${calls.join(', ')}` : null),
+    },
+    {
+      name: 'agent-died: a test-builder that returns nothing stops the run, naming where its agentType is resolved',
+      args: args(kind),
+      scenario: { tests: null },
+      expect: ['agent-died', /^the test-builder returned nothing, .*resolved from the agents of the checkout the calling session started in/],
+      check: ({ calls }) => (count(calls, /^review /) ? 'a reviewer ran' : null),
+    },
+    {
+      name: 'fix-app: the fixer is told the four fields and the lower layer, and no test source, assertion or stack frame reaches any builder or fixer; the next run passes',
+      args: args(kind),
+      scenario: { run: failFirst(1) },
+      expect: ['nothing-major', passedAfter],
+      check: ({ result, options }) => {
+        const leak = leaks(options)
+        if (leak) return leak
+        const fix = options.filter((o) => o.label === 'fix a1')
+        if (fix.length !== 1) return `the architect's fixer ran ${fix.length} time(s)`
+        const want = ['1. EXA-001', `Expected, as written: ${EXPECTED}`, `Observed: ${OBSERVED}`, 'Environment: linux, Node v22.22.2, orchestration level 1', 'a functional test, and see it fail before you fix it']
+        const lacking = want.filter((w) => !fix[0].prompt.includes(w))
+        if (lacking.length) return `the fixer's prompt lacks ${lacking.join(' | ')}`
+        const [first] = result.independent.rounds
+        if (first.failed.join() !== CONTRACT || first.routes[0].route !== 'fix-app') return `round 1 is ${JSON.stringify(first)}`
+        return result.fixUnreviewed ? null : 'the fix is not reported unreviewed'
+      },
+    },
+    {
+      name: "rewrite-test: the test-builder is asked again, by agentType, with the architect's reason, no fixer runs, and the next run passes",
+      args: args(kind),
+      scenario: { run: failFirst(1), architect: () => routed('rewrite-test') },
+      expect: ['nothing-major', passedAfter],
+      check: ({ calls, options }) => {
+        if (count(calls, /^fix a/)) return 'a fixer ran on a rewrite-test route'
+        const again = options.filter((o) => o.label === 'test-builder a1')
+        if (again.length !== 1 || again[0].agentType !== 'test-builder') return `the test-builder was asked again ${again.length} time(s), as ${again[0]?.agentType}`
+        return again[0].prompt.includes('## Rewrite these') && again[0].prompt.includes('The test asserts a value no scenario states.') ? null : "its prompt lacks the architect's reason"
+      },
+    },
+    {
+      name: `re-design: a re-design the ${blocker} blocker skeptics uphold stops the run, and nothing after it is fixed or rewritten`,
+      args: args(kind),
+      scenario: { run: failFirst(maxA), architect: () => routed('re-design') },
+      expect: ['re-design', new RegExp(`^architect round 1: ${blocker} skeptics confirmed a re-design pass for EXA-001 \\(${escape(CONTRACT)}\\)`)],
+      check: ({ calls }) => {
+        if (count(calls, /^redesign \d+\/\d+ a1: /) !== blocker) return `sent ${count(calls, /^redesign /)} skeptic(s), not ${blocker}`
+        return count(calls, /^(fix|test-builder) a/) ? `ran ${calls.join(', ')}` : null
+      },
+    },
+    {
+      name: 're-design: one the skeptics refute stops nothing as re-design, is acted on by no one, and the run stops architect-failing',
+      args: args(kind),
+      scenario: { run: failFirst(maxA), architect: () => routed('re-design'), redesign: () => vote('refuted') },
+      expect: ['architect-failing', new RegExp(`^at architect round 1 of at most ${maxA}, 1 test-builder file\\(s\\) still fail .*\\(re-design\\)`)],
+      check: ({ calls }) => (count(calls, /^(fix|test-builder) a/) ? `ran ${calls.join(', ')}` : null),
+    },
+    {
+      name: 'flaky: a test that fails and then passes counts as failing, and goes to the architect',
+      args: args(kind),
+      scenario: { run: (round, prompt) => ranWith(prompt, () => (round === 1 ? [attempt(false), attempt(true)] : [attempt(true)])) },
+      expect: ['nothing-major', passedAfter],
+      check: ({ result, calls }) => {
+        const [first] = result.independent.rounds
+        if (first.flaky.join() !== CONTRACT || first.passed.length) return `round 1 is ${JSON.stringify(first)}`
+        return calls.includes(`architect a1: ${CONTRACT}`) ? null : 'the flaky test went to no architect'
+      },
+    },
+    {
+      name: `architect-failing: a test failing at every one of the ${maxA} run(s) stops the run, the last run's failure triaged and not acted on`,
+      args: args(kind),
+      scenario: { run: failFirst(maxA) },
+      expect: ['architect-failing', new RegExp(`^at architect round ${maxA} of at most ${maxA}, 1 test-builder file\\(s\\) still fail`)],
+      check: ({ calls }) => {
+        if (count(calls, /^run a\d+$/) !== maxA) return `ran the tests ${count(calls, /^run a\d+$/)} time(s)`
+        if (count(calls, /^architect a\d+: /) !== maxA) return `triaged ${count(calls, /^architect a\d+: /)} time(s)`
+        return count(calls, /^fix a\d+$/) === maxA - 1 ? null : `fixed ${count(calls, /^fix a\d+$/)} time(s), not ${maxA - 1}`
+      },
+    },
+    {
+      name: 'rewrite-test in code: a file whose tests name an ID the task does not is sent back unrun, to no architect',
+      args: args(kind),
+      scenario: { tests: tests([testFile({}, 'EXA-009')]) },
+      expect: ['nothing-major', passedAfter],
+      check: ({ result, calls }) => {
+        if (calls.includes(`architect a1: ${CONTRACT}`) || calls.includes('run a1')) return `ran ${calls.join(', ')}`
+        const [first] = result.independent.rounds
+        if (first.routes[0]?.by !== 'code' || !/its tests name EXA-009, which task example-1\.2 does not/.test(first.routes[0].reason)) return `round 1 is ${JSON.stringify(first)}`
+        return calls.includes('test-builder a1') && calls.includes('run a2') ? null : `ran ${calls.join(', ')}`
+      },
+    },
+    {
+      name: 'untriaged: an architect whose expected text is not in the delta specs or the design is acted on by no one',
+      args: args(kind),
+      scenario: { run: failFirst(maxA), architect: () => routed('fix-app', { expected: 'the display shows 2' }) },
+      expect: ['architect-failing', /\(untriaged\)$/],
+      check: ({ result, calls }) => {
+        if (count(calls, /^(fix|test-builder) a/)) return `ran ${calls.join(', ')}`
+        return result.independent.untriaged.some((u) => /not found verbatim/.test(u.why)) ? null : `untriaged: ${JSON.stringify(result.independent.untriaged)}`
+      },
+    },
+    {
+      name: 'a task that names no ID gets no test-builder, and says so',
+      args: args(kind, { scenarios: ['example: A scenario named without an ID'] }),
+      scenario: { build: built({ red: [red('example: A scenario named without an ID')] }) },
+      expect: ['nothing-major', /^round 1 confirmed no /],
+      check: ({ result, calls }) => (!calls.includes('test-builder') && /names no scenario or NFR by its ID/.test(result.independent.skipped) ? null : `ran ${calls.join(', ')}`),
+    },
+    {
+      name: "refused: Setup's copy of the inputs does not match its checksum",
+      args: args(kind),
+      scenario: { inputsJson: inputsJson(INPUT_FILES, (x) => ({ ...x, files: [{ ...x.files[0], text: 'edited in the copy' }, ...x.files.slice(1)] })) },
+      expect: ['refused', /^Setup's copy of the test-builder's inputs does not match the checksum its command printed/],
+      check: ({ calls }) => (calls.join() === 'setup' ? null : `ran ${calls.join(', ')}`),
+    },
+    {
+      name: `refused: a task of kind ${kind} with no app`,
+      args: { ...args(kind), app: undefined },
+      scenario: {},
+      expect: ['refused', new RegExp(`^args\\.app must name the app under apps/ for a task of kind ${escape(kind)}`)],
+      check: ({ calls }) => (calls.join() === 'setup' ? null : `ran ${calls.join(', ')}`),
+    },
+    {
+      name: 'refused: a policy whose architectRunLayers is not drawn from independentLayers',
+      args: args(kind),
+      scenario: { policyJson: JSON.stringify({ ...Object.fromEntries(POLICY_KEYS.map((k) => [k, policy[k]])), architectRunLayers: ['unit'] }) },
+      expect: ['refused', /^tools\/policy\.json `architectRunLayers` must be a list drawn from `independentLayers`/],
+      check: ({ calls }) => (calls.join() === 'setup' ? null : `ran ${calls.join(', ')}`),
+    },
+  ]
 }
 
 /* ----------------------------------------------------------- review-prompts.js: fixtures ----- */
@@ -1904,6 +2193,51 @@ function unheldResults(suites) {
   }
 }
 
+/* ------------------------------------------------------------------ the test-builder's tools ----- */
+
+/** The `tools:` line of an agent file's frontmatter, or null when it names none, which grants every tool. */
+function toolsOf(text) {
+  const front = /^---\n([\s\S]*?)\n---/.exec(text.replace(/\r\n?/g, '\n'))
+  const line = front && /^tools:[ \t]*(.*)$/m.exec(front[1])
+  return line ? line[1].trim() : null
+}
+
+/** Why the test-builder's agent file under `root` grants more than its structured output, or null. */
+function toolsProblem(root) {
+  let text
+  try {
+    text = readFileSync(join(root, TEST_BUILDER_AGENT), 'utf8')
+  } catch (error) {
+    return `${TEST_BUILDER_AGENT} could not be read: ${error.message}`
+  }
+  const tools = toolsOf(text)
+  return tools === 'StructuredOutput'
+    ? null
+    : `${TEST_BUILDER_AGENT} gives the test-builder the tools ${tools ?? 'it names none of, which is every tool'}, where it may have StructuredOutput alone, so that nothing on disk or in git reaches it`
+}
+
+/**
+ * The tools line held on the tracked agent file, which must pass, and on a copy under the temporary
+ * directory that adds Read, which must be refused by its reason.
+ */
+function toolsResults() {
+  const control = toolsProblem(ROOT)
+  const root = mkdtempSync(join(tmpdir(), 'workflows-tools-'))
+  try {
+    mkdirSync(join(root, '.claude/agents'), { recursive: true })
+    const live = control ? '' : readFileSync(join(ROOT, TEST_BUILDER_AGENT), 'utf8')
+    writeFileSync(join(root, TEST_BUILDER_AGENT), live.replace(/^tools:.*$/m, 'tools: StructuredOutput, Read'))
+    const doctored = toolsProblem(root)
+    const refused = /gives the test-builder the tools StructuredOutput, Read, where it may have StructuredOutput alone/.test(doctored ?? '')
+    return [
+      { file: TEST_BUILDER_AGENT, name: "control: the tracked test-builder's tools are StructuredOutput alone", control: true, ok: control === null, detail: control ?? 'holds' },
+      { file: TEST_BUILDER_AGENT, name: 'a test-builder given Read beside its structured output is refused, by its reason', control: false, ok: refused, detail: refused ? 'holds' : `reported ${JSON.stringify(doctored)}` },
+    ]
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+}
+
 /* ------------------------------------------------------------------------------- selftest ----- */
 
 /** Why a case's outcome is wrong, or null. */
@@ -1935,7 +2269,7 @@ async function main() {
     for (const problem of staticProblems) console.error(`  - ${problem}\n`)
     process.exit(1)
   }
-  suites[0].cases = buildCases(policy).map((c) => ({ ...c, answer: scenario(policy, c.scenario) }))
+  suites[0].cases = buildCases(policy).map((c) => ({ ...c, answer: scenario(policy, c.scenario), twinAnswer: c.twin && scenario(policy, c.twin) }))
   suites[1].cases = reviewCases(policy).map((c) => ({ ...c, answer: reviewAnswer(c.args, c.reports, c.verdict) }))
   suites[2].cases = verifyCases(policy).map((c) => ({ ...c, answer: verifyAnswer(c.args, c.scenario) }))
 
@@ -1944,9 +2278,17 @@ async function main() {
     console.error(`workflows selftest: the unheld-file check fails on a clean directory, so its refusal cannot be trusted: ${results[0].detail}`)
     process.exit(1)
   }
+  const tools = toolsResults()
+  if (!tools[0].ok) {
+    console.error(`workflows selftest: the test-builder's tools line fails on the tracked agent file, so its refusal cannot be trusted: ${tools[0].detail}`)
+    process.exit(1)
+  }
+  results.push(...tools)
   for (const s of suites) {
     for (const c of s.cases) {
-      const detail = judge(c, await run(s.body, c.args, c.answer))
+      const outcome = await run(s.body, c.args, c.answer)
+      if (c.twinAnswer) outcome.twin = await run(s.body, c.args, c.twinAnswer)
+      const detail = judge(c, outcome)
       results.push({ file: s.file, name: c.name, control: Boolean(c.control), ok: detail === null, detail: detail ?? 'holds' })
       if (c.control && detail !== null) {
         console.error(`workflows selftest: a clean run of ${s.file} does not pass, so none of its cases can be trusted: ${c.name}: ${detail}`)
@@ -1964,7 +2306,7 @@ async function main() {
   const failed = results.filter((r) => !r.ok)
   for (const { file, name, ok, detail } of results) console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${file.split('/').pop()}: ${name} -- ${detail}`)
   const renderers = [...new Set(rendered.map((r) => r.file))]
-  const tally = [...suites.map((s) => s.file), ...renderers, WORKFLOWS].map((file) => {
+  const tally = [...suites.map((s) => s.file), ...renderers, TEST_BUILDER_AGENT, WORKFLOWS].map((file) => {
     const mine = results.filter((r) => r.file === file)
     const controls = mine.filter((r) => r.control).length
     return `${file === WORKFLOWS ? 'the unheld-file check' : file}: ${controls} control(s) and ${mine.length - controls} scenario(s)`

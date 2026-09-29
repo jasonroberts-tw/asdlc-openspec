@@ -37,9 +37,20 @@
  * written over several lines, and its name, counted as a multiset, so one call the runner reports
  * twice, as a loop makes it, is refused. A file that reports none is refused above already.
  *
+ * A DIRECTORY. `--dir <dir>` runs every file whose name ends in `.test.js` at any depth under
+ * `<dir>`, which must be a directory; one that holds no such file yet passes and says so. Since
+ * asdlc-openspec-j09.11, `calculator:test:independent` runs the test-builder's directory this way, and
+ * until a change writes its first contract, fitness or E2E test that directory holds only its README,
+ * a legitimately absent input (`CLAUDE.md` § The gate ladder). A pattern that matches no file is still
+ * refused: a pattern is spelled by hand and can be wrong, where the directory is checked to exist, by
+ * this run and by `check:jobs`. Wrong here, a directory whose every test was deleted would pass as one
+ * not yet written; the test-inventory gate (asdlc-openspec-j09.9) is to catch that deletion.
+ *
  * INVOCATION.
  *
  *   node scripts/run-tests.mjs "<pattern>" [...]   the run; `npm run calculator:test` is one
+ *   node scripts/run-tests.mjs --dir <dir> [...]   every test file under <dir>; `npm run
+ *                                                  calculator:test:independent` is one
  *   npm run tests:selftest                         its fixtures -- each refusal on a doctored tree
  *
  * A pattern is a glob relative to the repository root, quoted so that this script expands it with
@@ -54,7 +65,7 @@
  * outside the repository. Files run in parallel, one process each, as `node --test` runs them; the
  * cost is the tests' own, and `lefthook.yml`'s `calculator-test` job carries the measurement.
  */
-import { globSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { globSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve } from 'node:path'
 import { run } from 'node:test'
@@ -79,14 +90,24 @@ const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
  * and back; a flag such as `--experimental-test-coverage` given to this process does not reach
  * `run()` at the floor either, since its own `coverage` option, false unless set, overrides it.
  */
-export async function runTests(root, patterns, { report = null, coverage = null } = {}) {
+export async function runTests(root, patterns, { report = null, coverage = null, dirs = [] } = {}) {
   const failures = []
-  if (patterns.length === 0) {
+  const notes = []
+  if (patterns.length === 0 && dirs.length === 0) {
     failures.push('no pattern given: name the test files to run, as a quoted glob.')
-    return { failures, files: 0, tests: 0, coverage: null }
+    return { failures, notes, files: 0, tests: 0, coverage: null }
   }
 
   const files = []
+  for (const dir of dirs) {
+    if (!statSync(resolve(root, dir), { throwIfNoEntry: false })?.isDirectory()) {
+      failures.push(`--dir ${dir} is not a directory under ${root}: repoint it at the directory that holds the tests.`)
+      continue
+    }
+    const matched = globSync(`${dir}/**/*.test.js`, { cwd: root }).sort(byCodePoint)
+    if (matched.length === 0) notes.push(`no test file under ${dir} yet, so there is nothing of it to run.`)
+    for (const file of matched) files.push(file)
+  }
   for (const pattern of patterns) {
     const matched = globSync(pattern, { cwd: root }).sort(byCodePoint)
     if (matched.length === 0) {
@@ -97,7 +118,7 @@ export async function runTests(root, patterns, { report = null, coverage = null 
     }
     for (const file of matched) files.push(file)
   }
-  if (files.length === 0) return { failures, files: 0, tests: 0, coverage: null }
+  if (files.length === 0) return { failures, notes, files: 0, tests: 0, coverage: null }
 
   /**
    * Declared tests per file, keyed by the path the runner reports: the real path, since a root
@@ -172,7 +193,7 @@ export async function runTests(root, patterns, { report = null, coverage = null 
     )
   }
   const tests = [...declared.values()].reduce((sum, count) => sum + count, 0)
-  return { failures, files: files.length, tests, coverage: summary }
+  return { failures, notes, files: files.length, tests, coverage: summary }
 }
 
 /**
@@ -228,9 +249,16 @@ function failureOf(root, { name, file, line, details }) {
 
 /* --------------------------------------------------------------------------------- the run ------ */
 
-async function main(patterns) {
+async function main(args) {
   const root = process.env.RUN_TESTS_ROOT ? resolve(process.env.RUN_TESTS_ROOT) : REPO_ROOT
-  const { failures, files, tests } = await runTests(root, patterns, { report: process.stdout })
+  const patterns = []
+  const dirs = []
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--dir') dirs.push(args[++i] ?? '')
+    else patterns.push(args[i])
+  }
+  const { failures, notes, files, tests } = await runTests(root, patterns, { report: process.stdout, dirs })
+  for (const note of notes) console.log(`tests: ${note}`)
   if (failures.length === 0) {
     console.log(`\ntests: ${tests} test(s) across ${files} file(s), each file declaring at least one.`)
     process.exit(0)
@@ -284,15 +312,15 @@ async function selftest() {
   const results = []
   const { files: tree, ...helpers } = fixture()
   try {
-    for (const { name, files, patterns = [PATTERN], expect } of cases(helpers)) {
+    for (const { name, files, patterns = [PATTERN], dirs = [], note = null, expect } of cases(helpers)) {
       const dir = join(base, name.replace(/[^a-z0-9]+/gi, '-'))
       writeTree(dir, { ...tree, ...files })
-      const { failures } = await runTests(dir, patterns)
+      const { failures, notes } = await runTests(dir, patterns, { dirs })
       let ok
       let detail
       if (expect === 'pass') {
-        ok = failures.length === 0
-        detail = ok ? 'passes' : `unexpected failure(s): ${failures.join(' | ')}`
+        ok = failures.length === 0 && (note === null || notes.some((n) => note.test(n)))
+        detail = ok ? 'passes' : failures.length ? `unexpected failure(s): ${failures.join(' | ')}` : `passes without the note: ${JSON.stringify(notes)}`
       } else {
         ok = failures.some((failure) => expect.test(failure))
         detail = ok
@@ -365,6 +393,28 @@ function cases({ file, head, trace }) {
       patterns: [],
       files: {},
       expect: /^no pattern given/,
+    },
+    {
+      name: 'a --dir whose directory holds no test file yet passes, and says so',
+      patterns: [],
+      dirs: ['independent'],
+      files: { 'independent/README.md': '# The tests to come\n' },
+      note: /^no test file under independent yet/,
+      expect: 'pass',
+    },
+    {
+      name: 'a --dir that names no directory',
+      patterns: [],
+      dirs: ['independents'],
+      files: { 'independent/README.md': '# The tests to come\n' },
+      expect: /^--dir independents is not a directory under /,
+    },
+    {
+      name: 'a --dir runs the test files at any depth below it, and a failing one fails the run',
+      patterns: [],
+      dirs: ['independent'],
+      files: { 'independent/contract/c.test.js': file('GRT-005', "test('[GRT-005] five', () => { throw new Error('no') })") },
+      expect: /^1 test\(s\) failed/,
     },
     {
       name: 'a failing test still fails the run',

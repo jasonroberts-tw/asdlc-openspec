@@ -100,6 +100,11 @@ jobs:
       # and held to what the runner reports, and no matched file without a test.
       - name: the calculator's scenarios pass
         run: npm run calculator:test
+      # Under a second while it holds no test (lefthook.yml's `calculator-test-independent` job has the
+      # measurement): the test-builder's contract, fitness and E2E tests under
+      # `apps/calculator/test/independent/`, held as the step above holds the rest.
+      - name: the calculator's independent tests pass
+        run: npm run calculator:test:independent
       # Under a second (lefthook.yml's `tests-selftest` job has the measurement): fixture trees
       # under the temporary directory, one Node process per fixture test file.
       - name: the test runner, negative-tested
