@@ -1279,6 +1279,12 @@ function cases(f, policy) {
     },
     { name: 'a change of comments only has no code line, and passes with its counts', files: withNew('// a note on the Routines above\n'), stages: only.coverage, expect: 'pass', printed: /^coverage: lines: 0 of 0 changed code lines covered; below the minimum sample/ },
     { name: 'a failing test fails the gate before any coverage is judged', files: withNew(g, `\n// trace: GRT-801:happy@${f.hash}\ntest('[GRT-801] wrong', () => { assert.equal(1, 2) })\n`), stages: only.coverage, expect: /^suite: it does not pass, so its coverage is not judged: 1 test\(s\) failed/ },
+    {
+      name: "a failing test's refusal names it, since a coverage run prints no report",
+      files: withNew(g, `\n// trace: GRT-801:happy@${f.hash}\ntest('[GRT-801] wrong', () => { assert.equal(1, 2) })\n`),
+      stages: only.coverage,
+      expect: /^suite: it does not pass, so its coverage is not judged: 1 test\(s\) failed: apps\/calculator\/test\/calc\.test\.js:\d+ "\[GRT-801\] wrong" \(Expected values to be strictly equal/,
+    },
     { name: 'no origin/main to measure from', files: f.branch, git: ['update-ref', '-d', 'refs/remotes/origin/main'], stages: only.none, expect: /^branch: origin\/main is not a ref here/ },
     { name: 'a policy without the thresholds', files: { ...f.branch, [POLICY_FILE]: '{}\n' }, stages: only.none, expect: /^policy: tools\/policy\.json has no whole percentage from 1 to 100 under each of `thresholdPercents/ },
     {
