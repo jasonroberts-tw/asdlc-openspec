@@ -63,8 +63,7 @@ option agrees, answers the question for them.
 ## Bash command style
 
 Run each gate, test, or git command as a SEPARATE Bash call. Do not chain with `&&`, `;`, or `|`: 
-a chain's failure does not say which step failed, and the permission classifier judges a compound 
-command as a unit (below). Do not use heredocs to write files; 
+a chain's failure does not say which step failed. Do not use heredocs to write files; 
 use the Edit/Write tools for file content instead of `cat <<EOF`. Never `cd`, and never name a directory:
 every call starts at the checkout root, so name the file as an explicit repository-relative
 argument. Keep long prose out of the command line and pass it from a file under `.scratch/`
@@ -125,7 +124,7 @@ to write no design, goes into one of these before the earlier stage ends.
 When a later stage sends a change back, the epic gets the `rerouteLabels` label, from
 `tools/policy.json`, for each earlier stage whose work it reopens: the proposal or a delta spec
 revised, the design revised, a task added to the epic, or work `change-verify` sends back to
-`change-build`. It is a tracker write like any other, in the same bracket. That rework lands as
+`change-build`. That rework lands as
 commits inside the change and never becomes an issue, so without the label no count sees it.
 
 ## Decisions live in the register
@@ -310,11 +309,9 @@ session:
     claude --bg --agent continuous-prompt-improvement --permission-mode auto --name review-prompts "Review the pending prompt-run analyses."
 
 The mode is passed on the command line because a session started this way does not apply an agent
-file's `permissionMode`: without the flag the reviewer takes the machine's default mode, and on a
-machine whose default is not `auto` it stops at its first permission prompt, with nobody waiting on
-it. The launcher neither waits for the reviewer nor relays what it finds. Its report names the
-issue and run id of its analysis and, if it launched a review, the session the launch printed. A
-refused launch goes in the report's `RUN THESE YOURSELF` block (§ Guards).
+file's `permissionMode`, and would stop at its first permission prompt with nobody waiting on it.
+The launcher neither waits for the reviewer nor relays what it finds. Its report names the
+issue and run id of its analysis and, if it launched a review, the session the launch printed.
 
 **What a review leaves.** It runs `.claude/workflows/review-prompts.js`, one agent per prompt file,
 and opens one pull request over every file they change; the review is that pull request's
