@@ -145,7 +145,8 @@
  * notes, answer 3; asdlc-openspec-j09.14 adds the run to `change-verify`), for its cost: 181.05 s and
  * 185.99 s wall (`/usr/bin/time -p`, two runs) for all 72 of `serve.js`'s mutants one at a time, a
  * change to every line of it, on a macOS laptop (Apple M3 Max) with Node 26.8.1, 2026-09-28, where
- * the spike measured 182-213 s. Where it loses: a push that leaves a mutant of a changed `serve.js`
+ * the spike measured 182-213 s; a change to one of its lines, 3 mutants, took 19.02-19.04 s (two
+ * runs, 2026-09-29), most of it the suite's first run. Where it loses: a push that leaves a mutant of a changed `serve.js`
  * line undetected passes pre-push and is refused minutes later in CI. It starts no Stryker when no
  * Command's code changed. `thresholds:check` costs the suite's one run with coverage, and the
  * Routines' mutants when their code changed; `lefthook.yml` carries its measurement.
