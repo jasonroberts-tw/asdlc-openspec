@@ -58,8 +58,8 @@ three rules, stated in every brief word for word:
 
 A lane stops at the end of `.claude/skills/bead/SKILL.md` § 5, once its rebased branch passes
 `npm run gates`, and reports its branch and both gate runs as measured. It opens no pull request
-and closes no issue: step 5 integrates its branch, and step 6 opens the one pull request and closes its
-issues.
+and closes no issue: step 5 integrates its branch, and step 6 opens the one pull request and closes
+its issues.
 
 ## 5. Integrate on your own branch
 
