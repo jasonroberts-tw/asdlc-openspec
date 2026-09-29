@@ -110,6 +110,11 @@ jobs:
       # under the temporary directory, one Node process per fixture test file.
       - name: the test runner, negative-tested
         run: npm run tests:selftest
+      # Seconds (lefthook.yml's `tests-fresh-selftest` job has the measurement): the verifier's fresh
+      # run over a fixture repository, its `npm ci` stubbed. `tests:fresh` itself reads the network
+      # and runs only in change-verify (docs/decisions.md § D-15, item 3).
+      - name: the verifier's fresh run, negative-tested
+        run: npm run tests:fresh:selftest
       # Under a second (lefthook.yml's `tests-trace-selftest` job has the measurement): doctored
       # test sources, a fixture spec tree under the temporary directory, and one archive by the
       # pinned OpenSpec CLI, with no network.
@@ -150,7 +155,7 @@ jobs:
       # otherwise. StrykerJS's command runner, one mutant at a time, over each Command's changed
       # lines. It is no pre-push job, an exception to the gate ladder that `docs/decisions.md` § D-04
       # records in its amendment of 2026-09-29, for the cost the header of
-      # scripts/check-thresholds.mjs gives; change-verify is to run it too (asdlc-openspec-j09.14).
+      # scripts/check-thresholds.mjs gives; change-verify runs it too, in its fresh run (scripts/fresh-run.mjs).
       - name: the changed Commands' mutants are detected, to the policy's threshold
         run: npm run thresholds:commands:check
       #

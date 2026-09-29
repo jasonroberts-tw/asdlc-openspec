@@ -14,7 +14,11 @@ rules 1 to 3, where it had a scenario marked manual. Amended 2026-09-28 by `asdl
 the Finalize step that settles the living spec runs `npm run trace` before the gates, and sends a
 test `trace:check` refuses back to `change-build`. Amended 2026-09-29 by `asdlc-openspec-j09.13`:
 the Build step for what the build turns up sends a scenario or NFR that must change back to Propose
-and runs a re-design pass, and the step that hands over holds the Build exit criteria.
+and runs a re-design pass, and the step that hands over holds the Build exit criteria. Amended
+2026-09-29 by `asdlc-openspec-j09.14`: the Verify step that traces every scenario takes a fresh run
+of every test in a clone of HEAD, runs each failing test once more, checks traceability rules 1 to 3
+and writes the verification report, and the verdict step rejects on the report and puts it on the
+epic and in the pull request.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -57,6 +61,7 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 | requirement, scenario | A `### Requirement:` stated with SHALL or MUST, proved by `#### Scenario:` blocks of WHEN and THEN lines, each written so it can become a test (`.claude/skills/change-propose/SKILL.md` § 6. Write one delta spec per capability). |
 | design | A change's `design.md`, the how, written only when the change needs one (`.claude/skills/change-design/SKILL.md` § 2. Decide whether it needs a design). |
 | trace | One row per scenario, naming the proof that exercises it and its result as run (`.claude/skills/change-verify/SKILL.md` § 4. Every scenario is traced). |
+| verification report | What Verify found, from a fresh run of every test: the status of every ID, the gap analysis, the tests by layer, the thresholds and the verdict. It goes on the epic and into the pull request, never into a committed file (`scripts/lib/verify-report.mjs`). |
 | archive | The pinned OpenSpec CLI merging a change's deltas into the living spec and moving the change under `openspec/changes/archive/`, on the change's branch, before the merge (`.claude/skills/change-finalize/SKILL.md` § 3. Archive). |
 | send-back | A later stage reopening an earlier stage's work. The epic gets that stage's `rerouteLabels` label, because the rework lands as commits and never as an issue (`CLAUDE.md` § Product work runs as OpenSpec-format changes). |
 | trunk | `main`. The protected branches are `main` and `release`, and nothing is pushed to either from a worktree (`CLAUDE.md` § Git workflow). |
@@ -268,15 +273,22 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
    `.claude/skills/change-verify/SKILL.md` § 2. Every task is closed.
 2. `npm run openspec:check` passes: the deltas validate and apply to the living spec. Decided by:
    `.claude/skills/change-verify/SKILL.md` § 3. The specs are valid, and apply.
-3. Trace every scenario to a proof that was run now, reading each test rather than trusting its
-   name, with `.claude/workflows/verify-change-trace.js`; `scripts/render-trace.mjs` writes its
-   result into `.scratch/<change>-trace.md`. Decided by: `.claude/skills/change-verify/SKILL.md`
-   § 4. Every scenario is traced.
+3. Run every test, the trace gate and the Commands' mutation run in a fresh clone of HEAD with
+   `npm run tests:fresh`, and run each failing test once more, by name, as its own call; a test
+   that fails and then passes is flaky and counts as failing. Trace every scenario to the tests the
+   traceability record gives it, reading each rather than trusting its name, with
+   `.claude/workflows/verify-change-trace.js`, which takes each result from that run;
+   `scripts/render-trace.mjs` writes the trace into `.scratch/<change>-trace.md`. Check traceability
+   rules 1 to 3 against the epic's children, and write the verification report with
+   `scripts/render-verify-report.mjs`. A manual verification is no proof. Decided by:
+   `.claude/skills/change-verify/SKILL.md` § 4. Every scenario is traced.
 4. `npm run gates` passes. Decided by: `.claude/skills/change-verify/SKILL.md` § 5. The gates are
    green.
-5. On a gap, the user picks the stage that fixes it, the epic is labelled and noted, and
-   verification runs again once it is fixed; with none, the trace goes to the pull request. Decided
-   by: `.claude/skills/change-verify/SKILL.md` § 6. Verdict.
+5. On a gap, a failing blocking test, an unmet obligation or a gap-analysis item not waived, the
+   user picks the stage that fixes it, the epic is labelled and noted, the report goes on the epic,
+   and verification runs again once it is fixed; with none, the report goes on the epic and the
+   trace and the report go to the pull request, never into a committed file. Decided by:
+   `.claude/skills/change-verify/SKILL.md` § 6. Verdict.
 
 #### Finalize
 

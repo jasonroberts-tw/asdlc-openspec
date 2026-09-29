@@ -144,7 +144,7 @@
  * pre-push job and a CI step. `thresholds:commands:check` is a CI step and a change-verify run and
  * not a pre-push job, an exception to the ladder the register records (`docs/decisions.md` § D-04,
  * its amendment of 2026-09-29, from the maintainer's answer 3 in asdlc-openspec-j09.2's notes;
- * asdlc-openspec-j09.14 adds the run to `change-verify`), for its cost: 181.05 s and
+ * asdlc-openspec-j09.14 added the run to `change-verify`, in `scripts/fresh-run.mjs`), for its cost: 181.05 s and
  * 185.99 s wall (`/usr/bin/time -p`, two runs) for all 72 of `serve.js`'s mutants one at a time, a
  * change to every line of it, on a macOS laptop (Apple M3 Max) with Node 26.8.1, 2026-09-28, where
  * the spike measured 182-213 s; a change to one of its lines, 3 mutants, took 19.02-19.04 s (two
