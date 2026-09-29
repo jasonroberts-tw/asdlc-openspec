@@ -66,8 +66,9 @@ Run each gate, test, or git command as a SEPARATE Bash call. Do not chain with `
 a chain's failure does not say which step failed. Do not use heredocs to write files; 
 use the Edit/Write tools for file content instead of `cat <<EOF`. Never `cd`, and never name a directory:
 every call starts at the checkout root, so name the file as an explicit repository-relative
-argument. Keep long prose out of the command line and pass it from a file under `.scratch/`
-with `-F`, `--body-file` or the tool's equivalent. Prefer the Read, Edit and Write tools over `cat`,
+argument. Keep long prose out of the command line and pass it from a file under `.scratch/`, or
+under `$CLAUDE_JOB_DIR/tmp` in a background session with no worktree, with `-F`, `--body-file` or
+the tool's equivalent. Prefer the Read, Edit and Write tools over `cat`,
 `head`, `sed -n` and shell redirection. Read anything outside the repository in its own call. Never
 let a secret-shaped read share a call with real work: a compound command is refused as a unit.
 
@@ -275,64 +276,14 @@ every pull request with the `open-pr` skill, which holds the steps from the push
 
 ## Prompt reviews
 
-After a prompt is executed from a file, the session that ran it leaves its analysis of the run in
-the tracker, and one review reads every analysis no review has read yet, as a batch
-(`docs/decisions.md` § D-08). The markers, thresholds and skeptic counts below are keys of
-`tools/policy.json`.
-
-**Each run writes one analysis**, as a note on the issue or epic it worked, from a file under
-`.scratch/` (`bd note <id> --file <file>`), inside a tracker bracket. Its first line is
-`promptReviewAnalysisMarker`, a space, and the run id: the issue's id, `@`, and the UTC second the
-note is written, as `date -u +%Y-%m-%dT%H:%M:%SZ` prints it. The next lines name every prompt file
-the run loaded and the commit it read them at. Then comes the analysis: what made the run slower or
-wrong, each point with the prompt it concerns. It ends with the counts across runs that
-`.claude/skills/change-finalize/SKILL.md` § 9. Report prints, so the reviewer can tell a finding
-that recurs from one seen once. A run that worked several issues writes one analysis, on the first
-one its pull request's title carries. The tracker is public, so an analysis quotes no secret. No
-analysis is written by a prompt another prompt called, such as `open-pr` inside `bead`, whose
-caller's analysis names it; by the reviewer's own run; or by a run that worked no issue, which goes
-unreviewed.
-
-**The closing step of every run checks whether a review is due.** After its tracker push, it lists
-every issue carrying an analysis, `bd list --all --notes-contains "<analysis marker>" --json -n 0`.
-In an issue's notes, an analysis runs from its marker line to the next line that opens with any
-marker this section names, and it is pending while no line of `promptReviewReadMarker`, a space and
-its run id follows it. A review is due when `promptReviewDueCount` analyses or more are pending, or the oldest is older
-than `promptReviewDueAgeDays` days. None starts while a pull request from a review's branch is open
-(`gh pr list --state open --json headRefName`), or while `claude agents --json` lists a session
-named `review-prompts` whose `state` is `working`: the pending analyses wait for it. Counting only a
-working one keeps a finished review that is still open from holding up the next. A review's
-worktree is named `review-prompts-` and the UTC date and time, as `date -u +%Y%m%d-%H%M` prints
-them, so its branch is `agent/review-prompts-<that date and time>`. This section is the one home of
-these names and of the rule for what is pending.
-
-When a review is due, the run leaves its worktree (`ExitWorktree`, action `keep`): a background
-session starts in the directory it was launched from, and one launched inside a linked worktree
-writes on that worktree's branch. From the primary checkout it launches the reviewer as a background
-session:
-
-    claude --bg --agent continuous-prompt-improvement --permission-mode auto --name review-prompts "Review the pending prompt-run analyses."
-
-The mode is passed on the command line because a session started this way does not apply an agent
-file's `permissionMode`, and unless the machine's default is `auto` would stop at its first permission
-prompt with nobody waiting on it.
-The launcher neither waits for the reviewer nor relays what it finds. Its report names the
-issue and run id of its analysis and, if it launched a review, the session the launch printed.
-
-**What a review leaves.** It runs `.claude/workflows/review-prompts.js`, one agent per prompt file,
-and opens one pull request over every file they change; the review is that pull request's
-description, and a person decides whether it merges. It proposes an edit only for a finding that
-`promptReviewRecurrenceCount` runs have shown or whose severity is in `promptReviewMajorSeverities`,
-and carries it only once a majority of its `promptReviewSkeptics` upholds it. It appends a read line
-to each analysis it read, naming that pull request, or that it changed nothing. For each finding it
-read and did not carry into that pull request, it appends a held line to the issue of each run that
-showed it:
-`promptReviewHeldMarker`, a space, the run id, a space, the finding's key (`<file>#<name>`), a
-space, the count of runs that have shown it so far, a colon, a space and the reason. The next
-review counts the finding from these lines. A review that proposes nothing edits no file and opens
-no pull request. A review is not a file in this repository, and a prompt carries no
-`Reviewed:` trailer: the earlier reviews of a prompt are the descriptions of the pull requests that
-changed it, and the agent's file says how to find them.
+After a prompt is executed from a file, the session that ran it closes the run with the
+`close-prompt-run` skill, after its tracker push: the skill leaves the run's analysis in the tracker
+and, when a review is due, launches one in the background. One review, the
+`continuous-prompt-improvement` agent, reads every analysis no review has read yet, as a batch, and
+proposes its edits as one pull request, whose description is the review and which a person merges
+or not (`docs/decisions.md` § D-08 and § D-17). The skill is the home of the markers, of what is
+pending and of the launch; the agent's file is the home of what a review leaves. A review is not a
+file in this repository, and a prompt carries no `Reviewed:` trailer.
 
 ## A program proposes; only a person promotes
 

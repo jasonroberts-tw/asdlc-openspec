@@ -20,7 +20,10 @@ of every test in a clone of HEAD, runs each failing test once more, checks trace
 and writes the verification report, and the verdict step rejects on the report and puts it on the
 epic and in the pull request. Amended 2026-09-29 by the prompt review in #74: the step that
 watches the checks ends the turn to wait only if the watcher's exit wakes the session, as
-`.claude/skills/open-pr/SKILL.md` § 6 now says.
+`.claude/skills/open-pr/SKILL.md` § 6 now says. Amended 2026-09-29 by `asdlc-openspec-03c`: the
+steps that write the run's analysis and launch a review, and the rows for a primary checkout and an
+analysis, name `.claude/skills/close-prompt-run/SKILL.md`, where `CLAUDE.md` § Prompt reviews held
+them.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -68,7 +71,7 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 | send-back | A later stage reopening an earlier stage's work. The epic gets that stage's `rerouteLabels` label, because the rework lands as commits and never as an issue (`CLAUDE.md` § Product work runs as OpenSpec-format changes). |
 | trunk | `main`. The protected branches are `main` and `release`, and nothing is pushed to either from a worktree (`CLAUDE.md` § Git workflow). |
 | worktree | A checkout of its own under `.claude/worktrees/<name>`, on the branch `agent/<name>` cut from `origin/main`, made only through `scripts/new-worktree.sh` (`.claude/README.md`). |
-| primary checkout | The clone a session starts in. The premise is read from here, and a prompt review is launched from here (`CLAUDE.md` § Prompt reviews). |
+| primary checkout | The clone a session starts in. The premise is read from here, and a prompt review is launched from here (`.claude/skills/close-prompt-run/SKILL.md` § 3. Launch the review). |
 | gate | A check that refuses one thing. Its header names the failure it exists to prevent, and its `:selftest` proves it still refuses (`CLAUDE.md` § Standing rules for prompts and gates). |
 | gate ladder | The same checks in session, at commit, at push and in CI; a slower tier never trusts a faster one (`CLAUDE.md` § The gate ladder). |
 | `npm run gates` | The forced full pre-push suite, and the only way to run it by hand (`CLAUDE.md` § The gate ladder). |
@@ -78,7 +81,7 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 | prompt | `CLAUDE.md`, `AGENTS.md`, a skill, an agent, a workflow script's literals or the worktree briefing template, each held to a word budget in the policy file (`README.md` § The npm scripts, the `check:prompts` row). |
 | pull-request reviewer | `.github/workflows/pr-review.yml`: it judges one pull request at a time against the issues its title cites, then merges it or leaves it to a person (`docs/decisions.md` § D-07). |
 | approval label | What a person applies to approve a head the reviewer left to a person, `prReviewLabels` in `tools/policy.json`. An agent never applies it (`CLAUDE.md` § Git workflow). |
-| analysis | A run's account of itself, left as a note on the issue it worked, which a prompt review later reads (`CLAUDE.md` § Prompt reviews). |
+| analysis | A run's account of itself, left as a note on the issue it worked, which a prompt review later reads (`.claude/skills/close-prompt-run/SKILL.md` § 1. Write the analysis, or none). |
 | prompt review | A background session that reads the pending analyses as one batch and proposes prompt edits as one pull request, which a person merges or not (`CLAUDE.md` § Prompt reviews). |
 | `.scratch/` | The gitignored directory for commit messages, pull-request bodies and tracker notes, each passed to its tool by file (`CLAUDE.md` § Bash command style). |
 | `RUN THESE YOURSELF` | The block ending a report, listing in order each command the permission classifier refused (`CLAUDE.md` § Guards). |
@@ -352,10 +355,11 @@ for what that rule alone still holds).
    `.claude/skills/change-finalize/SKILL.md` § 8. Clean up, check the epic's criteria, and close it.
 3. Write the run's analysis as a note on the issue it worked, from a file, inside a tracker bracket:
    its marker line, the prompts the run loaded and the commit it read them at, what made the run
-   slower or wrong, and the counts across runs. Decided by: `CLAUDE.md` § Prompt reviews.
+   slower or wrong, and the counts across runs. Decided by:
+   `.claude/skills/close-prompt-run/SKILL.md` § 1. Write the analysis, or none.
 4. Check whether a review of the pending analyses is due, and if one is, launch it in the
-   background from the primary checkout without waiting for it. Decided by: `CLAUDE.md` § Prompt
-   reviews.
+   background from the primary checkout, under a name of its own, without waiting for it. Decided
+   by: `.claude/skills/close-prompt-run/SKILL.md` § 2 and § 3.
 5. Report what was verified, what changed, both gate runs as measured, the pull request, the
    issue's final state and every follow-up filed, ending with a `RUN THESE YOURSELF` block for any
    refused command. Decided by: `.claude/skills/bead/SKILL.md` § 8. Report, and `CLAUDE.md`

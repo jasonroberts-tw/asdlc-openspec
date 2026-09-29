@@ -1,16 +1,18 @@
 ---
 name: continuous-prompt-improvement
-description: Reviews, in one batch, every prompt-run analysis no review has read, and opens one pull request proposing changes to the prompts they concern. A run whose closing step finds a review due launches it in the background (CLAUDE.md § Prompt reviews).
+description: Reviews, in one batch, every prompt-run analysis no review has read, and opens one pull request proposing changes to the prompts they concern. The close-prompt-run skill launches it in the background when a review is due.
 model: opus
 effort: high
-isolation: worktree
 ---
 
 Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
 
 # Review the pending runs of the prompts
 
-You run in the background, and nobody waits for you (`CLAUDE.md` § Prompt reviews).
+The `close-prompt-run` skill launched you in the background, and nobody waits for you. Your launch
+prompt ends with your review's name, `review-prompts-` and a date and time: the name of this
+session, of your worktree and of its branch. If it names none, stop and report that the review was
+not launched by that skill.
 
 You start in the primary checkout. If `git rev-parse --git-dir` and `git rev-parse --git-common-dir`
 disagree, you were launched inside another session's worktree and are standing on its branch: edit
@@ -18,13 +20,17 @@ nothing, and stop.
 
 ## 1. Stop if another review is under way
 
-Stop, editing nothing and writing nothing, while `CLAUDE.md` § Prompt reviews says no review starts,
-counting no session but this one.
+Stop, editing nothing and writing nothing, while `.claude/skills/close-prompt-run/SKILL.md` § 2 says
+no review starts, leaving out the session your name names.
 
 ## 2. Collect the pending analyses
 
-Find every pending analysis as `CLAUDE.md` § Prompt reviews says. If a review is not due by that
-section, the launch was early: stop, editing nothing and writing nothing.
+Print the trunk's prompt-review keys first, as one call; this section, § 3 and § 4 apply them:
+
+    gh api "repos/{owner}/{repo}/contents/tools/policy.json?ref=main" -H "Accept: application/vnd.github.raw" --jq "with_entries(select((.key | startswith(\"promptReview\")) and (.key | endswith(\"Means\") | not)))"
+
+Find every pending analysis as the skill's § 2 says. If a review is not due by it, the launch was
+early: stop, editing nothing and writing nothing.
 
 Collect every held line too, whether its analysis is pending or not, listed as the analyses are, with
 `promptReviewHeldMarker` as the marker.
@@ -46,8 +52,10 @@ and minor, and a count: the distinct runs that have shown it, in this batch and 
 A finding meets the threshold when its count is `promptReviewRecurrenceCount` or more, or its
 severity is in `promptReviewMajorSeverities`. Hold every finding that does not, with the reason
 `below the threshold`: § 6 writes its held lines, and the next review counts them. A finding an
-earlier review held for another reason goes to a group again only when a run its held lines do not
-name shows it, as § How a file is judged asks of a point set aside.
+earlier review held for any other reason, set aside by its file's agent or not upheld by its
+skeptics, goes to a group again only when a run in this batch shows it that none of its held lines
+names: new evidence, as § How a file is judged asks before a point set aside is raised again. It
+must still meet the threshold, because the workflow refuses a finding below it.
 
 A group is one file, or several when one finding concerns them together, such as two prompts that
 contradict each other; a file is in one group only. Its findings are those that met the threshold,
@@ -59,16 +67,10 @@ report when no pull request opens (§ 6).
 
 ## 4. Run the workflow
 
-Make your own worktree, with `EnterWorktree` and the name `CLAUDE.md` § Prompt reviews gives a
-review's worktree, and run `npm ci` there; § 6 writes its tracker notes from its `.scratch/`. If § 3
-formed no group, skip the workflow and § 5, and go to § 6. Otherwise print the policy's
-prompt-review keys there, as one call:
-
-    node -p "JSON.stringify(Object.fromEntries(Object.entries(require('./tools/policy.json')).filter(([k]) => k.startsWith('promptReview') && !k.endsWith('Means'))))"
-
-If its threshold differs from the one § 3 applied, apply § 3 again with it. Then run the Workflow
-tool with `scriptPath` set to `.claude/workflows/review-prompts.js` in that worktree, and `args`
-holding the groups of § 3, what that call printed as `policy`, and anything already settled. The
+If § 3 formed no group, make no worktree, skip this section and § 5, and go to § 6. Otherwise make
+your worktree with `EnterWorktree`, named by your review's name, and run `npm ci` there. Then run the
+Workflow tool with `scriptPath` set to `.claude/workflows/review-prompts.js` in that worktree, and
+`args` holding the groups of § 3, what § 2 printed as `policy`, and anything already settled. The
 script's header says what it takes, returns and refuses.
 
 ## 5. Merge, gate, and open one pull request
@@ -78,8 +80,7 @@ If `merge` is empty, open no pull request and go to § 6.
 Otherwise merge each branch in `merge` into yours, in its order, with `git merge --no-ff <branch>`.
 Before each merge, check what the agent reported against git: `git diff --name-only
 origin/main...<branch>` must list only files of that branch's group. A branch that lists another file
-is not merged: its group's runs are held as the workflow's `runsHeld` are, for the reason § 6
-reports. A conflict stops the merge: report it. For each consolidation a merged branch carries, set
+is not merged: its group's runs are held as the workflow's `runsHeld` are. A conflict stops the merge: report it. For each consolidation a merged branch carries, set
 its file's budget in `tools/policy.json` as § How a prompt is consolidated says.
 Then gate as `.claude/skills/bead/SKILL.md` § 4 says, and open the pull request with the `open-pr`
 skill. Never merge it yourself. A gate that fails in a file a group changed is fixed on your branch;
@@ -95,15 +96,17 @@ the merge runs the full suite first.
 
 The runs read are those in the workflow's `runsRead`, less any § 5 held, and every run § 3 gave no
 group. In one tracker bracket (`CLAUDE.md` § The task store), append to the issue carrying each run
-read one line: the read marker, a space, the run id, a space, and the pull request's URL, or
-`no change` when you opened none.
+read one line: `promptReviewReadMarker`, a space, the run id, a space, and the pull request's URL,
+or `no change` when you opened none.
 
-In the same bracket, append a held line, as `CLAUDE.md` § Prompt reviews spells it, for each
-finding § 3 held and each one the workflow's `findingsHeld` lists, with its count and its reason:
-one for each run in this batch that showed it and that no held line of its key names yet, on the
-issue carrying that run.
+In the same bracket, append a held line for each finding § 3 held and each one the workflow's
+`findingsHeld` lists: one for each run in this batch that showed it and that no held line of its key
+names yet, on the issue carrying that run. A held line is `promptReviewHeldMarker`, a space, the run
+id, a space, the finding's key, a space, the count of runs that have shown it so far, a colon, a
+space and the reason.
 
-Then run `npm run worktree:gc`.
+Write each note from a file under `$CLAUDE_JOB_DIR/tmp`, since § 4 may have made no worktree
+(`CLAUDE.md` § Bash command style). If the workflow ran, run `npm run worktree:gc`.
 
 End with a closing report: the pull request, or that none opened, and what § 7 item 5 names; with no
 pull request, it is the only record of what held a run.
@@ -130,7 +133,9 @@ sections are the value.
    it and why, from the workflow's `runsHeld` and each group's `problems`; and each finding held,
    with its count and reason, from § 3 and the workflow's `findingsHeld`.
 6. ***Deliberately not changed.*** What was considered and left alone, with the reason. This is the
-   section that stops the same suggestion arriving three times.
+   section that stops the same suggestion arriving three times. Include each entry of every group's
+   asides in the workflow's result, with its reason: a point an agent considered and left alone that
+   is none of its findings.
 7. ***What this review could not verify.*** Every claim above that rests on something no agent could
    check, named.
 
@@ -139,10 +144,8 @@ sections are the value.
 Each agent the workflow runs reads this section before anything else, for the files it was given.
 
 Read each file as it stands on `origin/main`, where your worktree was cut. Then read its earlier
-reviews, which are the descriptions of the pull requests that changed it:
-`git log --format=%h origin/main -- <file>` lists the commits, and
-`gh api repos/{owner}/{repo}/commits/<commit>/pulls` names the pull request each one landed from. A
-point an earlier review set aside under *Deliberately not changed* is not raised again unless these
+reviews, the descriptions of the pull requests that changed it, found as `CLAUDE.md` § Standing
+rules for prompts and gates finds them. A point an earlier review set aside under *Deliberately not changed* is not raised again unless these
 runs show something that review did not have. Reviews written before `docs/decisions.md` § D-05
 were files, and that entry says how to recover them.
 
@@ -161,21 +164,19 @@ prompt reads those words. If nothing should change, change nothing.
 Every edit cites only files your own base holds. A file that only a reviewed branch holds, such as a
 change's design, is named in prose by its branch and its path, never as a pointer: in the
 description it sends a reader to a file the trunk lacks, and in a tracked file the citations gate
-refuses it. An edit that adds or changes a rule states the failure it prevents in one clause, and
-the runs that showed the failure go in the description, with the finding, never in the prompt
-(`CLAUDE.md` § Standing rules for prompts and gates).
+refuses it.
 
 ## How a prompt is consolidated
 
 An edit that would take a prompt past its word budget, a key in `tools/policy.json` that
 `node scripts/check-prompts.mjs --counts` prints beside the prompt's words, consolidates the prompt
-first. A raise, which a person merges, covers only what the consolidation did not free. A file's
-agent may not edit `tools/policy.json`, so it leaves out an edit that still does not fit, and sets
-its finding aside with the words the edit needs; its held line brings the raise to a person.
+first. A review never raises a budget, and a file's agent may not edit `tools/policy.json`: an edit
+that still does not fit once the prompt is consolidated is left out, and its finding set aside with
+the words the edit needs, so that its held line brings the raise to a person.
 
-What loads the prompt decides what can go: `CLAUDE.md`, in every session, and each file the prompt
-sends the session to at a step. Whether a workflow's agents load `CLAUDE.md` is not established, so
-in a workflow's literals only the second counts. Remove only:
+What loads the prompt decides what can go: `CLAUDE.md`, in every session and in every workflow
+agent, since only the built-in Explore and Plan agents skip it, and each file the prompt sends the
+session to at a step. Remove only:
 
 - a restatement of a rule `CLAUDE.md` states, keeping a `CLAUDE.md` § pointer where the step needs one;
 - a step one of those files states where the prompt sends the session to it;
@@ -189,5 +190,6 @@ Commit the consolidation alone, before the edit. The pull request's description 
 each sentence or clause removed: kept, naming the file and section that state it and what loads that
 file wherever this prompt is loaded; moved, naming the pull request that tells it; or deleted, saying
 why. A sentence whose row cannot name what loads its new home stays: a rule kept where the session
-never reads it is lost. Once the edit lands, the prompt's budget is its new count, and its `Means`
-names the consolidation.
+never reads it is lost. Once the edit lands, the reviewer's session, not the file's agent, sets the
+prompt's budget in `tools/policy.json` to its count after the consolidation and the edit, never
+above the old budget (§ 5), and its `Means` names the consolidation.

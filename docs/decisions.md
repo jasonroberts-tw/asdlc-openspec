@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-16 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28).**
+**Status: every decision from D-01 to D-17 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-16` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-17` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -72,6 +72,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-14** | A build task sees each scenario's proof fail before the code that passes it, or reports it already green, and the build workflow stops a run that does neither | The `not-red` stop and red records of `.claude/workflows/build-change-task.js`, held by `workflows:selftest`; `buildRedFirstKinds` in `tools/policy.json`; `change-build` § 3; `bead` § 4 |
 | **D-15** | The kit's pipeline graph is retired; a check that reads outside the repository is stood in for by its selftest | `tools/pipeline/`, `docs/pipeline.md`, the `corpus-regen` formula and the sibling-checkout resolvers deleted with their scripts, jobs and steps; `gitEnv()` kept in `tools/lib/git-env.ts`; `CLAUDE.md` § The gate ladder |
 | **D-16** | A session's own review and design workflows are bounded by policy, and the build and prompt reviews send one skeptic to a major finding | `CLAUDE.md` § A workflow a session writes itself is bounded, consolidated first; `sessionReviewMaxFindings`, `sessionReviewSkeptics` and `sessionWorkflowMaxAgents` in `tools/policy.json`; `buildReviewSkeptics.major` and `promptReviewSkeptics.major` at 1, held by `workflows:selftest` |
+| **D-17** | A run closes through the `close-prompt-run` skill, which names each prompt review for itself, and the reviewer reads its policy first and makes no worktree it does not need | `.claude/skills/close-prompt-run/SKILL.md`; `CLAUDE.md` § Prompt reviews and § Bash command style; the `continuous-prompt-improvement` agent, consolidated first; `bead` § 8; the three prompts' budgets and the skill's in `tools/policy.json` |
 
 ## Risks
 
@@ -488,6 +489,8 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 
 > **Amended 2026-09-26 by D-10.** Item 8 no longer holds. The review proposes an edit only for a finding that `promptReviewRecurrenceCount` runs have shown or whose severity is in `promptReviewMajorSeverities`, and merges a branch only once a majority of its `promptReviewSkeptics` upheld every edit on it. Beside item 6's read line, the review appends a held line for each finding it read and did not carry into its pull request, which the next review counts, and an analysis now ends at the next line that opens with any of the three markers.
 
+> **Amended 2026-09-29 by D-17.** `.claude/skills/close-prompt-run/SKILL.md`, not `CLAUDE.md` § Prompt reviews, now holds the analysis note, the due check, when no review starts and the launch; that section keeps the rule that a run ends with the skill. Item 7 no longer holds, nor does its alternative's loss: each review is named `review-prompts-` and the UTC date and time, and item 5's check counts every working session whose name starts with `review-prompts`, leaving out the reviewer's own.
+
 ### D-09 · An in-session guard refuses a gh command that applies the approval label, from any checkout
 
 **Recorded 2026-09-26**, carried by `asdlc-openspec-g1b`. The maintainer chose it on 2026-09-26 from the issue's two options, put to them as the recommendation with the case where it loses.
@@ -617,6 +620,8 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 - **`README.md`, `scripts/README.md` and `.claude/README.md`:** the rows that say what the workflow and its selftest hold.
 
 **Figures.** Each is `node scripts/check-prompts.mjs --counts`, at `d69527a` for the first figure and at this entry's commit for the second: `.claude/skills/bead/SKILL.md` 1,857 and 1,635; `.claude/agents/continuous-prompt-improvement.md` 2,261 and 2,516; the literals of `.claude/workflows/review-prompts.js` 1,441 and 1,720. What each consolidation freed on its own, 229, 126 and 43, is the same command at its own commit, and the pull request lists those commits; bead's 7 words back came from the review, which found that removing one qualifier had broadened a rule. The ACE figures are the paper's.
+
+> **Amended 2026-09-29 by D-17.** Item 4 holds in a workflow's literals too: a workflow's agents load `CLAUDE.md`, so a restatement of it may go there as anywhere, where the agent's § How a prompt is consolidated had counted only the files a prompt sends its session to.
 
 ### D-13 · The agentic test strategy is adopted, and each of its rules lands in a home of its own
 
@@ -804,6 +809,39 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 - **Not changed:** `scripts/workflows.selftest.mjs`, which reads each count from the policy and splits a vote at the first severity of `buildReviewMajorSeverities` and `promptReviewMajorSeverities`, `blocker`, whose count stays at 3.
 
 **Figures.** `CLAUDE.md` held 3,906 words at `b6b0906`, after D-15 changed § The gate ladder; consolidating it freed 149, to 3,757, and § A workflow a session writes itself is bounded added 130, to 3,887 at this entry's commit, each `node scripts/check-prompts.mjs --counts`; the pull request names the consolidation's commit, and gives the same two steps from 3,907 at `5a939d9`, where this branch was cut. A batch of 5 major findings in a prompt review now sends 5 skeptics, 5 times `promptReviewSkeptics.major`, 1, where it sent 15. Item 1's review runs at most 9 agents: one reviewer and one skeptic for each of `sessionReviewMaxFindings`, 8, findings, as `sessionReviewSkeptics` gives, within `sessionWorkflowMaxAgents`, 10. The incident's agent and token figures are the issue's, read from workflow state files outside this repository, and are not re-derived here.
+
+### D-17 · A run closes through the `close-prompt-run` skill, which names each prompt review for itself, and the reviewer reads its policy first and makes no worktree it does not need
+
+**Recorded 2026-09-29**, carried by `asdlc-openspec-03c`. On 2026-09-29 the maintainer read `.claude/agents/continuous-prompt-improvement.md` through with a session and chose items 1 to 6; the session that built it chose the skill's name, the launch prompt that carries the review's name, and reading the policy through `gh api`.
+
+**Builds on / amends:** amends D-08, whose decision put the rule and the launch in `CLAUDE.md` § Prompt reviews, whose item 5 counted a session by one name, and whose item 7 gave every review that name; and D-12, whose item 4 the agent had applied to a workflow's literals only in part. Builds on D-03, whose policy file holds the skill's budget; on D-07, which leaves a pull request that changes `CLAUDE.md`, a budget or this register to a person; and on D-10, whose asides the review's description now lists.
+
+**Decision.** How a run of a prompt hands over to the batched review, and how the reviewer starts. `.claude/skills/close-prompt-run/SKILL.md` holds the analysis note, the due check and the launch; `.claude/agents/continuous-prompt-improvement.md` holds what a review does and leaves.
+
+1. **The closing step is a skill.** `CLAUDE.md` § Prompt reviews keeps only the rule that a run of a prompt from a file ends with `close-prompt-run`, and points at the skill and the agent. Where it loses: the markers and the due rule were in every session's context, and now reach only a run that invokes the skill, so a prompt whose closing step does not is a run no review reads.
+2. **Each review has a name of its own**, `review-prompts-` and the UTC date and time, which names its session, its worktree and its branch, and which its launch prompt carries. The check that no review is under way counts every working session whose name starts with `review-prompts`, leaving out the reviewer's own, and a reviewer launched with no name stops. Where it loses: agent view no longer shows every review under one name, and a person who starts a review by hand without the skill gets one that stops at once (`asdlc-openspec-hjc`).
+3. **The reviewer reads the trunk's prompt-review keys before it applies any**, in § 2, with one `gh api` call that filters them. Where it loses: the read needs the network, which the review needs anyway for `gh pr list`.
+4. **The reviewer makes a worktree only when a group formed**, and writes its tracker notes from `$CLAUDE_JOB_DIR/tmp`, which `CLAUDE.md` § Bash command style now names for a background session with no worktree. Where it loses: a note's file goes when the job's directory is deleted, where `.scratch/` kept it until the worktree was removed.
+5. **A workflow's agents load `CLAUDE.md`.** Claude Code's documentation says only the built-in Explore and Plan agents skip it (https://code.claude.com/docs/en/sub-agents), and is silent on a Workflow script's agents, so a probe settled it: an agent spawned with no `agentType`, as `review-prompts.js` spawns its own, quoted `CLAUDE.md` from its starting context without reading a file. D-12 item 4 therefore holds in a workflow's literals, and the agent's restatements of `CLAUDE.md` for its file agents go.
+6. **The agent's contradictions and gaps go.** The `isolation: worktree` its frontmatter carried, against a body that starts in the primary checkout and stops in a worktree; the sentence that re-applied § 3 once § 4 had read the policy; a branch held "for the reason § 6 reports", which § 6 never gave; § 3's rule for a finding held for another reason, now saying it must still meet the threshold; the budget rule, now saying the reviewer's session sets it and a review never raises it; and § 7's "Deliberately not changed", which now lists each group's asides (`asdlc-openspec-b99`).
+
+**Why.** The read-through found that a review could not tell itself from another, applied thresholds it had not read, and carried a frontmatter key that would stop it wherever honoured. Moving the rule out of `CLAUDE.md` takes 627 words from every session's context. Two alternatives lost:
+
+- **The reviewer tells itself apart by its session id**, which needs no name. The launcher knows a name before it launches, and a session is not known to learn its own id from `claude agents --json`.
+- **Leaving the rule in `CLAUDE.md` and adding the name there.** Every session pays for words that only a closing step reads.
+
+**What changed.**
+
+- **This register:** this entry; the status line, the blockquote's bound and the decisions table carry D-17; D-08 and D-12 carry an amendment each.
+- **Added:** `.claude/skills/close-prompt-run/SKILL.md`.
+- **`CLAUDE.md`:** § Prompt reviews reduced to the rule and its pointers; § Bash command style names `$CLAUDE_JOB_DIR/tmp`.
+- **`.claude/agents/continuous-prompt-improvement.md`:** consolidated under D-12 in a commit of its own, then items 2 to 6.
+- **`.claude/skills/bead/SKILL.md`:** § 8 closes the run with the skill.
+- **`tools/policy.json`:** `promptWordBudgetSkillClosePromptRun` and its `Means`; the budgets of `CLAUDE.md`, the agent and `bead` lowered to their new counts; the analysis, due-count and held markers' `Means` and `whatItDoesNOTDo` point at the new homes.
+- **`.claude/workflows/review-prompts.js`:** a header comment points at the agent's § 6 for the held line.
+- **`README.md` and `docs/playbook.md`:** a row for the skill, and the rows and steps that cited `CLAUDE.md` § Prompt reviews for what moved.
+
+**Figures.** Each word count is `node scripts/check-prompts.mjs --counts`, at `658d708` for the first figure and at this entry's commit for the second: `CLAUDE.md` 3,886 and 3,259; `.claude/agents/continuous-prompt-improvement.md` 2,516 and 2,157, through 2,069 at the consolidation's commit; `.claude/skills/bead/SKILL.md` 1,617 and 1,609; the new skill 664. The probe is workflow run `wf_d0754fca-d86`, whose record is outside this repository.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
