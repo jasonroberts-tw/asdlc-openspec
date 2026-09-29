@@ -37,6 +37,11 @@ export const meta = {
  * one no majority of its skeptics upheld: a rewrite that collapses a context loses what the next run
  * needed, and nothing says so (https://arxiv.org/abs/2510.04618, "context collapse").
  *
+ * Wrong the other way, it refuses what it should pass. On 2026-09-28 (run wf_5aec3e94-07b) it refused
+ * 3 of 4 groups, each with an edit whose gates passed, because each listed under `notChanged` a point
+ * it had considered that was none of its group's findings, which the prompt never forbade: nothing
+ * merged, and every analysis stayed pending (asdlc-openspec-b99). Such an entry is now an aside.
+ *
  * INVOCATION. The Workflow tool, with `scriptPath` set to this file inside the review's worktree, so
  * that the script and the agent file its agents read come from one commit, and `args`:
  *
@@ -73,7 +78,7 @@ export const meta = {
  *   done        every file agent ran, or some did; `groups` says which
  *
  * Each entry of `groups` is the agent's report with its `id`, its `files`, its `findings`, its
- * `runs`, a `status` and the `problems` found with it. The status is one of:
+ * `runs`, its `asides` (below), a `status` and the `problems` found with it. The status is one of:
  *
  *   merge       it changed its files, nothing below was wrong, and a majority of each change's
  *               skeptics upheld it: its branch is in `merge`
@@ -100,8 +105,16 @@ export const meta = {
  *     names its commit, frees words, and lists what it removed, every row saying where its text went:
  *     a kept row names the place and what loads it, a moved row the pull request, a deleted row why;
  *   - an unchanged report lists no changed file and states no change and no consolidation;
- *   - every change and every finding set aside names a finding of its own group, and every finding of
- *     its group is changed or set aside.
+ *   - every change names a finding of its own group, and every finding of its group is changed or set
+ *     aside.
+ *
+ *   An entry of `notChanged` that names none of its group's findings breaks no rule: it is returned in
+ *   the group's `asides`, and the branch is judged as if it were absent. The prompt asks the agent to
+ *   set aside each finding it leaves alone and never says the list holds only those, so an agent uses
+ *   it for a point it considered, and such an entry changes no file and sets no finding aside. A
+ *   misspelt key still refuses the report, by the rule above: the finding it meant is neither changed
+ *   nor set aside. The script, not the prompt, carries this, because a rule in the prompt could be
+ *   disobeyed, and each time it was the whole branch would be lost again.
  *
  *   These rules judge what each agent reports of its branch and its files, which a script that runs
  *   no git cannot check; the session checks each branch's diff against its group's files before it
@@ -514,9 +527,9 @@ function problemsOf(g, r) {
     if (r.changes.length) problems.push(`it reports no change, but states ${r.changes.length} change(s)`)
     if (r.consolidations.length) problems.push(`it reports no change, but states ${r.consolidations.length} consolidation(s)`)
   }
-  const named = [...r.changes.map((c) => c.finding.trim()), ...r.notChanged.map((n) => n.finding.trim())]
-  const foreign = [...new Set(named.filter((key) => !keys.has(key)))]
+  const foreign = [...new Set(r.changes.map((c) => c.finding.trim()).filter((key) => !keys.has(key)))]
   if (foreign.length) problems.push(`it names the finding(s) ${foreign.join(', ')}, which its group was not given`)
+  const named = [...r.changes.map((c) => c.finding.trim()), ...r.notChanged.map((n) => n.finding.trim())]
   const missed = [...keys].filter((key) => !named.includes(key))
   if (missed.length) problems.push(`it neither changes nor sets aside the finding(s) ${missed.join(', ')}`)
   return problems
@@ -554,7 +567,9 @@ const groups = A.groups.map((g, i) => {
   const base = { id: g.id, files: g.files.map(clean), findings: g.findings, runs: runsOf(g) }
   if (!r) return { ...base, status: 'died', problems: ['the agent returned nothing'] }
   const problems = problemsOf(g, r)
-  return { ...base, ...r, status: problems.length ? 'refused' : r.verdict === 'changed' ? 'merge' : 'unchanged', problems }
+  const keys = new Set(g.findings.map((f) => f.key.trim()))
+  const asides = r.notChanged.filter((n) => !keys.has(n.finding.trim()))
+  return { ...base, ...r, asides, status: problems.length ? 'refused' : r.verdict === 'changed' ? 'merge' : 'unchanged', problems }
 })
 
 const byBranch = new Map()

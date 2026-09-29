@@ -1462,6 +1462,25 @@ function reviewCases(policy) {
       (g) => changed(g, { changes: [...g.findings.map(change), { ...change(g.findings[0]), finding: `${BEAD}#never-given` }] }),
       /names the finding\(s\) \.claude\/skills\/bead\/SKILL\.md#never-given, which its group was not given/,
     ),
+    {
+      name: "a point set aside that names none of the group's findings is returned under asides, and the branch still merges",
+      args: reviewArgs(policy),
+      reports: { bead: (g) => changed(g, { notChanged: [{ finding: 'Considered, not a finding: a second copy in docs/playbook.md', reason: 'Out of scope.' }] }) },
+      expect: ['done', /^1 to merge, 1 unchanged, 0 not upheld, 0 refused, 0 died; 1 of 1 change\(s\) upheld by \d+ skeptic\(s\); 3 of 3 run\(s\) read, 1 finding\(s\) held$/],
+      check: ({ result }) => {
+        const bead = result.groups.find((g) => g.id === 'bead')
+        if (bead.status !== 'merge') return `bead is ${bead.status}, not merge: ${problemsOf(result, 'bead')}`
+        if (bead.asides?.map((a) => a.finding).join() !== 'Considered, not a finding: a second copy in docs/playbook.md') return `bead's asides are ${JSON.stringify(bead.asides)}`
+        if (result.groups.find((g) => g.id === 'open-pr').asides?.length !== 0) return "open-pr's asides are not an empty list"
+        return result.merge.join() === 'agent/wf_example-bead' ? null : `merge is ${result.merge.join(', ')}`
+      },
+    },
+    refusedBead(
+      policy,
+      'a report that sets aside only a misspelling of a finding it was given neither changes nor sets it aside, and is not merged',
+      (g) => unchanged(g, { notChanged: [{ finding: `${BEAD}#gates-before-stagin`, reason: 'The finding does not hold.' }] }),
+      /neither changes nor sets aside the finding\(s\) \.claude\/skills\/bead\/SKILL\.md#gates-before-staging/,
+    ),
     refusedBead(
       policy,
       'a report that neither changes nor sets aside a finding it was given is not merged',
