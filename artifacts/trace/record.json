@@ -3000,6 +3000,13 @@
       "tests": []
     },
     {
+      "id": "asdlc-openspec-j09.9",
+      "paths": [
+        "apps/calculator/test/README.md"
+      ],
+      "tests": []
+    },
+    {
       "id": "asdlc-openspec-zgh.2",
       "paths": [],
       "tests": [
