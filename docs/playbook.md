@@ -326,8 +326,8 @@ Every pull request is opened with the `open-pr` skill, whoever opens it.
    `PR=<number> node scripts/pr-review.mjs mark`. Decided by: `.claude/skills/open-pr/SKILL.md`
    § 5. Push, open, and mark it pending.
 5. Watch it with one watcher, `gh pr checks <number> --watch`, in the background, and end the turn
-   to wait only if the watcher's exit wakes the session. Decided by: `.claude/skills/open-pr/SKILL.md` § 6. Watch it with one
-   watcher.
+   to wait only if the watcher's exit wakes the session. Decided by:
+   `.claude/skills/open-pr/SKILL.md` § 6. Watch it with one watcher.
 6. Act on the outcome. `verify` runs every gate that reads only committed files; once it passes, the
    reviewer judges the head against the cited issues' acceptance criteria, its maintainability and
    its risk, and merges it, requests changes, or leaves it to a person. The table of what each
