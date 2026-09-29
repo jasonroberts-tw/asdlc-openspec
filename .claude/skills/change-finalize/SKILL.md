@@ -120,8 +120,7 @@ gone.
 1. Update the primary checkout: `git fetch origin`, then `git pull --rebase`.
 2. Run `npm run worktree:gc -- --dry-run` first. The sweep is not scoped to this change: it
    removes every clean worktree under `.claude/worktrees/` whose branch it proves is in
-   `origin/main`, with that branch. Where `/proc` is absent, as on macOS, it cannot see a session
-   working in one, and a worktree just cut from `origin/main` is clean and proven
+   `origin/main`, with that branch, unless a process works there
    (`scripts/prune-worktree-branches.mjs`, its header). If the dry run names only this change's
    worktree, run `npm run worktree:gc`. If it names others, show the user the list, and run it
    only on their word.

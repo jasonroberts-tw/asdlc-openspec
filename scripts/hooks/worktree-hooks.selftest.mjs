@@ -26,7 +26,9 @@
  *
  *   node scripts/hooks/worktree-hooks.selftest.mjs
  *
- * Needs `git`, `bash` and a POSIX `sh` on PATH, and reads nothing outside the temporary directory
+ * Needs `git`, `bash` and a POSIX `sh` on PATH, and `/proc` or `lsof` for the prune sweep's
+ * liveness case, which fails rather than skips on Linux and macOS without them. It reads nothing
+ * outside the temporary directory
  * but this checkout's own files. The render and new-worktree cases bind loopback ports for a moment,
  * as the renderer's port probe does.
  */
@@ -40,6 +42,7 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -432,7 +435,9 @@ console.log('prune-worktree-branches: the safety rule')
 const GC = resolve(HOOKS, '..', 'prune-worktree-branches.mjs')
 const gcRepo = mkdtempSync(join(tmpdir(), 'wt-gc-'))
 const gcPrimary = join(gcRepo, 'primary')
-const LINUX = process.platform === 'linux'
+// The platforms whose liveness check this selftest holds: `/proc` on Linux, `lsof` on macOS. On
+// either, a missing check is a failure of the case below, never a skip.
+const LIVE_CHECK = process.platform === 'linux' || process.platform === 'darwin'
 
 execFileSync('git', ['init', '-q', '-b', 'main', gcPrimary], { env: GIT_ENV, encoding: 'utf8' })
 writeFileSync(join(gcPrimary, 'base.txt'), 'base\n')
@@ -482,9 +487,10 @@ git(gcPrimary, 'worktree', 'add', '-q', '-b', 'agent/elsewhere', elsewhere, 'mai
 const gone = wt('gone') // registered, directory deleted behind git's back: prunable
 rmSync(gone, { recursive: true, force: true })
 const busy = wt('busy') // clean and contained, but a process is standing in it
-// The liveness check reads `/proc/<pid>/cwd`, so it exists only where `/proc` does. `spawn` forks
-// synchronously with the child's cwd already set, so the link is readable as soon as it returns.
-const sleeper = LINUX ? spawn('sleep', ['120'], { cwd: busy, stdio: 'ignore' }) : null
+// `spawn` returns once the child has exec'd, its cwd already set, so `/proc/<pid>/cwd` and `lsof`
+// both see it as soon as it returns. This is the case asdlc-openspec-zlz lost on macOS: a worktree
+// just cut, clean and contained, with a live process in it.
+const sleeper = LIVE_CHECK ? spawn('sleep', ['120'], { cwd: busy, stdio: 'ignore' }) : null
 process.on('exit', () => sleeper?.kill())
 
 // Tracking config of the shape provisioning leaves behind, plus one section whose branch does not
@@ -503,11 +509,17 @@ for (const b of [
 git(gcPrimary, 'config', '--local', 'branch.agent/ghost.remote', 'origin')
 git(gcPrimary, 'config', '--local', 'branch.agent/ghost.merge', 'refs/heads/agent/ghost')
 
-/** The script's own output, run against the scratch repo. */
-function runGc(...extra) {
+/**
+ * The script's own output, run against the scratch repo. `liveness` sets `WORKTREE_GC_LIVENESS`;
+ * unset here, so a value in the caller's environment cannot choose the check for the default run.
+ */
+function runGcWith({ script = GC, liveness = undefined }, ...extra) {
+  const env = { ...GIT_ENV }
+  delete env.WORKTREE_GC_LIVENESS
+  if (liveness !== undefined) env.WORKTREE_GC_LIVENESS = liveness
   try {
-    return execFileSync('node', [GC, '--repo', gcPrimary, ...extra], {
-      env: GIT_ENV,
+    return execFileSync('node', [script, '--repo', gcPrimary, ...extra], {
+      env,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     })
@@ -515,6 +527,7 @@ function runGc(...extra) {
     return `EXIT ${err.status}: ${err.stdout ?? ''}${err.stderr ?? ''}`
   }
 }
+const runGc = (...extra) => runGcWith({}, ...extra)
 
 const branchExists = (b) => {
   try {
@@ -582,7 +595,7 @@ check('its branch went with it', !branchExists('agent/abandoned'))
 check('and its config section', !configKeys().some((k) => k.includes('agent/abandoned')))
 check(
   'the report says so',
-  report.includes(`removed ${LINUX ? 1 : 2} abandoned worktree(s)`) &&
+  report.includes(`removed ${LIVE_CHECK ? 1 : 2} abandoned worktree(s)`) &&
     report.includes(
       '.claude/worktrees/abandoned  agent/abandoned  (clean, ancestor of origin/main)',
     ),
@@ -631,7 +644,9 @@ check(
   report.slice(0, 1200),
 )
 check('and survives', existsSync(elsewhere) && branchExists('agent/elsewhere'))
-if (LINUX) {
+if (LIVE_CHECK) {
+  const method = process.platform === 'linux' ? 'proc' : 'lsof'
+  check(`the liveness check is ${method}`, report.includes(`  liveness: ${method}\n`), report.slice(0, 300))
   check(
     'a worktree with a process inside is kept by its reason',
     report.includes(`.claude/worktrees/busy  agent/busy  -- in use by process ${sleeper.pid}`),
@@ -639,7 +654,7 @@ if (LINUX) {
   )
   check('and survives', existsSync(busy) && branchExists('agent/busy'))
 } else {
-  console.log('  skip a worktree with a process inside (no /proc on this platform)')
+  console.log(`  skip a worktree with a process inside (no liveness check held on ${process.platform})`)
 }
 check('the primary checkout is not reported as a worktree', !report.includes('  .  main  --'))
 
@@ -672,6 +687,74 @@ check(
   'but still collects an orphan section',
   !configKeys().some((k) => k.includes('agent/ghost2')),
   noTrunk.slice(0, 300),
+)
+
+// WHERE NO LIVENESS CHECK WORKS, a clean, contained worktree goes only once HEAD there has sat still
+// for `worktreeGcMinAgeHours` (asdlc-openspec-zlz). `WORKTREE_GC_LIVENESS=none` stands in for such a
+// host. `spare` was just cut, as a lane is at launch; `idle` has had HEAD still for twice the
+// threshold; `rebased` is as old, but HEAD moved a moment ago, as a lane's rebase moves it. Aging
+// sets the mtime of each file the script reads HEAD's last move from.
+const MIN_AGE = JSON.parse(readFileSync(POLICY_FILE, 'utf8')).worktreeGcMinAgeHours
+const age = (path, name, hours) => {
+  const then = new Date(Date.now() - hours * 3_600_000)
+  const admin = join(gcPrimary, '.git', 'worktrees', name)
+  for (const file of [join(path, '.git'), join(admin, 'HEAD'), join(admin, 'logs', 'HEAD')]) {
+    if (existsSync(file)) utimesSync(file, then, then)
+  }
+}
+const idle = wt('idle')
+age(idle, 'idle', MIN_AGE * 2)
+const rebased = wt('rebased')
+age(rebased, 'rebased', MIN_AGE * 2)
+const nowStamp = new Date()
+utimesSync(join(gcPrimary, '.git', 'worktrees', 'rebased', 'HEAD'), nowStamp, nowStamp)
+
+// With the policy unreadable there is no threshold, so nothing unseen is removed, however idle. The
+// script reads the policy beside itself, so a copy with no `tools/` beside it stands in.
+const noPolicyRoot = mkdtempSync(join(tmpdir(), 'wt-gc-nopolicy-'))
+mkdirSync(join(noPolicyRoot, 'scripts'))
+copyFileSync(GC, join(noPolicyRoot, 'scripts', 'prune-worktree-branches.mjs'))
+const unpolicied = runGcWith({
+  script: join(noPolicyRoot, 'scripts', 'prune-worktree-branches.mjs'),
+  liveness: 'none',
+})
+check(
+  'with no liveness check and no policy, an idle worktree is kept by its reason',
+  unpolicied.includes(
+    '.claude/worktrees/idle  agent/idle  -- no liveness check, and no worktreeGcMinAgeHours to wait out',
+  ),
+  unpolicied.slice(0, 1200),
+)
+check('and survives', existsSync(idle) && branchExists('agent/idle'))
+
+const blind = runGcWith({ liveness: 'none' })
+check(
+  'the report names the missing liveness check',
+  blind.includes('  liveness: none (WORKTREE_GC_LIVENESS=none)'),
+  blind.slice(0, 300),
+)
+check(
+  'with no liveness check, a worktree just cut is kept by its reason',
+  blind.includes(
+    `.claude/worktrees/spare  agent/spare  -- no liveness check, and HEAD moved 0.0h ago, under worktreeGcMinAgeHours (${MIN_AGE})`,
+  ),
+  blind.slice(0, 1500),
+)
+check('and survives', existsSync(spare) && branchExists('agent/spare'))
+check(
+  'with no liveness check, a worktree whose HEAD just moved is kept by its reason',
+  blind.includes(
+    `.claude/worktrees/rebased  agent/rebased  -- no liveness check, and HEAD moved 0.0h ago, under worktreeGcMinAgeHours (${MIN_AGE})`,
+  ),
+  blind.slice(0, 1500),
+)
+check('and survives', existsSync(rebased) && branchExists('agent/rebased'))
+check(
+  'with no liveness check, a worktree idle past the threshold is removed',
+  !existsSync(idle) &&
+    !branchExists('agent/idle') &&
+    blind.includes(`.claude/worktrees/idle  agent/idle  (clean, HEAD idle ${(MIN_AGE * 2).toFixed(1)}h`),
+  blind.slice(0, 1500),
 )
 
 /* --------------------------------------------------------------------------------------------- *
