@@ -30,10 +30,11 @@ Never work around a blocker.
 
 If no child is open at all and the epic's latest note is a send-back, it names what to fix: from
 `change-verify`, a gap in the code; from `change-finalize`, each test `trace:check` refused after
-the archive. Retire a test on a removed ID yourself, with the decision the header of
-`scripts/check-test-inventory.mjs` asks for, and fix the rest as step 3 says, each for the task
-`artifacts/trace/record.json` lists beside its file. Note on the epic what was fixed and in which
-commit subject, then go to step 6.
+the archive. Retire each on a removed ID, with the decision the header of
+`scripts/check-test-inventory.mjs` asks for, and regenerate each on a modified one as step 3 says;
+each commit names the task `artifacts/trace/record.json` lists beside the test's file, as step 3
+names a commit. Fix a gap as step 3 says. Note on the epic what was fixed and in which commit
+subject, then go to step 6.
 
 ## 3. Build it, and prove it
 
@@ -50,10 +51,10 @@ Then act on what it returns:
   the change under test, see its proof fail and restore the change before the workflow runs again;
   a discarded build is paid for twice. `refused`: correct what `why` names and run it again.
   `not-independent`: delete every uncommitted file under the app's `independentTestDir`, then as
-  `agent-died`. `re-design`: the design cannot hold as written; put it to the user as for a wrong
-  spec (§ 5). `architect-failing`: never fix the code against a test you read, or the fix fits that
-  test; run the workflow again with each route's ID and expected text in `settled`, or put a
-  re-design to the user. `nothing-major` and `round-limit`: carry on below.
+  `agent-died`. `re-design`: a re-design pass (§ 5). `architect-failing`: never fix the code
+  against a test you read, or the fix fits that test; run the workflow again with each route's ID
+  and expected text in `settled`, or start a re-design pass. `nothing-major` and `round-limit`:
+  carry on below, unless `independent.complete` is false: then as `agent-died`.
 - **Each `unverified` finding:** judge it yourself against the delta specs, the design and the task.
   Fix one that holds, and ask the user about one you cannot settle.
 - **Each of `followUps`:** file it as out of scope (§ 5), once a search of the tracker finds no match.
@@ -67,10 +68,12 @@ Then, whatever the workflow reported:
 - Run the proof the task names yourself, and see it pass as measured.
 - Regenerate every derived artifact the change touches.
 - After `nothing-major` or `round-limit`, write each of `independent.files` at its path, whole.
-- Commit, naming the task's id.
+- Commit, naming the task's id in the parentheses that close the subject, the only place
+  `trace:check` reads it (rule 5 in the header of `tools/trace/trace.ts`).
 
-After a spec revision (§ 5), run the workflow for the task again. Whenever it runs again for a task,
-`settled` carries the revision, each answer the user gave to a doubt, and each red record.
+After a spec revision or a re-design pass (§ 5), run the workflow for the task again. Whenever it
+runs again for a task, `settled` carries the revision, each answer the user gave to a doubt, and
+each red record.
 
 ## 4. Close it
 
@@ -101,17 +104,39 @@ Run `bd close <id> --reason "<the subject of the commit that built it>"`. The su
   this change unannounced.
 - **In scope but missing from the plan:** add it as a new child of the epic, once the user agrees,
   and label the epic for plan (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
-- **A spec that is wrong**, meaning a scenario that cannot hold as written or a requirement that is
-  missing: stop and tell the user. Revise the delta spec first, under the grammar `change-propose`
-  gives, then the design where it is affected, then the plan, and commit that revision on its own,
-  before the code it allows. The code never outruns the spec. Label the epic for each stage whose
-  file the revision changed (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
+- **A spec that is wrong**, meaning a scenario or an NFR that cannot hold as written or a
+  requirement that is missing: stop and tell the user. It goes back to `change-propose`: label the
+  epic for propose (`rerouteLabels` in `tools/policy.json`), note on it what must change and why,
+  and stop. The code never outruns the spec.
+- **A re-design pass**, when the design cannot hold as written: with the user, write a new version
+  of `design.md` and of each contract artifact it affects, under
+  `.claude/skills/change-design/SKILL.md` § 3. Write it, and commit it on its own, as step 3 names
+  a commit, before the code it allows; label the epic for design. It changes no delta spec: a
+  scenario or NFR that must change is a spec that is wrong.
+- **After either**, reopen (`bd reopen`) each task that `artifacts/trace/record.json` links to a
+  changed NFR, contract element or Binding Surface element, so step 2 builds it and its tests again;
+  the rest stand. `trace:check` refuses each test on one as `stale` until then.
 
 ## 6. Repeat, then hand over
 
 Go back to step 2 until
 `bd list --parent <epic> --status open,in_progress,blocked,deferred --json` prints an empty list.
 
-Then run `npm run gates` and report each task closed with its commit, every issue filed along the
-way, and the gates as measured. The next stage is `change-verify`, given the change's name
-(`CLAUDE.md` § Product work runs as OpenSpec-format changes).
+Then run `npm run trace` and commit the record, as THE RECORD in the header of
+`tools/trace/trace.ts` says, then `npm run gates`. Hand over only when each of
+`docs/test-strategy.md` § Build exit criteria holds, as shown by:
+
+- **Tasks and implementation elements:** the empty list above, each closed `asset:product` child
+  among the record's `tasks` with a path, and `trace:check`.
+- **The test-builder's declaration, and no open architect decision:** each task committed after a
+  run that stopped `nothing-major` or `round-limit` with `independent.complete` not false (§ 3),
+  and no re-design pass or send-back open (§ 5).
+- **Your re-run of the app-builder's suite, and the test inventory:** the app's test script and
+  `tests:inventory:check` (the header of `scripts/check-test-inventory.mjs`) among the gates.
+- **The mutation threshold:** `thresholds:check` (the header of `scripts/check-thresholds.mjs`).
+- **The contract tests and build-time fitness functions:** the app's script that runs its
+  `independentTestDir`, such as `calculator:test:independent`, among the gates.
+
+Report each task closed with its commit, every issue filed along the way, and the gates as
+measured. The next stage is `change-verify`, given the change's name (`CLAUDE.md` § Product work
+runs as OpenSpec-format changes).
