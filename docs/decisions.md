@@ -268,6 +268,8 @@ The server reading `.worktree/ports.env` itself also lost: the spec names `PORT`
 
 **Figures.** None.
 
+> **Amended 2026-09-29 by D-13.** Item 2 no longer holds for every check that runs the server's tests. This records the maintainer's choice of 2026-09-28, made as the answer to question 3 of the spike `asdlc-openspec-j09.2` and written in that issue's notes under "The maintainer's answer, 2026-09-28"; it is not a new decision. The mutation run of a Command, `npm run thresholds:commands:check`, reads only committed files and talks to its servers over loopback, and it is a `.github/workflows/verify.yml` step and a `change-verify` run, not a pre-push job, for its cost: 181.05 s and 185.99 s wall for all 72 of `serve.js`'s mutants one at a time, and 19.02-19.04 s for a change to one of its lines, on the host the header of `scripts/check-thresholds.mjs` names, which holds the measurements. Where it loses: a push that leaves a mutant of a changed `serve.js` line undetected passes pre-push and is refused minutes later in CI. The mutation run of the Routines and the coverage run, `npm run thresholds:check`, stay a pre-push job and a CI step, as item 2 has `calculator:test`. Landed by `asdlc-openspec-j09.10`, which carries D-13 items 8 and 9.
+
 ### D-05 · A prompt review runs in the background, and lives in its own pull request rather than in a file
 
 **Recorded 2026-09-24**, carried by `asdlc-openspec-64b`. The maintainer chose each part below on 2026-09-24, when the issue was worked.

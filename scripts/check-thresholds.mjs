@@ -141,8 +141,9 @@
  * history, runs the tests on loopback, and runs Stryker, which reads nothing outside the repository
  * at run time (its dashboard reporter would, and is never configured), so `thresholds:check` is a
  * pre-push job and a CI step. `thresholds:commands:check` is a CI step and a change-verify run and
- * not a pre-push job, the maintainer's recorded exception to the ladder (asdlc-openspec-j09.2's
- * notes, answer 3; asdlc-openspec-j09.14 adds the run to `change-verify`), for its cost: 181.05 s and
+ * not a pre-push job, an exception to the ladder the register records (`docs/decisions.md` § D-04,
+ * its amendment of 2026-09-29, from the maintainer's answer 3 in asdlc-openspec-j09.2's notes;
+ * asdlc-openspec-j09.14 adds the run to `change-verify`), for its cost: 181.05 s and
  * 185.99 s wall (`/usr/bin/time -p`, two runs) for all 72 of `serve.js`'s mutants one at a time, a
  * change to every line of it, on a macOS laptop (Apple M3 Max) with Node 26.8.1, 2026-09-28, where
  * the spike measured 182-213 s; a change to one of its lines, 3 mutants, took 19.02-19.04 s (two
@@ -171,6 +172,7 @@ import { cpSync, existsSync, globSync, mkdirSync, mkdtempSync, readFileSync, rea
 import { tmpdir } from 'node:os'
 import { delimiter, dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { gitEnv } from '../tools/lib/git-env.ts'
 import { runTests } from './run-tests.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -244,11 +246,6 @@ export function readPolicy(root) {
 }
 
 /* --------------------------------------------------------------------------------- git ---------- */
-
-/** `process.env` without any `GIT_*` key: a hook's `GIT_DIR` outranks `cwd` (tools/lib/git-env.ts). */
-function gitEnv() {
-  return Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')))
-}
 
 function git(root, args) {
   const run = spawnSync('git', ['-c', 'core.quotepath=off', ...args], { cwd: root, env: gitEnv(), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
@@ -1351,6 +1348,13 @@ function cases(f, policy) {
     },
     { name: "control: the Command's changed line, every mutant detected", files: { 'apps/calculator/serve.js': f.serve(3, ['large', 'small']), 'apps/calculator/test/serve.test.js': f.serveTest(3, { words: ['large', 'small'] }) }, commands: true, expect: 'pass' },
     { name: "the Command's changed line leaves a mutant undetected, below the mutant sample", files: { 'apps/calculator/serve.js': f.serve(4), 'apps/calculator/test/serve.test.js': f.serveTest(4, { boundary: false }) }, commands: true, expect: mutantSample('Commands') },
+    {
+      // Each added line makes about five mutants and its test detects two, those that print for 2 to 4.
+      name: "the Command's added lines, over the mutant sample, fall below the mutation threshold",
+      files: { 'apps/calculator/serve.js': f.serve(3) + Array.from({ length: Math.ceil(samples.mutants / 5) + 2 }, (_, n) => `if (n > ${100 * (n + 1)}) console.log('over ${100 * (n + 1)}')\n`).join('') },
+      commands: true,
+      expect: new RegExp(`^mutation of the Commands: [\\d.]+% of \\d+ mutants detected, below the threshold of ${percents.mutation}%`),
+    },
     {
       name: 'the reader takes a / after the head of an if, a while or a for for a regular expression',
       scan: { text: "if (a) /'/.test(b)\n// a comment\nif (c) /`/.test(d)\n// another\nwhile (e) /\\/*/.test(f)\n// a third\nx()\n", code: [1, 3, 5, 7] },

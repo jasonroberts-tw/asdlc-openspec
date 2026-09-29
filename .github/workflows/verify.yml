@@ -130,7 +130,7 @@ jobs:
         run: npm run tests:inventory:selftest
       - name: the OpenSpec gate, negative-tested
         run: npm run openspec:selftest
-      # About twenty seconds (lefthook.yml's `thresholds-selftest` job has the measurement): a fixture
+      # About twenty-five seconds (lefthook.yml's `thresholds-selftest` job has the measurement): a fixture
       # repository under the temporary directory, with StrykerJS's tap and command runners.
       - name: the thresholds gate, negative-tested
         run: npm run thresholds:selftest
@@ -142,9 +142,9 @@ jobs:
         run: npm run thresholds:check
       # Last, as the slowest: up to minutes when a Command's code changed, and under a second
       # otherwise. StrykerJS's command runner, one mutant at a time, over each Command's changed
-      # lines. It is no pre-push job, the maintainer's recorded exception to the gate ladder, for the
-      # cost the header of scripts/check-thresholds.mjs gives; change-verify is to run it too
-      # (asdlc-openspec-j09.14).
+      # lines. It is no pre-push job, an exception to the gate ladder that `docs/decisions.md` § D-04
+      # records in its amendment of 2026-09-29, for the cost the header of
+      # scripts/check-thresholds.mjs gives; change-verify is to run it too (asdlc-openspec-j09.14).
       - name: the changed Commands' mutants are detected, to the policy's threshold
         run: npm run thresholds:commands:check
       #
