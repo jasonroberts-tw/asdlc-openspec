@@ -49,11 +49,31 @@
  * `--dir` has one home, `scripts/lib/test-dirs.mjs`, which the trace, test-inventory and thresholds
  * gates import too, so each counts the tests this runner runs.
  *
+ * ONE TEST, BY NAME. `--name <name>` runs only the test whose name is exactly `<name>`, which it
+ * escapes and anchors (`^...$`) for Node's `testNamePatterns`, and refuses the run unless exactly one
+ * test of that name ran; it passes when that test passes. It is how the verifier runs a failing
+ * test once more (`docs/decisions.md` § D-13, item 12, and `scripts/fresh-run.mjs`). Wrong here, a
+ * re-run could pass over nothing: probed on 2026-09-29 at Node 26.8.1, the only release on the
+ * probing host, a name that matches no test reports only the event named for the file, which
+ * passes, and an unanchored one also runs every test whose name begins with it; the design lane's
+ * probes in asdlc-openspec-j09.14's notes found, at 22.22.2 and 26.8.1, an unescaped `[CALC-001]`
+ * refused and an anchored, escaped name exact, inside a `describe` too. The tests filtered out are
+ * never reported (26.8.1), so the
+ * cross-check and the refusal of a file that declares no test do not apply to such a run.
+ *
+ * RESULTS. `--results <file>` writes, beside the usual report, `{ files, tests, failures, notes,
+ * results }` as JSON, where `results` is each test the runner reported, `{ file, name, line, status,
+ * durationMs }`, its status `pass`, `fail`, `skip` or `todo` and its duration Node's own
+ * `duration_ms`, sorted by file, line and name; a file that fails on load is one result with a null
+ * name. `scripts/fresh-run.mjs` reads it.
+ *
  * INVOCATION.
  *
  *   node scripts/run-tests.mjs "<pattern>" [...]   the run; `npm run calculator:test` is one
  *   node scripts/run-tests.mjs --dir <dir> [...]   every test file under <dir>; `npm run
  *                                                  calculator:test:independent` is one
+ *   node scripts/run-tests.mjs --name "<name>" "<file>"   the one test of that name, run once more
+ *   ... --results <file>                           the results as JSON, too
  *   npm run tests:selftest                         its fixtures -- each refusal on a doctored tree
  *
  * A pattern is a glob relative to the repository root, quoted so that this script expands it with
@@ -94,12 +114,16 @@ const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
  * and back; a flag such as `--experimental-test-coverage` given to this process does not reach
  * `run()` at the floor either, since its own `coverage` option, false unless set, overrides it.
  */
-export async function runTests(root, patterns, { report = null, coverage = null, dirs = [] } = {}) {
+export async function runTests(root, patterns, { report = null, coverage = null, dirs = [], name = null } = {}) {
   const failures = []
   const notes = []
   if (patterns.length === 0 && dirs.length === 0) {
     failures.push('no pattern given: name the test files to run, as a quoted glob.')
-    return { failures, notes, files: 0, tests: 0, coverage: null }
+    return { failures, notes, files: 0, tests: 0, coverage: null, results: [] }
+  }
+  if (name !== null && (typeof name !== 'string' || name === '')) {
+    failures.push('--name given no name: name the one test to run, exactly as its call spells it.')
+    return { failures, notes, files: 0, tests: 0, coverage: null, results: [] }
   }
 
   const files = []
@@ -122,7 +146,7 @@ export async function runTests(root, patterns, { report = null, coverage = null,
     }
     for (const file of matched) files.push(file)
   }
-  if (files.length === 0) return { failures, notes, files: 0, tests: 0, coverage: null }
+  if (files.length === 0) return { failures, notes, files: 0, tests: 0, coverage: null, results: [] }
 
   /**
    * Declared tests per file, keyed by the path the runner reports: the real path, since a root
@@ -132,6 +156,8 @@ export async function runTests(root, patterns, { report = null, coverage = null,
   const declared = new Map(files.map((file) => [pathOf(file), 0]))
   const reported = new Map(files.map((file) => [pathOf(file), []]))
   const failed = []
+  const relativeOf = new Map(files.map((file) => [pathOf(file), file]))
+  const results = []
 
   // What the reader makes of each file, before any of it runs.
   let policy = null
@@ -150,6 +176,7 @@ export async function runTests(root, patterns, { report = null, coverage = null,
   }
 
   const options = { files: [...declared.keys()], concurrency: true }
+  if (name !== null) options.testNamePatterns = [new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}$`)]
   if (coverage !== null) {
     Object.assign(options, { coverage: true, coverageIncludeGlobs: coverage.include, coverageExcludeGlobs: coverage.exclude })
   }
@@ -163,13 +190,20 @@ export async function runTests(root, patterns, { report = null, coverage = null,
       if (reporter !== null) reporter.write(event)
       if (event.type === 'test:coverage') summary = event.data.summary
       if (event.type !== 'test:pass' && event.type !== 'test:fail') continue
-      const { name, file, line, details, todo } = event.data
-      if (event.type === 'test:fail' && (todo === undefined || todo === false) && details?.error?.failureType !== 'subtestsFailed') {
-        failed.push(failureOf(root, event.data))
+      const { name: called, file, line, details, todo, skip } = event.data
+      const failing = event.type === 'test:fail' && (todo === undefined || todo === false)
+      if (failing && details?.error?.failureType !== 'subtestsFailed') failed.push(failureOf(root, event.data))
+      if (details?.type !== 'test' || !declared.has(file)) continue
+      const durationMs = typeof details.duration_ms === 'number' ? details.duration_ms : null
+      if (called === file) {
+        // The event named for the file stands for the file itself: a failure there is one on load.
+        if (failing) results.push({ file: relativeOf.get(file), name: null, line, status: 'fail', durationMs })
+        continue
       }
-      if (details?.type !== 'test' || name === file || !declared.has(file)) continue
       declared.set(file, declared.get(file) + 1)
-      reported.get(file).push({ line, name })
+      reported.get(file).push({ line, name: called })
+      const status = failing ? 'fail' : isSet(todo) ? 'todo' : isSet(skip) ? 'skip' : 'pass'
+      results.push({ file: relativeOf.get(file), name: called, line, status, durationMs })
     }
   } finally {
     if (coverage !== null) process.chdir(cwd)
@@ -184,6 +218,19 @@ export async function runTests(root, patterns, { report = null, coverage = null,
     const where = reporter === null ? '' : '; the report above gives each full error'
     failures.push(`${failed.length} test(s) failed: ${failed.join('; ')}${where}.`)
   }
+  results.sort((a, b) => byCodePoint(a.file, b.file) || a.line - b.line || byCodePoint(a.name ?? '', b.name ?? ''))
+  const tests = [...declared.values()].reduce((sum, count) => sum + count, 0)
+  if (name !== null) {
+    // Every other test is filtered out and never reported, so neither the cross-check nor the
+    // refusal of a file that declares no test applies: what must hold is that one test ran.
+    const ran = results.filter((r) => r.name === name).length
+    if (ran === 0) {
+      failures.push(`no test named "${name}" ran under ${root}: spell the name exactly as its call does, and give the file that holds it.`)
+    } else if (ran > 1) {
+      failures.push(`${ran} tests named "${name}" ran under ${root}: --name re-runs exactly one test, so give only the file that holds the one to re-run.`)
+    }
+    return { failures, notes, files: files.length, tests, coverage: summary, results }
+  }
   for (const [path, count] of declared) {
     const file = files.find((f) => pathOf(f) === path)
     if (count > 0) {
@@ -196,9 +243,11 @@ export async function runTests(root, patterns, { report = null, coverage = null,
         "the total and exits 0; add the file's tests, or move it out of the pattern.",
     )
   }
-  const tests = [...declared.values()].reduce((sum, count) => sum + count, 0)
-  return { failures, notes, files: files.length, tests, coverage: summary }
+  return { failures, notes, files: files.length, tests, coverage: summary, results }
 }
+
+/** Whether a test's `skip` or `todo` field is set: true, or the reason given for it. */
+const isSet = (value) => value !== undefined && value !== false
 
 /**
  * Each test of `file` that the reader reads and the runner does not report, or the other way
@@ -257,14 +306,24 @@ async function main(args) {
   const root = process.env.RUN_TESTS_ROOT ? resolve(process.env.RUN_TESTS_ROOT) : REPO_ROOT
   const patterns = []
   const dirs = []
+  let name = null
+  let out = null
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--dir') dirs.push(args[++i] ?? '')
+    else if (args[i] === '--name') name = args[++i] ?? ''
+    else if (args[i] === '--results') out = args[++i] ?? ''
     else patterns.push(args[i])
   }
-  const { failures, notes, files, tests } = await runTests(root, patterns, { report: process.stdout, dirs })
+  if (out === '') {
+    console.error('tests: --results given no file: name the file the results are written to.')
+    process.exit(1)
+  }
+  const { failures, notes, files, tests, results } = await runTests(root, patterns, { report: process.stdout, dirs, name })
+  if (out !== null) writeFileSync(resolve(out), `${JSON.stringify({ files, tests, failures, notes, results }, null, 2)}\n`)
   for (const note of notes) console.log(`tests: ${note}`)
   if (failures.length === 0) {
-    console.log(`\ntests: ${tests} test(s) across ${files} file(s), each file declaring at least one.`)
+    if (name !== null) console.log(`\ntests: the one test named "${name}" ran, and passed.`)
+    else console.log(`\ntests: ${tests} test(s) across ${files} file(s), each file declaring at least one.`)
     process.exit(0)
   }
   console.error(`\ntests: ${failures.length} failure(s).\n`)
@@ -316,15 +375,20 @@ async function selftest() {
   const results = []
   const { files: tree, ...helpers } = fixture()
   try {
-    for (const { name, files, patterns = [PATTERN], dirs = [], note = null, expect } of cases(helpers)) {
+    for (const { name, files, patterns = [PATTERN], dirs = [], only = null, note = null, check = null, expect } of cases(helpers)) {
       const dir = join(base, name.replace(/[^a-z0-9]+/gi, '-'))
       writeTree(dir, { ...tree, ...files })
-      const { failures, notes } = await runTests(dir, patterns, { dirs })
+      const { failures, notes, results: ran } = await runTests(dir, patterns, { dirs, name: only })
       let ok
       let detail
       if (expect === 'pass') {
-        ok = failures.length === 0 && (note === null || notes.some((n) => note.test(n)))
-        detail = ok ? 'passes' : failures.length ? `unexpected failure(s): ${failures.join(' | ')}` : `passes without the note: ${JSON.stringify(notes)}`
+        const wrong = check === null || failures.length ? null : check(ran ?? [])
+        ok = failures.length === 0 && (note === null || notes.some((n) => note.test(n))) && wrong === null
+        detail = ok
+          ? 'passes'
+          : failures.length
+            ? `unexpected failure(s): ${failures.join(' | ')}`
+            : wrong ?? `passes without the note: ${JSON.stringify(notes)}`
       } else {
         ok = failures.some((failure) => expect.test(failure))
         detail = ok
@@ -491,6 +555,46 @@ function cases({ file, head, trace }) {
         'test/b.test.js': file('GRT-003', `test('[GRT-003] three', () => {})\n/*\n${trace('GRT-004')}\ntest('[GRT-004] commented out', () => {})\n*/`),
       },
       expect: 'pass',
+    },
+    {
+      name: 'the results name each test run with its file, status and duration, in code-point order',
+      files: { 'test/b.test.js': file('GRT-003', `test('[GRT-003] three', () => {})\n${trace('GRT-004')}\ntest('[GRT-004] later', { skip: true }, () => {})`) },
+      check: (ran) => {
+        const got = ran.map((r) => `${r.file}|${r.name}|${r.status}|${typeof r.durationMs}`).join(' ; ')
+        const want = [
+          'test/a.test.js|[GRT-001] one|pass|number',
+          'test/a.test.js|[GRT-002] two|pass|number',
+          'test/b.test.js|[GRT-003] three|pass|number',
+          'test/b.test.js|[GRT-004] later|skip|number',
+        ].join(' ; ')
+        return got === want ? null : `the results read ${got}`
+      },
+      expect: 'pass',
+    },
+    {
+      name: '--name runs the one test of that exact name, escaped and anchored, and no other',
+      only: '[GRT-001] one',
+      files: { 'test/c.test.js': file('GRT-001', "test('[GRT-001] one more', () => { throw new Error('ran, though its name only begins so') })") },
+      check: (ran) => (ran.length === 1 && ran[0].name === '[GRT-001] one' && ran[0].status === 'pass' ? null : `ran ${JSON.stringify(ran)}`),
+      expect: 'pass',
+    },
+    {
+      name: '--name fails the run when the one test of that name fails',
+      only: '[GRT-003] three',
+      files: { 'test/b.test.js': file('GRT-003', "test('[GRT-003] three', () => { throw new Error('no') })") },
+      expect: /^1 test\(s\) failed/,
+    },
+    {
+      name: '--name that names no test is refused, not passed',
+      only: '[GRT-009] nine',
+      files: {},
+      expect: /^no test named "\[GRT-009\] nine" ran under /,
+    },
+    {
+      name: '--name that names two tests is refused, since it re-runs one test',
+      only: '[GRT-003] three',
+      files: { 'test/c.test.js': file('GRT-003', "test('[GRT-003] three', () => {})") },
+      expect: /^2 tests named "\[GRT-003\] three" ran under .*: --name re-runs exactly one test/,
     },
     {
       name: 'a policy without the reader\'s keys',
