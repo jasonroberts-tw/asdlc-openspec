@@ -60,7 +60,7 @@
  * in the worktree (the maintainer's choice 1, where it loses).
  */
 import { spawnSync } from 'node:child_process'
-import { existsSync, globSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, globSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { arch, platform, release, tmpdir } from 'node:os'
 import { delimiter, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -404,8 +404,288 @@ async function main(argv) {
   }
 }
 
+/* ------------------------------------------------------------------------------ the selftest --- */
+
+/** Files the fixture copies from this repository: the runner, the reader, the trace gate and the policy. */
+const COPIED = [
+  'scripts/run-tests.mjs',
+  'scripts/test-trace.mjs',
+  'scripts/lib/test-dirs.mjs',
+  'scripts/lib/bin-path.mjs',
+  'tools/trace/trace.ts',
+  'tools/lib/git-env.ts',
+  'tools/lib/paths.ts',
+  'tools/policy.json',
+]
+const TASK = 'asdlc-openspec-fx.1'
+const TEST_FILE = 'apps/calculator/test/a.test.js'
+const HAPPY = '[CALC-001] Two plus two'
+const NEGATIVE = '[CALC-001] Two plus three is not four'
+const TASK_TEST = `[${TASK}] A task of the change`
+const FLAKY_ENV = 'FRESH_RUN_SELFTEST_FLAKY'
+const SPEC = `# calculator Specification
+
+## Purpose
+
+The selftest's calculator.
+
+## Requirements
+
+### Requirement: Adds
+
+The calculator SHALL add.
+
+#### Scenario: [CALC-001] Two plus two
+
+- **WHEN** it adds two and two
+- **THEN** it shows four
+`
+
+/** git in the fixture, with no configuration of this machine's and a fixed author. */
+function fixtureGit(dir, args) {
+  const env = { ...childEnv(), GIT_CONFIG_GLOBAL: process.platform === 'win32' ? 'NUL' : '/dev/null', GIT_CONFIG_SYSTEM: process.platform === 'win32' ? 'NUL' : '/dev/null' }
+  const run = spawnSync('git', ['-c', 'user.name=fixture', '-c', 'user.email=fixture@example.invalid', '-c', 'commit.gpgsign=false', ...args], { cwd: dir, env, encoding: 'utf8' })
+  if (run.status !== 0) throw new Error(`fixture: \`git ${args.join(' ')}\` failed: ${run.stderr}`)
+  return run.stdout.trim()
+}
+
+const write = (dir, file, text) => {
+  mkdirSync(dirname(join(dir, file)), { recursive: true })
+  writeFileSync(join(dir, file), text)
+}
+
+/** The fixture's one test file; `negative` is the body of its negative test. */
+function testFile(hash, surface, negative = '') {
+  return [
+    "import { existsSync, writeFileSync } from 'node:fs'",
+    "import { test } from 'node:test'",
+    '// trace-defaults: layer=functional level=1',
+    `// trace: CALC-001:happy@${hash}`,
+    `test('${HAPPY}', () => {})`,
+    `// trace: CALC-001:negative@${hash}`,
+    `test('${NEGATIVE}', () => {${negative}})`,
+    `// trace: ${TASK} surface:apps/calculator/binding-surface.md@${surface}`,
+    `test('${TASK_TEST}', () => {})`,
+    '',
+  ].join('\n')
+}
+
+/**
+ * The fixture repository, a checkout of the branch `work`: commit A holds the product, its record and
+ * baseline written by the trace gate, and `origin/main` names it; commit B, on top, changes only a
+ * note, and the local `main` names B, as a primary checkout's local `main` can run ahead of
+ * `origin/main`. Returns the directory and what each case needs.
+ */
+async function buildFixture(base) {
+  const dir = join(base, 'fixture')
+  mkdirSync(dir)
+  for (const file of COPIED) write(dir, file, readFileSync(join(REPO_ROOT, file), 'utf8'))
+  write(dir, 'package.json', `${JSON.stringify({ type: 'module', scripts: { 'calculator:test': `node ${RUNNER} "apps/calculator/test/*.test.js"`, [COMMANDS_CHECK]: 'node stub/commands.mjs' } }, null, 2)}\n`)
+  write(dir, 'stub/commands.mjs', "console.log('thresholds:commands:check: every threshold holds, as the stub prints it.')\n")
+  write(dir, 'openspec/specs/calculator/spec.md', SPEC)
+  write(dir, 'apps/calculator/binding-surface.md', '# The binding surface\n')
+  write(dir, 'apps/calculator/fitness/latency.json', `${JSON.stringify({ property: 'latency', nfrIds: [], executionEnvironment: 'verify', failureSemantics: 'advisory' })}\n`)
+  write(dir, '.gitignore', 'node_modules/\n.scratch/\n')
+  const reader = await import('./test-trace.mjs')
+  const policy = reader.readTracePolicy(dir)
+  const hash = reader.hashRef(dir, 'CALC-001', policy)
+  const surface = reader.hashRef(dir, 'surface:apps/calculator/binding-surface.md', policy)
+  write(dir, TEST_FILE, testFile(hash, surface))
+  fixtureGit(dir, ['init', '--quiet', '--initial-branch=work'])
+  fixtureGit(dir, ['add', '-A'])
+  fixtureGit(dir, ['commit', '--quiet', '-m', `The fixture (${TASK})`])
+  fixtureGit(dir, ['update-ref', `refs/remotes/${TRUNK}`, 'HEAD'])
+  const trace = await import('../tools/trace/trace.ts')
+  const emitted = trace.emit(dir)
+  if (!emitted.wrote) throw new Error(`fixture: the trace gate wrote no record: ${emitted.message}`)
+  trace.update(dir)
+  fixtureGit(dir, ['add', '-A'])
+  fixtureGit(dir, ['commit', '--quiet', '--amend', '--no-edit'])
+  const a = fixtureGit(dir, ['rev-parse', 'HEAD'])
+  fixtureGit(dir, ['update-ref', `refs/remotes/${TRUNK}`, a])
+  write(dir, 'NOTE.md', 'A note.\n')
+  fixtureGit(dir, ['add', '-A'])
+  fixtureGit(dir, ['commit', '--quiet', '-m', `A note (${TASK})`])
+  const b = fixtureGit(dir, ['rev-parse', 'HEAD'])
+  fixtureGit(dir, ['branch', 'main', b])
+  const checked = trace.check(dir)
+  if (checked.failures.length) throw new Error(`fixture: the trace gate refuses the fixture: ${checked.failures.join(' | ')}`)
+  return { dir, a, b, hash, surface }
+}
+
+/** A stub for `npm ci` that installs nothing and records what the clone's git says. */
+function stubInstall(seen, { status = 0 } = {}) {
+  return async (clone) => {
+    seen.push({ remotes: git(clone, ['remote']), trunk: git(clone, ['rev-parse', TRUNK]), head: git(clone, ['rev-parse', 'HEAD']) })
+    return { status, stdout: '', stderr: status ? 'the stub install failed on purpose' : '', ms: 0, command: 'stub install' }
+  }
+}
+
+const CHANGE = 'fixture-change'
+
+/** Each case: `doctor(dir, fx)` breaks one thing, `act(dir, ctx)` runs, and `expect` is a reason or a check. */
+function selftestCases() {
+  const refusedFor = (reason) => (outcome) => (outcome.refused && reason.test(outcome.refused) ? null : outcome.refused ? `refused, but not for that reason: ${outcome.refused}` : 'it ran, and should have refused')
+  const ran = (check) => (outcome) => (outcome.refused ? `refused: ${outcome.refused}` : check(outcome))
+  const byName = (run, name) => run.tests.find((t) => t.name === name)
+  return [
+    {
+      name: 'control: a clean checkout runs every test in a clone of HEAD, whose origin/main is the checkout\'s and whose origin remote is gone, and the clone is removed',
+      control: true,
+      expect: ran(({ run, seen, fx, leftovers }) => {
+        if (seen.length !== 1) return `the install ran ${seen.length} time(s)`
+        if (seen[0].remotes !== '') return `the clone kept the remote(s) ${seen[0].remotes}`
+        if (seen[0].trunk !== fx.a) return `the clone's ${TRUNK} is ${seen[0].trunk}, not the checkout's ${fx.a} (the local main is ${fx.b})`
+        if (seen[0].head !== fx.b || run.commit !== fx.b || run.base !== fx.a) return `the clone is of ${seen[0].head}, the run of ${run.commit} on ${run.base}`
+        const got = run.tests.map((t) => `${t.name}|${t.status}|${t.partition}|${t.layer}|${t.component}`).join(' ; ')
+        const want = [NEGATIVE, HAPPY, TASK_TEST].map((name) => `${name}|pass|regression|functional|calculator`).join(' ; ')
+        if (got !== want) return `the tests came back ${got}`
+        if (run.problems.length) return `problems: ${run.problems.join(' | ')}`
+        if (run.trace.error || run.trace.failures.length) return `the trace came back ${JSON.stringify(run.trace)}`
+        if (run.thresholds.status !== 0 || !/as the stub prints it/.test(run.thresholds.output)) return `the thresholds came back ${JSON.stringify(run.thresholds)}`
+        if (run.fitness.length !== 1 || run.fitness[0].environment !== 'verify') return `the fitness records came back ${JSON.stringify(run.fitness)}`
+        return leftovers.length ? `left ${leftovers.join(', ')} under the temporary root` : null
+      }),
+    },
+    {
+      name: 'a test citing one of --tasks moves from regression into the change\'s partition',
+      tasks: [TASK],
+      expect: ran(({ run }) => (byName(run, TASK_TEST)?.partition === 'change' && byName(run, HAPPY).partition === 'regression' ? null : `partitions: ${run.tests.map((t) => t.partition).join(', ')}`)),
+    },
+    {
+      name: 'a tree with a change no commit holds is refused',
+      doctor: (dir) => write(dir, 'untracked.txt', 'not committed\n'),
+      expect: refusedFor(/has changes no commit holds, so a clone of HEAD would verify other code: \?\? untracked\.txt/),
+    },
+    {
+      name: 'a temporary root inside a git repository is refused',
+      tmp: (dir) => join(dir, 'apps'),
+      expect: refusedFor(/^the temporary root .* is inside the git repository at /),
+    },
+    {
+      name: `a checkout with no ${TRUNK} is refused`,
+      doctor: (dir) => fixtureGit(dir, ['update-ref', '-d', `refs/remotes/${TRUNK}`]),
+      expect: refusedFor(/^origin\/main is not a ref at /),
+    },
+    {
+      name: 'an install that fails is refused, and the clone is still removed',
+      install: 1,
+      expect: (outcome) => refusedFor(/^`stub install` failed in the clone, so nothing ran there/)(outcome) ?? (outcome.leftovers.length ? `left ${outcome.leftovers.join(', ')}` : null),
+    },
+    {
+      name: 'a test the record does not list is a problem of the run, by its reason',
+      doctor: (dir, fx) => {
+        write(dir, TEST_FILE, `${testFile(fx.hash, fx.surface)}// trace: CALC-001:happy@${fx.hash}\ntest('[CALC-001] Two plus two, again', () => {})\n`)
+        fixtureGit(dir, ['commit', '--quiet', '-am', `A test the record lacks (${TASK})`])
+      },
+      expect: ran(({ run }) => (run.problems.some((p) => /"\[CALC-001\] Two plus two, again" ran under `calculator:test`, and the record does not list it/.test(p)) ? null : `problems: ${run.problems.join(' | ')}`)),
+    },
+    {
+      name: 'a failing test is recorded failing; --rerun runs it once more in a fresh clone and records a pass beside it, and refuses a second re-run',
+      flaky: true,
+      doctor: (dir, fx) => {
+        write(dir, TEST_FILE, testFile(fx.hash, fx.surface, ` if (!existsSync(process.env.${FLAKY_ENV})) { writeFileSync(process.env.${FLAKY_ENV}, ''); throw new Error('the first run fails') } `))
+        fixtureGit(dir, ['commit', '--quiet', '-am', `A flaky test (${TASK})`])
+      },
+      rerun: [NEGATIVE, NEGATIVE],
+      expect: (outcome) => {
+        if (!outcome.run) return `the run refused: ${outcome.refused}`
+        if (byName(outcome.run, NEGATIVE)?.status !== 'fail') return `the first run recorded ${byName(outcome.run, NEGATIVE)?.status}`
+        const first = outcome.reruns[0]
+        if (first.refused || first.test.rerun.status !== 'pass' || !first.test.rerun.command.includes('--name')) return `the re-run came back ${JSON.stringify(first)}`
+        const saved = readJson(join(outcome.dir, verifyFile(CHANGE)))
+        if (byName(saved, NEGATIVE).rerun?.status !== 'pass') return 'the re-run is not recorded in the JSON'
+        return /was run once more already \(pass\)/.test(outcome.reruns[1].refused ?? '') ? null : `a second re-run came back ${JSON.stringify(outcome.reruns[1])}`
+      },
+    },
+    {
+      name: '--rerun of a test that did not fail is refused',
+      rerun: [HAPPY],
+      expect: (outcome) => (/^"\[CALC-001\] Two plus two" did not fail in /.test(outcome.reruns?.[0]?.refused ?? '') ? null : `the re-run came back ${JSON.stringify(outcome.reruns)}`),
+    },
+    {
+      name: '--rerun after HEAD moved is refused',
+      rerun: [HAPPY],
+      after: (dir) => {
+        write(dir, 'NOTE.md', 'Another note.\n')
+        fixtureGit(dir, ['commit', '--quiet', '-am', `Another note (${TASK})`])
+      },
+      expect: (outcome) => (/is the run at \w+, and HEAD is \w+: a test is run again at the commit that failed it/.test(outcome.reruns?.[0]?.refused ?? '') ? null : `the re-run came back ${JSON.stringify(outcome.reruns)}`),
+    },
+  ]
+}
+
+async function attempt(fn) {
+  try {
+    return { value: await fn() }
+  } catch (error) {
+    if (error instanceof Refusal) return { refused: error.message }
+    throw error
+  }
+}
+
+async function selftest() {
+  const started = performance.now()
+  const base = realpathSync(mkdtempSync(join(tmpdir(), 'fresh-run-selftest-')))
+  const results = []
+  try {
+    const fx = await buildFixture(base)
+    let n = 0
+    for (const c of selftestCases()) {
+      const dir = join(base, `case-${n}`)
+      const tmp = join(base, `tmp-${n++}`)
+      mkdirSync(tmp)
+      cpSyncTree(fx.dir, dir)
+      if (c.doctor) c.doctor(dir, fx)
+      const seen = []
+      const install = stubInstall(seen, { status: c.install ?? 0 })
+      if (c.flaky) process.env[FLAKY_ENV] = join(tmp, 'flaky-marker')
+      const outcome = { seen, fx, dir }
+      try {
+        const first = await attempt(() => freshRun(dir, CHANGE, { tasks: c.tasks ?? [], tmp: c.tmp ? c.tmp(dir) : tmp, install }))
+        outcome.refused = first.refused
+        outcome.run = first.value?.run
+        if (c.after) c.after(dir)
+        if (c.rerun && outcome.run) {
+          outcome.reruns = []
+          for (const name of c.rerun) {
+            const again = await attempt(() => rerun(dir, CHANGE, name, { tmp, install }))
+            outcome.reruns.push(again.refused ? { refused: again.refused } : again.value)
+          }
+        }
+      } finally {
+        delete process.env[FLAKY_ENV]
+      }
+      outcome.leftovers = readdirList(tmp).filter((name) => name.startsWith('fresh-run-'))
+      let detail
+      try {
+        detail = c.expect(outcome)
+      } catch (error) {
+        detail = `threw: ${error.stack}`
+      }
+      results.push({ name: c.name, ok: detail === null, detail: detail ?? 'holds' })
+      if (c.control && detail !== null) {
+        console.error(`selftest: the undoctored fixture does not pass, so no case can be trusted: ${detail}`)
+        process.exitCode = 1
+        return
+      }
+    }
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+  const failed = results.filter((r) => !r.ok)
+  for (const { name, ok, detail } of results) console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${name} -- ${detail}`)
+  console.log(`fresh-run selftest: ${results.length - failed.length}/${results.length} cases hold (control plus ${results.length - 1} doctored), in ${((performance.now() - started) / 1000).toFixed(1)} s.`)
+  process.exitCode = failed.length ? 1 : 0
+}
+
+const readdirList = (dir) => (existsSync(dir) ? readdirSync(dir) : [])
+
+/** A copy of the fixture, its git directory included. */
+const cpSyncTree = (from, to) => cpSync(from, to, { recursive: true })
+
 if (process.argv[1] !== undefined && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const argv = process.argv.slice(2)
-  if (argv.includes('--selftest')) await (await import('./fresh-run.selftest.mjs')).selftest()
+  if (argv.includes('--selftest')) await selftest()
   else await main(argv)
 }
