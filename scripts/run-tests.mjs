@@ -25,7 +25,12 @@
  * runner reports for it, except the one named for the file's own path, which stands for the file
  * itself and is the only event a file with no test produces. A skipped or todo test counts, because
  * it is declared; a suite (`describe`) is not a test. A failure is any `test:fail` that is not a todo
- * test, which is the rule `node --test` exits by; a file that throws on load fails that way.
+ * test, which is the rule `node --test` exits by; a file that throws on load fails that way. A suite
+ * or test that fails only because a subtest failed is not counted again, and each failure is named
+ * by its file, line, name and the first line of its error: a run with no reporter, the coverage run
+ * `scripts/check-thresholds.mjs` makes, prints nothing else. On 2026-09-29 that run refused a pre-push
+ * with "2 test(s) failed; the report above names each one" over no report at all, where one failing
+ * test inside a suite counts two (asdlc-openspec-j09.10).
  *
  * WHAT IT COMPARES. For each matched file that reports a test, the tests the reader reads and the
  * tests the runner reports, each keyed by the line of its call, where the runner places even a call
@@ -51,7 +56,7 @@
  */
 import { globSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import { run } from 'node:test'
 import { spec } from 'node:test/reporters'
 import { fileURLToPath } from 'node:url'
@@ -101,7 +106,7 @@ export async function runTests(root, patterns, { report = null, coverage = null 
   const pathOf = (file) => realpathSync(resolve(root, file))
   const declared = new Map(files.map((file) => [pathOf(file), 0]))
   const reported = new Map(files.map((file) => [pathOf(file), []]))
-  let failed = 0
+  const failed = []
 
   // What the reader makes of each file, before any of it runs.
   let policy = null
@@ -134,7 +139,9 @@ export async function runTests(root, patterns, { report = null, coverage = null 
       if (event.type === 'test:coverage') summary = event.data.summary
       if (event.type !== 'test:pass' && event.type !== 'test:fail') continue
       const { name, file, line, details, todo } = event.data
-      if (event.type === 'test:fail' && (todo === undefined || todo === false)) failed++
+      if (event.type === 'test:fail' && (todo === undefined || todo === false) && details?.error?.failureType !== 'subtestsFailed') {
+        failed.push(failureOf(root, event.data))
+      }
       if (details?.type !== 'test' || name === file || !declared.has(file)) continue
       declared.set(file, declared.get(file) + 1)
       reported.get(file).push({ line, name })
@@ -147,7 +154,11 @@ export async function runTests(root, patterns, { report = null, coverage = null 
     await new Promise((done) => reporter.once('end', done).resume())
   }
 
-  if (failed > 0) failures.push(`${failed} test(s) failed; the report above names each one.`)
+  if (failed.length > 0) {
+    // Named here, since a run with no reporter, the coverage run among them, prints nothing above.
+    const where = reporter === null ? '' : '; the report above gives each full error'
+    failures.push(`${failed.length} test(s) failed: ${failed.join('; ')}${where}.`)
+  }
   for (const [path, count] of declared) {
     const file = files.find((f) => pathOf(f) === path)
     if (count > 0) {
@@ -201,6 +212,18 @@ function crossCheck(file, readHere, reportedHere) {
     }
   }
   return problems
+}
+
+/**
+ * One failed test as `<file>:<line> "<name>" (<first line of its error>)`, the file relative to
+ * `root`. The event named for the file's own path is the file failing as a whole, as one that
+ * throws on load does, and is named as the file alone.
+ */
+function failureOf(root, { name, file, line, details }) {
+  const path = file === undefined ? '(no file)' : relative(realpathSync(root), file)
+  const error = details?.error?.cause ?? details?.error
+  const message = String(error?.message ?? error ?? 'no error given').split('\n')[0].trim().slice(0, 200)
+  return name === file ? `${path} (${message})` : `${path}:${line} "${name}" (${message})`
 }
 
 /* --------------------------------------------------------------------------------- the run ------ */
@@ -346,12 +369,17 @@ function cases({ file, head, trace }) {
     {
       name: 'a failing test still fails the run',
       files: { 'test/b.test.js': file('GRT-003', "test('[GRT-003] three', () => { throw new Error('no') })") },
-      expect: /^1 test\(s\) failed/,
+      expect: /^1 test\(s\) failed: test\/b\.test\.js:4 "\[GRT-003\] three" \(no\)\.$/,
+    },
+    {
+      name: 'a failing test inside a suite counts once, by its own name',
+      files: { 'test/a.test.js': fixture().files['test/a.test.js'].replace('() => {})', "() => { throw new Error('no') })") },
+      expect: /^1 test\(s\) failed: test\/a\.test\.js:5 "\[GRT-001\] one" \(no\)\.$/,
     },
     {
       name: 'a file that throws on load fails the run',
       files: { 'test/b.test.js': "throw new Error('does not load')\n" },
-      expect: /^1 test\(s\) failed/,
+      expect: /^1 test\(s\) failed: test\/b\.test\.js \(/,
     },
     {
       name: 'a file whose only test is skipped still declares one, and passes',
