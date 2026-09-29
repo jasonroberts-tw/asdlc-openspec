@@ -14,11 +14,13 @@ export const meta = {
  *
  * WHAT IT DOES. Takes the scenario trace that this section of the change-verify skill asks for:
  * `.claude/skills/change-verify/SKILL.md` § 4. Every scenario is traced
- * One tracer per group of scenarios reads each scenario's proof, decides whether
- * it exercises what the scenario states, and runs it now; one agent per design lens holds the code to
- * its part of the change's design.md; and skeptics judge every gap. This script matches each
- * tracer's rows to its scenarios, decides each row's gap from its reading, tallies each vote and
- * computes every count, in code, never by an agent. It writes nothing: the session saves what it
+ * One tracer per group of scenarios reads the tests the traceability record gives each scenario and
+ * judges only whether they exercise what it states, running only a gate or check the fresh run does
+ * not cover; one agent per design lens holds the code to its part of the change's design.md; and
+ * skeptics judge every gap. This script matches each tracer's rows to its scenarios, takes each
+ * row's result from the fresh run of `scripts/fresh-run.mjs`, decides each row's gap from its
+ * reading, tallies each vote and computes every count, in code, never by an agent (the maintainer's
+ * choice 4 in asdlc-openspec-j09.14's notes). It writes nothing: the session saves what it
  * returns to `.scratch/<change>-trace.json`, and `scripts/render-trace.mjs` writes the trace from it.
  * That section defines a gap and a finding below one, and every agent here is sent to read it.
  *
@@ -41,6 +43,8 @@ export const meta = {
  *   worktree   the worktree's absolute path, as `git rev-parse --show-toplevel` prints it there
  *   branch     the worktree's branch, as `git branch --show-current` prints it
  *   commit     the commit traced, as `git rev-parse HEAD` prints it; the trace's first line names it
+ *   run        the fresh run at that commit, `.scratch/<change>-verify.json` as `scripts/fresh-run.mjs`
+ *              writes it, its failing tests run once more; one of another commit is refused
  *   scenarios  how many `#### Scenario:` lines the delta specs hold, the sum of what
  *              `git grep -c "^#### Scenario:" -- openspec/changes/<change>/specs` prints
  *   groups     [{ key, capability, scenarios, files, focus, kept }], one tracer each:
@@ -85,12 +89,19 @@ export const meta = {
  *   session to run again. A kept row's reading, its proofKind, proof and exercises, is the one `args`
  *   gives, and so is its `readAt`; its result is the one run now.
  *
- *   A row's gap, from its reading, in this order: no proof, or a manual proof that names no issue of
- *   `args.manual`, is `no-proof`; a proof that does not exercise the scenario, `not-exercised`; one
- *   that failed, `fails`; a test, gate or check whose result is not `pass`, or a manual proof whose
- *   result is not `recorded`, `not-run`. The last two are measured: no skeptic judges them, and they
- *   stay gaps, since a test that fails and then passes counts as failing (`docs/decisions.md` § D-13,
- *   item 12). A design lens reports its gaps itself, each `design`, and is `died`, `stale` or `read`.
+ *   A row's result. A test proves a scenario only when the record gives it that scenario's ID: any
+ *   other a tracer names is dropped, and its notes say so. The result is the fresh run's: `fail` when
+ *   one of its tests failed, or failed and then passed its one re-run, which counts as failing
+ *   (`docs/decisions.md` § D-13, item 12); `pass` when all passed; `not-run` otherwise, a test the run
+ *   did not hold included. Only a row with no test takes its tracer's result, of the gate or check
+ *   it ran.
+ *
+ *   A row's gap, from its reading, in this order: no proof, a manual proof that names no issue of
+ *   `args.manual`, or no test and no gate or check that ran, is `no-proof`; a proof that does not
+ *   exercise the scenario, `not-exercised`; one that failed, `fails`; one whose result is not `pass`,
+ *   or a manual proof whose result is not `recorded`, `not-run`. `fails` and `not-run` are measured,
+ *   and so is `no-proof` for a scenario the record gives no test: no skeptic judges them, and they
+ *   stay gaps. A design lens reports its gaps itself, each `design`, and is `died`, `stale` or `read`.
  *
  *   The tally. Each gap that is not measured goes to `verifyTraceSkeptics` skeptics, who answer
  *   upheld, refuted or unverified. With n sent, floor(n/2)+1 upheld upholds it and as many refuted
@@ -103,7 +114,8 @@ export const meta = {
  *
  * WHAT IT RETURNS. { change, commit, branch, previous, stopped, why, rows, gaps, below, design,
  * manual, groups, counts }, the contract `scripts/lib/trace.mjs` reads. Each row carries its group,
- * capability, requirement, scenario, reading, result, notes, `readAt`, `kept` and `gap`, its kind
+ * capability, requirement, scenario, reading with its `tests`, result, `measured` (each test's status
+ * in the fresh run), `checked` (a gate or check its tracer ran), notes, `readAt`, `kept` and `gap`, its kind
  * and outcome (`upheld`, `refuted`, `unverified` or `measured`) or null, and `traced`, the tracer's
  * own reading, where skeptics corrected it; `rows` is in the order of `args.groups`. `stopped` is one
  * of:
@@ -116,13 +128,12 @@ export const meta = {
  *   no-gap      every scenario traced and every lens read, and each gap reported was refuted
  *
  * EXTENDING IT. `docs/decisions.md` § D-13 makes `.claude/skills/change-verify/SKILL.md` the home of
- * Verify's rules, in its item 17, and asdlc-openspec-j09.14 is the issue that lands them, adding the
- * verification report on top of this script and its renderers. Two more of that entry's items change
- * what this script does once their own pull requests land, and not before: item 7 retires the manual
- * proof, which `args.manual` and the `manual` proof kind carry until asdlc-openspec-9j8 lands, and
- * item 12 has the session run a failing test once more, which this script leaves to the session. A
- * field added to the result is read by `scripts/lib/trace.mjs`, and the selftest runs the renderers
- * on this script's result, so a change on either side shows there.
+ * Verify's rules, in its item 17, and asdlc-openspec-j09.14 landed them: the fresh run, the re-run of
+ * a failing test (item 12) and the verification report, `scripts/lib/verify-report.mjs`. Since then
+ * the skill passes no `args.manual`, as item 7 has it, so a manual proof is a `no-proof` gap; the
+ * `manual` proof kind goes with asdlc-openspec-9j8, which carries the one scenario a manual proof
+ * stood for. A field added to the result is read by `scripts/lib/trace.mjs`, and the selftest runs
+ * the renderers on this script's result, so a change on either side shows there.
  *
  * LABELS. Each tracer is labelled `trace <key>`, each design lens `design <key>`, and each skeptic
  * `skeptic <i>/<n> <key>: <title>`. scripts/workflows.selftest.mjs routes its stubbed agents by them:
@@ -130,7 +141,7 @@ export const meta = {
  *
  * NEEDS a change worktree with node, git and `bd` (the tracers read a manual proof with `bd show`,
  * which writes nothing), and the Workflow tool. Nothing here reads a file: the session passes the
- * policy as `args.policy`. `npm run workflows:selftest` runs this script against stubbed agents.
+ * policy as `args.policy` and the fresh run as `args.run`. `npm run workflows:selftest` runs this script against stubbed agents.
  */
 
 const A = args || {}
@@ -140,6 +151,8 @@ const RESULTS = ['pass', 'fail', 'not-run', 'recorded']
 const OUTCOMES = ['upheld', 'refuted', 'unverified']
 /** The gaps a proof's run measured, which no skeptic's vote clears. */
 const MEASURED = ['fails', 'not-run']
+/** Whether a gap is measured: a proof's run, or a scenario the record gives no test that no gate or check proves. */
+const isMeasured = (gap) => MEASURED.includes(gap.kind) || gap.byRecord === true
 /** The design readings a run again may keep: read, or kept by the run before it. */
 const KEEPABLE = ['read', 'kept']
 const POLICY_KEYS = ['verifyTraceMaxScenarios', 'verifyTraceDesignLenses', 'verifyTraceSkeptics']
@@ -149,6 +162,8 @@ const COMMIT = /^[0-9a-f]{7,40}$/
 const WHY = {
   'no-proof': 'no proof',
   'no-record': 'it names no manual proof the plan recorded',
+  'no-test': 'it names no test the record gives the scenario, and no gate or check that ran',
+  'no-record-test': 'the record gives it no test, and no gate or check proves it',
   'not-exercised': 'the proof does not exercise what the scenario states',
   fails: 'the proof fails',
   'not-run': 'the proof did not pass when run now',
@@ -165,6 +180,13 @@ const BELOW = {
   },
 }
 
+const TESTS = {
+  type: 'array',
+  items: { type: 'object', properties: { file: { type: 'string' }, name: { type: 'string' } }, required: ['file', 'name'] },
+}
+
+// `tests` are the record's tests that exercise the scenario, whose result code reads from the fresh
+// run; `result` is given only for a gate or check the fresh run does not cover, which the tracer ran.
 const TRACE_SCHEMA = {
   type: 'object',
   properties: {
@@ -178,11 +200,12 @@ const TRACE_SCHEMA = {
           scenario: { type: 'string' },
           proofKind: { type: 'string', enum: PROOF_KINDS },
           proof: { type: 'string' },
+          tests: TESTS,
           exercises: { type: 'boolean' },
           result: { type: 'string', enum: RESULTS },
           notes: { type: 'string' },
         },
-        required: ['requirement', 'scenario', 'proofKind', 'proof', 'exercises', 'result', 'notes'],
+        required: ['requirement', 'scenario', 'proofKind', 'proof', 'tests', 'exercises', 'notes'],
       },
     },
     below: BELOW,
@@ -219,6 +242,7 @@ const VERDICT_SCHEMA = {
     reason: { type: 'string' },
     proofKind: { type: 'string', enum: PROOF_KINDS },
     proof: { type: 'string' },
+    tests: TESTS,
     exercises: { type: 'boolean' },
   },
   required: ['verdict', 'reason'],
@@ -278,6 +302,7 @@ function keptProblem(g, own) {
       return `${where} must carry the reading it keeps: proofKind, proof and exercises, as the earlier result gives them`
     }
     if (r.readAt !== undefined && !isCommit(r.readAt)) return `${where}: readAt must be the commit its reading was taken at, as the earlier result gives it`
+    if (r.tests !== undefined && (!Array.isArray(r.tests) || r.tests.some((t) => !isPlainObject(t) || !isText(t.file) || !isText(t.name)))) return `${where}: tests must be the { file, name } of each test the earlier result gives it`
   }
   return null
 }
@@ -364,6 +389,9 @@ function argsProblem() {
   if (badPolicy) return badPolicy
   for (const key of ['change', 'worktree', 'branch']) if (!isText(A[key])) return `args.${key} must be a non-empty string`
   if (!isText(A.commit) || !COMMIT.test(A.commit.trim())) return 'args.commit must be the commit traced, as `git rev-parse HEAD` prints it'
+  const r = A.run
+  if (!isPlainObject(r) || !Array.isArray(r.tests) || !Array.isArray(r.specs)) return 'args.run must be the fresh run, `.scratch/<change>-verify.json` as scripts/fresh-run.mjs writes it'
+  if (!sameCommit(r.commit, A.commit)) return `args.run is the fresh run at ${String(r.commit).trim() || 'no commit'}, not ${A.commit.trim()}: run \`npm run tests:fresh\` at the commit traced`
   if (!isWhole(A.scenarios)) return 'args.scenarios must be how many `#### Scenario:` lines the delta specs hold'
   if (typeof A.design !== 'boolean') return 'args.design must say whether openspec/changes/<change>/design.md exists'
   if (A.previous !== undefined) {
@@ -419,7 +447,14 @@ function manualBlock() {
 function keptBlock(g) {
   if (!g.kept || !g.kept.length) return ''
   const list = g.kept.map((r) => `- ${r.requirement.trim()} / ${r.scenario.trim()}: ${r.proofKind}, ${r.proof}`).join('\n')
-  return `\n\n## Kept from the trace at ${A.previous.commit.trim()}\n\nThese keep their reading, under "Running again" in that section: skip step 2 for them, and run each proof below as step 3 says.\n\n${list}`
+  return `\n\n## Kept from the trace at ${A.previous.commit.trim()}\n\nThese keep their reading, under "Running again" in that section: return their rows, and read none again; code takes each result from the fresh run.\n\n${list}`
+}
+
+/** A scenario's line in its tracer's prompt, with the tests the record gives it. */
+function scenarioLine(s) {
+  const tests = recordTests(s.scenario)
+  const given = tests === null ? 'the record lists no ID for it; find its tests yourself' : tests.length ? tests.map((t) => `${t.file}: ${t.name} (${t.role})`).join('; ') : 'the record gives it no test'
+  return `- ${s.requirement.trim()} / ${s.scenario.trim()}\n  tests: ${given}`
 }
 
 function tracePrompt(g) {
@@ -430,15 +465,15 @@ function tracePrompt(g) {
     '',
     `## Your group: ${g.key}`,
     '',
-    `The capability ${g.capability.trim()}, in openspec/changes/${A.change}/specs/${g.capability.trim()}/spec.md. Its scenarios, each as requirement / scenario:`,
+    `The capability ${g.capability.trim()}, in openspec/changes/${A.change}/specs/${g.capability.trim()}/spec.md. Its scenarios, each as requirement / scenario, with the tests the traceability record gives it:`,
     '',
-    g.scenarios.map((s) => `- ${s.requirement.trim()} / ${s.scenario.trim()}`).join('\n') + files,
+    g.scenarios.map(scenarioLine).join('\n') + files,
     '',
     '## For each scenario',
     '',
-    '1. Find its proof: the test, gate or check that exercises it (proofKind test), a manual proof below (manual), both (test+manual), or none.',
-    "2. Read the proof line by line: exercises is true only when it drives the scenario's WHEN and asserts every THEN and AND, with the values the spec writes out. Never trust a test's name. When it is false, say why in notes.",
-    '3. Run it now, each run its own call, and read that it ran and passed: result pass or fail, not-run when it could not run, recorded for a manual proof. You may run a whole file once and read each result from its output; say so in notes.',
+    'A fresh clone has run every test, and code reads each result from that run. You judge only whether its tests exercise it.',
+    "1. Read each test given line by line: it exercises the scenario only when it drives the WHEN and asserts every THEN and AND, with the values the spec writes out. Never trust a test's name. Return in tests those that do, with proofKind test and exercises true when together they do; say why not in notes.",
+    '2. Where the record gives no test, name the gate or check that proves it, run it as its own call, and give its result: pass, fail or not-run. Or proofKind none. A manual proof counts only as one below.',
     '',
     'Return one row per scenario above, its requirement and scenario verbatim, and head as `git rev-parse HEAD` prints it. Report each finding below a gap under below.' +
       keptBlock(g) +
@@ -469,7 +504,7 @@ function skepticPrompt(g, i, n) {
     `You are skeptic ${i} of ${n} on one gap. Judge it against the delta specs, the design and the manual proofs below, and nothing else. Read the files it names and, where it helps, run the proof it names.`,
     '',
     '- upheld: you checked it, and it holds, as the kind it claims.',
-    '- refuted: you checked it, and it is wrong: a proof does exercise the scenario, the code does follow the decision, or it is not a gap as that section defines one. Refuting a scenario\'s gap, also return the reading you established, proofKind, proof and exercises, as a tracer gives them: without a proof that exercises the scenario, a refutation clears nothing.',
+    '- refuted: you checked it, and it is wrong: a proof does exercise the scenario, the code does follow the decision, or it is not a gap as that section defines one. Refuting a scenario\'s gap, also return the reading you established, proofKind, proof, tests and exercises, as a tracer gives them: without a proof that exercises the scenario, a refutation clears nothing.',
     '- unverified: you could not establish either. Say what stopped you. Never answer refuted because you could not verify it.',
     '',
     manualBlock() + settledBlock(),
@@ -489,6 +524,39 @@ function skepticPrompt(g, i, n) {
 /** The issue ids a proof names, as whole words. */
 const idsIn = (text) => (String(text).match(/[A-Za-z0-9][A-Za-z0-9._-]*/g) || []).map((w) => w.replace(/[.]+$/, ''))
 
+const testKey = (t) => `${String(t.file).trim()}\u0000${String(t.name).trim()}`
+/** The fresh run's tests by file and name, built once the arguments hold. */
+let ran = new Map()
+/** A test's status in the fresh run: a fail and then a pass on its one re-run is `flaky`, which counts as failing. */
+const runStatus = (t) => (t.status === 'fail' ? (t.rerun && t.rerun.status === 'pass' ? 'flaky' : 'fail') : t.status)
+
+/** The tests the record gives a scenario's ID, or null for a scenario whose header names no ID the record lists. */
+function recordTests(scenario) {
+  const id = splitId(scenario).id
+  const spec = id ? A.run.specs.find((x) => x.id === id) : null
+  if (!spec || !isPlainObject(spec.tests)) return null
+  const t = spec.tests
+  return [...(t.happy || []).map((x) => ({ ...x, role: 'happy' })), ...(t.negative || []).map((x) => ({ ...x, role: 'negative' })), ...(t.cite || []).map((x) => ({ ...x, role: 'cites' }))]
+}
+
+/**
+ * A reading's result, measured in code: the fresh run's statuses of its tests, `fail` when one
+ * failed or is flaky, `pass` when all passed and `not-run` otherwise; for a reading with no test, the
+ * result of the gate or check its tracer ran, `own`.
+ */
+function measure(reading, own) {
+  const tests = reading.tests || []
+  if (reading.proofKind === 'none') return { result: 'not-run', measured: [] }
+  if (!tests.length) return { result: own || 'not-run', measured: [] }
+  const measured = tests.map((t) => {
+    const found = ran.get(testKey(t))
+    return { file: t.file, name: t.name, status: found ? runStatus(found) : 'not in the run' }
+  })
+  const statuses = measured.map((m) => m.status)
+  const result = statuses.some((s) => s === 'fail' || s === 'flaky') ? 'fail' : statuses.every((s) => s === 'pass') ? 'pass' : 'not-run'
+  return { result, measured }
+}
+
 /** A row's gap, as the header orders the kinds, or null. */
 function gapOf(row) {
   if (row.proofKind === 'none') return { kind: 'no-proof', why: WHY['no-proof'] }
@@ -496,6 +564,7 @@ function gapOf(row) {
     const recorded = (A.manual || []).map((m) => m.issue.trim())
     if (!idsIn(row.proof).some((id) => recorded.includes(id))) return { kind: 'no-proof', why: WHY['no-record'] }
   }
+  if (row.proofKind !== 'manual' && !(row.tests || []).length && !row.checked) return { kind: 'no-proof', why: WHY['no-test'] }
   if (!row.exercises) return { kind: 'not-exercised', why: WHY['not-exercised'] }
   if (row.result === 'fail') return { kind: 'fails', why: WHY.fails }
   const passed = row.proofKind === 'manual' ? row.result === 'recorded' : row.result === 'pass'
@@ -545,23 +614,36 @@ function judgeTrace(g, out) {
   for (const [key, s] of own) {
     const r = byKey.get(key)
     const k = kept.get(key)
-    const reading = k ? { proofKind: k.proofKind, proof: k.proof, exercises: k.exercises } : { proofKind: r.proofKind, proof: r.proof, exercises: r.exercises }
+    const from = k || r
+    // Only a test the record gives the scenario proves it: one citing another ID is dropped, and said so.
+    const allowed = recordTests(s.scenario)
+    const named = Array.isArray(from.tests) ? from.tests : []
+    const tests = allowed ? named.filter((t) => allowed.some((a) => testKey(a) === testKey(t))) : named
+    const dropped = named.filter((t) => !tests.includes(t))
+    const reading = { proofKind: from.proofKind, proof: from.proof, exercises: from.exercises, tests: tests.map((t) => ({ file: t.file, name: t.name })) }
+    const checked = !tests.length && reading.proofKind !== 'manual' && RESULTS.includes(r.result)
+    const { result, measured } = measure(reading, r.result)
+    const note = dropped.length ? ` [dropped in code, as tests the record does not give this scenario: ${dropped.map((t) => `${t.file}: ${t.name}`).join('; ')}]` : ''
     const row = {
       group: g.key,
       capability: g.capability.trim(),
       requirement: s.requirement.trim(),
       scenario: s.scenario.trim(),
       ...reading,
-      result: r.result,
-      notes: r.notes,
+      result,
+      measured,
+      checked,
+      notes: r.notes + note,
       readAt: k ? (k.readAt || A.previous.commit).trim() : A.commit.trim(),
       kept: Boolean(k),
       gap: null,
     }
     const gap = gapOf(row)
     if (gap) {
-      gaps.push(gapEntry(row, gap))
-      row.gap = { kind: gap.kind, outcome: null }
+      // A scenario the record gives no test, and no gate or check proves, has no proof as measured.
+      const byRecord = gap.kind === 'no-proof' && allowed !== null && allowed.length === 0
+      gaps.push({ ...gapEntry(row, gap), byRecord })
+      row.gap = { kind: gap.kind, outcome: null, byRecord }
     }
     rows.push(row)
   }
@@ -586,7 +668,7 @@ function tally(votes) {
   const refuted = cast.filter((v) => v.verdict === 'refuted').length
   const outcome = upheld >= majority ? 'upheld' : refuted >= majority ? 'refuted' : 'unverified'
   const proving = cast.find((v) => v.verdict === 'refuted' && PROOF_KINDS.includes(v.proofKind) && v.proofKind !== 'none' && isText(v.proof) && v.exercises === true)
-  const reading = proving ? { proofKind: proving.proofKind, proof: proving.proof.trim(), exercises: true } : null
+  const reading = proving ? { proofKind: proving.proofKind, proof: proving.proof.trim(), exercises: true, ...(Array.isArray(proving.tests) && proving.tests.length ? { tests: proving.tests } : {}) } : null
   return { outcome, skeptics: n, upheld, refuted, votes: cast.map((v) => `${v.verdict}: ${v.reason}`), reading }
 }
 
@@ -617,7 +699,13 @@ function settle(r, judged) {
   const stands = (why) => ({ row: { ...r, gap: { kind: entry.kind, outcome: 'unverified' } }, gaps: [{ ...entry, outcome: 'unverified', votes: [...entry.votes, why] }] })
   if (entry.outcome !== 'refuted') return { row: { ...r, gap: { kind: entry.kind, outcome: entry.outcome } }, gaps: [entry] }
   if (!reading) return stands('a majority refuted it, but no refuting skeptic gave a reading whose proof exercises the scenario, so it stands unverified')
-  const corrected = { ...r, ...reading, traced: { proofKind: r.proofKind, proof: r.proof, exercises: r.exercises } }
+  let corrected = { ...r, ...reading, traced: { proofKind: r.proofKind, proof: r.proof, exercises: r.exercises } }
+  if (reading.tests) {
+    // The skeptic's tests prove it only where the record gives them the scenario, and their result is the fresh run's.
+    const allowed = recordTests(r.scenario)
+    const tests = reading.tests.filter((t) => !allowed || allowed.some((a) => testKey(a) === testKey(t))).map((t) => ({ file: t.file, name: t.name }))
+    corrected = { ...corrected, tests, checked: false, ...measure({ ...corrected, tests }, undefined) }
+  }
   const again = gapOf(corrected)
   if (!again) return { row: { ...corrected, gap: { kind: entry.kind, outcome: 'refuted' } }, gaps: [entry] }
   if (!MEASURED.includes(again.kind)) return stands(`a majority refuted it, but the reading a skeptic gave still has a gap: ${again.why}`)
@@ -627,15 +715,15 @@ function settle(r, judged) {
 /** A traced group with its gaps settled: measured ones kept, the rest judged, each row carrying its outcome. */
 async function confirmGroup(t) {
   if (t.status !== 'traced') return t
-  const judged = await confirm(t.gaps.filter((g) => !MEASURED.includes(g.kind)))
+  const judged = await confirm(t.gaps.filter((g) => !isMeasured(g)))
   const byScenario = new Map(judged.map((g) => [scenarioKey(g.capability, g.requirement, g.scenario), g]))
   const rows = []
   const gaps = []
   for (const r of t.rows) {
     if (!r.gap) rows.push(r)
-    else if (MEASURED.includes(r.gap.kind)) {
+    else if (isMeasured(r.gap)) {
       rows.push({ ...r, gap: { kind: r.gap.kind, outcome: 'measured' } })
-      gaps.push(measuredEntry(gapEntry(r, { kind: r.gap.kind, why: WHY[r.gap.kind] })))
+      gaps.push(measuredEntry(gapEntry(r, { kind: r.gap.kind, why: r.gap.byRecord ? WHY['no-record-test'] : WHY[r.gap.kind] })))
     } else {
       const settled = settle(r, byScenario.get(scenarioKey(r.capability, r.requirement, r.scenario)))
       rows.push(settled.row)
@@ -718,6 +806,7 @@ if (badArgs) {
   return { change: A.change || null, commit: null, branch: null, previous: null, stopped: 'refused', why: badArgs, rows: [], gaps: [], below: [], design: null, manual: [], groups: [], counts: null }
 }
 
+ran = new Map(A.run.tests.map((t) => [testKey(t), t]))
 phase('Trace')
 log(`${A.change} at ${A.commit.trim()}: ${A.scenarios} scenario(s) in ${A.groups.length} group(s), ${(A.lenses || []).length} design lens(es) to run`)
 const traced = await pipeline(
