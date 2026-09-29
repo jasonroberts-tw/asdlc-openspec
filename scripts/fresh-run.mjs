@@ -29,9 +29,11 @@
  *      HEAD, `git remote remove origin`, and `refs/remotes/origin/main` set to the root's
  *      `origin/main`; then `npm ci --no-audit --no-fund`.
  *   3. Every package script that runs `scripts/run-tests.mjs` and neither `--selftest` nor `--name`,
- *      in code-point order, each with `--results`: the calculator's tests and the test-builder's
- *      contract, fitness and E2E tests, so a fitness function deferred to Verify runs as the test
- *      that measures it. Then `check()` of `tools/trace/trace.ts` in a child, and
+ *      in code-point order, each with `--results`, read from the clone's `package.json` rather than
+ *      named here: today `calculator:test`, the test-builder's `build/` stage
+ *      (`calculator:test:independent`) and its `verify/` stage (`calculator:test:verify`), which no
+ *      job runs and which holds the E2E tests and the fitness functions deferred to Verify, so this
+ *      run is where they run. Then `check()` of `tools/trace/trace.ts` in a child, and
  *      `thresholds:commands:check` where `package.json` has it, its output kept as the gate prints it.
  *   4. Reads the clone's committed record, `artifacts/trace/record.json`, and its baseline, and the
  *      fitness records under `apps/<app>/fitness/`; joins each result to the record's test of the
@@ -423,6 +425,8 @@ const COPIED = [
 ]
 const TASK = 'asdlc-openspec-fx.1'
 const TEST_FILE = 'apps/calculator/test/a.test.js'
+/** The test-builder's Verify stage, which only this run runs. */
+const VERIFY_DIR = 'apps/calculator/test/independent/verify'
 const HAPPY = '[CALC-001] Two plus two'
 const NEGATIVE = '[CALC-001] Two plus three is not four'
 const TASK_TEST = `[${TASK}] A task of the change`
@@ -484,7 +488,12 @@ async function buildFixture(base) {
   const dir = join(base, 'fixture')
   mkdirSync(dir)
   for (const file of COPIED) write(dir, file, readFileSync(join(REPO_ROOT, file), 'utf8'))
-  write(dir, 'package.json', `${JSON.stringify({ type: 'module', scripts: { 'calculator:test': `node ${RUNNER} "apps/calculator/test/*.test.js"`, [COMMANDS_CHECK]: 'node stub/commands.mjs' } }, null, 2)}\n`)
+  const scripts = {
+    'calculator:test': `node ${RUNNER} "apps/calculator/test/*.test.js"`,
+    'calculator:test:verify': `node ${RUNNER} --dir ${VERIFY_DIR}`,
+    [COMMANDS_CHECK]: 'node stub/commands.mjs',
+  }
+  write(dir, 'package.json', `${JSON.stringify({ type: 'module', scripts }, null, 2)}\n`)
   write(dir, 'stub/commands.mjs', "console.log('thresholds:commands:check: every threshold holds, as the stub prints it.')\n")
   write(dir, 'openspec/specs/calculator/spec.md', SPEC)
   write(dir, 'apps/calculator/binding-surface.md', '# The binding surface\n')
@@ -495,6 +504,7 @@ async function buildFixture(base) {
   const hash = reader.hashRef(dir, 'CALC-001', policy)
   const surface = reader.hashRef(dir, 'surface:apps/calculator/binding-surface.md', policy)
   write(dir, TEST_FILE, testFile(hash, surface))
+  write(dir, `${VERIFY_DIR}/e2e/journey.test.js`, ["import { test } from 'node:test'", '// trace-defaults: layer=e2e level=1', `// trace: CALC-001:happy@${hash}`, `test('${HAPPY}', () => {})`, ''].join('\n'))
   fixtureGit(dir, ['init', '--quiet', '--initial-branch=work'])
   fixtureGit(dir, ['add', '-A'])
   fixtureGit(dir, ['commit', '--quiet', '-m', `The fixture (${TASK})`])
@@ -542,8 +552,11 @@ function selftestCases() {
         if (seen[0].remotes !== '') return `the clone kept the remote(s) ${seen[0].remotes}`
         if (seen[0].trunk !== fx.a) return `the clone's ${TRUNK} is ${seen[0].trunk}, not the checkout's ${fx.a} (the local main is ${fx.b})`
         if (seen[0].head !== fx.b || run.commit !== fx.b || run.base !== fx.a) return `the clone is of ${seen[0].head}, the run of ${run.commit} on ${run.base}`
-        const got = run.tests.map((t) => `${t.name}|${t.status}|${t.partition}|${t.layer}|${t.component}`).join(' ; ')
-        const want = [NEGATIVE, HAPPY, TASK_TEST].map((name) => `${name}|pass|regression|functional|calculator`).join(' ; ')
+        const got = run.tests.map((t) => `${t.name}|${t.status}|${t.partition}|${t.layer}|${t.component}|${t.script}`).join(' ; ')
+        const want = [
+          ...[NEGATIVE, HAPPY, TASK_TEST].map((name) => `${name}|pass|regression|functional|calculator|calculator:test`),
+          `${HAPPY}|pass|regression|e2e|calculator|calculator:test:verify`,
+        ].join(' ; ')
         if (got !== want) return `the tests came back ${got}`
         if (run.problems.length) return `problems: ${run.problems.join(' | ')}`
         if (run.trace.error || run.trace.failures.length) return `the trace came back ${JSON.stringify(run.trace)}`
