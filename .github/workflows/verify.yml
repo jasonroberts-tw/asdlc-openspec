@@ -143,7 +143,8 @@ jobs:
       # Last, as the slowest: minutes when a Command's code or tests changed, and under a second
       # otherwise. StrykerJS's command runner, one mutant at a time, over each changed Command. It is
       # no pre-push job, the maintainer's recorded exception to the gate ladder, for the cost the
-      # header of scripts/check-thresholds.mjs gives; change-verify runs it too.
+      # header of scripts/check-thresholds.mjs gives; change-verify is to run it too
+      # (asdlc-openspec-j09.14).
       - name: the changed Commands' mutants are detected, to the policy's threshold
         run: npm run thresholds:commands:check
       #
