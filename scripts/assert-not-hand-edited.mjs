@@ -62,7 +62,9 @@ const VERIFIERS = [
   // left with the loop (`docs/decisions.md` § D-06). `artifacts/trace/` has none on purpose: its
   // `trace:check` also refuses a scenario still owed a test, which a commit midway through a
   // change's build may hold, so a row here would refuse that commit. It is reported unverified
-  // here, and `trace:check` holds it at push and in CI.
+  // here, and `trace:check` holds it at push and in CI. `artifacts/thresholds/` has none either:
+  // `thresholds:check` runs the suite and StrykerJS, seconds to tens of seconds a commit should not
+  // wait on, and holds the baseline at push and in CI.
 ]
 
 /**

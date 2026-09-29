@@ -160,6 +160,12 @@ const REDIRECTS = [
     where: 'the test that meets an obligation it lists; nothing adds one',
     command: 'npm run trace:update',
   },
+  {
+    owns: (rel) => rel === 'artifacts/thresholds/baseline.json',
+    what: 'ratchet baseline of undetected mutants (scripts/check-thresholds.mjs), which may fall and never rise',
+    where: 'the test that detects a mutant it lists, or a `Stryker disable next-line` comment with its reason; nothing adds one',
+    command: 'npm run thresholds:update',
+  },
 ]
 
 /** `null` when nothing generates this path, otherwise the message to hand back. */
