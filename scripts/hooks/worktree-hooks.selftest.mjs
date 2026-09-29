@@ -537,11 +537,16 @@ git(gcPrimary, 'config', '--local', 'branch.agent/ghost.merge', 'refs/heads/agen
 /**
  * The script's own output, run against the scratch repo. `liveness` sets `WORKTREE_GC_LIVENESS`;
  * unset here, so a value in the caller's environment cannot choose the check for the default run.
+ * `mergedPrs` sets `WORKTREE_GC_MERGED_PRS`, `none` unless a case says otherwise, so no run reaches
+ * GitHub; `null` leaves it unset, for the cases that put a stub `gh` first on `path`.
  */
-function runGcWith({ script = GC, liveness = undefined }, ...extra) {
+function runGcWith({ script = GC, liveness = undefined, mergedPrs = 'none', path = undefined }, ...extra) {
   const env = { ...GIT_ENV }
   delete env.WORKTREE_GC_LIVENESS
+  delete env.WORKTREE_GC_MERGED_PRS
   if (liveness !== undefined) env.WORKTREE_GC_LIVENESS = liveness
+  if (mergedPrs !== null) env.WORKTREE_GC_MERGED_PRS = mergedPrs
+  if (path !== undefined) env.PATH = path
   try {
     return execFileSync('node', [script, '--repo', gcPrimary, ...extra], {
       env,
@@ -781,6 +786,185 @@ check(
     blind.includes(`.claude/worktrees/idle  agent/idle  (clean, HEAD idle ${(MIN_AGE * 2).toFixed(1)}h`),
   blind.slice(0, 1500),
 )
+
+/* --------------------------------------------------------------------------------------------- *
+ * prune-worktree-branches: containment after a rebase merge (asdlc-openspec-dxf).
+ *
+ * A rebase merge replays a branch's commits onto a trunk that has moved, and `git cherry`'s patch-id
+ * hashes the diff's context lines, so a commit whose neighbouring line changed on the trunk in
+ * between reads as unmerged. Two proofs follow the ancestor proof: GitHub's record of a pull request
+ * merged into the trunk's branch whose head is the branch's tip, read through `gh` -- a stub first on
+ * PATH here, so no case reaches GitHub -- and, where that proves nothing, a patch-id of the changed
+ * lines alone. Each positive has a negative beside it that differs in the one thing its proof reads.
+ * A scratch repository of its own holds only these branches, since every run of the sweep walks
+ * every worktree and branch there, and the one above has many by now.
+ * --------------------------------------------------------------------------------------------- */
+console.log('prune-worktree-branches: containment after a rebase merge')
+const rmPrimary = join(mkdtempSync(join(tmpdir(), 'wt-gc-rebase-')), 'primary')
+execFileSync('git', ['init', '-q', '-b', 'main', rmPrimary], { env: GIT_ENV, encoding: 'utf8' })
+const onTrunk = (file, text, msg) => {
+  writeFileSync(join(rmPrimary, file), text)
+  git(rmPrimary, 'add', file)
+  git(rmPrimary, ...AS, 'commit', '-qm', msg)
+  return git(rmPrimary, 'rev-parse', 'HEAD').trim()
+}
+/** `agent/<name>` cut from the trunk with one commit per `[file, text, msg]`; each commit's SHA. */
+const branchWith = (name, ...commits) => {
+  git(rmPrimary, 'checkout', '-q', '-b', name, 'main')
+  const shas = commits.map(([file, text, msg]) => onTrunk(file, text, msg))
+  git(rmPrimary, 'checkout', '-q', 'main')
+  return shas
+}
+const rmBranchExists = (b) => {
+  try {
+    git(rmPrimary, 'rev-parse', '--verify', '--quiet', `refs/heads/${b}`)
+    return true
+  } catch {
+    return false
+  }
+}
+onTrunk('context.txt', 'one\ntwo\nthree\nfour\nfive\n', 'a file with neighbours')
+onTrunk('edited.txt', 'alpha\n', 'a file whose change lands edited')
+branchWith('agent/context-moved', ['context.txt', 'one\ntwo\nTHREE\nfour\nfive\n', 'change a line'])
+branchWith('agent/line-edited', ['edited.txt', 'ALPHA\n', 'change a line that lands edited'])
+const [prMerged] = branchWith('agent/pr-merged', ['pr-merged.txt', 'merged\n', 'merged work'])
+const [prOther] = branchWith('agent/pr-other-base', ['pr-other.txt', 'other\n', 'other base'])
+const [prStaleHead] = branchWith(
+  'agent/pr-stale-head',
+  ['pr-stale.txt', 'pushed\n', 'the head the pull request merged'],
+  ['pr-stale.txt', 'pushed, then more\n', 'a commit after it'],
+)
+const prTree = join(rmPrimary, '.claude', 'worktrees', 'pr-worktree')
+git(rmPrimary, 'worktree', 'add', '-q', '-b', 'agent/pr-worktree', prTree, 'main')
+writeFileSync(join(prTree, 'pr-tree.txt'), 'tree\n')
+git(prTree, 'add', 'pr-tree.txt')
+git(prTree, ...AS, 'commit', '-qm', 'merged work in a worktree')
+const prTreeTip = git(prTree, 'rev-parse', 'HEAD').trim()
+
+// The trunk: a neighbour of `context-moved`'s line changes, then its commit lands as a rebase merge
+// lands it; `line-edited`'s commit lands with its own changed line edited, as a resolved conflict.
+onTrunk('context.txt', 'ONE\ntwo\nthree\nfour\nfive\n', 'a neighbour changes on the trunk')
+git(rmPrimary, ...AS, 'cherry-pick', 'agent/context-moved')
+onTrunk('edited.txt', 'ALPHA, as the merge resolved it\n', 'change a line that lands edited')
+git(rmPrimary, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+check(
+  'the neighbour case is one git cherry cannot see',
+  git(rmPrimary, 'cherry', 'origin/main', 'agent/context-moved').startsWith('+'),
+)
+
+const merged = [
+  { number: 101, headRefOid: prMerged, baseRefName: 'main' },
+  { number: 102, headRefOid: prOther, baseRefName: 'release' },
+  { number: 103, headRefOid: prStaleHead, baseRefName: 'main' },
+  { number: 104, headRefOid: prTreeTip, baseRefName: 'main' },
+]
+const ghDir = mkdtempSync(join(tmpdir(), 'wt-gc-gh-'))
+const mergedFile = join(ghDir, 'merged.json')
+writeFileSync(mergedFile, JSON.stringify(merged))
+const ghArgsFile = join(ghDir, 'args')
+const stubGh = (body) => writeFileSync(join(ghDir, 'gh'), `#!/bin/sh\n${body}\n`, { mode: 0o755 })
+const ghPath = ghDir + delimiter + process.env.PATH
+const MERGED_LIMIT = JSON.parse(readFileSync(POLICY_FILE, 'utf8')).worktreeGcMergedPrLimit
+
+// gh failing is no proof and no failure: the sweep runs, names why, and falls through.
+stubGh("echo 'gh: offline' >&2\nexit 4")
+// The two dry runs assert branch lines only, so they skip the liveness scan, the costly part of a run.
+const offline = runGcWith(
+  { mergedPrs: null, path: ghPath, liveness: 'none' },
+  '--dry-run',
+  '--repo',
+  rmPrimary,
+)
+check(
+  'with gh failing, the report names why and the sweep still runs',
+  offline.includes('  merged pull requests: none (gh exited 4)') && !offline.startsWith('EXIT'),
+  offline.slice(0, 600),
+)
+check(
+  'and a merged pull request proves nothing, so its branch is kept by its patch reason',
+  offline.includes('agent/pr-merged  -- 1 of 1 commit(s) not in origin/main'),
+  offline.slice(0, 1500),
+)
+check(
+  'but the changed-lines proof still holds a moved neighbour offline',
+  /agent\/context-moved {2}[0-9a-f]{8} {2}\(all 1 patch\(es\) already in origin\/main, 1 by its changed lines alone\)/.test(
+    offline,
+  ),
+  offline.slice(0, 1500),
+)
+
+// A fixture stands in for gh, for a by-hand run.
+const byFile = runGcWith(
+  { mergedPrs: mergedFile, liveness: 'none' },
+  '--dry-run',
+  '--repo',
+  rmPrimary,
+)
+check(
+  'WORKTREE_GC_MERGED_PRS names a fixture in place of gh',
+  byFile.includes(`  merged pull requests: ${mergedFile} (${merged.length})`) &&
+    /agent\/pr-merged {2}[0-9a-f]{8} {2}\(merged as pull request #101\)/.test(byFile),
+  byFile.slice(0, 1500),
+)
+
+stubGh(`printf '%s\\n' "$@" > '${ghArgsFile}'\ncat '${mergedFile}'`)
+const afterMerge = runGcWith({ mergedPrs: null, path: ghPath }, '--repo', rmPrimary)
+check(
+  'gh is asked for the trunk branch\'s merged pull requests, up to worktreeGcMergedPrLimit',
+  existsSync(ghArgsFile) &&
+    readFileSync(ghArgsFile, 'utf8').trim().split('\n').join(' ') ===
+      `pr list --state merged --base main --limit ${MERGED_LIMIT} --json number,headRefOid,baseRefName`,
+  existsSync(ghArgsFile) ? readFileSync(ghArgsFile, 'utf8') : 'gh was not called',
+)
+check(
+  'the report names gh as the source',
+  afterMerge.includes(`  merged pull requests: gh (${merged.length})`),
+  afterMerge.slice(0, 600),
+)
+check(
+  'a branch whose tip a merged pull request\'s head is goes, by that proof',
+  !rmBranchExists('agent/pr-merged') &&
+    /agent\/pr-merged {2}[0-9a-f]{8} {2}\(merged as pull request #101\)/.test(afterMerge),
+  afterMerge.slice(0, 1500),
+)
+check(
+  'a pull request merged into another base proves nothing',
+  rmBranchExists('agent/pr-other-base') &&
+    afterMerge.includes('agent/pr-other-base  -- 1 of 1 commit(s) not in origin/main'),
+  afterMerge.slice(0, 1500),
+)
+check(
+  'a branch with a commit past the merged head is kept by its reason',
+  rmBranchExists('agent/pr-stale-head') &&
+    afterMerge.includes('agent/pr-stale-head  -- 2 of 2 commit(s) not in origin/main'),
+  afterMerge.slice(0, 1500),
+)
+check(
+  'a branch whose neighbouring line moved on the trunk goes, by its changed lines',
+  !rmBranchExists('agent/context-moved') &&
+    /agent\/context-moved {2}[0-9a-f]{8} {2}\(all 1 patch\(es\) already in origin\/main, 1 by its changed lines alone\)/.test(
+      afterMerge,
+    ),
+  afterMerge.slice(0, 1500),
+)
+check(
+  'a branch whose own changed line landed edited is kept by its reason',
+  rmBranchExists('agent/line-edited') &&
+    afterMerge.includes('agent/line-edited  -- 1 of 1 commit(s) not in origin/main'),
+  afterMerge.slice(0, 1500),
+)
+if (LIVE_CHECK) {
+  check(
+    'a worktree whose branch a pull request merged is removed, by that proof',
+    !existsSync(prTree) &&
+      afterMerge.includes(
+        '.claude/worktrees/pr-worktree  agent/pr-worktree  (clean, merged as pull request #104)',
+      ),
+    afterMerge.slice(0, 1500),
+  )
+} else {
+  console.log(`  skip a merged pull request's worktree (no liveness check held on ${process.platform})`)
+}
 
 /* --------------------------------------------------------------------------------------------- *
  * render-worktree-context: the briefing a new worktree opens with.
