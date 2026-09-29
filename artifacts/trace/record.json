@@ -2967,7 +2967,9 @@
       "paths": [
         "apps/calculator/README.md",
         "apps/calculator/test/README.md",
-        "apps/calculator/test/independent/README.md"
+        "apps/calculator/test/independent/README.md",
+        "apps/calculator/test/independent/build/README.md",
+        "apps/calculator/test/independent/verify/README.md"
       ],
       "tests": []
     },
