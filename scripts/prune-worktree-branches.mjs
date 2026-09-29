@@ -108,8 +108,9 @@
  *
  * Consequently a stale `origin/main` cannot cause data loss. It can only make fewer branches look
  * contained, which is why this is safe to run from the offline agent sandbox where `git fetch`
- * cannot reach the network, and where proof 2 falls through within its timeout. If the trunk ref is missing altogether there is no evidence of
- * containment at all, and both the worktree sweep and the branch sweep are skipped entirely.
+ * cannot reach the network, and where proof 2 falls through within its timeout. If the trunk ref is
+ * missing altogether there is no evidence of containment at all, and both the worktree sweep and
+ * the branch sweep are skipped entirely.
  *
  * WHAT IT WILL NOT TOUCH, regardless of proof:
  *   - the primary checkout, the worktree it runs from, a locked worktree, a worktree outside

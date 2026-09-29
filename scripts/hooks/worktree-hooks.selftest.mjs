@@ -538,9 +538,13 @@ git(gcPrimary, 'config', '--local', 'branch.agent/ghost.merge', 'refs/heads/agen
  * The script's own output, run against the scratch repo. `liveness` sets `WORKTREE_GC_LIVENESS`;
  * unset here, so a value in the caller's environment cannot choose the check for the default run.
  * `mergedPrs` sets `WORKTREE_GC_MERGED_PRS`, `none` unless a case says otherwise, so no run reaches
- * GitHub; `null` leaves it unset, for the cases that put a stub `gh` first on `path`.
+ * GitHub; `null` leaves it unset, for the cases that put a stub `gh` first on `path`. `repo` is the
+ * scratch repository the sweep runs on.
  */
-function runGcWith({ script = GC, liveness = undefined, mergedPrs = 'none', path = undefined }, ...extra) {
+function runGcWith(
+  { script = GC, liveness = undefined, mergedPrs = 'none', path = undefined, repo = gcPrimary },
+  ...extra
+) {
   const env = { ...GIT_ENV }
   delete env.WORKTREE_GC_LIVENESS
   delete env.WORKTREE_GC_MERGED_PRS
@@ -548,7 +552,7 @@ function runGcWith({ script = GC, liveness = undefined, mergedPrs = 'none', path
   if (mergedPrs !== null) env.WORKTREE_GC_MERGED_PRS = mergedPrs
   if (path !== undefined) env.PATH = path
   try {
-    return execFileSync('node', [script, '--repo', gcPrimary, ...extra], {
+    return execFileSync('node', [script, '--repo', repo, ...extra], {
       env,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -599,7 +603,7 @@ check('dry run changes no config', configKeys().length === keysBeforeGc)
 // THE SWEEP MUST NEVER REMOVE THE WORKTREE IT RUNS FROM. `abandoned` qualifies on every other
 // count, so running the sweep from inside it is the one way to reach this refusal -- in dry-run,
 // since the run would otherwise collect everything else.
-const fromInside = runGc('--dry-run', '--repo', abandoned)
+const fromInside = runGcWith({ repo: abandoned }, '--dry-run')
 check(
   'the worktree the sweep runs from is kept, by reason',
   fromInside.includes(
@@ -870,10 +874,8 @@ const MERGED_LIMIT = JSON.parse(readFileSync(POLICY_FILE, 'utf8')).worktreeGcMer
 stubGh("echo 'gh: offline' >&2\nexit 4")
 // The two dry runs assert branch lines only, so they skip the liveness scan, the costly part of a run.
 const offline = runGcWith(
-  { mergedPrs: null, path: ghPath, liveness: 'none' },
+  { mergedPrs: null, path: ghPath, liveness: 'none', repo: rmPrimary },
   '--dry-run',
-  '--repo',
-  rmPrimary,
 )
 check(
   'with gh failing, the report names why and the sweep still runs',
@@ -895,10 +897,8 @@ check(
 
 // A fixture stands in for gh, for a by-hand run.
 const byFile = runGcWith(
-  { mergedPrs: mergedFile, liveness: 'none' },
+  { mergedPrs: mergedFile, liveness: 'none', repo: rmPrimary },
   '--dry-run',
-  '--repo',
-  rmPrimary,
 )
 check(
   'WORKTREE_GC_MERGED_PRS names a fixture in place of gh',
@@ -908,7 +908,7 @@ check(
 )
 
 stubGh(`printf '%s\\n' "$@" > '${ghArgsFile}'\ncat '${mergedFile}'`)
-const afterMerge = runGcWith({ mergedPrs: null, path: ghPath }, '--repo', rmPrimary)
+const afterMerge = runGcWith({ mergedPrs: null, path: ghPath, repo: rmPrimary })
 check(
   'gh is asked for the trunk branch\'s merged pull requests, up to worktreeGcMergedPrLimit',
   existsSync(ghArgsFile) &&
