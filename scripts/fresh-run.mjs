@@ -55,8 +55,12 @@
  * through `npm ci`, so it is no pre-push job and no CI step (`CLAUDE.md` § The gate ladder); its
  * selftest over a fixture repository stands in, with the install stubbed (`docs/decisions.md`
  * § D-15, item 3). COST, measured 2026-09-29 on a macOS laptop (Apple M3 Max, Node 26.8.1, a warm npm
- * cache) over this repository at the commit that added it: see `MEASURED` below the imports. The
- * clone gets no probed port pair, so a future test that binds a fixed port collides with one serving
+ * cache) over this repository with 75 tests and no Command's line changed: 6.68 s wall
+ * (`/usr/bin/time -p`), of it `npm ci` 2.49 s, `calculator:test` 1.78 s,
+ * `calculator:test:independent` 0.20 s, the trace gate 0.36 s and `thresholds:commands:check` 0.26 s;
+ * the Commands' run is minutes when a Command's lines change (the header of
+ * `scripts/check-thresholds.mjs`), and a `--rerun` is a clone and an install again, about 3 s. The
+ * selftest took 8.82-8.87 s alone and 15-29 s inside `npm run gates`. The clone gets no probed port pair, so a future test that binds a fixed port collides with one serving
  * in the worktree (the maintainer's choice 1, where it loses).
  */
 import { spawnSync } from 'node:child_process'
