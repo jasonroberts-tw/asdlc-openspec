@@ -25,7 +25,7 @@ no review starts, leaving out the session your name names.
 
 ## 2. Collect the pending analyses
 
-Print the trunk's prompt-review keys first, as one call:
+Print the trunk's prompt-review keys first, as one call; later steps apply them:
 
     gh api "repos/{owner}/{repo}/contents/tools/policy.json?ref=main" -H "Accept: application/vnd.github.raw" --jq "with_entries(select((.key | startswith(\"promptReview\")) and (.key | endswith(\"Means\") | not)))"
 
