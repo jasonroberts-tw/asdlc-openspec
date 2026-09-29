@@ -198,6 +198,14 @@ const UNJOBBED_BY_KIND = [
           ' `calculator:test` runs `apps/calculator/serve.js` itself and proves its behaviour.',
       },
       {
+        name: 'calculator:test:verify',
+        why:
+          "runs the test-builder's E2E tests and Verify-deferred fitness functions, which" +
+          ' `docs/test-strategy.md` § Build exit criteria runs at Verify, not at a push or in CI;' +
+          ' change-verify runs it. Its `--dir` is also how the trace, test-inventory and thresholds' +
+          ' gates find those tests (`scripts/lib/test-dirs.mjs`).',
+      },
+      {
         name: 'gates',
         why: 'the suite itself (`lefthook run pre-push --force`); a job invoking it would recurse.',
       },

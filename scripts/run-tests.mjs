@@ -39,9 +39,10 @@
  *
  * A DIRECTORY. `--dir <dir>` runs every file whose name ends in `.test.js` at any depth under
  * `<dir>`, which must be a directory; one that holds no such file yet passes and says so. Since
- * asdlc-openspec-j09.11, `calculator:test:independent` runs the test-builder's directory this way, and
- * until a change writes its first contract, fitness or E2E test that directory holds only its README,
- * a legitimately absent input (`CLAUDE.md` § The gate ladder). A pattern that matches no file is still
+ * asdlc-openspec-j09.11, `calculator:test:independent` runs the build stage of the test-builder's
+ * directory this way and `calculator:test:verify` its verify stage, and until a change writes its
+ * first contract, fitness or E2E test each holds only its README, a legitimately absent input
+ * (`CLAUDE.md` § The gate ladder). A pattern that matches no file is still
  * refused: a pattern is spelled by hand and can be wrong, where the directory is checked to exist, by
  * this run and by `check:jobs`. Wrong here, a directory whose every test was deleted would pass as one
  * not yet written; the test-inventory gate catches that deletion. The glob of the files under a

@@ -156,9 +156,14 @@ export const meta = {
  *   an `agentType` is resolved from the agents of the checkout the calling session started in: a
  *   session started where that file is absent gets no test-builder, and the run stops agent-died.
  *   It returns its files as data. Every path must be
- *   `independentTestDir` for the app, then a layer `independentLayers` lists, then `<name>.test.js`,
- *   or the run stops not-independent; and so does a builder or fixer whose `filesChanged` enters
- *   `independentTestDir` for any app. A task naming no ID gets no test-builder, and says so.
+ *   `independentTestDir` for the app, then its stage, then a layer `independentLayers` lists, then
+ *   `<name>.test.js`, or the run stops not-independent; and so does a builder or fixer whose
+ *   `filesChanged` enters `independentTestDir` for any app. The stage is `build` for a file at a
+ *   layer `architectRunLayers` lists that declares `runAt` build, and `verify` for every other, so
+ *   the package script that runs the build stage at push and in CI runs no E2E test or
+ *   Verify-deferred fitness function (`docs/test-strategy.md` § Build exit criteria). The review of
+ *   pull request #72 found on 2026-09-29, before any such test existed, that the script ran every
+ *   file under the directory, since `runAt` never reached the disk. A task naming no ID gets no test-builder, and says so.
  *
  *   Running (architect). After the review, a runner agent in the worktree writes the files whose layer
  *   `architectRunLayers` lists and that run at build, runs `scripts/run-tests.mjs` on each as this
@@ -1039,7 +1044,7 @@ function testBuilderPrompt(rewrite) {
     '',
     '## Where your files go',
     '',
-    `${I.dir}/<layer>/<name>.test.js, <layer> one of ${policy.independentLayers.join(', ')}; your files there so far are among the inputs.`,
+    `${I.dir}/<runAt>/<layer>/<name>.test.js, <layer> one of ${policy.independentLayers.join(', ')}; your files there so far are among the inputs.`,
     '',
     '## The hashes to cite',
     '',
@@ -1055,14 +1060,22 @@ function testBuilderPrompt(rewrite) {
   ].join('\n') + redo
 }
 
-/** Why the test-builder's files cannot be written where it put them, or null. */
+/** When a test-builder's file runs: `build` only at a layer the architect runs, declared to run at build. */
+const stageOf = (f) => (policy.architectRunLayers.includes(f.layer) && f.runAt === 'build' ? 'build' : 'verify')
+
+/**
+ * Why the test-builder's files cannot be written where it put them, or null. The directory after
+ * `I.dir` is the file's stage, so a package script can run the build stage alone.
+ */
 function misplaced(files) {
-  const shape = new RegExp(`^${I.dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(${policy.independentLayers.join('|')})/[^/]+\\.test\\.js$`)
+  const shape = new RegExp(`^${I.dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/(build|verify)/(${policy.independentLayers.join('|')})/[^/]+\\.test\\.js$`)
   const bad = files.filter((f) => {
     const m = shape.exec(f.path)
-    return !m || m[1] !== f.layer
+    return !m || m[1] !== stageOf(f) || m[2] !== f.layer
   })
-  return bad.length ? `the test-builder returned ${bad.map((f) => `${f.path} (${f.layer})`).join(', ')}, outside ${I.dir}/<layer>/<name>.test.js for a layer \`independentLayers\` lists` : null
+  return bad.length
+    ? `the test-builder returned ${bad.map((f) => `${f.path} (${f.layer}, ${stageOf(f)})`).join(', ')}, outside ${I.dir}/<stage>/<layer>/<name>.test.js`
+    : null
 }
 
 /** A relative path with its `.` and `..` segments resolved, as a file system resolves them. */
@@ -1299,7 +1312,7 @@ if (I) {
 if (tests) {
   S.independent.files = tests.files
   S.independent.complete = tests.complete
-  S.independent.e2e = tests.files.filter((f) => !policy.architectRunLayers.includes(f.layer) || f.runAt !== 'build').map((f) => f.path)
+  S.independent.e2e = tests.files.filter((f) => stageOf(f) === 'verify').map((f) => f.path)
   if (!tests.complete) log('The test-builder did not declare its tests complete')
 }
 
@@ -1409,7 +1422,7 @@ for (let round = 1; round <= policy.buildArchitectMaxRounds; round++) {
   const last = round === policy.buildArchitectMaxRounds
   const record = { round, ran: [], passed: [], failed: [], flaky: [], routes: [] }
   S.independent.rounds.push(record)
-  const runnable = [...files.values()].filter((f) => policy.architectRunLayers.includes(f.layer) && f.runAt === 'build')
+  const runnable = [...files.values()].filter((f) => stageOf(f) === 'build')
   const rewrite = []
   const toRun = []
   for (const f of runnable) {
@@ -1495,7 +1508,7 @@ for (let round = 1; round <= policy.buildArchitectMaxRounds; round++) {
     for (const f of again.files) files.set(f.path, f)
     S.independent.files = [...files.values()]
     S.independent.complete = again.complete
-    S.independent.e2e = S.independent.files.filter((f) => !policy.architectRunLayers.includes(f.layer) || f.runAt !== 'build').map((f) => f.path)
+    S.independent.e2e = S.independent.files.filter((f) => stageOf(f) === 'verify').map((f) => f.path)
   }
 }
 

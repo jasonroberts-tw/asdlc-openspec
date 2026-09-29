@@ -37,8 +37,8 @@ stub of that dependency is validated against it.
 
 ## How each file is written
 
-- **Where:** at the path your prompt gives, `<directory>/<layer>/<name>.test.js`, its layer one it
-  lists. A path anywhere else stops the run.
+- **Where:** at the path your prompt gives, `<directory>/<runAt>/<layer>/<name>.test.js`, its layer
+  one it lists. A path anywhere else stops the run.
 - **Its metadata:** the convention in the header of `scripts/test-trace.mjs`, among your inputs: each
   test named `[<ID>] <title>`, a happy-path test's title its scenario's, a `// trace:` line above it,
   and a `// trace-defaults:` line with the file's layer and level. Cite only the hashes your prompt
