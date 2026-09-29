@@ -72,12 +72,11 @@ Then act on what it returns:
 
 Then, whatever the workflow reported:
 
-- Run the proof the task names yourself, and see it pass as measured. A proof you did not run is not
-  a proof.
+- Run the proof the task names yourself, and see it pass as measured.
 - Regenerate every derived artifact the change touches.
 - Put any doubt about a scenario's expected value to the user, and have the answer, before the
   commit below (§ 5). `build.decisions` and `lastFix.decisions` can raise one.
-- Commit, with the message passed from a file under `.scratch/`, naming the task's id.
+- Commit, naming the task's id.
 
 After a spec revision (§ 5), run the workflow for the task again. Whenever it runs again for a task,
 `settled` carries the revision, each answer the user gave to a doubt, and each red record.
@@ -103,7 +102,7 @@ Run `bd close <id> --reason "<the subject of the commit that built it>"`. The su
   `settled` finds it.
 - **A test whose assertions depend on the environment**, such as whether a port is free, fails or
   skips visibly where the environment is not the one it needs, and never passes on a weaker branch
-  that asserts less. A pass on the weaker branch prints the same as a pass on the full one.
+  that asserts less.
 - **Out of scope**, such as a defect nearby or a gap somewhere else: file it with
   `bd create "<title>" -l <the repo: label>,<its found-at label>,<its asset: labels> --deps discovered-from:<epic> --body-file <file> --silent`,
   with the labels `CLAUDE.md` § The task store names; here the found-at label is build's.
