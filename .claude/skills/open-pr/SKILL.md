@@ -71,9 +71,9 @@ else here sets `pr-review` by hand: every verdict is the reviewer's workflow's.
 
     gh pr checks <number> --watch
 
-Run it in the background, and no second watcher; never end the turn while it runs. If it exits at
-once with "no checks reported", nothing had registered yet: that is not a failing check, and
-starting it again is not a second watcher.
+Run it in the background, and no second watcher; end the turn to wait only if its exit wakes the
+session. If it exits at once with "no checks reported", nothing had registered yet: that is not a
+failing check, and starting it again is not a second watcher.
 
 ## 7. Act on the outcome
 
