@@ -2974,6 +2974,13 @@
       "tests": []
     },
     {
+      "id": "asdlc-openspec-j09.14",
+      "paths": [
+        "apps/calculator/test/independent/verify/README.md"
+      ],
+      "tests": []
+    },
+    {
       "id": "asdlc-openspec-j09.3",
       "paths": [
         "apps/calculator/test/README.md",
