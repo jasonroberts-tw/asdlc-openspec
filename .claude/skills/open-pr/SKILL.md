@@ -85,11 +85,16 @@ descriptions below are the ones `scripts/pr-review.mjs` sets (`statusFor`, `choo
 |---|---|
 | `verify` fails, and `pr-review` says "verify failed at …; the review waits for a green run" | Read the failing job, then fix, gate and push on the same branch. |
 | `pr-review` fails: "Conflicts with main: rebase onto origin/main and push" | Fetch, rebase onto `origin/main`, gate, and push with `--force-with-lease`. |
-| `pr-review` fails: "Changes requested: …" | Read the comment's reasons, then fix, gate and push on the same branch. The reviewer judges the new head. |
+| `pr-review` fails: "Changes requested: …" | Fix what the comment's reasons name, and no minor finding (below); gate and push on the same branch. The reviewer judges the new head. |
 | `pr-review` passes: "Every dimension passes; the reviewer merges it" | The reviewer merges it. `gh pr view <number> --json state,mergedAt` shows `MERGED` once it has. |
 | `pr-review` passes: "A person decides: …" | It waits for a person, for the reason given; say so, and why. Never apply the approval label yourself (`CLAUDE.md` § Git workflow). |
 | `pr-review` errors: "The review did not complete: …" | Read the review job's log first: `gh run list --workflow pr-review.yml`, then `gh run view <run> --log-failed`. A cause in the reviewer's own workflow is not this branch's to fix: the caller files it as a defect found on the way, and the pull request waits on that issue. A cause that does not repeat, such as a network error, is run again once with the command the comment gives, `gh workflow run pr-review.yml -f pr=<number>`. |
 
 A push makes a new head with no status: mark it (step 5) and watch it again (step 6).
 
-Hand the caller the pull request's number and URL, and the outcome in the words of its status.
+**A minor finding is neither fixed nor filed**, whatever the outcome: a push for one sends a new
+head back to review over what `prReviewBlockingSeverities` in `tools/policy.json` says blocks
+nothing. A person decides what becomes of it.
+
+Hand the caller the pull request's number and URL, the outcome in the words of its status, and the
+minor findings its comment lists.

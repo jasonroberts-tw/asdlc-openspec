@@ -101,8 +101,9 @@ Step 5's `open-pr` skill watched the checks to the reviewer's verdict. Read
   or applies the approval label for the reviewer to merge it. Never apply the label yourself
   (`CLAUDE.md` § Git workflow). Wait for `MERGED` as above.
 - **The review requests changes.** Read its comment, go back into the worktree with `EnterWorktree`,
-  and fix, gate, commit and push as the earlier steps do. Then mark and watch the new head as the
-  `open-pr` skill's steps 5 and 6 say.
+  and fix what `.claude/skills/open-pr/SKILL.md` § 7. Act on the outcome says a request for changes
+  asks, and no minor finding; gate, commit and push as the earlier steps do. Then mark and watch the
+  new head as the `open-pr` skill's steps 5 and 6 say.
 
 `scripts/hooks/guard-git.mjs` refuses a merge from a worktree.
 
