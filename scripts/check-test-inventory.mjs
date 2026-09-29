@@ -19,6 +19,8 @@
  * WHICH FILES HOLD TESTS. At each of the two commits, the files that commit's tree holds that a
  * quoted pattern of a `package.json` script running `scripts/run-tests.mjs` matches, by
  * `path.matchesGlob`; the runner expands the same pattern with `fs.globSync`, over the working tree.
+ * A `--dir <dir>` of such a script stands for the glob `scripts/lib/test-dirs.mjs` gives, the files
+ * the runner runs under it, and a `--dir` with no directory fails the run rather than read as none.
  * So a pattern narrowed until a file drops out removes that file's tests. Both commits are read from
  * git, never from the working tree.
  *
@@ -107,6 +109,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, matchesGlob, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gitEnv } from '../tools/lib/git-env.ts'
+import { dirGlob, runnerDirs } from './lib/test-dirs.mjs'
 import { POLICY_FILE, readTests, tracePolicy } from './test-trace.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -165,7 +168,10 @@ function readBlobs(root, specs) {
 
 /* --------------------------------------------------------------------------------- the files ---- */
 
-/** The quoted patterns of every script in `manifest` that runs the test runner. */
+/**
+ * The quoted patterns of every script in `manifest` that runs the test runner, and the glob of the
+ * files under each `--dir` of one (`scripts/lib/test-dirs.mjs`); a `--dir` with no directory throws.
+ */
 export function testPatterns(manifest) {
   if (manifest === null) return []
   let scripts
@@ -180,10 +186,12 @@ export function testPatterns(manifest) {
     const words = [...scripts[name].matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3])
     const at = words.indexOf(RUNNER)
     if (at < 0) continue
-    for (const word of words.slice(at + 1)) {
-      if (['&&', '||', ';', '|'].includes(word)) break
-      if (!word.startsWith('-')) patterns.push(word)
+    for (let i = at + 1; i < words.length; i++) {
+      if (['&&', '||', ';', '|'].includes(words[i])) break
+      if (words[i] === '--dir') i++
+      else if (!words[i].startsWith('-')) patterns.push(words[i])
     }
+    patterns.push(...runnerDirs(scripts[name]).map(dirGlob))
   }
   return [...new Set(patterns)]
 }
@@ -979,10 +987,10 @@ function selftest() {
   if (!same) return finish(results, 'the fixture does not read as counted by hand')
 
   // The decision, in-process: the fixture as the merge base, one doctored copy as HEAD.
-  for (const { name, edit = () => ({}), values = [], expect } of judgeCases(files)) {
+  for (const { name, base = () => ({}), edit = () => ({}), values = [], expect } of judgeCases(files)) {
     let result
     try {
-      result = judge({ sides: [sideOf('ba5e0000', files), sideOf('4ead0000', { ...files, ...edit(files) })], policy, trailer: live, values })
+      result = judge({ sides: [sideOf('ba5e0000', { ...files, ...base(files) }), sideOf('4ead0000', { ...files, ...edit(files) })], policy, trailer: live, values })
     } catch (error) {
       result = { ok: false, report: [`threw: ${error.message}`] }
     }
@@ -1067,6 +1075,13 @@ const removeB = () => ({ 'test/b.test.js': null })
 const addSquares = (options) => (tree) => ({
   'test/b.test.js': `${tree['test/b.test.js']}\n// trace: FIX-006:happy@aaaaaaaaaaaa\ntest('[FIX-006] squares', ${options}() => {\n  assert.equal(3 ** 2, 9)\n})\n`,
 })
+/** The fixture's manifest with a script that runs the runner over `test/independent` by `--dir` (`--dir` alone where `dir` is empty), and `extra` files. */
+const withDir = (extra, dir = 'test/independent') => (tree) => {
+  const manifest = JSON.parse(tree[MANIFEST])
+  manifest.scripts['unit:independent'] = `node scripts/run-tests.mjs --dir${dir ? ` ${dir}` : ''}`
+  return { [MANIFEST]: `${JSON.stringify(manifest, null, 2)}\n`, ...extra }
+}
+const D_TEST = "import assert from 'node:assert/strict'\nimport { test } from 'node:test'\n// trace-defaults: layer=contract level=1\n\n// trace: FIX-007:happy@aaaaaaaaaaaa\ntest('[FIX-007] answers', () => {\n  assert.equal(7, 7)\n})\n"
 const refusedAs = (kind, file, name) => new RegExp(`- ${kind}: ${file.replace(/[./]/g, '\\$&')} "${name.replace(/[[\]]/g, '\\$&')}"`)
 
 /**
@@ -1117,6 +1132,13 @@ function judgeCases() {
       expect: { pass: /1 renamed with the call unchanged.*-> test\/b\.test\.js "\[FIX-004, FIX-009\] multiplies"/ },
     },
     { name: 'a pattern narrowed until a file drops out', edit: swap('package.json', 'test/*.test.js', 'test/a.test.js'), expect: { refuse: removedB } },
+    {
+      name: 'a test removed from a directory a script runs with --dir',
+      base: withDir({ 'test/independent/contract/d.test.js': D_TEST }),
+      edit: withDir({ 'test/independent/contract/d.test.js': null }),
+      expect: { refuse: /- remove: test\/independent\/contract\/d\.test\.js "\[FIX-007\] answers" was at line \d+ at the merge base and is not at HEAD/ },
+    },
+    { name: 'a --dir that names no directory, which is refused rather than read as no files', edit: withDir({}, ''), expect: { refuse: /`--dir` with no directory after it/ } },
     { name: 'a .skip modifier added', edit: swap('test/b.test.js', 'test(\n', 'test.skip(\n'), expect: { refuse: /- skip: test\/b\.test\.js "\[FIX-004\] multiplies" adds \.skip\./ } },
     { name: 'an .only modifier added', edit: swap('test/a.test.js', "test('[FIX-001]", "test.only('[FIX-001]"), expect: { refuse: /- skip: test\/a\.test\.js "\[FIX-001\] adds" adds \.only\./ } },
     { name: 'a todo option added', edit: swap('test/a.test.js', "'[FIX-001] adds', () =>", "'[FIX-001] adds', { todo: 'later' }, () =>"), expect: { refuse: /- skip: test\/a\.test\.js "\[FIX-001\] adds" adds todo: 'later'\./ } },

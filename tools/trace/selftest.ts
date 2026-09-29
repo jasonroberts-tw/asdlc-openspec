@@ -28,6 +28,8 @@ import { BASELINE, README, RECORD, SCRATCH_GIT_ENV, baselineText, check, derive,
 const TRACE = fileURLToPath(new URL('./trace.ts', import.meta.url))
 const SPEC = 'openspec/specs/greeting/spec.md'
 const TESTS = 'apps/greeter/test/greet.test.js'
+/** A test under the directory a script runs with `--dir`, as the build workflow's test-builder writes one. */
+const INDEPENDENT_TEST = 'apps/greeter/test/independent/contract/greet.test.js'
 const CONTRACT = 'apps/greeter/contracts/api.json'
 const SURFACE = 'apps/greeter/binding-surface.md'
 
@@ -367,6 +369,28 @@ function cases(): Case[] {
         reemit(dir)
       },
       expect: /^obligation: GRT-001 \(greeting, "A reader arrives"\) has no negative test at a layer `traceObligationLayers` lists; write one citing `GRT-001:negative@<hash>`/,
+    },
+    {
+      name: 'obligation: a negative test under a directory a script runs with --dir meets it',
+      doctor: (dir) => {
+        const negative = "// trace: GRT-001:negative@{GRT-001}\ntest('[GRT-001] A passer-by is not greeted', () => {})\n"
+        writeTests(dir, swap(negative, ''))
+        const policy = readTracePolicy(dir)
+        const source = `import { test } from 'node:test'\n// trace-defaults: layer=contract level=1\n\n${negative}`
+        put(dir, INDEPENDENT_TEST, source.replace(/@\{([^{}]+)\}/g, (_, ref) => `@${hashRef(dir, ref, policy)}`))
+        edit(dir, 'package.json', (text) => {
+          const manifest = JSON.parse(text)
+          manifest.scripts['greeter:test:independent'] = 'node scripts/run-tests.mjs --dir apps/greeter/test/independent'
+          return `${JSON.stringify(manifest, null, 2)}\n`
+        })
+        commitAll(dir, 'The passer-by test moves to the independent tests (asdlc-openspec-abc.3)')
+        reemit(dir)
+      },
+      expect: 'pass',
+      also: (dir) => {
+        const test = record(dir).tests.find((t: any) => t.name === '[GRT-001] A passer-by is not greeted')
+        return test?.file === INDEPENDENT_TEST ? null : `the record reads the test as ${JSON.stringify(test)}`
+      },
     },
     {
       name: 'obligation: a negative test at the unit layer does not count',

@@ -318,6 +318,7 @@ pre-push:
               - 'scripts/run-tests.mjs'
               - 'scripts/test-trace.mjs'
               - 'scripts/lib/bin-path.mjs'
+              - 'scripts/lib/test-dirs.mjs'
               - 'tools/policy.json'
               - 'package.json'
               - 'package-lock.json'
@@ -346,6 +347,7 @@ pre-push:
               - 'scripts/run-tests.mjs'
               - 'scripts/test-trace.mjs'
               - 'scripts/lib/bin-path.mjs'
+              - 'scripts/lib/test-dirs.mjs'
               - 'tools/lib/git-env.ts'
               - 'tools/policy.json'
               - 'package.json'
@@ -363,6 +365,7 @@ pre-push:
         - 'scripts/run-tests.mjs'
         - 'scripts/test-trace.mjs'
         - 'scripts/lib/bin-path.mjs'
+        - 'scripts/lib/test-dirs.mjs'
         - 'tools/policy.json'
         - 'package.json'
         - 'package-lock.json'
@@ -380,6 +383,7 @@ pre-push:
         - 'scripts/run-tests.mjs'
         - 'scripts/test-trace.mjs'
         - 'scripts/lib/bin-path.mjs'
+        - 'scripts/lib/test-dirs.mjs'
         - 'tools/policy.json'
       run: node --run tests:selftest
     # The test-trace reader's refusals, each on a doctored copy of a test file's source, and its
@@ -400,7 +404,7 @@ pre-push:
     # every scenario's happy-path and negative test, IDs that resolve, hashes that are current, and
     # the ratchet baseline against the one at the branch's merge base with origin/main. It reads the
     # specs, the tests, contracts and Binding Surfaces under apps/, everything under artifacts/trace/,
-    # the policy, the manifest's test patterns, the reader and the helpers it imports, and git
+    # the policy, the manifest's test patterns and `--dir` directories, the reader and the helpers it imports, and git
     # history: a commit that changes the record's tasks changes a path under apps/, which the glob
     # holds. The lockfile pins the OpenSpec CLI it trial-archives an active change with. 0.31-0.33 s
     # wall through `node --run` (`/usr/bin/time -p`, two runs) on a macOS 26.7 laptop with Node
@@ -414,6 +418,7 @@ pre-push:
         - 'tools/lib/**'
         - 'scripts/test-trace.mjs'
         - 'scripts/lib/bin-path.mjs'
+        - 'scripts/lib/test-dirs.mjs'
         - 'tools/policy.json'
         - 'package.json'
         - 'package-lock.json'
@@ -425,13 +430,14 @@ pre-push:
     # cases.
     # 12.01-12.53 s wall for its 49 cases through `node --run` (`/usr/bin/time -p`, two runs, while
     # other worktrees ran) on the host and date above, most of it git and CLI starts; the jobs run
-    # in parallel.
+    # in parallel. 13.87-14.48 s (two runs, 2026-09-29) for 50, with a test under a `--dir`.
     - name: trace-selftest
       glob:
         - 'tools/trace/**'
         - 'tools/lib/**'
         - 'scripts/test-trace.mjs'
         - 'scripts/lib/bin-path.mjs'
+        - 'scripts/lib/test-dirs.mjs'
         - 'tools/policy.json'
         - 'package.json'
         - 'package-lock.json'
@@ -449,14 +455,15 @@ pre-push:
     # git over fixture repositories under the temporary directory, a shallow clone and one with no
     # origin/main among them, with undoctored controls and one run of the CLI through
     # TEST_INVENTORY_ROOT. Reads the gate, the reader it imports and the helper that imports, the
-    # helper that strips a hook's GIT_* keys, and the live policy's trailer key. 49 cases:
-    # 2.31-2.33 s wall through `node --run` (`/usr/bin/time -p`, two runs) on the host above,
-    # 2026-09-28.
+    # helper that reads a script's `--dir`, the helper that strips a hook's GIT_* keys, and the live
+    # policy's trailer key. 49 cases: 2.31-2.33 s wall through `node --run` (`/usr/bin/time -p`, two
+    # runs) on the host above, 2026-09-28; 51, with the two `--dir` cases: 2.71-2.77 s, 2026-09-29.
     - name: tests-inventory-selftest
       glob:
         - 'scripts/check-test-inventory.mjs'
         - 'scripts/test-trace.mjs'
         - 'scripts/lib/bin-path.mjs'
+        - 'scripts/lib/test-dirs.mjs'
         - 'tools/lib/git-env.ts'
         - 'tools/policy.json'
       run: node --run tests:inventory:selftest
@@ -468,13 +475,15 @@ pre-push:
     # and StrykerJS, so they and the lockfile are in the glob, with the helper that strips a hook's
     # GIT_* keys. 24.07-24.29 s wall for its 35 cases through `node --run` (`/usr/bin/time -p`, two
     # runs) on the host above, 2026-09-29, most of it twelve StrykerJS runs; 17.05-20.80 s for 33
-    # before a Command's case over the mutant sample took one of them.
+    # before a Command's case over the mutant sample took one of them; 23.33-25.16 s (two runs, the
+    # same day) for 36, with a `--dir` case.
     - name: thresholds-selftest
       glob:
         - 'scripts/check-thresholds.mjs'
         - 'scripts/run-tests.mjs'
         - 'scripts/test-trace.mjs'
         - 'scripts/lib/bin-path.mjs'
+        - 'scripts/lib/test-dirs.mjs'
         - 'tools/lib/git-env.ts'
         - 'tools/policy.json'
         - 'package.json'

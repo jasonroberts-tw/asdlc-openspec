@@ -44,7 +44,9 @@
  * a legitimately absent input (`CLAUDE.md` § The gate ladder). A pattern that matches no file is still
  * refused: a pattern is spelled by hand and can be wrong, where the directory is checked to exist, by
  * this run and by `check:jobs`. Wrong here, a directory whose every test was deleted would pass as one
- * not yet written; the test-inventory gate (asdlc-openspec-j09.9) is to catch that deletion.
+ * not yet written; the test-inventory gate catches that deletion. The glob of the files under a
+ * `--dir` has one home, `scripts/lib/test-dirs.mjs`, which the trace, test-inventory and thresholds
+ * gates import too, so each counts the tests this runner runs.
  *
  * INVOCATION.
  *
@@ -71,6 +73,7 @@ import { dirname, join, relative, resolve } from 'node:path'
 import { run } from 'node:test'
 import { spec } from 'node:test/reporters'
 import { fileURLToPath } from 'node:url'
+import { dirGlob } from './lib/test-dirs.mjs'
 import { POLICY_FILE, readTests, readTracePolicy } from './test-trace.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -104,7 +107,7 @@ export async function runTests(root, patterns, { report = null, coverage = null,
       failures.push(`--dir ${dir} is not a directory under ${root}: repoint it at the directory that holds the tests.`)
       continue
     }
-    const matched = globSync(`${dir}/**/*.test.js`, { cwd: root }).sort(byCodePoint)
+    const matched = globSync(dirGlob(dir), { cwd: root }).sort(byCodePoint)
     if (matched.length === 0) notes.push(`no test file under ${dir} yet, so there is nothing of it to run.`)
     for (const file of matched) files.push(file)
   }
