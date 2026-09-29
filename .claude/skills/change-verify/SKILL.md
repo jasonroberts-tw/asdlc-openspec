@@ -31,14 +31,11 @@ Anything else means the build has not finished. Report each child the command pr
 status, and stop: steps 3 to 5 would measure code those children have yet to change. The next stage
 is `change-build`.
 
-This refusal writes nothing: no trace, no note and no label. A child never closed reopens no stage,
-and is already an issue that `change-build` takes up (`.claude/skills/change-build/SKILL.md` § 2.
-Take the next task).
+This refusal writes nothing: no trace, no note and no label.
 
 ## 3. The specs are valid, and apply
 
-`npm run openspec:check` passes. That means every delta validates strictly, and the change applies to
-the living spec as it stands on this branch.
+`npm run openspec:check` passes.
 
 ## 4. Every scenario is traced
 
@@ -46,7 +43,7 @@ Write the trace to `.scratch/<change>-trace.md`, one row per `#### Scenario:` in
 Take it with `.claude/workflows/verify-change-trace.js`, through the Workflow tool: its header says
 what to pass, on a run again too, and what each result means. Save what it returns to
 `.scratch/<change>-trace.json`, and `node scripts/render-trace.mjs <change>` writes the trace.
-Each row gives the capability, the scenario, its proof and the result as measured. The proof is one of:
+The proof is one of:
 
 - the test, gate or check that exercises the scenario, together with the result of running it now;
 - the manual verification the plan recorded, and who did it.
@@ -63,9 +60,7 @@ the two turns out to be wrong.
 A finding that is none of these is not a gap: a test name, a comment or a README row that claims more
 than its code does, where no scenario and no design decision states the claim. Name each one in the
 report and ask the user where it goes. The routes are the ones for what the build turns up
-(`.claude/skills/change-build/SKILL.md` § 5. What the build turns up). It becomes a new child of the
-epic, which reopens step 2 until `change-build` closes it, or a follow-up filed outside the change.
-File it as the user decides: a new child labels the epic for plan and for build (`CLAUDE.md`
+(`.claude/skills/change-build/SKILL.md` § 5. What the build turns up). File it as the user decides: a new child labels the epic for plan and for build (`CLAUDE.md`
 § Product work runs as OpenSpec-format changes), and a follow-up carries the labels `CLAUDE.md`
 § The task store names, with verify's found-at label.
 
