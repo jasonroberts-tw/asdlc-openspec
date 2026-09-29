@@ -844,7 +844,46 @@ function independentCases(policy) {
   const REQUEST = '/sum?a=1&b=2'
   /** The default test file with `lines` added to its test's body. */
   const sourced = (lines) => testFile({ content: testFile().content.split('\n').slice(0, -1).concat(lines, '})').join('\n') })
+  /** A build-stage file an earlier task committed, which Setup reads among the inputs and this task's test-builder does not return. */
+  const EARLIER = `${IDIR}/build/contract/earlier.test.js`
+  const withEarlier = inputsJson([...INPUT_FILES, { path: EARLIER, text: testFile().content.replace('The display shows 1', 'The display shows 1 again') }])
+  const failEarlier = (round, prompt) => ranWith(prompt, (path) => (path === EARLIER && round === 1 ? [attempt(false), attempt(false)] : [attempt(true)]))
+  const passedTwo = /; the 2 test-builder file\(s\) run here passed$/
   return [
+    {
+      name: "fix-app: an earlier task's committed build-stage file, failing after this task, is run and triaged, and its route goes to the fixer",
+      args: args(kind),
+      scenario: { inputsJson: withEarlier, run: failEarlier },
+      expect: ['nothing-major', passedTwo],
+      check: ({ result, calls }) => {
+        const [first] = result.independent.rounds
+        if (first.failed.join() !== EARLIER || first.routes[0]?.route !== 'fix-app') return `round 1 is ${JSON.stringify(first)}`
+        return count(calls, /^fix a1$/) === 1 ? null : `the architect's fixer ran ${count(calls, /^fix a1$/)} time(s)`
+      },
+    },
+    {
+      name: "rewrite-test: an earlier task's committed file routed rewrite-test goes to the test-builder with its content, and comes back for the parent to write",
+      args: args(kind),
+      scenario: { inputsJson: withEarlier, run: failEarlier, architect: () => routed('rewrite-test'), rewrite: tests([testFile({ path: EARLIER })]) },
+      expect: ['nothing-major', passedTwo],
+      check: ({ result, options }) => {
+        const again = options.filter((o) => o.label === 'test-builder a1')
+        if (again.length !== 1 || !again[0].prompt.includes(`### ${EARLIER}`) || !again[0].prompt.includes(`EXA-001 is violated here: "${QUOTED}"`)) return `the test-builder was not asked to rewrite ${EARLIER}`
+        return result.independent.files.some((f) => f.path === EARLIER) ? null : `independent.files lacks the rewritten ${EARLIER}`
+      },
+    },
+    {
+      name: "the runner runs an earlier task's committed build-stage file where it stands, and is never given it to write, and the parent is never given it back",
+      args: args(kind),
+      scenario: { inputsJson: withEarlier },
+      expect: ['nothing-major', passedTwo],
+      check: ({ result, options }) => {
+        const { prompt } = options.find((o) => o.label === 'run a1')
+        if (!prompt.includes(`- node scripts/run-tests.mjs "${EARLIER}"`)) return `the runner was not given ${EARLIER} to run`
+        if (prompt.slice(prompt.indexOf('## The files')).includes(EARLIER)) return `the runner was given ${EARLIER} to write`
+        return result.independent.files.some((f) => f.path === EARLIER) ? `independent.files holds the committed ${EARLIER}` : null
+      },
+    },
     {
       name: `the test-builder's prompt holds the inputs and hashes Setup gave it, and no input outside \`independentInputs\`, nor \`settled\` or \`guide\`; the dropped path is logged`,
       args: args(kind, { settled: ['A red record: settled-by-the-parent'], guide: 'guide-for-the-builder' }),
