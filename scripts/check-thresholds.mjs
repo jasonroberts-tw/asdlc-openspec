@@ -1186,6 +1186,7 @@ async function selftest() {
   const f = fixture(policy, hashLength)
   const temp = mkdtempSync(join(tmpdir(), 'thresholds-selftest-'))
   const results = []
+  let untrusted = null
   try {
     const base = join(temp, 'base')
     writeTree(base, { ...f.base, [POLICY_FILE]: readFileSync(join(REPO_ROOT, POLICY_FILE), 'utf8') })
@@ -1219,10 +1220,11 @@ async function selftest() {
       }
       results.push({ name: testCase.name, ok, detail })
       if (testCase.name.startsWith('control') && !ok) {
-        console.error(`selftest: the control does not hold, so no case can be trusted: ${testCase.name} -- ${detail}`)
-        process.exit(1)
+        untrusted = `${testCase.name} -- ${detail}`
+        break
       }
     }
+    if (untrusted !== null) return
     // The command line, through the root override, on a copy with no trunk to measure from.
     const cli = join(temp, 'cli')
     cpSync(base, cli, { recursive: true })
@@ -1231,7 +1233,12 @@ async function selftest() {
     const cliOk = run.status === 1 && /branch: origin\/main is not a ref here/.test(run.stderr)
     results.push({ name: 'the command line reads THRESHOLDS_ROOT and exits 1 with the reason', ok: cliOk, detail: cliOk ? 'refused for that reason' : `exit ${run.status}: ${run.stderr.trim()}` })
   } finally {
+    // Cleaned up before any exit, which a `finally` would not outlive.
     rmSync(temp, { recursive: true, force: true })
+    if (untrusted !== null) {
+      console.error(`selftest: the control does not hold, so no case can be trusted: ${untrusted}`)
+      process.exit(1)
+    }
   }
   const failed = results.filter((result) => !result.ok)
   for (const { name, ok, detail } of results) console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${name} -- ${detail}`)
