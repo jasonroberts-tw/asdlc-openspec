@@ -433,7 +433,6 @@ function rules() {
     `Read ${HOME} first: it defines a gap, and a finding below one. The session that ran you writes the trace.`,
     'Rules for this run, on top of CLAUDE.md and .worktree/CONTEXT.md:',
     '- Change nothing: no edit, commit, stash or tracker write. Throwaway files go under .scratch/ only.',
-    '- Run each command as its own Bash call, as CLAUDE.md asks.',
     '- Stop every process you start before you return, and leave nothing listening.',
   ].join('\n')
 }
