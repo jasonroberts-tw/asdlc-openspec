@@ -27,16 +27,39 @@
  * patch-id. REGISTERED IS NOT LIVE, and the worktree sweep below is what tells them apart.
  *
  * THE SAFETY RULE, and it is the whole design: a branch is deleted only when its content is already
- * in the trunk. Two independent proofs are accepted, cheapest first --
+ * in the trunk. Three independent proofs are accepted, in this order --
  *
  *   1. the branch is an ANCESTOR of the trunk (`merge-base --is-ancestor`), or
- *   2. every commit on it has a patch-id that is already upstream (`git cherry` prints no `+`).
+ *   2. its tip is the head of a pull request GitHub records as MERGED into the trunk's branch, or
+ *   3. every commit on it has a patch-id that is already upstream (`git cherry` prints no `+`), where
+ *      a commit `git cherry` reports as not upstream still counts when its patch-id computed with no
+ *      context lines (`-U0`) matches a trunk commit's since the merge base.
  *
- * Proof 2 is what catches the ordinary case here, where a pull request was rebase-merged: the commit
- * SHAs on trunk differ, so proof 1 fails, but the patches are identical. A SQUASH merge satisfies
- * neither -- N commits collapse into one new patch-id -- so a squash-merged branch is KEPT. That is
- * the intended bias. Every branch this script declines to delete is reported, with the reason, for a
- * human to decide about; nothing is deleted on a guess.
+ * Pull requests here are rebase-merged, so the commit SHAs on trunk differ and proof 1 fails. Until
+ * 2026-09-29 proof 3 stood alone after it, with full context, and that kept merged branches: a
+ * patch-id hashes the diff's context lines, so when another pull request changes a line next to the
+ * change between the branch's cut and its merge -- the neighbouring `promptWordBudget*` keys of
+ * `tools/policy.json`, all the time -- the rebased copy gets a new patch-id. Measured that day, pull
+ * request #65's branch, its tip the merged head, read "2 of 9 commit(s) not in origin/main"; a
+ * whole-branch `git merge-tree` test did no better, since later pull requests had rewritten the same
+ * lines (asdlc-openspec-dxf). Proof 2 is the one that survives both, and proof 3's zero-context
+ * reading is its offline fallback.
+ *
+ * PROOF 2 reads GitHub once per sweep, and only when some branch is not an ancestor: `gh pr list
+ * --state merged --base <trunk branch>`, the newest `worktreeGcMergedPrLimit`, waiting at most
+ * `worktreeGcGhTimeoutSeconds` (`tools/policy.json`). A rebase merge replays exactly the head's
+ * commits, so a branch whose tip is that head has nothing the trunk lacks. `gh` absent,
+ * unauthenticated, offline, or past its timeout is no proof, never a failure. `WORKTREE_GC_MERGED_PRS`
+ * names a JSON file of `{ number, headRefOid, baseRefName }` to read in its place, or `none` to skip
+ * it, for the selftest and a by-hand run; the report's `merged pull requests:` line names the source.
+ *
+ * Where each loses. Proof 2 proves nothing offline, or for a fan-out lane that never had a pull
+ * request of its own. Proof 3's zero-context reading keeps a commit whose own changed lines were
+ * edited as it landed, a resolved conflict, and would accept one whose removed and added lines
+ * exactly match a different trunk commit's in the same file. A SQUASH merge satisfies neither patch
+ * reading -- N commits collapse into one new patch-id -- but squash merging is off here. Every branch
+ * this script declines to delete is reported, with the reason, for a human to decide about; nothing
+ * is deleted on a guess.
  *
  * A WORKTREE IS ABANDONED, and is removed with a plain `git worktree remove`, only when ALL of these
  * hold. Each is a separate refusal, and the report names the one that failed:
@@ -52,7 +75,7 @@
  *     session `chdir`s into the worktree it enters, so a live session shows here, and so does a
  *     lingering MSBuild node for the minutes it takes to idle out -- conservative, and self-correcting
  *     on the next run;
- *   - its branch is contained in the trunk by one of the two proofs above;
+ *   - its branch is contained in the trunk by one of the three proofs above;
  *   - where no liveness check works, HEAD there has not moved for `worktreeGcMinAgeHours`
  *     (`tools/policy.json`).
  *
@@ -85,7 +108,7 @@
  *
  * Consequently a stale `origin/main` cannot cause data loss. It can only make fewer branches look
  * contained, which is why this is safe to run from the offline agent sandbox where `git fetch`
- * cannot reach the network. If the trunk ref is missing altogether there is no evidence of
+ * cannot reach the network, and where proof 2 falls through within its timeout. If the trunk ref is missing altogether there is no evidence of
  * containment at all, and both the worktree sweep and the branch sweep are skipped entirely.
  *
  * WHAT IT WILL NOT TOUCH, regardless of proof:
@@ -155,6 +178,8 @@ if (livenessArg !== null && livenessArg !== 'none' && !LIVENESS_METHODS.includes
   )
   process.exit(1)
 }
+/** `none`, a path to a JSON file of merged pull requests, or unset for `gh` (proof 2). */
+const mergedPrsArg = process.env.WORKTREE_GC_MERGED_PRS || null
 
 /** Branches this script must never delete, whatever the proof says: the protected branches
  *  CLAUDE.md § Git workflow names, and a detached HEAD. */
@@ -286,15 +311,130 @@ for (const name of orphans) {
  * ============================================================================================= */
 
 /**
+ * Proof 2's evidence, read once per sweep: `{ source, count, heads }`, `heads` mapping each head
+ * commit of a pull request merged into the trunk's branch to its number, or `{ source: null, why }`.
+ */
+let mergedCache = null
+function mergedPullRequests() {
+  if (mergedCache === null) mergedCache = readMergedPullRequests()
+  return mergedCache
+}
+
+function readMergedPullRequests() {
+  if (mergedPrsArg === 'none') return { source: null, why: 'WORKTREE_GC_MERGED_PRS=none' }
+  // `origin/main` -> `main`: the base GitHub records. A trunk that is not a remote branch has none.
+  const slash = TRUNK.indexOf('/')
+  if (slash <= 0) return { source: null, why: `trunk ${TRUNK} is not a remote branch` }
+  const base = TRUNK.slice(slash + 1)
+  let raw
+  let source
+  if (mergedPrsArg !== null) {
+    source = mergedPrsArg
+    try {
+      raw = readFileSync(mergedPrsArg, 'utf8')
+    } catch {
+      return { source: null, why: `cannot read ${mergedPrsArg}` }
+    }
+  } else {
+    source = 'gh'
+    const limit = policyNumber('worktreeGcMergedPrLimit')
+    const timeout = policyNumber('worktreeGcGhTimeoutSeconds')
+    if (limit === null || timeout === null) {
+      return { source: null, why: 'no worktreeGcMergedPrLimit or worktreeGcGhTimeoutSeconds' }
+    }
+    const args = ['pr', 'list', '--state', 'merged', '--base', base, '--limit', String(limit)]
+    try {
+      raw = execFileSync('gh', [...args, '--json', 'number,headRefOid,baseRefName'], {
+        cwd: ROOT,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+        timeout: timeout * 1000,
+        maxBuffer: 16 * 1024 * 1024,
+      })
+    } catch (err) {
+      if (err.code === 'ENOENT') return { source: null, why: 'no gh' }
+      if (err.code === 'ETIMEDOUT') return { source: null, why: `gh timed out after ${timeout}s` }
+      return { source: null, why: `gh exited ${err.status ?? err.code}` }
+    }
+  }
+  let list
+  try {
+    list = JSON.parse(raw)
+  } catch {
+    return { source: null, why: `${source} gave no JSON` }
+  }
+  if (!Array.isArray(list)) return { source: null, why: `${source} gave no list` }
+  const heads = new Map()
+  for (const pr of list) {
+    if (pr?.baseRefName === base && typeof pr.headRefOid === 'string' && Number.isInteger(pr.number)) {
+      heads.set(pr.headRefOid, pr.number)
+    }
+  }
+  return { source, count: list.length, heads }
+}
+
+/**
+ * Patch-ids of the non-merge commits in `range` computed with no context lines, as a map from
+ * commit to id, or `null` if git failed. The two reads can exceed `execFileSync`'s default buffer
+ * over a long trunk range, hence the larger one.
+ */
+function zeroContextIds(range) {
+  const opts = { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 }
+  try {
+    const log = execFileSync(
+      'git',
+      ['-C', CWD, 'log', '--no-merges', '-p', '-U0', '--format=commit %H', range],
+      { ...opts, stdio: ['ignore', 'pipe', 'pipe'] },
+    )
+    const out = execFileSync('git', ['-C', CWD, 'patch-id', '--stable'], {
+      ...opts,
+      input: log,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    const ids = new Map()
+    for (const line of out.split('\n')) {
+      const [id, commit] = line.split(' ')
+      if (commit) ids.set(commit, id)
+    }
+    return ids
+  } catch {
+    return null
+  }
+}
+
+/** Trunk-side zero-context patch-ids since each merge base, as a set, computed once per base. */
+const trunkIdsByBase = new Map()
+
+/** How many of `commits`, on `branch`, match a trunk commit since the merge base by changed lines. */
+function changedLinesMatches(branch, commits) {
+  const base = gitOut(['merge-base', TRUNK, branch])
+  if (base === null) return 0
+  if (!trunkIdsByBase.has(base)) {
+    const ids = zeroContextIds(`${base}..${TRUNK}`)
+    trunkIdsByBase.set(base, ids === null ? null : new Set(ids.values()))
+  }
+  const upstream = trunkIdsByBase.get(base)
+  const mine = zeroContextIds(`${TRUNK}..${branch}`)
+  if (upstream === null || mine === null) return 0
+  return commits.filter((c) => mine.has(c) && upstream.has(mine.get(c))).length
+}
+
+/**
  * Why `branch` may be deleted, or `null` with a reason when it may not.
  *
- * The two proofs are ordered by cost. `--is-ancestor` is a reachability walk; `git cherry` has to
- * compute a patch-id for every commit on both sides of the merge base, which is the expensive one
- * and is only reached for branches that are not ancestors.
+ * The proofs are ordered as the header gives them. `--is-ancestor` is a reachability walk and
+ * decides most branches with no network; the merged pull requests are read once, on the first
+ * branch it does not decide; `git cherry` computes a patch-id for every commit on both sides of the
+ * merge base, and the zero-context reading is reached only for the commits it reports as missing.
  */
 function containment(branch) {
   if (gitOk(['merge-base', '--is-ancestor', branch, TRUNK])) {
     return { contained: true, proof: 'ancestor of ' + TRUNK }
+  }
+  const tip = gitOut(['rev-parse', branch])
+  const merged = mergedPullRequests()
+  if (tip !== null && merged.heads?.has(tip)) {
+    return { contained: true, proof: `merged as pull request #${merged.heads.get(tip)}` }
   }
   // `git cherry` SKIPS MERGE COMMITS, so its line count cannot be assumed to cover the range. That
   // is fine on its own -- a merge introduces no content of its own, and whatever it merged arrives
@@ -323,9 +463,19 @@ function containment(branch) {
   if (unapplied.length === 0) {
     return { contained: true, proof: `all ${lines.length} patch(es) already in ${TRUNK}` }
   }
+  const matched = changedLinesMatches(
+    branch,
+    unapplied.map((l) => l.slice(2)),
+  )
+  if (matched === unapplied.length) {
+    return {
+      contained: true,
+      proof: `all ${lines.length} patch(es) already in ${TRUNK}, ${matched} by its changed lines alone`,
+    }
+  }
   return {
     contained: false,
-    reason: `${unapplied.length} of ${lines.length} commit(s) not in ${TRUNK}`,
+    reason: `${unapplied.length - matched} of ${lines.length} commit(s) not in ${TRUNK}`,
   }
 }
 
@@ -456,23 +606,24 @@ function processesIn(dir) {
 }
 
 /**
- * `worktreeGcMinAgeHours` from `tools/policy.json` beside this script, or `null` if it cannot be
- * read as a positive number -- which the caller treats as "remove nothing unproven".
+ * The positive number `key` holds in `tools/policy.json` beside this script, or `null` if it cannot
+ * be read as one -- which each caller treats as "remove nothing unproven".
  */
-let minAgeCache
-function minAgeHours() {
-  if (minAgeCache !== undefined) return minAgeCache
-  minAgeCache = null
-  try {
-    const here = dirname(fileURLToPath(import.meta.url))
-    const policy = JSON.parse(readFileSync(resolve(here, '..', 'tools', 'policy.json'), 'utf8'))
-    const hours = policy.worktreeGcMinAgeHours
-    if (typeof hours === 'number' && hours > 0) minAgeCache = hours
-  } catch {
-    /* unreadable: stays null */
+let policyCache
+function policyNumber(key) {
+  if (policyCache === undefined) {
+    policyCache = null
+    try {
+      const here = dirname(fileURLToPath(import.meta.url))
+      policyCache = JSON.parse(readFileSync(resolve(here, '..', 'tools', 'policy.json'), 'utf8'))
+    } catch {
+      /* unreadable: stays null */
+    }
   }
-  return minAgeCache
+  const value = policyCache?.[key]
+  return typeof value === 'number' && value > 0 ? value : null
 }
+const minAgeHours = () => policyNumber('worktreeGcMinAgeHours')
 
 /**
  * Hours since HEAD last moved in the worktree at `path`: the newest mtime of its `.git` file and of
@@ -655,6 +806,13 @@ if (livenessCache !== null) {
     livenessCache.method !== null
       ? `  liveness: ${livenessCache.method}`
       : `  liveness: none (${livenessCache.why}) -- a clean, contained worktree goes only once HEAD is idle ${minAgeHours() ?? '(unset)'}h`,
+  )
+}
+if (mergedCache !== null) {
+  console.log(
+    mergedCache.source !== null
+      ? `  merged pull requests: ${mergedCache.source} (${mergedCache.count})`
+      : `  merged pull requests: none (${mergedCache.why})`,
   )
 }
 

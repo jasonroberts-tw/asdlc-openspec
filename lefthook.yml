@@ -165,7 +165,9 @@ pre-push:
     # 9.41 s wall through `node --run` (`/usr/bin/time -p`, one run, while other worktrees ran their
     # gates) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-29, with the guard's stray-directory
     # cases; 9.09 s without them, and 7.59-7.82 s before the gc sweep's liveness and age cases, so
-    # re-measure it on your host before trusting the suite's total.
+    # re-measure it on your host before trusting the suite's total. The containment cases after a
+    # rebase merge, a scratch repository of their own and three sweeps through a stub `gh`, took it
+    # from 10.71 s to 14.64 s, the two runs back to back while other worktrees ran their gates.
     - name: worktree-hooks
       glob:
         - 'scripts/hooks/**'
