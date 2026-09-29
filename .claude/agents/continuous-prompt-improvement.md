@@ -59,7 +59,8 @@ must still meet the threshold, because the workflow refuses a finding below it.
 
 A group is one file, or several when one finding concerns them together, such as two prompts that
 contradict each other; a file is in one group only. Its findings are those that met the threshold,
-in the fields the script's header gives `args.groups`. Add to that evidence the counts across runs the analyses end with.
+in the fields the script's header gives `args.groups`. Add to that evidence the counts across runs
+the analyses end with.
 
 A finding that concerns no prompt, such as a gate or the product, is not this review's: the run that
 found it files it (`CLAUDE.md` § The task store). Name it in the description, or in the closing
@@ -80,17 +81,17 @@ If `merge` is empty, open no pull request and go to § 6.
 Otherwise merge each branch in `merge` into yours, in its order, with `git merge --no-ff <branch>`.
 Before each merge, check what the agent reported against git: `git diff --name-only
 origin/main...<branch>` must list only files of that branch's group. A branch that lists another file
-is not merged: its group's runs are held as the workflow's `runsHeld` are. A conflict stops the merge: report it. For each consolidation a merged branch carries, set
-its file's budget in `tools/policy.json` as § How a prompt is consolidated says.
-Then gate as `.claude/skills/bead/SKILL.md` § 4 says, and open the pull request with the `open-pr`
-skill. Never merge it yourself. A gate that fails in a file a group changed is fixed on your branch;
-one that fails elsewhere is reported.
+is not merged: its group's runs are held as the workflow's `runsHeld` are. A conflict stops the
+merge: report it. For each consolidation a merged branch carries, set its file's budget in
+`tools/policy.json` as § How a prompt is consolidated says. Then gate as
+`.claude/skills/bead/SKILL.md` § 4 says, and open the pull request with the `open-pr` skill. Never
+merge it yourself. A gate that fails in a file a group changed is fixed on your branch; one that
+fails elsewhere is reported.
 
 If the permission classifier refuses `npm run gates`, run `npm run citations:check` as its own call
 before you push, and push only once it passes: a prompt edit can carry a pointer that does not
-resolve. End the description with a
-`RUN THESE YOURSELF` block holding the refused command (`CLAUDE.md` § Guards), so the person deciding
-the merge runs the full suite first.
+resolve. End the description with a `RUN THESE YOURSELF` block holding the refused command
+(`CLAUDE.md` § Guards), so the person deciding the merge runs the full suite first.
 
 ## 6. Mark what was read
 
@@ -105,7 +106,7 @@ names yet, on the issue carrying that run. A held line is `promptReviewHeldMarke
 id, a space, the finding's key, a space, the count of runs that have shown it so far, a colon, a
 space and the reason.
 
-Write each note from a file under `$CLAUDE_JOB_DIR/tmp`, since § 4 may have made no worktree
+Write each note from a file in a directory `mktemp -d` makes, since § 4 may have made no worktree
 (`CLAUDE.md` § Bash command style). If the workflow ran, run `npm run worktree:gc`.
 
 End with a closing report: the pull request, or that none opened, and what § 7 item 5 names; with no
@@ -145,9 +146,9 @@ Each agent the workflow runs reads this section before anything else, for the fi
 
 Read each file as it stands on `origin/main`, where your worktree was cut. Then read its earlier
 reviews, the descriptions of the pull requests that changed it, found as `CLAUDE.md` § Standing
-rules for prompts and gates finds them. A point an earlier review set aside under *Deliberately not changed* is not raised again unless these
-runs show something that review did not have. Reviews written before `docs/decisions.md` § D-05
-were files, and that entry says how to recover them.
+rules for prompts and gates finds them. A point an earlier review set aside under *Deliberately not
+changed* is not raised again unless these runs show something that review did not have. Reviews
+written before `docs/decisions.md` § D-05 were files, and that entry says how to recover them.
 
 A run often worked on a branch of its own, such as a change's, whose files are not on `origin/main`.
 Read them where they are, with `git show origin/<branch>:<path>`. Never stage or copy them into your
