@@ -31,9 +31,9 @@ Never work around a blocker.
 If no child is open at all and the epic's latest note is a send-back, it names what to fix: from
 `change-verify`, a gap in the code; from `change-finalize`, each test `trace:check` refused after
 the archive. Retire each on a removed ID, with the decision the header of
-`scripts/check-test-inventory.mjs` asks for, and regenerate each on a modified one as step 3 says;
-each commit names the task `artifacts/trace/record.json` lists beside the test's file, as step 3
-names a commit. Fix a gap as step 3 says. Note on the epic what was fixed and in which commit
+`scripts/check-test-inventory.mjs` asks for, and regenerate each on a modified one, or fix the gap,
+as step 3 says; each commit names the task `artifacts/trace/record.json` lists beside the test's
+file. Note on the epic what was fixed and in which commit
 subject, then go to step 6.
 
 ## 3. Build it, and prove it
@@ -105,37 +105,38 @@ Run `bd close <id> --reason "<the subject of the commit that built it>"`. The su
 - **In scope but missing from the plan:** add it as a new child of the epic, once the user agrees,
   and label the epic for plan (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
 - **A spec that is wrong**, meaning a scenario or an NFR that cannot hold as written or a
-  requirement that is missing: stop and tell the user. It goes back to `change-propose`: label the
-  epic for propose (`rerouteLabels` in `tools/policy.json`), note on it what must change and why,
-  and stop. The code never outruns the spec.
+  requirement that is missing: stop and tell the user; it goes back to `change-propose`. Label the
+  epic for propose (`rerouteLabels` in `tools/policy.json`) and note on it what must change and
+  why. The code never outruns the spec.
 - **A re-design pass**, when the design cannot hold as written: with the user, write a new version
   of `design.md` and of each contract artifact it affects, under
-  `.claude/skills/change-design/SKILL.md` § 3. Write it, and commit it on its own, as step 3 names
-  a commit, before the code it allows; label the epic for design. It changes no delta spec: a
-  scenario or NFR that must change is a spec that is wrong.
+  `.claude/skills/change-design/SKILL.md` § 3. Write it. Commit it alone, named as step 3 says,
+  before the code it allows, and label the epic for design. It changes no delta spec: a scenario or
+  NFR that must change is a spec that is wrong.
 - **After either**, reopen (`bd reopen`) each task that `artifacts/trace/record.json` links to a
   changed NFR, contract element or Binding Surface element, so step 2 builds it and its tests again;
-  the rest stand. `trace:check` refuses each test on one as `stale` until then.
+  `trace:check` refuses each test on one as `stale` until then.
 
 ## 6. Repeat, then hand over
 
 Go back to step 2 until
 `bd list --parent <epic> --status open,in_progress,blocked,deferred --json` prints an empty list.
 
-Then run `npm run trace` and commit the record, as THE RECORD in the header of
-`tools/trace/trace.ts` says, then `npm run gates`. Hand over only when each of
-`docs/test-strategy.md` § Build exit criteria holds, as shown by:
+Then run `npm run trace`, commit the record (THE RECORD in the header of `tools/trace/trace.ts`),
+and run `npm run gates`. Hand over only when each of `docs/test-strategy.md` § Build exit criteria
+holds, as shown by:
 
 - **Tasks and implementation elements:** the empty list above, each closed `asset:product` child
   among the record's `tasks` with a path, and `trace:check`.
-- **The test-builder's declaration, and no open architect decision:** each task committed after a
-  run that stopped `nothing-major` or `round-limit` with `independent.complete` not false (§ 3),
-  and no re-design pass or send-back open (§ 5).
+- **The test-builder's declaration, and no open architect decision:** each task committed only as
+  § 3 allows, with `independent.complete` not false, and no re-design pass or send-back open (§ 5).
 - **Your re-run of the app-builder's suite, and the test inventory:** the app's test script and
   `tests:inventory:check` (the header of `scripts/check-test-inventory.mjs`) among the gates.
-- **The mutation threshold:** `thresholds:check` (the header of `scripts/check-thresholds.mjs`).
-- **The contract tests and build-time fitness functions:** the app's script that runs its
-  `independentTestDir`, such as `calculator:test:independent`, among the gates.
+- **The mutation threshold:** `thresholds:check` for the Routines; for the Commands, the CI step
+  `thresholds:commands:check`, run on the pull request and at `change-verify` (the amendment of
+  `docs/decisions.md` § D-04).
+- **The contract tests and build-time fitness functions:** the app's script for the `build` stage
+  of its `independentTestDir`, such as `calculator:test:independent`, among the gates.
 
 Report each task closed with its commit, every issue filed along the way, and the gates as
 measured. The next stage is `change-verify`, given the change's name (`CLAUDE.md` § Product work
