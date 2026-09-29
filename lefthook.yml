@@ -401,6 +401,48 @@ pre-push:
         - 'tools/lib/git-env.ts'
         - 'tools/policy.json'
       run: node --run tests:inventory:selftest
+    # The thresholds of `tools/policy.json` held to the code the branch changes under apps/: every
+    # test file run once with Node's own coverage, its changed code lines and branches counted and the
+    # whole product's figures printed beside them, and the changed Routines mutated by StrykerJS's tap
+    # runner, wholly when a test file changed, against the ratchet baseline under
+    # artifacts/thresholds/ (the header of scripts/check-thresholds.mjs). It reads the code and tests
+    # under apps/, the baseline, the policy, the manifest's test patterns, the runner, the reader and
+    # the helper they import, and git history; the lockfile pins StrykerJS. The Commands' run,
+    # `thresholds:commands:check`, is a CI step and no job here, for its cost, which that header
+    # gives. 22.99-23.11 s wall through `node --run` (`/usr/bin/time -p`, two runs) on a macOS 26.7
+    # laptop (Apple M3 Max, 14 CPUs, so 13 Stryker workers) with Node 26.8.1, 2026-09-28, with all
+    # 382 of the Routines' mutants made, since a test file had changed on the branch; 1.85-1.90 s
+    # (two runs) over the same tree with nothing changed under apps/, the suite's run with coverage
+    # alone; and 34.74 s inside `npm run gates` beside the other jobs.
+    - name: thresholds-check
+      glob:
+        - 'apps/**'
+        - 'artifacts/thresholds/**'
+        - 'scripts/check-thresholds.mjs'
+        - 'scripts/run-tests.mjs'
+        - 'scripts/test-trace.mjs'
+        - 'scripts/lib/bin-path.mjs'
+        - 'tools/policy.json'
+        - 'package.json'
+        - 'package-lock.json'
+      run: node --run thresholds:check
+    # The gate's refusals over a fixture repository it builds under the temporary directory, laid out
+    # as the calculator is and sized from the live policy's minimum samples, each asserting its reason
+    # beside two controls: coverage, the Routines' tap runs, the Commands' command runs, the baseline
+    # and its update, and the command line through THRESHOLDS_ROOT. It runs the real runner, reader
+    # and StrykerJS, so they and the lockfile are in the glob. 19.14-19.18 s wall for its 28 cases
+    # through `node --run` (`/usr/bin/time -p`, two runs) on the host and date above, most of it
+    # thirteen StrykerJS runs; 37.77 s inside `npm run gates`.
+    - name: thresholds-selftest
+      glob:
+        - 'scripts/check-thresholds.mjs'
+        - 'scripts/run-tests.mjs'
+        - 'scripts/test-trace.mjs'
+        - 'scripts/lib/bin-path.mjs'
+        - 'tools/policy.json'
+        - 'package.json'
+        - 'package-lock.json'
+      run: node --run thresholds:selftest
     # Every value in the count index re-derived from the source the index names for it. No glob: a
     # key's source may be any tracked file, so any push can change its verdict. Milliseconds.
     - name: count-index

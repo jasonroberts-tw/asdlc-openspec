@@ -171,7 +171,7 @@ const UNJOBBED_BY_KIND = [
     kind: ':update baseline',
     shape: /:update$/,
     why: 'rewrites a ratchet or golden; a job that ran it would move the baseline it is meant to hold.',
-    names: ['trace:update'],
+    names: ['thresholds:update', 'trace:update'],
   },
   {
     kind: 'lint and format',
