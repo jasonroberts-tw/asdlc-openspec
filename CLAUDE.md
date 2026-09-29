@@ -106,10 +106,10 @@ order: `change-propose`, `change-design`, `change-plan`, `change-build`, `change
 children; the shape and its reasons are `docs/decisions.md` § D-02. Never track a change's tasks in a
 `tasks.md`, and never run `openspec init` or `openspec update` here.
 
-A change's branch is first pushed by `change-finalize`'s `open-pr`: until `change-build` has
-written their tests, the pre-push trace gate rightly refuses the delta's new and modified scenarios.
-A backup push before then is the user's to run, with `--no-verify`, which skips every
-pre-push job; no CI runs on a branch without a pull request.
+A change's branch is first pushed by `change-finalize`'s `open-pr`: until `change-build` writes
+their tests, the pre-push trace gate rightly refuses the delta's new and modified scenarios. An
+earlier backup push is the user's to run, with `--no-verify`, skipping every pre-push job; no CI
+runs before a pull request.
 
 Each stage starts in a fresh session and never depends on an earlier stage's conversation, because
 one session that runs every stage carries each stage's context into the next. It picks the change
@@ -314,7 +314,8 @@ session:
     claude --bg --agent continuous-prompt-improvement --permission-mode auto --name review-prompts "Review the pending prompt-run analyses."
 
 The mode is passed on the command line because a session started this way does not apply an agent
-file's `permissionMode`, and would stop at its first permission prompt with nobody waiting on it.
+file's `permissionMode`, and unless the machine's default is `auto` would stop at its first permission
+prompt with nobody waiting on it.
 The launcher neither waits for the reviewer nor relays what it finds. Its report names the
 issue and run id of its analysis and, if it launched a review, the session the launch printed.
 
