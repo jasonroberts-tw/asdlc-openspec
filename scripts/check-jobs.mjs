@@ -260,17 +260,21 @@ function withoutComments(run) {
 
 /**
  * Every `run:` string in a job file, with a label for the failure message. lefthook.yml is
- * `<hook>: { jobs: [{ name, run }] }`; verify.yml is `jobs: { <job>: { steps: [{ name, run }] } }`.
+ * `<hook>: { jobs: [{ name, run }] }`, where a job may instead be `{ name, group: { jobs: [...] } }`,
+ * whose jobs are read the same way; verify.yml is `jobs: { <job>: { steps: [{ name, run }] } }`.
  */
 function runBlocks(file, doc) {
   const blocks = []
   if (file === LEFTHOOK) {
-    for (const [hook, spec] of Object.entries(doc ?? {})) {
-      if (!Array.isArray(spec?.jobs)) continue
-      for (const job of spec.jobs) {
-        if (typeof job?.run !== 'string') continue
-        blocks.push({ where: `${file} ${hook}/${job.name ?? '(unnamed)'}`, run: job.run })
+    const walk = (where, jobs) => {
+      for (const job of jobs) {
+        const name = `${where}/${job?.name ?? '(unnamed)'}`
+        if (Array.isArray(job?.group?.jobs)) walk(name, job.group.jobs)
+        if (typeof job?.run === 'string') blocks.push({ where: name, run: job.run })
       }
+    }
+    for (const [hook, spec] of Object.entries(doc ?? {})) {
+      if (Array.isArray(spec?.jobs)) walk(`${file} ${hook}`, spec.jobs)
     }
     return blocks
   }
@@ -685,6 +689,13 @@ function cases() {
       name: 'a lefthook job invokes a script that does not exist through `node --run`',
       doctor: (dir) => edit(dir, LEFTHOOK, appendJob('doctored', 'node --run no:such:script')),
       expect: /^lefthook\.yml pre-push\/doctored invokes `node --run no:such:script`, which is not/,
+    },
+    {
+      // lefthook runs a group's jobs as it runs the hook's own, so a token inside one is read too.
+      name: "a job inside a lefthook group invokes a script that does not exist",
+      doctor: (dir) =>
+        edit(dir, LEFTHOOK, (t) => `${t}    - name: doctored-group\n      group:\n        jobs:\n          - name: doctored\n            run: node --run no:such:script\n`),
+      expect: /^lefthook\.yml pre-push\/doctored-group\/doctored invokes `node --run no:such:script`, which is not/,
     },
     {
       name: 'a `npm run` mention on a comment line is not a job',
