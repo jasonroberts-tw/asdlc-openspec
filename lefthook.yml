@@ -245,12 +245,14 @@ pre-push:
     # lets merge, which analyses it lets be marked read, and which findings it holds), and the
     # change-verify trace with the policy's `verifyTrace*` keys (how it matches rows to scenarios,
     # which gap each row is, which gaps skeptics judge and how many, what a run again keeps), its
-    # result then rendered by the trace and pull-request-body renderers; the change-build workflow's
+    # result then rendered by the trace and pull-request-body renderers, and a stubbed fresh run by the
+    # verification report's two renderers; the change-build workflow's
     # test-builder and architect, each stop and route by its reason, and the test-builder agent's tools
     # line; and refuses a workflow with no suite. Reads the workflows, the policy, the test-builder's
     # agent file and the renderers, and writes only under the temporary directory. 0.27 s wall, both of
     # two runs, through `node --run` (`/usr/bin/time -p`) on a macOS 26.7 laptop with Node 26.8.1,
-    # 2026-09-29, much of it the trace renderers' four child processes.
+    # 2026-09-29, much of it the trace renderers' four child processes; 0.60 s on 2026-09-29 with the
+    # report's renderers and their cases (asdlc-openspec-j09.14).
     - name: workflows-selftest
       glob:
         - '.claude/workflows/**'
@@ -258,7 +260,9 @@ pre-push:
         - 'scripts/workflows.selftest.mjs'
         - 'scripts/render-trace.mjs'
         - 'scripts/render-pr-body.mjs'
+        - 'scripts/render-verify-report.mjs'
         - 'scripts/lib/trace.mjs'
+        - 'scripts/lib/verify-report.mjs'
         - 'tools/policy.json'
       run: node --run workflows:selftest
     # The pull-request reviewer's wiring: the policy's `prReview*` keys whole, and `pr-review.yml`,
@@ -384,7 +388,8 @@ pre-push:
     # runner, the reader it imports and the live policy, which it copies into each tree. 0.38-0.41 s
     # wall through `node --run` (`/usr/bin/time -p`, two runs), on the host and date of the 1.63 s
     # above, 1.02-1.09 s on 2026-09-28 with the reader's eight cases added, and 0.92-0.94 s on
-    # 2026-09-29 with the three `--dir` cases added.
+    # 2026-09-29 with the three `--dir` cases added, and 1.27 s on 2026-09-29 with the results and
+    # the four `--name` cases (asdlc-openspec-j09.14).
     - name: tests-selftest
       glob:
         - 'scripts/run-tests.mjs'
@@ -393,6 +398,24 @@ pre-push:
         - 'scripts/lib/test-dirs.mjs'
         - 'tools/policy.json'
       run: node --run tests:selftest
+    # The stand-in for `tests:fresh`, which runs `npm ci` and so reads the network (docs/decisions.md
+    # § D-15, item 3): the verifier's fresh run over a fixture repository it builds with git and the
+    # trace gate, `npm ci` stubbed, asserting the clone is of HEAD with the checkout's origin/main and
+    # no remote and is removed, each refusal by its reason, the join to the record, the tasks'
+    # partition and the one re-run by name. Reads the script and the files it copies into the fixture.
+    # 8.82-8.87 s wall through `node --run` (`/usr/bin/time -p`, two runs) on a macOS laptop (Apple M3
+    # Max) with Node 26.8.1, 2026-09-29, most of it a clone, a test run and a trace check per case.
+    - name: tests-fresh-selftest
+      glob:
+        - 'scripts/fresh-run.mjs'
+        - 'scripts/run-tests.mjs'
+        - 'scripts/test-trace.mjs'
+        - 'scripts/lib/bin-path.mjs'
+        - 'scripts/lib/test-dirs.mjs'
+        - 'tools/trace/**'
+        - 'tools/lib/**'
+        - 'tools/policy.json'
+      run: node --run tests:fresh:selftest
     # The test-trace reader's refusals, each on a doctored copy of a test file's source, and its
     # hash over a fixture spec tree: the definition's text, what moves a hash and what does not, the
     # delta that wins, the refused references, the root override, `cite` refusing a ref no trace
