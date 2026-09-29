@@ -7,7 +7,7 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 # Open a pull request
 
-This is the one home for opening a pull request here. A caller brings three things:
+A caller brings three things:
 
 - **the branch**, `agent/<name>`, checked out in the session's worktree;
 - **the issues it carries**, by id, or none;
@@ -36,8 +36,8 @@ A shared file is not a conflict; a conflict this reports is. The body names each
 A sentence saying what changed, ending with the id of each issue the branch carries, in
 parentheses and separated by commas: `worktree:selftest renders the briefing template it is globbed
 on (asdlc-openspec-pb2)`. The reviewer reads the issues from those parentheses and nowhere else,
-with `prReviewIssuePattern` in `tools/policy.json`, and holds the pull request to their acceptance
-criteria (`CLAUDE.md` § Git workflow). An id in the title's middle or in the body is not carried.
+with `prReviewIssuePattern` in `tools/policy.json` (`CLAUDE.md` § Git workflow). An id in the
+title's middle or in the body is not carried.
 
 A pull request that carries no issue, such as a prompt review's, ends with no parentheses. The
 reviewer then leaves its merge to a person (`docs/decisions.md` § D-07). Never cite an issue the
@@ -45,17 +45,16 @@ branch does not carry to get it reviewed.
 
 ## 4. The body
 
-It is passed from its file with `--body-file` (`CLAUDE.md` § Bash command style). It opens with
-any register entry or prerequisite the caller names, then each conflict step 2 found, with the pull
-request it is against. It ends with the attribution line the harness gives for pull requests.
+It opens with any register entry or prerequisite the caller names, then each conflict step 2 found,
+with the pull request it is against. It ends with the attribution line the harness gives for pull
+requests.
 
 ## 5. Push, open, and mark it pending
 
     git push -u origin <branch>
     gh pr create --base main --head <branch> --title "<title>" --body-file <file>
 
-The base is typed, never inferred (`CLAUDE.md` § Git workflow), and
-`scripts/hooks/guard-git.mjs` refuses a create that does not name it. Open it ready for review: the
+The base is typed, never inferred (`CLAUDE.md` § Git workflow). Open it ready for review: the
 reviewer takes no draft, so `--draft` only when the request says draft. If the create fails, run
 `gh pr list --head <branch>` before retrying: a create can land after its client gives up.
 
@@ -88,7 +87,7 @@ descriptions below are the ones `scripts/pr-review.mjs` sets (`statusFor`, `choo
 | `pr-review` fails: "Conflicts with main: rebase onto origin/main and push" | Fetch, rebase onto `origin/main`, gate, and push with `--force-with-lease`. |
 | `pr-review` fails: "Changes requested: …" | Read the comment's reasons, then fix, gate and push on the same branch. The reviewer judges the new head. |
 | `pr-review` passes: "Every dimension passes; the reviewer merges it" | The reviewer merges it. `gh pr view <number> --json state,mergedAt` shows `MERGED` once it has. |
-| `pr-review` passes: "A person decides: …" | It waits for a person, for the reason given; say so, and why. A person merges it, or applies the approval label for the reviewer to merge it. Never apply the label yourself (`CLAUDE.md` § Git workflow). |
+| `pr-review` passes: "A person decides: …" | It waits for a person, for the reason given; say so, and why. Never apply the approval label yourself (`CLAUDE.md` § Git workflow). |
 | `pr-review` errors: "The review did not complete: …" | Read the review job's log first: `gh run list --workflow pr-review.yml`, then `gh run view <run> --log-failed`. A cause in the reviewer's own workflow is not this branch's to fix: the caller files it as a defect found on the way, and the pull request waits on that issue. A cause that does not repeat, such as a network error, is run again once with the command the comment gives, `gh workflow run pr-review.yml -f pr=<number>`. |
 
 A push makes a new head with no status: mark it (step 5) and watch it again (step 6).
