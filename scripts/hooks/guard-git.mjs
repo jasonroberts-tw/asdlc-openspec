@@ -26,6 +26,10 @@
  * `git push --all`. Wrong in both directions. Commands here are split into statements, tokenised
  * quote-aware, and matched on the git SUBCOMMAND and the resolved REF.
  *
+ * IT REFUSES EVERY GIT CALL IN A STRAY WORKTREE DIRECTORY: one under `.claude/worktrees/<name>/`
+ * where git answers for another checkout, which is what a worktree removed under a live session
+ * leaves once the session writes a file there (`strayWorktreeDir` below, and its incident).
+ *
  * IT ALSO GUARDS THE PR BASE, EVERYWHERE. `gh pr create` with no `--base` uses the repository's
  * DEFAULT branch: a GitHub setting that lives outside this repository, that this guard cannot read,
  * and that need not be the trunk. Whoever omits the flag gets whatever that setting says when the
@@ -59,6 +63,7 @@
  * confused retry loop.
  */
 import { spawnSync } from 'node:child_process'
+import { realpathSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { readHookInput, readOr, ROOT } from './_shared.mjs'
 
@@ -117,6 +122,55 @@ function inLinkedWorktree(dir) {
   const common = gitPath(dir, '--git-common-dir')
   if (gitDir === null || common === null) return false
   return gitDir !== common
+}
+
+/** A worktree's directory under `.claude/worktrees/`, the one location this repository provisions. */
+const WORKTREE_PATH = /^(.*?[\\/]\.claude[\\/]worktrees[\\/][^\\/]+)(?:[\\/]|$)/
+
+/** The path with symlinks resolved, or the path itself if it cannot be resolved. */
+function realpathOr(p) {
+  try {
+    return realpathSync(p)
+  } catch {
+    return p
+  }
+}
+
+/**
+ * `{ worktree, toplevel }` when `dir` sits under `.claude/worktrees/<name>/` but git there answers
+ * for another checkout, or `null`.
+ *
+ * WHY THIS EXISTS. A worktree removed under a live session leaves the session's directory gone, and
+ * the first file the session writes there recreates it with no `.git` file in it. Git run from that
+ * directory then walks upward and finds the PRIMARY checkout, so `inLinkedWorktree` answers false
+ * and every git rule above is skipped. On 2026-09-28 a lane working asdlc-openspec-j09.5 lost its
+ * worktree `.claude/worktrees/agent-a844b327378a4720e` to `npm run worktree:gc`, wrote
+ * `scripts/test-trace.mjs` at that path, and ran `git fetch origin` and `git rebase origin/main`
+ * there, which rebased the primary checkout's `main` (its reflog: `rebase (finish): refs/heads/main
+ * onto f09c923`). It was a fast-forward, so nothing was lost (asdlc-openspec-0ga). THE SIGNAL IS
+ * THE PATH: nothing git says in such a directory tells it from the primary checkout, but a directory
+ * under `.claude/worktrees/<name>/` belongs to that worktree, and `--show-toplevel` must be it. An
+ * unanswerable toplevel (no repository at all, git missing) is not judged: git would fail there too.
+ */
+function strayWorktreeDir(dir) {
+  const match = WORKTREE_PATH.exec(dir)
+  if (match === null) return null
+  const toplevel = gitPath(dir, '--show-toplevel')
+  if (toplevel === null) return null
+  const worktree = match[1]
+  if (realpathOr(toplevel) === realpathOr(worktree)) return null
+  return { worktree, toplevel }
+}
+
+/** The refusal for any git call in a stray worktree directory, naming both paths. */
+function strayDenial({ worktree, toplevel }) {
+  return (
+    `this command runs git in ${worktree}, but git there answers for ${toplevel}. A directory ` +
+    'under .claude/worktrees/ with no checkout of its own is what is left of a worktree removed ' +
+    'under the session, and git run in it acts on another checkout. Do not run git here. Stop and ' +
+    'report that the worktree was removed; anything it held that was not pushed is only in this ' +
+    'directory now.'
+  )
 }
 
 /* ============================================================================================= *
@@ -688,17 +742,17 @@ function denialForGh(call, linked) {
  * Walk every statement, descending into `bash -c` strings. Returns the first reason to deny.
  *
  * The git rules are worktree-only and are skipped entirely when `linked` is false; the `gh` rules
- * decide for themselves (see `denialForGh`).
+ * decide for themselves (see `denialForGh`). In a stray worktree directory (`strayWorktreeDir`)
+ * every git call is refused, whatever it is: git there answers for another checkout.
  */
-function inspect(command, linked, depth = 0) {
+function inspect(command, linked, stray, depth = 0) {
   if (depth > 2) return null
   for (const tokens of parse(command)) {
-    if (linked) {
-      const call = gitCall(tokens)
-      if (call !== null) {
-        const reason = denialFor(call)
-        if (reason !== null) return reason
-      }
+    const call = gitCall(tokens)
+    if (call !== null && stray !== null) return strayDenial(stray)
+    if (call !== null && linked) {
+      const reason = denialFor(call)
+      if (reason !== null) return reason
     }
     const gh = ghCall(tokens)
     if (gh !== null) {
@@ -706,7 +760,7 @@ function inspect(command, linked, depth = 0) {
       if (reason !== null) return reason
     }
     for (const script of inlineScripts(tokens)) {
-      const reason = inspect(script, linked, depth + 1)
+      const reason = inspect(script, linked, stray, depth + 1)
       if (reason !== null) return reason
     }
   }
@@ -729,6 +783,8 @@ if (process.stdin.isTTY) process.exit(0)
 const input = await readHookInput()
 const dir = commandDir(input)
 const linked = inLinkedWorktree(dir)
+// Only where git found no linked worktree: in one, `--show-toplevel` is that worktree by definition.
+const stray = linked ? null : strayWorktreeDir(dir)
 
 // THE WORKTREE WAS NOT PROVISIONED BY THE SCRIPT. Refuse everything, not just git: the agent is
 // about to do real work against a commit it did not choose, and every command it runs deepens that.
@@ -758,7 +814,7 @@ if (unprovisioned !== null) {
 // same strictness would block every command in the repository over a hook plumbing fault, which is
 // far worse than the one mistake left unguarded there, so an unreadable payload is allowed instead.
 if (input === null || typeof input?.tool_input?.command !== 'string') {
-  if (!linked) process.exit(0)
+  if (!linked && stray === null) process.exit(0)
   deny(
     'the hook payload could not be read, so this command cannot be checked against the worktree ' +
       'rules. This guard fails closed by design.',
@@ -768,6 +824,6 @@ if (input === null || typeof input?.tool_input?.command !== 'string') {
 const command = input.tool_input.command
 if (command.trim() === '') process.exit(0)
 
-const reason = inspect(command, linked)
+const reason = inspect(command, linked, stray)
 if (reason !== null) deny(reason)
 process.exit(0)

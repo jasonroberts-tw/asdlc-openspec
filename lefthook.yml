@@ -162,9 +162,10 @@ pre-push:
     # checkout that trails its remote, and the guard reads the approval label and the gc sweep its
     # `worktreeGcMinAgeHours` from `tools/policy.json`, so the policy is in the glob too. Over a
     # hundred and twenty git spawns, two bash runs, four renders and, on macOS, three `lsof` calls:
-    # 9.09 s wall through `node --run` (`/usr/bin/time -p`, one run, while other worktrees ran their
-    # gates) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-29, up from 7.59-7.82 s before the gc
-    # sweep's liveness and age cases, so re-measure it on your host before trusting the suite's total.
+    # 9.41 s wall through `node --run` (`/usr/bin/time -p`, one run, while other worktrees ran their
+    # gates) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-29, with the guard's stray-directory
+    # cases; 9.09 s without them, and 7.59-7.82 s before the gc sweep's liveness and age cases, so
+    # re-measure it on your host before trusting the suite's total.
     - name: worktree-hooks
       glob:
         - 'scripts/hooks/**'

@@ -40,6 +40,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   statSync,
   utimesSync,
@@ -290,6 +291,30 @@ check(
   noCwd.code === 2 && noCwd.stderr.includes(WORKTREE_RULE),
   why(noCwd),
 )
+
+// A STRAY WORKTREE DIRECTORY (asdlc-openspec-0ga): what a worktree removed under a live session
+// leaves once the session writes a file there, a directory under `.claude/worktrees/<name>/` with no
+// `.git` file, where git walks up to the primary checkout. Every git call there is refused by its
+// reason, which names both paths, reads included. The controls are the same rebase in a registered
+// worktree, where the briefing asks for it, and a command that is not git in the stray directory.
+console.log('guard-git: git in a stray worktree directory')
+const strayRoot = join(primary, '.claude', 'worktrees', 'gone')
+mkdirSync(join(strayRoot, 'scripts'), { recursive: true })
+writeFileSync(join(strayRoot, 'scripts', 'test-trace.mjs'), '// written after the removal\n')
+const STRAY_RULE = `runs git in ${strayRoot}, but git there answers for ${realpathSync(primary)}`
+const strayCases = [
+  ['a rebase in it is refused', strayRoot, 'git rebase origin/main'],
+  ['a read in a subdirectory of it is refused', join(strayRoot, 'scripts'), 'git status'],
+  ['a fetch inside bash -c is refused', strayRoot, "bash -c 'git fetch origin'"],
+]
+for (const [label, dir, command] of strayCases) {
+  const r = guardFrom(dir, { command })
+  check(`${label}, by its reason`, r.code === 2 && r.stderr.includes(STRAY_RULE), why(r))
+}
+const oursRebase = guardFrom(oursDir, { command: 'git rebase origin/main' })
+check('control: a registered worktree allows the rebase', oursRebase.code === 0, why(oursRebase))
+const strayEcho = guardFrom(strayRoot, { command: 'ls scripts' })
+check('control: a command that is not git is allowed there', strayEcho.code === 0, why(strayEcho))
 
 /* --------------------------------------------------------------------------------------------- *
  * guard-git: the approval label, from any checkout.

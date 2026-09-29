@@ -404,7 +404,7 @@ at its start: restart the session after changing it.
 | Trigger | Effect | Wired in |
 |---|---|---|
 | `npm ci` | The hook runner's install script writes the git hooks below into `.git/hooks`. | `package.json` (`allowScripts`) |
-| A session is about to run a Bash command | `scripts/hooks/guard-git.mjs` refuses, from a linked worktree, a git command against a protected branch or the worktree registry; and from any checkout, a `gh pr create` that does not name `main` as its base and a `gh` command that applies the reviewer's approval label. | `.claude/settings.json` (`PreToolUse`) |
+| A session is about to run a Bash command | `scripts/hooks/guard-git.mjs` refuses, from a linked worktree, a git command against a protected branch or the worktree registry; any git command in what a removed worktree leaves under `.claude/worktrees/`, where git would act on the primary checkout; and from any checkout, a `gh pr create` that does not name `main` as its base and a `gh` command that applies the reviewer's approval label. | `.claude/settings.json` (`PreToolUse`) |
 | A session is about to write or edit a file | `scripts/hooks/block-generated-edit.mjs` refuses an edit to generated output and names where the change belongs. | `.claude/settings.json` (`PreToolUse`) |
 | A session has written or edited a file | `scripts/hooks/check-emitted-drift.mjs` re-runs the `:check` twin of any emitter whose input was just edited. | `.claude/settings.json` (`PostToolUse`) |
 | A session stops | `scripts/hooks/gate-summary.mjs` runs the fastest gates over the session's checkout, untracked files included, and prints one verdict line. It never blocks the stop. | `.claude/settings.json` (`Stop`) |
