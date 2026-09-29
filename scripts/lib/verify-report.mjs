@@ -1,8 +1,8 @@
 /**
  * The verification report's one reading, shared by `scripts/render-verify-report.mjs` and
  * `scripts/render-pr-body.mjs`: from the JSON `scripts/fresh-run.mjs` writes, the status of every
- * Scenario, NFR, task and contract-element ID, the gap analysis in `docs/test-strategy.md` § Verify's
- * five categories with the advisory items beside them, the tests and runtime at each layer per
+ * Scenario, NFR, task and contract-element ID, the gap analysis in the five categories of
+ * `docs/test-strategy.md` § Verify with the advisory items beside them, the tests and runtime at each layer per
  * component, the thresholds as their gate printed them, and the verdict with every reason for it;
  * and the Markdown both renderers write. It is the home of how each is derived; the skill that runs
  * it, `.claude/skills/change-verify/SKILL.md`, points here.
