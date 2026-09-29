@@ -621,8 +621,9 @@ function judgeTrace(g, out) {
     const dropped = named.filter((t) => !tests.includes(t))
     const reading = { proofKind: from.proofKind, proof: from.proof, exercises: from.exercises, tests: tests.map((t) => ({ file: t.file, name: t.name })) }
     // A tracer's own result stands only for a row naming no test at all: never beside a dropped one.
-    const checked = !named.length && reading.proofKind !== 'manual' && RESULTS.includes(r.result)
-    const { result, measured } = measure(reading, checked || reading.proofKind === 'manual' ? r.result : undefined)
+    const byHand = reading.proofKind === 'manual'
+    const checked = !named.length && !byHand && RESULTS.includes(r.result)
+    const { result, measured } = measure(reading, checked || byHand ? r.result : undefined)
     const note = dropped.length ? ` [dropped, as not the record's tests for it: ${dropped.map((t) => `${t.file}: ${t.name}`).join('; ')}]` : ''
     const row = {
       group: g.key,
