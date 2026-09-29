@@ -210,6 +210,13 @@ const UNJOBBED_BY_KIND = [
         name: 'gates',
         why: 'the suite itself (`lefthook run pre-push --force`); a job invoking it would recurse.',
       },
+      {
+        name: 'tests:fresh',
+        why:
+          'the verifier\'s fresh run: it clones HEAD and runs `npm ci`, which reads the network, and' +
+          ' `change-verify` runs it for one change; `tests:fresh:selftest` stands in at push and in CI' +
+          ' (`docs/decisions.md` § D-15, item 3).',
+      },
     ],
   },
 ]
