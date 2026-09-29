@@ -430,7 +430,7 @@ pre-push:
     # as the calculator is and sized from the live policy's minimum samples, each asserting its reason
     # beside two controls: coverage, the Routines' tap runs, the Commands' command runs, the baseline
     # and its update, and the command line through THRESHOLDS_ROOT. It runs the real runner, reader
-    # and StrykerJS, so they and the lockfile are in the glob. 19.14-19.18 s wall for its 28 cases
+    # and StrykerJS, so they and the lockfile are in the glob. 19.11-19.20 s wall for its 29 cases
     # through `node --run` (`/usr/bin/time -p`, two runs) on the host and date above, most of it
     # thirteen StrykerJS runs; 37.77 s inside `npm run gates`.
     - name: thresholds-selftest

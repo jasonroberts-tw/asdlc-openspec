@@ -74,8 +74,9 @@
  * `ignore next <n>`) for a line no test can reach, and `// Stryker disable next-line <mutators>:
  * <reason>` for a mutant no test should detect, such as an equivalent one. Node then leaves the line
  * out of its figures and Stryker reports the mutant as ignored, so the gate's figures and each tool's
- * own agree; the reason moves with its line and goes when the line does. Node honours only a block
- * comment holding nothing but the directive, so its reason is the line comment after it. The gate
+ * own agree; the reason moves with its line and goes when the line does. Node honours the directive
+ * only spelled exactly so, a block comment holding nothing else, so its reason is the line comment
+ * after it; where Node recorded a file, a line it counted is counted whatever a comment says. The gate
  * prints every excused line and mutant as advisory, for the reviewer and the verification report.
  * Where it loses: the product's code carries the tools' comments, and a builder can write a reason
  * as easily as a reviewer can; review holds what the reason says. The alternative was a list in a
@@ -419,8 +420,10 @@ export function scanSource(text) {
  * The lines Node's coverage directives leave out, each with the directive that does it: `ignore
  * next` and `ignore next <n>` the line or lines after the comment's own, and `disable` every line
  * after it up to and including the `enable` that ends it, as Node 22.22.2 and 26.8.1 were measured to
- * do. Node honours only a block comment holding nothing but the directive, so the reason is the text
- * of a line comment after it on the same line, or null.
+ * do. Both honour only a block comment spelled exactly `/* node:coverage ignore next *\/`, one space
+ * each side and between the words, and ignored `/*node:coverage ignore next*\/`, a doubled space and
+ * `ignore next 1*\/`, so this reads that spelling alone. The reason is the text of a line comment
+ * after the directive on the same line, or null.
  */
 export function coverageDirectives(comments, total) {
   const ignored = new Map()
@@ -428,7 +431,7 @@ export function coverageDirectives(comments, total) {
   let open = null
   for (const comment of comments) {
     if (!comment.block) continue
-    const match = /^\s*node:coverage\s+(ignore next(?:\s+(\d+))?|disable|enable)\s*$/.exec(comment.text)
+    const match = /^ node:coverage (ignore next(?: (\d+))?|disable|enable) $/.exec(comment.text)
     if (!match) continue
     const kind = match[1].startsWith('ignore') ? 'ignore next' : match[1]
     const directive = { line: comment.endLine, kind, reason: comment.trailing || null }
@@ -521,17 +524,22 @@ export function judgeCoverage(root, changed, inScope, summary, policy) {
     for (const k of [...mine].sort((a, b) => a - b)) {
       if (!code.has(k)) continue
       const directive = ignored.get(k)
-      if (directive?.reason) {
+      // Where Node recorded the file, its own reading of the directives wins: a line it counted is counted.
+      const counted = record !== undefined && hits.has(k)
+      if (!counted && directive?.reason) {
         excused.push(`${path}:${k} excused from coverage (${directive.reason})`)
         continue
       }
       counts.lines++
-      if (directive !== undefined) missed.push(`${path}:${k}, which the directive on line ${directive.line} ignores without a reason`)
-      else if ((hits.get(k) ?? 0) > 0) counts.linesHit++
-      else missed.push(record === undefined ? `${path}:${k}, in a file no test loads, so Node recorded no coverage for it` : `${path}:${k}`)
+      if (counted) {
+        if (hits.get(k) > 0) counts.linesHit++
+        else missed.push(`${path}:${k}`)
+      } else if (record === undefined) missed.push(`${path}:${k}, in a file no test loads, so Node recorded no coverage for it`)
+      else if (directive !== undefined) missed.push(`${path}:${k}, which the directive on line ${directive.line} ignores without a reason`)
+      else missed.push(`${path}:${k}, which Node left out of its figures with no directive this gate reads`)
     }
     for (const { line, count } of record?.branches ?? []) {
-      if (!mine.has(line) || ignored.has(line)) continue
+      if (!mine.has(line) || !hits.has(line)) continue
       counts.branches++
       if (count > 0) counts.branchesHit++
       else untaken.push(`${path}:${line}`)
@@ -887,6 +895,7 @@ export async function check(given, { commands = false, product = false, stages =
   if (!commands && stages.coverage) {
     const { failures, coverage } = await runTests(root, testPatterns(root), { coverage: { include: policy.scope.code, exclude: policy.scope.tests } })
     if (failures.length > 0) return { refusals: [...refusals, ...failures.map((failure) => `suite: it does not pass, so its coverage is not judged: ${failure}`)], printed }
+    if (coverage === null) return { refusals: [...refusals, "suite: Node's test runner sent no coverage summary, so no line can be judged; this Node does not measure coverage through run()."], printed }
     const judged = judgeCoverage(root, changed, inScope, coverage, policy)
     refusals.push(...judged.refusals)
     printed.push(...judged.printed)
@@ -1091,6 +1100,12 @@ function cases(f, policy) {
       stages: only.coverage,
       expect: 'pass',
       printed: /^ {2}advisory: apps\/calculator\/public\/calc\.js:\d+ excused from coverage \(reached only by hand, in this fixture\)$/,
+    },
+    {
+      name: 'a directive spelled as Node does not honour it excuses nothing',
+      files: withNew(`/*node:coverage ignore next 4*/ // reached only by hand, in this fixture\n${g}`),
+      stages: only.coverage,
+      expect: lineSample,
     },
     { name: 'a coverage directive with no reason', files: withNew(`/* node:coverage ignore next 4 */\n${g}`), stages: only.coverage, expect: /holds a `node:coverage ignore next` directive with no reason/ },
     { name: 'a coverage directive that disables a range', files: withNew(`/* node:coverage disable */ // not reached\n${g}/* node:coverage enable */\n`), stages: only.coverage, expect: /disables coverage up to an `enable`/ },
