@@ -17,9 +17,9 @@ No analysis is written by a prompt another prompt called, such as `open-pr` insi
 caller's analysis names it; by the reviewer's own run; or by a run that worked no issue, which goes
 unreviewed. Such a run stops here.
 
-Any other run writes one analysis, as a note on the issue or epic it worked, from a file under
-`.scratch/` (`bd note <id> --file <file>`), inside a tracker bracket. A run that worked several
-issues writes one, on the first one its pull request's title carries. Its first line is
+Any other run writes one analysis, as a note on the issue or epic it worked
+(`bd note <id> --file <file>`). A run that worked several issues writes one, on the first one its
+pull request's title carries. Its first line is
 `promptReviewAnalysisMarker`, a space, and the run id: the issue's id, `@`, and the UTC second the
 note is written, as `date -u +%Y-%m-%dT%H:%M:%SZ` prints it. The next lines name every prompt file
 the run loaded and the commit it read them at. Then comes the analysis: what made the run slower or
@@ -48,8 +48,8 @@ Name the review once: `review-prompts-` and the UTC date and time, as `date -u +
 them. It is the name of the review's session, of its worktree and, as `agent/<name>`, of its branch,
 and the only way a review tells itself from another one that is working.
 
-Leave your worktree (`ExitWorktree`, action `keep`): a background session starts in the directory it
-was launched from, and one launched inside a linked worktree writes on that worktree's branch. From
+Leave your worktree (`ExitWorktree`, action `keep`): a background session launched inside a linked
+worktree writes on that worktree's branch. From
 the primary checkout, launch the reviewer, with the name in both places:
 
     claude --bg --agent continuous-prompt-improvement --permission-mode auto --name <name> "Review the pending prompt-run analyses as <name>."
