@@ -353,16 +353,19 @@ pre-push:
               - 'package.json'
               - 'package-lock.json'
             run: node --run thresholds:check
-          # The calculator's contract, fitness and E2E tests, which the build workflow's test-builder
-          # writes under `apps/calculator/test/independent/` (the header of
+          # The calculator's tests that run at Build, its contract tests and build-time fitness
+          # functions, which the build workflow's test-builder writes under
+          # `apps/calculator/test/independent/build/` (the header of
           # `.claude/workflows/build-change-task.js`), every test file at any depth there, through
-          # `scripts/run-tests.mjs --dir`, which passes and says so while the directory holds none. Its
-          # glob is `calculator-test`'s, for the same reasons. In this group, after the other two,
-          # because its contract and E2E tests start the server as `serve.test.js` does: beside either
-          # of them it would race them for port 26680, as they raced each other (the comment above
-          # `calculator-suites`). 0.07-0.08 s wall through `node --run` (`/usr/bin/time -p`, two runs)
-          # on a macOS 26.7 laptop with Node 26.8.1, 2026-09-29, with no test file there yet, which is
-          # what it adds to the group's chain.
+          # `scripts/run-tests.mjs --dir`, which passes and says so while the directory holds none.
+          # The E2E tests and Verify-deferred fitness functions under `independent/verify/` run at
+          # Verify, through `calculator:test:verify`, which no job runs (`scripts/check-jobs.mjs`).
+          # Its glob is `calculator-test`'s, for the same reasons. In this group, after the other two,
+          # because its contract tests start the server as `serve.test.js` does: beside either of them
+          # it would race them for port 26680, as they raced each other (the comment above
+          # `calculator-suites`). 0.07 s wall through `node --run` (`/usr/bin/time -p`, two runs) on a
+          # macOS 26.7 laptop with Node 26.8.1, 2026-09-29, with no test file there yet, which is what
+          # it adds to the group's chain.
           - name: calculator-test-independent
             glob:
               - 'apps/calculator/**'
@@ -408,11 +411,11 @@ pre-push:
     # every scenario's happy-path and negative test, IDs that resolve, hashes that are current, and
     # the ratchet baseline against the one at the branch's merge base with origin/main. It reads the
     # specs, the tests, contracts and Binding Surfaces under apps/, everything under artifacts/trace/,
-    # the policy, the manifest's test patterns and `--dir` directories, the reader and the helpers it imports, and git
-    # history: a commit that changes the record's tasks changes a path under apps/, which the glob
-    # holds. The lockfile pins the OpenSpec CLI it trial-archives an active change with. 0.31-0.33 s
-    # wall through `node --run` (`/usr/bin/time -p`, two runs) on a macOS 26.7 laptop with Node
-    # 26.8.1, 2026-09-28, with no active change, so no CLI start.
+    # the policy, the manifest's test patterns and `--dir` directories, the reader and the helpers
+    # it imports, and git history: a commit that changes the record's tasks changes a path under
+    # apps/, which the glob holds. The lockfile pins the OpenSpec CLI it trial-archives an active
+    # change with. 0.31-0.33 s wall through `node --run` (`/usr/bin/time -p`, two runs) on a macOS
+    # 26.7 laptop with Node 26.8.1, 2026-09-28, with no active change, so no CLI start.
     - name: trace-check
       glob:
         - 'openspec/**'

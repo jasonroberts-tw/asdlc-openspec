@@ -294,7 +294,7 @@ const EVIDENCE = 'The proof passed before any change: the display already showed
 
 const APP = 'example'
 const IDIR = `apps/${APP}/test/independent`
-const CONTRACT = `${IDIR}/contract/display.test.js`
+const CONTRACT = `${IDIR}/build/contract/display.test.js`
 /** Planted in the test-builder's file, the runner's output and the architect's account: no builder or fixer prompt may hold one. */
 const PLANTED = ['planted-source-line', 'planted-assertion-text', 'TestContext.<anonymous>', 'display.test.js']
 const FRAME = `    at TestContext.<anonymous> (file://${WORKTREE}/${CONTRACT}:9:3)`
@@ -881,8 +881,28 @@ function independentCases(policy) {
     {
       name: 'not-independent: a test-builder file outside its directory, or at a layer `independentLayers` does not list, stops the run before any reviewer',
       args: args(kind),
-      scenario: { tests: tests([testFile({ path: `apps/${APP}/test/display.test.js` }), testFile({ path: `${IDIR}/unit/display.test.js`, layer: 'unit' })]) },
-      expect: ['not-independent', new RegExp(`^the test-builder returned apps/${APP}/test/display\\.test\\.js \\(contract\\), ${escape(IDIR)}/unit/display\\.test\\.js \\(unit\\), outside `)],
+      scenario: { tests: tests([testFile({ path: `apps/${APP}/test/display.test.js` }), testFile({ path: `${IDIR}/build/unit/display.test.js`, layer: 'unit' })]) },
+      expect: ['not-independent', new RegExp(`^the test-builder returned apps/${APP}/test/display\\.test\\.js \\(contract, build\\), ${escape(IDIR)}/build/unit/display\\.test\\.js \\(unit, verify\\), outside `)],
+      check: ({ calls }) => (count(calls, /^review /) ? 'a reviewer ran' : null),
+    },
+    {
+      name: 'not-independent: an E2E test or a Verify-deferred fitness function under the build stage, or a build-time contract test under verify, stops the run before any reviewer',
+      args: args(kind),
+      scenario: {
+        tests: tests([
+          testFile({ path: `${IDIR}/build/e2e/journey.test.js`, layer: 'e2e', runAt: 'verify' }),
+          testFile({ path: `${IDIR}/build/fitness/heavy.test.js`, layer: 'fitness', runAt: 'verify' }),
+          testFile({ path: `${IDIR}/verify/contract/display.test.js` }),
+          testFile({ path: `${IDIR}/verify/fitness/timed.test.js`, layer: 'fitness', runAt: 'verify' }),
+        ]),
+      },
+      expect: [
+        'not-independent',
+        new RegExp(
+          `^the test-builder returned ${escape(IDIR)}/build/e2e/journey\\.test\\.js \\(e2e, verify\\), ${escape(IDIR)}/build/fitness/heavy\\.test\\.js \\(fitness, verify\\), ` +
+            `${escape(IDIR)}/verify/contract/display\\.test\\.js \\(contract, build\\), outside ${escape(IDIR)}/<stage>/<layer>/<name>\\.test\\.js; no reviewer ran$`,
+        ),
+      ],
       check: ({ calls }) => (count(calls, /^review /) ? 'a reviewer ran' : null),
     },
     {

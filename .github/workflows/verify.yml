@@ -101,8 +101,9 @@ jobs:
       - name: the calculator's scenarios pass
         run: npm run calculator:test
       # Under a second while it holds no test (lefthook.yml's `calculator-test-independent` job has the
-      # measurement): the test-builder's contract, fitness and E2E tests under
-      # `apps/calculator/test/independent/`, held as the step above holds the rest.
+      # measurement): the test-builder's contract tests and build-time fitness functions under
+      # `apps/calculator/test/independent/build/`, held as the step above holds the rest. Its E2E
+      # tests and Verify-deferred fitness functions run at Verify, and no step here runs them.
       - name: the calculator's independent tests pass
         run: npm run calculator:test:independent
       # Under a second (lefthook.yml's `tests-selftest` job has the measurement): fixture trees
