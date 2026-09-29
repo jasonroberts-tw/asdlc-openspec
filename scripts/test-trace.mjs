@@ -6,7 +6,8 @@
  * metadata; landed by asdlc-openspec-j09.5, whose notes record the maintainer's choices).
  * `scripts/run-tests.mjs` reads every test file it runs through it and refuses what it refuses; the
  * trace gate, `tools/trace/trace.ts`, reads tests and specs through it too, and the test-inventory
- * gate (asdlc-openspec-j09.9) is to, from committed files and from a merge base.
+ * gate, `scripts/check-test-inventory.mjs`, reads through it the tests of HEAD and of its merge base
+ * with origin/main, from git.
  *
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet; this is what it would let through if it were
  * wrong or absent. Before it, a test traced to its scenario by the scenario's title copied into its
