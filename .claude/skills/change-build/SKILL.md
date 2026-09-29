@@ -28,9 +28,12 @@ with `bd update <id> --claim`.
 If nothing is ready but children are still open, read why with `bd ready --explain` and report it.
 Never work around a blocker.
 
-If no child is open at all and the epic's latest note is a send-back from `change-verify`, it names
-the gap in the code to fix. Fix it, prove it and commit it as step 3 says, note on the epic what was
-fixed and in which commit subject, then go to step 6.
+If no child is open at all and the epic's latest note is a send-back, it names what to fix: from
+`change-verify`, a gap in the code; from `change-finalize`, each test `trace:check` refused after
+the archive. Retire a test on a removed ID yourself, with the decision the header of
+`scripts/check-test-inventory.mjs` asks for, and fix the rest as step 3 says, each for the task
+`artifacts/trace/record.json` lists beside its file. Note on the epic what was fixed and in which
+commit subject, then go to step 6.
 
 ## 3. Build it, and prove it
 
