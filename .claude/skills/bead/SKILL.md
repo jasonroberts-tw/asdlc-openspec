@@ -113,9 +113,10 @@ with the labels `CLAUDE.md` § The task store names; here the found-at label is 
 
 Before filing this or any follow-up, search for it. `bd search "<words>"` matches titles only and
 `bd list --all --desc-contains "<words>"` matches descriptions; both include closed issues. Run
-both, then again with a second phrasing, because a string can miss. A match gets a note
-(`bd note`), not a second issue. A follow-up's body carries the sections `bd lint --help` lists for
-its type.
+both, then again with a second phrasing, because a string can miss. From a worktree, the harness
+can refuse a command whose quoted text names git, so a title or search words leave the word out.
+A match gets a note (`bd note`), not a second issue. A follow-up's body carries the sections
+`bd lint --help` lists for its type.
 
 ## 5. Rebase and gate again
 
@@ -132,8 +133,8 @@ with a note naming the pull request and the issue that carries the cause.
 ## 7. Close on green, with a reason
 
 When every check is green, close the issue with a reason that names the pull request, passed with
-`bd close <id> --reason-file <file>` as `CLAUDE.md` § Bash command style asks of any prose: from a
-worktree, the harness can refuse an inline `--reason` whose text it cannot tell from a git command.
+`bd close <id> --reason-file <file>` as `CLAUDE.md` § Bash command style asks of any prose: the
+harness can refuse an inline `--reason` (step 4).
 An acceptance criterion that acts outside the repository is not performed: it becomes a follow-up
 issue labelled `human`, created with its label at creation; step 4 says how to search for it and
 what its body carries.
