@@ -8,14 +8,14 @@ git clone https://github.com/<owner>/<repository>.git
 code <repository>           # then: "Reopen in Container" when VS Code offers
 ```
 
-The first build takes several minutes and is cached afterwards. You get Node, `bd`, `gh`, RTK, Claude Code and
+The first build takes several minutes and is cached afterwards. You get Node, `bd`, `gh`, RTK, Vale, Claude Code and
 the tracker's plugin marketplace, plus whatever toolchain you add to the image.
 
 | File | What it holds |
 |---|---|
 | `Dockerfile` | Every tool, as a layer. Versions are `ARG`s at the top, each with a comment saying where it is re-derived from — bump one when its source moves. |
 | `devcontainer.json` | Almost nothing: a pointer at the Dockerfile, the `remoteUser`, three bind mounts and one passthrough env var. |
-| `entrypoint.sh` | The three setup steps that read the repository, which is a bind mount and does not exist at build time. |
+| `entrypoint.sh` | The three setup steps that read the repository, which is a bind mount and does not exist at build time, and a warning while Vale cannot load `.vale.ini`. |
 
 ## Why the split is where it is
 
@@ -29,6 +29,13 @@ hooks, and hydrating the Dolt issue database. It is wired to `ENTRYPOINT` so `de
 needs no lifecycle command, runs on every start, and is idempotent. **Nothing in it may fail the
 container**: this is the process that starts the shell you would use to fix a setup problem, so
 every step warns and carries on.
+
+**Vale's styles come from the clone, not the image.** The image carries `vale`, pinned in the
+`Dockerfile`. The styles `.vale.ini` names are what `vale sync` downloads into the clone, which the
+image cannot see at build time. A clone synced on the host brings its styles in through the bind
+mount. Otherwise, run `vale sync` once in the container: it needs the network, and the styles land
+in the clone, so a rebuild keeps them. `entrypoint.sh` does not run it. It warns at start while
+`vale ls-config` cannot load `.vale.ini`.
 
 **The mounts are the one thing an image cannot bake**, because a login is yours and not the
 project's. `~/.claude`, `~/.claude.json` and `~/.config/gh` are bind-mounted from the host, so:

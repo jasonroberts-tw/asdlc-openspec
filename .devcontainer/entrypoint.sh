@@ -9,6 +9,9 @@
 #   2. the git hooks              -- lefthook and `bd hooks install`, both of which write .git/hooks.
 #   3. the beads issue database   -- a Dolt DB under .beads/embeddeddolt/, not in git.
 #
+# ...a warning when Vale cannot load `.vale.ini`. Its styles are what `vale sync` downloads into the
+# repository, once, and a person runs it (.devcontainer/README.md): this script does not...
+#
 # ...and the wiring for the credential mounts declared in devcontainer.json, which is here for the
 # same reason: it depends on what those mounts actually brought in, which is a fact about the host
 # and unknown at build time.
@@ -84,6 +87,13 @@ setup() {
     log 'hydrating the beads issue database'
     bd bootstrap >/dev/null 2>&1 \
       || warn 'bd bootstrap failed -- run `gh auth login`, then `bd bootstrap` (never `bd init`)'
+  fi
+
+  # Vale's styles are downloaded into the clone by `vale sync`, which needs the network, so this
+  # warns rather than runs it. Without them the vale@agent-tools hook answers every edit with E201,
+  # which reads like a check that ran; `vale ls-config` fails the same way, and names no path here.
+  if command -v vale >/dev/null 2>&1 && [ -f .vale.ini ] && ! vale ls-config >/dev/null 2>&1; then
+    warn 'Vale cannot load .vale.ini, so no prose is checked -- run `vale sync` once (it needs the network)'
   fi
 
 }

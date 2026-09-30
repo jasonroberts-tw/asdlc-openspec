@@ -179,8 +179,17 @@ does not apply to your platform is absent from its list, not marked optional.
    against. Then run `rtk init -g` once and restart Claude Code: it installs RTK's hook and
    `RTK.md` for your user, which `CLAUDE.md`'s closing block assumes. Never run `rtk init` without
    `-g` in the clone: it writes `.rtk/filters.toml`, which is not tracked here.
+1. Install Vale, the prose linter the `vale@agent-tools` plugin in `.claude/settings.json` runs on
+   every edit of prose: `brew install vale`, or the release binary for your platform from
+   `https://github.com/vale-cli/vale/releases`. Check that `vale --version` answers. 3.23.0 is the
+   version `.devcontainer/Dockerfile` pins. Without Vale, the plugin's hook exits in silence and no
+   prose is checked.
 1. Clone, then `npm ci`. The hook runner's install script writes the git hooks; if your package
    manager blocks install scripts, run `npx lefthook install` once.
+1. Run `vale sync` in the clone. It downloads the styles `.vale.ini` names into the directory its
+   `StylesPath` names, which git ignores, and it needs the network. Then check that `vale ls-config`
+   loads: until the sync, it stops with E201, and the hook answers every edit with the same error. A
+   worktree cut by `scripts/new-worktree.sh` copies these styles from this checkout.
 1. Set `sync.remote` in `.beads/config.yaml` if it still holds a placeholder (`<protocol>` is
    `git+https` or `git+ssh`), run `chmod 700 .beads` (git does not carry the mode, and `bd` warns
    on every command without it) and `git config beads.role maintainer` (`contributor` on a fork;
@@ -201,7 +210,13 @@ does not apply to your platform is absent from its list, not marked optional.
    and restart Claude Code, as step 3 of macOS and Linux says, and never `rtk init` without `-g`
    in the clone. RTK's own page says it runs natively on Windows; it has not been run on Windows
    here.
+1. Install Vale with `winget install -e --id errata-ai.Vale`, `choco install vale` or
+   `scoop install vale`, or put `vale.exe` from a release on your PATH. Check that `vale --version`
+   answers from the shell you will work in. Vale's installation page gives these commands; none has
+   been run on Windows here.
 1. Clone, then `npm ci`. If install scripts are blocked, run `npx lefthook install` once.
+1. Run `vale sync` in the clone, then check that `vale ls-config` loads, as step 6 of macOS and
+   Linux says.
 1. Copy `lefthook-windows.yml` to `lefthook-local.yml` and do not commit the copy. Without it the
    pre-push suite finishes every job and then never returns; the file's header has the reason.
 1. Set `sync.remote` in `.beads/config.yaml` if it still holds a placeholder (`<protocol>` is
@@ -220,6 +235,9 @@ holds platform-native binaries. Use one clone per platform.
 1. Clone, open the folder in VS Code, and choose "Reopen in Container".
 1. Wait for the first build. `.devcontainer/entrypoint.sh` then runs the install, the git hooks and
    the tracker's hydration on every start, and warns rather than fails; read its output once.
+1. If it warned that Vale cannot load `.vale.ini`, run `vale sync` once in the container, then check
+   that `vale ls-config` loads. The image carries Vale; the styles land in the clone, so a rebuild
+   keeps them.
 1. Run `npm run gates` and read a green suite before the first change.
 
 `.devcontainer/README.md` has the reasons and the mounts.
@@ -456,7 +474,7 @@ at its start: restart the session after changing it.
 | `git push` that changes the reviewer's script, `tools/policy.json`, a workflow or the reviewer's agent | `pr-review:check`: the reviewer's workflow, agent and policy agree; `pr-review:selftest`: its decisions over fixtures, and the check over doctored copies. | `lefthook.yml` (`pre-push`) |
 | A pull request, a push to `main`, or a merge the reviewer made | Every gate that reads only committed files, cheapest first. It trusts none of the faster tiers. After a reviewer's merge it runs by dispatch, since that merge starts no push run. | `.github/workflows/verify.yml` |
 | A `verify` run ends, a person applies the approval label, every 15 minutes, or by hand | The reviewer takes one action, one run at a time: it merges a pull request whose verdict allows it, or reviews the oldest head that passed `verify` and has no verdict, and runs again while more are waiting. | `.github/workflows/pr-review.yml` |
-| The dev container starts | `npm ci` when the lockfile moved, the git hooks, and the tracker's hydration; each step warns and carries on. | `.devcontainer/entrypoint.sh` |
+| The dev container starts | `npm ci` when the lockfile moved, the git hooks, and the tracker's hydration; each step warns and carries on. It warns, too, while Vale cannot load `.vale.ini`, and runs no `vale sync`. | `.devcontainer/entrypoint.sh` |
 
 ## What is still a placeholder
 
