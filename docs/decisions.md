@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-17 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29).**
+**Status: every decision from D-01 to D-18 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-17` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-18` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -73,12 +73,13 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-15** | The kit's pipeline graph is retired; a check that reads outside the repository is stood in for by its selftest | `tools/pipeline/`, `docs/pipeline.md`, the `corpus-regen` formula and the sibling-checkout resolvers deleted with their scripts, jobs and steps; `gitEnv()` kept in `tools/lib/git-env.ts`; `CLAUDE.md` § The gate ladder |
 | **D-16** | A session's own review and design workflows are bounded by policy, and the build and prompt reviews send one skeptic to a major finding | `CLAUDE.md` § A workflow a session writes itself is bounded, consolidated first; `sessionReviewMaxFindings`, `sessionReviewSkeptics` and `sessionWorkflowMaxAgents` in `tools/policy.json`; `buildReviewSkeptics.major` and `promptReviewSkeptics.major` at 1, held by `workflows:selftest` |
 | **D-17** | A run closes through the `close-prompt-run` skill, which names each prompt review for itself, and the reviewer reads its policy first and makes no worktree it does not need | `.claude/skills/close-prompt-run/SKILL.md`; `CLAUDE.md` § Prompt reviews and § Bash command style; the `continuous-prompt-improvement` agent, consolidated first; `bead` § 8; the three prompts' budgets and the skill's in `tools/policy.json` |
+| **D-18** | RTK is removed, with the ripgrep step it needed and the guard's reading of its prefix | `CLAUDE.md` without its block, and its budget in `tools/policy.json`; `README.md` § Setup and `.devcontainer/` without RTK or ripgrep; `scripts/hooks/guard-git.mjs`, which no longer reads through an `rtk` prefix, and `worktree:selftest` without its `rtk` cases; the guard's rows in `README.md`, `.claude/README.md` and `scripts/hooks/README.md` |
 
 ## Risks
 
 | Id | Risk | Held by |
 |---|---|---|
-| **R-01** | Anything holding a maintainer's credentials, an agent included, can approve a high-risk pull request | `CLAUDE.md` § Git workflow and review; `scripts/hooks/guard-git.mjs` for a session's `gh` command (D-09); nothing for the web UI, curl, a browser tool or anything outside a session |
+| **R-01** | Anything holding a maintainer's credentials, an agent included, can approve a high-risk pull request | `CLAUDE.md` § Git workflow and review; `scripts/hooks/guard-git.mjs` for a session's `gh` command (D-09); nothing for the web UI, curl, a browser tool, a command behind an `rtk` prefix (D-18) or anything outside a session |
 
 ## The entries
 
@@ -848,6 +849,53 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 
 **Figures.** Each word count is `node scripts/check-prompts.mjs --counts`, at `658d708` for the first figure and at this entry's commit for the second: `CLAUDE.md` 3,886 and 3,262; `.claude/agents/continuous-prompt-improvement.md` 2,516 and 2,161, through 2,069 at the consolidation's commit; `.claude/skills/bead/SKILL.md` 1,617 and 1,609; the new skill 672. The probe is workflow run `wf_d0754fca-d86`, whose record is outside this repository.
 
+### D-18 · RTK is removed, with the ripgrep step it needed and the guard's reading of its prefix
+
+**Recorded 2026-09-30**, carried by `asdlc-openspec-wxz`. On 2026-09-30 the maintainer read RTK's own ledger of its savings with a session and chose to take RTK out. They chose items 3 and 4 from recommendations put with the case where each loses, item 4 over the recommendation.
+
+**Builds on / amends:** amends R-01, whose amendment by D-09 lists what the guard does not see. Builds on D-12, whose item 6 lowers `CLAUDE.md`'s budget to its new count; on D-07, which leaves a pull request that changes `CLAUDE.md` or this register to a person; and on D-15, whose disposition this follows. RTK came in with no entry of its own (`ec1b41c`, `asdlc-openspec-6yp`, `asdlc-openspec-luu`), so none is superseded.
+
+**Decision.** RTK, the proxy that condensed command output before an agent read it, is no longer used here.
+
+1. **Its block leaves `CLAUDE.md`**, and `promptWordBudgetClaudeMd` falls to the new count.
+2. **The setup steps and the dev container no longer install it.** `README.md` § Setup loses the RTK step on each platform and the dev container's clause. `.devcontainer/Dockerfile` loses `RTK_VERSION` and the RTK layer, and `.devcontainer/README.md` its mention and its bullet on RTK's hook.
+3. **The ripgrep step goes too.** `asdlc-openspec-f58` added it the same day, in pull request 90, because RTK's `rtk rg` runs the `rg` binary. Nothing in the repository runs `rg`. Where it loses: in a plain terminal outside Claude Code, the dev container's own shell included, `rg` is then "command not found", where keeping it would answer. Inside a session the two are the same, since `rg` there is Claude Code's own copy.
+4. **`scripts/hooks/guard-git.mjs` stops reading through an `rtk` prefix.** `RTK_SHELL` and `rtkCall`, from `asdlc-openspec-luu`, go with their 13 selftest cases and a sentence in the guard's row of `README.md`, `.claude/README.md` and `scripts/hooks/README.md`. The guard's header says what it no longer sees. The recommendation was to keep it. Where the choice loses: on a machine that still runs RTK, the guard does not refuse `rtk git push origin main` from a worktree, or `rtk gh pr edit --add-label` with the approval label from any checkout.
+5. **A machine set up from the old steps removes RTK itself**, since no tracked file can. `rtk init -g --uninstall` removes `~/.claude/RTK.md`, the `@RTK.md` line of `~/.claude/CLAUDE.md` and the hook in `~/.claude/settings.json`, and leaves a clone's `CLAUDE.md` alone. Then every Claude Code session restarts, and the `rtk` binary and RTK's directory go. `rtk config` names the directory. On macOS it holds `recall.db`, up to 30 days of the output RTK hid. On Windows, `winget uninstall rtk-ai.rtk` removes a binary winget installed; it has not been run on Windows here.
+6. **The issues RTK's filters raised close as obsolete** once this lands: `asdlc-openspec-1ac`, `1mu`, `5ke` and `2nt`. `asdlc-openspec-6dx` keeps its Vale layer, and `asdlc-openspec-zfz` its build of the image, without RTK or ripgrep.
+
+**Why.** RTK's own ledger on the maintainer's machine put about 71% of the tokens it booked as saved in output hidden or rewritten before an agent read it. `rtk grep` alone booked 63%. A search under its caps of 25 matches a file and 200 in all came back unchanged when the session's audit tried one. Past a cap it hides the rest, strips the indentation of the lines it shows and cuts them near 80 characters. `rtk gh pr checks` drops the check descriptions `open-pr` § 7 chooses by. About 19%, `rtk read`'s share, is `head` and `tail` windows booked against the whole file's size (`src/cmds/system/read.rs` at RTK v0.50.0), tokens `head` never showed.
+
+What it hid broke this repository's rules. `CLAUDE.md` § Verification before claiming needs the lines an agent counts from (`asdlc-openspec-1mu`). A gate's reason could vanish from its output (`asdlc-openspec-5ke`). `open-pr` read a settled pull request as pending (`asdlc-openspec-1ac`). Its block told agents to treat the output as complete and to batch commands (`asdlc-openspec-2nt`). The harness refused commands behind its prefix (`asdlc-openspec-cir`). Two alternatives lost:
+
+- **Excluding the harmful commands in RTK's config**, as `asdlc-openspec-1ac` planned for `gh`. Excluding `git`, `gh`, `grep`, `rg`, `npm` and `npx` leaves `read`, `ls` and `find`, whose booked savings are mostly the accounting above. The exclusion also lives in a per-machine file no tracked file sets, so the dev container and every other machine would keep the harm.
+- **Raising RTK's caps.** Past a raised cap the lines shown are still cut, and its recall store keeps the cut form.
+
+**What changed.**
+
+- **This register:** this entry; the status line, the blockquote's bound and the decisions table carry D-18; R-01's row and entry carry its amendment.
+- **`CLAUDE.md`:** the `<!-- rtk-instructions v2 -->` block is removed.
+- **`tools/policy.json`:** `promptWordBudgetClaudeMd` falls from 3,343 to 3,263, and its `Means` says why.
+- **`README.md`:** § Setup loses the RTK and ripgrep steps on macOS and Linux and on Windows, and the dev container's clause on RTK. Windows' pointer to the `vale sync` step moves from step 7 to step 5. § What runs automatically loses the guard row's `rtk` sentence.
+- **`.devcontainer/Dockerfile`:** `RTK_VERSION`, the RTK layer and `ripgrep` in the base-packages layer are removed, with the header's list.
+- **`.devcontainer/README.md`:** the list of what the image gives, and the bullet on RTK's hook.
+- **`scripts/hooks/guard-git.mjs`:** `RTK_SHELL`, `rtkCall` and their branch in `inspectStatement` are removed; its header says what it no longer reads.
+- **`scripts/hooks/worktree-hooks.selftest.mjs`:** the 13 cases of a command behind an `rtk` prefix, 9 refused and 4 controls.
+- **`.claude/README.md` and `scripts/hooks/README.md`:** the guard's row loses its `rtk` sentence.
+
+Retirement checklist, the disposition *Delete it outright* of `docs/retired/README.md` § The three dispositions:
+
+- **Nothing live reads them.** `git grep -n -i -w -e rtk -e ripgrep` finds this entry and R-01's row and amendment; the header of `scripts/hooks/guard-git.mjs`, which says what the guard no longer reads; and the history in `promptWordBudgetClaudeMdMeans`. Each is a record of this removal.
+- **The recovery.** `git log -1 --format=%H -S RTK_SHELL -- scripts/hooks/guard-git.mjs` names the removing commit. `git show <that commit>^:<path>` recovers each file as it was, the block in `CLAUDE.md`, the RTK layer of `.devcontainer/Dockerfile` and `rtkCall` among them.
+- **Its return is not refused by a gate.** Review holds it, and this entry says why.
+
+**Figures.**
+
+- `CLAUDE.md` held 3,343 words at `fba6626` and 3,263 at this entry's commit: `node scripts/check-prompts.mjs --counts`.
+- Nine tracked files named RTK at `fba6626`, on 80 lines: `git grep -c -i -w -e rtk -e rtk-ai fba6626`.
+- The 13 selftest cases are the two arrays under `guard-git: a command behind an rtk prefix` in `scripts/hooks/worktree-hooks.selftest.mjs` at `fba6626`.
+- RTK's ledger: 515 commands and 184.7K tokens booked as saved; `rtk grep` 116.4K, `rtk read` 35.1K, `rtk git show` 8.6K over 2 calls, `rtk gh pr checks` 6.9K over 10 calls, and one `rtk ls` 8.2K. The shares above are 131.9K and 35.1K of 184.7K. These are `rtk gain` on the maintainer's machine on 2026-09-30, outside this repository, and are not re-derived here.
+
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
 **Recorded 2026-09-25**, carried by `asdlc-openspec-mi6`.
@@ -863,3 +911,5 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 **Figures.** None.
 
 > **Amended 2026-09-26 by D-09.** A guard now refuses one: `scripts/hooks/guard-git.mjs` refuses, from any checkout, a session's `gh` command that applies the approval label, where the Risk and What changed above say nothing did. It reads only the command line of a session's Bash call, so the risk stands for a label applied through the web UI, curl, a browser tool, a GraphQL mutation (which names a label by its id), a program the command starts, or anything outside a session.
+
+> **Amended 2026-09-30 by D-18.** The guard no longer reads through an `rtk` prefix. On a machine that still runs RTK, `rtk gh pr edit --add-label` with the approval label joins the list above of what it does not see.

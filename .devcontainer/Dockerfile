@@ -1,6 +1,6 @@
 # The whole "new machine setup" of README.md, baked into an image.
 #
-# Everything a person would otherwise do by hand -- Node, `bd`, `gh`, RTK, ripgrep, Vale, Claude Code and the tracker's plugin marketplace -- is a layer here
+# Everything a person would otherwise do by hand -- Node, `bd`, `gh`, Vale, Claude Code and the tracker's plugin marketplace -- is a layer here
 # rather than a devcontainer.json `feature` or `postCreateCommand`. That is deliberate: features
 # resolve at container-create time over the network and fail differently on every machine, and a
 # `postCreateCommand` re-runs on every rebuild. A layer is built once, cached, and identical for
@@ -28,10 +28,6 @@ ARG NODE_MAJOR=22
 # .beads/.local_version there: bd writes that file itself and it is gitignored, so a fresh clone does
 # not have it. Read 1.3.0 from both on 2026-09-23.
 ARG BD_VERSION=1.3.0
-# The RTK that scripts/hooks/guard-git.mjs was measured against: the guard reads a command behind an
-# `rtk` prefix as this version runs it (its `RTK_SHELL` comment). Re-derive it from there, and move
-# both together, since a newer rtk can run a wrapped command in a way the guard does not read.
-ARG RTK_VERSION=0.50.0
 # The Vale that the vale@agent-tools plugin's hook runs on every Write and Edit of prose. Re-derive it
 # from `vale --version` on the maintainer's machine, where the styles `.vale.ini` names were synced
 # and checked. Read 3.23.0 there on 2026-09-30, then the newest release.
@@ -48,9 +44,6 @@ ENV NO_COLOR=1
 
 # --- base packages ------------------------------------------------------------------------------
 # build-essential: some npm dependencies still compile on install.
-# ripgrep: RTK's hook rewrites an agent's `rg` to `rtk rg`, which runs the `rg` binary; Claude Code's
-# own `rg` is a shell function RTK cannot call, so without this every rewritten search fails. From
-# Ubuntu's signed archive rather than a release download: no guard is measured against its version.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
@@ -59,10 +52,8 @@ RUN apt-get update \
         gnupg \
         jq \
         less \
-        ripgrep \
         unzip \
-    && rm -rf /var/lib/apt/lists/* \
-    && rg --version
+    && rm -rf /var/lib/apt/lists/*
 
 # --- Node ---------------------------------------------------------------------------------------
 # NodeSource rather than nvm: nvm is a shell function, so it exists only in an interactive login
@@ -84,20 +75,6 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && apt-get update \
     && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
-
-# --- RTK ----------------------------------------------------------------------------------------
-# RTK condenses command output before an agent reads it. CLAUDE.md ends with its block, which tells
-# every session its output is condensed, and once the host has run `rtk init -g` the ~/.claude that
-# devcontainer.json mounts carries RTK's `rtk hook claude`, a command this image must then have.
-# The release's own binaries, one per architecture: musl for amd64, gnu for arm64.
-RUN case "$(dpkg --print-architecture)" in \
-        amd64) asset=rtk-x86_64-unknown-linux-musl.tar.gz ;; \
-        arm64) asset=rtk-aarch64-unknown-linux-gnu.tar.gz ;; \
-        *) echo "no RTK ${RTK_VERSION} release for $(dpkg --print-architecture)" >&2; exit 1 ;; \
-    esac \
-    && curl -fsSL "https://github.com/rtk-ai/rtk/releases/download/v${RTK_VERSION}/${asset}" \
-        | tar -xz --no-same-owner -C /usr/local/bin rtk \
-    && rtk --version
 
 # --- Vale ---------------------------------------------------------------------------------------
 # .claude/settings.json enables the vale@agent-tools plugin, whose hook lints prose on every Write

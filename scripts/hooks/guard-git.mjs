@@ -30,12 +30,11 @@
  * where git answers for another checkout, which is what a worktree removed under a live session
  * leaves once the session writes a file there (`strayWorktreeDir` below, and its incident).
  *
- * IT JUDGES WHAT AN `rtk` PREFIX RUNS. RTK, a proxy that condenses command output, rewrites
- * `git status` to `rtk git status` through a hook of its own, and its section of CLAUDE.md tells an
- * agent to re-run a command as `rtk proxy <cmd>`. On 2026-09-29, before any harm, every rule here
- * was measured to pass behind the prefix: `rtk git push origin main` from a worktree and
- * `rtk gh pr create` with no base exited 0, because a statement was judged only when its command
- * name was `git` or `gh` (asdlc-openspec-luu). `rtkCall` below says how rtk runs each form.
+ * IT DOES NOT READ THROUGH AN `rtk` PREFIX. From 2026-09-29 (asdlc-openspec-luu) it judged what
+ * RTK, a proxy that condensed command output, would run behind the prefix. docs/decisions.md § D-18
+ * removed RTK from this repository and that reading with it, so on a machine that still runs RTK,
+ * `rtk git push origin main` from a worktree or `rtk gh pr edit --add-label` with the approval label
+ * is not refused here.
  *
  * IT ALSO GUARDS THE PR BASE, EVERYWHERE. `gh pr create` with no `--base` uses the repository's
  * DEFAULT branch: a GitHub setting that lives outside this repository, that this guard cannot read,
@@ -397,41 +396,6 @@ function inlineScripts(tokens) {
   return out
 }
 
-/** rtk's subcommands that join their arguments into a line for `sh -c` (measured with rtk 0.50.0). */
-const RTK_SHELL = new Set(['run', 'err', 'summary', 'test'])
-
-/**
- * What an `rtk` statement runs: `{ tokens }`, a statement to judge as if typed bare; `{ script }`, a
- * command line to judge as a `bash -c` string is; or `null` if the statement is not an rtk call.
- *
- * rtk's global flags (`-v`, `--ultra-compact`, `--skip-env`) take no value, nor do the wrappers' own
- * but `rtk run -c <line>`. `rtk <tool> …` runs that tool with those arguments; `rtk proxy …` runs its
- * arguments with no shell, splitting a single argument into words; `rtk run`, `err`, `summary` and
- * `test` run their arguments, joined, through `sh -c`.
- */
-function rtkCall(tokens) {
-  const start = nameIndex(tokens)
-  if (start === -1) return null
-  if (commandName(tokens[start]).replace(/\.exe$/, '') !== 'rtk') return null
-  let i = start + 1
-  while (i < tokens.length && tokens[i].startsWith('-')) i++
-  if (i >= tokens.length) return null
-  const sub = tokens[i]
-  if (sub !== 'proxy' && !RTK_SHELL.has(sub)) return { tokens: tokens.slice(i) }
-
-  let j = i + 1
-  for (; j < tokens.length && tokens[j].startsWith('-'); j++) {
-    const t = tokens[j]
-    if (sub !== 'run') continue
-    if ((t === '-c' || t === '--command') && j + 1 < tokens.length) return { script: tokens[j + 1] }
-    if (t.startsWith('--command=')) return { script: t.slice('--command='.length) }
-  }
-  const args = tokens.slice(j)
-  if (args.length === 0) return null
-  if (RTK_SHELL.has(sub)) return { script: args.join(' ') }
-  return { tokens: args.length === 1 ? args[0].split(/\s+/).filter((w) => w !== '') : args }
-}
-
 /**
  * gh's flags that take a SEPARATE value and can come before the words that name the command: `-R`
  * and `--repo`, which every `pr` and `issue` command inherits, and each `gh api` flag that takes one,
@@ -781,8 +745,7 @@ function denialForGh(call, linked) {
  * ============================================================================================= */
 
 /**
- * Walk every statement, descending into `bash -c` strings and through `rtk` prefixes. Returns the
- * first reason to deny.
+ * Walk every statement, descending into `bash -c` strings. Returns the first reason to deny.
  *
  * The git rules are worktree-only and are skipped entirely when `linked` is false; the `gh` rules
  * decide for themselves (see `denialForGh`). In a stray worktree directory (`strayWorktreeDir`)
@@ -797,18 +760,8 @@ function inspect(command, linked, stray, depth = 0) {
   return null
 }
 
-/**
- * One statement's reason to deny, or `null`. An `rtk` prefix is judged by what it runs: a statement
- * unwrapped in place costs no depth, since each unwrap drops a token; a shell line it hands to
- * `sh -c` is re-parsed, as a `bash -c` string is.
- */
+/** One statement's reason to deny, or `null`. */
 function inspectStatement(tokens, linked, stray, depth) {
-  const rtk = rtkCall(tokens)
-  if (rtk !== null) {
-    return rtk.script !== undefined
-      ? inspect(rtk.script, linked, stray, depth + 1)
-      : inspectStatement(rtk.tokens, linked, stray, depth)
-  }
   const call = gitCall(tokens)
   if (call !== null && stray !== null) return strayDenial(stray)
   if (call !== null && linked) {
