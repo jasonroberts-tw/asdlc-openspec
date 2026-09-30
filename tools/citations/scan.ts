@@ -19,27 +19,28 @@
  *     worked, 17 of the 18 distinct ones resolved to unrelated prose -- a horizontal rule, a blank
  *     line, the header row of the wrong table.
  *
- * THIS IS THE FLOOR, NOT THE CEILING. The strong form is a citation as a registered key whose value
- * is a distinctive PHRASE, so that the line is recomputed on every run and the passage is checked by
- * content. That is better and should keep spreading. But it only covers citations that have adopted
- * it, and a repository holds many that have not. This
- * takes citations exactly as they are WRITTEN, anywhere in the repository, and asserts the cheap
- * thing: that a reader following the pointer arrives somewhere real.
+ * THIS IS THE FLOOR, NOT THE CEILING. The strong form would be a citation as a registered key whose
+ * value is a distinctive PHRASE, so that the line is recomputed on every run and the passage is
+ * checked by content. No such registry is tracked here (none was on 2026-09-30), and it would only
+ * cover the citations that adopted it, where a repository holds many that have not. This takes citations exactly as they are WRITTEN, anywhere in the
+ * repository, and asserts the cheap thing: that a reader following the pointer arrives somewhere real.
  *
- * So the two are complements, and the division is deliberate:
+ * What it leaves is whether that somewhere SAYS what the citing sentence claims, which
+ * `tools/citations/support.ts` judges. The two are complements, and the division is deliberate:
  *
- *   - adopted citation  -> `model-citations.ts`, checked by CONTENT, cannot drift at all
- *   - unadopted citation -> here, checked by RESOLUTION, catches the pointer that now lands on
- *     nothing, on a line past the end of the file, on a blank, or on a file that has since been
- *     RETIRED out from under its old name
+ *   - resolution -> here, a gate: catches the pointer that now lands on nothing, on a line past the
+ *     end of the file, on a blank, or on a file that has since been RETIRED out from under its old name
+ *   - support -> `support.ts`, an advisory a person reads: a TypeSafe judgment over the citing lines
+ *     and the cited section, so it reads a token and the network and can never be part of this gate
  *
  * That last one was added after review, and it is the case where resolving too helpfully would have
  * been worse than not checking: retirement moves a file without rewriting the pointers into it, so
  * the basename fallback below finds the retired copy, checks the line inside it, and reports a
  * citation healthy that a reader following it as written cannot follow at all. See `RETIRED_ROOTS`.
  *
- * WHY IT SCANS EVERYTHING BY DEFAULT. `model-citations.selftest.ts` scans an allowlist of two
- * directories, and the history of that decision is the argument against copying it: its first
+ * WHY IT SCANS EVERYTHING BY DEFAULT. The phrase registry's selftest in the repository this gate was
+ * copied from (not tracked here) scanned an allowlist of two directories, and the history of that
+ * decision is the argument against copying it: its first
  * version covered ONE document, which left every citation into a sibling prompt exactly as exposed
  * as before -- and three had already drifted, one of them into a SHIPPED artifact, because no gate
  * could see them. An allowlist does not grow when the repository does. This scans every tracked text
@@ -53,8 +54,9 @@
  *     a later decision records what a correction SAID at the time). CLAUDE.md exempts quotations from the count index for exactly
  *     this reason, and the same logic applies here: a gate that fails on the record of a past defect
  *     is a gate nobody can make green, so it gets deleted and checks nothing. See `HISTORY`.
- *   - WHETHER THE CITED LINE SAYS WHAT THE CITER CLAIMS. That needs a phrase, which is what
- *     `model-citations.ts` is. Resolution is the half that can be checked without one.
+ *   - WHETHER THE CITED LINE SAYS WHAT THE CITER CLAIMS. That needs a judgment over two texts, not a
+ *     rule, so `tools/citations/support.ts` makes it as an advisory (`npm run citations:support`).
+ *     Resolution is the half that can be checked deterministically, which is why it is the gate.
  *   - NUMERALS restated from another document. A prompt that repeats a corpus count it did not
  *     derive is a real and more expensive defect, but it needs a policy about prompt-embedded
  *     numerals rather than a scanner. Tracked separately.

@@ -163,6 +163,7 @@ const UNJOBBED_BY_KIND = [
       'writes an artifact or drives an operator procedure. Where it has a `:check` twin, the twin is' +
       ' the gate and the job runs that.',
     names: [
+      'citations:support',
       'trace',
       'worktree:gc',
     ],

@@ -282,6 +282,8 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 |---|---|---|
 | `citations:check` | Resolves every line and section pointer in every tracked text file, and refuses a pointer into a memory store this repository does not use. Without it a renamed heading leaves pointers that still look authoritative. | pre-push + CI |
 | `citations:selftest` | The citations gate, negative-tested: its scanner held to fixtures, and the gate run end to end over a synthetic tree through `CITATIONS_ROOT`, with exact counts in the control and one break per doctored copy. Without it the gate can go quietly green over a repository it has stopped reading. | pre-push + CI |
+| `citations:support` | An advisory, never a gate: judges, with a TypeSafe Choice, whether the section a citation names says what the sentence citing it claims, and prints the citations that fall under the policy's threshold for a person to read. `-- --file <path>` limits it to one file, `-- --dry-run` counts without a call. It reads `TYPESAFE_API_KEY` and the network, and skips clean, saying why, when the key is not set. Without it a pointer that resolves to prose that does not say what is claimed passes `citations:check` unread. | |
+| `citations:support:selftest` | The advisory, negative-tested over a fixture tree and a stubbed judge: each outcome, what is skipped and why, a missing key that skips and a failed call that fails, and once through the real SDK to a refused loopback connection. Needs no key. Without it the advisory can swallow a failed call and print a clean report over a run that judged nothing. | pre-push + CI |
 
 ### counts
 
@@ -420,6 +422,7 @@ at its start: restart the session after changing it.
 | `git push` that changes a skill, an agent, a workflow, `CLAUDE.md`, `AGENTS.md`, the worktree briefing template, `tools/policy.json` or the gate | `check:prompts`: every skill and agent opens with the line `CLAUDE.md` requires, and every prompt is within its word budget; `check:prompts:selftest` holds the gate. | `lefthook.yml` (`pre-push`) |
 | `git push` | `citations:check`: every line and section pointer in every tracked text file resolves. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes the citations gate, `tools/lib/`, `CLAUDE.md` or a prompt file | `citations:selftest`: the citations gate, negative-tested. | `lefthook.yml` (`pre-push`) |
+| `git push` that changes `tools/citations/`, `tools/lib/`, `tools/policy.json`, `package.json` or `package-lock.json` | `citations:support:selftest`: the citation-support advisory over a stubbed judge. The advisory itself reads a token and the network, so it runs in no job. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes a hook or a worktree script | `worktree:selftest`: the worktree hooks and the guard, negative-tested. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes a hook, the citations gate, `tools/lib/` or what `check:jobs` reads | `gate-summary:selftest`: the Stop hook's verdict over untracked and ignored files, and the checkout it gates. | `lefthook.yml` (`pre-push`) |
 | `git push` | `counts:check` re-derives every value in `count-index.md` from the source the index names for it; `counts:selftest` holds the gate to its fixtures when the gate changes. | `lefthook.yml` (`pre-push`) |

@@ -77,6 +77,11 @@ jobs:
       # Synthetic fixtures, and scratch git trees under the temporary directory for the end-to-end cases.
       - name: the citations gate, negative-tested
         run: npm run citations:selftest
+      # About two seconds: the advisory `citations:support` over a fixture tree and a stubbed judge,
+      # and the real SDK against a refused loopback connection. The command reads a token and the
+      # network and runs here only as this selftest.
+      - name: the citation-support advisory, negative-tested over a stubbed judge
+        run: npm run citations:support:selftest
       # About a second (lefthook.yml's `gate-summary-selftest` job has the measurement): the Stop
       # hook over scratch citation trees and scratch repositories under the temporary directory.
       - name: the Stop hook reads untracked files and places a subagent's checkout, negative-tested
