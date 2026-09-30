@@ -81,9 +81,9 @@ Claim the issue in the tracker (`bd update <id> --claim`); with several, claim e
 kept, in one bracket, before the first worktree. Make the worktree with the one worktree script,
 never natively: `EnterWorktree`, whose hook runs `scripts/new-worktree.sh`. Read
 `.worktree/CONTEXT.md` there. Tracker writes that carry a body, such as step 1's re-scoping, are
-made from here, with the body file under this worktree's `.scratch/`. Work agreed in conversation
-has no issue to claim yet, so the order turns round: make the worktree, search for an issue that
-already carries the work as step 4 says, then file it from here and claim it. Step 1 still applies,
+made from here. Work agreed in conversation has no issue to claim yet, so the order turns round:
+make the worktree, search for an issue that already carries the work as step 4 says, then file it
+from here and claim it. Step 1 still applies,
 with what was agreed standing for the issue: each part of it is a premise, and a part that does not
 hold goes back to the user with its evidence before anything is filed, even a part the session
 proposed itself.
@@ -96,8 +96,7 @@ Make the change. A prompt it would take past its word budget
 `check:prompts` refuses it at the gate. A defect's fix lands only after a test or selftest case
 that reproduces it has been seen to fail, and the pull request's body names that run: a test first
 run after its fix can pass without it. Regenerate every derived artifact the change touches only
-after the last edit to the emitter or its inputs: an emitter's own source is one of its inputs, so
-even a comment edit stales its output.
+after the last edit to the emitter or its inputs: an emitter's own source is one of its inputs.
 
 Stage every file the change adds (`git add`) before the gates run: the citations and count-index
 gates read the files `git ls-files` lists, so a new file not yet added passes them unread. Run
