@@ -19,16 +19,15 @@ Two other stores could hold such a rule, and neither is used here. The tracker's
 one from a tracked file. The harness's per-project memory directory under `~/.claude/projects/` is
 not used either. A fact worth keeping goes in a tracked file or, if it is work, in `bd`.
 
-The block a tracker plugin manages inside this file is task-tracking guidance, not permission to
-override the rest of the file. Keep every section of your own outside it; anything moved inside is
-erased on the next regeneration.
+A tracker plugin manages a block inside this file. It is task-tracking guidance, not permission to
+override the rest of the file. Keep your own sections outside it. The next regeneration erases
+anything inside.
 
 ## Verification before claiming
 
-Never state a count, a figure or a "resolved" status derived from titles, memory or inference. Every
-number in a document, an issue, a pull-request body or an analysis is re-derived from the repository
-at the time of writing, with the source path cited inline. If a figure cannot be verified, say so
-instead of estimating.
+Never state a count, a figure or a "resolved" status derived from titles, memory or inference. Re-derive
+every number in a document, an issue, a pull-request body or an analysis from the repository at the
+time of writing. Cite the source path inline. If you cannot verify a figure, say so. Do not estimate.
 
 The same holds for a fact a session hands a subagent. A premise in a brief, such as whether an API
 exists, the version that added it, or a value computed from the code, is verified first and given
@@ -136,10 +135,10 @@ commits inside the change and never becomes an issue, so without the label no co
 ## Decisions live in the register
 
 `docs/decisions.md` holds the numbered decisions (`D-NN`) and risks (`R-NN`) that no agent
-re-litigates. An entry is never rewritten: a later decision adds a dated amendment under each entry
+re-litigates. An entry is never rewritten. A later decision adds a dated amendment under each entry
 it changes. When a document and the register disagree, the register wins. Retiring a file is a
-register decision with a checklist, not a tidy-up; what retires moves to `docs/retired/` under a
-banner naming the decision, or is deleted under an entry with `git show` as the recovery.
+register decision with a checklist, not a tidy-up. A retired file moves to `docs/retired/` under a
+banner naming the decision. Or it is deleted under an entry with `git show` as the recovery.
 
 ## Every directory and document says what it is, and who wins
 
@@ -169,10 +168,10 @@ artifact. `:check` re-derives it in memory, diffs against what is committed, exi
 difference or on a stale file a fresh run would not write, and writes nothing. `:selftest` asserts
 invariants from fixtures it builds under the temporary directory. `:update` moves a baseline.
 
-Every emitter obeys the same rules from its first commit: no timestamp, no randomness, one canonical
-serialiser, every sort by code point so two runtimes agree, and the `:check` twin lands in the same
-change. An emitter that walks a graph compares its walk with a hand-ratified fixture and refuses to
-write on disagreement, because a wrong walk returns a smaller answer and says nothing.
+Every emitter obeys the same rules from its first commit. It has no timestamp and no randomness. It
+has one canonical serialiser. It sorts by code point so two runtimes agree. Its `:check` twin lands
+in the same change. An emitter that walks a graph compares its walk with a hand-ratified fixture. It
+refuses to write on disagreement, because a wrong walk returns a smaller answer and says nothing.
 
 ## The gate ladder
 
@@ -233,10 +232,10 @@ Each of these holds from the first file it applies to, and for every one after i
 - **A guard's selftest asserts the reason a refusal reports**, not the refusal alone: a check that
   only sees "refused" passes with the guard deleted whenever something else refuses first.
 - **Every script under `scripts/`, every emitter under `tools/` and every hook under
-  `scripts/hooks/` opens with a header of four parts, in this order**: what it emits or checks; **the
-  failure it exists to prevent**, as the incident that happened, dated, with the wrong fix tried
-  first where there was one; the invocation with its flags; and what it needs (another checkout, a
-  token, a network). On day one, with no incident yet, that paragraph says what the script would
+  `scripts/hooks/` opens with a header of four parts, in this order.** They are: what it emits or
+  checks; **the failure it exists to prevent**, as the incident that happened, dated, with the wrong
+  fix tried first where there was one; the invocation with its flags; and what it needs (another
+  checkout, a token, a network). On day one, with no incident yet, that paragraph says what the script would
   let through if it were wrong, and the first incident replaces it. It is the paragraph readers
   actually need, and the one to keep when cutting: a gate whose header says only what it checks is
   the one the next person weakens to make a push go through. A measured cost lives there too, so
@@ -247,9 +246,9 @@ Each of these holds from the first file it applies to, and for every one after i
 
 ## Citations
 
-A file copied in from another repository is stripped before this gate's first run: its header
-citations to sections, reviews, tracker ids and commits that do not exist here are replaced with
-your own or dropped.
+Strip a file copied in from another repository before this gate's first run. Replace its header
+citations to sections, reviews, tracker ids and commits that do not exist here with your own, or
+drop them.
 
 Cite a document by section, `<file>.md § <Heading>`, not by line: a line pointer rots on every edit
 above it. Every pointer of either form in every tracked text file must resolve; the citations gate
@@ -298,3 +297,14 @@ The briefing below exists only in a linked worktree, where the worktree script r
 `.claude/worktree-CONTEXT.md.tmpl`. It takes precedence where it conflicts with the guidance above.
 
 @.worktree/CONTEXT.md
+
+<!-- rtk-instructions v2 -->
+# Command output
+
+Command output here is condensed to save tokens, keeping every signal and
+dropping costly noise. Treat it as the complete result: run commands
+normally, and batch related commands into one call to avoid extra turns.
+Truncated results state their recovery path in their own output. Re-run a
+command as `rtk proxy <cmd>` only when its result is unusable: empty when
+output was clearly expected, contradicting its exit code, or garbled.
+<!-- /rtk-instructions -->

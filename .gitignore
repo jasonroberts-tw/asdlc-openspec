@@ -41,3 +41,5 @@ lefthook-local.yml
 # The starter kit's bootstrap state. Delete this entry with KIT-CHECKLIST.md once the checklist is
 # done.
 .kit/
+
+.vale-styles/
