@@ -9,6 +9,13 @@
  * probability of "supports" is under `citationSupportMinProbability` is printed, with the verdict
  * that carried the rest and both probabilities.
  *
+ * WITHOUT A KEY it falls back to an offline check, so a clone with no `TYPESAFE_API_KEY` still gets
+ * a list to read. It weighs each word by how few of the scanned files hold it, and prints a citation
+ * when the passage holds less than `citationSupportOverlapMinShare` of the claim's weight, leaving
+ * out the words of the pointer and of the section's heading, which the passage always shares. The
+ * report says which of the two judged. The fallback is only for a missing key: a key that is set
+ * and a call that fails is still a failure, never a quiet run of the weaker check.
+ *
  * THE FAILURE IT EXISTS TO PREVENT. `citations:check` proves a pointer RESOLVES and nothing more:
  * `namesSection` accepts a section citation when any leading word-prefix of it starts any line of the
  * target file, so a table row or a body sentence satisfies a citation it was never meant to (the
@@ -31,24 +38,29 @@
  * nothing" where a person would accept it: review noise, not a defect. A section that runs on to
  * the end of a file with no headings after it is cut at `citationSupportSectionMaxChars`. A judgment
  * is a probability over two texts and can be wrong in either direction, so a finding is read and
- * a silence is not proof.
+ * a silence is not proof. The offline fallback is weaker again, as its policy key's `Means` measures:
+ * a contradiction shares the section's words and passes; a pointer into the wrong section of a file
+ * that repeats the claim's words there passes (`docs/playbook.md:53`, which TypeSafe flags); and a
+ * claim that paraphrases its section is printed.
  *
  *   npm run citations:support                    every citation in every tracked text file
  *   npm run citations:support -- --file <path>   only citations written in <path> (repeatable), as
  *                                                a session checks the files its change touched
  *   npm run citations:support -- --min <p>       this run's threshold in place of the policy's, as a
- *                                                by-hand look at how many findings a threshold gives
+ *                                                by-hand look at how many findings a threshold gives:
+ *                                                P(supports) with a key, the word share without one
  *   npm run citations:support -- --dry-run       count what would be judged; no key, no call
  *   npm run citations:support -- --selftest      the selftest, `npm run citations:support:selftest`
  *   CITATIONS_ROOT=<dir> npm run citations:support   the same run over a doctored copy (a git tree)
  *   CITATIONS_UNTRACKED=1 npm run citations:support  also reads untracked files git does not ignore
  *
  * Exit 0 with or without findings, and 0 when `TYPESAFE_API_KEY` is not set (it prints why and
- * skips); 1 when the key is set and a call fails, or the policy is wrong; 2 on a bad flag. Every
- * threshold and constant is a key of `tools/policy.json` with a `Means` sibling.
+ * judges by word overlap); 1 when the key is set and a call fails, or the policy is wrong; 2 on a
+ * bad flag. Every threshold and constant is a key of `tools/policy.json` with a `Means` sibling.
  *
- * Needs `TYPESAFE_API_KEY` and the network to judge (`tools/lib/typesafe.ts`), `git` on PATH, and
- * `npm ci` for the SDK. About 500 requests, sent in parallel, in seconds and a few cents.
+ * Needs `TYPESAFE_API_KEY` and the network to judge with TypeSafe (`tools/lib/typesafe.ts`), `git`
+ * on PATH, and `npm ci` for the SDK. About 500 requests, sent in parallel, in seconds and a few
+ * cents. Without the key it needs neither, and reads every scanned file once to weigh the words.
  */
 import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
@@ -83,6 +95,7 @@ export interface SupportPolicy {
   citationSupportLineContext: number
   citationSupportConcurrency: number
   citationSupportMaxCitations: number
+  citationSupportOverlapMinShare: number
 }
 
 const POLICY_KEYS: ReadonlyArray<{ key: keyof SupportPolicy; type: 'string' | 'number' | 'strings' }> = [
@@ -94,6 +107,7 @@ const POLICY_KEYS: ReadonlyArray<{ key: keyof SupportPolicy; type: 'string' | 'n
   { key: 'citationSupportLineContext', type: 'number' },
   { key: 'citationSupportConcurrency', type: 'number' },
   { key: 'citationSupportMaxCitations', type: 'number' },
+  { key: 'citationSupportOverlapMinShare', type: 'number' },
 ]
 
 const POLICY_FILE = 'tools/policy.json'
@@ -119,6 +133,9 @@ export function loadPolicy(path: string = join(ROOT, POLICY_FILE)): SupportPolic
   const policy = raw as unknown as SupportPolicy
   if (policy.citationSupportMinProbability > 1) {
     throw new Error(`${POLICY_FILE} \`citationSupportMinProbability\` is a probability, at most 1.`)
+  }
+  if (policy.citationSupportOverlapMinShare > 1) {
+    throw new Error(`${POLICY_FILE} \`citationSupportOverlapMinShare\` is a share of a claim's words, at most 1.`)
   }
   if (policy.citationSupportConcurrency < 1) {
     throw new Error(`${POLICY_FILE} \`citationSupportConcurrency\` is at least 1.`)
@@ -412,7 +429,96 @@ export async function judgeAll(
   return { findings: flagged, supported: candidates.length - flagged.length }
 }
 
+/** Lower-cased runs of letters and digits: the words the offline fallback compares. */
+const wordsOf = (text: string): string[] => text.toLowerCase().match(/[a-z0-9]+/g) ?? []
+
+/**
+ * Each word's weight for the offline fallback: `ln((N + 1) / (n + 1))`, where N is the number of text
+ * files the scanner reads and n how many of them hold the word. A word every file holds (`the`, `a`)
+ * weighs nothing and a word few files hold weighs most, so no list of common words is kept anywhere.
+ * The files are the whole scan, not the `--file` selection, so a word weighs the same in either run.
+ */
+export function wordWeights(): (word: string) => number {
+  const files = [...trackedFiles(), ...(INCLUDE_UNTRACKED ? untrackedFiles() : [])]
+  const holding = new Map<string, number>()
+  let read = 0
+  for (const file of files) {
+    if (!SCANNED_EXTENSIONS.test(file)) continue
+    let text: string
+    try {
+      text = readFileSync(join(SCAN_ROOT, file), 'utf8')
+    } catch {
+      continue
+    }
+    if (text.includes('\0')) continue
+    read++
+    for (const word of new Set(wordsOf(text))) holding.set(word, (holding.get(word) ?? 0) + 1)
+  }
+  return (word) => Math.log((read + 1) / ((holding.get(word) ?? 0) + 1))
+}
+
+/**
+ * The share of a claim's weighted words that its passage holds, from 0 to 1: the offline fallback's
+ * one number. The pointer's own words (its file and section name as written) and the words of the
+ * passage's heading are left out of the claim, because the passage shares them however wrong the
+ * citation is. A claim with no word of any weight left says nothing to compare, and scores 1.
+ */
+export function overlapShare(
+  candidate: Pick<Candidate, 'claim' | 'passage' | 'asWritten'>,
+  weight: (word: string) => number,
+): number {
+  const pointer = new Set(wordsOf(candidate.asWritten))
+  const heading = candidate.passage.split('\n')[0] ?? ''
+  if (HEADING.test(heading)) for (const word of wordsOf(heading)) pointer.add(word)
+  const passage = new Set(wordsOf(candidate.passage))
+  let total = 0
+  let shared = 0
+  for (const word of new Set(wordsOf(candidate.claim))) {
+    if (pointer.has(word)) continue
+    const w = weight(word)
+    total += w
+    if (passage.has(word)) shared += w
+  }
+  return total > 0 ? shared / total : 1
+}
+
+/** A citation whose passage holds too little of its claim's weighted words, at the policy's threshold. */
+export interface OverlapFinding {
+  candidate: Candidate
+  share: number
+}
+
+export interface OverlapJudged {
+  findings: OverlapFinding[]
+  supported: number
+}
+
+/** The offline fallback over every candidate. A share at the threshold is silent, as P(supports) is. */
+export function judgeByOverlap(
+  candidates: readonly Candidate[],
+  policy: SupportPolicy,
+  weight: (word: string) => number = wordWeights(),
+): OverlapJudged {
+  const findings: OverlapFinding[] = []
+  for (const candidate of candidates) {
+    const share = overlapShare(candidate, weight)
+    if (share < policy.citationSupportOverlapMinShare) findings.push({ candidate, share })
+  }
+  return { findings, supported: candidates.length - findings.length }
+}
+
 const pct = (p: number): string => p.toFixed(2)
+
+const skippedText = (skipped: Skipped): string =>
+  `(skipped: ${skipped.history} written in history files, ${skipped.register} in the register,` +
+  ` ${skipped.quoted} registered as quotations, ${skipped.unresolved} that do not resolve, which` +
+  ' `citations:check` reports)'
+
+/** A finding's pointer line, as the report quotes it. */
+const pointerLine = (candidate: Candidate): string => {
+  const own = candidate.claim.split('\n')
+  return `    > ${(own[own.length > 2 ? 1 : 0] ?? '').trim().slice(0, 160)}\n`
+}
 
 /** The report: counts, never a rate (`CLAUDE.md` § Stateful counts live in `count-index.md`, under a key). */
 export function report(collected: Collected, judged: Judged, policy: SupportPolicy): string {
@@ -421,9 +527,7 @@ export function report(collected: Collected, judged: Judged, policy: SupportPoli
   lines.push(
     `citations:support -- ${candidates.length} citations judged across ${collected.files} files;` +
       ` ${judged.findings.length} not supported at P(supports) >= ${policy.citationSupportMinProbability}` +
-      ` (skipped: ${skipped.history} written in history files, ${skipped.register} in the register,` +
-      ` ${skipped.quoted} registered as quotations, ${skipped.unresolved} that do not resolve, which` +
-      ' `citations:check` reports)\n',
+      ` ${skippedText(skipped)}\n`,
   )
   for (const f of judged.findings) {
     lines.push(`  ${f.candidate.where}`)
@@ -431,12 +535,41 @@ export function report(collected: Collected, judged: Judged, policy: SupportPoli
       `    cites ${f.candidate.asWritten}: ${f.verdict.replace('_', ' ')} (${pct(f.probability)});` +
         ` P(supports) ${pct(f.pSupports)}${f.candidate.truncated ? '; section cut for length' : ''}`,
     )
-    const own = f.candidate.claim.split('\n')
-    lines.push(`    > ${(own[own.length > 2 ? 1 : 0] ?? '').trim().slice(0, 160)}\n`)
+    lines.push(pointerLine(f.candidate))
   }
   lines.push(
     'Advisory: each finding is a probability for a person to read, and nothing here refuses a push. A' +
       '\npointer that cites a whole section for one of its subsections reads as "says nothing" and is noise.',
+  )
+  return lines.join('\n')
+}
+
+/** The offline fallback's report, which says it is the fallback and what the fallback cannot see. */
+export function overlapReport(
+  collected: Collected,
+  judged: OverlapJudged,
+  policy: SupportPolicy,
+  why: string,
+): string {
+  const { candidates, skipped } = collected
+  const lines: string[] = [`citations:support -- ${why}`]
+  lines.push(
+    `citations:support -- judged offline by word overlap instead: ${candidates.length} citations across` +
+      ` ${collected.files} files; ${judged.findings.length} whose passage holds under` +
+      ` ${policy.citationSupportOverlapMinShare} of the claim's weighted words ${skippedText(skipped)}\n`,
+  )
+  for (const f of judged.findings) {
+    lines.push(`  ${f.candidate.where}`)
+    lines.push(
+      `    cites ${f.candidate.asWritten}: the passage holds ${pct(f.share)} of the claim's weighted words` +
+        `${f.candidate.truncated ? '; section cut for length' : ''}`,
+    )
+    lines.push(pointerLine(f.candidate))
+  }
+  lines.push(
+    'Advisory, and weaker than the TypeSafe judgment a key gives: a claim that contradicts its section' +
+      '\nshares its words and passes, as does a pointer to the wrong section of a file that repeats the' +
+      "\nclaim's words elsewhere, and a claim that paraphrases its section is printed. Nothing here refuses a push.",
   )
   return lines.join('\n')
 }
@@ -483,7 +616,10 @@ export async function supportMain(argv: readonly string[], deps: MainDeps = {}):
     err(`citations:support FAILED: ${(error as Error).message}`)
     return 1
   }
-  if (minOverride !== null) policy = { ...policy, citationSupportMinProbability: minOverride }
+  // One run uses one threshold, so --min stands in for whichever the run's judge reads.
+  if (minOverride !== null) {
+    policy = { ...policy, citationSupportMinProbability: minOverride, citationSupportOverlapMinShare: minOverride }
+  }
 
   const collected = collect(policy, only)
   if (dryRun) {
@@ -495,13 +631,6 @@ export async function supportMain(argv: readonly string[], deps: MainDeps = {}):
     )
     return 0
   }
-  if (collected.candidates.length > policy.citationSupportMaxCitations) {
-    err(
-      `citations:support FAILED: ${collected.candidates.length} citations would be judged, over` +
-        ` \`citationSupportMaxCitations\` in ${POLICY_FILE}. Narrow the run with --file, or a person raises the key.`,
-    )
-    return 1
-  }
 
   let made
   try {
@@ -511,8 +640,16 @@ export async function supportMain(argv: readonly string[], deps: MainDeps = {}):
     return 1
   }
   if ('skip' in made) {
-    out(`citations:support -- skipped: ${made.skip}`)
+    out(overlapReport(collected, judgeByOverlap(collected.candidates, policy), policy, made.skip))
     return 0
+  }
+  // The cap bounds what one run sends TypeSafe, so it is read only once a run would send it anything.
+  if (collected.candidates.length > policy.citationSupportMaxCitations) {
+    err(
+      `citations:support FAILED: ${collected.candidates.length} citations would be judged, over` +
+        ` \`citationSupportMaxCitations\` in ${POLICY_FILE}. Narrow the run with --file, or a person raises the key.`,
+    )
+    return 1
   }
   let judged: Judged
   try {
