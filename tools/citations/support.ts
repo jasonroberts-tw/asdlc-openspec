@@ -79,6 +79,7 @@ export interface SupportPolicy {
   citationSupportMinProbability: number
   citationSupportSkipPaths: string[]
   citationSupportSectionMaxChars: number
+  citationSupportClaimLineMaxChars: number
   citationSupportLineContext: number
   citationSupportConcurrency: number
   citationSupportMaxCitations: number
@@ -89,6 +90,7 @@ const POLICY_KEYS: ReadonlyArray<{ key: keyof SupportPolicy; type: 'string' | 'n
   { key: 'citationSupportMinProbability', type: 'number' },
   { key: 'citationSupportSkipPaths', type: 'strings' },
   { key: 'citationSupportSectionMaxChars', type: 'number' },
+  { key: 'citationSupportClaimLineMaxChars', type: 'number' },
   { key: 'citationSupportLineContext', type: 'number' },
   { key: 'citationSupportConcurrency', type: 'number' },
   { key: 'citationSupportMaxCitations', type: 'number' },
@@ -326,7 +328,7 @@ export function collect(policy: SupportPolicy, only: readonly string[] = []): Co
       const passage = cut(passageLines.join('\n'), policy.citationSupportSectionMaxChars)
       const claim = own
         .slice(Math.max(0, c.at - 2), c.at + 1)
-        .map((l) => window(l, c.target, 800))
+        .map((l) => window(l, c.target, policy.citationSupportClaimLineMaxChars))
         .join('\n')
       candidates.push({
         where: `${c.from}:${c.at}`,
