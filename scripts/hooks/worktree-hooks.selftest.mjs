@@ -1,8 +1,9 @@
 /**
  * Self-test for scripts/hooks/worktree-create.mjs, scripts/hooks/worktree-remove.mjs,
  * scripts/prune-worktree-branches.mjs, scripts/render-worktree-context.mjs with the briefing
- * template it renders, and scripts/new-worktree.sh's choice of which copy of that template renders,
- * and for the hook registrations in .claude/settings.json: each must load
+ * template it renders, scripts/new-worktree.sh's choice of which copy of that template renders and
+ * its copy of the primary checkout's Vale styles, and for the hook registrations in
+ * .claude/settings.json: each must load
  * whatever the session's working directory is (the last section says what broke).
  *
  * Covers the halves of the contract that are cheap to exercise and easy to get wrong: what the hooks
@@ -1175,14 +1176,15 @@ git(trailingPrimary, 'push', '-q', 'origin', 'main')
 git(trailingPrimary, 'reset', '-q', '--hard', 'HEAD~1')
 
 /**
- * Provision `name` by running `script` with bash from the scratch checkout, as the WorktreeCreate
- * hook runs it, and return the run with the briefing it wrote. The variables the script reads are
- * pinned, so a developer's own `WORKTREE_ROOT` or `TRUNK_BRANCH` cannot move the case.
+ * Provision `name` by running `script` with bash from a scratch checkout, `primary` (the trailing
+ * one unless named), as the WorktreeCreate hook runs it, and return the run with the worktree's path
+ * and the briefing it wrote. The variables the script reads are pinned, so a developer's own
+ * `WORKTREE_ROOT` or `TRUNK_BRANCH` cannot move the case.
  */
-function provision(script, name) {
-  const worktrees = join(trailingPrimary, '.claude', 'worktrees')
+function provision(script, name, primary = trailingPrimary) {
+  const worktrees = join(primary, '.claude', 'worktrees')
   const r = spawnSync('bash', [script, name], {
-    cwd: trailingPrimary,
+    cwd: primary,
     env: { ...GIT_ENV, WORKTREE_ROOT: worktrees, TRUNK_BRANCH: 'main', LIFETIME_HOURS: '2' },
     encoding: 'utf8',
   })
@@ -1190,6 +1192,7 @@ function provision(script, name) {
   return {
     code: r.status ?? 1,
     stderr: r.stderr ?? '',
+    path: join(worktrees, name),
     text: existsSync(briefing) ? readFileSync(briefing, 'utf8') : '',
   }
 }
@@ -1229,6 +1232,112 @@ check(
   "doctored to run the checkout's renderer, it renders the checkout's template",
   fromCheckout.code === 0 && fromCheckout.text === expected('checkout', 'doctored'),
   `code=${fromCheckout.code} ${JSON.stringify(fromCheckout.text || fromCheckout.stderr.slice(0, 300))}`,
+)
+
+/* --------------------------------------------------------------------------------------------- *
+ * new-worktree.sh: a worktree gets the primary checkout's Vale styles.
+ *
+ * THE INCIDENT (asdlc-openspec-hv8). `.vale.ini` names a StylesPath that `.gitignore` ignores,
+ * because `vale sync` downloads it, so `git worktree add` brought no styles across. The
+ * vale@agent-tools plugin's hook then answered every Write and Edit in a worktree with "E201: The
+ * path '<worktree>/.vale-styles' does not exist", a notice that reads like a check that ran, while
+ * no prose written in a worktree was checked. Seen on 2026-09-30 in two worktrees cut at ff2aaad.
+ *
+ * So this case gives a scratch checkout this checkout's own `.vale.ini` and `.gitignore`, and a
+ * styles directory at the StylesPath that `.vale.ini` names, made before `git add .`, as `vale sync`
+ * leaves one. The worktree must hold the same styles and stay clean to `git status`, because
+ * `git worktree remove` refuses a tree that is not. With no styles in the checkout, the script must
+ * still provision, and say that Vale checks nothing and what it needs. The negative is the script
+ * doctored to skip the copy, which must leave the worktree without styles: without it, styles the
+ * copied `.gitignore` failed to ignore would be committed, reach the worktree by checkout, and pass
+ * the case.
+ * --------------------------------------------------------------------------------------------- */
+console.log("new-worktree: a worktree gets the primary checkout's Vale styles")
+const CHECKOUT_ROOT = resolve(HOOKS, '..', '..')
+const vale = mkdtempSync(join(tmpdir(), 'wt-vale-'))
+const valePrimary = join(vale, 'primary')
+const valeOrigin = join(vale, 'origin.git')
+execFileSync('git', ['init', '-q', '--bare', '-b', 'main', valeOrigin], { env: GIT_ENV })
+execFileSync('git', ['init', '-q', '-b', 'main', valePrimary], { env: GIT_ENV })
+mkdirSync(join(valePrimary, 'scripts'))
+mkdirSync(join(valePrimary, '.claude'))
+copyFileSync(PROVISION, join(valePrimary, 'scripts', 'new-worktree.sh'))
+copyFileSync(RENDERER, join(valePrimary, 'scripts', 'render-worktree-context.mjs'))
+writeFileSync(join(valePrimary, '.claude', 'worktree-CONTEXT.md.tmpl'), templateOf('base'))
+for (const file of ['.vale.ini', '.gitignore']) {
+  copyFileSync(join(CHECKOUT_ROOT, file), join(valePrimary, file))
+}
+const stylesPath = /^\s*StylesPath\s*=\s*(.+?)\s*$/m.exec(
+  readFileSync(join(valePrimary, '.vale.ini'), 'utf8'),
+)?.[1]
+if (!stylesPath) throw new Error('.vale.ini names no StylesPath, so the Vale case has nothing to copy')
+const RULE = join('Probe', 'Rule.yml')
+const RULE_TEXT = "extends: existence\nmessage: probe\ntokens: ['probe']\n"
+/** Give the scratch checkout styles at StylesPath, as `vale sync` leaves them. */
+function syncStyles() {
+  mkdirSync(join(valePrimary, stylesPath, 'Probe'), { recursive: true })
+  writeFileSync(join(valePrimary, stylesPath, RULE), RULE_TEXT)
+}
+syncStyles()
+git(valePrimary, 'add', '.')
+git(valePrimary, ...AS, 'commit', '-qm', 'a checkout that has adopted Vale')
+git(valePrimary, 'remote', 'add', 'origin', valeOrigin)
+git(valePrimary, 'push', '-q', 'origin', 'main')
+const valeScript = join(valePrimary, 'scripts', 'new-worktree.sh')
+/** The styles rule in `worktree`, or null when the worktree has none. */
+const ruleIn = (worktree) => {
+  const rule = join(worktree, stylesPath, RULE)
+  return existsSync(rule) ? readFileSync(rule, 'utf8') : null
+}
+
+const synced = provision(valeScript, 'synced', valePrimary)
+check(
+  'a checkout with synced styles provisions a worktree',
+  synced.code === 0,
+  `code=${synced.code} ${JSON.stringify(synced.stderr.slice(0, 300))}`,
+)
+check(
+  "the worktree holds the checkout's styles",
+  ruleIn(synced.path) === RULE_TEXT,
+  `no ${join(stylesPath, RULE)} in ${synced.path}`,
+)
+const syncedStatus = existsSync(synced.path)
+  ? git(synced.path, 'status', '--porcelain', '--untracked-files=all')
+  : '(no worktree)'
+check(
+  'and stays clean to git status, so `git worktree remove` takes it',
+  syncedStatus.trim() === '',
+  JSON.stringify(syncedStatus),
+)
+
+const COPIES_STYLES = 'cp -R "$REPO_ROOT/$STYLES" "$WORKTREE_PATH/$STYLES"'
+check(
+  "negative: the doctoring reaches the script's copy of the styles",
+  provisionSource.includes(COPIES_STYLES),
+  `no ${COPIES_STYLES} in scripts/new-worktree.sh`,
+)
+const noCopyScript = join(vale, 'new-worktree.no-copy.sh')
+writeFileSync(noCopyScript, provisionSource.replace(COPIES_STYLES, ':'))
+const noCopy = provision(noCopyScript, 'no-copy', valePrimary)
+check(
+  'doctored to skip the copy, it leaves the worktree without styles',
+  noCopy.code === 0 && ruleIn(noCopy.path) === null,
+  `code=${noCopy.code} rule=${JSON.stringify(ruleIn(noCopy.path))}`,
+)
+
+rmSync(join(valePrimary, stylesPath), { recursive: true, force: true })
+const unsynced = provision(valeScript, 'unsynced', valePrimary)
+check(
+  'a checkout with no styles still provisions a worktree',
+  unsynced.code === 0,
+  `code=${unsynced.code} ${JSON.stringify(unsynced.stderr.slice(0, 300))}`,
+)
+check(
+  'and says that Vale checks no prose there, and that `vale sync` would fetch the styles',
+  /Vale checks no prose/.test(unsynced.stderr) &&
+    unsynced.stderr.includes(stylesPath) &&
+    unsynced.stderr.includes('vale sync'),
+  JSON.stringify(unsynced.stderr.slice(0, 400)),
 )
 
 /* --------------------------------------------------------------------------------------------- *
