@@ -173,6 +173,12 @@ does not apply to your platform is absent from its list, not marked optional.
    node -e "const L=require('./package-lock.json').packages,F=require('./package.json').engines.node,M=+F.match(/[0-9]+/)[0],n=s=>{const p=s.replace(/^v/,'').split('.').map(Number);return[p.length,(p[0]*1e3+(p[1]||0))*1e3+(p[2]||0)]},iv=c=>{const m=c.match(/^(>=|\^)?(v?[0-9]+(\.[0-9]+){0,2})$/);if(m===null)throw Error('cannot read '+c);const[k,lo]=n(m[2]);return[lo,m[1]=='>='?Infinity:m[1]?((lo/1e6|0)+1)*1e6:lo+[1e6,1e3,1][k-1]]},R=Object.entries(L).filter(([p,x])=>p&&x.engines&&x.engines.node).map(([p,x])=>x.engines.node.replace(/>=\s+/g,'>=').split('||').map(a=>a.trim().split(/\s+/).map(iv).reduce((a,b)=>[Math.max(a[0],b[0]),Math.min(a[1],b[1])]))),C=R.flat().map(i=>i[0]).concat(M*1e6).filter(c=>(c/1e6|0)==M&&R.every(r=>r.some(i=>i[0]<=c&&c<i[1]))).sort((a,b)=>a-b),f=c=>[c/1e6|0,(c/1e3|0)-(c/1e6|0)*1e3,c-(c/1e3|0)*1e3].join('.');console.log(C.length?'lowest '+M+'.x every locked package accepts: '+f(C[0])+'; package.json engines: '+F:'no '+M+'.x version satisfies every locked package; package.json engines: '+F)"
    ```
 1. Install `bd`, the tracker's CLI, and check that `bd --version` answers.
+1. Install RTK, which condenses command output before an agent reads it: `brew install rtk`, or the
+   install script or a release binary that `https://github.com/rtk-ai/rtk` gives. Check that
+   `rtk --version` answers; 0.50.0 is the version `scripts/hooks/guard-git.mjs` was measured
+   against. Then run `rtk init -g` once and restart Claude Code: it installs RTK's hook and
+   `RTK.md` for your user, which `CLAUDE.md`'s closing block assumes. Never run `rtk init` without
+   `-g` in the clone: it writes `.rtk/filters.toml`, which is not tracked here.
 1. Clone, then `npm ci`. The hook runner's install script writes the git hooks; if your package
    manager blocks install scripts, run `npx lefthook install` once.
 1. Set `sync.remote` in `.beads/config.yaml` if it still holds a placeholder (`<protocol>` is
@@ -190,6 +196,11 @@ does not apply to your platform is absent from its list, not marked optional.
    would expand, but it has not been run in PowerShell (`asdlc-openspec-xn4`).
 1. Install `bd`, the tracker's CLI, and check that `bd --version` answers from the shell you will
    work in.
+1. Install RTK with `winget install rtk-ai.rtk`, or put `rtk.exe` from a release on your PATH, and
+   check that `rtk --version` answers from the shell you will work in. Then run `rtk init -g` once
+   and restart Claude Code, as step 3 of macOS and Linux says, and never `rtk init` without `-g`
+   in the clone. RTK's own page says it runs natively on Windows; it has not been run on Windows
+   here.
 1. Clone, then `npm ci`. If install scripts are blocked, run `npx lefthook install` once.
 1. Copy `lefthook-windows.yml` to `lefthook-local.yml` and do not commit the copy. Without it the
    pre-push suite finishes every job and then never returns; the file's header has the reason.
@@ -203,7 +214,9 @@ holds platform-native binaries. Use one clone per platform.
 
 ### Dev container
 
-1. On the host, run `claude` and `gh` once each, so the files the container bind-mounts exist.
+1. On the host, run `claude` and `gh` once each, so the files the container bind-mounts exist, and
+   install RTK and run `rtk init -g` as step 3 of macOS and Linux says. The container shares the
+   host's `~/.claude`, where RTK's hook is registered, and its image carries the `rtk` that runs it.
 1. Clone, open the folder in VS Code, and choose "Reopen in Container".
 1. Wait for the first build. `.devcontainer/entrypoint.sh` then runs the install, the git hooks and
    the tracker's hydration on every start, and warns rather than fails; read its output once.
