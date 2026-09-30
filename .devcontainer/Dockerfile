@@ -1,6 +1,6 @@
 # The whole "new machine setup" of README.md, baked into an image.
 #
-# Everything a person would otherwise do by hand -- Node, `bd`, `gh`, RTK, Claude Code and the tracker's plugin marketplace -- is a layer here
+# Everything a person would otherwise do by hand -- Node, `bd`, `gh`, RTK, Vale, Claude Code and the tracker's plugin marketplace -- is a layer here
 # rather than a devcontainer.json `feature` or `postCreateCommand`. That is deliberate: features
 # resolve at container-create time over the network and fail differently on every machine, and a
 # `postCreateCommand` re-runs on every rebuild. A layer is built once, cached, and identical for
@@ -32,6 +32,10 @@ ARG BD_VERSION=1.3.0
 # `rtk` prefix as this version runs it (its `RTK_SHELL` comment). Re-derive it from there, and move
 # both together, since a newer rtk can run a wrapped command in a way the guard does not read.
 ARG RTK_VERSION=0.50.0
+# The Vale that the vale@agent-tools plugin's hook runs on every Write and Edit of prose. Re-derive it
+# from `vale --version` on the maintainer's machine, where the styles `.vale.ini` names were synced
+# and checked. Read 3.23.0 there on 2026-09-30, then the newest release.
+ARG VALE_VERSION=3.23.0
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -89,6 +93,22 @@ RUN case "$(dpkg --print-architecture)" in \
     && curl -fsSL "https://github.com/rtk-ai/rtk/releases/download/v${RTK_VERSION}/${asset}" \
         | tar -xz --no-same-owner -C /usr/local/bin rtk \
     && rtk --version
+
+# --- Vale ---------------------------------------------------------------------------------------
+# .claude/settings.json enables the vale@agent-tools plugin, whose hook lints prose on every Write
+# and Edit and exits in silence when `vale` is not on PATH: without this layer, no prose written in
+# the container is checked, and nothing says so. The styles are not in the image. `vale sync`
+# downloads what `.vale.ini` names into the clone, which is a bind mount that does not exist at
+# build time; .devcontainer/README.md says where they come from. The release's own binaries, one per
+# architecture, each a glibc build, which this Ubuntu base carries.
+RUN case "$(dpkg --print-architecture)" in \
+        amd64) asset="vale_${VALE_VERSION}_Linux_64-bit.tar.gz" ;; \
+        arm64) asset="vale_${VALE_VERSION}_Linux_arm64.tar.gz" ;; \
+        *) echo "no Vale ${VALE_VERSION} release for $(dpkg --print-architecture)" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL "https://github.com/vale-cli/vale/releases/download/v${VALE_VERSION}/${asset}" \
+        | tar -xz --no-same-owner -C /usr/local/bin vale \
+    && vale --version
 
 # --- a language toolchain, if your project needs one ---------------------------------------------
 # NOTHING IS INSTALLED HERE BY DEFAULT. Add the SDK your own projects build with, and take it from
