@@ -8,7 +8,7 @@ git clone https://github.com/<owner>/<repository>.git
 code <repository>           # then: "Reopen in Container" when VS Code offers
 ```
 
-The first build takes several minutes and is cached afterwards. You get Node, `bd`, `gh`, RTK, ripgrep, Vale, Claude Code and
+The first build takes several minutes and is cached afterwards. You get Node, `bd`, `gh`, Vale, Claude Code and
 the tracker's plugin marketplace, plus whatever toolchain you add to the image.
 
 | File | What it holds |
@@ -46,10 +46,6 @@ project's. `~/.claude`, `~/.claude.json` and `~/.config/gh` are bind-mounted fro
   says so, but the fix is on the host.
 - Container sessions **share** your host's Claude Code state — history, projects, plugins. The mount
   is read-write because Claude Code rewrites `.credentials.json` on token refresh.
-- RTK's hook comes across the same way: run `rtk init -g` on the host (root `README.md` § Setup),
-  not in the container, whose writes to `~/.claude` land on the host too. The image carries its
-  own `rtk`, pinned in the `Dockerfile`, to run the hook, and the `rg` that `rtk rg` runs, since
-  the hook rewrites an agent's `rg` to it.
 - On a Windows host, `gh` keeps its config in `%APPDATA%\GitHub CLI`, so that mount lands empty; set
   `GH_TOKEN` before launching VS Code and `devcontainer.json` passes it through. Your git identity
   does not come across — set `user.name` and `user.email` in the container once.

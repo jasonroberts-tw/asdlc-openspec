@@ -437,43 +437,6 @@ check(
 )
 
 /* --------------------------------------------------------------------------------------------- *
- * guard-git: a command behind an `rtk` prefix (asdlc-openspec-luu).
- *
- * RTK's hook rewrites `git status` to `rtk git status`, and agents type the prefix themselves, so the
- * guard judges what `rtk` runs, not the word `rtk`. One case per way rtk runs what it wraps: a tool
- * subcommand, `proxy` (argv, or one argument split into words), and the shell wrappers `run`, `err`,
- * `summary` and `test`, with a global flag before the subcommand. The controls are the same prefix on
- * a command the guard allows, the git rules still off in the primary checkout, and a tool whose
- * arguments merely spell a git command: without them, a guard that refused every `rtk` would pass.
- * --------------------------------------------------------------------------------------------- */
-console.log('guard-git: a command behind an rtk prefix')
-const PUSH_RULE = 'you cannot push to a long-lived branch'
-const BASE_RULE = 'a pull request must name `main` as its base'
-for (const [label, dir, command, reason] of [
-  ['rtk git push to main, from a worktree', oursDir, 'rtk git push origin main', PUSH_RULE],
-  ['rtk proxy git push to main, from a worktree', oursDir, 'rtk proxy git push origin main', PUSH_RULE],
-  ['rtk proxy with the command as one argument', oursDir, 'rtk proxy "git push origin main"', PUSH_RULE],
-  ['rtk run with the command as one argument', oursDir, 'rtk run "git push origin main"', PUSH_RULE],
-  ['rtk run -c', oursDir, "rtk run -c 'git gc'", 'the object store is shared'],
-  ['a global flag, then rtk err', oursDir, 'rtk --ultra-compact err git worktree list', WORKTREE_RULE],
-  ['rtk summary of a shell line', oursDir, "rtk summary 'git fetch; git push --all'", PUSH_RULE],
-  ['rtk gh pr create with no --base, in the primary checkout', primary, 'rtk gh pr create --fill', BASE_RULE],
-  ['rtk gh applying the approval label', primary, `rtk gh pr edit 12 --add-label ${APPROVED}`, APPROVAL_RULE],
-]) {
-  const r = labelGuard(dir, command)
-  check(`${label} is refused, by its reason`, refusedFor(r, reason), why(r))
-}
-for (const [label, dir, command] of [
-  ['rtk git status, from a worktree', oursDir, 'rtk git status'],
-  ['rtk gh pr create --base main', primary, 'rtk gh pr create --base main --fill'],
-  ['rtk git push to main, in the primary checkout', primary, 'rtk git push origin main'],
-  ['rtk grep for a git command, from a worktree', oursDir, 'rtk grep "git push origin main" docs'],
-]) {
-  const r = labelGuard(dir, command)
-  check(`control: ${label} is allowed`, r.code === 0, why(r))
-}
-
-/* --------------------------------------------------------------------------------------------- *
  * prune-worktree-branches: the safety rule.
  *
  * The script deletes branches and removes checkouts, so what has to be tested is not that it works
