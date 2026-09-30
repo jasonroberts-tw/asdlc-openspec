@@ -1,6 +1,6 @@
 # The whole "new machine setup" of README.md, baked into an image.
 #
-# Everything a person would otherwise do by hand -- Node, `bd`, `gh`, RTK, Vale, Claude Code and the tracker's plugin marketplace -- is a layer here
+# Everything a person would otherwise do by hand -- Node, `bd`, `gh`, RTK, ripgrep, Vale, Claude Code and the tracker's plugin marketplace -- is a layer here
 # rather than a devcontainer.json `feature` or `postCreateCommand`. That is deliberate: features
 # resolve at container-create time over the network and fail differently on every machine, and a
 # `postCreateCommand` re-runs on every rebuild. A layer is built once, cached, and identical for
@@ -48,6 +48,9 @@ ENV NO_COLOR=1
 
 # --- base packages ------------------------------------------------------------------------------
 # build-essential: some npm dependencies still compile on install.
+# ripgrep: RTK's hook rewrites an agent's `rg` to `rtk rg`, which runs the `rg` binary; Claude Code's
+# own `rg` is a shell function RTK cannot call, so without this every rewritten search fails. From
+# Ubuntu's signed archive rather than a release download: no guard is measured against its version.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
@@ -56,8 +59,10 @@ RUN apt-get update \
         gnupg \
         jq \
         less \
+        ripgrep \
         unzip \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && rg --version
 
 # --- Node ---------------------------------------------------------------------------------------
 # NodeSource rather than nvm: nvm is a shell function, so it exists only in an interactive login
