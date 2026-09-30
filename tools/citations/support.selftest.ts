@@ -302,6 +302,14 @@ try {
       collected.candidates.every((c) => c.passage.length <= 20 && c.truncated === true),
     collected.candidates.map((c) => `${c.passage.length}/${c.truncated}`).join(' '),
   )
+  const windowed = support.collect({ ...support.loadPolicy(CONTROL), citationSupportClaimLineMaxChars: 30 })
+  const alphaWindowed = windowed.candidates.find((c) => c.claim.includes('docs/target.md'))
+  ok(
+    'each claim line is cut to the policy limit, windowed round the pointer so the pointer is never cut',
+    windowed.candidates.every((c) => c.claim.split('\n').every((l) => l.length <= 30)) &&
+      alphaWindowed?.claim.split('\n').some((l) => l.includes('docs/target.md')) === true,
+    windowed.candidates.map((c) => JSON.stringify(c.claim)).join(' '),
+  )
   const only = await run(['--file', 'docs/citers.md'])
   ok('--file limits the run to the citations written in that file', only.asked.length === 6 && only.code === 0)
   const none = await run(['--file', 'docs/target.md'])
