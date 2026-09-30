@@ -3,8 +3,8 @@
  * this repository resolve to what it names?
  *
  * `tools/citations/scan.ts` carries the reasoning: why this scans everything rather than an
- * allowlist, why quotations are exempt, and why it is the floor under `model-citations.ts` rather
- * than a replacement for it. This file is the gate over the real repository.
+ * allowlist, why quotations are exempt, and why it checks that a pointer resolves and leaves what the
+ * passage says to `support.ts`, an advisory. This file is the gate over the real repository.
  *
  * FIVE FAILURES, all of them the silent kind.
  *

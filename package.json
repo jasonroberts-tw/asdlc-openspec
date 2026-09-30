@@ -18,6 +18,8 @@
     "check:prompts:selftest": "node scripts/check-prompts.mjs --selftest",
     "citations:check": "node tools/citations/check.ts",
     "citations:selftest": "node tools/citations/selftest.ts",
+    "citations:support": "node tools/citations/support.ts",
+    "citations:support:selftest": "node tools/citations/support.selftest.ts",
     "counts:check": "node scripts/check-count-index.mjs",
     "counts:selftest": "node scripts/check-count-index.mjs --selftest",
     "gate-summary:selftest": "node scripts/hooks/gate-summary.selftest.mjs",
@@ -50,6 +52,7 @@
     "@fission-ai/openspec": "1.6.0",
     "@stryker-mutator/core": "10.0.0",
     "@stryker-mutator/tap-runner": "10.0.0",
+    "@typesafe-ai/sdk": "0.6.0",
     "js-yaml": "^5.3.0",
     "jsdom": "29.1.1",
     "lefthook": "2.1.12"
