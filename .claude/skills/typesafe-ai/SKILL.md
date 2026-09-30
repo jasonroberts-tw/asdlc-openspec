@@ -13,6 +13,8 @@ description: >
   Read live docs and cookbooks to find useful patterns and discover new combinations.
 ---
 
+Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
+
 # Build with TypeSafe
 
 TypeSafe makes units of AI intelligence usable like programming primitives: small
