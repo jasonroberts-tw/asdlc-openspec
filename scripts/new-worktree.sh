@@ -2,7 +2,8 @@
 # scripts/new-worktree.sh <task-ref> <slug>
 #
 # Creates one isolated worktree per agent task: a branch off origin/main, a checked pair of
-# ports, and a rendered .worktree/CONTEXT.md briefing that the committed CLAUDE.md @-imports.
+# ports, a rendered .worktree/CONTEXT.md briefing that the committed CLAUDE.md @-imports, and a copy
+# of the primary checkout's Vale styles, which git ignores (the block that copies them says why).
 #
 # There is no database, container stack or .env to provision -- this repository is a Node/TypeScript
 # toolchain whose one server is the calculator demo's, which a person starts by hand. An earlier
@@ -85,6 +86,41 @@ CREATED=1
 # header, item 4, has the incidents). The worktree's copy is the base's, template and all.
 RENDER="$(node "$WORKTREE_PATH/scripts/render-worktree-context.mjs" \
   "$WORKTREE_PATH" "$BRANCH" "$BASE_SHA" "$TASK_REF" "$LIFETIME_HOURS")"
+
+# Vale's styles, copied from the primary checkout. `.vale.ini` names a StylesPath that `.gitignore`
+# ignores, because `vale sync` downloads it, so `git worktree add` brings none across. Without this
+# copy, the vale@agent-tools plugin's hook answered every Write and Edit in a worktree with "E201: The
+# path '<worktree>/.vale-styles' does not exist", a notice that reads like a check that ran, while no
+# prose written in a worktree was checked (asdlc-openspec-hv8, seen on 2026-09-30 in two worktrees
+# cut at ff2aaad). A copy, and not `vale sync`, because the WorktreeCreate hook runs this where the
+# network can be unreachable (the fetch above). And not a symlink: `.gitignore`'s directory rule does
+# not ignore one, Git Bash on Windows makes a copy anyway, and an absolute target dangles wherever the
+# dev container and the host see the checkout at different paths. The copy is the primary's styles
+# at the moment the worktree is cut; a later `vale sync` there reaches a worktree cut after it.
+# The path is read from the worktree's own `.vale.ini`, so it is stated once. An absolute or `..`
+# path is shared by every checkout already, and a path the base already carries is its own; both are
+# left alone. A failed copy warns and carries on: it costs the check, not the worktree.
+STYLES=''
+if [ -f "$WORKTREE_PATH/.vale.ini" ]; then
+  STYLES="$(sed -n '/^[[:space:]]*StylesPath[[:space:]]*=/{s/^[^=]*=[[:space:]]*//;s/[[:space:]]*$//;p;q;}' \
+    "$WORKTREE_PATH/.vale.ini")"
+fi
+case "$STYLES" in
+  '' | /* | ..* | */..*) ;;
+  *)
+    if [ -e "$WORKTREE_PATH/$STYLES" ]; then
+      :
+    elif [ -d "$REPO_ROOT/$STYLES" ]; then
+      { mkdir -p "$(dirname "$WORKTREE_PATH/$STYLES")" &&
+        cp -R "$REPO_ROOT/$STYLES" "$WORKTREE_PATH/$STYLES"; } \
+        || echo "warning: could not copy $REPO_ROOT/$STYLES, so Vale checks no prose in this worktree" >&2
+    else
+      echo "warning: $REPO_ROOT/$STYLES is absent, so Vale checks no prose in this worktree and its" \
+        "hook answers every edit with E201; \`vale sync\`, in the primary checkout before the next" \
+        "worktree or here now, fetches the styles, and needs the network" >&2
+    fi
+    ;;
+esac
 
 value_of() { printf '%s\n' "$RENDER" | sed -n "s/^$1=//p"; }
 
