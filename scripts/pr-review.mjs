@@ -1040,7 +1040,9 @@ function showJson(rev, path) {
 export function promptCounts(sha, repo = ROOT) {
   const tree = mkdtempSync(join(tmpdir(), 'pr-review-head-'))
   try {
-    const archive = execFileSync('git', ['archive', '--format=tar', sha], { cwd: repo, maxBuffer: 1024 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] })
+    // gitEnv(): inside a git hook, as when the selftest runs at pre-push, an inherited GIT_DIR would
+    // send this archive to the hook's repository instead of `repo`.
+    const archive = execFileSync('git', ['archive', '--format=tar', sha], { cwd: repo, env: gitEnv(), maxBuffer: 1024 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] })
     execFileSync('tar', ['-x', '-C', tree], { input: archive })
     const text = execFileSync(process.execPath, [join(REPO_ROOT, 'scripts', 'check-prompts.mjs'), '--counts'], {
       cwd: repo,
