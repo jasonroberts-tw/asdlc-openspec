@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-18 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30).**
+**Status: every decision from D-01 to D-19 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19 added 2026-10-01). D-19's migration is still to land, under `asdlc-openspec-uc1`.**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-18` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-19` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -74,6 +74,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-16** | A session's own review and design workflows are bounded by policy, and the build and prompt reviews send one skeptic to a major finding | `CLAUDE.md` § A workflow a session writes itself is bounded, consolidated first; `sessionReviewMaxFindings`, `sessionReviewSkeptics` and `sessionWorkflowMaxAgents` in `tools/policy.json`; `buildReviewSkeptics.major` and `promptReviewSkeptics.major` at 1, held by `workflows:selftest` |
 | **D-17** | A run closes through the `close-prompt-run` skill, which names each prompt review for itself, and the reviewer reads its policy first and makes no worktree it does not need | `.claude/skills/close-prompt-run/SKILL.md`; `CLAUDE.md` § Prompt reviews and § Bash command style; the `continuous-prompt-improvement` agent, consolidated first; `bead` § 8; the three prompts' budgets and the skill's in `tools/policy.json` |
 | **D-18** | RTK is removed, with the ripgrep step it needed and the guard's reading of its prefix | `CLAUDE.md` without its block, and its budget in `tools/policy.json`; `README.md` § Setup and `.devcontainer/` without RTK or ripgrep; `scripts/hooks/guard-git.mjs`, which no longer reads through an `rtk` prefix, and `worktree:selftest` without its `rtk` cases; the guard's rows in `README.md`, `.claude/README.md` and `scripts/hooks/README.md` |
+| **D-19** | Git's config-based hooks replace lefthook, and dispatch to a runner of this repository's own | Not yet applied: this entry and D-01's amendment. The runner, the renamed job file, `npm run gates`, the install step and every file that names lefthook land with `asdlc-openspec-uc1` |
 
 ## Risks
 
@@ -109,6 +110,8 @@ once it is worked through, and the commit that added these files is the lasting 
 > **Amended 2026-09-24 by D-06.** The kit's learning loop, its sections 2.3 and 2.4, is retired: `tools/outcomes/`, `artifacts/outcomes/` and their scripts and jobs are deleted. `CLAUDE.md` § A program proposes; only a person promotes keeps its principle and no longer names the loop. What recurs across runs is read from labels in the tracker instead.
 
 > **Amended 2026-09-28 by D-15.** The kit's pipeline graph, its section 2.6, and the `corpus-regen` formula of its section 1.3 are retired: `tools/pipeline/`, `docs/pipeline.md`, `.beads/formulas/corpus-regen.formula.toml` and the sibling-checkout resolvers under `tools/lib/` are deleted with their scripts, jobs and steps. `CLAUDE.md` § The gate ladder no longer names a digest gate as what stands in for a check that reads outside the repository: that check's selftest over fixtures runs in both tiers.
+
+> **Amended 2026-10-01 by D-19.** lefthook is to be replaced. The kit laid it down as the hook runner, and no entry adopted it. Git's config-based hooks will call a runner of this repository's own, and `.git/hooks` is left to the other tools that write there. Until `asdlc-openspec-uc1` lands, lefthook runs the hooks as before. The same checks run at four latencies under either runner.
 
 ### D-02 · Product work runs as OpenSpec-format changes, tracked in bd
 
@@ -895,6 +898,80 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 - Nine tracked files named RTK at `fba6626`, on 80 lines: `git grep -c -i -w -e rtk -e rtk-ai fba6626`.
 - The 13 selftest cases are the two arrays under `guard-git: a command behind an rtk prefix` in `scripts/hooks/worktree-hooks.selftest.mjs` at `fba6626`.
 - RTK's ledger: 515 commands and 184.7K tokens booked as saved; `rtk grep` 116.4K, `rtk read` 35.1K, `rtk git show` 8.6K over 2 calls, `rtk gh pr checks` 6.9K over 10 calls, and one `rtk ls` 8.2K. The shares above are 131.9K and 35.1K of 184.7K. These are `rtk gain` on the maintainer's machine on 2026-09-30, outside this repository, and are not re-derived here.
+
+### D-19 · Git's config-based hooks replace lefthook, and dispatch to a runner of this repository's own
+
+**Recorded 2026-10-01**, carried by `asdlc-openspec-pp6`. On 2026-10-01 the maintainer chose Option 2 of the decision brief in that issue. It was the research session's recommendation, and the brief put it with the case where it loses. The brief condenses four research reports, which are that issue's comments. Where the brief and a report disagree, the report's hands-on result wins.
+
+**Builds on / amends:** amends D-01, whose conventions brought lefthook in through the starter kit's hook-runner parameter. No entry adopted or weighed lefthook: before this one, the register named `lefthook.yml` only in other entries' records of what changed. Builds on D-07, which leaves a pull request that changes this register to a person. Builds on D-15 item 3, under which a check that reads outside the repository, as `beads:check` reads the tracker, is stood in for in CI by its selftest.
+
+**Decision.** lefthook stops being this repository's git hook runner. Git's config-based hooks call a runner this repository writes, and the runner reads a tracked job file. Until the pull request that carries `asdlc-openspec-uc1` lands, lefthook runs the hooks as it does today, and `CLAUDE.md` § The gate ladder stands as written. This entry decides the shape. That issue's design holds the steps and the choices this entry leaves open. Each choice is put to the maintainer with the case where its recommendation loses.
+
+1. **Each event gets one config hook, and all five dispatch to one runner.** `pre-commit`, `prepare-commit-msg`, `post-checkout`, `post-merge` and `pre-push` each get a `hook.<name>.command` and a `hook.<name>.event` in the repository's own config, which Git reads from 2.54.0. The command is a relative path, so Git runs each checkout's own copy of the runner from that checkout's root. Nothing in the shared config or in `.git/hooks` names a worktree's path.
+2. **`.git/hooks` stops being this repository's.** Git runs the classic `.git/hooks/<event>` script after the config hooks, so what the tracker and graphify write there runs too. lefthook renamed another tool's hook `<hook>.old`, which never runs, and erased a section appended to its own shim.
+3. **The runner does for the jobs what lefthook did.** That is:
+   - the staged files at commit, and the pushed files from the push's standard input;
+   - glob matching;
+   - parallel jobs, with the one sequential group;
+   - each job's environment;
+   - the output, and a forced run.
+   The runner is a script under `scripts/`, with the header, `--selftest` and root override that `CLAUDE.md` § Standing rules for prompts and gates requires. Its selftest is a pre-push job and a CI step.
+4. **The job file keeps `lefthook.yml`'s schema, under a new name.** `scripts/check-jobs.mjs` reads it with only the file name changed, and each job's comment stays beside the job.
+5. **`npm run gates` keeps its name and goes through git.** It runs the pre-push hook with `git hook run --to-stdin`, given the branch's push line, and forces every job. A run by hand then sees the environment and the standard input of a real push. A checkout with no hooks installed fails rather than reporting a clean run.
+6. **No dependency's install script writes hooks.** lefthook leaves `devDependencies`, and its postinstall goes with it. A step of this repository's own writes the five config entries, and it writes the same thing from whichever checkout runs it.
+7. **Git runs one hook per event, and the runner runs the jobs.** Git does not run one hook per job, which is shape A2 below.
+
+**Why.** Git gives each hook event one file in the shared `.git/hooks`, and three tools write those files here: lefthook, the tracker and graphify. The brief in `asdlc-openspec-pp6` gives the hazards that followed, each with its evidence:
+
+- lefthook's npm postinstall rewrote those files from whichever worktree last ran `npm ci`, so every checkout's hooks named one worktree's binary.
+- Its install displaced or erased the other tools' hooks.
+- Its bare run skipped every job and exited 0 when a push changed nothing.
+- A full run printed more than an agent's tool output holds.
+- Its shim ran the lefthook on PATH before the pinned one.
+- A run by hand saw a different environment from a real push.
+
+This option removes their cause, one file with many owners and an install script that rewrites it, rather than working around it. It stays in Node and in this repository's gate conventions. Five alternatives lost:
+
+- **Keeping lefthook, hardened.** The hardening is a pinned binary per worktree, no auto-install, output only on failure, a sentinel job, and `gates` through a git alias. It is the cheapest, and it fixes the output and the pin. What it leaves:
+  - Nothing locks the shared hooks. In the lefthook report's experiment E3-f, one worktree on a config without the hardening reverted every checkout's shim.
+  - Other tools' hooks still cannot sit beside it.
+  - The skip-all is by design.
+  - Two worktrees committing at once share one stash and one patch file (evilmartians/lefthook#1529).
+  - A missing binary exits 0 by default (evilmartians/lefthook#1548). Both issues were open on 2026-09-30.
+- **hk 2.4.0.** Its config is Pkl, with no JSON export for `scripts/check-jobs.mjs` to read. `hk run pre-push --all` checks only unpushed files, a false green. It has no npm package. Under a Git older than 2.54 it overwrites existing hooks with no backup. It shipped a breaking 2.0.0 on 2026-09-13, then six releases in the next 15 days.
+- **prek 0.5.4.** It runs hooks in parallel only within one priority. Its own install renames foreign hooks `.legacy` and erases appended sections. It is pre-1.0, with 2026 bugs, since fixed, that lost commits and corrupted an index from a linked worktree.
+- **Shape A2: one config hook per job, with Git 2.55 running them in parallel.** Git 2.54.0, the first Git on PATH on the maintainer's Mac, runs them one after another. A worktree runs the primary checkout's job list unless every worktree carries its own include through `extensions.worktreeConfig`. And nothing prints a total.
+- **pre-commit 4.6.2, Husky 9.1.7, simple-git-hooks 2.14.0, or `core.hooksPath` to a tracked directory.** The brief ruled all four out:
+  - pre-commit runs no two hooks in parallel.
+  - Husky takes `core.hooksPath`, so `.git/hooks` stops running.
+  - simple-git-hooks deletes the hooks it does not manage, and its postinstall rewrites the shared hooks.
+  - A tracked hooks directory turns the tracker's and graphify's writes into changes to tracked files.
+
+Where it loses:
+
+- **An older Git runs no gate.** Under a Git older than 2.54, the `hook.*` keys run nothing and nothing says so; lefthook's shim runs under any Git. That reading is from Git's documentation before 2.54, and no report ran an older Git to confirm it. A push from such a host or GUI client runs no gate. CI still runs every gate that reads only committed files, so there the loss is a red pull request minutes later instead of a refused push. The exceptions are `beads:check` and the tracker's own pre-push hook: they read the tracker, and no CI step runs them.
+- **The dev container is such a host** until `asdlc-openspec-tvy` moves its base image, since it carries Git 2.51.1.
+- **Everything lefthook did for the jobs becomes code this repository writes and selftests.** Node's `path.matchesGlob` differs from lefthook's matcher in both directions, so every glob is ratified again.
+
+**What changed.**
+
+- **This register:** this entry. The status line, the blockquote's bound and the decisions table carry D-19, and the status line says its migration is still to land. D-01 carries an amendment.
+- **To come, with `asdlc-openspec-uc1`:**
+  - the runner and its selftest;
+  - the job file, under its new name;
+  - `scripts/check-jobs.mjs`;
+  - `npm run gates` and the install step;
+  - `package.json` and `package-lock.json`, without lefthook;
+  - `.devcontainer/`;
+  - every prompt and document that names lefthook.
+  `lefthook-windows.yml` and the `lefthook-local.yml` convention go with it, under a retirement checklist in its pull request.
+
+**Figures.**
+
+- 30 tracked files named lefthook at `d0f26e6`: `git grep -i -l lefthook d0f26e6`.
+- `lefthook.yml` held 37 run blocks at `d0f26e6`: `npm run check:jobs`. Of them, 32 are pre-push jobs and 2 are pre-commit jobs. Three of the pre-push jobs are the sequential group `calculator-suites`. Reading the file with js-yaml, as `scripts/check-jobs.mjs` does, gives the split.
+- On the maintainer's Mac on 2026-10-01, `/usr/bin/git` was 2.54.0 (Apple Git-157) and first on PATH, and Homebrew's Git was 2.55.0: `which -a git`, then `--version` on each.
+- The dev container's Git 2.51.1 comes from image 2.0.5's history in devcontainers/images, outside this repository, as `asdlc-openspec-tvy` records. It is not re-derived here.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
