@@ -443,10 +443,12 @@ check(
  * erodes its document layer, and `claude install` writes graphify's advice to run `update` into
  * CLAUDE.md (docs/decisions.md § D-20), so the guard refuses each, in the primary checkout as in a
  * worktree. Each refusal is asserted by its reason, which names the command, `npm run code-graph`
- * and D-20. The controls are graphify's reading commands, which must still run, and the near misses
- * that share a first word with a refused command or carry its words as an argument: without them, a
- * guard that refused every graphify command, matched the first word alone, or matched the words
- * anywhere in the line would pass.
+ * and D-20, and the module cases hold each way Python reads `-m`. The controls are graphify's
+ * reading commands, which must still run, and the near misses: a command that shares a first word
+ * with a refused one, a refused word as another command's argument or as graphify's second, and a
+ * refused command asking for help, which graphify answers with a line of help alone. Without them, a
+ * guard that refused every graphify command, matched the first word alone, matched the words
+ * anywhere in the line or among graphify's arguments, or refused a request for help would pass.
  * --------------------------------------------------------------------------------------------- */
 console.log("guard-git: graphify's eroding commands, from any checkout")
 const graphifyRefusal = (words) => (r) =>
@@ -466,6 +468,10 @@ for (const [label, dir, words, command] of [
     'GRAPHIFY_FORCE=1 ~/.local/bin/graphify update . --force',
   ],
   ['graphify run as a Python module', primary, 'update', 'python3 -u -m graphify update .'],
+  ['graphify as a module past an option with a value', primary, 'update', 'python3 -X dev -m graphify update .'],
+  ['graphify as a module in a group of flags', oursDir, 'watch', 'python3 -um graphify watch .'],
+  ['graphify as a module named in the flag', primary, 'hook install', 'python3 -mgraphify hook install'],
+  ["graphify's __main__ run as a module", primary, 'claude install', 'python3 -m graphify.__main__ claude install'],
   ['graphify watch inside bash -c', primary, 'watch', "bash -c 'graphify watch .'"],
   ['graphify hook install after another statement', oursDir, 'hook install', 'git status; graphify hook install'],
 ]) {
@@ -480,6 +486,8 @@ for (const [label, command] of [
   ['graphify hook status, which shares its first word with hook install', 'graphify hook status'],
   ['graphify claude uninstall, which shares its first word with claude install', 'graphify claude uninstall'],
   ["graphify update's words as another command's argument", 'echo graphify update'],
+  ["a refused command's word as graphify's second argument", 'graphify explain update'],
+  ['graphify update --help, which graphify answers with help alone', 'graphify update --help'],
   ['graphify query run as a Python module', 'python3 -m graphify query "what calls guard-git"'],
 ]) {
   const r = labelGuard(primary, command)
