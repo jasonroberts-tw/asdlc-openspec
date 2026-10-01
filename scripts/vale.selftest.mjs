@@ -20,18 +20,22 @@
  * each doctored case breaks one thing and must draw exactly its rule's alert at its line, so a case
  * cannot pass on another rule's alert. The section check runs on the live `.vale.ini`, as its
  * control, and on a copy with the style taken out of one section, which must be refused by name.
+ * Last, it runs itself twice as a child: with no `vale` on PATH it must skip, and with a stub `vale`
+ * that exits non-zero it must fail and not skip. It once read any failure of `vale --version` as a
+ * missing `vale` and skipped (the pull-request review of `61f0323`, asdlc-openspec-m7p).
  *
  * NEEDS. `vale` on PATH (README.md § Setup). Without it the run skips clean and says why, which is
  * what it does in CI, whose runner has no Vale. A `vale` that is found and then fails is a failure.
  * No network: the style is tracked, and `vale sync` is never run. Under a second.
  */
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { copyFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const SELF = fileURLToPath(import.meta.url)
+const REPO_ROOT = resolve(dirname(SELF), '..')
 const ROOT = process.env.VALE_SELFTEST_ROOT ?? REPO_ROOT
 const STYLE = join('.vale-styles', 'Layout')
 const STYLE_NAME = 'Layout'
@@ -156,10 +160,14 @@ function vale(cwd, file) {
 
 function main() {
   try {
-    execFileSync('vale', ['--version'], { stdio: 'ignore' })
-  } catch {
-    console.log('vale:selftest: skipped: `vale` is not on PATH, so no Layout rule can run here (README.md § Setup installs it)')
-    return
+    execFileSync('vale', ['--version'], { stdio: ['ignore', 'ignore', 'pipe'] })
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      console.log('vale:selftest: skipped: `vale` is not on PATH, so no Layout rule can run here (README.md § Setup installs it)')
+      return
+    }
+    console.error(`vale:selftest: \`vale --version\` failed, and a tool that is found and fails is a failure: ${String(error.stderr || error.message).trim()}`)
+    process.exit(1)
   }
   const dir = mkdtempSync(join(tmpdir(), 'vale-layout-'))
   try {
@@ -194,6 +202,28 @@ function main() {
       doctored !== ini && refused.length === 1 && refused[0] === 'README.md',
       doctored === ini ? 'the doctoring did not reach [README.md]' : `refused: ${JSON.stringify(refused)}`,
     )
+
+    console.log('vale:selftest: a `vale` that is absent skips, and one that is found and fails is a failure')
+    if (process.platform === 'win32') {
+      console.log('  skipped on Windows: the stub `vale` these cases put on PATH is a POSIX shell script')
+    } else {
+      const bin = join(dir, 'bin')
+      mkdirSync(bin)
+      const self = (path) => spawnSync(process.execPath, [SELF], { env: { ...process.env, PATH: path }, encoding: 'utf8' })
+      const absent = self(join(dir, 'empty'))
+      check(
+        'with no `vale` on PATH it skips clean, saying why',
+        absent.status === 0 && /skipped: `vale` is not on PATH/.test(absent.stdout),
+        `status ${absent.status}: ${JSON.stringify(`${absent.stdout}${absent.stderr}`.slice(0, 300))}`,
+      )
+      writeFileSync(join(bin, 'vale'), '#!/bin/sh\necho "vale: broken" >&2\nexit 3\n', { mode: 0o755 })
+      const failing = self(bin)
+      check(
+        'with a `vale` that exits non-zero it fails, by its reason, and does not skip',
+        failing.status !== 0 && !/skipped/.test(failing.stdout) && /`vale --version` failed/.test(failing.stderr),
+        `status ${failing.status}: ${JSON.stringify(`${failing.stdout}${failing.stderr}`.slice(0, 300))}`,
+      )
+    }
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

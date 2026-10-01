@@ -194,9 +194,9 @@ pre-push:
     # This repository's own Vale style, `.vale-styles/Layout/`: each rule over a control and one
     # doctored fixture per fault under the temporary directory, each asserting its rule and its line,
     # and every styled section of `.vale.ini` applying it. It runs `vale`, and skips clean, saying
-    # why, where none is on PATH. Reads the style, `.vale.ini` and itself: 0.24 s wall through
-    # `node --run` (`/usr/bin/time -p`, one run) on a macOS 26.7.1 laptop with Node 26.8.1 and Vale
-    # 3.23.0, 2026-10-01.
+    # why, where none is on PATH; it runs itself twice more, with no `vale` and with a failing stub.
+    # Reads the style, `.vale.ini` and itself: 0.44 s wall through `node --run` (`/usr/bin/time -p`,
+    # one run) on a macOS 26.7.1 laptop with Node 26.8.1 and Vale 3.23.0, 2026-10-01.
     - name: vale-selftest
       glob:
         - '.vale.ini'
