@@ -11,8 +11,7 @@ The argument is one issue id, several, or nothing (then take the top of
 `bd ready --exclude-label spec-change`, which leaves a product change's tasks to `change-build`; the
 label is `specChangeLabel` in `tools/policy.json`). Work agreed in conversation that no issue
 carries yet is filed before it is worked, in step 3. Every tracker write below sits inside the
-bracket `CLAUDE.md` § The task store describes: `bd dolt pull` before the first, `bd dolt push`
-after the last.
+bracket `CLAUDE.md` § The task store describes, `bd dolt pull` and `bd dolt push`.
 
 ## 1. Verify the premise before any work
 
@@ -131,11 +130,9 @@ with a note naming the pull request and the issue that carries the cause.
 ## 7. Close on green, with a reason
 
 When every check is green, close the issue with a reason that names the pull request, passed with
-`bd close <id> --reason-file <file>` as `CLAUDE.md` § Bash command style asks of any prose: the
-harness can refuse an inline `--reason` (step 4).
-An acceptance criterion that acts outside the repository is not performed: it becomes a follow-up
-issue labelled `human`, created with its label at creation; step 4 says how to search for it and
-what its body carries.
+`bd close <id> --reason-file <file>` as `CLAUDE.md` § Bash command style asks: the harness can
+refuse an inline `--reason` (step 4). An acceptance criterion that acts outside the repository is
+not performed: it becomes a follow-up issue labelled `human`, created with its label at creation.
 
 ## 8. Report
 
