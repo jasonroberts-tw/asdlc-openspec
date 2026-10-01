@@ -57,9 +57,9 @@ Then wire it: a job in `git-hooks.yml` under `pre-push`, a step in `.github/work
 or both. The job is `run: node --run <name>`, plus a `glob` listing every file whose change can
 alter its verdict, re-derived from what the script reads and imports. The pre-push header there
 states the rule. When in doubt, make it wider: a too-narrow glob is a gate that silently stops
-running on a real push, and `npm run gates` runs every job regardless. A script that no job runs, such as a bare
-emitter or an operator command, gets an entry in `UNJOBBED_BY_KIND` in `scripts/check-jobs.mjs`,
-under its kind, in the same change; `check:jobs` refuses it otherwise.
+running on a real push, and `npm run gates` runs every job regardless. A script that no job runs,
+such as a bare emitter or an operator command, gets an entry in `UNJOBBED_BY_KIND` in
+`scripts/check-jobs.mjs`, under its kind, in the same change; `check:jobs` refuses it otherwise.
 
 ## 5. Update `README.md` § The npm scripts — this is not optional
 
@@ -112,7 +112,8 @@ npm run gates
 ```
 
 `npm run gates` forces every job. Then confirm your job actually fired rather than silently
-matching nothing: check that its name appears in the run's output. A job that never fires is worse than no job, because you will now defend the green result.
+matching nothing: check that its name appears in the run's output. A job that never fires is worse
+than no job, because you will now defend the green result.
 
 Run each command as a separate Bash call, as `CLAUDE.md` § Bash command style asks, so a red
 result names the step that produced it.
