@@ -31,8 +31,9 @@ container**: this is the process that starts the shell you would use to fix a se
 every step warns and carries on.
 
 **Vale's styles come from the clone, not the image.** The image carries `vale`, pinned in the
-`Dockerfile`. The styles `.vale.ini` names are what `vale sync` downloads into the clone, which the
-image cannot see at build time. A clone synced on the host brings its styles in through the bind
+`Dockerfile`. The packages `.vale.ini` names are what `vale sync` downloads into the clone, which
+the image cannot see at build time; `Layout`, the one style the clone tracks, comes with it. A clone
+synced on the host brings its styles in through the bind
 mount. Otherwise, run `vale sync` once in the container: it needs the network, and the styles land
 in the clone, so a rebuild keeps them. `entrypoint.sh` does not run it. It warns at start while
 `vale ls-config` cannot load `.vale.ini`.
