@@ -28,7 +28,9 @@ them. Amended 2026-10-01 by the prompt review `review-prompts-20261001-1331`, as
 the branch leaves unfixed, in a file the issue changes or not. The step that closes the issue keeps
 one whose criterion needs the merged change open, with a note, until a person merges it. Amended
 2026-10-01 by `asdlc-openspec-f69`: the step that writes the pull request's body first holds the
-branch to each criterion and to itself, as `.claude/skills/bead/SKILL.md` § 6 now says.
+branch to each criterion and to itself, as `.claude/skills/bead/SKILL.md` § 6 now says. Amended
+2026-10-01 by `asdlc-openspec-ivn`: the step that pushes first reviews the branch with the
+`branch-reviewer` agent, as `.claude/skills/open-pr/SKILL.md` § 5 now says.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -332,9 +334,11 @@ Every pull request is opened with the `open-pr` skill, whoever opens it.
    under `.scratch/`, opening with any register entry or prerequisite the work named, and naming
    every found issue. Decided by: `.claude/skills/open-pr/SKILL.md` § 4. The body, and
    `.claude/skills/bead/SKILL.md` § 6. Open the pull request and watch its checks.
-4. Push, open it with `--base main` typed, then mark the reviewer's status pending with
-   `PR=<number> node scripts/pr-review.mjs mark`. Decided by: `.claude/skills/open-pr/SKILL.md`
-   § 5. Push, open, and mark it pending.
+4. Review the branch first, in a context of its own: the `branch-reviewer` agent reads the brief
+   `node scripts/pr-review.mjs brief --local` writes, and the session fixes what it says the
+   reviewer would refuse. Then push, open it with `--base main` typed, and mark the reviewer's
+   status pending with `PR=<number> node scripts/pr-review.mjs mark`. Decided by:
+   `.claude/skills/open-pr/SKILL.md` § 5. Push, open, and mark it pending.
 5. Watch it with one watcher, `gh pr checks <number> --watch`, in the background, and end the turn
    to wait only if the watcher's exit wakes the session. Decided by:
    `.claude/skills/open-pr/SKILL.md` § 6. Watch it with one watcher.

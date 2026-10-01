@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-20 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19 and D-20 added 2026-10-01). D-19's migration is still to land, under `asdlc-openspec-uc1`.**
+**Status: every decision from D-01 to D-21 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20 and D-21 added 2026-10-01). D-19's migration is still to land, under `asdlc-openspec-uc1`.**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-20` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-21` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -76,6 +76,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-18** | RTK is removed, with the ripgrep step it needed and the guard's reading of its prefix | `CLAUDE.md` without its block, and its budget in `tools/policy.json`; `README.md` § Setup and `.devcontainer/` without RTK or ripgrep; `scripts/hooks/guard-git.mjs`, which no longer reads through an `rtk` prefix, and `worktree:selftest` without its `rtk` cases; the guard's rows in `README.md`, `.claude/README.md` and `scripts/hooks/README.md` |
 | **D-19** | Git's config-based hooks replace lefthook, and dispatch to a runner of this repository's own | Not yet applied: this entry and D-01's amendment. The runner, the renamed job file, `npm run gates`, the install step and every file that names lefthook land with `asdlc-openspec-uc1` |
 | **D-20** | A local code graph is built with graphify on each person's machine, never committed, and queried through its MCP server | `scripts/code-graph.mjs` as `npm run code-graph` and `code-graph:mcp`, held by `code-graph:selftest` at pre-push and in CI; `graphify-out/` in `.gitignore`; the `code-graph` skill; the worktree briefing's carve-out, consolidated first; the `graphify*` keys and two budgets in `tools/policy.json`; D-19's amendment |
+| **D-21** | `open-pr` reviews each branch before its push, in an agent's own context, and the reviewer's brief carries the facts its job can compute | `.claude/skills/open-pr/SKILL.md` § 5 and the `branch-reviewer` agent; `brief --local` and the brief's three facts in `scripts/pr-review.mjs`, held by `pr-review:selftest`; `.claude/agents/pr-reviewer.md` § What you are given; the three prompts' budgets in `tools/policy.json` |
 
 ## Risks
 
@@ -1033,6 +1034,38 @@ Where it loses:
 - 5,268 words: `wc -w` on graphify 0.9.73's own `SKILL.md`, outside this repository.
 - 937 words in the worktree briefing and 283 in the skill: `node scripts/check-prompts.mjs --counts`.
 - 31 checks in `code-graph:selftest`, and 11.98-12.06 s with 29 of them: `/usr/bin/time -p node --run code-graph:selftest`, the job's comment in `lefthook.yml` naming the host.
+
+### D-21 · `open-pr` reviews each branch before its push, in an agent's own context, and the reviewer's brief carries the facts its job can compute
+
+**Recorded 2026-10-01**, carried by `asdlc-openspec-ivn` and `asdlc-openspec-744`. On 2026-10-01 the maintainer adopted both from a meta-analysis of the pull-request reviewer's verdicts: the local review mandated by `open-pr` itself, done by a custom agent for its context, and the facts put in the brief or the prompt gate tightened. The session chose the brief, for the reasons below.
+
+**Builds on / amends:** builds on D-07, whose brief this extends and whose agent's rubric the local review applies, and on D-12, under which `open-pr` and `pr-reviewer` were consolidated before their edits. It amends nothing.
+
+**Decision.**
+
+1. **`open-pr` § 5 reviews the branch before each push.** The `branch-reviewer` agent reads a brief that `scripts/pr-review.mjs brief --local` writes for the branch's last commit, and judges the branch by `.claude/agents/pr-reviewer.md`, which stays the rubric's one home. The session fixes what the agent says would draw a request for changes, and each minor finding in a file the branch changes, then pushes; it does not review those fixes again. Every caller of `open-pr` does this.
+2. **The agent reads only**, with Read, Grep and Glob: the local brief carries what the reviewer's carries, so it needs no command.
+3. **Every brief carries three facts its job computes**: the tracker state of each other issue the cited issues and the body name; the branch's commits, each with the lines it changes; and, when a prompt or `tools/policy.json` changed, `node scripts/check-prompts.mjs --counts` over a copy of the head's files, run by the checkout's own script, never the pull request's. The reviewer judges a criterion one of them settles as met or not-met.
+
+**Why.** In the reviewer's verdicts of 2026-09-25 to 2026-10-01, 8 pull requests drew a `changes` verdict for a defect of their own, holding 12 distinct blocking causes. 4 of them were gaps a reader finds and no gate can (#55 twice, #72, #79), each found a push and a review after a reader before the push could have found it. Criteria were marked unverifiable for facts the brief job could compute: a budget equal to its prompt's count (#56, #79), a consolidation committed alone and first (#79), a follow-up filed (#58). Three alternatives lost:
+
+- **The adversarial-verifier, or the build workflow's lenses, run from `bead` alone**, the options `asdlc-openspec-ivn` first offered: they reach `bead` and not the other callers of `open-pr`, and judge by rubrics other than the reviewer's.
+- **A review in the authoring session's own context**: the session reads what it meant to write, not what it wrote.
+- **`check:prompts` refusing a budget above its count**: it settles only the first kind of fact, and sends every pull request that shrinks a prompt to a person, since each `promptWordBudget*` key is on `prReviewHighRiskJsonKeys`.
+
+Where it loses: every pull request pays one more review, at the reviewer's model and effort, before its push, a one-word fix's among them. And the local review samples the same model as the reviewer, so it does not find all that the reviewer will: in 7 pull requests of that week the reviewer named minor findings on a later head that the earlier head already carried.
+
+**What changed.**
+
+- `scripts/pr-review.mjs`: `brief --local`, and the three facts in every brief; `pr-review:selftest` holds each part that runs without the network.
+- `.claude/agents/branch-reviewer.md`, new; `.claude/skills/open-pr/SKILL.md` § 5 and `.claude/agents/pr-reviewer.md` § What you are given and § 1, each consolidated first; the three prompts' budgets in `tools/policy.json`.
+- `docs/playbook.md` § 4.4, and the rows in `.claude/README.md`, `scripts/README.md` and `README.md`.
+- This register: this entry, its table row, the status line and the bound.
+
+**Figures.**
+
+- 79 verdict comments on 46 pull requests, 2026-09-25 to 2026-10-01: `gh api "repos/{owner}/{repo}/issues/comments?per_page=100" --paginate`, kept where the author is `github-actions[bot]` and the body opens with `<!-- pr-review:verdict`, read on 2026-10-01. The 8 pull requests and 12 causes are those comments' `changes` verdicts, less #50's, whose cause was a planted commit (`5253f22`); the pull request that carries this entry lists each cause.
+- The budgets: `node scripts/check-prompts.mjs --counts` at this entry's commit, each figure in its `Means` in `tools/policy.json`.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
