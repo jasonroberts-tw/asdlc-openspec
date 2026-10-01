@@ -38,8 +38,8 @@ the git status the harness gave, and not with `HEAD`, which a later pull moves: 
 the two that the trunk has changed since. Read the trunk's copy of each one it names, as above, and
 follow that copy from here on. A session given no such git status reads the trunk's copy of both.
 
-Name, too, any entry in the decision register an acceptance criterion implies, so the person
-reviewing the pull request reads it first (step 6).
+Name, too, any register entry an acceptance criterion implies. The pull request's body opens with
+it, so the person who reviews it reads it first (step 6).
 
 An issue asking for a change to what the product does, stated as requirements, goes to
 `change-propose` (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
@@ -119,6 +119,11 @@ Fetch, rebase onto `origin/main`, and run `npm run gates` again (`CLAUDE.md` § 
 
 ## 6. Open the pull request and watch its checks
 
+Before writing the body, hold the branch to each criterion as worded and to itself: the reviewer
+requests changes on a gap whatever the body admits. Fix one the body would disclose, or make the
+tree say what is true and file its follow-up (step 4). A criterion the work will not meet as worded
+changes first, as step 1 says for a change of scope.
+
 Open it with the `open-pr` skill. Its body opens with any register entry or prerequisite step 1
 named, and names every issue filed in step 4.
 
@@ -138,6 +143,6 @@ becomes a follow-up issue labelled `human`, created with its label at creation.
 
 First close the run with the `close-prompt-run` skill.
 
-Then one short report: what was verified in step 1 and where, what changed, what was regenerated,
-both gate runs as measured, the pull request and, when it waits for a person or on an issue, why,
-the issue's final state, and every follow-up filed.
+Then one short report. It says what step 1 verified and where, what changed and what was
+regenerated. It gives both gate runs as measured, and the pull request, with why it waits when it
+waits for a person or on an issue. It ends with the issue's final state and every follow-up filed.
