@@ -51,3 +51,6 @@ graphify-out/
 # Layout is this repository's own style, tracked, and `vale sync` leaves it in place.
 .vale-styles/*
 !.vale-styles/Layout/
+.vale-styles/
+
+**/.DS_Store
