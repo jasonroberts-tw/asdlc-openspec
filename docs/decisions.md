@@ -75,7 +75,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-17** | A run closes through the `close-prompt-run` skill, which names each prompt review for itself, and the reviewer reads its policy first and makes no worktree it does not need | `.claude/skills/close-prompt-run/SKILL.md`; `CLAUDE.md` § Prompt reviews and § Bash command style; the `continuous-prompt-improvement` agent, consolidated first; `bead` § 8; the three prompts' budgets and the skill's in `tools/policy.json` |
 | **D-18** | RTK is removed, with the ripgrep step it needed and the guard's reading of its prefix | `CLAUDE.md` without its block, and its budget in `tools/policy.json`; `README.md` § Setup and `.devcontainer/` without RTK or ripgrep; `scripts/hooks/guard-git.mjs`, which no longer reads through an `rtk` prefix, and `worktree:selftest` without its `rtk` cases; the guard's rows in `README.md`, `.claude/README.md` and `scripts/hooks/README.md` |
 | **D-19** | Git's config-based hooks replace lefthook, and dispatch to a runner of this repository's own | Not yet applied: this entry and D-01's amendment. The runner, the renamed job file, `npm run gates`, the install step and every file that names lefthook land with `asdlc-openspec-uc1` |
-| **D-20** | A local code graph is built with graphify on each person's machine, never committed, and queried through its MCP server | `scripts/code-graph.mjs` as `npm run code-graph` and `code-graph:mcp`; `graphify-out/` in `.gitignore`; the `code-graph` skill; the worktree briefing's carve-out, consolidated first; the `graphify*` keys and two budgets in `tools/policy.json`; D-19's amendment |
+| **D-20** | A local code graph is built with graphify on each person's machine, never committed, and queried through its MCP server | `scripts/code-graph.mjs` as `npm run code-graph` and `code-graph:mcp`, held by `code-graph:selftest` at pre-push and in CI; `graphify-out/` in `.gitignore`; the `code-graph` skill; the worktree briefing's carve-out, consolidated first; the `graphify*` keys and two budgets in `tools/policy.json`; D-19's amendment |
 
 ## Risks
 
@@ -981,7 +981,7 @@ Where it loses:
 
 **Recorded 2026-10-01**, carried by `asdlc-openspec-rsc`. On 2026-10-01 the maintainer chose to keep the graph local, and asked for a checked-in script that builds it, its output folder gitignored, and query access through a skill and an MCP server the script registers. They chose local-scope registration, Opus for the documents and this entry from recommendations each put with the case where it loses, Opus over the recommendation of Sonnet.
 
-**Builds on / amends:** amends D-19, whose item 2 and Why name graphify among the tools that write `.git/hooks`. Builds on D-03, which puts the constants the script reads in `tools/policy.json`; on D-12, under which the worktree briefing was consolidated before its carve-out; and on D-07, which leaves a pull request that changes this register or a word budget to a person. The script reads a language model and the person's own plan, so under `CLAUDE.md` § The gate ladder no job or step runs it. It is an operator command, not a check, and its stubbed selftest is `asdlc-openspec-i3c`.
+**Builds on / amends:** amends D-19, whose item 2 and Why name graphify among the tools that write `.git/hooks`. Builds on D-03, which puts the constants the script reads in `tools/policy.json`; on D-12, under which the worktree briefing was consolidated before its carve-out; and on D-07, which leaves a pull request that changes this register or a word budget to a person. The script reads a language model and the person's own plan, so under `CLAUDE.md` § The gate ladder no job or step runs it. Its selftest, the script run against a fixture repository with stub tools (`asdlc-openspec-i3c`), is a pre-push job and a CI step in its place.
 
 **Decision.** A person who wants a knowledge graph of this repository builds one with graphify on their own machine. It is never committed.
 
@@ -1017,8 +1017,9 @@ Where it loses:
 **What changed.**
 
 - **This register:** this entry. The status line, the blockquote's bound and the decisions table carry D-20, and D-19 carries an amendment.
-- **`scripts/code-graph.mjs`:** new, with its row in `scripts/README.md`.
-- **`package.json`:** `code-graph` and `code-graph:mcp`, which `scripts/check-jobs.mjs` declares as operator commands.
+- **`scripts/code-graph.mjs`:** new, with its `--selftest` and its row in `scripts/README.md`.
+- **`package.json`:** `code-graph` and `code-graph:mcp`, which `scripts/check-jobs.mjs` declares as operator commands, and `code-graph:selftest`.
+- **`lefthook.yml` and `.github/workflows/verify.yml`:** the `code-graph-selftest` pre-push job and its CI step.
 - **`tools/policy.json`:** `graphifyVersion`, `graphifyClaudeCliModel`, `graphifySemanticExtensions`, `graphifyOutDir`, `graphifyMcpServerName` and `promptWordBudgetSkillCodeGraph`, each with its `Means`. `promptWordBudgetWorktreeContext` falls from 940 to 937, and `describes`, `gatedBy` and `provenance` name the new keys.
 - **`.claude/skills/code-graph/SKILL.md`:** new.
 - **`.claude/worktree-CONTEXT.md.tmpl`:** consolidated first, freeing 10 words, then given the carve-out for the server's tools, 7 words.
@@ -1030,7 +1031,8 @@ Where it loses:
 - 3,649,692 tokens and $10.40: the four extraction agents' 27 calls in Langfuse, session 56c6cce4, 2026-09-30 23:26:34-23:35:31 UTC, at Langfuse's managed prices for `claude-opus-5-5`. Outside this repository; not re-derived here.
 - 157 to 22 concept nodes and 898 to 156 links: two `graphify update` runs on a clone holding a copy of that graph, on 2026-10-01. 249 and 878 kept against 108 and 280: a stamped copy and its control, the same day, on clones at `7669dad`. Neither run is in this repository, and neither is re-derived here.
 - 5,268 words: `wc -w` on graphify 0.9.73's own `SKILL.md`, outside this repository.
-- 937 words in the worktree briefing and 272 in the skill: `node scripts/check-prompts.mjs --counts`.
+- 937 words in the worktree briefing and 283 in the skill: `node scripts/check-prompts.mjs --counts`.
+- 29 checks in `code-graph:selftest`, and 11.98-12.06 s: `/usr/bin/time -p node --run code-graph:selftest`, the job's comment in `lefthook.yml` naming the host.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

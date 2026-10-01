@@ -120,6 +120,11 @@ jobs:
       # and runs only in change-verify (docs/decisions.md § D-15, item 3).
       - name: the verifier's fresh run, negative-tested
         run: npm run tests:fresh:selftest
+      # Seconds (lefthook.yml's `code-graph-selftest` job has the measurement): the code-graph
+      # script over a fixture repository, graphify, its MCP server and claude stubbed. `code-graph`
+      # itself reads a language model and the person's plan, so no step runs it.
+      - name: the code-graph script, negative-tested over stub tools
+        run: npm run code-graph:selftest
       # Under a second (lefthook.yml's `tests-trace-selftest` job has the measurement): doctored
       # test sources, a fixture spec tree under the temporary directory, and one archive by the
       # pinned OpenSpec CLI, with no network.
