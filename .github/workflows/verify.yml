@@ -50,6 +50,12 @@ jobs:
         run: npm run check:jobs
       - name: the job cross-check, negative-tested
         run: npm run check:jobs:selftest
+      # Seconds (git-hooks.yml's `hooks-selftest` job has the measurement): the git hook runner's
+      # refusals over doctored copies, and commits, pushes, a linked worktree, the install and
+      # `npm run gates` through real Git in scratch repositories under the temporary directory. The
+      # runner refuses a Git older than 2.54.0; the runner image's was 2.55.0 (its image 20260920).
+      - name: the git hook runner, negative-tested
+        run: npm run hooks:selftest
       # Milliseconds: CLAUDE.md, the prompts, the workflows' string literals and the word budgets in
       # tools/policy.json.
       - name: every skill and agent opens with the line CLAUDE.md requires, and every prompt is within its word budget
@@ -82,7 +88,7 @@ jobs:
       # network and runs here only as this selftest.
       - name: the citation-support advisory, negative-tested over a stubbed judge
         run: npm run citations:support:selftest
-      # About a second (lefthook.yml's `gate-summary-selftest` job has the measurement): the Stop
+      # About a second (git-hooks.yml's `gate-summary-selftest` job has the measurement): the Stop
       # hook over scratch citation trees and scratch repositories under the temporary directory.
       - name: the Stop hook reads untracked files and places a subagent's checkout, negative-tested
         run: npm run gate-summary:selftest
@@ -91,7 +97,7 @@ jobs:
         run: npm run check:register
       - name: the register gate, negative-tested
         run: npm run check:register:selftest
-      # Under a second (lefthook.yml's `beads-selftest` job has the measurement): a fixture export
+      # Under a second (git-hooks.yml's `beads-selftest` job has the measurement): a fixture export
       # and a copy of the policy under the temporary directory, read through `BEADS_CHECK_ROOT`,
       # with no `bd`. The gate it tests reads the tracker, so it is absent below.
       - name: the tracker gate, negative-tested over a fixture export
@@ -100,62 +106,62 @@ jobs:
       - name: every living spec and active change is valid, and every change applies
         run: npm run openspec:check
       # Seconds, more than the OpenSpec check and less than its selftest (the cost note on
-      # lefthook.yml's `calculator-test` job has the measurement): Node's own test runner over
+      # git-hooks.yml's `calculator-test` job has the measurement): Node's own test runner over
       # `apps/calculator/test/`, each test named for the IDs it proves, its `// trace:` metadata read
       # and held to what the runner reports, and no matched file without a test.
       - name: the calculator's scenarios pass
         run: npm run calculator:test
-      # Under a second while it holds no test (lefthook.yml's `calculator-test-independent` job has the
+      # Under a second while it holds no test (git-hooks.yml's `calculator-test-independent` job has the
       # measurement): the test-builder's contract tests and build-time fitness functions under
       # `apps/calculator/test/independent/build/`, held as the step above holds the rest. Its E2E
       # tests and Verify-deferred fitness functions run at Verify, and no step here runs them.
       - name: the calculator's independent tests pass
         run: npm run calculator:test:independent
-      # Under a second (lefthook.yml's `tests-selftest` job has the measurement): fixture trees
+      # Under a second (git-hooks.yml's `tests-selftest` job has the measurement): fixture trees
       # under the temporary directory, one Node process per fixture test file.
       - name: the test runner, negative-tested
         run: npm run tests:selftest
-      # Seconds (lefthook.yml's `tests-fresh-selftest` job has the measurement): the verifier's fresh
+      # Seconds (git-hooks.yml's `tests-fresh-selftest` job has the measurement): the verifier's fresh
       # run over a fixture repository, its `npm ci` stubbed. `tests:fresh` itself reads the network
       # and runs only in change-verify (docs/decisions.md § D-15, item 3).
       - name: the verifier's fresh run, negative-tested
         run: npm run tests:fresh:selftest
-      # Seconds (lefthook.yml's `code-graph-selftest` job has the measurement): the code-graph
+      # Seconds (git-hooks.yml's `code-graph-selftest` job has the measurement): the code-graph
       # script over a fixture repository, graphify, its MCP server and claude stubbed. `code-graph`
       # itself reads a language model and the person's plan, so no step runs it.
       - name: the code-graph script, negative-tested over stub tools
         run: npm run code-graph:selftest
-      # Under a second (lefthook.yml's `tests-trace-selftest` job has the measurement): doctored
+      # Under a second (git-hooks.yml's `tests-trace-selftest` job has the measurement): doctored
       # test sources, a fixture spec tree under the temporary directory, and one archive by the
       # pinned OpenSpec CLI, with no network.
       - name: the test-trace reader and its hash, negative-tested
         run: npm run tests:trace:selftest
-      # Under a second (lefthook.yml's `trace-check` job has the measurement): the traceability
+      # Under a second (git-hooks.yml's `trace-check` job has the measurement): the traceability
       # record re-derived and diffed, and every rule its header holds, over the branch's commits since
       # its merge base with origin/main, which the whole-history checkout above provides.
       - name: the traceability record is current, and every scenario, test, contract and task holds to it
         run: npm run trace:check
-      # About ten seconds (lefthook.yml's `trace-selftest` job has the measurement and the count of
+      # About ten seconds (git-hooks.yml's `trace-selftest` job has the measurement and the count of
       # trial archives): fixture repositories under the temporary directory, and trial archives by
       # the pinned CLI.
       - name: the trace gate, negative-tested
         run: npm run trace:selftest
-      # Under a second (lefthook.yml's `tests-inventory` job has the measurement): the tests at HEAD
+      # Under a second (git-hooks.yml's `tests-inventory` job has the measurement): the tests at HEAD
       # against those at its merge base with origin/main, read from git. On a push to main HEAD is
       # its own merge base, and it passes; on a pull request HEAD is the merge commit.
       - name: no test removed, skipped or weakened without an architect decision
         run: npm run tests:inventory:check
-      # Seconds (lefthook.yml's `tests-inventory-selftest` job has the measurement): fixture
+      # Seconds (git-hooks.yml's `tests-inventory-selftest` job has the measurement): fixture
       # repositories under the temporary directory.
       - name: the test-inventory gate, negative-tested
         run: npm run tests:inventory:selftest
       - name: the OpenSpec gate, negative-tested
         run: npm run openspec:selftest
-      # About twenty-five seconds (lefthook.yml's `thresholds-selftest` job has the measurement): a fixture
+      # About twenty-five seconds (git-hooks.yml's `thresholds-selftest` job has the measurement): a fixture
       # repository under the temporary directory, with StrykerJS's tap and command runners.
       - name: the thresholds gate, negative-tested
         run: npm run thresholds:selftest
-      # Seconds, and more as more Routine lines change (lefthook.yml's `thresholds-check` job has the
+      # Seconds, and more as more Routine lines change (git-hooks.yml's `thresholds-check` job has the
       # measurement): the suite once with Node's own coverage, and StrykerJS's tap runner over the
       # changed lines of the Routines, from the merge base with origin/main that the whole-history
       # checkout above provides.

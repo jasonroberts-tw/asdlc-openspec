@@ -26,6 +26,8 @@
     "counts:check": "node scripts/check-count-index.mjs",
     "counts:selftest": "node scripts/check-count-index.mjs --selftest",
     "gate-summary:selftest": "node scripts/hooks/gate-summary.selftest.mjs",
+    "hooks:install": "node scripts/git-hooks.mjs --install",
+    "hooks:selftest": "node scripts/git-hooks.mjs --selftest",
     "worktree:gc": "node scripts/prune-worktree-branches.mjs",
     "worktree:selftest": "node scripts/hooks/worktree-hooks.selftest.mjs",
     "pr-review:check": "node scripts/pr-review.mjs --check",
@@ -50,7 +52,8 @@
     "trace:update": "node tools/trace/trace.ts --update",
     "vale:selftest": "node scripts/vale.selftest.mjs",
     "workflows:selftest": "node scripts/workflows.selftest.mjs",
-    "gates": "lefthook run pre-push --force"
+    "gates": "node scripts/git-hooks.mjs --gates",
+    "prepare": "node scripts/git-hooks.mjs --prepare"
   },
   "devDependencies": {
     "@fission-ai/openspec": "1.6.0",
@@ -58,11 +61,9 @@
     "@stryker-mutator/tap-runner": "10.0.0",
     "@typesafe-ai/sdk": "0.6.0",
     "js-yaml": "^5.3.0",
-    "jsdom": "29.1.1",
-    "lefthook": "2.1.12"
+    "jsdom": "29.1.1"
   },
   "allowScripts": {
-    "lefthook@2.1.12": true,
     "@fission-ai/openspec": false
   }
 }

@@ -6,7 +6,8 @@
 #                                    container's platform, not the host's. This is also why
 #                                    README.md tells people never to share a clone between Windows
 #                                    and WSL.
-#   2. the git hooks              -- lefthook and `bd hooks install`, both of which write .git/hooks.
+#   2. the git hooks              -- the five `hook.asdlc-*` entries in the repository's config,
+#                                    which run scripts/git-hooks.mjs at each event.
 #   3. the beads issue database   -- a Dolt DB under .beads/embeddeddolt/, not in git.
 #
 # ...a warning when Vale cannot load `.vale.ini`. Its styles are what `vale sync` downloads into the
@@ -71,13 +72,15 @@ setup() {
     fi
   fi
 
-  # Both installers, and both are required. lefthook runs the generated-file check on commit and the
-  # gates on push; `bd hooks install` restores beads' own git integration, which installing
-  # lefthook otherwise turns off without telling anyone (see the comment in lefthook.yml).
-  if [ -x node_modules/.bin/lefthook ]; then
-    node_modules/.bin/lefthook install >/dev/null 2>&1 || warn 'lefthook install failed'
+  # The git hooks (docs/decisions.md § D-19). `npm ci` above runs this install through
+  # package.json's `prepare`; it runs again here because a start that skipped `npm ci` would
+  # otherwise leave a clone with no hooks. `bd hooks install` is not run: the tracker's jobs in
+  # git-hooks.yml are its git integration, and a section bd wrote into .git/hooks would run bd a
+  # second time after them (asdlc-openspec-uc1, D2).
+  if [ -f scripts/git-hooks.mjs ]; then
+    node scripts/git-hooks.mjs --install >/dev/null 2>&1 \
+      || warn 'installing the git hooks failed -- run `npm run hooks:install` to see why'
   fi
-  bd hooks install --chain >/dev/null 2>&1 || warn 'bd hooks install failed'
 
   # The Dolt remote is already configured in .beads/config.yaml (refs/dolt/data on the GitHub
   # remote), so hydrating needs credentials for that remote. Until `gh auth login` has been run it

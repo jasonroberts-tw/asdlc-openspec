@@ -39,7 +39,7 @@
  * runs on Linux, would then fail.
  *
  * WHAT FAILS THE JOB:
- *   1. an `npm run <name>` or `node --run <name>` token in a `run:` of `lefthook.yml` or
+ *   1. an `npm run <name>` or `node --run <name>` token in a `run:` of `git-hooks.yml` or
  *      `.github/workflows/verify.yml` whose <name> is not a `package.json` script (the hook launches
  *      through `node --run`, CI through `npm run`; both name the same script).
  *      Comment lines are not read -- both files quote scripts they deliberately do NOT run -- and a
@@ -113,9 +113,9 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ROOT = process.env.CHECK_JOBS_ROOT ?? REPO_ROOT
 
 const PACKAGE = 'package.json'
-const LEFTHOOK = 'lefthook.yml'
+const HOOK_JOBS = 'git-hooks.yml'
 const VERIFY = '.github/workflows/verify.yml'
-const JOB_FILES = [LEFTHOOK, VERIFY]
+const JOB_FILES = [HOOK_JOBS, VERIFY]
 
 /**
  * An invocation token inside a `run:` string: group 1 the launcher, group 2 the script. `npm run` is
@@ -166,6 +166,7 @@ const UNJOBBED_BY_KIND = [
       'citations:support',
       'code-graph',
       'code-graph:mcp',
+      'hooks:install',
       'trace',
       'worktree:gc',
     ],
@@ -211,7 +212,16 @@ const UNJOBBED_BY_KIND = [
       },
       {
         name: 'gates',
-        why: 'the suite itself (`lefthook run pre-push --force`); a job invoking it would recurse.',
+        why:
+          'the suite itself (the pre-push block of `git-hooks.yml`, through `git hook run`, forced);' +
+          ' a job invoking it would recurse.',
+      },
+      {
+        name: 'prepare',
+        why:
+          "npm's lifecycle script, which `npm ci` runs after an install: it writes the hooks through" +
+          ' `scripts/git-hooks.mjs --prepare`, and a job running it would write the config of the' +
+          ' checkout it gates. `hooks:selftest` runs that install in scratch repositories.',
       },
       {
         name: 'tests:fresh',
@@ -278,13 +288,13 @@ function withoutComments(run) {
 }
 
 /**
- * Every `run:` string in a job file, with a label for the failure message. lefthook.yml is
+ * Every `run:` string in a job file, with a label for the failure message. git-hooks.yml is
  * `<hook>: { jobs: [{ name, run }] }`, where a job may instead be `{ name, group: { jobs: [...] } }`,
  * whose jobs are read the same way; verify.yml is `jobs: { <job>: { steps: [{ name, run }] } }`.
  */
 function runBlocks(file, doc) {
   const blocks = []
-  if (file === LEFTHOOK) {
+  if (file === HOOK_JOBS) {
     const walk = (where, jobs) => {
       for (const job of jobs) {
         const name = `${where}/${job?.name ?? '(unnamed)'}`
@@ -415,7 +425,7 @@ export function runCheck(root, { pathsRoot = root } = {}) {
     if (declared.has(name)) continue
     if (GATE_SHAPED_RE.test(name)) {
       fail(
-        `\`${name}\` is gate-shaped and no job runs it -- no \`npm run ${name}\` in ${LEFTHOOK} or` +
+        `\`${name}\` is gate-shaped and no job runs it -- no \`npm run ${name}\` in ${HOOK_JOBS} or` +
           ` ${VERIFY}. A gate nothing runs reports the past.` +
           ` Wire it -- a \`pre-push\` job and, if it reads only` +
           ` committed files, a verify.yml step -- or add it to the named-exceptions list in` +
@@ -667,7 +677,7 @@ function editScripts(dir, transform) {
   })
 }
 
-/** A job appended to the copy's lefthook.yml, under the last hook's `jobs:` list. */
+/** A job appended to the copy's git-hooks.yml, under the last hook's `jobs:` list. */
 const appendJob = (name, run) => (text) => `${text}    - name: ${name}\n      run: ${run}\n`
 
 /** A directory in a copy of the roots whose one file is a dotfile, which the real tree lacks. */
@@ -685,9 +695,9 @@ function cases() {
       expect: 'pass',
     },
     {
-      name: 'a lefthook job invokes a script that does not exist',
-      doctor: (dir) => edit(dir, LEFTHOOK, appendJob('doctored', 'npm run no:such:script')),
-      expect: /^lefthook\.yml pre-push\/doctored invokes `npm run no:such:script`, which is not/,
+      name: 'a hook job invokes a script that does not exist',
+      doctor: (dir) => edit(dir, HOOK_JOBS, appendJob('doctored', 'npm run no:such:script')),
+      expect: /^git-hooks\.yml pre-push\/doctored invokes `npm run no:such:script`, which is not/,
     },
     {
       // Appended rather than substituted since a later decision: the one `run: |` step verify.yml carried (the
@@ -705,20 +715,20 @@ function cases() {
     },
     {
       // The hook's own launcher; the message names the spelling the job used.
-      name: 'a lefthook job invokes a script that does not exist through `node --run`',
-      doctor: (dir) => edit(dir, LEFTHOOK, appendJob('doctored', 'node --run no:such:script')),
-      expect: /^lefthook\.yml pre-push\/doctored invokes `node --run no:such:script`, which is not/,
+      name: 'a hook job invokes a script that does not exist through `node --run`',
+      doctor: (dir) => edit(dir, HOOK_JOBS, appendJob('doctored', 'node --run no:such:script')),
+      expect: /^git-hooks\.yml pre-push\/doctored invokes `node --run no:such:script`, which is not/,
     },
     {
-      // lefthook runs a group's jobs as it runs the hook's own, so a token inside one is read too.
-      name: "a job inside a lefthook group invokes a script that does not exist",
+      // The runner runs a group's jobs as it runs the hook's own, so a token inside one is read too.
+      name: "a job inside a hook group invokes a script that does not exist",
       doctor: (dir) =>
-        edit(dir, LEFTHOOK, (t) => `${t}    - name: doctored-group\n      group:\n        jobs:\n          - name: doctored\n            run: node --run no:such:script\n`),
-      expect: /^lefthook\.yml pre-push\/doctored-group\/doctored invokes `node --run no:such:script`, which is not/,
+        edit(dir, HOOK_JOBS, (t) => `${t}    - name: doctored-group\n      group:\n        jobs:\n          - name: doctored\n            run: node --run no:such:script\n`),
+      expect: /^git-hooks\.yml pre-push\/doctored-group\/doctored invokes `node --run no:such:script`, which is not/,
     },
     {
       name: 'a `npm run` mention on a comment line is not a job',
-      doctor: (dir) => edit(dir, LEFTHOOK, (t) => `${t}    # run: npm run no:such:script\n`),
+      doctor: (dir) => edit(dir, HOOK_JOBS, (t) => `${t}    # run: npm run no:such:script\n`),
       expect: 'pass',
     },
     {
@@ -741,7 +751,7 @@ function cases() {
     },
     {
       name: 'a named exception gains a job and its entry goes stale',
-      doctor: (dir) => edit(dir, LEFTHOOK, appendJob('doctored', 'npm run gates')),
+      doctor: (dir) => edit(dir, HOOK_JOBS, appendJob('doctored', 'npm run gates')),
       expect: /^UNJOBBED_BY_KIND lists `gates` \(named exception\) as un-jobbed, but a job runs it/,
     },
     {
@@ -978,8 +988,8 @@ function cases() {
     },
     {
       name: 'a job file does not parse',
-      doctor: (dir) => edit(dir, LEFTHOOK, (t) => `${t}  - [unclosed\n`),
-      expect: /^lefthook\.yml does not parse as YAML/,
+      doctor: (dir) => edit(dir, HOOK_JOBS, (t) => `${t}  - [unclosed\n`),
+      expect: /^git-hooks\.yml does not parse as YAML/,
     },
   ]
 }
