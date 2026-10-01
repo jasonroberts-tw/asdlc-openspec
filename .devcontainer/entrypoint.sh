@@ -76,7 +76,7 @@ setup() {
   # package.json's `prepare`; it runs again here because a start that skipped `npm ci` would
   # otherwise leave a clone with no hooks. `bd hooks install` is not run: the tracker's jobs in
   # git-hooks.yml are its git integration, and a section bd wrote into .git/hooks would run bd a
-  # second time after them (asdlc-openspec-uc1, D2).
+  # second time after them (docs/decisions.md § D-22).
   if [ -f scripts/git-hooks.mjs ]; then
     node scripts/git-hooks.mjs --install >/dev/null 2>&1 \
       || warn 'installing the git hooks failed -- run `npm run hooks:install` to see why'

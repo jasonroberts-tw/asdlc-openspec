@@ -30,7 +30,9 @@ one whose criterion needs the merged change open, with a note, until a person me
 2026-10-01 by `asdlc-openspec-f69`: the step that writes the pull request's body first holds the
 branch to each criterion and to itself, as `.claude/skills/bead/SKILL.md` § 6 now says. Amended
 2026-10-01 by `asdlc-openspec-ivn`: the step that pushes first reviews the branch with the
-`branch-reviewer` agent, as `.claude/skills/open-pr/SKILL.md` § 5 now says.
+`branch-reviewer` agent, as `.claude/skills/open-pr/SKILL.md` § 5 now says. Amended 2026-10-01 by
+`asdlc-openspec-uc1`: § 5's row for the bare hook runner's skip-all, which the new runner does not
+have (`docs/decisions.md` § D-19), is the row for a clone whose hooks are not installed.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -388,7 +390,7 @@ person merges it (`CLAUDE.md` § A program proposes; only a person promotes).
 |---|---|---|
 | `issue not claimable: status deferred` | The issue was deferred out of the queue. | `bd undefer <id>`, only if you mean to work it now, then claim it (§ 4.1). |
 | A gate fails on a missing binary in a new worktree | `npm ci` has not run there. | `npm ci`, then run the gate again (§ 3). |
-| The bare hook runner exits 0 at once | With nothing to push, it skipped every job. | `npm run gates` (`CLAUDE.md` § The gate ladder). |
+| `npm run gates` refuses: no `hook.asdlc-pre-push.command` | The clone's hooks are not installed: `npm ci` ran with install scripts blocked, or with `CI` set. | `npm run hooks:install`, then `npm run gates` again (`CLAUDE.md` § The gate ladder). |
 | The gates are green, yet a pointer in a new file is broken | The file was not staged, so the citations gate never read it. | `git add` it, then `npm run gates` again (§ 4.2, step 5). |
 | A hook refuses a git or `gh` command, or an edit | A guard caught a slip: a protected branch, the approval label, generated output. | Read the refusal, which names what to do instead; never retry a variation (`.claude/worktree-CONTEXT.md.tmpl`). |
 | The permission classifier refuses a command | Its judgement of that call, not a rule of the repository. | Skip it, no workaround, and list it in `RUN THESE YOURSELF` (`CLAUDE.md` § Guards). |

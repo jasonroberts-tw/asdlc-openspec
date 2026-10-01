@@ -7,8 +7,9 @@
  * `group`; group keys `jobs` and `parallel`; and the `run` tokens `{1}`, `{2}`, `{3}` and
  * `{staged_files}`. It refuses any other key or token, an event it does not install, a glob on an
  * event that has no files, and `{staged_files}` outside pre-commit, so a key copied in from
- * lefthook's documentation is refused rather than silently ignored. At pre-commit the files are the
- * staged ones; at pre-push they are the pushed ones, from the lines Git writes to its standard input.
+ * another runner's documentation is refused rather than silently ignored. At pre-commit the files
+ * are the staged ones; at pre-push they are the pushed ones, from the lines Git writes to its
+ * standard input.
  * A job runs when it has no glob, when one of its globs matches one of those files
  * (`path.matchesGlob`, under which `*` stops at `/`), or when the run is forced. It prints one line
  * per job, the jobs it skipped and why, and a total; a failing job also prints the last
@@ -318,7 +319,7 @@ function classicWarnings(event) {
   if (text.includes(BEADS_SECTION)) {
     warnings.push(
       `warning: ${path} carries the tracker's own hook, so bd runs a second time after its job in` +
-        ` ${JOB_FILE}; remove that section (docs/decisions.md § D-19, uc1's D2)`,
+        ` ${JOB_FILE}; remove that section (docs/decisions.md § D-22)`,
     )
   }
   return warnings
@@ -635,7 +636,7 @@ function install({ prepare }) {
     } else if (text.includes(BEADS_SECTION)) {
       console.log(
         `${label}: left      ${path}: the tracker's own hook. Git runs it after this runner, so bd` +
-          ` runs twice for ${name}; remove its section (docs/decisions.md § D-19, uc1's D2)`,
+          ` runs twice for ${name}; remove its section (docs/decisions.md § D-22)`,
       )
     }
   }
@@ -741,7 +742,7 @@ async function readingCases(base, record) {
   const cases = [
     { name: 'control: the real git-hooks.yml and policy are read', doctor: (t) => t, expect: 'pass' },
     {
-      name: 'a job key lefthook has and this runner does not read is refused',
+      name: 'a job key this runner does not read is refused',
       doctor: (t) => t.replace('    - name: beads\n      env:', '    - name: beads\n      skip: true\n      env:'),
       expect: /`pre-commit\/beads` has the key `skip`, which this runner does not read/,
     },
@@ -788,19 +789,81 @@ async function readingCases(base, record) {
       },
       expect: /has no whole-number `gitHooksFailedOutputBytes`/,
     },
+    {
+      name: 'a missing job file is refused',
+      doctor: (t) => t,
+      removeJobs: true,
+      expect: /git-hooks\.yml is missing at/,
+    },
+    {
+      name: 'a job file that does not parse is refused',
+      doctor: (t) => `${t}  - [unclosed\n`,
+      expect: /git-hooks\.yml does not parse as YAML/,
+    },
+    {
+      name: 'a job file that is not a map of events is refused',
+      doctor: () => '- pre-commit\n- pre-push\n',
+      expect: /git-hooks\.yml is not a map of events/,
+    },
+    {
+      name: 'a parallel that is not true or false is refused',
+      doctor: (t) => t.replace('  parallel: true\n', "  parallel: 'yes'\n"),
+      expect: /`pre-push\.parallel` is not true or false/,
+    },
+    {
+      name: 'an event with an empty list of jobs is refused',
+      doctor: () => 'pre-commit:\n  jobs: []\n',
+      expect: /`pre-commit\.jobs` is not a list of jobs/,
+    },
+    {
+      name: 'a job name used twice in one event is refused',
+      doctor: (t) => `${t}    - name: check-jobs\n      run: node --run check:jobs\n`,
+      expect: /`pre-push` names the job `check-jobs` twice/,
+    },
+    {
+      name: 'a job with no name is refused',
+      doctor: (t) => `${t}    - run: echo nameless\n`,
+      expect: /`pre-push\.jobs\[\d+\]` has no name/,
+    },
+    {
+      name: 'a group that carries a glob is refused',
+      doctor: (t) => t.replace('    - name: calculator-suites\n      group:', "    - name: calculator-suites\n      glob: '*.md'\n      group:"),
+      expect: /the group `pre-push\/calculator-suites` carries a glob or an env/,
+    },
+    {
+      name: 'a group inside a group is refused',
+      doctor: (t) => `${t}    - name: outer\n      group:\n        jobs:\n          - name: inner\n            group:\n              jobs:\n                - name: deepest\n                  run: echo deepest\n`,
+      expect: /`pre-push\/outer` holds a group inside a group/,
+    },
+    {
+      name: 'an empty run is refused',
+      doctor: (t) => t.replace('run: node --run check:jobs\n', "run: ''\n"),
+      expect: /`pre-push\/check-jobs` has an empty `run`/,
+    },
+    {
+      name: 'a glob that is not a string or a list of them is refused',
+      doctor: (t) => t.replace("      glob: 'artifacts/**'\n", '      glob: 7\n'),
+      expect: /`pre-commit\/generated-files-are-not-hand-edited` has a glob that is not a string or a list of them/,
+    },
+    {
+      name: 'a policy that cannot be read is refused',
+      doctor: (t) => t,
+      removePolicy: true,
+      expect: /tools\/policy\.json cannot be read at/,
+    },
   ]
-  for (const [index, { name, doctor, policy, expect }] of cases.entries()) {
+  for (const [index, { name, doctor, policy, removeJobs, removePolicy, expect }] of cases.entries()) {
     const dir = join(base, `reading-${index}`)
     mkdirSync(join(dir, 'tools'), { recursive: true })
     const doctored = doctor(real)
-    if (expect !== 'pass' && !policy && doctored === real) {
+    if (expect !== 'pass' && !policy && !removeJobs && !removePolicy && doctored === real) {
       record(name, false, 'the doctoring changed nothing, so the fixture is broken')
       continue
     }
-    writeFileSync(join(dir, JOB_FILE), doctored)
+    if (!removeJobs) writeFileSync(join(dir, JOB_FILE), doctored)
     const parsed = JSON.parse(readFileSync(join(REPO_ROOT, POLICY), 'utf8'))
     if (policy) policy(parsed)
-    writeFileSync(join(dir, POLICY), JSON.stringify(parsed))
+    if (!removePolicy) writeFileSync(join(dir, POLICY), JSON.stringify(parsed))
     let message = null
     try {
       await readJobs(dir)
@@ -1135,6 +1198,32 @@ async function gitCases(base, env, record) {
     const committed = commit(repo, 'docs/a.md', 'a\n')
     expect(/pre-commit: warning: .*pre-commit is a lefthook shim/.test(both(committed)), `a shim that came back was not named: ${both(committed)}`)
     return 'written once, the shim removed, the rest reported'
+  })
+
+  await check("a commit names the tracker's own hook in .git/hooks, which runs bd a second time", () => {
+    const { repo } = scratch()
+    writeFileSync(
+      join(repo, '.git', 'hooks', 'pre-commit'),
+      '#!/bin/sh\n# --- BEGIN BEADS INTEGRATION v1.3.0 ---\n# --- END BEADS INTEGRATION v1.3.0 ---\nexit 0\n',
+      { mode: 0o755 },
+    )
+    const committed = commit(repo, 'docs/a.md', 'a\n')
+    expect(committed.status === 0, both(committed))
+    expect(
+      /pre-commit: warning: .*pre-commit carries the tracker's own hook, so bd runs a second time/.test(both(committed)),
+      `the tracker's hook was not named: ${both(committed)}`,
+    )
+    return 'named'
+  })
+
+  await check('a gating event with no block in the job file refuses the commit', () => {
+    const { repo } = scratch(FIXTURE_JOBS.slice(FIXTURE_JOBS.indexOf('prepare-commit-msg:')))
+    const committed = commit(repo, 'docs/a.md', 'a\n')
+    expect(
+      committed.status !== 0 && /pre-commit: refused\. git-hooks\.yml has no `pre-commit` block/.test(both(committed)),
+      `a commit with no pre-commit block was not refused: ${both(committed)}`,
+    )
+    return 'refused'
   })
 
   await check('--prepare installs nothing when CI is set', () => {
