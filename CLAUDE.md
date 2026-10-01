@@ -14,9 +14,8 @@ agent under `.claude/agents/`, or the header of the tool or gate that enforces i
 through a pull request. A rule with two homes has one that is stale, and the stale one is the one a
 reader finds.
 
-Two other stores could hold such a rule, and neither is used here. The tracker's memory commands
-(in Beads, `remember`, `recall` and `memories`) are not used; do not write a memory and do not cite
-one from a tracked file. The harness's per-project memory directory under `~/.claude/projects/` is
+The tracker's memory commands (in Beads, `remember`, `recall` and `memories`) are not used; do not
+write a memory and do not cite one from a tracked file. The harness's per-project memory directory under `~/.claude/projects/` is
 not used either. A fact worth keeping goes in a tracked file or, if it is work, in `bd`.
 
 A tracker plugin manages a block inside this file. It is task-tracking guidance, not permission to
