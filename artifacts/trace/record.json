@@ -3025,6 +3025,14 @@
       "tests": []
     },
     {
+      "id": "asdlc-openspec-m7p",
+      "paths": [
+        "apps/calculator/test/README.md",
+        "apps/calculator/test/independent/verify/README.md"
+      ],
+      "tests": []
+    },
+    {
       "id": "asdlc-openspec-zgh.2",
       "paths": [],
       "tests": [
