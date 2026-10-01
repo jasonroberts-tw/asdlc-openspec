@@ -115,7 +115,7 @@
  * pinned OpenSpec CLI once, to archive a fixture change (`npm ci`). Reads only committed files; no
  * network. Reading the calculator's four test files through it, the policy included, took 3.4 ms on
  * a macOS laptop with Node 26.8.1 on 2026-09-28, nothing beside the runner's own cost; the
- * selftest's cost is on its job in `lefthook.yml`.
+ * selftest's cost is on its job in `git-hooks.yml`.
  */
 import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'

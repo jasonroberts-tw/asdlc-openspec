@@ -101,7 +101,7 @@
  * NEEDS git, a clone with `origin/main` and its history back to the merge base, and at HEAD
  * `testInventoryTrailer` and the reader's keys in `tools/policy.json`. It reads only committed files
  * and git history: no network, and nothing outside the repository. Seven git processes a run; the
- * cost of the gate and of its selftest is on their jobs in `lefthook.yml`.
+ * cost of the gate and of its selftest is on their jobs in `git-hooks.yml`.
  */
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'

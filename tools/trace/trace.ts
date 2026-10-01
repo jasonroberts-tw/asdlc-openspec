@@ -110,7 +110,7 @@
  * `fetch-depth: 0`), `origin/main` for `trace:check` and `trace:update`, the keys of `tools/policy.json`
  * the reader and this file read, and, only while a change is active, the pinned OpenSpec CLI
  * (`npm ci`). Reads only committed files and git history; no network. Its cost is on its job in
- * `lefthook.yml`.
+ * `git-hooks.yml`.
  *
  * KIND: emitter and gate; `trace` writes the record and the README, `trace:update` the baseline,
  *   `trace:check` nothing.
@@ -299,7 +299,7 @@ export function ratify(walker: typeof walk = walk): string | null {
   try {
     // One `git fast-import` builds the whole history: a commit at a time took about twenty git
     // starts, measured at 0.45 s a ratification against 0.12 s this way, on the host of the cost
-    // note on `trace-check` in lefthook.yml, 2026-09-28.
+    // note on `trace-check` in git-hooks.yml, 2026-09-28.
     const data = (text: string) => `data ${Buffer.byteLength(text)}\n${text}\n`
     let mark = 0
     const commit = (branch: string, subject: string, from: number | null, lines: string[], merge: number | null = null) => {

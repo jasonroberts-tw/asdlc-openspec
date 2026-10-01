@@ -86,7 +86,7 @@
  * (asdlc-openspec-pta cites the release that marked `fs.globSync` stable), and the reader's keys in
  * `tools/policy.json` under the root, without which it refuses the run. No network and nothing
  * outside the repository. Files run in parallel, one process each, as `node --test` runs them; the
- * cost is the tests' own, and `lefthook.yml`'s `calculator-test` job carries the measurement.
+ * cost is the tests' own, and `git-hooks.yml`'s `calculator-test` job carries the measurement.
  */
 import { globSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'

@@ -134,5 +134,5 @@ for (const { script, out, paths } of failures) {
   console.error(`\`npm run ${script}\` failed. Its full output:\n`)
   console.error(out)
 }
-console.error('To commit anyway (you almost never want to): LEFTHOOK=0 git commit')
+console.error('To commit anyway (you almost never want to): GIT_HOOKS_SKIP=1 git commit')
 process.exit(1)

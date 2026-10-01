@@ -151,7 +151,7 @@
  * runs, 2026-09-29), most of it the suite's first run. Where it loses: a push that leaves a mutant of a changed `serve.js`
  * line undetected passes pre-push and is refused minutes later in CI. It starts no Stryker when no
  * Command's code changed. `thresholds:check` costs the suite's one run with coverage, and the
- * Routines' mutants when their code changed; `lefthook.yml` carries its measurement.
+ * Routines' mutants when their code changed; `git-hooks.yml` carries its measurement.
  *
  * NEEDS git and `origin/main` (a shallow clone has no merge base, so CI checks out with
  * `fetch-depth: 0`), the gate's keys in `tools/policy.json`, and `@stryker-mutator/core` and

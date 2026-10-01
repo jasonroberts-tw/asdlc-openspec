@@ -63,7 +63,7 @@ What happens next depends on who is listening:
 
 With several issues, decide before claiming any of them which can share a branch and which cannot,
 by the overlap kinds in `.claude/agents/fan-out-work.md` § 2. Two branches that each add a row
-beside the same anchor, such as neighbouring rows of a README table or jobs in `lefthook.yml`, stay
+beside the same anchor, such as neighbouring rows of a README table or jobs in `git-hooks.yml`, stay
 separate and conflict when the second merges; step 6 finds that. Two issues that describe one defect
 are one lane; where their acceptance criteria conflict, the choice and its reason go in the
 pull-request body and in both close reasons. Claim only what this session will finish.

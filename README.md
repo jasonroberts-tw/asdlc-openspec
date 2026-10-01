@@ -91,8 +91,7 @@ level above them. `apps/` and `openspec/` hold the product; every other path is 
 | `apps/` | The product's code, one directory per app, each with its own `README.md`, its Binding Surface in `binding-surface.md` (what a test may depend on), and its tests beside it. `calculator/` is the first: plain ES modules, run as committed in a browser and under Node's test runner, with no build step. |
 | `count-index.md` | Every count that more than one file restates, under a `CNT-*` key, with the source it re-derives from. |
 | `.beads/` | The configuration of `bd`, the issue tracker. Its database syncs through the git remote and is never committed; `bd bootstrap` hydrates it. |
-| `lefthook.yml` | The git-hook tiers: which gate runs at commit and at push, each with the glob that scopes it and a note of its measured cost. |
-| `lefthook-windows.yml` | A per-machine override of the hook runner's configuration, for the platform where it hangs in parallel. |
+| `git-hooks.yml` | The git-hook tiers: which gate runs at commit and at push, each with the glob that scopes it and a note of its measured cost. `scripts/git-hooks.mjs` runs it, called by the five `hook.asdlc-*` entries `npm run hooks:install` writes into the repository's config. |
 | `.vale.ini`, `.vale-styles/Layout/` | The configuration of Vale, the prose linter the `vale@agent-tools` hook runs on each edit of prose, and `Layout`, the one style this repository writes itself. |
 | `.github/workflows/verify.yml` | The slowest tier: every gate that reads only committed files, on every pull request and every push to `main`. |
 | `.github/workflows/pr-review.yml` | The pull-request reviewer: one pull request at a time, Claude Code judges it against the issues its title cites, and it merges when every dimension passes and the risk is not high. |
@@ -106,7 +105,6 @@ Some paths appear only on a working machine and are gitignored, each with its re
 - `.claude/worktrees/`: one checkout per parallel agent.
 - `.worktree/`: a worktree's rendered briefing.
 - `.claude/settings.local.json`: machine-specific permissions.
-- `lefthook-local.yml`: the hook runner's per-machine override.
 - `.vale-styles/`, all but `Layout/`: the styles `vale sync` downloads.
 - `graphify-out/`: the local code graph `npm run code-graph` builds, never committed
   (`docs/decisions.md` § D-20).
@@ -130,7 +128,7 @@ the rule. The third column wins over the first two.
 |---|---|---|
 | A rule with two homes, one of them stale; a rule kept in an agent's memory store | The citations gate's memory rule (`tools/citations/memory.ts`), and review | `CLAUDE.md` § Rules for agents live in tracked files, and nowhere else |
 | A hand edit to generated output | `scripts/hooks/block-generated-edit.mjs` in session, `scripts/assert-not-hand-edited.mjs` at commit, and each emitter's `:check` twin at push and in CI | `CLAUDE.md` § The script suffix contract |
-| A green run that ran nothing | `npm run gates` forces the full suite; `check:jobs` refuses a gate no job runs unless it is declared, with its reason; `scripts/run-tests.mjs` fails a test run whose pattern matches no file or matches a file that declares no test | `CLAUDE.md` § The gate ladder |
+| A green run that ran nothing | `npm run gates` forces the full suite, and refuses a clone whose hooks are not installed; the hook runner names every job it skips; `check:jobs` refuses a gate no job runs unless it is declared, with its reason; `scripts/run-tests.mjs` fails a test run whose pattern matches no file or matches a file that declares no test | `CLAUDE.md` § The gate ladder |
 | A test that does not say which IDs it proves, how, at which layer and level, or against which version of each artifact; or a test that runs and that a gate reading tests from source cannot see | `scripts/run-tests.mjs` reads every test file it runs through `scripts/test-trace.mjs`, fails the run on metadata that reader refuses, and fails it on any test that reader and Node's runner do not both see; `tests:selftest` and `tests:trace:selftest` hold both | the header of `scripts/test-trace.mjs` |
 | A scenario without its happy-path or its negative test, a test on an ID no spec heads or on an old version of what it proves, a change under `apps/` in a commit that names no task, or a contract operation no test covers | `trace:check`, at push and in CI, re-derives the traceability record and holds it to traceability rules 5 to 8, the happy-path-and-negative obligation and a ratchet baseline of the gaps that predate it, which may fall and never rise; `trace:selftest` holds each refusal | the header of `tools/trace/trace.ts` |
 | A test deleted, skipped or disabled, or its assertions weakened, on a branch with no recorded architect decision | `tests:inventory:check` compares the tests at HEAD with those at the merge base with `origin/main` and refuses each such change unless a commit on the branch carries a trailer naming the test and the reason; `tests:inventory:selftest` holds it | the header of `scripts/check-test-inventory.mjs` |
@@ -168,7 +166,8 @@ does not apply to your platform is absent from its list, not marked optional.
 
 ### macOS and Linux
 
-1. Install git, and Node 22.22.2 or newer (`package.json` `engines` is the floor; it runs the
+1. Install Git 2.54.0 or newer, the first that runs the config-based hooks this repository installs,
+   and Node 22.22.2 or newer (`package.json` `engines` is the floor; it runs the
    TypeScript tools here directly, so nothing else is needed to run a gate). The floor is never
    below the lowest version on its major line that every package in `package-lock.json` accepts,
    or a dependency refuses a Node this step calls enough. After a change to the lockfile, this
@@ -184,8 +183,9 @@ does not apply to your platform is absent from its list, not marked optional.
    `https://github.com/vale-cli/vale/releases`. Check that `vale --version` answers. 3.23.0 is the
    version `.devcontainer/Dockerfile` pins. Without Vale, the plugin's hook exits in silence and no
    prose is checked.
-1. Clone, then `npm ci`. The hook runner's install script writes the git hooks; if your package
-   manager blocks install scripts, run `npx lefthook install` once.
+1. Clone, then `npm ci`. Its `prepare` step writes the git hooks into the clone's config, and
+   refuses a Git older than 2.54.0; if your package manager blocks install scripts, run
+   `npm run hooks:install` once.
 1. Run `vale sync` in the clone. It downloads the styles `.vale.ini` names into the directory its
    `StylesPath` names, where git ignores all but `Layout`, the style this repository tracks, and it
    needs the network. Then check that `vale ls-config`
@@ -196,25 +196,24 @@ does not apply to your platform is absent from its list, not marked optional.
    on every command without it) and `git config beads.role maintainer` (`contributor` on a fork;
    git config is per clone, so no tracked file can set it), then `bd bootstrap`. Never `bd init`:
    it creates a new tracker instead of hydrating this one, and takes over the git hooks directory.
-1. Run `npm run gates` and read a green suite before the first change. Never the bare hook
-   runner: with nothing to push it skips every job and exits 0 (`CLAUDE.md` § The gate ladder).
+1. Run `npm run gates` and read a green suite before the first change. It refuses a clone whose
+   hooks are not installed (`CLAUDE.md` § The gate ladder).
 
 ### Windows, native
 
-1. Install git, and Node 22.22.2 or newer. The command in step 1 of macOS and Linux re-derives the
-   floor. It holds no `$`, backtick or double quote inside its quotes, the characters PowerShell
-   would expand, but it has not been run in PowerShell (`asdlc-openspec-xn4`).
+1. Install Git 2.54.0 or newer, and Node 22.22.2 or newer. The command in step 1 of macOS and
+   Linux re-derives the floor. It holds no `$`, backtick or double quote inside its quotes, the
+   characters PowerShell would expand, but it has not been run in PowerShell
+   (`asdlc-openspec-xn4`).
 1. Install `bd`, the tracker's CLI, and check that `bd --version` answers from the shell you will
    work in.
 1. Install Vale with `winget install -e --id errata-ai.Vale`, `choco install vale` or
    `scoop install vale`, or put `vale.exe` from a release on your PATH. Check that `vale --version`
    answers from the shell you will work in. Vale's installation page gives these commands; none has
    been run on Windows here.
-1. Clone, then `npm ci`. If install scripts are blocked, run `npx lefthook install` once.
+1. Clone, then `npm ci`. If install scripts are blocked, run `npm run hooks:install` once.
 1. Run `vale sync` in the clone, then check that `vale ls-config` loads, as step 5 of macOS and
    Linux says.
-1. Copy `lefthook-windows.yml` to `lefthook-local.yml` and do not commit the copy. Without it the
-   pre-push suite finishes every job and then never returns; the file's header has the reason.
 1. Set `sync.remote` in `.beads/config.yaml` if it still holds a placeholder (`<protocol>` is
    `git+https` or `git+ssh`), run `git config beads.role maintainer` (`contributor` on a fork),
    then `bd bootstrap`. Never `bd init`.
@@ -269,7 +268,7 @@ holds platform-native binaries. Use one clone per platform.
 Every script in `package.json`, one sub-section per prefix. A name of the form `<group>:<verb>` is
 public: the bare name writes the artifact, `:check` re-derives it and writes nothing, `:selftest`
 proves the gate refuses what it should (`CLAUDE.md` § The script suffix contract). The **Gate**
-column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it disagrees with them,
+column is read off `git-hooks.yml` and `.github/workflows/verify.yml`; where it disagrees with them,
 they win.
 
 <!-- kit 3.1-5 · ADAPT: one row per script, kept in step with `package.json` by the add-npm-script
@@ -337,7 +336,14 @@ they win.
 
 | Script | What it does | Gate |
 |---|---|---|
-| `gates` | The forced full pre-push suite, and the only way to run it by hand: the bare hook runner skips every job when there is nothing to push and exits 0. | |
+| `gates` | The forced full pre-push suite, run through `git hook run` with the branch's push line, so it sees a real push's environment and input. It refuses a clone whose hooks are not installed, and a Git older than 2.54.0, rather than report a clean run that ran nothing. | |
+
+### hooks
+
+| Script | What it does | Gate |
+|---|---|---|
+| `hooks:install` | Writes the five `hook.asdlc-*` entries into the repository's config, the same from any checkout, and removes lefthook's shims from `.git/hooks`; it reports a `.old` or `.backup` file and a tracker section it leaves. `npm ci` runs it through `prepare`; run it by hand after an install that skipped scripts. Without it no commit or push here runs a gate. It refuses a Git older than 2.54.0, under which the entries run nothing. | |
+| `hooks:selftest` | The hook runner, negative-tested: each refusal of the job file and the policy over a doctored copy, and commits, pushes, a linked worktree, the install, `npm run gates`, an older Git and a signal through real Git in scratch repositories with a bare remote, beside a control commit and push. Without it a glob the runner misread, or a skip it did not print, would read as a pass. | pre-push + CI |
 
 ### openspec
 
@@ -447,7 +453,8 @@ at its start: restart the session after changing it.
 
 | Trigger | Effect | Wired in |
 |---|---|---|
-| `npm ci` | The hook runner's install script writes the git hooks below into `.git/hooks`. | `package.json` (`allowScripts`) |
+| `npm ci` | `package.json`'s `prepare` runs `scripts/git-hooks.mjs --install`, unless `CI` is set: it writes the five `hook.asdlc-*` entries into the repository's config, which run the git hooks below, and removes lefthook's shims from `.git/hooks`. It refuses a Git older than 2.54.0. | `package.json` (`prepare`) |
+| `git commit`, `git checkout`, `git merge`, `git push` | `scripts/git-hooks.mjs` runs the event's jobs from `git-hooks.yml`, those whose globs match the staged or pushed files and every one with no glob, and prints one line per job, the jobs it skipped and a total. | the repository's config (`hook.asdlc-*`, from `npm run hooks:install`) |
 | A session is about to run a Bash command | `scripts/hooks/guard-git.mjs` refuses, from a linked worktree, a git command against a protected branch or the worktree registry; any git command in what a removed worktree leaves under `.claude/worktrees/`, where git would act on the primary checkout; and from any checkout, a `gh pr create` that does not name `main` as its base and a `gh` command that applies the reviewer's approval label. | `.claude/settings.json` (`PreToolUse`) |
 | A session is about to write or edit a file | `scripts/hooks/block-generated-edit.mjs` refuses an edit to generated output and names where the change belongs. | `.claude/settings.json` (`PreToolUse`) |
 | A session has written or edited a file | `scripts/hooks/check-emitted-drift.mjs` re-runs the `:check` twin of any emitter whose input was just edited. | `.claude/settings.json` (`PostToolUse`) |
@@ -456,35 +463,36 @@ at its start: restart the session after changing it.
 | A subagent stops | The same hook, over the checkout the subagent worked in, with a verdict that says it is a subagent's. | `.claude/settings.json` (`SubagentStop`) |
 | Claude Code creates a worktree | `scripts/hooks/worktree-create.mjs` provisions it through `scripts/new-worktree.sh`: `agent/<name>` off `origin/main`, with a rendered briefing. | `.claude/settings.json` (`WorktreeCreate`) |
 | Claude Code removes a worktree | `scripts/hooks/worktree-remove.mjs` removes the checkout, keeps the branch, and sweeps merged agent branches. | `.claude/settings.json` (`WorktreeRemove`) |
-| `git commit`, with a staged path under `artifacts/` | `scripts/assert-not-hand-edited.mjs` refuses a generated file that no longer matches its generator. | `lefthook.yml` (`pre-commit`) |
-| `git commit`, `git checkout`, `git merge`, `git push` | The tracker's own git hooks, preserved as hook-runner jobs, so installing the hook runner does not turn the tracker's git integration off. | `lefthook.yml` (`pre-commit`, `prepare-commit-msg`, `post-checkout`, `post-merge`, `pre-push`) |
-| `git push` | `beads:check` holds the open issues to the label and identifier rules. It reads the tracker's database, so it is not a `.github/workflows/verify.yml` step. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes `scripts/check-beads.mjs`, `tools/policy.json` or `tools/lib/bd-launcher.ts` | `beads:selftest`: `beads:check`'s refusals of an issue with no `repo:` label and of a found issue with no label `assetLabels` lists, over a fixture export, each asserting its reason. It runs no `bd`, so it is a `.github/workflows/verify.yml` step as well. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes `package.json`, `lefthook.yml`, `.github/workflows/verify.yml`, or anything under `tools/`, `scripts/` or `apps/`, the gate among them | `check:jobs` and its selftest: every job names a script that exists; every script no job runs is declared, and no declaration is stale or of the wrong kind; every `tools/`, `scripts/` or `apps/` path a script names exists as spelled, case included; and every glob a script names matches a file. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes a skill, an agent, a workflow, `CLAUDE.md`, `AGENTS.md`, the worktree briefing template, `tools/policy.json` or the gate | `check:prompts`: every skill and agent opens with the line `CLAUDE.md` requires, and every prompt is within its word budget; `check:prompts:selftest` holds the gate. | `lefthook.yml` (`pre-push`) |
-| `git push` | `citations:check`: every line and section pointer in every tracked text file resolves. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes the citations gate, `tools/lib/`, `CLAUDE.md` or a prompt file | `citations:selftest`: the citations gate, negative-tested. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes `tools/citations/`, `tools/lib/`, `tools/policy.json`, `package.json` or `package-lock.json` | `citations:support:selftest`: the citation-support advisory over a stubbed judge. The advisory itself reads a token and the network, so it runs in no job. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes a hook or a worktree script | `worktree:selftest`: the worktree hooks and the guard, negative-tested. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes `.vale.ini`, `.vale-styles/Layout/` or its selftest | `vale:selftest`: the `Layout` style's rules over fixtures, and every styled section of `.vale.ini` applying it. It runs `vale`, which the CI runner does not install, so it is no `.github/workflows/verify.yml` step. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes a hook, the citations gate, `tools/lib/` or what `check:jobs` reads | `gate-summary:selftest`: the Stop hook's verdict over untracked and ignored files, and the checkout it gates. | `lefthook.yml` (`pre-push`) |
-| `git push` | `counts:check` re-derives every value in `count-index.md` from the source the index names for it; `counts:selftest` holds the gate to its fixtures when the gate changes. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes the register, `CLAUDE.md` or the gate | `check:register` holds the register's header, summary table and dates to its entries, and its selftest holds the gate. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes `openspec/`, a skill, an agent, `tools/policy.json`, the gate or the pinned CLI | `openspec:check` validates the living spec and every active change, proves each change applies, holds every scenario and NFR requirement to a unique ID that no archived change gave another title (never reused, within the limits the gate's header names), and holds every prompt that spells the change label to `tools/policy.json`; `openspec:selftest` holds the gate. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes a workflow under `.claude/workflows/`, `.claude/agents/test-builder.md`, `tools/policy.json`, the trace or verification-report renderers or its selftest | `workflows:selftest`: the change-build review workflow, the prompt review workflow and the change-verify trace workflow, run against stubbed agents with the policy's review sizes, red-first kinds, independent-test keys, prompt-review threshold, trace sizes and skeptic counts, the trace's renderers run on its result, the verification report's on a stubbed fresh run, and the test-builder's tools line. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes `scripts/fresh-run.mjs`, the test runner, the reader, `scripts/lib/`'s test-dirs and bin-path helpers, the trace gate, `tools/lib/` or `tools/policy.json` | `tests:fresh:selftest`: the verifier's fresh run over a fixture repository, `npm ci` stubbed. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes `scripts/code-graph.mjs`, `tools/lib/` or `tools/policy.json` | `code-graph:selftest`: the code-graph script over a fixture repository, graphify, its MCP server and `claude` stubbed. The script itself reads a language model and your plan, so it runs in no job. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes `apps/calculator/`, `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy.json`, `package.json` or the lockfile | `calculator:test`: the calculator's scenarios, each a test named for its ID, under Node's own test runner, with no matched file allowed to declare none, every test's `// trace:` metadata read, and every test the runner reports held to the tests that reader sees. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes `apps/calculator/`, `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy.json`, `package.json` or the lockfile | `calculator:test:independent`: the test-builder's contract tests and build-time fitness functions under `apps/calculator/test/independent/build/`, held as `calculator:test` holds the rest, and a pass that says so while there is none. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs` or `tools/policy.json` | `tests:selftest`: the test runner, negative-tested. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `tools/policy.json`, `package.json` or the lockfile | `tests:trace:selftest`: the test-trace reader and its hash, negative-tested, with one archive by the pinned OpenSpec CLI. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes `openspec/`, `apps/`, `artifacts/trace/`, the trace gate, `tools/lib/`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy.json`, `package.json` or the lockfile | `trace:check`: the traceability record re-derived and diffed, and every rule the header of `tools/trace/trace.ts` holds, the ratchet baseline among them. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes the trace gate, `tools/lib/`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy.json`, `package.json` or the lockfile | `trace:selftest`: the trace gate, negative-tested over fixture repositories, with trial archives by the pinned OpenSpec CLI, whose count the job's comment in `lefthook.yml` gives with its cost. | `lefthook.yml` (`pre-push`) |
-| `git push` | `tests:inventory:check`: no test removed, skipped or weakened since the merge base with `origin/main` without an architect decision in a commit's trailer. It has no glob, since a push that only rewords a commit message can change its verdict. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes `scripts/check-test-inventory.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs`, `tools/lib/git-env.ts` or `tools/policy.json` | `tests:inventory:selftest`: the test-inventory gate, negative-tested over doctored test files and fixture repositories. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes `apps/`, `artifacts/thresholds/`, the thresholds gate, `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy.json`, `package.json` or the lockfile | `thresholds:check`: the changed code's coverage and its Routines' mutation score held to the policy's thresholds, and the ratchet baseline. The Commands' run is a `.github/workflows/verify.yml` step alone. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes the thresholds gate, `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy.json`, `package.json` or the lockfile | `thresholds:selftest`: the thresholds gate, negative-tested over a fixture repository, with StrykerJS's tap and command runners. | `lefthook.yml` (`pre-push`) |
-| `git push` that changes the reviewer's script, `tools/policy.json`, a workflow or the reviewer's agent | `pr-review:check`: the reviewer's workflow, agent and policy agree; `pr-review:selftest`: its decisions over fixtures, and the check over doctored copies. | `lefthook.yml` (`pre-push`) |
+| `git commit`, with a staged path under `artifacts/` | `scripts/assert-not-hand-edited.mjs` refuses a generated file that no longer matches its generator. | `git-hooks.yml` (`pre-commit`) |
+| `git commit`, `git checkout`, `git merge`, `git push` | The tracker's own git hooks, as jobs of the hook runner rather than a section `bd hooks install` writes into `.git/hooks`, which would run them twice. | `git-hooks.yml` (`pre-commit`, `prepare-commit-msg`, `post-checkout`, `post-merge`, `pre-push`) |
+| `git push` | `beads:check` holds the open issues to the label and identifier rules. It reads the tracker's database, so it is not a `.github/workflows/verify.yml` step. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `scripts/check-beads.mjs`, `tools/policy.json` or `tools/lib/bd-launcher.ts` | `beads:selftest`: `beads:check`'s refusals of an issue with no `repo:` label and of a found issue with no label `assetLabels` lists, over a fixture export, each asserting its reason. It runs no `bd`, so it is a `.github/workflows/verify.yml` step as well. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `scripts/git-hooks.mjs`, `git-hooks.yml`, `tools/policy.json`, `tools/lib/git-env.ts`, `package.json` or the lockfile | `hooks:selftest`: the hook runner's refusals of a key, token or event it does not read and of a policy without its cap, each asserting its reason, and commits, pushes, a linked worktree, the install, `npm run gates`, an older Git and a signal through real Git in scratch repositories. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `package.json`, `git-hooks.yml`, `.github/workflows/verify.yml`, or anything under `tools/`, `scripts/` or `apps/`, the gate among them | `check:jobs` and its selftest: every job names a script that exists; every script no job runs is declared, and no declaration is stale or of the wrong kind; every `tools/`, `scripts/` or `apps/` path a script names exists as spelled, case included; and every glob a script names matches a file. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes a skill, an agent, a workflow, `CLAUDE.md`, `AGENTS.md`, the worktree briefing template, `tools/policy.json` or the gate | `check:prompts`: every skill and agent opens with the line `CLAUDE.md` requires, and every prompt is within its word budget; `check:prompts:selftest` holds the gate. | `git-hooks.yml` (`pre-push`) |
+| `git push` | `citations:check`: every line and section pointer in every tracked text file resolves. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes the citations gate, `tools/lib/`, `CLAUDE.md` or a prompt file | `citations:selftest`: the citations gate, negative-tested. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `tools/citations/`, `tools/lib/`, `tools/policy.json`, `package.json` or `package-lock.json` | `citations:support:selftest`: the citation-support advisory over a stubbed judge. The advisory itself reads a token and the network, so it runs in no job. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes a hook or a worktree script | `worktree:selftest`: the worktree hooks and the guard, negative-tested. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `.vale.ini`, `.vale-styles/Layout/` or its selftest | `vale:selftest`: the `Layout` style's rules over fixtures, and every styled section of `.vale.ini` applying it. It runs `vale`, which the CI runner does not install, so it is no `.github/workflows/verify.yml` step. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes a hook, the citations gate, `tools/lib/` or what `check:jobs` reads | `gate-summary:selftest`: the Stop hook's verdict over untracked and ignored files, and the checkout it gates. | `git-hooks.yml` (`pre-push`) |
+| `git push` | `counts:check` re-derives every value in `count-index.md` from the source the index names for it; `counts:selftest` holds the gate to its fixtures when the gate changes. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes the register, `CLAUDE.md` or the gate | `check:register` holds the register's header, summary table and dates to its entries, and its selftest holds the gate. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `openspec/`, a skill, an agent, `tools/policy.json`, the gate or the pinned CLI | `openspec:check` validates the living spec and every active change, proves each change applies, holds every scenario and NFR requirement to a unique ID that no archived change gave another title (never reused, within the limits the gate's header names), and holds every prompt that spells the change label to `tools/policy.json`; `openspec:selftest` holds the gate. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes a workflow under `.claude/workflows/`, `.claude/agents/test-builder.md`, `tools/policy.json`, the trace or verification-report renderers or its selftest | `workflows:selftest`: the change-build review workflow, the prompt review workflow and the change-verify trace workflow, run against stubbed agents with the policy's review sizes, red-first kinds, independent-test keys, prompt-review threshold, trace sizes and skeptic counts, the trace's renderers run on its result, the verification report's on a stubbed fresh run, and the test-builder's tools line. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `scripts/fresh-run.mjs`, the test runner, the reader, `scripts/lib/`'s test-dirs and bin-path helpers, the trace gate, `tools/lib/` or `tools/policy.json` | `tests:fresh:selftest`: the verifier's fresh run over a fixture repository, `npm ci` stubbed. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `scripts/code-graph.mjs`, `tools/lib/` or `tools/policy.json` | `code-graph:selftest`: the code-graph script over a fixture repository, graphify, its MCP server and `claude` stubbed. The script itself reads a language model and your plan, so it runs in no job. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `apps/calculator/`, `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy.json`, `package.json` or the lockfile | `calculator:test`: the calculator's scenarios, each a test named for its ID, under Node's own test runner, with no matched file allowed to declare none, every test's `// trace:` metadata read, and every test the runner reports held to the tests that reader sees. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `apps/calculator/`, `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy.json`, `package.json` or the lockfile | `calculator:test:independent`: the test-builder's contract tests and build-time fitness functions under `apps/calculator/test/independent/build/`, held as `calculator:test` holds the rest, and a pass that says so while there is none. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs` or `tools/policy.json` | `tests:selftest`: the test runner, negative-tested. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `tools/policy.json`, `package.json` or the lockfile | `tests:trace:selftest`: the test-trace reader and its hash, negative-tested, with one archive by the pinned OpenSpec CLI. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `openspec/`, `apps/`, `artifacts/trace/`, the trace gate, `tools/lib/`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy.json`, `package.json` or the lockfile | `trace:check`: the traceability record re-derived and diffed, and every rule the header of `tools/trace/trace.ts` holds, the ratchet baseline among them. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes the trace gate, `tools/lib/`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy.json`, `package.json` or the lockfile | `trace:selftest`: the trace gate, negative-tested over fixture repositories, with trial archives by the pinned OpenSpec CLI, whose count the job's comment in `git-hooks.yml` gives with its cost. | `git-hooks.yml` (`pre-push`) |
+| `git push` | `tests:inventory:check`: no test removed, skipped or weakened since the merge base with `origin/main` without an architect decision in a commit's trailer. It has no glob, since a push that only rewords a commit message can change its verdict. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `scripts/check-test-inventory.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs`, `tools/lib/git-env.ts` or `tools/policy.json` | `tests:inventory:selftest`: the test-inventory gate, negative-tested over doctored test files and fixture repositories. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `apps/`, `artifacts/thresholds/`, the thresholds gate, `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy.json`, `package.json` or the lockfile | `thresholds:check`: the changed code's coverage and its Routines' mutation score held to the policy's thresholds, and the ratchet baseline. The Commands' run is a `.github/workflows/verify.yml` step alone. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes the thresholds gate, `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy.json`, `package.json` or the lockfile | `thresholds:selftest`: the thresholds gate, negative-tested over a fixture repository, with StrykerJS's tap and command runners. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes the reviewer's script, `tools/policy.json`, a workflow or the reviewer's agent | `pr-review:check`: the reviewer's workflow, agent and policy agree; `pr-review:selftest`: its decisions over fixtures, and the check over doctored copies. | `git-hooks.yml` (`pre-push`) |
 | A pull request, a push to `main`, or a merge the reviewer made | Every gate that reads only committed files, cheapest first. It trusts none of the faster tiers. After a reviewer's merge it runs by dispatch, since that merge starts no push run. | `.github/workflows/verify.yml` |
 | A `verify` run ends, a person applies the approval label, every 15 minutes, or by hand | The reviewer takes one action, one run at a time: it merges a pull request whose verdict allows it, or reviews the oldest head that passed `verify` and has no verdict, and runs again while more are waiting. | `.github/workflows/pr-review.yml` |
 | The dev container starts | `npm ci` when the lockfile moved, the git hooks, and the tracker's hydration; each step warns and carries on. It warns, too, while Vale cannot load `.vale.ini`, and runs no `vale sync`. | `.devcontainer/entrypoint.sh` |
