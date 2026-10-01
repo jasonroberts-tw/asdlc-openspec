@@ -29,10 +29,6 @@ node_modules/
 .beads/*.lock
 *.gate.lock*
 
-# The hook runner's per-machine override. On a platform where the runner hangs in parallel it is a
-# copy of lefthook-windows.yml, and committing it would switch parallel off for everyone else.
-lefthook-local.yml
-
 # Drafts passed to tools by file: commit messages, pull-request bodies, tracker notes. At the
 # checkout root, because the harness scratchpad can disappear mid-run and .git is a file, not a
 # directory, in a linked worktree.

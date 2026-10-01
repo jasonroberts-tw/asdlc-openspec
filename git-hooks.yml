@@ -1,6 +1,10 @@
-# The hook runner's configuration: the pre-commit and pre-push tiers of the gate ladder
-# (`CLAUDE.md` § The gate ladder). `.github/workflows/verify.yml` runs every gate again; a slower tier never trusts a
-# faster one.
+# The jobs `scripts/git-hooks.mjs` runs at each git hook: the pre-commit and pre-push tiers of the
+# gate ladder (`CLAUDE.md` § The gate ladder). `.github/workflows/verify.yml` runs every gate again; a
+# slower tier never trusts a faster one.
+#
+# Git's config-based hooks call the runner, one `hook.asdlc-<event>` entry per event, which
+# `npm run hooks:install` writes (`docs/decisions.md` § D-19). This file keeps lefthook's schema, and
+# only the part of it the runner's header names: any other key or token is refused, not ignored.
 #
 # kit 1.6-3 · ADAPT: every cost note below that gives a figure was measured on the kit author's
 # host, and says so. Re-measure on yours (`time npm run
@@ -8,12 +12,9 @@
 # endpoint security on native Windows than on Linux. Delete this paragraph when done.
 
 pre-commit:
-  # `parallel: false` IS DELIBERATE. With `parallel: true` the runner hangs on Windows after every
-  # job has finished: it never prints its summary or returns, and only killing the process helps
-  # (evilmartians/lefthook#1256, open; measured on 2.1.10 from Windows
-  # Terminal with pwsh). Disabling parallel is the only workaround the issue records. Pre-commit
-  # cannot leave that to a local override file, because it would hang a bare `git commit` for
-  # everyone who has not copied one, and its jobs cost seconds in sequence.
+  # `parallel: false`, as it was under lefthook, where parallel hung on Windows
+  # (evilmartians/lefthook#1256). This runner has no such hang, but the two jobs cost seconds in
+  # sequence, so nothing would be gained by running them side by side.
   parallel: false
   jobs:
     # Over STAGED paths only: one verifier per generator, chosen by path. A staged edit under the
@@ -25,8 +26,9 @@ pre-commit:
     # probed the terminal's capabilities, exited without reading the answers, and left the
     # terminal's replies in the shell's input queue, where the shell read them as typed commands.
     #
-    # The tracker's own pre-commit hook, preserved. Without this job, installing the hook runner
-    # turns the issue tracker's git integration off without telling anyone.
+    # The tracker's own pre-commit hook. The tracker's git integration runs from its five jobs here,
+    # and not from a section `bd hooks install` writes into .git/hooks, which would run it a second
+    # time after them (`asdlc-openspec-uc1`, D2); `npm run hooks:install` and the runner warn of one.
     - name: beads
       env:
         NO_COLOR: '1'
@@ -55,29 +57,27 @@ post-merge:
       run: bd hooks run post-merge {1}
 
 pre-push:
-  # Parallel here, because these jobs take tens of seconds together and minutes in sequence. On a
-  # platform where the runner hangs in parallel, `lefthook-windows.yml` is the local override.
+  # Parallel here, up to the machine's available parallelism, because these jobs take tens of
+  # seconds together and minutes in sequence.
   parallel: true
-  # RUN THIS SUITE BY HAND WITH `npm run gates`, NEVER THE BARE RUNNER.
-  #
-  # The runner builds a pre-push file list by diffing local against the remote, and when that list
-  # is empty it skips EVERY job and exits 0, which reads exactly like a clean run. Measured once:
-  # "36 jobs skipped, 0.11s, exit 0" against "36 of 36 green, ~19s". The runtime
-  # is the only tell. `--force` is the sole lever, and `npm run gates` is that flag with a name.
-  # It bites exactly when someone checks their work by hand: just after a push, on a freshly rebased
-  # branch, or on the trunk right after a merge.
+  # RUN THIS SUITE BY HAND WITH `npm run gates`. It runs this block through `git hook run`, given
+  # the branch's push line and forced, so it sees a real push's environment and standard input, and
+  # it refuses a checkout whose hooks are not installed rather than reporting a clean run. A push
+  # runs the jobs its files reach and prints the rest as skipped, with their names: it never skips
+  # everything in silence, as lefthook's bare run did ("36 jobs skipped, 0.11s, exit 0").
   #
   # EVERY JOB CARRIES A `glob` NAMING THE FILES WHOSE CHANGE CAN ALTER ITS VERDICT, except a job
   # that reads every tracked file or reads the tracker. A check that reads only committed files is a
   # pure function of those files, so when a push changes none of them its verdict is the one the
-  # last green run gave, and `.github/workflows/verify.yml` runs every gate on the pull request regardless. `--force` runs a
-  # job whether or not its glob matches, so `npm run gates` is still the whole suite.
+  # last green run gave, and `.github/workflows/verify.yml` runs every gate on the pull request regardless. `npm run gates`
+  # runs a job whether or not its glob matches, so it is still the whole suite.
   #
   # THE RULE FOR A GLOB: re-derive it from the script's declared inputs (the files it reads, the
   # modules it imports, the artifacts it compares, the emitter it re-runs), and when in doubt make
   # it WIDER. A too-narrow glob is a gate that silently stops running on exactly the pushes that
-  # matter. With the default matcher `*` and `**` both cross `/`; the one trap is `dir/**/*.ext`,
-  # which needs at least one directory between, so write `dir/**` or `dir/*.ext`.
+  # matter. The runner matches with Node's `path.matchesGlob`: `*` stops at `/` and `**` crosses
+  # it, so `dir/*.ext` reaches only the files directly in `dir`; write `dir/**` for everything
+  # under it. `dir/**/*.ext` reaches a file directly in `dir` too.
   #
   # `run: node --run <script>` RATHER THAN `npm run <script>`: it runs the package script with
   # `node_modules/.bin` on PATH and skips the package manager's own start-up. Measured in the source
@@ -101,7 +101,7 @@ pre-push:
     - name: check-jobs
       glob:
         - 'package.json'
-        - 'lefthook.yml'
+        - 'git-hooks.yml'
         - '.github/workflows/verify.yml'
         - 'tools/**'
         - 'scripts/**'
@@ -110,12 +110,27 @@ pre-push:
     - name: check-jobs-selftest
       glob:
         - 'package.json'
-        - 'lefthook.yml'
+        - 'git-hooks.yml'
         - '.github/workflows/verify.yml'
         - 'tools/**'
         - 'scripts/**'
         - 'apps/**'
       run: node --run check:jobs:selftest
+    # The hook runner itself: every refusal of the job file and the policy over a doctored copy, each
+    # asserting its reason, beside the real file; then commits, pushes, a linked worktree, the
+    # install, `npm run gates`, an older Git and a signal, through real Git in scratch repositories
+    # with a bare remote, beside a control commit and push. The glob is the runner, the job file and
+    # the policy it reads, the helper its selftest imports, and the manifest and lockfile that pin
+    # js-yaml.
+    - name: hooks-selftest
+      glob:
+        - 'scripts/git-hooks.mjs'
+        - 'git-hooks.yml'
+        - 'tools/policy.json'
+        - 'tools/lib/git-env.ts'
+        - 'package.json'
+        - 'package-lock.json'
+      run: node --run hooks:selftest
     # Every skill and agent opens with the line CLAUDE.md requires, read out of CLAUDE.md itself, and
     # every prompt is within its word budget in `tools/policy.json`: the skills and agents, CLAUDE.md,
     # AGENTS.md, the worktree briefing template, and the string literals of each workflow. Reads
@@ -216,7 +231,7 @@ pre-push:
     - name: gate-summary-selftest
       glob:
         - 'package.json'
-        - 'lefthook.yml'
+        - 'git-hooks.yml'
         - '.github/workflows/verify.yml'
         - 'tools/**'
         - 'scripts/**'
@@ -298,7 +313,8 @@ pre-push:
     # `verify.yml` and the reviewer's agent spelling the same labels, check and agent. The reviewer
     # itself reads a token and a language model and runs only as `pr-review.yml`. 0.10 s wall
     # through `node --run` (`/usr/bin/time -p`) on a macOS 26.7 laptop (Apple M3 Max) with Node
-    # 26.8.1, 2026-09-25.
+    # 26.8.1, 2026-09-25. Its glob's `*.yml` reaches only the files directly in
+    # `.github/workflows/`, which holds no subdirectory.
     - name: pr-review-check
       glob:
         - 'scripts/pr-review.mjs'
@@ -345,9 +361,9 @@ pre-push:
     # IN ONE GROUP, ONE JOB AFTER THE OTHER, with `thresholds-check`, which runs the same suite. Side
     # by side, one run's `[CLS-003]` found port 26680 free while the other's server was starting on
     # it, and failed on the refusal: 9 of 20 runs of `serve.test.js` two at once (10 pairs), and
-    # `npm run gates` failed once for it on 2026-09-29 (asdlc-openspec-j09.10). Not `piped`, so a
-    # failure of the first still runs the second. The pair adds the first job's seconds to the chain,
-    # well under the selftests' twenty.
+    # `npm run gates` failed once for it on 2026-09-29 (asdlc-openspec-j09.10). The runner does not
+    # stop a group at its first failure, so a failure of the first still runs the second. The pair
+    # adds the first job's seconds to the chain, well under the selftests' twenty.
     - name: calculator-suites
       group:
         parallel: false
@@ -580,7 +596,7 @@ pre-push:
       glob:
         - 'scripts/check-count-index.mjs'
       run: node --run counts:selftest
-    # The tracker's own pre-push hook, preserved, and the label and foreign-id rules over its open
+    # The tracker's own pre-push hook, and the label and foreign-id rules over its open
     # issues: a `repo:` label on every one, and a label `assetLabels` in `tools/policy.json` lists on
     # every one filed `discovered-from`. Neither carries a glob: both read the tracker's database, not
     # the push.

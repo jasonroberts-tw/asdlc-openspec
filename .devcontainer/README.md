@@ -24,8 +24,8 @@ time a container is created and fail differently on every machine; a `postCreate
 every rebuild. A layer is built once and is identical for everyone. If you add a tool, add a layer.
 
 `entrypoint.sh` holds only what cannot be an image layer — `npm ci` (whose `node_modules` carries
-native binaries and so belongs to the container's platform), installing the lefthook and `bd` git
-hooks, and hydrating the Dolt issue database. It is wired to `ENTRYPOINT` so `devcontainer.json`
+native binaries and so belongs to the container's platform), installing the git
+hooks' config entries, and hydrating the Dolt issue database. It is wired to `ENTRYPOINT` so `devcontainer.json`
 needs no lifecycle command, runs on every start, and is idempotent. **Nothing in it may fail the
 container**: this is the process that starts the shell you would use to fix a setup problem, so
 every step warns and carries on.
