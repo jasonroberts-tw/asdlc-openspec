@@ -981,13 +981,13 @@ Where it loses:
 
 **Recorded 2026-10-01**, carried by `asdlc-openspec-rsc`. On 2026-10-01 the maintainer chose to keep the graph local, and asked for a checked-in script that builds it, its output folder gitignored, and query access through a skill and an MCP server the script registers. They chose local-scope registration, Opus for the documents and this entry from recommendations each put with the case where it loses, Opus over the recommendation of Sonnet.
 
-**Builds on / amends:** amends D-19, whose item 2 and Why name graphify among the tools that write `.git/hooks`. Builds on D-03, which puts the constants the script reads in `tools/policy.json`; on D-12, under which the worktree briefing was consolidated before its carve-out; on D-07, which leaves a pull request that changes this register or a word budget to a person; and on D-15 item 3: the script reads a language model, so no job or step runs it.
+**Builds on / amends:** amends D-19, whose item 2 and Why name graphify among the tools that write `.git/hooks`. Builds on D-03, which puts the constants the script reads in `tools/policy.json`; on D-12, under which the worktree briefing was consolidated before its carve-out; and on D-07, which leaves a pull request that changes this register or a word budget to a person. The script reads a language model and the person's own plan, so under `CLAUDE.md` § The gate ladder no job or step runs it. It is an operator command, not a check, and its stubbed selftest is `asdlc-openspec-i3c`.
 
 **Decision.** A person who wants a knowledge graph of this repository builds one with graphify on their own machine. It is never committed.
 
-1. **`npm run code-graph` builds it** into the primary checkout's `graphify-out/`, from whichever checkout runs it (`scripts/code-graph.mjs`). It runs `graphify extract` with the `claude-cli` backend, which calls `claude -p` on the person's own plan with the model `graphifyClaudeCliModel` names, then `graphify cluster-only`. `-- --code-only` builds the code layer alone and calls no model.
+1. **`npm run code-graph` builds it** into the primary checkout's `graphify-out/`, from whichever checkout runs it (`scripts/code-graph.mjs`). It runs `graphify extract` with the `claude-cli` backend, which calls `claude -p` with the model `graphifyClaudeCliModel` names, then `graphify cluster-only`, which names the communities with the same model. It withholds an exported API key or cloud-provider setting from those calls, which `claude -p` would otherwise bill in place of the person's own plan. `-- --code-only` builds the code layer alone and calls no model.
 2. **Never `graphify update`, `watch`, `hook install` or `claude install`.** The first three rebuild through the path that erodes the document layer; the last writes graphify's advice to run `update` into `CLAUDE.md`. The script refuses graphify's git hooks, and the `code-graph` skill tells a session never to run any of the four. So graphify writes no `.git/hooks` here, as D-19's amendment records.
-3. **The script stamps every item a document produced `_origin: "semantic"`** as its last write, which keeps an `update` run by anyone from deleting it, and it exits 1 on a partial extraction, which graphify can write with exit 0.
+3. **The script stamps every item a language model produced `_origin: "semantic"`** whenever a build changed the graph, which keeps an `update` run by anyone from deleting it. It exits 1 on a partial extraction, which graphify can write with exit 0, after stamping what graphify wrote.
 4. **`graphify-out/` is gitignored**, unanchored, so a stray build inside a worktree is ignored too.
 5. **The script registers graphify's MCP server at Claude Code's local scope** for the primary checkout's path. Claude Code reads that registration for the checkout's linked worktrees too. `npm run code-graph:mcp` registers it alone.
 6. **The `code-graph` skill** has a session query the graph through the server's tools only, read each answer as a lead to verify, and never build the graph itself. The worktree briefing lets a worktree read through those tools and nothing else outside it.
@@ -1011,6 +1011,7 @@ Where it loses:
 - **Two of graphify's gaps stay.** It does not normalise the ids a language model gives. And data JSON such as `tools/policy.json` gets no node, so links to it are dropped.
 - **Only the script and the skill refuse graphify's eroding commands.** A person, or a user-level graphify skill, can still run `graphify update` on the graph.
 - **The script relies on graphify 0.9.73's internals:** the `_origin` field, the text of its warnings and its file types. A new release is checked against the script's header before `graphifyVersion` moves.
+- **The script withholds only what it can see.** An `apiKeyHelper` or an `env` block in a person's own Claude Code settings can still make `claude -p` bill an API key.
 - **Claude Code's documentation does not say that local scope reaches a linked worktree.** It was observed: a local-scope server registered for the primary checkout was listed as connected by `claude mcp list` run in a worktree on 2026-10-01, and no key for the worktree appeared in `~/.claude.json`.
 
 **What changed.**
@@ -1018,7 +1019,7 @@ Where it loses:
 - **This register:** this entry. The status line, the blockquote's bound and the decisions table carry D-20, and D-19 carries an amendment.
 - **`scripts/code-graph.mjs`:** new, with its row in `scripts/README.md`.
 - **`package.json`:** `code-graph` and `code-graph:mcp`, which `scripts/check-jobs.mjs` declares as operator commands.
-- **`tools/policy.json`:** `graphifyVersion`, `graphifyClaudeCliModel`, `graphifySemanticExtensions` and `promptWordBudgetSkillCodeGraph`, each with its `Means`. `promptWordBudgetWorktreeContext` falls from 940 to 937, and `describes`, `gatedBy` and `provenance` name the new keys.
+- **`tools/policy.json`:** `graphifyVersion`, `graphifyClaudeCliModel`, `graphifySemanticExtensions`, `graphifyOutDir`, `graphifyMcpServerName` and `promptWordBudgetSkillCodeGraph`, each with its `Means`. `promptWordBudgetWorktreeContext` falls from 940 to 937, and `describes`, `gatedBy` and `provenance` name the new keys.
 - **`.claude/skills/code-graph/SKILL.md`:** new.
 - **`.claude/worktree-CONTEXT.md.tmpl`:** consolidated first, freeing 10 words, then given the carve-out for the server's tools, 7 words.
 - **`.gitignore`:** `graphify-out/`.
