@@ -122,7 +122,7 @@ Fetch, rebase onto `origin/main`, and run `npm run gates` again (`CLAUDE.md` § 
 Before writing the body, hold the branch to each criterion as worded and to itself: the reviewer
 requests changes on a gap whatever the body admits. Fix one the body would disclose, or make the
 tree say what is true and file its follow-up (step 4). A criterion the work will not meet as worded
-changes first, as step 1 says for a change of scope.
+is changed by the user before the push, as step 1 says.
 
 Open it with the `open-pr` skill. Its body opens with any register entry or prerequisite step 1
 named, and names every issue filed in step 4.
