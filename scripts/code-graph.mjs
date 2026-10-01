@@ -49,8 +49,10 @@
  * them all again, with the model.
  *
  *   node scripts/code-graph.mjs [--code-only] [--force] [--mcp-only] [--no-mcp]
+ *   node scripts/code-graph.mjs --selftest
  *   npm run code-graph               build, then register the MCP server
  *   npm run code-graph:mcp           register the MCP server only (--mcp-only)
+ *   npm run code-graph:selftest      the script against a fixture repository and stub tools
  *
  *   --code-only   parse code only: no LLM call, and no community naming when none is saved yet
  *   --force       rebuild everything, re-sending every document to the LLM
@@ -59,9 +61,18 @@
  *
  * `CODE_GRAPH_ROOT` names a checkout to build in place of the primary one, for a by-hand run against
  * a scratch clone. Exit status: 0 built (and registered); 1 a step failed; 2 a prerequisite is missing
- * or a flag is wrong. It has no `--selftest` yet: `CLAUDE.md` § Standing rules for prompts and gates
- * asks one of a gate, and this is an operator command. A stubbed selftest of its own logic, the
- * partial-extraction match and the stamp first, is asdlc-openspec-i3c.
+ * or a flag is wrong.
+ *
+ * `--selftest` runs the script, through `CODE_GRAPH_ROOT`, against a fixture git repository under the
+ * temporary directory, with stub graphify, graphify-mcp and claude first on a PATH from which the real
+ * ones are removed. Each case changes one thing and asserts the exit code and the reason: each
+ * partial-extraction text, a failing extract, a matching and a stale registration, an empty and a
+ * live lock, a missing or wrong-version graphify, an MCP server without its tools, saved answers,
+ * graphify's own git hook, `--code-only --no-mcp` with no claude, and two bad flag sets. The
+ * undoctored control asserts the stamp on every item a model made and on no parser item, the withheld
+ * API key, the policy's model, folder and server name, and the local-scope registration. It is the
+ * stand-in a job can run for a script that reads a language model (asdlc-openspec-i3c, carried with
+ * D-20), a pre-push job and a CI step; it is skipped on Windows, whose shell runs no POSIX stub.
  *
  * WHAT IT NEEDS. graphify with its MCP extra at the version `graphifyVersion` in `tools/policy.json`
  * pins (`uv tool install "graphifyy[mcp]==<version>"`); the `claude` CLI, logged in to a plan, unless
@@ -84,6 +95,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
@@ -416,6 +428,265 @@ function summary(root, graphPath, policy) {
   return `${graph.nodes.length} nodes (${semantic} from documents), ${links.length} edges, built at ${String(commit).slice(0, 12)}`
 }
 
+/* ============================================================================================= *
+ * Selftest: the script run against a fixture repository with stub graphify, graphify-mcp and claude
+ * ============================================================================================= */
+
+const SCRIPT = fileURLToPath(import.meta.url)
+/** The texts graphify 0.9.73 prints for a partial extraction, one case each. */
+const PARTIAL_TEXTS = [
+  '[graphify] WARNING: 1/3 semantic chunk(s) failed - see errors above. Partial results returned.',
+  '[graphify extract] semantic extraction is incomplete: 1 dispatched file(s) produced no nodes and 0 came back truncated or hollow.',
+  '[graphify extract] semantic extraction failed: RuntimeError: boom',
+  '[graphify] WARNING: 1/1 dispatched file(s) produced no nodes and are absent from the graph: notes.md.',
+]
+
+const STUB_GRAPHIFY = `import { appendFileSync, copyFileSync, mkdirSync } from 'node:fs'
+import { join } from 'node:path'
+const [cmd, root, ...rest] = process.argv.slice(2)
+const env = process.env
+if (cmd === '--version') { console.log('graphify ' + env.STUB_GRAPHIFY_VERSION); process.exit(0) }
+appendFileSync(env.STUB_LOG, JSON.stringify({ tool: 'graphify', cmd, root, rest, cwd: process.cwd(),
+  safe: env.CLAUDE_CODE_SAFE_MODE, apiKey: env.ANTHROPIC_API_KEY !== undefined,
+  model: env.GRAPHIFY_CLAUDE_CLI_MODEL, out: env.GRAPHIFY_OUT }) + '\\n')
+if (cmd === 'extract') {
+  if (env.STUB_EXTRACT_WRITE !== '0') {
+    mkdirSync(join(root, env.GRAPHIFY_OUT), { recursive: true })
+    copyFileSync(env.STUB_GRAPH_FILE, join(root, env.GRAPHIFY_OUT, 'graph.json'))
+  }
+  if (env.STUB_EXTRACT_STDERR) console.error(env.STUB_EXTRACT_STDERR)
+  process.exit(Number(env.STUB_EXTRACT_EXIT || 0))
+}
+process.exit(Number(env.STUB_CLUSTER_EXIT || 0))
+`
+
+const STUB_MCP = `if (process.env.STUB_MCP_BROKEN === '1') { console.error("ModuleNotFoundError: No module named 'mcp'"); process.exit(1) }
+let buffer = ''
+process.stdin.on('data', (d) => {
+  buffer += d
+  let i
+  while ((i = buffer.indexOf('\\n')) >= 0) {
+    const line = buffer.slice(0, i); buffer = buffer.slice(i + 1)
+    if (!line.trim()) continue
+    const m = JSON.parse(line)
+    if (m.method === 'initialize') process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result: { protocolVersion: '2025-06-18', capabilities: {}, serverInfo: { name: 'stub', version: '0' } } }) + '\\n')
+    if (m.method === 'tools/list') process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result: { tools: [{ name: 'query_graph' }, { name: 'get_node' }] } }) + '\\n')
+  }
+})
+`
+
+const STUB_CLAUDE = `import { appendFileSync } from 'node:fs'
+const args = process.argv.slice(2)
+if (args[0] === 'mcp' && args[1] === 'get') {
+  if (process.env.STUB_MCP_GET) { console.log(process.env.STUB_MCP_GET); process.exit(0) }
+  console.error('No MCP server named "' + args[2] + '".'); process.exit(1)
+}
+appendFileSync(process.env.STUB_LOG, JSON.stringify({ tool: 'claude', args, cwd: process.cwd() }) + '\\n')
+process.exit(0)
+`
+
+/** The graph the stub's `extract` writes: parser items, LLM items, and an LLM edge graphify filled with a code file. */
+function fixtureGraph() {
+  return {
+    directed: false,
+    multigraph: false,
+    graph: {},
+    nodes: [
+      { id: 'notes', label: 'notes.md', file_type: 'document', source_file: 'notes.md', source_location: 'L1' },
+      { id: 'notes_adder', label: 'adder', file_type: 'concept', source_file: 'notes.md', source_location: 'L3' },
+      { id: 'why_adder', label: 'why adder exists', file_type: 'rationale', source_file: '', source_location: null },
+      { id: 'add_adder', label: 'adder()', file_type: 'code', source_file: 'add.js', source_location: 'L1', _origin: 'ast' },
+      { id: 'ref_node_fs', label: 'node:fs', file_type: 'concept', source_file: '', source_location: null },
+    ],
+    links: [
+      { source: 'notes_adder', target: 'add_adder', relation: 'references', source_file: 'add.js', source_location: 'L1' },
+      { source: 'add_adder', target: 'ref_node_fs', relation: 'imports', source_file: 'add.js', source_location: 'L1', _origin: 'ast' },
+    ],
+  }
+}
+
+/** PATH without any directory that holds a real graphify, graphify-mcp or claude. */
+function cleanPath() {
+  return (process.env.PATH || '')
+    .split(delimiter)
+    .filter((dir) => dir && !['graphify', 'graphify-mcp', 'claude'].some((name) => existsSync(join(dir, name))))
+    .join(delimiter)
+}
+
+function makeCase(base, name, policy) {
+  const dir = join(base, name)
+  const repo = join(dir, 'repo')
+  const bin = join(dir, 'bin')
+  const stubs = join(dir, 'stubs')
+  for (const path of [repo, bin, stubs]) mkdirSync(path, { recursive: true })
+  writeFileSync(join(repo, 'notes.md'), '# Notes\n\nThe `adder` function in add.js sums two numbers.\n')
+  writeFileSync(join(repo, 'add.js'), 'export function adder(a, b) {\n  return a + b\n}\n')
+  const git = (args) => {
+    const r = spawnSync('git', args, { cwd: repo, encoding: 'utf8' })
+    if (r.status !== 0) throw new Error(`fixture git ${args.join(' ')}: ${r.stderr}`)
+  }
+  git(['init', '-q'])
+  git(['add', 'notes.md', 'add.js'])
+  git(['-c', 'user.name=code-graph selftest', '-c', 'user.email=selftest@example.invalid', 'commit', '-q', '-m', 'fixture'])
+  for (const [tool, source] of [['graphify', STUB_GRAPHIFY], ['graphify-mcp', STUB_MCP], ['claude', STUB_CLAUDE]]) {
+    writeFileSync(join(stubs, `${tool}.mjs`), source)
+    writeFileSync(join(bin, tool), `#!/bin/sh\nexec "${process.execPath}" "${join(stubs, `${tool}.mjs`)}" "$@"\n`, { mode: 0o755 })
+  }
+  const graphFile = join(dir, 'fixture-graph.json')
+  writeFileSync(graphFile, JSON.stringify(fixtureGraph(), null, 2))
+  const log = join(dir, 'calls.log')
+  writeFileSync(log, '')
+  const outDir = join(repo, policy.graphifyOutDir)
+  return {
+    repo,
+    bin,
+    log,
+    outDir,
+    graphPath: join(outDir, 'graph.json'),
+    run(flags, extraEnv = {}) {
+      const env = { ...process.env, ...extraEnv }
+      for (const key of Object.keys(env)) if (key.startsWith('STUB_') && !(key in extraEnv)) delete env[key]
+      Object.assign(env, {
+        PATH: `${bin}${delimiter}${cleanPath()}`,
+        CODE_GRAPH_ROOT: repo,
+        STUB_LOG: log,
+        STUB_GRAPH_FILE: graphFile,
+        STUB_GRAPHIFY_VERSION: extraEnv.STUB_GRAPHIFY_VERSION || policy.graphifyVersion,
+      })
+      const r = spawnSync(process.execPath, [SCRIPT, ...flags], { env, encoding: 'utf8', timeout: 60000 })
+      return { status: r.status, out: `${r.stdout}${r.stderr}` }
+    },
+    calls() {
+      return readFileSync(log, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line))
+    },
+    graph() {
+      return JSON.parse(readFileSync(join(outDir, 'graph.json'), 'utf8'))
+    },
+  }
+}
+
+async function selftest() {
+  if (process.platform === 'win32') {
+    console.log('code-graph selftest: skipped on Windows, where its stub binaries are POSIX shell scripts.')
+    return
+  }
+  const policy = readPolicy()
+  const base = mkdtempSync(join(tmpdir(), 'code-graph-selftest-'))
+  const results = []
+  const check = (name, ok, detail) => results.push({ name, ok: Boolean(ok), detail })
+  const origins = (graph) => Object.fromEntries([...graph.nodes.map((n) => [n.id, n._origin]), ...graph.links.map((l) => [`${l.source}->${l.target}`, l._origin])])
+  try {
+    // The control: an undoctored build, run with an API key exported that must not reach `claude -p`.
+    {
+      const c = makeCase(base, 'control', policy)
+      const r = c.run([], { ANTHROPIC_API_KEY: 'sk-ant-selftest-not-a-key' })
+      const o = origins(c.graph())
+      const calls = c.calls()
+      const extract = calls.find((call) => call.cmd === 'extract')
+      const cluster = calls.find((call) => call.cmd === 'cluster-only')
+      const add = calls.find((call) => call.tool === 'claude')
+      check('control: a full build exits 0', r.status === 0, r.out)
+      check('control: every item a language model made is stamped semantic, the edge whose source_file graphify filled from code included', ['notes', 'notes_adder', 'why_adder', 'notes_adder->add_adder'].every((k) => o[k] === 'semantic'), JSON.stringify(o))
+      check('control: parser items and an external-module stub are not stamped semantic', o.add_adder === 'ast' && o['add_adder->ref_node_fs'] === 'ast' && o.ref_node_fs !== 'semantic', JSON.stringify(o))
+      check('control: graphify runs with safe mode, the policy model and folder, from outside the repository', extract && extract.safe === '1' && extract.model === policy.graphifyClaudeCliModel && extract.out === policy.graphifyOutDir && ![c.repo, realpathSync(c.repo)].some((p) => extract.cwd.startsWith(p)), JSON.stringify(extract))
+      check('control: an exported ANTHROPIC_API_KEY is withheld from graphify, and the run says so', extract && extract.apiKey === false && /not passing ANTHROPIC_API_KEY/.test(r.out), r.out)
+      check('control: cluster-only names communities with the policy model', cluster && cluster.rest.join(' ').includes(`--model ${policy.graphifyClaudeCliModel}`), JSON.stringify(cluster))
+      check('control: the server is added at local scope, from the checkout, under the policy name, pointing at the graph', add && add.args.join(' ') === `mcp add --scope local ${policy.graphifyMcpServerName} -- ${join(c.bin, 'graphify-mcp')} ${c.graphPath}` && realpathSync(add.cwd) === realpathSync(c.repo), JSON.stringify(add))
+      check('control: the lock is released', !existsSync(join(c.outDir, '.code-graph.lock')), '')
+    }
+    // Each text graphify prints for a partial extraction exits 1, after stamping what graphify wrote.
+    PARTIAL_TEXTS.forEach((text, i) => {
+      const c = makeCase(base, `partial-${i}`, policy)
+      const r = c.run(['--no-mcp'], { STUB_EXTRACT_STDERR: text })
+      check(`partial ${i + 1}: exits 1 as a partial graph`, r.status === 1 && /built a partial graph/.test(r.out), r.out)
+      check(`partial ${i + 1}: what graphify wrote is stamped first`, existsSync(c.graphPath) && origins(c.graph()).notes === 'semantic', '')
+    })
+    {
+      const c = makeCase(base, 'extract-fails', policy)
+      const r = c.run(['--no-mcp'], { STUB_EXTRACT_EXIT: '1', STUB_EXTRACT_WRITE: '0' })
+      check('a graphify extract that exits non-zero exits 1, naming it', r.status === 1 && /graphify extract exited 1/.test(r.out), r.out)
+    }
+    {
+      const c = makeCase(base, 'registered', policy)
+      const get = `${policy.graphifyMcpServerName}:\n  Scope: Local config (private to you in this project)\n  Type: stdio\n  Command: ${join(c.bin, 'graphify-mcp')}\n  Args: ${c.graphPath}\n`
+      const r = c.run(['--mcp-only'], { STUB_MCP_GET: get })
+      check('a matching local registration is left alone', r.status === 0 && /already registered/.test(r.out) && c.calls().length === 0, r.out)
+    }
+    {
+      const c = makeCase(base, 'stale-registration', policy)
+      const get = `${policy.graphifyMcpServerName}:\n  Scope: Local config (private to you in this project)\n  Type: stdio\n  Command: ${join(c.bin, 'graphify-mcp')}\n  Args: /elsewhere/graph.json\n`
+      const r = c.run(['--mcp-only'], { STUB_MCP_GET: get })
+      const args = c.calls().map((call) => call.args.slice(0, 2).join(' '))
+      check('a local registration pointing elsewhere is removed, then added again', r.status === 0 && args.join(',') === 'mcp remove,mcp add', `${r.out} ${args}`)
+    }
+    {
+      const c = makeCase(base, 'empty-lock', policy)
+      mkdirSync(c.outDir, { recursive: true })
+      writeFileSync(join(c.outDir, '.code-graph.lock'), '')
+      const r = c.run(['--no-mcp'])
+      check('an empty lock file is taken over', r.status === 0, r.out)
+    }
+    {
+      const c = makeCase(base, 'live-lock', policy)
+      mkdirSync(c.outDir, { recursive: true })
+      writeFileSync(join(c.outDir, '.code-graph.lock'), String(process.pid))
+      const r = c.run(['--no-mcp'])
+      check('a lock held by a live process refuses with exit 1', r.status === 1 && /another build/.test(r.out), r.out)
+    }
+    {
+      const c = makeCase(base, 'no-graphify', policy)
+      rmSync(join(c.bin, 'graphify'))
+      const r = c.run(['--no-mcp'])
+      check('graphify missing from PATH exits 2 with the install line', r.status === 2 && /not on PATH/.test(r.out) && r.out.includes(`graphifyy[mcp]==${policy.graphifyVersion}`), r.out)
+    }
+    {
+      const c = makeCase(base, 'wrong-version', policy)
+      const r = c.run(['--no-mcp'], { STUB_GRAPHIFY_VERSION: '0.0.1' })
+      check('a graphify other than the pinned release exits 2', r.status === 2 && /pins/.test(r.out), r.out)
+    }
+    {
+      const c = makeCase(base, 'mcp-broken', policy)
+      const r = c.run([], { STUB_MCP_BROKEN: '1' })
+      check('an MCP server that does not list its tools exits 2', r.status === 2 && /does not serve the graph tools/.test(r.out), r.out)
+    }
+    {
+      const c = makeCase(base, 'saved-answers', policy)
+      mkdirSync(join(c.outDir, 'memory'), { recursive: true })
+      writeFileSync(join(c.outDir, 'memory', 'answer.md'), 'A saved answer.\n')
+      const r = c.run(['--no-mcp'])
+      check('saved answers under the output folder refuse with exit 1', r.status === 1 && /saved answers/.test(r.out), r.out)
+    }
+    {
+      const c = makeCase(base, 'graphify-hook', policy)
+      writeFileSync(join(c.repo, '.git', 'hooks', 'post-commit'), '#!/bin/sh\n# graphify-hook-start\ngraphify update .\n', { mode: 0o755 })
+      const r = c.run(['--no-mcp'])
+      check("graphify's own git hook refuses with exit 1", r.status === 1 && /runs graphify/.test(r.out), r.out)
+    }
+    {
+      const c = makeCase(base, 'code-only', policy)
+      rmSync(join(c.bin, 'claude'))
+      const r = c.run(['--code-only', '--no-mcp'])
+      const calls = c.calls()
+      const extract = calls.find((call) => call.cmd === 'extract')
+      const cluster = calls.find((call) => call.cmd === 'cluster-only')
+      check('--code-only --no-mcp needs no claude, and names no community with a model', r.status === 0 && extract?.rest.includes('--code-only') && cluster?.rest.includes('--no-label'), `${r.out} ${JSON.stringify(calls)}`)
+    }
+    {
+      const c = makeCase(base, 'flags', policy)
+      const bad = c.run(['--bogus'])
+      const both = c.run(['--mcp-only', '--no-mcp'])
+      check('an unknown flag exits 2', bad.status === 2 && /unknown argument/.test(bad.out), bad.out)
+      check('--mcp-only with --no-mcp exits 2', both.status === 2 && /leave nothing to do/.test(both.out), both.out)
+    }
+  } finally {
+    rmSync(base, { recursive: true, force: true })
+  }
+  for (const r of results) console.log(`  ${r.ok ? 'ok  ' : 'FAIL'} ${r.name}${r.ok ? '' : `\n       ${String(r.detail).trim().split('\n').join('\n       ')}`}`)
+  const failed = results.filter((r) => !r.ok).length
+  console.log(`code-graph selftest: ${results.length} checks, ${failed} failed`)
+  if (failed > 0) throw new Stop(1, 'selftest failed')
+}
+
 async function main() {
   const flags = parseArgs(process.argv.slice(2))
   const policy = readPolicy()
@@ -446,11 +717,20 @@ async function main() {
   console.log(`code-graph: ${summary(root, graphPath, policy)}`)
 }
 
-main().catch((error) => {
-  if (error instanceof Stop) {
-    console.error(`code-graph: ${error.message}`)
-    process.exit(error.code)
-  }
-  console.error(error)
-  process.exit(1)
-})
+const argv = process.argv.slice(2)
+const entry = argv.includes('--selftest')
+  ? () => {
+      if (argv.length !== 1) throw new Stop(2, '--selftest takes no other flag')
+      return selftest()
+    }
+  : main
+Promise.resolve()
+  .then(entry)
+  .catch((error) => {
+    if (error instanceof Stop) {
+      console.error(`code-graph: ${error.message}`)
+      process.exit(error.code)
+    }
+    console.error(error)
+    process.exit(1)
+  })

@@ -22,6 +22,7 @@
     "citations:support:selftest": "node tools/citations/support.selftest.ts",
     "code-graph": "node scripts/code-graph.mjs",
     "code-graph:mcp": "node scripts/code-graph.mjs --mcp-only",
+    "code-graph:selftest": "node scripts/code-graph.mjs --selftest",
     "counts:check": "node scripts/check-count-index.mjs",
     "counts:selftest": "node scripts/check-count-index.mjs --selftest",
     "gate-summary:selftest": "node scripts/hooks/gate-summary.selftest.mjs",
