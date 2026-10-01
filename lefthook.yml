@@ -450,13 +450,14 @@ pre-push:
     # (docs/decisions.md § D-20): the script run against a fixture repository with stub graphify,
     # graphify-mcp and claude first on PATH, asserting the stamp, the withheld API key, the policy's
     # model, folder and server name, each partial-extraction text, the registration left alone or
-    # replaced, the lock and each refusal by its reason, with one undoctored control. Reads the
-    # script and the live policy. 11.98-12.06 s wall (`/usr/bin/time -p`, through `node --run` and
-    # directly) on a macOS laptop (Apple M3 Max) with Node 26.8.1, 2026-10-01, most of it a git
-    # repository and a stub server per case.
+    # replaced, the lock, a hook's exported GIT_DIR, and each refusal by its reason, with one
+    # undoctored control. Reads the script, `tools/lib/git-env.ts` and the live policy. 11.98-12.06 s
+    # wall (`/usr/bin/time -p`, through `node --run` and directly) on a macOS laptop (Apple M3 Max)
+    # with Node 26.8.1, 2026-10-01, most of it a git repository and a stub server per case.
     - name: code-graph-selftest
       glob:
         - 'scripts/code-graph.mjs'
+        - 'tools/lib/**'
         - 'tools/policy.json'
       run: node --run code-graph:selftest
     # The test-trace reader's refusals, each on a doctored copy of a test file's source, and its

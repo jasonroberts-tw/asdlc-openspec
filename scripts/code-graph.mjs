@@ -68,7 +68,12 @@
  * ones are removed. Each case changes one thing and asserts the exit code and the reason: each
  * partial-extraction text, a failing extract, a matching and a stale registration, an empty and a
  * live lock, a missing or wrong-version graphify, an MCP server without its tools, saved answers,
- * graphify's own git hook, `--code-only --no-mcp` with no claude, and two bad flag sets. The
+ * graphify's own git hook, `--code-only --no-mcp` with no claude, two bad flag sets, and a run under
+ * a hook's exported `GIT_DIR`. That last case is the selftest's own incident: on 2026-10-01, run by
+ * the pre-push hook, it committed its fixture onto the branch being pushed, because git exports
+ * `GIT_DIR` to a hook and `GIT_DIR` outranks `cwd`; every git call here now goes through
+ * `gitEnv()` (`tools/lib/git-env.ts`), as do graphify and claude, which find their repository
+ * through git. The
  * undoctored control asserts the stamp on every item a model made and on no parser item, the withheld
  * API key, the policy's model, folder and server name, and the local-scope registration. It is the
  * stand-in a job can run for a script that reads a language model (asdlc-openspec-i3c, carried with
@@ -104,6 +109,7 @@ import {
 import { tmpdir } from 'node:os'
 import { delimiter, dirname, extname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { gitEnv } from '../tools/lib/git-env.ts'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const POLICY_PATH = resolve(HERE, '..', 'tools', 'policy.json')
@@ -154,8 +160,9 @@ function readPolicy() {
   return policy
 }
 
+/** git in `cwd`, never in the repository a hook's exported `GIT_DIR` names (`tools/lib/git-env.ts`). */
 function git(cwd, args) {
-  const r = spawnSync('git', args, { cwd, encoding: 'utf8' })
+  const r = spawnSync('git', args, { cwd, encoding: 'utf8', env: gitEnv() })
   if (r.status !== 0) throw new Stop(1, `git ${args.join(' ')} failed in ${cwd}: ${r.stderr.trim()}`)
   return r.stdout.trim()
 }
@@ -261,7 +268,7 @@ function refuseGraphifyHooks(root) {
       throw new Stop(1, `${path} runs graphify, whose rebuild erodes the document layer. Remove it: graphify hook uninstall`)
     }
   }
-  const config = spawnSync('git', ['config', '--get-regexp', '^hook\\.'], { cwd: root, encoding: 'utf8' })
+  const config = spawnSync('git', ['config', '--get-regexp', '^hook\\.'], { cwd: root, encoding: 'utf8', env: gitEnv() })
   if (/graphify/.test(config.stdout || '')) throw new Stop(1, `a hook.* key in git config runs graphify:\n${config.stdout.trim()}`)
 }
 
@@ -335,7 +342,7 @@ function runShown(cmd, args, options) {
 async function runGraphify(root, policy, flags, tools) {
   const cwd = mkdtempSync(join(tmpdir(), 'code-graph-'))
   const env = {
-    ...process.env,
+    ...gitEnv(),
     PYTHONHASHSEED: '0',
     GRAPHIFY_NO_AUTO_REFRESH: '1',
     GRAPHIFY_OUT: policy.graphifyOutDir,
@@ -402,7 +409,7 @@ function fingerprint(path) {
 
 /** Register the server at local scope for `root`, or leave a matching registration alone. Never prints `claude mcp get`'s output, which can hold another server's credentials. */
 function registerMcp(root, tools, graphPath, server) {
-  const run = (args) => spawnSync(tools.claude, ['mcp', ...args], { cwd: root, encoding: 'utf8' })
+  const run = (args) => spawnSync(tools.claude, ['mcp', ...args], { cwd: root, encoding: 'utf8', env: gitEnv() })
   const current = run(['get', server])
   if (current.status === 0) {
     const text = current.stdout
@@ -522,7 +529,7 @@ function makeCase(base, name, policy) {
   writeFileSync(join(repo, 'notes.md'), '# Notes\n\nThe `adder` function in add.js sums two numbers.\n')
   writeFileSync(join(repo, 'add.js'), 'export function adder(a, b) {\n  return a + b\n}\n')
   const git = (args) => {
-    const r = spawnSync('git', args, { cwd: repo, encoding: 'utf8' })
+    const r = spawnSync('git', args, { cwd: repo, encoding: 'utf8', env: gitEnv() })
     if (r.status !== 0) throw new Error(`fixture git ${args.join(' ')}: ${r.stderr}`)
   }
   git(['init', '-q'])
@@ -544,7 +551,7 @@ function makeCase(base, name, policy) {
     outDir,
     graphPath: join(outDir, 'graph.json'),
     run(flags, extraEnv = {}) {
-      const env = { ...process.env, ...extraEnv }
+      const env = { ...gitEnv(), ...extraEnv }
       for (const key of Object.keys(env)) if (key.startsWith('STUB_') && !(key in extraEnv)) delete env[key]
       Object.assign(env, {
         PATH: `${bin}${delimiter}${cleanPath()}`,
@@ -593,6 +600,32 @@ async function selftest() {
       check('control: cluster-only names communities with the policy model', cluster && cluster.rest.join(' ').includes(`--model ${policy.graphifyClaudeCliModel}`), JSON.stringify(cluster))
       check('control: the server is added at local scope, from the checkout, under the policy name, pointing at the graph', add && add.args.join(' ') === `mcp add --scope local ${policy.graphifyMcpServerName} -- ${join(c.bin, 'graphify-mcp')} ${c.graphPath}` && realpathSync(add.cwd) === realpathSync(c.repo), JSON.stringify(add))
       check('control: the lock is released', !existsSync(join(c.outDir, '.code-graph.lock')), '')
+    }
+    // Run as a git hook runs it. Git exports GIT_DIR to every hook, and GIT_DIR outranks cwd, so on
+    // 2026-10-01 this selftest, run by the pre-push hook, committed its fixture onto the branch being
+    // pushed. The fixture, the script and the tools it starts must all act on the fixture and leave
+    // the repository GIT_DIR names untouched.
+    {
+      const decoy = join(base, 'decoy')
+      mkdirSync(decoy)
+      const inDecoy = (args) => spawnSync('git', args, { cwd: decoy, encoding: 'utf8', env: gitEnv() })
+      inDecoy(['init', '-q'])
+      inDecoy(['-c', 'user.name=decoy', '-c', 'user.email=decoy@example.invalid', 'commit', '-q', '--allow-empty', '-m', 'decoy'])
+      const hookGitDir = join(decoy, '.git')
+      const saved = process.env.GIT_DIR
+      process.env.GIT_DIR = hookGitDir
+      let c
+      let r
+      try {
+        c = makeCase(base, 'hook-git-dir', policy)
+        r = c.run(['--no-mcp'], { GIT_DIR: hookGitDir })
+      } finally {
+        if (saved === undefined) delete process.env.GIT_DIR
+        else process.env.GIT_DIR = saved
+      }
+      const decoyLog = inDecoy(['log', '--format=%s']).stdout.trim()
+      const fixtureHead = spawnSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: c.repo, encoding: 'utf8', env: gitEnv() }).stdout.trim()
+      check("under a hook's GIT_DIR, the fixture and the script act on the fixture and leave that repository untouched", r.status === 0 && decoyLog === 'decoy' && fixtureHead !== '' && r.out.includes(`at ${fixtureHead}`), `${r.out}\ndecoy log: ${decoyLog}\nfixture HEAD: ${fixtureHead}`)
     }
     // Each text graphify prints for a partial extraction exits 1, after stamping what graphify wrote.
     PARTIAL_TEXTS.forEach((text, i) => {
