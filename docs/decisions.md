@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-21 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20 and D-21 added 2026-10-01).**
+**Status: every decision from D-01 to D-22 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21 and D-22 added 2026-10-01).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-21` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-22` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -77,6 +77,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-19** | Git's config-based hooks replace lefthook, and dispatch to a runner of this repository's own | `scripts/git-hooks.mjs`, the runner, with its install, `npm run gates` through `git hook run`, and `hooks:selftest` at pre-push and in CI; `git-hooks.yml`, the renamed job file, read by `scripts/check-jobs.mjs`; `gitHooksFailedOutputBytes` in `tools/policy.json`; `package.json` without lefthook, and its `prepare`; `.devcontainer/` without lefthook or `bd hooks install`; `CLAUDE.md` § The gate ladder; `lefthook-windows.yml` deleted (`asdlc-openspec-uc1`) |
 | **D-20** | A local code graph is built with graphify on each person's machine, never committed, and queried through its MCP server | `scripts/code-graph.mjs` as `npm run code-graph` and `code-graph:mcp`, held by `code-graph:selftest` at pre-push and in CI; `graphify-out/` in `.gitignore`; the `code-graph` skill; the worktree briefing's carve-out, consolidated first; the `graphify*` keys and two budgets in `tools/policy.json`; D-19's amendment |
 | **D-21** | `open-pr` reviews each branch before its push, in an agent's own context, and the reviewer's brief carries the facts its job can compute | `.claude/skills/open-pr/SKILL.md` § 5 and the `branch-reviewer` agent; `brief --local` and the brief's three facts in `scripts/pr-review.mjs`, held by `pr-review:selftest`; `.claude/agents/pr-reviewer.md` § What you are given; the three prompts' budgets in `tools/policy.json` |
+| **D-22** | The tracker's git integration runs from the job file, and the install clears what lefthook left in .git/hooks | The tracker's five jobs in `git-hooks.yml`; `.devcontainer/entrypoint.sh` without `bd hooks install`; the install's cleanup and the runner's warnings in `scripts/git-hooks.mjs`, held by `hooks:selftest`; D-19's amendment |
 
 ## Risks
 
@@ -978,6 +979,8 @@ Where it loses:
 
 > **Amended 2026-10-01 by D-20.** graphify writes no git hooks here. D-20 refuses `graphify hook install`, whose hooks rebuild the graph with `graphify update` and erode its document layer, so item 2 and the Why no longer hold where they name graphify as a writer of `.git/hooks`. The tracker still writes there.
 
+> **Amended 2026-10-01 by D-22.** Item 2 no longer holds where it expects the tracker's own hooks in `.git/hooks`. The tracker's git integration runs from its five jobs in `git-hooks.yml`, and nothing here runs `bd hooks install`. A section bd writes there on its own still runs, but it runs bd a second time, and the install and the runner warn of it. The install also removes what lefthook left in `.git/hooks`.
+
 ### D-20 · A local code graph is built with graphify on each person's machine, never committed, and queried through its MCP server
 
 **Recorded 2026-10-01**, carried by `asdlc-openspec-rsc`. On 2026-10-01 the maintainer chose to keep the graph local, and asked for a checked-in script that builds it, its output folder gitignored, and query access through a skill and an MCP server the script registers. They chose local-scope registration, Opus for the documents and this entry from recommendations each put with the case where it loses, Opus over the recommendation of Sonnet.
@@ -1068,6 +1071,43 @@ Where it loses: every pull request pays one more review, at the reviewer's model
 - The 7 pull requests whose reviewer named, on a later head, a minor finding the earlier head already carried: #57, #58, #61, #62, #66, #70 and #75, from their verdict comments (`gh pr view <n> --comments`), read on 2026-10-01.
 - The first local review, of this entry's branch at `615b5bb`: 267,564 tokens, 22 tool calls and 522 seconds, as the session that ran it reported them on 2026-10-01. That is outside this repository, and not re-derived here.
 - The budgets: `node scripts/check-prompts.mjs --counts` at this entry's commit, each figure in its `Means` in `tools/policy.json`.
+
+### D-22 · The tracker's git integration runs from the job file, and the install clears what lefthook left in .git/hooks
+
+**Recorded 2026-10-01**, carried by `asdlc-openspec-uc1`. The maintainer chose each item that day. Each was put with the case where its recommendation loses, and every answer is in that issue's notes and description. The pull-request reviewer, judging #99 at d13aca8, asked a person whether item 1 departs from D-19 item 2 enough to need an entry; the maintainer chose this one.
+
+**Builds on / amends:** amends D-19 item 2, as D-20 amended it for graphify, where it expects the tracker's own hooks to run from `.git/hooks`. Builds on D-19 item 1, whose plain command item 3 keeps, and on D-07, which leaves a pull request that changes this register to a person.
+
+**Decision.**
+
+1. **The tracker's git integration runs from its five jobs in `git-hooks.yml`**, one for each event the runner installs. Nothing here runs `bd hooks install`: the dev container's entrypoint no longer does. A `BEGIN BEADS INTEGRATION` section in `.git/hooks`, which `bd init` or `bd doctor --fix` can write, runs bd a second time after its job. `npm run hooks:install` and the runner warn of one.
+2. **`npm run hooks:install` removes what lefthook left in `.git/hooks`**: each shim, known by its generated text, with any section appended to it, and `.git/info/lefthook.checksum`. It leaves an `.old` or `.backup` copy and reports it. The runner warns of a shim that comes back, at every event.
+3. **A checkout whose branch predates the runner gets the plain command**, `node scripts/git-hooks.mjs <event>`, as D-19 item 1 states it. Such a worktree cannot commit until it is rebased, since prepare-commit-msg runs even under `--no-verify`.
+4. **`git grep -i lefthook` may also find the cleanup of item 2**, its warning, their selftest cases and the rows that say the install removes lefthook's shims, beside the history D-19's migration leaves. `asdlc-openspec-uc1`'s criterion 2 was amended to allow them.
+
+**Why.** Before the migration, the tracker ran only through lefthook's jobs: on 2026-10-01 none of the five live hooks in the primary checkout's `.git/hooks` carried bd's section. Each was a lefthook shim naming one worktree's binary. The sections the dev container had appended survived only in five `.backup` copies from 2025-09-25, because lefthook's reinstall erased them (`asdlc-openspec-uc1`, step 0a). A section bd appends does not pass on the status of what runs before it. A foreign hook that ended in `false` exited 0 once bd's section ran (step 0b). So the tracker's hooks in `.git/hooks` were a file with two owners, the cause D-19 removes, and its jobs keep its integration in tracked config. The cleanup removes what a pre-migration worktree's `npm ci` puts back. In every run of the migration's own suite, the runner's warning named the lefthook shim still in the shared `.git/hooks/pre-push`. Three alternatives lost:
+
+- **The tracker owns `.git/hooks`** through `bd hooks install`, and its jobs leave the job file. Its integration would survive anything that happens to the runner. But it lives in untracked state no gate reads, and a missing hook is silent, as the erased sections were.
+- **A guarded command** that skips, with one line, a checkout with no `scripts/git-hooks.mjs`. A worktree on an old base could keep committing. But its pushes would run no gate until it was rebased, where the plain command refuses.
+- **No cleanup**, so `git grep lefthook` finds history alone. But nothing would remove or name a shim that comes back, and every commit would run both runners.
+
+Where it loses:
+
+- **`bd init` or `bd doctor --fix` puts the tracker's hooks back**, and bd runs twice on every event until someone removes them. The warning names them; nothing removes them.
+- **Every worktree on an old base stops committing** once any `npm ci` on a new branch runs the install, until it is rebased (`asdlc-openspec-7du`).
+- **The grep is no longer a test of history alone.** A live mention copied back in can hide among the cleanup's.
+
+**What changed.**
+
+- **This register:** this entry. The status line, the blockquote's bound and the decisions table carry D-22, and D-19 carries an amendment.
+- **`git-hooks.yml`:** the tracker's five jobs, kept from `lefthook.yml`, with the comment that they are its integration.
+- **`scripts/git-hooks.mjs`:** the install's cleanup and the warnings of items 1 and 2, held by `hooks:selftest`.
+- **`.devcontainer/entrypoint.sh`:** no `bd hooks install`.
+
+**Figures.**
+
+- Five lefthook shims, five `.backup` copies and no `BEGIN BEADS INTEGRATION` section in the primary checkout's `.git/hooks` on 2026-10-01: `ls -la` and `grep -c "BEGIN BEADS"` there, read-only, outside this repository (`asdlc-openspec-uc1`'s notes, step 0a). Not re-derived here.
+- A foreign hook ending in `false` exiting 0 under bd 1.3.0's appended section: a scratch repository with its own `bd init --sandbox` project, outside this repository (the same notes, step 0b). Not re-derived here.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
