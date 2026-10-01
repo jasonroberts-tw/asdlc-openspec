@@ -302,16 +302,23 @@ pre-push:
     - name: pr-review-check
       glob:
         - 'scripts/pr-review.mjs'
+        - 'tools/lib/git-env.ts'
         - 'tools/policy.json'
         - '.github/workflows/*.yml'
         - '.claude/agents/pr-reviewer.md'
       run: node --run pr-review:check
     # Every decision over fixtures built from the live policy, each asserting its reason, and the
     # wiring gate over doctored copies of the four files it reads, with an undoctored control. The
-    # same files decide its verdict. 0.16 s wall on the host and date above.
+    # same files decide its verdict, and the brief's prompt counts are taken over a scratch
+    # repository by `scripts/check-prompts.mjs`, so it is in the glob too, beside the git helper the
+    # script imports. 0.61 s wall through `node --run` (`/usr/bin/time -p`, one run) on a macOS
+    # 26.7.1 laptop with Node 26.8.1, 2026-10-01, with that case; 0.16 s before it, on the host and
+    # date above.
     - name: pr-review-selftest
       glob:
         - 'scripts/pr-review.mjs'
+        - 'scripts/check-prompts.mjs'
+        - 'tools/lib/git-env.ts'
         - 'tools/policy.json'
         - '.github/workflows/*.yml'
         - '.claude/agents/pr-reviewer.md'
