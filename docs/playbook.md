@@ -26,7 +26,9 @@ analysis, name `.claude/skills/close-prompt-run/SKILL.md`, where `CLAUDE.md` § 
 them. Amended 2026-10-01 by the prompt review `review-prompts-20261001-1331`, as
 `.claude/skills/bead/SKILL.md` § 4 and § 7 now say. The step for a defect found on the way files one
 the branch leaves unfixed, in a file the issue changes or not. The step that closes the issue keeps
-one whose criterion needs the merged change open, with a note, until a person merges it.
+one whose criterion needs the merged change open, with a note, until a person merges it. Amended
+2026-10-01 by `asdlc-openspec-f69`: the step that writes the pull request's body first holds the
+branch to each criterion and to itself, as `.claude/skills/bead/SKILL.md` § 6 now says.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -264,11 +266,11 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
 4. Close the task with the subject of the commit that built it, never its id, since the rebase and
    the rebase merge rewrite every id. Decided by: `.claude/skills/change-build/SKILL.md` § 4. Close
    it.
-5. What the build turns up: a defect out of scope is a found issue, without the change label; work
-   in scope but missing from the plan is a new child, once the user agrees; a scenario or NFR that
-   must change stops the build and goes back to `change-propose`; a design that cannot hold gets a
-   re-design pass, a new `design.md` and contract artifacts and no delta spec, committed before the
-   code it allows; either reopens the tasks the trace record links to what changed. Decided by:
+5. What the build turns up. A defect out of scope is a found issue, without the change label. Work
+   in scope but missing from the plan is a new child, once the user agrees. A scenario or NFR that
+   must change stops the build and goes back to `change-propose`. A design that cannot hold gets a
+   re-design pass: a new `design.md` and contract artifacts and no delta spec, committed before the
+   code it allows. Either reopens the tasks the trace record links to what changed. Decided by:
    `.claude/skills/change-build/SKILL.md` § 5. What the build turns up.
 6. Repeat until no child of the epic is open, then run `npm run trace`, commit the record and run
    `npm run gates`, and hand over only when each Build exit criterion holds, each shown by the gate
@@ -293,9 +295,9 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
 4. `npm run gates` passes. Decided by: `.claude/skills/change-verify/SKILL.md` § 5. The gates are
    green.
 5. On a gap, a failing blocking test, an unmet obligation or a gap-analysis item not waived, the
-   user picks the stage that fixes it, the epic is labelled and noted, the report goes on the epic,
-   and verification runs again once it is fixed; with none, the report goes on the epic and the
-   trace and the report go to the pull request, never into a committed file. Decided by:
+   user picks the stage that fixes it, and the epic is labelled and noted. The report goes on the
+   epic, and verification runs again once it is fixed. With none, the report goes on the epic, and
+   the trace and the report go to the pull request, never into a committed file. Decided by:
    `.claude/skills/change-verify/SKILL.md` § 6. Verdict.
 
 #### Finalize
@@ -325,9 +327,11 @@ Every pull request is opened with the `open-pr` skill, whoever opens it.
 2. End the title with the ids of the issues the branch carries, in parentheses. The reviewer reads
    them from there and nowhere else, and a title that carries none leaves the merge to a person.
    Decided by: `.claude/skills/open-pr/SKILL.md` § 3. The title.
-3. Write the body to a file under `.scratch/`, opening with any register entry or prerequisite the
-   work named, and naming every found issue. Decided by: `.claude/skills/open-pr/SKILL.md` § 4. The
-   body, and `.claude/skills/bead/SKILL.md` § 6. Open the pull request and watch its checks.
+3. Hold the branch to each criterion as worded and to itself, and fix a gap the body would
+   disclose, or make the tree say what is true and file its follow-up. Then write the body to a file
+   under `.scratch/`, opening with any register entry or prerequisite the work named, and naming
+   every found issue. Decided by: `.claude/skills/open-pr/SKILL.md` § 4. The body, and
+   `.claude/skills/bead/SKILL.md` § 6. Open the pull request and watch its checks.
 4. Push, open it with `--base main` typed, then mark the reviewer's status pending with
    `PR=<number> node scripts/pr-review.mjs mark`. Decided by: `.claude/skills/open-pr/SKILL.md`
    § 5. Push, open, and mark it pending.
