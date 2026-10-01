@@ -42,4 +42,7 @@ lefthook-local.yml
 # done.
 .kit/
 
-.vale-styles/
+# Vale's styles: `vale sync` downloads what `.vale.ini` names, and every checkout fetches its own.
+# Layout is this repository's own style, tracked, and `vale sync` leaves it in place.
+.vale-styles/*
+!.vale-styles/Layout/

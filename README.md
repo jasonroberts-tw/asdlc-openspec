@@ -4,19 +4,19 @@
 should do is agreed before code is written, every rule has one home, and every claim is re-derived
 rather than remembered.** Its name, `asdlc-openspec`, is short for an agentic software development
 lifecycle run on OpenSpec. It puts two things together to get there, and each was taken for the
-failure it prevents. 
+failure it prevents.
 
 ## Key Capabilities
 - CLAUDE.md - the rules of the repo, how all agents must function
-	- gate ladder - a ratcheted approach from fastest to slowest 
+	- gate ladder - a ratcheted approach from fastest to slowest
 		- agent hooks -> pre-commit hooks -> pre-push hooks -> CI verify job
-	- git workflow 
+	- git workflow
 		- worktree -> PR -> automated PR review
-	- automated harness improvement 
+	- automated harness improvement
 		- tracked prompt files automatically reviewed after running
-	- documentation integrity 
-		- keep README files up to date for all sub-folders  
-		- ensure citations from one markdown to another are correct and not stale 
+	- documentation integrity
+		- keep README files up to date for all sub-folders
+		- ensure citations from one markdown to another are correct and not stale
 		- decisions always recorded in a single source of truth
 - beads: how work is tracked by agents + humans
 - application development workflow (OpenSpec)
@@ -93,6 +93,7 @@ level above them. `apps/` and `openspec/` hold the product; every other path is 
 | `.beads/` | The configuration of `bd`, the issue tracker. Its database syncs through the git remote and is never committed; `bd bootstrap` hydrates it. |
 | `lefthook.yml` | The git-hook tiers: which gate runs at commit and at push, each with the glob that scopes it and a note of its measured cost. |
 | `lefthook-windows.yml` | A per-machine override of the hook runner's configuration, for the platform where it hangs in parallel. |
+| `.vale.ini`, `.vale-styles/Layout/` | The configuration of Vale, the prose linter the `vale@agent-tools` hook runs on each edit of prose, and `Layout`, the one style this repository writes itself. |
 | `.github/workflows/verify.yml` | The slowest tier: every gate that reads only committed files, on every pull request and every push to `main`. |
 | `.github/workflows/pr-review.yml` | The pull-request reviewer: one pull request at a time, Claude Code judges it against the issues its title cites, and it merges when every dimension passes and the risk is not high. |
 | `.devcontainer/` | A container that needs nothing from the network at create time. |
@@ -106,6 +107,7 @@ Some paths appear only on a working machine and are gitignored, each with its re
 - `.worktree/`: a worktree's rendered briefing.
 - `.claude/settings.local.json`: machine-specific permissions.
 - `lefthook-local.yml`: the hook runner's per-machine override.
+- `.vale-styles/`, all but `Layout/`: the styles `vale sync` downloads.
 
 Every file is one of three kinds: hand-maintained source, a hand-authored decision record (JSON
 that emitters read and nothing writes) or generated output that nothing edits by hand
@@ -115,9 +117,9 @@ tells you whether to edit it.
 ## The guardrails
 
 The same checks run at four latencies, and a slower tier never trusts a faster one: in-session
-hooks, pre-commit, pre-push, and `.github/workflows/verify.yml` (`CLAUDE.md` § The gate ladder). Where a check runs is
-decided by what it reads. § What runs automatically, at the foot of this page, lists each one by
-its trigger.
+hooks, pre-commit, pre-push, and `.github/workflows/verify.yml` (`CLAUDE.md` § The gate ladder).
+Where a check runs is decided by what it reads. § What runs automatically, at the foot of this page,
+lists each one by its trigger.
 
 Each row below is a failure this repository is built to refuse, what refuses it, and the home of
 the rule. The third column wins over the first two.
@@ -137,6 +139,7 @@ the rule. The third column wins over the first two.
 | An agent applying the reviewer's approval label, which only a person applies | `scripts/hooks/guard-git.mjs`, from any checkout, for a `gh` command; nothing for the web UI, curl or a browser tool (`docs/decisions.md` § R-01) | `CLAUDE.md` § Git workflow |
 | A figure restated from memory that has since moved | `counts:check` re-derives every keyed count from its source | `count-index.md` § How to use it |
 | A pointer to a file or a section that is gone | `citations:check`, over every tracked text file | `CLAUDE.md` § Citations |
+| A prose line an edit left more than a word past column 100, whitespace at the end of a line, or a heading with no blank line before it | The `Layout` style, through the `vale@agent-tools` hook on each edit of prose, at error level; `vale:selftest`, at push, holds each rule | the comment that opens each rule in `.vale-styles/Layout/` |
 | A recorded decision argued again, or a register whose summary drifts from its entries | `check:register` | `CLAUDE.md` § Decisions live in the register |
 | Work tracked in a checklist or a status table, an issue that does not say where its work lands, or a found issue that does not say what kind of file it would change | The issue: `beads:check`, at push, refuses an open issue with no `repo:` label, and an open issue filed `discovered-from` with no label `assetLabels` in `tools/policy.json` lists; `beads:selftest` holds both refusals. The checklist or status table: review alone, because no gate scans a file for one | `CLAUDE.md` § The task store |
 | A generated artifact left stale after its input moved | Each emitter's `:check` twin, which re-derives the artifact and diffs it, at push and in CI | `CLAUDE.md` § The script suffix contract |
@@ -181,7 +184,8 @@ does not apply to your platform is absent from its list, not marked optional.
 1. Clone, then `npm ci`. The hook runner's install script writes the git hooks; if your package
    manager blocks install scripts, run `npx lefthook install` once.
 1. Run `vale sync` in the clone. It downloads the styles `.vale.ini` names into the directory its
-   `StylesPath` names, which git ignores, and it needs the network. Then check that `vale ls-config`
+   `StylesPath` names, where git ignores all but `Layout`, the style this repository tracks, and it
+   needs the network. Then check that `vale ls-config`
    loads: until the sync, it stops with E201, and the hook answers every edit with the same error. A
    worktree cut by `scripts/new-worktree.sh` copies these styles from this checkout.
 1. Set `sync.remote` in `.beads/config.yaml` if it still holds a placeholder (`<protocol>` is
@@ -261,7 +265,8 @@ holds platform-native binaries. Use one clone per platform.
 Every script in `package.json`, one sub-section per prefix. A name of the form `<group>:<verb>` is
 public: the bare name writes the artifact, `:check` re-derives it and writes nothing, `:selftest`
 proves the gate refuses what it should (`CLAUDE.md` § The script suffix contract). The **Gate**
-column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it disagrees with them, they win.
+column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it disagrees with them,
+they win.
 
 <!-- kit 3.1-5 · ADAPT: one row per script, kept in step with `package.json` by the add-npm-script
      skill where you took it. The kit lists the scripts it laid down. Delete this comment when
@@ -365,6 +370,12 @@ column is read off `lefthook.yml` and `.github/workflows/verify.yml`; where it d
 | `trace:selftest` | The trace gate, negative-tested: each refusal on a doctored copy of a fixture repository, its reason asserted beside a control, the baseline's update, the history walk against its hand-ratified fixture, and the command line through `TRACE_ROOT`. | pre-push + CI |
 | `trace:update` | Moves the ratchet baseline, `artifacts/trace/baseline.json`, down to the obligations still unmet that the baseline at the branch's merge base with `origin/main` lists. It adds none, and prints each it would not add, which the change then meets. No job runs it, since a job that did would move the baseline it holds. | |
 
+### vale
+
+| Script | What it does | Gate |
+|---|---|---|
+| `vale:selftest` | This repository's own Vale style, `.vale-styles/Layout/`, over fixtures: a control holding every construct its rules must pass draws no alert, and each doctored case draws exactly its rule's alert at its line; every section of `.vale.ini` that lints with a style applies it, and one with the style taken out is refused by name. It runs `vale`, and skips clean where none is on PATH, as in CI. Without it a rule that stops matching leaves the hook silent over the fault it names. | pre-push |
+
 ### workflows
 
 | Script | What it does | Gate |
@@ -389,8 +400,8 @@ outside its own files, linked `discovered-from` the issue or epic it ran on. Eac
 carries one or more of the labels `assetLabels` in `tools/policy.json` lists, one per kind of file
 it would change, so `bd count --by-label` shows which kind keeps needing a fix after a run. It also
 leaves its analysis of itself as a note on the issue it worked, and the prompts that ran are
-reviewed from those notes in batches, as `.claude/skills/close-prompt-run/SKILL.md` says. A program proposes, and
-only a person promotes (`CLAUDE.md` § A program proposes; only a person promotes).
+reviewed from those notes in batches, as `.claude/skills/close-prompt-run/SKILL.md` says. A program
+proposes, and only a person promotes (`CLAUDE.md` § A program proposes; only a person promotes).
 
 ## Where to read next
 
@@ -428,6 +439,7 @@ at its start: restart the session after changing it.
 | A session is about to run a Bash command | `scripts/hooks/guard-git.mjs` refuses, from a linked worktree, a git command against a protected branch or the worktree registry; any git command in what a removed worktree leaves under `.claude/worktrees/`, where git would act on the primary checkout; and from any checkout, a `gh pr create` that does not name `main` as its base and a `gh` command that applies the reviewer's approval label. | `.claude/settings.json` (`PreToolUse`) |
 | A session is about to write or edit a file | `scripts/hooks/block-generated-edit.mjs` refuses an edit to generated output and names where the change belongs. | `.claude/settings.json` (`PreToolUse`) |
 | A session has written or edited a file | `scripts/hooks/check-emitted-drift.mjs` re-runs the `:check` twin of any emitter whose input was just edited. | `.claude/settings.json` (`PostToolUse`) |
+| A session has written or edited a prose file | The `vale@agent-tools` plugin's hook runs Vale over the whole file and hands back its error-level alerts, the `Layout` style's among them. It is silent where `vale` is not installed. | `.claude/settings.json` (`enabledPlugins`) |
 | A session stops | `scripts/hooks/gate-summary.mjs` runs the fastest gates over the session's checkout, untracked files included, and prints one verdict line. It never blocks the stop. | `.claude/settings.json` (`Stop`) |
 | A subagent stops | The same hook, over the checkout the subagent worked in, with a verdict that says it is a subagent's. | `.claude/settings.json` (`SubagentStop`) |
 | Claude Code creates a worktree | `scripts/hooks/worktree-create.mjs` provisions it through `scripts/new-worktree.sh`: `agent/<name>` off `origin/main`, with a rendered briefing. | `.claude/settings.json` (`WorktreeCreate`) |
@@ -442,6 +454,7 @@ at its start: restart the session after changing it.
 | `git push` that changes the citations gate, `tools/lib/`, `CLAUDE.md` or a prompt file | `citations:selftest`: the citations gate, negative-tested. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes `tools/citations/`, `tools/lib/`, `tools/policy.json`, `package.json` or `package-lock.json` | `citations:support:selftest`: the citation-support advisory over a stubbed judge. The advisory itself reads a token and the network, so it runs in no job. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes a hook or a worktree script | `worktree:selftest`: the worktree hooks and the guard, negative-tested. | `lefthook.yml` (`pre-push`) |
+| `git push` that changes `.vale.ini`, `.vale-styles/Layout/` or its selftest | `vale:selftest`: the `Layout` style's rules over fixtures, and every styled section of `.vale.ini` applying it. It runs `vale`, which the CI runner does not install, so it is no `.github/workflows/verify.yml` step. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes a hook, the citations gate, `tools/lib/` or what `check:jobs` reads | `gate-summary:selftest`: the Stop hook's verdict over untracked and ignored files, and the checkout it gates. | `lefthook.yml` (`pre-push`) |
 | `git push` | `counts:check` re-derives every value in `count-index.md` from the source the index names for it; `counts:selftest` holds the gate to its fixtures when the gate changes. | `lefthook.yml` (`pre-push`) |
 | `git push` that changes the register, `CLAUDE.md` or the gate | `check:register` holds the register's header, summary table and dates to its entries, and its selftest holds the gate. | `lefthook.yml` (`pre-push`) |

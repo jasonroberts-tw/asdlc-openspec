@@ -91,15 +91,15 @@ either way, and each row carries its new result.
 
 - **Any gap**, which includes a failing blocking test, an unmet obligation and a gap-analysis item not
   waived (the report's verdict `reject`): report each one with its file and its scenario, ID or design
-  decision, and which side you believe is wrong and why, then stop. The user picks the route: the code is fixed in `change-build`;
-  the spec is revised with the user in `change-propose`; or, where the code is right and the design
-  is not, the design is revised with the user in `change-design`, with every comment and README row
-  that repeated its claim. Label the epic for the stage the user picks (`CLAUDE.md` § Product work
-  runs as OpenSpec-format changes), and record the send-back on the epic with
-  `bd note <epic> --file <file>`: each gap, its file, its scenario or design decision, and the
-  route the user picked; the report goes on the epic as a note of its own. Verification then runs
-  again from step 2.
+  decision, and which side you believe is wrong and why, then stop. The user picks the route: the
+  code is fixed in `change-build`; the spec is revised with the user in `change-propose`; or, where
+  the code is right and the design is not, the design is revised with the user in `change-design`,
+  with every comment and README row that repeated its claim. Label the epic for the stage the user
+  picks (`CLAUDE.md` § Product work runs as OpenSpec-format changes), and record the send-back on
+  the epic with `bd note <epic> --file <file>`: each gap, its file, its scenario or design decision,
+  and the route the user picked; the report goes on the epic as a note of its own. Verification then
+  runs again from step 2.
 - **No gap:** report the trace, the gates as measured and each finding below a gap, with where
   it went. The report goes on the epic as a note, and the trace and the report go into the pull
-  request's body, as `node scripts/render-pr-body.mjs <change>` renders them. The next stage is `change-finalize` (`CLAUDE.md` § Product work runs as
-  OpenSpec-format changes).
+  request's body, as `node scripts/render-pr-body.mjs <change>` renders them. The next stage is
+  `change-finalize` (`CLAUDE.md` § Product work runs as OpenSpec-format changes).

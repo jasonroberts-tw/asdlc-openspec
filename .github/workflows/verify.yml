@@ -170,6 +170,9 @@ jobs:
       #     it reads a fixture export and the committed policy, and runs no `bd`.
       #   * the worktree hooks' selftest: about a hundred git spawns against a scratch repository it
       #     builds; it is a pre-push job, and nothing it reads differs in CI.
+      #   * the Vale style's selftest, `vale:selftest`: it runs `vale`, which this runner does not
+      #     install, so here it would only ever skip and read green. It is a pre-push job. The style
+      #     it tests runs in the vale@agent-tools hook on each edit, never in CI.
       #   * the pull-request review itself: it reads a token, a language model and the tracker, so it
       #     is `.github/workflows/pr-review.yml`, and only its wiring and decisions are steps here.
       #

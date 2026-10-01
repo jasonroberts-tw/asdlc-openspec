@@ -61,8 +61,8 @@ option agrees, answers the question for them.
 
 ## Bash command style
 
-Run each gate, test, or git command as a SEPARATE Bash call. Do not chain with `&&`, `;`, or `|`: 
-a chain's failure does not say which step failed. Do not use heredocs to write files; 
+Run each gate, test, or git command as a SEPARATE Bash call. Do not chain with `&&`, `;`, or `|`:
+a chain's failure does not say which step failed. Do not use heredocs to write files;
 use the Edit/Write tools for file content instead of `cat <<EOF`. Never `cd`, and never name a directory:
 every call starts at the checkout root, so name the file as an explicit repository-relative
 argument. Keep long prose out of the command line and pass it from a file under `.scratch/`, or,
@@ -157,9 +157,10 @@ read and nothing writes, each self-describing with `describes`, `whyThisFileExis
 `whatItDoesNOTDo` and `provenance` before its data, and for each constant a `<key>Means` sibling
 stating what the value decides and where it is changed: a reader needs to know what a record
 changes and what it leaves alone before the array.
-Generated output under `artifacts/`, which nothing edits by hand: it carries a banner naming its emitter, and a correction goes into the
-hand-maintained source, so the next run carries it. A constant a tool or a prompt reads lives in a
-policy file under a key, with its reason beside it, and is stated nowhere else.
+Generated output under `artifacts/`, which nothing edits by hand: it carries a banner naming its
+emitter, and a correction goes into the hand-maintained source, so the next run carries it. A
+constant a tool or a prompt reads lives in a policy file under a key, with its reason beside it, and
+is stated nowhere else.
 
 ## The script suffix contract
 
@@ -235,14 +236,14 @@ Each of these holds from the first file it applies to, and for every one after i
   `scripts/hooks/` opens with a header of four parts, in this order.** They are: what it emits or
   checks; **the failure it exists to prevent**, as the incident that happened, dated, with the wrong
   fix tried first where there was one; the invocation with its flags; and what it needs (another
-  checkout, a token, a network). On day one, with no incident yet, that paragraph says what the script would
-  let through if it were wrong, and the first incident replaces it. It is the paragraph readers
-  actually need, and the one to keep when cutting: a gate whose header says only what it checks is
-  the one the next person weakens to make a push go through. A measured cost lives there too, so
-  "why is this not a pre-push job" is answerable from the file. An emitter's header adds four
-  labelled lines: `KIND` (its lifecycle), `INVARIANTS` (what it never does), `RE-ENTRY` (whether a
-  second run is idempotent, and what `--check` does) and `STALE WHEN` (the inputs whose change
-  makes its output stale). A ten-line helper can carry one sentence.
+  checkout, a token, a network). On day one, with no incident yet, that paragraph says what the
+  script would let through if it were wrong, and the first incident replaces it. It is the paragraph
+  readers actually need, and the one to keep when cutting: a gate whose header says only what it
+  checks is the one the next person weakens to make a push go through. A measured cost lives there
+  too, so "why is this not a pre-push job" is answerable from the file. An emitter's header adds
+  four labelled lines: `KIND` (its lifecycle), `INVARIANTS` (what it never does), `RE-ENTRY`
+  (whether a second run is idempotent, and what `--check` does) and `STALE WHEN` (the inputs whose
+  change makes its output stale). A ten-line helper can carry one sentence.
 
 ## Citations
 
