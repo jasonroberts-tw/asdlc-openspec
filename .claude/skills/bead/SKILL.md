@@ -97,11 +97,10 @@ that reproduces it has been seen to fail, and the pull request's body names that
 run after its fix can pass without it. Regenerate every derived artifact the change touches only
 after the last edit to the emitter or its inputs: an emitter's own source is one of its inputs.
 
-Stage every file the change adds (`git add`) before the gates run: the citations and count-index
-gates read the files `git ls-files` lists, so a new file not yet added passes them unread. Run
-`npm run gates`, the build check here. There is no `tsc` to run: the repository has no
-`tsconfig.json`. Run no script name `package.json` does not list. A red gate is fixed or reported, never
-bypassed.
+Stage every file the change adds (`git add`) before the gates run: a new file not yet added passes
+the citations and count-index gates unread. Run `npm run gates`, the build check here. There is no
+`tsc` to run: the repository has no `tsconfig.json`. Run no script name `package.json` does not
+list. A red gate is fixed or reported, never bypassed.
 
 A defect found on the way is fixed in this branch only when it sits in a file the issue already
 changes. Anything else is filed as its own issue, never folded in, and before the pull request
