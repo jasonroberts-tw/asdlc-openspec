@@ -66,8 +66,8 @@
  * `--selftest` runs the script, through `CODE_GRAPH_ROOT`, against a fixture git repository under the
  * temporary directory, with stub graphify, graphify-mcp and claude first on a PATH from which the real
  * ones are removed. Each case changes one thing and asserts the exit code and the reason: each
- * partial-extraction text, a failing extract, a matching and a stale registration, an empty and a
- * live lock, a missing or wrong-version graphify, an MCP server without its tools, saved answers,
+ * partial-extraction text, a failing extract, a matching and a stale registration, an empty lock, one
+ * whose holder has exited and a live one, a missing or wrong-version graphify, an MCP server without its tools, saved answers,
  * graphify's own git hook, `--code-only --no-mcp` with no claude, two bad flag sets, and a run under
  * a hook's exported `GIT_DIR`. That last case is the selftest's own incident: on 2026-10-01, run by
  * the pre-push hook, it committed its fixture onto the branch being pushed, because git exports
@@ -658,6 +658,14 @@ async function selftest() {
       writeFileSync(join(c.outDir, '.code-graph.lock'), '')
       const r = c.run(['--no-mcp'])
       check('an empty lock file is taken over', r.status === 0, r.out)
+    }
+    {
+      const c = makeCase(base, 'dead-lock', policy)
+      mkdirSync(c.outDir, { recursive: true })
+      const gone = spawnSync(process.execPath, ['-e', ''], { encoding: 'utf8' }).pid
+      writeFileSync(join(c.outDir, '.code-graph.lock'), String(gone))
+      const r = c.run(['--no-mcp'])
+      check('a lock whose holder has exited is taken over, and released', r.status === 0 && !existsSync(join(c.outDir, '.code-graph.lock')), `${r.out}\npid ${gone}`)
     }
     {
       const c = makeCase(base, 'live-lock', policy)
