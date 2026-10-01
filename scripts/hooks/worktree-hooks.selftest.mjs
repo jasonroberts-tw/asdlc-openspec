@@ -437,6 +437,56 @@ check(
 )
 
 /* --------------------------------------------------------------------------------------------- *
+ * guard-git: graphify's eroding commands, from any checkout.
+ *
+ * graphify's `update`, `watch` and `hook install` rebuild the local code graph through the path that
+ * erodes its document layer, and `claude install` writes graphify's advice to run `update` into
+ * CLAUDE.md (docs/decisions.md § D-20), so the guard refuses each, in the primary checkout as in a
+ * worktree. Each refusal is asserted by its reason, which names the command, `npm run code-graph`
+ * and D-20. The controls are graphify's reading commands, which must still run, and the near misses
+ * that share a first word with a refused command or carry its words as an argument: without them, a
+ * guard that refused every graphify command, matched the first word alone, or matched the words
+ * anywhere in the line would pass.
+ * --------------------------------------------------------------------------------------------- */
+console.log("guard-git: graphify's eroding commands, from any checkout")
+const graphifyRefusal = (words) => (r) =>
+  r.code === 2 &&
+  r.stderr.includes(`\`graphify ${words}\``) &&
+  r.stderr.includes('npm run code-graph') &&
+  r.stderr.includes('docs/decisions.md § D-20')
+for (const [label, dir, words, command] of [
+  ['graphify update, in the primary checkout', primary, 'update', 'graphify update .'],
+  ['graphify watch, in a worktree', oursDir, 'watch', 'graphify watch .'],
+  ['graphify hook install, in the primary checkout', primary, 'hook install', 'graphify hook install'],
+  ['graphify claude install, in a worktree', oursDir, 'claude install', 'graphify claude install'],
+  [
+    'graphify update by path, after an environment assignment',
+    primary,
+    'update',
+    'GRAPHIFY_FORCE=1 ~/.local/bin/graphify update . --force',
+  ],
+  ['graphify run as a Python module', primary, 'update', 'python3 -u -m graphify update .'],
+  ['graphify watch inside bash -c', primary, 'watch', "bash -c 'graphify watch .'"],
+  ['graphify hook install after another statement', oursDir, 'hook install', 'git status; graphify hook install'],
+]) {
+  const r = labelGuard(dir, command)
+  check(`${label} is refused, by its reason`, graphifyRefusal(words)(r), why(r))
+}
+for (const [label, command] of [
+  ['graphify query', 'graphify query "what calls guard-git"'],
+  ['graphify path', 'graphify path "guard-git.mjs" "policy.json"'],
+  ['graphify explain', 'graphify explain "guard-git.mjs"'],
+  ['graphify extract', 'graphify extract . --code-only'],
+  ['graphify hook status, which shares its first word with hook install', 'graphify hook status'],
+  ['graphify claude uninstall, which shares its first word with claude install', 'graphify claude uninstall'],
+  ["graphify update's words as another command's argument", 'echo graphify update'],
+  ['graphify query run as a Python module', 'python3 -m graphify query "what calls guard-git"'],
+]) {
+  const r = labelGuard(primary, command)
+  check(`control: the primary checkout allows ${label}`, r.code === 0, why(r))
+}
+
+/* --------------------------------------------------------------------------------------------- *
  * prune-worktree-branches: the safety rule.
  *
  * The script deletes branches and removes checkouts, so what has to be tested is not that it works
