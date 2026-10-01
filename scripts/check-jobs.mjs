@@ -164,6 +164,8 @@ const UNJOBBED_BY_KIND = [
       ' the gate and the job runs that.',
     names: [
       'citations:support',
+      'code-graph',
+      'code-graph:mcp',
       'trace',
       'worktree:gc',
     ],
