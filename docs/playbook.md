@@ -32,7 +32,10 @@ branch to each criterion and to itself, as `.claude/skills/bead/SKILL.md` § 6 n
 2026-10-01 by `asdlc-openspec-ivn`: the step that pushes first reviews the branch with the
 `branch-reviewer` agent, as `.claude/skills/open-pr/SKILL.md` § 5 now says. Amended 2026-10-01 by
 `asdlc-openspec-uc1`: § 5's row for the bare hook runner's skip-all, which the new runner does not
-have (`docs/decisions.md` § D-19), is the row for a clone whose hooks are not installed.
+have (`docs/decisions.md` § D-19), is the row for a clone whose hooks are not installed. Amended
+2026-10-01 by the prompt review `review-prompts-20261001-2143`: the step that marks the reviewer's
+status pending, and the crib sheet's line for it, run the command through `env`, as
+`.claude/skills/open-pr/SKILL.md` § 5 now says.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -339,7 +342,7 @@ Every pull request is opened with the `open-pr` skill, whoever opens it.
 4. Review the branch first, in a context of its own: the `branch-reviewer` agent reads the brief
    `node scripts/pr-review.mjs brief --local` writes, and the session fixes what it says the
    reviewer would refuse. Then push, open it with `--base main` typed, and mark the reviewer's
-   status pending with `PR=<number> node scripts/pr-review.mjs mark`. Decided by:
+   status pending with `env PR=<number> node scripts/pr-review.mjs mark`. Decided by:
    `.claude/skills/open-pr/SKILL.md` § 5. Push, open, and mark it pending.
 5. Watch it with one watcher, `gh pr checks <number> --watch`, in the background, and end the turn
    to wait only if the watcher's exit wakes the session. Decided by:
@@ -429,7 +432,7 @@ git rebase origin/main                               # rebase, never merge the t
 npm run gates                                        # gate again after the rebase
 git push -u origin agent/<name>                      # publish the agent branch once
 gh pr create --base main --head agent/<name> --title "<what changed> (<id>)" --body-file .scratch/<pr>.md   # open it, base typed
-PR=<number> node scripts/pr-review.mjs mark          # set the review status pending
+env PR=<number> node scripts/pr-review.mjs mark      # set the review status pending
 gh pr checks <number> --watch                        # one watcher, in the background
 gh pr view <number> --comments                       # read the reviewer's verdict comment
 bd close <id> --reason-file .scratch/<reason>.md     # close, naming the pull request
