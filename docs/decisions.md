@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-22 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21 and D-22 added 2026-10-01).**
+**Status: every decision from D-01 to D-23 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-22` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-23` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -78,6 +78,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-20** | A local code graph is built with graphify on each person's machine, never committed, and queried through its MCP server | `scripts/code-graph.mjs` as `npm run code-graph` and `code-graph:mcp`, held by `code-graph:selftest` at pre-push and in CI; `graphify-out/` in `.gitignore`; the `code-graph` skill; the worktree briefing's carve-out, consolidated first; the `graphify*` keys and two budgets in `tools/policy.json`; D-19's amendment |
 | **D-21** | `open-pr` reviews each branch before its push, in an agent's own context, and the reviewer's brief carries the facts its job can compute | `.claude/skills/open-pr/SKILL.md` § 5 and the `branch-reviewer` agent; `brief --local` and the brief's three facts in `scripts/pr-review.mjs`, held by `pr-review:selftest`; `.claude/agents/pr-reviewer.md` § What you are given; the three prompts' budgets in `tools/policy.json` |
 | **D-22** | The tracker's git integration runs from the job file, and the install clears what lefthook left in .git/hooks | The tracker's five jobs in `git-hooks.yml`; `.devcontainer/entrypoint.sh` without `bd hooks install`; the install's cleanup and the runner's warnings in `scripts/git-hooks.mjs`, held by `hooks:selftest`; D-19's amendment |
+| **D-23** | An in-session guard refuses graphify's update, watch, hook install and claude install, from any checkout | `scripts/hooks/guard-git.mjs`, held by `worktree:selftest`; the guard's rows in `.claude/README.md`, `scripts/hooks/README.md` and `README.md`, and the code graph's row in `README.md` § The guardrails; D-20's amendment |
 
 ## Risks
 
@@ -1038,6 +1039,8 @@ Where it loses:
 - 937 words in the worktree briefing and 283 in the skill: `node scripts/check-prompts.mjs --counts`.
 - 31 checks in `code-graph:selftest`, and 11.98-12.06 s with 29 of them: `/usr/bin/time -p node --run code-graph:selftest`, the job's comment in `lefthook.yml` naming the host.
 
+> **Amended 2026-10-01 by D-23.** Item 2 and the loss "Only the script and the skill refuse graphify's eroding commands" no longer hold for a session's command line: `scripts/hooks/guard-git.mjs` refuses `graphify update`, `watch`, `hook install` and `claude install` in every session, from any checkout. A person's own terminal, graphify behind a launcher, and graphify's library called through `python -c`, as a user-level graphify skill runs its `--update`, still pass it.
+
 ### D-21 · `open-pr` reviews each branch before its push, in an agent's own context, and the reviewer's brief carries the facts its job can compute
 
 **Recorded 2026-10-01**, carried by `asdlc-openspec-ivn` and `asdlc-openspec-744`. On 2026-10-01 the maintainer adopted both from a meta-analysis of the pull-request reviewer's verdicts: the local review mandated by `open-pr` itself, done by a custom agent for its context, and the facts put in the brief or the prompt gate tightened. The session chose the brief, for the reasons below.
@@ -1108,6 +1111,43 @@ Where it loses:
 
 - Five lefthook shims, five `.backup` copies and no `BEGIN BEADS INTEGRATION` section in the primary checkout's `.git/hooks` on 2026-10-01: `ls -la` and `grep -c "BEGIN BEADS"` there, read-only, outside this repository (`asdlc-openspec-uc1`'s notes, step 0a). Not re-derived here.
 - A foreign hook ending in `false` exiting 0 under bd 1.3.0's appended section: a scratch repository with its own `bd init --sandbox` project, outside this repository (the same notes, step 0b). Not re-derived here.
+
+### D-23 · An in-session guard refuses graphify's update, watch, hook install and claude install, from any checkout
+
+**Recorded 2026-10-01**, carried by `asdlc-openspec-bmw`. That issue was filed the same day from `asdlc-openspec-rsc`, which recorded D-20, with this guard as its acceptance criteria, and the maintainer asked a session to work it. This entry records what those criteria decided, because the guard makes a line of D-20 untrue.
+
+**Builds on / amends:** amends D-20, whose item 2 and whose loss "Only the script and the skill refuse graphify's eroding commands" say nothing in a session refuses them. Builds on D-09, whose guard this extends, from any checkout as its label rule is, and on D-07, which leaves a pull request that changes this register to a person.
+
+**Decision.** `scripts/hooks/guard-git.mjs` refuses, in every session and from any checkout, the primary one included, a Bash command that runs graphify's `update`, `watch`, `hook install` or `claude install`.
+
+1. **What it refuses:** graphify run by name from any path, or as `python -m graphify`, whose first argument is `update` or `watch` or whose first two are `hook install` or `claude install`, in any statement of the command, inside `bash -c` too. graphify reads its command from those positions only.
+2. **What it leaves alone:** every other graphify command. `query`, `path` and `explain` read the graph, `extract` builds it as `npm run code-graph` does, and `hook status` and `claude uninstall` share only a first word with a refused command.
+3. **The refusal names the command, what it does, `npm run code-graph` and D-20.** It tells the session not to run `npm run code-graph` itself, which spends the person's own plan, as the `code-graph` skill's step 2 does.
+4. **The list lives in the guard**, as `GRAPHIFY_ERODING`, not in `tools/policy.json`: only the guard reads it, and that file holds the constants that belong to no one tool.
+
+**Why.** D-20 left the four commands to the `code-graph` skill's instruction, and graphify's git hooks to `scripts/code-graph.mjs`, and listed that among its losses. graphify's user-level skill and the block `claude install` writes both advise `update`, so a session that reads either is told the opposite of the skill. Two alternatives lost:
+
+- **A sibling hook of its own**, keeping `guard-git.mjs` to git and `gh`. It would start one more process on every Bash call and add a registration to `.claude/settings.json`, which `CNT-HOOKS` counts, for a rule that needs the same parser.
+- **Refusing a plain `graphify install` too**, which the `code-graph` skill also forbids, since it writes graphify's skill and a registration into `~/.claude/CLAUDE.md`. The issue's criteria hold the guard to D-20's four, so a person decides it in `asdlc-openspec-c8ib`.
+
+Where it loses:
+
+- **It refuses a command aimed at another project's graph.** A session started here that is asked to run `graphify update ~/other-project` is refused, though that graph is not this repository's; without the guard it would run.
+- **It reads only a session's command line.** graphify behind a launcher (`env`, `uvx`, `pipx run`), its library called through `python -c`, as graphify's own skill runs its `--update`, a person's own terminal, and a git hook installed before this entry all pass it.
+
+**What changed.**
+
+- **This register:** this entry. The status line, the blockquote's bound and the decisions table carry D-23, and D-20 carries an amendment.
+- **`scripts/hooks/guard-git.mjs`:** the graphify rule, `GRAPHIFY_ERODING` and its header paragraph.
+- **`scripts/hooks/worktree-hooks.selftest.mjs`:** a section asserting each refusal by its reason, from the primary checkout and a worktree, beside graphify's reading commands and the near misses as controls.
+- **`git-hooks.yml`:** the `worktree-hooks` job's comment, with what the new cases cost.
+- **`.claude/README.md`, `scripts/hooks/README.md` and `README.md`:** the guard's rows, and the code graph's row in `README.md` § The guardrails, which said no gate refused one.
+
+**Figures.**
+
+- 157 to 22 concept nodes and 898 to 156 links, in the guard's header: D-20's Figures, quoted, not re-derived here.
+- 8 refusals and 8 controls in the selftest's section `guard-git: graphify's eroding commands, from any checkout`: `node scripts/hooks/worktree-hooks.selftest.mjs`.
+- graphify reading its command from its first argument and a second word from its second, and `install` writing into `~/.claude/CLAUDE.md`: graphify 0.9.73's `cli.py` and `install.py`, read on 2026-10-01, outside this repository. Not re-derived here.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
