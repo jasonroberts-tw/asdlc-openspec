@@ -60,6 +60,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpath
 import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { gitEnv } from '../tools/lib/git-env.ts'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ROOT = process.env.COUNT_INDEX_ROOT ?? REPO_ROOT
@@ -78,10 +79,15 @@ const DERIVERS = {}
 
 const WALK_SKIP = new Set(['.git', 'node_modules'])
 
-/** Every file under `root`, repository-relative with `/`: the tracked list, or a walk outside git. */
+/**
+ * Every file under `root`, repository-relative with `/`: the tracked list, or a walk outside git.
+ * Git runs with no `GIT_*` key: inside a hook in a linked worktree `GIT_DIR` is set, and it outranks
+ * `cwd`, so a fixture under the temporary directory was read as the top of this repository and
+ * counted its index (asdlc-openspec-uc1, 2026-10-01, the first `npm run gates` through Git).
+ */
 function listFiles(root) {
   try {
-    const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+    const git = (...args) => execFileSync('git', args, { cwd: root, env: gitEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
     if (realpathSync(git('rev-parse', '--show-toplevel').trim()) === realpathSync(root)) return git('ls-files', '-z').split('\0').filter(Boolean).sort()
   } catch {
     // not the top of a git checkout (a selftest fixture, an export): walk it
@@ -254,6 +260,13 @@ export function check(root, derivers) {
 
 // ---- selftest --------------------------------------------------------------------------------------
 
+/** An empty repository beside the fixtures, made with no `GIT_*` key so it is never this one. */
+function otherRepo(dir) {
+  const repo = join(dir, 'other-repository')
+  execFileSync('git', ['init', '-q', repo], { env: gitEnv(), stdio: 'ignore' })
+  return repo
+}
+
 function selftest() {
   const dir = mkdtempSync(join(tmpdir(), 'count-index-selftest-'))
   const F = `${PREFIX}FIXTURE-FILES`
@@ -317,10 +330,25 @@ function selftest() {
     ['a json source whose file is missing', lay('no-data', { withData: false }), derivers, new RegExp(`${J}: its source could not be read \\(data\\.json is missing\\)`)],
     ['a json pointer that reaches nothing', lay('no-node', { s: { [J]: `| \`${J}\` | \`json: data.json /events/*/*/hook\` |` } }), derivers, new RegExp(`${J}: its source could not be read \\(data\\.json has nothing at /events/\\*/\\*/hook\\)`)],
     ['the index is missing', lay('no-index', { withIndex: false }), derivers, /is missing: there is no index to check/],
+    // A hook in a linked worktree exports GIT_DIR, which `npm run gates` runs under since it goes
+    // through `git hook run`; Git then takes the current directory, the fixture, as the work tree's
+    // top and lists that repository's index (asdlc-openspec-uc1, 2026-10-01).
+    ['a files source is counted from the fixture while GIT_DIR names another repository', lay('git-dir'), derivers, null, { GIT_DIR: join(otherRepo(dir), '.git') }],
   ]
   let failed = 0
-  for (const [name, root, d, reason] of cases) {
-    const { problems, byHand } = check(root, d)
+  for (const [name, root, d, reason, env = {}] of cases) {
+    const saved = Object.fromEntries(Object.keys(env).map((key) => [key, process.env[key]]))
+    Object.assign(process.env, env)
+    let result
+    try {
+      result = check(root, d)
+    } finally {
+      for (const [key, value] of Object.entries(saved)) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
+      }
+    }
+    const { problems, byHand } = result
     const ok = reason === null ? problems.length === 0 && byHand === 1 : problems.length === 1 && reason.test(problems[0])
     console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${name} -- ${reason === null ? 'passes' : 'fails for that reason, and for no other'}${ok ? '' : `\n       got: ${JSON.stringify(problems)}`}`)
     if (!ok) failed++
