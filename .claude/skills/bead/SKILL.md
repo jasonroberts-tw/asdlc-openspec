@@ -103,7 +103,7 @@ the citations and count-index gates unread. Run `npm run gates`, the build check
 list. A red gate is fixed or reported, never bypassed.
 
 A defect found on the way is fixed in this branch only when it sits in a file the issue already
-changes. Anything else is filed as its own issue, never folded in, and before the pull request
+changes. One left unfixed is filed as its own issue, never folded in, and before the pull request
 opens, so the pull request's body names the new id. File it with the command
 `.claude/skills/change-build/SKILL.md` § 5. What the build turns up gives:
 `bd create "<title>" -l <the repo: label>,<its found-at label>,<its asset: labels> --deps discovered-from:<id> --body-file <file> --silent`,
