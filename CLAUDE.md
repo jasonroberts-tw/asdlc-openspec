@@ -62,8 +62,8 @@ option agrees, answers the question for them.
 ## Bash command style
 
 Run each gate, test, or git command as a SEPARATE Bash call. Do not chain with `&&`, `;`, or `|`:
-a chain's failure does not say which step failed. Do not use heredocs to write files;
-use the Edit/Write tools for file content instead of `cat <<EOF`. Never `cd`, and never name a directory:
+a chain's failure does not say which step failed. Do not use heredocs to write files.
+Never `cd`, and never name a directory:
 every call starts at the checkout root, so name the file as an explicit repository-relative
 argument. Keep long prose out of the command line and pass it from a file under `.scratch/`, or,
 in a session with no worktree, in a directory `mktemp -d` makes, with `-F`, `--body-file` or the
