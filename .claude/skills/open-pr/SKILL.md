@@ -99,9 +99,10 @@ descriptions below are the ones `scripts/pr-review.mjs` sets (`statusFor`, `choo
 | `pr-review` passes: "A person decides: …" | It waits for a person, for the reason given; say so, and why. Never apply the approval label yourself (`CLAUDE.md` § Git workflow). |
 | `pr-review` errors: "The review did not complete: …" | Read the review job's log first: `gh run list --workflow pr-review.yml`, then `gh run view <run> --log-failed`. A cause in the reviewer's own workflow is not this branch's to fix: the caller files it as a defect found on the way, and the pull request waits on that issue. A cause that does not repeat, such as a network error, is run again once with the command the comment gives, `gh workflow run pr-review.yml -f pr=<number>`. |
 
-A push makes a new head with no status: mark it (step 5) and watch it again (step 6).
+A push makes a new head with no status: review it first unless the push only rebased, mark it
+(step 5), and watch it again (step 6).
 
-**A minor finding is neither fixed nor filed**, whatever the outcome: a push for one sends a new
+**A minor finding the reviewer names is neither fixed nor filed**, whatever the outcome: a push for one sends a new
 head back to review over what `prReviewBlockingSeverities` in `tools/policy.json` says blocks
 nothing. A person decides what becomes of it.
 

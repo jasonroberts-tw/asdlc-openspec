@@ -1039,7 +1039,7 @@ Where it loses:
 
 **Recorded 2026-10-01**, carried by `asdlc-openspec-ivn` and `asdlc-openspec-744`. On 2026-10-01 the maintainer adopted both from a meta-analysis of the pull-request reviewer's verdicts: the local review mandated by `open-pr` itself, done by a custom agent for its context, and the facts put in the brief or the prompt gate tightened. The session chose the brief, for the reasons below.
 
-**Builds on / amends:** builds on D-07, whose brief this extends and whose agent's rubric the local review applies, and on D-12, under which `open-pr` and `pr-reviewer` were consolidated before their edits. It amends nothing.
+**Builds on / amends:** builds on D-07, whose brief this extends and whose agent's rubric the local review applies, and on D-12, under which `open-pr` and `pr-reviewer` were consolidated before their edits. Builds on D-16 without amending it: D-16's tiers bound a review workflow a session writes itself, and the local review is none, but a tracked agent `open-pr` runs. A branch with code or a gate still gets D-16 item 1's adversarial reviewer, which runs the code, as the local review, which runs nothing, cannot. It amends nothing.
 
 **Decision.**
 
@@ -1053,7 +1053,7 @@ Where it loses:
 - **A review in the authoring session's own context**: the session reads what it meant to write, not what it wrote.
 - **`check:prompts` refusing a budget above its count**: it settles only the first kind of fact, and sends every pull request that shrinks a prompt to a person, since each `promptWordBudget*` key is on `prReviewHighRiskJsonKeys`.
 
-Where it loses: every pull request pays one more review, at the reviewer's model and effort, before its push, a one-word fix's among them. And the local review samples the same model as the reviewer, so it does not find all that the reviewer will: in 7 pull requests of that week the reviewer named minor findings on a later head that the earlier head already carried.
+Where it loses: every pull request pays one more review, at the reviewer's model and effort, before each push, a one-word fix's among them; the first, of this entry's own branch, took 267,564 tokens and 522 seconds. And the local review samples the same model as the reviewer, so it does not find all that the reviewer will: in 7 pull requests of that week the reviewer named minor findings on a later head that the earlier head already carried.
 
 **What changed.**
 
@@ -1065,6 +1065,8 @@ Where it loses: every pull request pays one more review, at the reviewer's model
 **Figures.**
 
 - 79 verdict comments on 46 pull requests, 2026-09-25 to 2026-10-01: `gh api "repos/{owner}/{repo}/issues/comments?per_page=100" --paginate`, kept where the author is `github-actions[bot]` and the body opens with `<!-- pr-review:verdict`, read on 2026-10-01. The 8 pull requests and 12 causes are those comments' `changes` verdicts, less #50's, whose cause was a planted commit (`5253f22`); the pull request that carries this entry lists each cause.
+- The 7 pull requests whose reviewer named, on a later head, a minor finding the earlier head already carried: #57, #58, #61, #62, #66, #70 and #75, from their verdict comments (`gh pr view <n> --comments`), read on 2026-10-01.
+- The first local review, of this entry's branch at `615b5bb`: 267,564 tokens, 22 tool calls and 522 seconds, as the session that ran it reported them on 2026-10-01. That is outside this repository, and not re-derived here.
 - The budgets: `node scripts/check-prompts.mjs --counts` at this entry's commit, each figure in its `Means` in `tools/policy.json`.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
