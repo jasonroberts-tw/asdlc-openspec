@@ -10,9 +10,9 @@
  * THE GIT RULES ARE A NO-OP IN THE PRIMARY CHECKOUT. CLAUDE.md § Git workflow forbids pushing to,
  * switching to or rewriting a protected branch from a worktree; the primary checkout is where a
  * person works, and what they commit or push there is theirs to decide. So the guard asks git
- * whether the command runs in a linked worktree and skips every git rule if not. The PR-base and
- * approval-label rules below are the exceptions and apply everywhere, because what they guard is not
- * worktree isolation. Where the command runs is the payload's `cwd`, never `CLAUDE_PROJECT_DIR`;
+ * whether the command runs in a linked worktree and skips every git rule if not. The PR-base,
+ * approval-label and graphify rules below are the exceptions and apply everywhere, because what they
+ * guard is not worktree isolation. Where the command runs is the payload's `cwd`, never `CLAUDE_PROJECT_DIR`;
  * `commandDir` below says what reading the variable cost.
  *
  * IT FAILS CLOSED, unlike the three advisory hooks beside it. A guard that allows the command when
@@ -59,16 +59,19 @@
  *   printf '%s' '{"tool_input":{"command":"gh pr edit 1 --add-label x"}}' | GUARD_GIT_ROOT=/tmp/copy node scripts/hooks/guard-git.mjs
  *
  * IT ALSO GUARDS THE LOCAL CODE GRAPH, EVERYWHERE. It refuses graphify's `update`, `watch`, `hook
- * install` and `claude install` (`GRAPHIFY_ERODING` below), run by name or as `python -m graphify`,
+ * install` and `claude install` (`GRAPHIFY_ERODING` below), run by name or as a Python module,
  * because the first three rebuild the graph through the path that erodes its document layer and the
- * last writes graphify's advice to run `update` into CLAUDE.md (docs/decisions.md § D-20). It holds
- * in the primary checkout too, because that is where `npm run code-graph` builds the graph. No
- * session has run one here yet. Were this rule wrong, a session following graphify's own advice, which
- * its user-level skill and the block `claude install` writes both give, would erode the graph: on
- * 2026-10-01, on a clone holding a copy of the first graph, two `graphify update` runs took its concept
- * nodes from 157 to 22 and its links between documents and code from 898 to 156 (D-20). It reads only
- * the command line, so graphify behind a launcher (`env`, `uvx`, `pipx run`), or its library called
- * through `python -c`, as graphify's own skill runs its `--update`, passes it.
+ * last writes graphify's advice to run `update` into CLAUDE.md (docs/decisions.md § D-20). It lets
+ * one through that asks for help, which graphify answers with a line of help alone. It holds in the
+ * primary checkout too, because that is where `npm run code-graph` builds the graph. No session has
+ * run one here yet. Were this rule wrong, a session following graphify's own advice, which its
+ * user-level skill and the block `claude install` writes both give, would erode the graph: on
+ * 2026-10-01, on a clone holding a copy of the first graph, two `graphify update` runs took its
+ * concept nodes from 157 to 22 and its links between documents and code from 898 to 156 (D-20). It
+ * reads a statement that opens with graphify, after any environment assignments, so graphify behind
+ * a launcher (`env`, `uvx`, `pipx run`) or a shell word (`nohup`, `time`, `then`), in `bash -lc` or
+ * `eval`, or its library called through `python -c`, as graphify's own skill runs its `--update`,
+ * passes it; the git rules above miss the same shell forms.
  *
  * Exit 2 is the documented way for a PreToolUse hook to block, and stderr becomes the reason shown
  * to the agent -- which is what turns a blocked attempt into a course correction rather than a
@@ -752,40 +755,76 @@ function denialForGh(call, linked) {
 
 /**
  * graphify's commands that erode the local code graph, each spelled as the words graphify reads it
- * by, with what it does. graphify 0.9.73 takes its command from its first argument and a second word
- * from its second, with no option before them (its `cli.py`), so a command matches by position and
- * nowhere else. Every other command still runs: `query`, `path` and `explain` read the graph, and
- * `extract` builds it as `npm run code-graph` does.
+ * by, with what it does; each says it without naming another graphify command, so a refusal names
+ * its own alone. graphify 0.9.73 takes its command from its first argument and a second word from its
+ * second, with no option before them (its `__main__.py` and `cli.py`), so a command matches by
+ * position and nowhere else; re-read both when `graphifyVersion` in tools/policy.json moves. Every
+ * other command still runs: `query`, `path` and `explain` read the graph, and `extract` builds it as
+ * `npm run code-graph` does.
  */
+const ERODES = 'the local code graph through the path that erodes its document layer'
 const GRAPHIFY_ERODING = new Map([
-  ['update', 'rebuilds the local code graph through the path that erodes its document layer'],
-  ['watch', 'rebuilds the local code graph through the path `update` takes, on every change it sees'],
-  ['hook install', 'installs git hooks that rebuild the local code graph with `update`'],
-  ['claude install', "writes graphify's advice to run `update` into CLAUDE.md"],
+  ['update', `rebuilds ${ERODES}`],
+  ['watch', `rebuilds, on every change it sees, ${ERODES}`],
+  ['hook install', `installs git hooks that rebuild ${ERODES}`],
+  ['claude install', `writes into CLAUDE.md graphify's advice to rebuild ${ERODES}`],
 ])
+
+/**
+ * The arguments that make graphify print a line of help and do nothing else, wherever they sit after
+ * its command: its `__main__.py`, the "universal help guard", which exempts none of the four above.
+ */
+const GRAPHIFY_HELP = new Set(['-h', '--help', '-?'])
 
 /** A Python interpreter, which runs graphify as a module: `python3 -m graphify update`. */
 const PYTHON = /^(?:python[0-9.]*|py)$/
-/** Python's own options that take a SEPARATE argument, skipped with it on the way to `-m`. */
-const PYTHON_OPTS_WITH_VALUE = new Set(['-W', '-X', '--check-hash-based-pycs'])
+/** The modules that run graphify's command line: the package, and its `__main__` by name. */
+const GRAPHIFY_MODULES = new Set(['graphify', 'graphify.__main__'])
+/** Python's short options that take a value, as the rest of their token or as the next one. */
+const PYTHON_SHORT_WITH_VALUE = new Set(['W', 'X'])
+/** Python's long options that take a SEPARATE value. */
+const PYTHON_LONG_WITH_VALUE = new Set(['--check-hash-based-pycs'])
+
+/**
+ * The arguments after the module a Python command line runs, read as Python reads its options, or
+ * `null` when it runs no module that is graphify's. Short options may group, `-um graphify`, and
+ * `-m`, `-W` and `-X` take the rest of their token as their value, `-mgraphify`, or else the next
+ * token. A `-c` ends the options with a script, which is not read; so does anything not an option.
+ */
+function pythonModuleArgs(tokens, start) {
+  for (let i = start; i < tokens.length; i++) {
+    const t = tokens[i]
+    if (!t.startsWith('-') || t === '-') return null
+    if (t.startsWith('--')) {
+      if (PYTHON_LONG_WITH_VALUE.has(t)) i++
+      continue
+    }
+    for (let j = 1; j < t.length; j++) {
+      const rest = t.slice(j + 1)
+      if (t[j] === 'c') return null
+      if (t[j] === 'm') {
+        const module = rest !== '' ? rest : tokens[i + 1]
+        return GRAPHIFY_MODULES.has(module) ? tokens.slice(rest !== '' ? i + 1 : i + 2) : null
+      }
+      if (PYTHON_SHORT_WITH_VALUE.has(t[j])) {
+        if (rest === '') i++
+        break
+      }
+    }
+  }
+  return null
+}
 
 /**
  * graphify's arguments, or `null` if the statement does not run graphify: `graphify update .` by any
- * path, or `python3 -m graphify update .`. A `-c` before any `-m` is a script, which is not read.
+ * path, or graphify run as a Python module (`pythonModuleArgs`).
  */
 function graphifyArgs(tokens) {
   const start = nameIndex(tokens)
   if (start === -1) return null
   const name = commandName(tokens[start]).replace(/\.exe$/, '')
   if (name === 'graphify') return tokens.slice(start + 1)
-  if (!PYTHON.test(name)) return null
-  for (let i = start + 1; i < tokens.length; i++) {
-    const t = tokens[i]
-    if (t === '-m') return tokens[i + 1] === 'graphify' ? tokens.slice(i + 2) : null
-    if (!t.startsWith('-') || t === '-c') return null
-    if (PYTHON_OPTS_WITH_VALUE.has(t)) i++
-  }
-  return null
+  return PYTHON.test(name) ? pythonModuleArgs(tokens, start + 1) : null
 }
 
 const GRAPHIFY = (words, does) =>
@@ -795,6 +834,7 @@ const GRAPHIFY = (words, does) =>
 
 /** The reason to deny a graphify call with these arguments, or `null` to allow it. */
 function graphifyDenial(args) {
+  if (args.slice(1).some((a) => GRAPHIFY_HELP.has(a))) return null
   const words = [args.slice(0, 2).join(' '), args[0]].find((w) => GRAPHIFY_ERODING.has(w))
   return words === undefined ? null : GRAPHIFY(words, GRAPHIFY_ERODING.get(words))
 }
