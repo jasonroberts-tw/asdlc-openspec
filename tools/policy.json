@@ -295,6 +295,9 @@
   "promptWordBudgetAgentAdversarialVerifier": 328,
   "promptWordBudgetAgentAdversarialVerifierMeans": "The most words `.claude/agents/adversarial-verifier.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
 
+  "promptWordBudgetAgentBranchReviewer": 356,
+  "promptWordBudgetAgentBranchReviewerMeans": "The most words `.claude/agents/branch-reviewer.md` may hold (`npm run check:prompts`). First set to its size at the commit that added it, 356; a raise edits this value and says why here. It points at `.claude/agents/pr-reviewer.md` for the rubric rather than restating it, so a raise that copies the rubric in is the one to refuse. Decided 2026-10-01 (asdlc-openspec-ivn).",
+
   "promptWordBudgetAgentContinuousPromptImprovement": 2161,
   "promptWordBudgetAgentContinuousPromptImprovementMeans": "The most words `.claude/agents/continuous-prompt-improvement.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on, 2,261; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv). Raised 2026-09-26 to 2,516 by D-12 (asdlc-openspec-aa0): its § How a prompt is consolidated, with § 5 and § 7's part in it, added 381 words, and consolidating the file first freed 126, so the raise is the other 255. Lowered 2026-09-29 from 2,516 to 2,161 by D-17 (asdlc-openspec-03c): consolidating it under D-12 freed 447 words (2,516 to 2,069), and the edits it made room for added 92, the launch name, the policy read in § 2, the notes from a temporary directory, the held line's spelling moved from `CLAUDE.md`, the asides in § 7 and the budget rule made explicit, less the restatements of `CLAUDE.md` a workflow agent loads anyway; that pull request lists every sentence and clause removed and where each one went. Kept at 2,161 by the prompt review of 2026-09-29 (review-prompts-20260929-2206): consolidating it under D-12 freed 26 words (2,161 to 2,135), § How a prompt is consolidated's sentence keeping each condition that limits a kept rule added 22, and § 2's clause saying later steps apply the printed keys, which a skeptic showed no other section states, was restored in 4 of its 9 words; that pull request lists each removal and where it went.",
 
@@ -304,8 +307,8 @@
   "promptWordBudgetAgentTestBuilder": 636,
   "promptWordBudgetAgentTestBuilderMeans": "The most words `.claude/agents/test-builder.md` may hold (`npm run check:prompts`): the test-builder's instructions, which `.claude/workflows/build-change-task.js` does not restate, since its prompt carries only the task and the inputs. First set to its size at the commit it landed on, 636; a raise edits this value and says why here. Decided 2026-09-29 (asdlc-openspec-j09.11).",
 
-  "promptWordBudgetAgentPrReviewer": 1789,
-  "promptWordBudgetAgentPrReviewerMeans": "The most words `.claude/agents/pr-reviewer.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+  "promptWordBudgetAgentPrReviewer": 1842,
+  "promptWordBudgetAgentPrReviewerMeans": "The most words `.claude/agents/pr-reviewer.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv). Raised 2026-10-01 from 1,789 to 1,842 by asdlc-openspec-744: consolidating it under D-12 freed 14 words (1,789 to 1,775), removing the clause that restated `CLAUDE.md` § The gate ladder, and § What you are given's bullet on the three facts the brief job computes, with § 1's narrowing of an unverifiable tracker write to one the brief does not show, added 67; that pull request lists the removal and where it is kept. A person merges this raise.",
 
   "promptWordBudgetSkillAddNpmScript": 1230,
   "promptWordBudgetSkillAddNpmScriptMeans": "The most words `.claude/skills/add-npm-script/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on, 1,270; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv). Lowered 2026-09-28 to 1,230 when D-15 (asdlc-openspec-hvm) removed its steps for the retired pipeline graph.",
@@ -345,8 +348,8 @@
   "promptWordBudgetSkillHumanPlan": 46,
   "promptWordBudgetSkillHumanPlanMeans": "The most words `.claude/skills/human-plan/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
 
-  "promptWordBudgetSkillOpenPr": 1023,
-  "promptWordBudgetSkillOpenPrMeans": "The most words `.claude/skills/open-pr/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",
+  "promptWordBudgetSkillOpenPr": 1105,
+  "promptWordBudgetSkillOpenPrMeans": "The most words `.claude/skills/open-pr/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv). Raised 2026-10-01 from 1,023 to 1,105 by asdlc-openspec-ivn: the count stood at 1,014; consolidating it under D-12 freed 32 words (1,014 to 982), removing § 3's example title and § 5's explanation of `mark`, and § 5's local review before each push added 123; that pull request lists each removal and where it went. A person merges this raise.",
 
   "promptWordBudgetSkillRetireAsset": 148,
   "promptWordBudgetSkillRetireAssetMeans": "The most words `.claude/skills/retire-asset/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv).",

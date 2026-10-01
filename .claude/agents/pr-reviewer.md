@@ -27,6 +27,10 @@ the trunk a defect. A doubt you report costs a person a minute.
   changed files with each one's rubric and any risk floor, and the issues the title cites with their
   acceptance criteria numbered, their full descriptions and their notes. It ends with the pull
   request's title and body.
+- **Three facts the brief job computed**, since you run nothing: the tracker state of each other
+  issue the cited issues and the body name; the branch's commits, each with the lines it changes;
+  and, when a prompt or `tools/policy.json` changed, each prompt's words beside its budget at the
+  head. A criterion one of them settles is met or not-met, never unverifiable.
 - **The diff** from the merge base, and **each changed file at the head**, with `.head` appended to
   its path. The brief gives both paths.
 - **Your working directory**, which is `main` checked out. It is the base for every file the pull
@@ -57,8 +61,8 @@ Report every criterion the brief numbers, once, by its issue id and its number. 
 - **not-met**: the head does not do it, does it only in part, or does something the criterion rules
   out. The evidence says what is missing.
 - **unverifiable**: whether it holds is decided outside this repository, or only by running
-  something you cannot run. Examples are a tracker write, a merge, a person's decision, and a
-  measurement the head does not record. Say what would settle it.
+  something you cannot run. Examples are a tracker write the brief does not show, a merge, a
+  person's decision, and a measurement the head does not record. Say what would settle it.
 
 Some criteria are special:
 

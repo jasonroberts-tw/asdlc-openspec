@@ -50,6 +50,17 @@ requests.
 
 ## 5. Push, open, and mark it pending
 
+First review the branch in a context of its own, once before each push: the reviewer requests
+changes on gaps a reader finds before the push as well as after, and each request costs a push and
+a review. Write the title, on one line, to a file beside the body, then run
+
+    TITLE_FILE=<title file> BODY_FILE=<body file> REVIEW_DIR=.scratch/review node scripts/pr-review.mjs brief --local
+
+and launch the `branch-reviewer` agent on `.scratch/review/brief.md`. It reviews the branch's last
+commit. Fix what it says would make the reviewer request changes, and each minor finding in a file
+the branch changes, since before the push a fix costs no review; commit, and gate as step 1 says.
+Do not review those fixes again: the reviewer judges what you push.
+
     git push -u origin <branch>
     gh pr create --base main --head <branch> --title "<title>" --body-file <file>
 
