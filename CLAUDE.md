@@ -263,7 +263,8 @@ The trunk is `main`. Agent work happens on `agent/<name>` branches cut from
 explicitly on every pull request, because a tool that infers one infers the default branch. The
 protected branches are main, release: never push to, switch to or rewrite one from a
 worktree. Rebase onto `origin/main` rather than merging the trunk into a branch, and use
-`--rebase` on every pull. Commit or push only when asked.
+`--rebase` on every pull. Commit or push only when asked; asking for work agreed in conversation
+asks for its pull request.
 
 A pull request reaches the trunk through the reviewer, `.github/workflows/pr-review.yml`, one at a
 time (`docs/decisions.md` § D-07). Its title ends with the ids of the issues it carries, in
