@@ -63,7 +63,7 @@ Then act on what it returns:
   `listeners.checked` is false, list the listeners on `127.0.0.1` yourself.
 - **`fixUnreviewed`:** read the last fix's diff before you commit.
 
-Then, whatever the workflow reported:
+Then, whatever the run returned:
 
 - Run the proof the task names yourself, and see it pass as measured.
 - Regenerate every derived artifact the change touches.
@@ -98,10 +98,9 @@ Run `bd close <id> --reason "<the subject of the commit that built it>"`. The su
   skips visibly where the environment is not the one it needs, and never passes on a weaker branch
   that asserts less.
 - **Out of scope**, such as a defect nearby or a gap somewhere else: file it with
-  `bd create "<title>" -l <the repo: label>,<its found-at label>,<its asset: labels> --deps discovered-from:<epic> --body-file <file> --silent`,
-  with the labels `CLAUDE.md` § The task store names; here the found-at label is build's.
-  Give it no `spec-change` label, so it joins the general queue, and carry on. Never fold it into
-  this change unannounced.
+  `foundIssueCommand` in `tools/policy.json`, discovered from the epic, with the labels `CLAUDE.md`
+  § The task store names; here the found-at label is build's. Give it no `spec-change` label, so
+  it joins the general queue, and carry on. Never fold it into this change unannounced.
 - **In scope but missing from the plan:** add it as a new child of the epic, once the user agrees,
   and label the epic for plan (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
 - **A spec that is wrong**, meaning a scenario or an NFR that cannot hold as written or a
