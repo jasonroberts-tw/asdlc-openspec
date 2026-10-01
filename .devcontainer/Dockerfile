@@ -11,10 +11,22 @@
 # Those live in entrypoint.sh, which this file copies in and wires to ENTRYPOINT -- so the setup is
 # still owned by the image, and devcontainer.json still has no lifecycle command in it.
 #
-# Versions are the ARGs below, and the comment above each one says where it is re-derived from.
-# Bump one here when its source moves.
+# Versions are the base tag and the ARGs below, and the comment above each one says where it is
+# re-derived from. Bump one here when its source moves.
 
-FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
+# The base image's major version, on its Ubuntu 24.04 codename tag. `3-noble` takes every 3.x
+# release devcontainers/images publishes and never crosses a major, as NODE_MAJOR does for Node.
+# The codename form is the tag that image's manifest builds (`${VERSION}-${VARIANT}`, in its
+# src/base-ubuntu/manifest.json). Until 2026-10-01 this line named `ubuntu-24.04`, a form upstream
+# renamed (devcontainers/images#1630), and that tag stayed on image 2.0.5 with Git 2.51.1, older than
+# the 2.54 that config-based hooks need (asdlc-openspec-tvy). A major tag stops moving the same way
+# when the next major ships, and nothing says so: `2-noble` has resolved to 2.1.8 since 3.0.0
+# shipped. So bump the major here by hand when a new one appears, after reading that release's
+# history file in devcontainers/images for what it changes. List the majors with
+# `curl -s https://mcr.microsoft.com/v2/devcontainers/base/tags/list | jq -r '.tags[]' | grep -E '^[0-9]+-noble$'`.
+# Chosen by the maintainer on 2026-10-01 over `noble`, which crosses majors unasked, and over a pinned
+# digest, which never moves until bumped. Read 3 there that day: image 3.0.8, Git 2.55.0.
+FROM mcr.microsoft.com/devcontainers/base:3-noble
 
 # 22, the major line of the floor package.json `engines` sets. README.md's setup step 1 restates
 # that floor and holds the command that re-derives it from package-lock.json. CI does not pin a
