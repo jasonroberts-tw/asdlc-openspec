@@ -38,6 +38,11 @@ lefthook-local.yml
 # directory, in a linked worktree.
 .scratch/
 
+# The local code graph `npm run code-graph` builds with graphify. Never committed: each person
+# builds their own, and part of it comes from a language model (docs/decisions.md § D-20).
+# Unanchored, so a stray build inside a worktree is ignored as well.
+graphify-out/
+
 # The starter kit's bootstrap state. Delete this entry with KIT-CHECKLIST.md once the checklist is
 # done.
 .kit/

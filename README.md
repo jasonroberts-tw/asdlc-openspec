@@ -108,6 +108,8 @@ Some paths appear only on a working machine and are gitignored, each with its re
 - `.claude/settings.local.json`: machine-specific permissions.
 - `lefthook-local.yml`: the hook runner's per-machine override.
 - `.vale-styles/`, all but `Layout/`: the styles `vale sync` downloads.
+- `graphify-out/`: the local code graph `npm run code-graph` builds, never committed
+  (`docs/decisions.md` § D-20).
 
 Every file is one of three kinds: hand-maintained source, a hand-authored decision record (JSON
 that emitters read and nothing writes) or generated output that nothing edits by hand
@@ -146,6 +148,7 @@ the rule. The third column wins over the first two.
 | A pull request merged without being held to the issue it carries, a high-risk one merged without a person, or two merged at once | `.github/workflows/pr-review.yml`, one run at a time, deciding through `scripts/pr-review.mjs`; `pr-review:check` and `pr-review:selftest` hold its wiring and its decisions | `CLAUDE.md` § Git workflow |
 | A program that rewrites its own instructions from what it observed | The prompt reviewer only opens a pull request, and a person decides whether it merges | `CLAUDE.md` § A program proposes; only a person promotes |
 | A chained shell command whose failing step cannot be told apart, or a workaround for a refused command | Convention, and a `RUN THESE YOURSELF` block at the end of the agent's report | `CLAUDE.md` § Bash command style |
+| A local code graph whose document layer is eroded, or a partial one reported as built | `scripts/code-graph.mjs` builds with `graphify extract`, never `update`, stamps what documents produced, and exits 1 on graphify's partial-extraction warning; the `code-graph` skill tells a session never to run graphify's eroding commands, and no gate refuses one | `docs/decisions.md` § D-20 |
 
 Every script opens with a header saying what it checks, **the failure it exists to prevent**, how
 to invoke it and what it needs, so read the header before weakening a gate that is in your way.
@@ -259,6 +262,7 @@ holds platform-native binaries. Use one clone per platform.
 | Get a pull request reviewed and merged | nothing: `.github/workflows/pr-review.yml` takes it once `verify` passes | It merges one whose title cites the issues it carries, satisfies them, and is not high risk. `gh workflow run pr-review.yml -f pr=<number>` reviews a head again. |
 | Approve a pull request the reviewer left to a person | apply the approval label, `prReviewLabels` in `tools/policy.json` | A person only, never an agent (`CLAUDE.md` § Git workflow). It approves the head the reviewer last judged, and a push needs it again. Merging by hand works too. |
 | Check a pull request, report or analysis before trusting it | the `adversarial-verifier` agent | Pass it the pull request number or file path. Every claim is re-derived from source; it reports a verdict table and changes nothing. |
+| Ask how parts of the repository connect | the `code-graph` skill, through the `graphify` MCP server | Each person builds the graph: install the graphify release `graphifyVersion` in `tools/policy.json` pins, with its MCP extra, then run `npm run code-graph` from any checkout. It builds into the primary checkout and registers the server for it and its worktrees. A first build sends every document to the model `graphifyClaudeCliModel` names, on your own Claude plan; later builds send only what changed (`docs/decisions.md` § D-20). |
 
 ## The npm scripts
 
@@ -307,6 +311,13 @@ they win.
 | `citations:selftest` | The citations gate, negative-tested: its scanner held to fixtures, and the gate run end to end over a synthetic tree through `CITATIONS_ROOT`, with exact counts in the control and one break per doctored copy. Without it the gate can go quietly green over a repository it has stopped reading. | pre-push + CI |
 | `citations:support` | An advisory, never a gate: judges, with a TypeSafe Choice, whether the section a citation names says what the sentence citing it claims, and prints the citations that fall under the policy's threshold for a person to read. `-- --file <path>` limits it to one file, `-- --dry-run` counts without a call. It reads `TYPESAFE_API_KEY` and the network. When the key is not set it says so and falls back to an offline word-overlap check, weaker and printed as such, at `citationSupportOverlapMinShare` in `tools/policy.json`. Without it a pointer that resolves to prose that does not say what is claimed passes `citations:check` unread. | |
 | `citations:support:selftest` | The advisory, negative-tested over a fixture tree and a stubbed judge: each outcome, what is skipped and why, a missing key that falls back to word overlap and a failed call that fails and never falls back, the fallback's share and threshold, and once through the real SDK to a refused loopback connection. Needs no key. Without it the advisory can swallow a failed call and print a clean report over a run that judged nothing. | pre-push + CI |
+
+### code-graph
+
+| Script | What it does | Gate |
+|---|---|---|
+| `code-graph` | Builds the local code graph with graphify into the primary checkout's gitignored `graphify-out/` and registers graphify's MCP server for it at Claude Code's local scope, which that checkout's worktrees share. `-- --code-only` parses code alone and calls no model; `-- --force` re-sends every document; `-- --no-mcp` leaves Claude Code's configuration alone. It reads the network, a language model and your own Claude plan, so no job runs it. Without it a graph is refreshed with `graphify update`, which erodes its document layer (`docs/decisions.md` § D-20). | |
+| `code-graph:mcp` | Registers the MCP server alone, or leaves a matching registration as it is. | |
 
 ### counts
 

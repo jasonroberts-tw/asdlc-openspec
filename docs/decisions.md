@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-19 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19 added 2026-10-01). D-19's migration is still to land, under `asdlc-openspec-uc1`.**
+**Status: every decision from D-01 to D-20 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19 and D-20 added 2026-10-01). D-19's migration is still to land, under `asdlc-openspec-uc1`.**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-19` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-20` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -75,6 +75,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-17** | A run closes through the `close-prompt-run` skill, which names each prompt review for itself, and the reviewer reads its policy first and makes no worktree it does not need | `.claude/skills/close-prompt-run/SKILL.md`; `CLAUDE.md` § Prompt reviews and § Bash command style; the `continuous-prompt-improvement` agent, consolidated first; `bead` § 8; the three prompts' budgets and the skill's in `tools/policy.json` |
 | **D-18** | RTK is removed, with the ripgrep step it needed and the guard's reading of its prefix | `CLAUDE.md` without its block, and its budget in `tools/policy.json`; `README.md` § Setup and `.devcontainer/` without RTK or ripgrep; `scripts/hooks/guard-git.mjs`, which no longer reads through an `rtk` prefix, and `worktree:selftest` without its `rtk` cases; the guard's rows in `README.md`, `.claude/README.md` and `scripts/hooks/README.md` |
 | **D-19** | Git's config-based hooks replace lefthook, and dispatch to a runner of this repository's own | Not yet applied: this entry and D-01's amendment. The runner, the renamed job file, `npm run gates`, the install step and every file that names lefthook land with `asdlc-openspec-uc1` |
+| **D-20** | A local code graph is built with graphify on each person's machine, never committed, and queried through its MCP server | `scripts/code-graph.mjs` as `npm run code-graph` and `code-graph:mcp`; `graphify-out/` in `.gitignore`; the `code-graph` skill; the worktree briefing's carve-out, consolidated first; the `graphify*` keys and two budgets in `tools/policy.json`; D-19's amendment |
 
 ## Risks
 
@@ -973,6 +974,62 @@ Where it loses:
 - `lefthook.yml` held 37 run blocks at `d0f26e6`: `npm run check:jobs`. Of them, 32 are pre-push jobs and 2 are pre-commit jobs. Three of the pre-push jobs are the sequential group `calculator-suites`. Reading the file with js-yaml, as `scripts/check-jobs.mjs` does, gives the split.
 - On the maintainer's Mac on 2026-10-01, `/usr/bin/git` was 2.54.0 (Apple Git-157) and first on PATH, and Homebrew's Git was 2.55.0: `which -a git`, then `--version` on each.
 - The dev container's Git 2.51.1 comes from image 2.0.5's history in devcontainers/images, outside this repository, as `asdlc-openspec-tvy` records. It is not re-derived here.
+
+> **Amended 2026-10-01 by D-20.** graphify writes no git hooks here. D-20 refuses `graphify hook install`, whose hooks rebuild the graph with `graphify update` and erode its document layer, so item 2 and the Why no longer hold where they name graphify as a writer of `.git/hooks`. The tracker still writes there.
+
+### D-20 · A local code graph is built with graphify on each person's machine, never committed, and queried through its MCP server
+
+**Recorded 2026-10-01**, carried by `asdlc-openspec-rsc`. On 2026-10-01 the maintainer chose to keep the graph local, and asked for a checked-in script that builds it, its output folder gitignored, and query access through a skill and an MCP server the script registers. They chose local-scope registration, Opus for the documents and this entry from recommendations each put with the case where it loses, Opus over the recommendation of Sonnet.
+
+**Builds on / amends:** amends D-19, whose item 2 and Why name graphify among the tools that write `.git/hooks`. Builds on D-03, which puts the constants the script reads in `tools/policy.json`; on D-12, under which the worktree briefing was consolidated before its carve-out; on D-07, which leaves a pull request that changes this register or a word budget to a person; and on D-15 item 3: the script reads a language model, so no job or step runs it.
+
+**Decision.** A person who wants a knowledge graph of this repository builds one with graphify on their own machine. It is never committed.
+
+1. **`npm run code-graph` builds it** into the primary checkout's `graphify-out/`, from whichever checkout runs it (`scripts/code-graph.mjs`). It runs `graphify extract` with the `claude-cli` backend, which calls `claude -p` on the person's own plan with the model `graphifyClaudeCliModel` names, then `graphify cluster-only`. `-- --code-only` builds the code layer alone and calls no model.
+2. **Never `graphify update`, `watch`, `hook install` or `claude install`.** The first three rebuild through the path that erodes the document layer; the last writes graphify's advice to run `update` into `CLAUDE.md`. The script refuses graphify's git hooks, and the `code-graph` skill tells a session never to run any of the four. So graphify writes no `.git/hooks` here, as D-19's amendment records.
+3. **The script stamps every item a document produced `_origin: "semantic"`** as its last write, which keeps an `update` run by anyone from deleting it, and it exits 1 on a partial extraction, which graphify can write with exit 0.
+4. **`graphify-out/` is gitignored**, unanchored, so a stray build inside a worktree is ignored too.
+5. **The script registers graphify's MCP server at Claude Code's local scope** for the primary checkout's path. Claude Code reads that registration for the checkout's linked worktrees too. `npm run code-graph:mcp` registers it alone.
+6. **The `code-graph` skill** has a session query the graph through the server's tools only, read each answer as a lead to verify, and never build the graph itself. The worktree briefing lets a worktree read through those tools and nothing else outside it.
+7. **A person refreshes the graph by running the script again.** A trigger after a pull waits for D-19's runner (`asdlc-openspec-uc1`).
+
+**Why.** The first graph, built on 2026-09-30 by graphify's own agent skill, was judged worth having: its links between prompts, documents and scripts answered questions the code alone does not. It cost $10.40 for 57 documents. No near-term use justified committing it and keeping it in step with every change, so each person who wants it pays for their own. Committing lost on more than cost: the graph is no file of `CLAUDE.md` § Three kinds of file, and never a fourth, since half of it comes from a language model and no `:check` can re-derive it. Every change to code rewrites `graph.json`, so open pull requests conflict on it. graphify's union merge driver is local git config, which GitHub's server-side merge never runs. And `scripts/pr-review.mjs` merges a pull request without requiring its branch to be up to date with `main`, so `main`'s copy could go stale.
+
+graphify's own refresh is what this entry routes around. Its README, its hooks and its `CLAUDE.md` block all refresh with `graphify update`, which decides whether a node came from its parser or a language model by the shape of the node's `source_location`, then deletes the "parser" items of each file it re-parses. Two runs on a copy of the first graph took its concept nodes from 157 to 22 and its links between documents and code from 898 to 156. A copy stamped as item 3 says kept all 249 of its concept, rationale and paper nodes outside the files edited between the runs, and all 878 of its links of the kinds a language model makes, through two runs, where an unstamped control fell to 108 and 280.
+
+Four alternatives lost:
+
+- **Committing the graph.** Nobody would pay a first build after the first, but it fails the three-kinds rule and conflicts as above.
+- **A tracked `.mcp.json`.** It reaches every worktree with no registration step. But every session, and every headless `claude -p` run with the reviewer's among them, would start the server, failing with an approval prompt for whoever has no graphify.
+- **Registering at user scope.** It reaches every worktree with no question. But the server would load in every repository on the machine, answering about this one.
+- **Vendoring graphify's own skill.** It is 5,268 words, lacks the first line `check:prompts` requires, advises `graphify update`, and saves answers to steer later runs, which `CLAUDE.md` § A program proposes; only a person promotes rules out.
+
+Where it loses:
+
+- **Each person pays a first build.** It sends every document to Opus on their own plan. The script's path has not been measured; the agent skill's first build cost $10.40, and Sonnet, the recommendation, would cost less.
+- **The graph describes the primary checkout at its last build,** not an agent's branch, and goes stale until someone runs the script again.
+- **Two of graphify's gaps stay.** It does not normalise the ids a language model gives. And data JSON such as `tools/policy.json` gets no node, so links to it are dropped.
+- **Only the script and the skill refuse graphify's eroding commands.** A person, or a user-level graphify skill, can still run `graphify update` on the graph.
+- **The script relies on graphify 0.9.73's internals:** the `_origin` field, the text of its warnings and its file types. A new release is checked against the script's header before `graphifyVersion` moves.
+- **Claude Code's documentation does not say that local scope reaches a linked worktree.** It was observed: a local-scope server registered for the primary checkout was listed as connected by `claude mcp list` run in a worktree on 2026-10-01, and no key for the worktree appeared in `~/.claude.json`.
+
+**What changed.**
+
+- **This register:** this entry. The status line, the blockquote's bound and the decisions table carry D-20, and D-19 carries an amendment.
+- **`scripts/code-graph.mjs`:** new, with its row in `scripts/README.md`.
+- **`package.json`:** `code-graph` and `code-graph:mcp`, which `scripts/check-jobs.mjs` declares as operator commands.
+- **`tools/policy.json`:** `graphifyVersion`, `graphifyClaudeCliModel`, `graphifySemanticExtensions` and `promptWordBudgetSkillCodeGraph`, each with its `Means`. `promptWordBudgetWorktreeContext` falls from 940 to 937, and `describes`, `gatedBy` and `provenance` name the new keys.
+- **`.claude/skills/code-graph/SKILL.md`:** new.
+- **`.claude/worktree-CONTEXT.md.tmpl`:** consolidated first, freeing 10 words, then given the carve-out for the server's tools, 7 words.
+- **`.gitignore`:** `graphify-out/`.
+- **`README.md`:** the gitignored path, a row in § Working here, the `### code-graph` sub-section of § The npm scripts, and a row in § The guardrails.
+
+**Figures.**
+
+- 3,649,692 tokens and $10.40: the four extraction agents' 27 calls in Langfuse, session 56c6cce4, 2026-09-30 23:26:34-23:35:31 UTC, at Langfuse's managed prices for `claude-opus-5-5`. Outside this repository; not re-derived here.
+- 157 to 22 concept nodes and 898 to 156 links: two `graphify update` runs on a clone holding a copy of that graph, on 2026-10-01. 249 and 878 kept against 108 and 280: a stamped copy and its control, the same day, on clones at `7669dad`. Neither run is in this repository, and neither is re-derived here.
+- 5,268 words: `wc -w` on graphify 0.9.73's own `SKILL.md`, outside this repository.
+- 937 words in the worktree briefing and 272 in the skill: `node scripts/check-prompts.mjs --counts`.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
