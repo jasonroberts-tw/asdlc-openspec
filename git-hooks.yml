@@ -593,10 +593,13 @@ pre-push:
     - name: count-index
       run: node --run counts:check
     # The gate's refusals, each exercised on a doctored fixture it builds under the temporary
-    # directory, with one undoctored control. Reads nothing but the gate itself.
+    # directory, with one undoctored control, and the fixture's files counted while `GIT_DIR` names
+    # another repository, as it does in a hook in a linked worktree. Reads the gate and the helper
+    # that strips a hook's GIT_* keys, which the gate imports.
     - name: count-index-selftest
       glob:
         - 'scripts/check-count-index.mjs'
+        - 'tools/lib/git-env.ts'
       run: node --run counts:selftest
     # The tracker's own pre-push hook, and the label and foreign-id rules over its open
     # issues: a `repo:` label on every one, and a label `assetLabels` in `tools/policy.json` lists on
