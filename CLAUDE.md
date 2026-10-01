@@ -25,9 +25,10 @@ anything inside.
 
 ## Verification before claiming
 
-Never state a count, a figure or a "resolved" status derived from titles, memory or inference. Re-derive
-every number in a document, an issue, a pull-request body or an analysis from the repository at the
-time of writing. Cite the source path inline. If you cannot verify a figure, say so. Do not estimate.
+Never state a count, a figure, a "resolved" status or a fact about the environment derived from
+titles, memory or inference. Re-derive every number in a document, an issue, a pull-request body or
+an analysis from the repository at the time of writing. Cite the source path inline. If you cannot
+verify a figure, say so. Do not estimate.
 
 The same holds for a fact a session hands a subagent. A premise in a brief, such as whether an API
 exists, the version that added it, or a value computed from the code, is verified first and given
