@@ -34,10 +34,9 @@ A shared file is not a conflict; a conflict this reports is. The body names each
 ## 3. The title
 
 A sentence saying what changed, ending with the id of each issue the branch carries, in
-parentheses and separated by commas: `worktree:selftest renders the briefing template it is globbed
-on (asdlc-openspec-pb2)`. The reviewer reads the issues from those parentheses and nowhere else,
-with `prReviewIssuePattern` in `tools/policy.json` (`CLAUDE.md` § Git workflow). An id in the
-title's middle or in the body is not carried.
+parentheses and separated by commas. The reviewer reads the issues from those parentheses and
+nowhere else, with `prReviewIssuePattern` in `tools/policy.json` (`CLAUDE.md` § Git workflow). An
+id in the title's middle or in the body is not carried.
 
 A pull request that carries no issue, such as a prompt review's, ends with no parentheses. The
 reviewer then leaves its merge to a person (`docs/decisions.md` § D-07). Never cite an issue the
@@ -62,9 +61,8 @@ Then, at once, set the reviewer's status pending on the new head:
 
     PR=<number> node scripts/pr-review.mjs mark
 
-No job does it for you, and until it is done a watcher has no check to wait on. The command marks
-only a head nobody has marked, and prints why when it does not. It sets no other state, and nothing
-else here sets `pr-review` by hand: every verdict is the reviewer's workflow's.
+No job does it for you, and until it is done a watcher has no check to wait on. Nothing else here
+sets `pr-review` by hand: every verdict is the reviewer's workflow's.
 
 ## 6. Watch it with one watcher
 
