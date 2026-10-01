@@ -23,7 +23,9 @@ watches the checks ends the turn to wait only if the watcher's exit wakes the se
 `.claude/skills/open-pr/SKILL.md` § 6 now says. Amended 2026-09-29 by `asdlc-openspec-03c`: the
 steps that write the run's analysis and launch a review, and the rows for a primary checkout and an
 analysis, name `.claude/skills/close-prompt-run/SKILL.md`, where `CLAUDE.md` § Prompt reviews held
-them.
+them. Amended 2026-10-01 by the prompt review `review-prompts-20261001-1331`: the step for a defect
+found on the way files one the branch leaves unfixed, in a file the issue changes or not, as
+`.claude/skills/bead/SKILL.md` § 4 now says.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -172,7 +174,7 @@ code back to its spec (`docs/decisions.md` § D-02, item 2).
    refuses an artifact left stale. Decided by: `.claude/skills/bead/SKILL.md` § 4. Implement,
    regenerate, gate, and `CLAUDE.md` § The script suffix contract.
 4. A defect found on the way is fixed here only when it sits in a file the issue already changes.
-   Anything else is searched for (`bd search`, then `bd list --all --desc-contains`, each with a
+   One left unfixed is searched for (`bd search`, then `bd list --all --desc-contains`, each with a
    second phrasing), and noted on a match or filed as a found issue before the pull request opens.
    Decided by: `.claude/skills/bead/SKILL.md` § 4. Implement, regenerate, gate, and `CLAUDE.md`
    § The task store for its labels.
