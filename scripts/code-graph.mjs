@@ -3,9 +3,9 @@
  * `graphify-out/`, and registers graphify's MCP server for that graph at Claude Code's local scope,
  * so a session anywhere in this repository, a linked worktree's included, can query it
  * (`docs/decisions.md` § D-20). The code layer comes from parsing source files, with no LLM; the
- * document layer comes from graphify's `claude-cli` backend, one `claude -p` call per chunk, billed to
- * the person's own Claude plan. It is an operator command, not an emitter or a gate: what it writes is
- * never committed, and no job runs it.
+ * document layer and the community names come from graphify's `claude-cli` backend, one `claude -p`
+ * call per chunk with the model `graphifyClaudeCliModel` names, on the person's own Claude plan. It is
+ * an operator command, not an emitter or a gate: what it writes is never committed, and no job runs it.
  *
  * THE FAILURES IT EXISTS TO PREVENT, each measured on 2026-10-01 against graphify 0.9.73
  * (asdlc-openspec-rsc).
@@ -17,23 +17,36 @@
  * refuse. `update` parses Markdown as code and decides whether a node came from the parser or an LLM
  * by the shape of its `source_location`, then deletes the "parser" items of each file it re-parses
  * (graphify's build.py lines 39-53, watch.py lines 1018-1063). So this script never runs `update`:
- * it builds with `extract`, which parses only code and re-sends only changed documents, and last of
- * all it stamps `_origin: "semantic"` on every item a document produced, which the tier test reads
- * first. A copy stamped that way kept all 249 of its LLM nodes and 878 of its LLM edges outside the
- * edited files through two updates, where the unstamped control fell to 108 and 280.
+ * it builds with `extract`, which parses only code and re-sends only changed documents, and whenever
+ * the graph changed it stamps `_origin: "semantic"` on every item a language model produced, which
+ * the tier test reads first. A copy stamped that way kept all 249 of its LLM nodes and 878 of its LLM
+ * edges outside the edited files through two updates, where the unstamped control fell to 108 and
+ * 280. The stamp is keyed on what made an item, not only on its file: the session's review found
+ * graphify fills an LLM edge's `source_file` from a code endpoint when the model left it out
+ * (graphify's build.py lines 1363-1371).
  *
  * Second, A PARTIAL GRAPH REPORTED AS SUCCESS. When every chunk fails, `extract` exits 1 and writes
- * nothing. When only some fail, it prints a warning and writes the graph it has unless that is
- * smaller than the one already there (graphify's cli.py lines 4113-4123 and 4566-4593), so its exit
- * code alone can read a partial graph as built. This script exits 1 on that warning as on any
- * non-zero exit (`CLAUDE.md` § The gate ladder: a tool found and then failing is a failure).
+ * nothing. When only some fail, or the semantic pass crashes after a chunk succeeded, it prints a
+ * warning and writes the graph it has unless that is smaller than the one already there (graphify's
+ * cli.py lines 4051-4057, 4113-4123 and 4566-4593), so its exit code alone can read a partial graph
+ * as built. This script exits 1 on each such warning as on any non-zero exit (`CLAUDE.md` § The gate
+ * ladder: a tool found and then failing is a failure), after stamping what graphify wrote.
  *
- * Third, CHUNK SESSIONS LOADING THIS REPOSITORY. Each `claude -p` call starts a Claude Code session in
- * graphify's working directory. From inside this repository each would load `CLAUDE.md`, the hooks,
- * the Stop hook's gates and the graphify MCP server itself. So graphify runs from an empty directory
- * outside any repository, with `CLAUDE_CODE_SAFE_MODE=1`, which turns off the person's own plugins,
- * hooks and MCP servers and keeps their plan's auth. The same one-file chunk took 37,111 input tokens
- * without safe mode and 16,885 with it.
+ * Third, CHUNK SESSIONS LOADING THIS REPOSITORY, OR BILLING SOMETHING ELSE. Each `claude -p` call
+ * starts a Claude Code session in graphify's working directory. From inside this repository each
+ * would load `CLAUDE.md`, the hooks, the Stop hook's gates and the graphify MCP server itself. So
+ * graphify runs from an empty directory outside any repository, with `CLAUDE_CODE_SAFE_MODE=1`,
+ * which turns off the person's own plugins, hooks and MCP servers and keeps their plan's auth. The
+ * same one-file chunk took 37,111 input tokens without safe mode and 16,885 with it. The session's
+ * review then found that every chunk inherited an exported `ANTHROPIC_API_KEY`, which `claude -p`
+ * always uses when present, so a first build would have been billed to that key at API rates. The
+ * script now withholds the variables `PLAN_OVERRIDES` lists. An `apiKeyHelper` or an `env` block in
+ * the person's own Claude Code settings can still choose a key, and the script cannot see that.
+ *
+ * graphify names the communities with the model only while no names are saved. Later builds keep the
+ * saved names and give a community that changed the name of its best-connected node, as they do
+ * when a naming call failed; `graphify label <checkout> --backend claude-cli --model <model>` names
+ * them all again, with the model.
  *
  *   node scripts/code-graph.mjs [--code-only] [--force] [--mcp-only] [--no-mcp]
  *   npm run code-graph               build, then register the MCP server
@@ -46,8 +59,9 @@
  *
  * `CODE_GRAPH_ROOT` names a checkout to build in place of the primary one, for a by-hand run against
  * a scratch clone. Exit status: 0 built (and registered); 1 a step failed; 2 a prerequisite is missing
- * or a flag is wrong. It has no `--selftest`: `CLAUDE.md` § Standing rules for prompts and gates asks
- * one of a gate, and this is an operator command whose every step is an external tool.
+ * or a flag is wrong. It has no `--selftest` yet: `CLAUDE.md` § Standing rules for prompts and gates
+ * asks one of a gate, and this is an operator command. A stubbed selftest of its own logic, the
+ * partial-extraction match and the stamp first, is asdlc-openspec-i3c.
  *
  * WHAT IT NEEDS. graphify with its MCP extra at the version `graphifyVersion` in `tools/policy.json`
  * pins (`uv tool install "graphifyy[mcp]==<version>"`); the `claude` CLI, logged in to a plan, unless
@@ -56,7 +70,9 @@
  * checkout's path, which Claude Code also reads for that repository's linked worktrees. Measured cost:
  * the first build by graphify's agent skill, 57 documents, made 3,649,692 tokens of calls, $10.40 at
  * Langfuse's prices for Opus (session 56c6cce4, 2026-09-30); a first build by this script is not yet
- * measured. A build with nothing changed sends nothing to the LLM, and `--code-only` took 2.24 s cold.
+ * measured (asdlc-openspec-3rx). A build with nothing changed sends nothing to the LLM, and
+ * `--code-only` took 2.24 s cold. Once a graph has a document layer, graphify keeps a dated backup
+ * folder under `graphify-out/` for each day it builds, and nothing here removes them.
  * Written for macOS and Linux; not run on Windows.
  */
 import { spawn, spawnSync } from 'node:child_process'
@@ -70,6 +86,7 @@ import {
   readdirSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -78,13 +95,23 @@ import { fileURLToPath } from 'node:url'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const POLICY_PATH = resolve(HERE, '..', 'tools', 'policy.json')
-const OUT = 'graphify-out'
-const SERVER = 'graphify'
+const POLICY_KEYS = ['graphifyVersion', 'graphifyClaudeCliModel', 'graphifySemanticExtensions', 'graphifyOutDir', 'graphifyMcpServerName']
+/** graphify's partial-extraction texts (its cli.py lines 4053, 4116-4123 and the chunk and coverage warnings of its llm.py). */
 const INCOMPLETE = [
   /semantic chunk\(s\) failed/,
   /semantic extraction is incomplete/,
+  /semantic extraction failed/,
   /produced no nodes and are absent from the graph/,
 ]
+/** Node types graphify's parser never makes: only a language model does. */
+const MODEL_ONLY_TYPES = new Set(['document', 'rationale', 'paper', 'image'])
+/**
+ * Variables that make `claude -p` bill something other than the person's plan. Claude Code's
+ * authentication docs rank each above subscription OAuth, and say of `ANTHROPIC_API_KEY`: "In
+ * non-interactive mode (`-p`), the key is always used when present." `CLAUDE_CODE_OAUTH_TOKEN`, the
+ * plan's own token, is kept.
+ */
+const PLAN_OVERRIDES = ['ANTHROPIC_API_KEY', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY']
 
 class Stop extends Error {
   constructor(code, message) {
@@ -109,7 +136,7 @@ function parseArgs(argv) {
 
 function readPolicy() {
   const policy = JSON.parse(readFileSync(POLICY_PATH, 'utf8'))
-  for (const key of ['graphifyVersion', 'graphifyClaudeCliModel', 'graphifySemanticExtensions']) {
+  for (const key of POLICY_KEYS) {
     if (policy[key] === undefined) throw new Stop(2, `tools/policy.json has no \`${key}\``)
   }
   return policy
@@ -234,22 +261,45 @@ function refuseMemory(outDir) {
   }
 }
 
+function alive(pid) {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Take the build lock atomically; take over one whose holder is gone; give it back on Ctrl-C as at the end. */
 function lock(outDir) {
   mkdirSync(outDir, { recursive: true })
   const path = join(outDir, '.code-graph.lock')
-  if (existsSync(path)) {
-    const pid = Number(readFileSync(path, 'utf8'))
-    let alive = false
+  for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      process.kill(pid, 0)
-      alive = true
-    } catch {
-      // a lock left by a run that died
+      writeFileSync(path, String(process.pid), { flag: 'wx' })
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error
+      const pid = Number(readFileSync(path, 'utf8').trim())
+      if (Number.isInteger(pid) && pid > 0 && alive(pid)) {
+        throw new Stop(1, `another build (pid ${pid}) holds ${path}; if none is running, delete it`)
+      }
+      rmSync(path, { force: true })
+      continue
     }
-    if (alive) throw new Stop(1, `another build (pid ${pid}) holds ${path}`)
+    const release = () => rmSync(path, { force: true })
+    const onSignal = (signal) => {
+      release()
+      process.exit(signal === 'SIGINT' ? 130 : 143)
+    }
+    process.once('SIGINT', onSignal)
+    process.once('SIGTERM', onSignal)
+    return () => {
+      process.off('SIGINT', onSignal)
+      process.off('SIGTERM', onSignal)
+      release()
+    }
   }
-  writeFileSync(path, String(process.pid))
-  return () => rmSync(path, { force: true })
+  throw new Stop(1, `could not take ${path}`)
 }
 
 /** Run a command with its output passed through, and return the text it printed. */
@@ -276,10 +326,13 @@ async function runGraphify(root, policy, flags, tools) {
     ...process.env,
     PYTHONHASHSEED: '0',
     GRAPHIFY_NO_AUTO_REFRESH: '1',
-    GRAPHIFY_OUT: OUT,
+    GRAPHIFY_OUT: policy.graphifyOutDir,
     GRAPHIFY_CLAUDE_CLI_MODEL: policy.graphifyClaudeCliModel,
     CLAUDE_CODE_SAFE_MODE: '1',
   }
+  const withheld = PLAN_OVERRIDES.filter((key) => env[key] !== undefined)
+  for (const key of withheld) delete env[key]
+  if (withheld.length > 0) console.log(`code-graph: not passing ${withheld.join(', ')} to claude -p, so the build runs on your Claude plan`)
   try {
     const extract = ['extract', root, '--backend', 'claude-cli']
     if (flags.codeOnly) extract.push('--code-only')
@@ -288,8 +341,8 @@ async function runGraphify(root, policy, flags, tools) {
     if (built.status !== 0) throw new Stop(1, `graphify extract exited ${built.status}`)
     const partial = INCOMPLETE.find((re) => re.test(built.text))
     if (partial) throw new Stop(1, `graphify extract built a partial graph (${partial.source}); re-run to retry the failed documents`)
-    const cluster = ['cluster-only', root, '--backend', 'claude-cli']
-    if (flags.codeOnly && !existsSync(join(root, OUT, '.graphify_labels.json'))) cluster.push('--no-label')
+    const cluster = ['cluster-only', root, '--backend', 'claude-cli', '--model', policy.graphifyClaudeCliModel]
+    if (flags.codeOnly && !existsSync(join(root, policy.graphifyOutDir, '.graphify_labels.json'))) cluster.push('--no-label')
     const clustered = await runShown(tools.graphify, cluster, { cwd, env })
     if (clustered.status !== 0) throw new Stop(1, `graphify cluster-only exited ${clustered.status}`)
   } finally {
@@ -297,13 +350,25 @@ async function runGraphify(root, policy, flags, tools) {
   }
 }
 
-/** Stamp every item a document produced as semantic, last, so `graphify update` would not delete it (the header). */
+/**
+ * Stamp every item a language model produced as semantic, so `graphify update` would not delete it
+ * (the header): a node from a document-type file or of a type the parser never makes, and an edge
+ * from a document-type file or touching such a node, whose `source_file` graphify may have filled in
+ * from a code endpoint.
+ */
 function stampOrigins(graphPath, policy) {
   const graph = JSON.parse(readFileSync(graphPath, 'utf8'))
   const semantic = new Set(policy.graphifySemanticExtensions)
+  const fromDocument = (item) => semantic.has(extname(String(item.source_file || '')).toLowerCase())
+  const modelNodes = new Set(graph.nodes.filter((n) => fromDocument(n) || MODEL_ONLY_TYPES.has(n.file_type)).map((n) => n.id))
+  const links = graph.links || graph.edges || []
+  const model = [
+    ...graph.nodes.filter((n) => modelNodes.has(n.id)),
+    ...links.filter((l) => fromDocument(l) || modelNodes.has(l.source) || modelNodes.has(l.target)),
+  ]
   let stamped = 0
-  for (const item of [...graph.nodes, ...(graph.links || graph.edges || [])]) {
-    if (semantic.has(extname(String(item.source_file || '')).toLowerCase()) && item._origin !== 'semantic') {
+  for (const item of model) {
+    if (item._origin !== 'semantic') {
       item._origin = 'semantic'
       stamped += 1
     }
@@ -316,20 +381,27 @@ function stampOrigins(graphPath, policy) {
   return stamped
 }
 
+/** The file's size and modification time, or null when it is absent: enough to tell that graphify rewrote it. */
+function fingerprint(path) {
+  if (!existsSync(path)) return null
+  const stat = statSync(path)
+  return `${stat.size}:${stat.mtimeMs}`
+}
+
 /** Register the server at local scope for `root`, or leave a matching registration alone. Never prints `claude mcp get`'s output, which can hold another server's credentials. */
-function registerMcp(root, tools, graphPath) {
+function registerMcp(root, tools, graphPath, server) {
   const run = (args) => spawnSync(tools.claude, ['mcp', ...args], { cwd: root, encoding: 'utf8' })
-  const current = run(['get', SERVER])
+  const current = run(['get', server])
   if (current.status === 0) {
     const text = current.stdout
     const local = /Scope:\s*Local/i.test(text)
     if (local && text.includes(tools.mcp) && text.includes(graphPath)) return 'already registered'
     if (local) {
-      const removed = run(['remove', SERVER, '-s', 'local'])
-      if (removed.status !== 0) throw new Stop(1, `claude mcp remove ${SERVER} -s local failed: ${removed.stderr.trim()}`)
+      const removed = run(['remove', server, '-s', 'local'])
+      if (removed.status !== 0) throw new Stop(1, `claude mcp remove ${server} -s local failed: ${removed.stderr.trim()}`)
     }
   }
-  const added = run(['add', '--scope', 'local', SERVER, '--', tools.mcp, graphPath])
+  const added = run(['add', '--scope', 'local', server, '--', tools.mcp, graphPath])
   if (added.status !== 0) throw new Stop(1, `claude mcp add failed: ${(added.stderr || added.stdout).trim()}`)
   return 'registered'
 }
@@ -348,23 +420,29 @@ async function main() {
   const flags = parseArgs(process.argv.slice(2))
   const policy = readPolicy()
   const root = resolveRoot()
-  const outDir = join(root, OUT)
+  const outDir = join(root, policy.graphifyOutDir)
   const graphPath = join(outDir, 'graph.json')
+  const server = policy.graphifyMcpServerName
   console.log(`code-graph: ${flags.mcpOnly ? 'registering' : 'building'} ${root} at ${git(root, ['rev-parse', '--short', 'HEAD'])}`)
   const tools = await preflight(policy, flags, graphPath)
   if (!flags.mcpOnly) {
     refuseGraphifyHooks(root)
     refuseMemory(outDir)
     const release = lock(outDir)
+    const before = fingerprint(graphPath)
     try {
       await runGraphify(root, policy, flags, tools)
-      const stamped = stampOrigins(graphPath, policy)
-      console.log(`code-graph: stamped ${stamped} item(s) from documents as semantic`)
     } finally {
+      // A partial build that graphify wrote is stamped before the script exits 1 over it, so an
+      // `update` before the next good build cannot delete what it does hold.
+      if (fingerprint(graphPath) !== before) {
+        const stamped = stampOrigins(graphPath, policy)
+        console.log(`code-graph: stamped ${stamped} item(s) a language model produced as semantic`)
+      }
       release()
     }
   }
-  if (!flags.noMcp) console.log(`code-graph: MCP server \`${SERVER}\` ${registerMcp(root, tools, graphPath)} for ${root}`)
+  if (!flags.noMcp) console.log(`code-graph: MCP server \`${server}\` ${registerMcp(root, tools, graphPath, server)} for ${root}`)
   console.log(`code-graph: ${summary(root, graphPath, policy)}`)
 }
 
