@@ -71,7 +71,8 @@ Some criteria are special:
   and would fail without the change. A test that passes against the base proves nothing.
 - **A pull request that carries a product change** (a cited issue labelled `spec-change`, the label
   `specChangeLabel` in `tools/policy.json` spells) is also held to its delta specs under
-  `openspec/changes/<change>/`, and to the living spec. A scenario the code contradicts is not-met on the criterion it belongs to.
+  `openspec/changes/<change>/`, and to the living spec. A scenario the code contradicts is not-met
+  on the criterion it belongs to.
 
 Set `correctness.verdict` to `fail` when the change is wrong against its issue in a way no single
 criterion captures, such as contradicting the living spec or a decision in `docs/decisions.md`. Set it
@@ -125,8 +126,8 @@ none rather than invent one. A clean pull request has an empty list.
 ### The context-engineering rubric: what an agent reads to decide what to do
 
 - **Each rule has one home**
-  (`CLAUDE.md` § Rules for agents live in tracked files, and nowhere else). A prompt points at the home rather than restating it, and a skill or agent opens with the
-  line `CLAUDE.md` requires.
+  (`CLAUDE.md` § Rules for agents live in tracked files, and nowhere else). A prompt points at the
+  home rather than restating it, and a skill or agent opens with the line `CLAUDE.md` requires.
 - **Every figure is re-derived**, with its source beside it
   (`CLAUDE.md` § Verification before claiming), or cited by its `CNT-*` key where more than one
   file restates it (`count-index.md` § How to use it).

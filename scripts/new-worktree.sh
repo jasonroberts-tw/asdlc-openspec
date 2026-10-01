@@ -3,7 +3,8 @@
 #
 # Creates one isolated worktree per agent task: a branch off origin/main, a checked pair of
 # ports, a rendered .worktree/CONTEXT.md briefing that the committed CLAUDE.md @-imports, and a copy
-# of the primary checkout's Vale styles, which git ignores (the block that copies them says why).
+# of each of the primary checkout's Vale styles the worktree lacks: the synced ones, which git
+# ignores (the block that copies them says why).
 #
 # There is no database, container stack or .env to provision -- this repository is a Node/TypeScript
 # toolchain whose one server is the calculator demo's, which a person starts by hand. An earlier
@@ -98,8 +99,14 @@ RENDER="$(node "$WORKTREE_PATH/scripts/render-worktree-context.mjs" \
 # dev container and the host see the checkout at different paths. The copy is the primary's styles
 # at the moment the worktree is cut; a later `vale sync` there reaches a worktree cut after it.
 # The path is read from the worktree's own `.vale.ini`, so it is stated once. An absolute or `..`
-# path is shared by every checkout already, and a path the base already carries is its own; both are
-# left alone. A failed copy warns and carries on: it costs the check, not the worktree.
+# path is shared by every checkout already, and is left alone.
+#
+# Each entry of the primary's StylesPath that the worktree lacks is copied, one by one, so a style the
+# base tracks there stays the base's and the synced ones still arrive. The copy once skipped the whole
+# directory whenever the worktree had it, and a tracked style, `Layout`, makes it always have it: the
+# worktree would get that one style and none of the synced ones `.vale.ini` names, and Vale would load
+# no config (asdlc-openspec-m7p). A failed copy warns and carries on: it costs the check, not the
+# worktree. Nothing copied is warned of too, since the tracked style alone is not a config Vale loads.
 STYLES=''
 if [ -f "$WORKTREE_PATH/.vale.ini" ]; then
   STYLES="$(sed -n '/^[[:space:]]*StylesPath[[:space:]]*=/{s/^[^=]*=[[:space:]]*//;s/[[:space:]]*$//;p;q;}' \
@@ -108,16 +115,23 @@ fi
 case "$STYLES" in
   '' | /* | ..* | */..*) ;;
   *)
-    if [ -e "$WORKTREE_PATH/$STYLES" ]; then
-      :
-    elif [ -d "$REPO_ROOT/$STYLES" ]; then
-      { mkdir -p "$(dirname "$WORKTREE_PATH/$STYLES")" &&
-        cp -R "$REPO_ROOT/$STYLES" "$WORKTREE_PATH/$STYLES"; } \
-        || echo "warning: could not copy $REPO_ROOT/$STYLES, so Vale checks no prose in this worktree" >&2
-    else
-      echo "warning: $REPO_ROOT/$STYLES is absent, so Vale checks no prose in this worktree and its" \
-        "hook answers every edit with E201; \`vale sync\`, in the primary checkout before the next" \
-        "worktree or here now, fetches the styles, and needs the network" >&2
+    COPIED=0
+    if [ -d "$REPO_ROOT/$STYLES" ] && mkdir -p "$WORKTREE_PATH/$STYLES"; then
+      for entry in "$REPO_ROOT/$STYLES"/* "$REPO_ROOT/$STYLES"/.[!.]*; do
+        if [ ! -e "$entry" ] || [ -e "$WORKTREE_PATH/$STYLES/$(basename "$entry")" ]; then
+          continue
+        fi
+        if cp -R "$entry" "$WORKTREE_PATH/$STYLES/"; then
+          COPIED=$((COPIED + 1))
+        else
+          echo "warning: could not copy $entry, so Vale may check no prose in this worktree" >&2
+        fi
+      done
+    fi
+    if [ "$COPIED" -eq 0 ]; then
+      echo "warning: $REPO_ROOT/$STYLES holds no synced styles, so Vale checks no prose in this" \
+        "worktree and its hook answers every edit with E201; \`vale sync\`, in the primary checkout" \
+        "before the next worktree or here now, fetches the styles, and needs the network" >&2
     fi
     ;;
 esac

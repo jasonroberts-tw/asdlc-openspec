@@ -1273,7 +1273,7 @@ check(
   JSON.stringify(syncedStatus),
 )
 
-const COPIES_STYLES = 'cp -R "$REPO_ROOT/$STYLES" "$WORKTREE_PATH/$STYLES"'
+const COPIES_STYLES = 'cp -R "$entry" "$WORKTREE_PATH/$STYLES/"'
 check(
   "negative: the doctoring reaches the script's copy of the styles",
   provisionSource.includes(COPIES_STYLES),
@@ -1286,6 +1286,75 @@ check(
   'doctored to skip the copy, it leaves the worktree without styles',
   noCopy.code === 0 && ruleIn(noCopy.path) === null,
   `code=${noCopy.code} rule=${JSON.stringify(ruleIn(noCopy.path))}`,
+)
+
+/*
+ * A style the base tracks under the StylesPath, as it tracks `Layout` (asdlc-openspec-m7p). The
+ * worktree then has the StylesPath from its own checkout, and the copy once skipped the StylesPath
+ * whole whenever the worktree had it, so the synced styles never arrived and Vale loaded no config.
+ * The checkout's own `.gitignore` decides what is tracked, so the case also holds that it tracks
+ * `Layout` and no synced style. The tracked style must stay the base's even where the primary's
+ * working copy of it differs. The negative doctors the per-entry test back to the StylesPath's, the
+ * old skip, which must leave the synced styles out.
+ */
+const TRACKED = join('Layout', 'Rule.yml')
+const TRACKED_TEXT = "extends: existence\nmessage: tracked\ntokens: ['tracked']\n"
+/** The tracked rule in `worktree`, or null when the worktree has none. */
+const trackedIn = (worktree) => {
+  const rule = join(worktree, stylesPath, TRACKED)
+  return existsSync(rule) ? readFileSync(rule, 'utf8') : null
+}
+mkdirSync(join(valePrimary, stylesPath, 'Layout'), { recursive: true })
+writeFileSync(join(valePrimary, stylesPath, TRACKED), TRACKED_TEXT)
+git(valePrimary, 'add', '.')
+const staged = git(valePrimary, 'diff', '--cached', '--name-only').trim()
+check(
+  "the checkout's .gitignore tracks a style named Layout under the StylesPath, and no synced one",
+  staged === `${stylesPath}/Layout/Rule.yml`,
+  JSON.stringify(staged),
+)
+git(valePrimary, ...AS, 'commit', '-qm', 'a checkout that tracks a style of its own')
+git(valePrimary, 'push', '-q', 'origin', 'main')
+writeFileSync(join(valePrimary, stylesPath, TRACKED), "the primary's working copy, never committed\n")
+
+const tracked = provision(valeScript, 'tracked', valePrimary)
+check(
+  'a checkout whose base tracks a style provisions a worktree',
+  tracked.code === 0,
+  `code=${tracked.code} ${JSON.stringify(tracked.stderr.slice(0, 300))}`,
+)
+check(
+  "the worktree holds the tracked style as the base has it, and the checkout's synced styles",
+  trackedIn(tracked.path) === TRACKED_TEXT && ruleIn(tracked.path) === RULE_TEXT,
+  `tracked=${JSON.stringify(trackedIn(tracked.path))} synced=${JSON.stringify(ruleIn(tracked.path))}`,
+)
+const trackedStatus = existsSync(tracked.path)
+  ? git(tracked.path, 'status', '--porcelain', '--untracked-files=all')
+  : '(no worktree)'
+check('and stays clean to git status', trackedStatus.trim() === '', JSON.stringify(trackedStatus))
+
+const SKIPS_EACH = '[ -e "$WORKTREE_PATH/$STYLES/$(basename "$entry")" ]'
+check(
+  "negative: the doctoring reaches the script's per-entry test",
+  provisionSource.includes(SKIPS_EACH),
+  `no ${SKIPS_EACH} in scripts/new-worktree.sh`,
+)
+const wholeScript = join(vale, 'new-worktree.whole.sh')
+writeFileSync(wholeScript, provisionSource.replace(SKIPS_EACH, '[ -e "$WORKTREE_PATH/$STYLES" ]'))
+const whole = provision(wholeScript, 'whole', valePrimary)
+check(
+  'doctored to skip the StylesPath whole when the worktree has it, it leaves the synced styles out',
+  whole.code === 0 && trackedIn(whole.path) === TRACKED_TEXT && ruleIn(whole.path) === null,
+  `code=${whole.code} tracked=${JSON.stringify(trackedIn(whole.path))} synced=${JSON.stringify(ruleIn(whole.path))}`,
+)
+
+rmSync(join(valePrimary, stylesPath, 'Probe'), { recursive: true, force: true })
+git(valePrimary, 'checkout', '--', stylesPath)
+const trackedOnly = provision(valeScript, 'tracked-only', valePrimary)
+check(
+  'a checkout whose only style is the tracked one provisions a worktree, and says Vale checks no prose',
+  trackedOnly.code === 0 && /Vale checks no prose/.test(trackedOnly.stderr) && trackedIn(trackedOnly.path) === TRACKED_TEXT,
+  `code=${trackedOnly.code} ${JSON.stringify(trackedOnly.stderr.slice(0, 400))}`,
 )
 
 rmSync(join(valePrimary, stylesPath), { recursive: true, force: true })

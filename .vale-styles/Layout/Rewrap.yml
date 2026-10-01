@@ -1,0 +1,100 @@
+# A line left more than one word past column 100 in a paragraph of more than one line: an edit that
+# added words and did not re-wrap. This tree wraps prose at 100 and lets one word hang past it, so a
+# line passes while removing its last word brings it back to 100; a backtick code span counts as
+# one word. A paragraph written as one line, as the register's later entries are, is never measured;
+# a line indented less than its list item's text starts a paragraph of its own, as Markdown reads it.
+# Front matter, fenced and indented code, tables and headings are skipped.
+#
+# The width is stated here and nowhere else: Vale reads only its own files. It is 100 because the
+# reviewer flagged lines of 121, 141 and 165 among neighbours of 95 to 101, and never one of the
+# many lines of 101 to 106 (asdlc-openspec-m7p). `npm run vale:selftest` holds each case above.
+extends: script
+message: "This line runs more than one word past column 100: re-wrap its paragraph."
+level: error
+scope: raw
+script: |
+  text := import("text")
+  width := 100
+  matches := []
+  lines := text.split(scope, "\n")
+  starts := []
+  offset := 0
+  for line in lines {
+    starts = append(starts, offset)
+    offset += len(line) + 1
+  }
+  fenceOf := func(line) {
+    t := text.trim_left(line, " \t")
+    for mark in ["`", "~"] {
+      if text.has_prefix(t, text.repeat(mark, 3)) {
+        n := 0
+        for n < len(t) && string(t[n]) == mark { n += 1 }
+        return text.repeat(mark, n)
+      }
+    }
+    return ""
+  }
+  tooWide := func(line) {
+    cs := text.split(line, "")
+    end := len(cs)
+    for end > 0 && (cs[end - 1] == " " || cs[end - 1] == "\t") { end -= 1 }
+    tick := false
+    word := false
+    last := -1
+    for k := 0; k < end; k++ {
+      c := cs[k]
+      if c == "`" { tick = !tick }
+      blank := c == " " || c == "\t"
+      if blank && word && !tick { last = k }
+      if !blank { word = true }
+    }
+    if last < 0 { return false }
+    p := last
+    for p > 0 && (cs[p - 1] == " " || cs[p - 1] == "\t") { p -= 1 }
+    return p > width
+  }
+  block := []
+  flush := func(block) {
+    found := []
+    if len(block) < 2 { return found }
+    for i in block {
+      if tooWide(lines[i]) { found = append(found, {begin: starts[i], end: starts[i] + len(lines[i])}) }
+    }
+    return found
+  }
+  front := len(lines) > 0 && lines[0] == "---"
+  fence := ""
+  item := -1
+  for i := 0; i < len(lines); i++ {
+    line := lines[i]
+    if front {
+      if i > 0 && line == "---" { front = false }
+      continue
+    }
+    mark := fenceOf(line)
+    if fence != "" {
+      if mark != "" && mark[0] == fence[0] && len(mark) >= len(fence) { fence = "" }
+      continue
+    }
+    if mark != "" {
+      for m in flush(block) { matches = append(matches, m) }
+      block = []
+      fence = mark
+      continue
+    }
+    boundary := text.trim_space(line) == "" || text.re_match(`^#{1,6}( |$)`, line) || text.re_match(`^\s*\|`, line)
+    if boundary || (len(block) == 0 && text.re_match(`^ {4,}\S`, line)) {
+      for m in flush(block) { matches = append(matches, m) }
+      block = []
+      continue
+    }
+    marker := text.re_find(`^\s*([-*+]|[0-9]+\.)\s+`, line)
+    indent := len(line) - len(text.trim_left(line, " \t"))
+    if marker != undefined || (item >= 0 && indent < item) {
+      for m in flush(block) { matches = append(matches, m) }
+      block = []
+    }
+    if len(block) == 0 { item = marker == undefined ? -1 : marker[0][0].end }
+    block = append(block, i)
+  }
+  for m in flush(block) { matches = append(matches, m) }

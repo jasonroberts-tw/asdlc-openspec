@@ -5,13 +5,13 @@ proves and carries its metadata in the convention whose one home is the header o
 `scripts/test-trace.mjs`.** A scenario's test is named for its scenario's ID and title, verbatim
 from the spec. A test in the last suite of `page.test.js`, `serve.test.js` and `server.test.js`,
 whose name says it is not a spec scenario, names the task it served and the app's Binding Surface,
-`apps/calculator/binding-surface.md`. Each file's `// trace-defaults:` line gives its tests' layer and level.
-`npm run calculator:test` runs every file here whose name ends in `.test.js`, with Node's own test
-runner and no framework, through `scripts/run-tests.mjs`; a file named otherwise is not run, and a
-file so named that declares no test, a test whose metadata the convention refuses, or a test that
-the reader and the runner do not both see fails the run. `npm run trace:check` holds each scenario
-to a happy-path and a negative test at the functional layer or above, and each hash a test carries
-to the current one; the gaps that predate it are listed in the ratchet baseline,
+`apps/calculator/binding-surface.md`. Each file's `// trace-defaults:` line gives its tests' layer
+and level. `npm run calculator:test` runs every file here whose name ends in `.test.js`, with Node's
+own test runner and no framework, through `scripts/run-tests.mjs`; a file named otherwise is not
+run, and a file so named that declares no test, a test whose metadata the convention refuses, or a
+test that the reader and the runner do not both see fails the run. `npm run trace:check` holds each
+scenario to a happy-path and a negative test at the functional layer or above, and each hash a test
+carries to the current one; the gaps that predate it are listed in the ratchet baseline,
 `artifacts/trace/baseline.json`, which may fall and never rise (the header of `tools/trace/trace.ts`).
 A test removed, skipped or left with fewer assertions on a branch needs an architect's decision
 recorded in a commit's trailer, which `npm run tests:inventory:check` holds; the header of

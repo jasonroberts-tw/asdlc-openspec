@@ -227,8 +227,8 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
    value the product computes or carries forward gets its representation, its precision and its
    rounding rule. A behaviour no scenario states goes into a delta spec, and a decision that binds
    the repository beyond the change is proposed to the user as a register entry, as
-   `docs/decisions.md` § D-04 was accepted during the calculator change's design stage. Decided by: `.claude/skills/change-design/SKILL.md` § 3.
-   Write it.
+   `docs/decisions.md` § D-04 was accepted during the calculator change's design stage. Decided by:
+   `.claude/skills/change-design/SKILL.md` § 3. Write it.
 3. Work out every scenario's expected value from the design, and put any that depends on an
    unmade choice to the user now. Decided by: `.claude/skills/change-design/SKILL.md` § 4. Settle
    each scenario's expected value.

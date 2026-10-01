@@ -45,6 +45,7 @@
     "trace:check": "node tools/trace/trace.ts --check",
     "trace:selftest": "node tools/trace/selftest.ts",
     "trace:update": "node tools/trace/trace.ts --update",
+    "vale:selftest": "node scripts/vale.selftest.mjs",
     "workflows:selftest": "node scripts/workflows.selftest.mjs",
     "gates": "lefthook run pre-push --force"
   },

@@ -191,6 +191,18 @@ pre-push:
         - '.claude/settings.json'
         - 'tools/policy.json'
       run: node --run worktree:selftest
+    # This repository's own Vale style, `.vale-styles/Layout/`: each rule over a control and one
+    # doctored fixture per fault under the temporary directory, each asserting its rule and its line,
+    # and every styled section of `.vale.ini` applying it. It runs `vale`, and skips clean, saying
+    # why, where none is on PATH. Reads the style, `.vale.ini` and itself: 0.24 s wall through
+    # `node --run` (`/usr/bin/time -p`, one run) on a macOS 26.7.1 laptop with Node 26.8.1 and Vale
+    # 3.23.0, 2026-10-01.
+    - name: vale-selftest
+      glob:
+        - '.vale.ini'
+        - '.vale-styles/Layout/**'
+        - 'scripts/vale.selftest.mjs'
+      run: node --run vale:selftest
     # The Stop and SubagentStop hook, run as the harness runs it over scratch citation trees: an
     # untracked file with a broken pointer turns its verdict to FAIL for that reason, an ignored one
     # does not, and `checkoutOf` places a linked worktree over scratch repositories; and a copy of the

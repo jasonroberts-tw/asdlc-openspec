@@ -733,6 +733,7 @@ How the strategy maps onto this repository:
 - **`lefthook.yml`:** the `workflows-selftest` job's comment and its measured cost.
 
 **Figures.** Each is `node scripts/check-prompts.mjs --counts`, at `62f5ae8` for the first figure and at this entry's commit for the second: the literals of `.claude/workflows/build-change-task.js` 2,561 and 2,670; `.claude/skills/change-build/SKILL.md` 1,316 and 1,314; `.claude/skills/bead/SKILL.md` 1,635 and 1,652. What each consolidation freed on its own is the same command at its own commit: 86 for the workflow's literals, 47 and then 4 for change-build, and 21 for bead; the pull request lists those commits.
+
 ### D-15 · The kit's pipeline graph is retired; a check that reads outside the repository is stood in for by its selftest
 
 **Recorded 2026-09-28**, carried by `asdlc-openspec-hvm`. The maintainer asked on 2026-09-28 for the case that the pipeline was obsolete to be pressure-tested, and chose to retire it from the answer, which put the retirement with the one situation where it loses.

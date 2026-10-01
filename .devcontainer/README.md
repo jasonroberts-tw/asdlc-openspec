@@ -8,8 +8,8 @@ git clone https://github.com/<owner>/<repository>.git
 code <repository>           # then: "Reopen in Container" when VS Code offers
 ```
 
-The first build takes several minutes and is cached afterwards. You get Node, `bd`, `gh`, Vale, Claude Code and
-the tracker's plugin marketplace, plus whatever toolchain you add to the image.
+The first build takes several minutes and is cached afterwards. You get Node, `bd`, `gh`, Vale,
+Claude Code and the tracker's plugin marketplace, plus whatever toolchain you add to the image.
 
 | File | What it holds |
 |---|---|

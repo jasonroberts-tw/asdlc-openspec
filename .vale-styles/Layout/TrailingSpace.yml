@@ -1,0 +1,16 @@
+# Whitespace at the end of a line, anywhere in the file, code included: it changes nothing a reader
+# sees and adds a line to the next diff that touches it. This tree breaks no line with two trailing
+# spaces, so none is exempt (asdlc-openspec-m7p). `npm run vale:selftest` holds it.
+extends: script
+message: "Remove the whitespace at the end of this line."
+level: error
+scope: raw
+script: |
+  text := import("text")
+  matches := []
+  offset := 0
+  for line in text.split(scope, "\n") {
+    kept := text.trim_right(line, " \t")
+    if len(kept) < len(line) { matches = append(matches, {begin: offset + len(kept), end: offset + len(line)}) }
+    offset += len(line) + 1
+  }
