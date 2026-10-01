@@ -47,7 +47,7 @@
  * every clone but the importer's -- it SKIPPED by name, exit 0. Its only possible subject was the
  * mirror a later decision deleted: `reference/data/`'s manifest header names a DATABASE under `Source :`, which
  * has no pin and no blobs, so the check read nothing anywhere and printed "no repository source" on
- * every run. A gate that cannot fail is one people stop reading (`lefthook.yml`'s recurring
+ * every run. A gate that cannot fail is one people stop reading (`git-hooks.yml`'s recurring
  * argument), and a skip message naming a checkout of a repository this one no longer references is
  * worse than none. WHAT TO REBUILD IF A REPOSITORY-SOURCED IMPORT LANDS AGAIN: read the pin from the
  * manifest header (`Source repo :` and `Pin :` lines, which `readManifest` no longer parses); scrub

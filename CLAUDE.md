@@ -181,8 +181,8 @@ The same checks run at four latencies, and a slower tier never trusts a faster o
 | Tier | Latency | Shape |
 |---|---|---|
 | In-session hooks (`scripts/hooks/`) | milliseconds | may be unsound; never block a stop |
-| Pre-commit (`lefthook`) | seconds | sequential, over staged files only |
-| Pre-push (`lefthook`) | tens of seconds | parallel, each job scoped by a glob of what it reads |
+| Pre-commit (`git-hooks.yml`) | seconds | sequential, over staged files only |
+| Pre-push (`git-hooks.yml`) | tens of seconds | parallel, each job scoped by a glob of what it reads |
 | `.github/workflows/verify.yml` | minutes | every gate, binding on every pull request and every push to `main` |
 
 Where a check runs is decided by what it reads. A check that reads only committed files is a
@@ -193,11 +193,9 @@ over fixtures runs in both.
 A legitimately absent input skips clean and prints why; a tool that is found and then fails is a
 failure, never a skip.
 
-**`npm run gates`, never the bare hook runner.** The bare runner skips every job when the push
-file list is empty and exits 0 in a tenth of a second, which reads exactly like a clean run.
-`npm run gates` is the forced full suite. Before opening or updating a pull request: regenerate
-every derived artifact, run `npm run gates`, fetch and rebase onto `origin/main`, and run it
-again.
+**`npm run gates` is the forced full suite**, run through Git as a push runs it. Before opening or
+updating a pull request: regenerate every derived artifact, run `npm run gates`, fetch and rebase
+onto `origin/main`, and run it again.
 
 ## A workflow a session writes itself is bounded
 

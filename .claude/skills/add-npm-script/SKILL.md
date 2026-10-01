@@ -8,7 +8,7 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 A script in `package.json` is a public name. Prompts, tool headers, the READMEs and policy files
 cite it as prose, and **nothing in this repository gates those citations** — a renamed script
 leaves dead references behind that stay green forever. `npm run check:jobs` holds only the `run:`
-lines of `lefthook.yml` and the CI workflow, and its own list of the scripts no job runs. Treat the
+lines of `git-hooks.yml` and the CI workflow, and its own list of the scripts no job runs. Treat the
 name and the documentation as part of the change, not as follow-up.
 
 ## 1. Name it
@@ -26,16 +26,16 @@ A third segment only when it names a sub-artifact rather than a variation
 
 ## 2. Put the code where its neighbours are
 
-`tools/<name>/*.ts` run by plain `node` for a node emitter that has its own module tree (Node 22.18+
-strips the types itself; write every relative import with its `.ts` extension and use no enums,
-namespaces or parameter properties, which the stripper cannot erase); a single-file `scripts/*.mjs`
-run with `node` for a gate. Match the neighbours and introduce no new runtime: a launcher adds its
+A node emitter with its own module tree goes in `tools/<name>/*.ts`, run by plain `node`. Node
+22.18+ strips the types itself, so write every relative import with its `.ts` extension, and use
+no enums, namespaces or parameter properties, which the stripper cannot erase. A gate is one file,
+`scripts/*.mjs`, run with `node`. Match the neighbours and add no new runtime: a launcher adds its
 start-up time to every run of every script it starts.
 
-Open the file with the header the neighbours use: what it emits, **the failure it exists to
-prevent** (in this repository that is the paragraph readers actually need), the `npm run <name>`
-invocation with its flags, and what it needs from outside this repository. Node emitters
-carry the `KIND / INVARIANTS / RE-ENTRY / STALE WHEN` block.
+Open the file with the header its neighbours use. It says what the file emits, **the failure it
+exists to prevent**, the `npm run <name>` call with its flags, and what it needs from outside this
+repository. The failure is the paragraph readers here actually need. Node emitters carry the
+`KIND / INVARIANTS / RE-ENTRY / STALE WHEN` block.
 
 ## 3. If it writes an artifact, make it deterministic
 
@@ -53,22 +53,22 @@ in the same change among them, are `CLAUDE.md` § The script suffix contract.
 - **Legitimately-absent input** → skip clean with a message, never fail. A gate that is red on every
   fresh clone gets bypassed with `--no-verify`, which costs you every other gate too.
 
-Then wire it: a job in `lefthook.yml` under `pre-push` — `run: node --run <name>`, plus a `glob`
-listing every file whose change can alter its verdict, re-derived from what the script reads and
-imports (the pre-push header there states the rule; when in doubt, wider — a too-narrow glob is a
-gate that silently stops running on a real push, and `npm run gates` runs every job regardless) —
-a step in `.github/workflows/verify.yml`, or both. A script that no job runs, such as a bare
+Then wire it: a job in `git-hooks.yml` under `pre-push`, a step in `.github/workflows/verify.yml`,
+or both. The job is `run: node --run <name>`, plus a `glob` listing every file whose change can
+alter its verdict, re-derived from what the script reads and imports. The pre-push header there
+states the rule. When in doubt, make it wider: a too-narrow glob is a gate that silently stops
+running on a real push, and `npm run gates` runs every job regardless. A script that no job runs, such as a bare
 emitter or an operator command, gets an entry in `UNJOBBED_BY_KIND` in `scripts/check-jobs.mjs`,
 under its kind, in the same change; `check:jobs` refuses it otherwise.
 
 ## 5. Update `README.md` § The npm scripts — this is not optional
 
-The section documents **every** script in `package.json`, and its structure is mechanical:
+The section lists **every** script in `package.json`, by these rules:
 
 - One `###` sub-section per prefix, sub-sections alphabetical. A new prefix gets a new sub-section
   in its alphabetical position; a prefix that loses its last script loses its sub-section.
 - Rows alphabetical within the sub-section. Each row is `` | `script` | what it does | Gate | ``.
-- The **Gate** cell is `pre-push`, `CI`, `pre-push + CI`, or empty — read off `lefthook.yml` and
+- The **Gate** cell is `pre-push`, `CI`, `pre-push + CI`, or empty — read off `git-hooks.yml` and
   `.github/workflows/verify.yml` as they now stand, not off what you intended.
 - The description says what the script does and what breaks without it. It does not restate the
   command line; `package.json` holds that, and two copies means one goes stale.
@@ -89,12 +89,12 @@ green.
 1. Delete or rewrite the `package.json` entry.
 2. Delete or rewrite its rows in `README.md`: § The npm scripts, and the sub-section if it is now
    empty, and § The guardrails and § What runs automatically wherever they name it.
-3. Remove the `lefthook.yml` job and the `verify.yml` step. If no job ran it, remove its entry from
+3. Remove the `git-hooks.yml` job and the `verify.yml` step. If no job ran it, remove its entry from
    `UNJOBBED_BY_KIND` in `scripts/check-jobs.mjs`, which `check:jobs` refuses once the script is
    gone.
 4. Search tracked files of every type for the bare name, one call per name:
    `git grep -n -w -F <old-name>`. Fix every live hit. Most citations carry no `npm run`:
-   `lefthook.yml` launches through `node --run`, the READMEs cite the name in backticks,
+   `git-hooks.yml` launches through `node --run`, the READMEs cite the name in backticks,
    `tools/policy.json` in a `gatedBy` string, and a gate keeps it as a quoted string in a list. A
    recursive `grep` also walks `node_modules/` and, from the primary checkout, every worktree under
    `.claude/worktrees/`. Two files keep their hits: `docs/decisions.md`, whose entries are never
@@ -111,10 +111,8 @@ npm run <new-script>
 npm run gates
 ```
 
-`npm run gates`, never the bare `lefthook run pre-push` — the bare form reports every job as
-skipped whenever HEAD matches the tracking remote and exits 0. Then confirm your
-job actually fired rather than silently matching nothing: check that its name appears in the run's
-output. A job that never fires is worse than no job, because you will now defend the green result.
+`npm run gates` forces every job. Then confirm your job actually fired rather than silently
+matching nothing: check that its name appears in the run's output. A job that never fires is worse than no job, because you will now defend the green result.
 
 Run each command as a separate Bash call, as `CLAUDE.md` § Bash command style asks, so a red
 result names the step that produced it.

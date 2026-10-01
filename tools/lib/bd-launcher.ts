@@ -209,7 +209,7 @@ export function describeLauncher(launcher: BdLauncher): string {
 
 /**
  * Run `bd <args>` through a resolved launcher. Never throws; `NO_COLOR=1` is set because bd 1.2.2
- * probes the terminal with escape sequences otherwise (the `lefthook.yml` `beads` jobs' note).
+ * probes the terminal with escape sequences otherwise (the `git-hooks.yml` `beads` jobs' note).
  */
 export function runBd(launcher: BdLauncher, args: string[], options: RunOptions = {}): BdRun {
   const run = spawnSync(launcher.command, [...launcher.prefix, ...args], {

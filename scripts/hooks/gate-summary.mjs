@@ -36,7 +36,7 @@
  * accountability mechanism is that the verdict is in the transcript where both the user and the agent
  * can see it, not that the agent is held hostage to it.
  *
- * WHAT IT RUNS is `GATES` below, and nothing else: `check:jobs` (every script a `lefthook.yml` or
+ * WHAT IT RUNS is `GATES` below, and nothing else: `check:jobs` (every script a `git-hooks.yml` or
  * `.github/workflows/verify.yml` job names exists, and every script no job names is declared) and
  * `citations:check` (every citation in a tracked or untracked text file resolves, and no prompt cites
  * a memory key). Neither runs an emitter, and both also run at pre-push and in CI, over committed
