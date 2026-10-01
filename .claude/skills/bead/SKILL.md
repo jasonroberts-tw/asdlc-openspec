@@ -71,8 +71,7 @@ pull-request body and in both close reasons. Claim only what this session will f
 Separate branches are worked one after another, never interleaved. Take one through step 6, its
 watcher running in the background, then leave its worktree with `ExitWorktree` (action `keep`) and
 make the next with `EnterWorktree`, which creates no worktree from inside another. Step 7 closes
-each issue as its own checks go green. A request to sweep or parallelise ready work goes to the
-`fan-out-work` agent instead.
+each issue. A request to sweep or parallelise ready work goes to the `fan-out-work` agent instead.
 
 ## 3. Claim, then work in a worktree
 
@@ -130,8 +129,8 @@ with a note naming the pull request and the issue that carries the cause.
 ## 7. Close on green, with a reason
 
 When every check is green, close the issue with a reason that names the pull request, passed with
-`bd close <id> --reason-file <file>` as `CLAUDE.md` § Bash command style asks: the harness can
-refuse an inline `--reason` (step 4). If a person decides the merge, an issue whose criterion needs
+`bd close <id> --reason-file <file>`: the harness can refuse an inline `--reason` (step 4). If a
+person decides the merge, an issue whose criterion needs
 the merged change stays open until the merge. An acceptance criterion that acts outside the
 repository is not performed: it becomes a follow-up issue labelled `human`, created with its label
 at creation.
