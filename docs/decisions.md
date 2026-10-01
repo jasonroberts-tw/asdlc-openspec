@@ -1032,7 +1032,7 @@ Where it loses:
 - 157 to 22 concept nodes and 898 to 156 links: two `graphify update` runs on a clone holding a copy of that graph, on 2026-10-01. 249 and 878 kept against 108 and 280: a stamped copy and its control, the same day, on clones at `7669dad`. Neither run is in this repository, and neither is re-derived here.
 - 5,268 words: `wc -w` on graphify 0.9.73's own `SKILL.md`, outside this repository.
 - 937 words in the worktree briefing and 283 in the skill: `node scripts/check-prompts.mjs --counts`.
-- 29 checks in `code-graph:selftest`, and 11.98-12.06 s: `/usr/bin/time -p node --run code-graph:selftest`, the job's comment in `lefthook.yml` naming the host.
+- 30 checks in `code-graph:selftest`, and 11.98-12.06 s with 29 of them: `/usr/bin/time -p node --run code-graph:selftest`, the job's comment in `lefthook.yml` naming the host.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
