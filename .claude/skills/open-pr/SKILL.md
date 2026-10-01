@@ -54,7 +54,7 @@ First review the branch in a context of its own, once before each push: the revi
 changes on gaps a reader finds before the push as well as after, and each request costs a push and
 a review. Write the title, on one line, to a file beside the body, then run
 
-    TITLE_FILE=<title file> BODY_FILE=<body file> REVIEW_DIR=.scratch/review node scripts/pr-review.mjs brief --local
+    env TITLE_FILE=<title file> BODY_FILE=<body file> REVIEW_DIR=.scratch/review node scripts/pr-review.mjs brief --local
 
 and launch the `branch-reviewer` agent on `.scratch/review/brief.md`. It reviews the branch's last
 commit. Fix what it says would make the reviewer request changes, and each minor finding in a file
@@ -70,7 +70,7 @@ draft, so `--draft` only when the request says draft. If the create fails, run
 
 Then, at once, set the reviewer's status pending on the new head:
 
-    PR=<number> node scripts/pr-review.mjs mark
+    env PR=<number> node scripts/pr-review.mjs mark
 
 No job does it for you, and until it is done a watcher has no check to wait on. Nothing else here
 sets `pr-review` by hand: every verdict is the reviewer's workflow's.
@@ -102,9 +102,9 @@ descriptions below are the ones `scripts/pr-review.mjs` sets (`statusFor`, `choo
 A push makes a new head with no status: review it first unless the push only rebased, mark it
 (step 5), and watch it again (step 6).
 
-**A minor finding the reviewer names is neither fixed nor filed**, whatever the outcome: a push for one sends a new
-head back to review over what `prReviewBlockingSeverities` in `tools/policy.json` says blocks
-nothing. A person decides what becomes of it.
+**A minor finding the reviewer names is neither fixed nor filed**, whatever the outcome: a push for
+one sends a new head back to review over what `prReviewBlockingSeverities` in `tools/policy.json`
+says blocks nothing. A person decides what becomes of it.
 
 Hand the caller the pull request's number and URL, the outcome in the words of its status, and the
 minor findings its comment lists.
