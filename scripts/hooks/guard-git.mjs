@@ -30,12 +30,6 @@
  * where git answers for another checkout, which is what a worktree removed under a live session
  * leaves once the session writes a file there (`strayWorktreeDir` below, and its incident).
  *
- * IT DOES NOT READ THROUGH AN `rtk` PREFIX. From 2026-09-29 (asdlc-openspec-luu) it judged what
- * RTK, a proxy that condensed command output, would run behind the prefix. docs/decisions.md § D-18
- * removed RTK from this repository and that reading with it, so on a machine that still runs RTK,
- * `rtk git push origin main` from a worktree or `rtk gh pr edit --add-label` with the approval label
- * is not refused here.
- *
  * IT ALSO GUARDS THE PR BASE, EVERYWHERE. `gh pr create` with no `--base` uses the repository's
  * DEFAULT branch: a GitHub setting that lives outside this repository, that this guard cannot read,
  * and that need not be the trunk. Whoever omits the flag gets whatever that setting says when the
