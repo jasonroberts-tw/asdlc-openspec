@@ -28,7 +28,7 @@ pre-commit:
     #
     # The tracker's own pre-commit hook. The tracker's git integration runs from its five jobs here,
     # and not from a section `bd hooks install` writes into .git/hooks, which would run it a second
-    # time after them (`asdlc-openspec-uc1`, D2); `npm run hooks:install` and the runner warn of one.
+    # time after them (`docs/decisions.md` § D-22); `npm run hooks:install` and the runner warn of one.
     - name: beads
       env:
         NO_COLOR: '1'
@@ -123,7 +123,9 @@ pre-push:
     # the policy it reads, the helper its selftest imports, and the manifest and lockfile that pin
     # js-yaml. 27 cases: 18.53 s wall through `node --run` (`/usr/bin/time -p`, one run) on a macOS
     # 26.7.1 laptop with Node 26.8.1 and Git 2.54.0, 2026-10-01, most of it Git and Node starts in
-    # seventeen scratch repositories, and one job's 30 s sleep cut short by the signal case.
+    # seventeen scratch repositories, and one job's 30 s sleep cut short by the signal case. 41
+    # cases, with every refusal of the reader and the tracker's-hook warning: 20.36 s (one run, the
+    # same day), in nineteen scratch repositories.
     - name: hooks-selftest
       glob:
         - 'scripts/git-hooks.mjs'
