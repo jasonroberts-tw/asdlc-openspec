@@ -48,9 +48,10 @@ graphify-out/
 .kit/
 
 # Vale's styles: `vale sync` downloads what `.vale.ini` names, and every checkout fetches its own.
-# Layout is this repository's own style, tracked, and `vale sync` leaves it in place.
+# Layout is this repository's own style, tracked, and `vale sync` leaves it in place. Never add a
+# bare `.vale-styles/`: git re-includes nothing under a directory it excludes, so Layout goes too.
 .vale-styles/*
 !.vale-styles/Layout/
-.vale-styles/
 
+# macOS Finder's per-directory metadata.
 **/.DS_Store
