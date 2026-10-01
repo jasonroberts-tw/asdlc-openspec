@@ -374,7 +374,7 @@ they win.
 
 | Script | What it does | Gate |
 |---|---|---|
-| `vale:selftest` | This repository's own Vale style, `.vale-styles/Layout/`, over fixtures: a control holding every construct its rules must pass draws no alert, and each doctored case draws exactly its rule's alert at its line; every section of `.vale.ini` that lints with a style applies it, and one with the style taken out is refused by name. It runs `vale`, and skips clean where none is on PATH, as in CI. Without it a rule that stops matching leaves the hook silent over the fault it names. | pre-push |
+| `vale:selftest` | This repository's own Vale style, `.vale-styles/Layout/`, over fixtures: a control holding every construct its rules must pass draws no alert, and each doctored case draws exactly its rule's alert at its line; every section of `.vale.ini` that lints with a style applies it, and one with the style taken out is refused by name. It runs `vale`, and skips clean where none is on PATH, as in CI; a `vale` that is found and fails is a failure, which it holds by running itself with a failing stub. Without it a rule that stops matching leaves the hook silent over the fault it names. | pre-push |
 
 ### workflows
 
