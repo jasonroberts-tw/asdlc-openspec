@@ -1039,7 +1039,7 @@ Where it loses:
 - 937 words in the worktree briefing and 283 in the skill: `node scripts/check-prompts.mjs --counts`.
 - 31 checks in `code-graph:selftest`, and 11.98-12.06 s with 29 of them: `/usr/bin/time -p node --run code-graph:selftest`, the job's comment in `lefthook.yml` naming the host.
 
-> **Amended 2026-10-01 by D-23.** Item 2 and the loss "Only the script and the skill refuse graphify's eroding commands" no longer hold for a session's command line: `scripts/hooks/guard-git.mjs` refuses `graphify update`, `watch`, `hook install` and `claude install` in every session, from any checkout. A person's own terminal, graphify behind a launcher, and graphify's library called through `python -c`, as a user-level graphify skill runs its `--update`, still pass it.
+> **Amended 2026-10-01 by D-23.** Item 2 and the loss "Only the script and the skill refuse graphify's eroding commands" no longer hold for a session's command line: `scripts/hooks/guard-git.mjs` refuses `graphify update`, `watch`, `hook install` and `claude install` in every session, from any checkout. A person's own terminal, graphify behind a launcher or a shell word such as `nohup`, graphify's library called through `python -c`, as a user-level graphify skill runs its `--update`, and `graphify install --project`, which writes all that `claude install` does, still pass it.
 
 ### D-21 · `open-pr` reviews each branch before its push, in an agent's own context, and the reviewer's brief carries the facts its job can compute
 
@@ -1120,25 +1120,27 @@ Where it loses:
 
 **Decision.** `scripts/hooks/guard-git.mjs` refuses, in every session and from any checkout, the primary one included, a Bash command that runs graphify's `update`, `watch`, `hook install` or `claude install`.
 
-1. **What it refuses:** graphify run by name from any path, or as `python -m graphify`, whose first argument is `update` or `watch` or whose first two are `hook install` or `claude install`, in any statement of the command, inside `bash -c` too. graphify reads its command from those positions only.
-2. **What it leaves alone:** every other graphify command. `query`, `path` and `explain` read the graph, `extract` builds it as `npm run code-graph` does, and `hook status` and `claude uninstall` share only a first word with a refused command.
-3. **The refusal names the command, what it does, `npm run code-graph` and D-20.** It tells the session not to run `npm run code-graph` itself, which spends the person's own plan, as the `code-graph` skill's step 2 does.
+1. **What it refuses:** graphify whose first argument is `update` or `watch`, or whose first two are `hook install` or `claude install`. graphify reads its command from those positions only. It is read when run by name from any path, or as a Python module, `graphify` or `graphify.__main__`, past Python's options in any form Python reads (`-X dev -m`, `-um`, `-mgraphify`). It is read in each statement the command line holds, split at `;`, `&&`, `||`, `|`, `&` or a line break, and inside `bash -c`, when the statement opens with it after any environment assignments.
+2. **What it leaves alone:** every other graphify command. `query`, `path` and `explain` read the graph, `extract` builds it as `npm run code-graph` does, and `hook status` and `claude uninstall` share only a first word with a refused command. It also lets through a refused command followed by `-h`, `--help` or `-?`, which graphify answers with a line of help and nothing else (its `__main__.py`).
+3. **The refusal names the command, what it does, `npm run code-graph` and D-20**, and no other graphify command. It tells the session not to run `npm run code-graph` itself, which spends the person's own plan, as the `code-graph` skill's step 2 does.
 4. **The list lives in the guard**, as `GRAPHIFY_ERODING`, not in `tools/policy.json`: only the guard reads it, and that file holds the constants that belong to no one tool.
 
 **Why.** D-20 left the four commands to the `code-graph` skill's instruction, and graphify's git hooks to `scripts/code-graph.mjs`, and listed that among its losses. graphify's user-level skill and the block `claude install` writes both advise `update`, so a session that reads either is told the opposite of the skill. Two alternatives lost:
 
 - **A sibling hook of its own**, keeping `guard-git.mjs` to git and `gh`. It would start one more process on every Bash call and add a registration to `.claude/settings.json`, which `CNT-HOOKS` counts, for a rule that needs the same parser.
-- **Refusing a plain `graphify install` too**, which the `code-graph` skill also forbids, since it writes graphify's skill and a registration into `~/.claude/CLAUDE.md`. The issue's criteria hold the guard to D-20's four, so a person decides it in `asdlc-openspec-c8ib`.
+- **Refusing `graphify install` too**, which the `code-graph` skill also forbids. Plain, it copies graphify's skill to `~/.claude/skills/` and writes a registration into `~/.claude/CLAUDE.md`; with `--project`, it does all that `claude install` does, and more (below). The issue's criteria hold the guard to D-20's four, so a person decides it in `asdlc-openspec-c8ib`.
 
 Where it loses:
 
+- **`graphify install --project` passes, and writes all that the refused `claude install` writes.** It calls the same function, which puts graphify's advice to run `update` into `./CLAUDE.md` and its PreToolUse hooks into `.claude/settings.json`, and also copies graphify's skill into `.claude/skills/` (graphify 0.9.73's `install.py`). Refusing it would have widened the issue's criteria; `asdlc-openspec-c8ib` carries it.
 - **It refuses a command aimed at another project's graph.** A session started here that is asked to run `graphify update ~/other-project` is refused, though that graph is not this repository's; without the guard it would run.
-- **It reads only a session's command line.** graphify behind a launcher (`env`, `uvx`, `pipx run`), its library called through `python -c`, as graphify's own skill runs its `--update`, a person's own terminal, and a git hook installed before this entry all pass it.
+- **It reads only a statement of a session's command line that opens with graphify.** graphify behind a launcher (`env`, `uvx`, `pipx run`) or a shell word (`nohup`, `time`, `exec`, `then`), in `bash -lc` or `eval`, its library called through `python -c`, as graphify's own skill runs its `--update`, a person's own terminal, and a git hook installed before this entry all pass it. The guard's git rules miss the same shell forms; `asdlc-openspec-u70n` carries both.
+- **It reads graphify 0.9.73's command line by position, and that release's help guard.** A release that reads its command otherwise leaves the guard wrong, and `graphifyVersionMeans` sends whoever moves the release to the script's header alone (`asdlc-openspec-8fn9`).
 
 **What changed.**
 
 - **This register:** this entry. The status line, the blockquote's bound and the decisions table carry D-23, and D-20 carries an amendment.
-- **`scripts/hooks/guard-git.mjs`:** the graphify rule, `GRAPHIFY_ERODING` and its header paragraph.
+- **`scripts/hooks/guard-git.mjs`:** the graphify rule, with `GRAPHIFY_ERODING`, `GRAPHIFY_HELP` and a reader of Python's options, and its header paragraph.
 - **`scripts/hooks/worktree-hooks.selftest.mjs`:** a section asserting each refusal by its reason, from the primary checkout and a worktree, beside graphify's reading commands and the near misses as controls.
 - **`git-hooks.yml`:** the `worktree-hooks` job's comment, with what the new cases cost.
 - **`.claude/README.md`, `scripts/hooks/README.md` and `README.md`:** the guard's rows, and the code graph's row in `README.md` § The guardrails, which said no gate refused one.
@@ -1146,8 +1148,8 @@ Where it loses:
 **Figures.**
 
 - 157 to 22 concept nodes and 898 to 156 links, in the guard's header: D-20's Figures, quoted, not re-derived here.
-- 8 refusals and 8 controls in the selftest's section `guard-git: graphify's eroding commands, from any checkout`: `node scripts/hooks/worktree-hooks.selftest.mjs`.
-- graphify reading its command from its first argument and a second word from its second, and `install` writing into `~/.claude/CLAUDE.md`: graphify 0.9.73's `cli.py` and `install.py`, read on 2026-10-01, outside this repository. Not re-derived here.
+- 12 refusals and 10 controls in the selftest's section `guard-git: graphify's eroding commands, from any checkout`: `node scripts/hooks/worktree-hooks.selftest.mjs`.
+- graphify reading its command from its first argument and a second word from its second, its help guard, and what `install` and `install --project` write: graphify 0.9.73's `__main__.py`, `cli.py` and `install.py`, read on 2026-10-01, outside this repository. Not re-derived here.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
