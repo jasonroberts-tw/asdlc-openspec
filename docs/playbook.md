@@ -23,9 +23,10 @@ watches the checks ends the turn to wait only if the watcher's exit wakes the se
 `.claude/skills/open-pr/SKILL.md` § 6 now says. Amended 2026-09-29 by `asdlc-openspec-03c`: the
 steps that write the run's analysis and launch a review, and the rows for a primary checkout and an
 analysis, name `.claude/skills/close-prompt-run/SKILL.md`, where `CLAUDE.md` § Prompt reviews held
-them. Amended 2026-10-01 by the prompt review `review-prompts-20261001-1331`: the step for a defect
-found on the way files one the branch leaves unfixed, in a file the issue changes or not, as
-`.claude/skills/bead/SKILL.md` § 4 now says.
+them. Amended 2026-10-01 by the prompt review `review-prompts-20261001-1331`, as
+`.claude/skills/bead/SKILL.md` § 4 and § 7 now say. The step for a defect found on the way files one
+the branch leaves unfixed, in a file the issue changes or not. The step that closes the issue keeps
+one whose criterion needs the merged change open until a person merges it.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -349,8 +350,9 @@ for what that rule alone still holds).
 ### 4.5 Close and account
 
 1. When every check is green, close the issue with a reason naming the pull request, from a file:
-   `bd close <id> --reason-file <file>`. An acceptance criterion that acts outside the repository is
-   not performed; it becomes a follow-up issue labelled `human`. Decided by:
+   `bd close <id> --reason-file <file>`. If a person decides the merge, an issue whose criterion
+   needs the merged change stays open until the merge. An acceptance criterion that acts outside the
+   repository is not performed; it becomes a follow-up issue labelled `human`. Decided by:
    `.claude/skills/bead/SKILL.md` § 7. Close on green, with a reason.
 2. A change's epic closes only after the cleanup and a check of each criterion as met, unmet or not
    exercised; a criterion with no approved follow-up keeps it open. Decided by:
