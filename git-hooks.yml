@@ -199,7 +199,10 @@ pre-push:
     # cases; 9.09 s without them, and 7.59-7.82 s before the gc sweep's liveness and age cases, so
     # re-measure it on your host before trusting the suite's total. The containment cases after a
     # rebase merge, a scratch repository of their own and three sweeps through a stub `gh`, took it
-    # from 10.71 s to 14.64 s, the two runs back to back while other worktrees ran their gates.
+    # from 10.71 s to 14.64 s, the two runs back to back while other worktrees ran their gates. The
+    # guard's graphify cases are sixteen more runs of the guard: 1.46-1.49 s timed alone, two runs,
+    # and 21.78 s for the whole job with them, one run while other worktrees ran their gates, on the
+    # same laptop with Node 26.8.1, 2026-10-01.
     - name: worktree-hooks
       glob:
         - 'scripts/hooks/**'

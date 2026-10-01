@@ -58,6 +58,18 @@
  *
  *   printf '%s' '{"tool_input":{"command":"gh pr edit 1 --add-label x"}}' | GUARD_GIT_ROOT=/tmp/copy node scripts/hooks/guard-git.mjs
  *
+ * IT ALSO GUARDS THE LOCAL CODE GRAPH, EVERYWHERE. It refuses graphify's `update`, `watch`, `hook
+ * install` and `claude install` (`GRAPHIFY_ERODING` below), run by name or as `python -m graphify`,
+ * because the first three rebuild the graph through the path that erodes its document layer and the
+ * last writes graphify's advice to run `update` into CLAUDE.md (docs/decisions.md § D-20). It holds
+ * in the primary checkout too, because that is where `npm run code-graph` builds the graph. No
+ * session has run one here yet. Were this rule wrong, a session following graphify's own advice, which
+ * its user-level skill and the block `claude install` writes both give, would erode the graph: on
+ * 2026-10-01, on a clone holding a copy of the first graph, two `graphify update` runs took its concept
+ * nodes from 157 to 22 and its links between documents and code from 898 to 156 (D-20). It reads only
+ * the command line, so graphify behind a launcher (`env`, `uvx`, `pipx run`), or its library called
+ * through `python -c`, as graphify's own skill runs its `--update`, passes it.
+ *
  * Exit 2 is the documented way for a PreToolUse hook to block, and stderr becomes the reason shown
  * to the agent -- which is what turns a blocked attempt into a course correction rather than a
  * confused retry loop.
@@ -735,6 +747,59 @@ function denialForGh(call, linked) {
 }
 
 /* ============================================================================================= *
+ * The local code graph.
+ * ============================================================================================= */
+
+/**
+ * graphify's commands that erode the local code graph, each spelled as the words graphify reads it
+ * by, with what it does. graphify 0.9.73 takes its command from its first argument and a second word
+ * from its second, with no option before them (its `cli.py`), so a command matches by position and
+ * nowhere else. Every other command still runs: `query`, `path` and `explain` read the graph, and
+ * `extract` builds it as `npm run code-graph` does.
+ */
+const GRAPHIFY_ERODING = new Map([
+  ['update', 'rebuilds the local code graph through the path that erodes its document layer'],
+  ['watch', 'rebuilds the local code graph through the path `update` takes, on every change it sees'],
+  ['hook install', 'installs git hooks that rebuild the local code graph with `update`'],
+  ['claude install', "writes graphify's advice to run `update` into CLAUDE.md"],
+])
+
+/** A Python interpreter, which runs graphify as a module: `python3 -m graphify update`. */
+const PYTHON = /^(?:python[0-9.]*|py)$/
+/** Python's own options that take a SEPARATE argument, skipped with it on the way to `-m`. */
+const PYTHON_OPTS_WITH_VALUE = new Set(['-W', '-X', '--check-hash-based-pycs'])
+
+/**
+ * graphify's arguments, or `null` if the statement does not run graphify: `graphify update .` by any
+ * path, or `python3 -m graphify update .`. A `-c` before any `-m` is a script, which is not read.
+ */
+function graphifyArgs(tokens) {
+  const start = nameIndex(tokens)
+  if (start === -1) return null
+  const name = commandName(tokens[start]).replace(/\.exe$/, '')
+  if (name === 'graphify') return tokens.slice(start + 1)
+  if (!PYTHON.test(name)) return null
+  for (let i = start + 1; i < tokens.length; i++) {
+    const t = tokens[i]
+    if (t === '-m') return tokens[i + 1] === 'graphify' ? tokens.slice(i + 2) : null
+    if (!t.startsWith('-') || t === '-c') return null
+    if (PYTHON_OPTS_WITH_VALUE.has(t)) i++
+  }
+  return null
+}
+
+const GRAPHIFY = (words, does) =>
+  `\`graphify ${words}\` ${does} (docs/decisions.md § D-20). A person builds and refreshes the ` +
+  'graph with `npm run code-graph`, which spends their own plan, so do not run it yourself; if the ' +
+  'graph needs a refresh, say so in your report.'
+
+/** The reason to deny a graphify call with these arguments, or `null` to allow it. */
+function graphifyDenial(args) {
+  const words = [args.slice(0, 2).join(' '), args[0]].find((w) => GRAPHIFY_ERODING.has(w))
+  return words === undefined ? null : GRAPHIFY(words, GRAPHIFY_ERODING.get(words))
+}
+
+/* ============================================================================================= *
  * Walk.
  * ============================================================================================= */
 
@@ -742,7 +807,8 @@ function denialForGh(call, linked) {
  * Walk every statement, descending into `bash -c` strings. Returns the first reason to deny.
  *
  * The git rules are worktree-only and are skipped entirely when `linked` is false; the `gh` rules
- * decide for themselves (see `denialForGh`). In a stray worktree directory (`strayWorktreeDir`)
+ * decide for themselves (see `denialForGh`), and the graphify rule applies everywhere
+ * (`graphifyDenial`). In a stray worktree directory (`strayWorktreeDir`)
  * every git call is refused, whatever it is: git there answers for another checkout.
  */
 function inspect(command, linked, stray, depth = 0) {
@@ -765,6 +831,11 @@ function inspectStatement(tokens, linked, stray, depth) {
   const gh = ghCall(tokens)
   if (gh !== null) {
     const reason = denialForGh(gh, linked)
+    if (reason !== null) return reason
+  }
+  const graphify = graphifyArgs(tokens)
+  if (graphify !== null) {
+    const reason = graphifyDenial(graphify)
     if (reason !== null) return reason
   }
   for (const script of inlineScripts(tokens)) {
