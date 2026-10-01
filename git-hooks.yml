@@ -121,7 +121,9 @@ pre-push:
     # install, `npm run gates`, an older Git and a signal, through real Git in scratch repositories
     # with a bare remote, beside a control commit and push. The glob is the runner, the job file and
     # the policy it reads, the helper its selftest imports, and the manifest and lockfile that pin
-    # js-yaml.
+    # js-yaml. 27 cases: 18.53 s wall through `node --run` (`/usr/bin/time -p`, one run) on a macOS
+    # 26.7.1 laptop with Node 26.8.1 and Git 2.54.0, 2026-10-01, most of it Git and Node starts in
+    # seventeen scratch repositories, and one job's 30 s sleep cut short by the signal case.
     - name: hooks-selftest
       glob:
         - 'scripts/git-hooks.mjs'
