@@ -87,10 +87,10 @@ already exist:
 - **Write each body first**, to its own file under `.scratch/`. It carries the IDs, the proof and
   what done means.
 - **Create the child:**
-  `bd create "<title>" --parent <epic> --no-inherit-labels -l spec-change,<its repo: label>,<its kind>
-  --body-file <that file> --deps blocked-by:<predecessor id> --silent`. Several predecessors go in the
-  one flag, comma-separated: `--deps blocked-by:<id>,blocked-by:<id>` (`bd create --help`). Leave out
-  `--deps` for a task that waits on nothing.
+  `bd create "<title>" --parent <epic> --no-inherit-labels -l spec-change,<its repo: label>,<its kind> --body-file <that file> --deps blocked-by:<predecessor id> --silent`.
+  Several predecessors go in the one flag, comma-separated:
+  `--deps blocked-by:<id>,blocked-by:<id>` (`bd create --help`). Leave out `--deps` for a task that
+  waits on nothing.
 - **Its labels are those three alone:** `spec-change`, which keeps it out of the general queue, the
   epic's `repo:` label, and its kind, which rule 3 reads. The epic's `asset:`, found-at and reroute
   labels are not the task's.

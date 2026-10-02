@@ -27,9 +27,9 @@ which of four things is true, citing file and line for each claim:
 
 Read that code as the trunk has it: this step runs in the primary checkout, whose `main` trails
 `origin/main` until someone pulls it. Run `git fetch origin main`, then read with
-`git show origin/main:<path>`. Where a fetch is not wanted yet, as in plan mode, `gh api "repos/{owner}/{repo}/contents/<path>?ref=main"
--H "Accept: application/vnd.github.raw"` reads the same file without one. An agent sent to read the code
-reads the checkout's copy unless its brief says otherwise, so say so.
+`git show origin/main:<path>`. Where a fetch is not wanted yet, as in plan mode, `gh api "repos/{owner}/{repo}/contents/<path>?ref=main" -H "Accept: application/vnd.github.raw"`
+reads the same file without one. An agent sent to read the code reads the checkout's copy unless its
+brief says otherwise, so say so.
 
 The harness read this skill and `CLAUDE.md` from that checkout too, so they can trail the trunk as
 well. Compare the trunk with the commit the session started from, the first of the recent commits in

@@ -12,7 +12,7 @@
  * gates would hold one constant to two values while each passed. Or a reader would see a moved key
  * as absent, and fall back to a default or skip a refusal with no reason given. So it refuses a key
  * that two records define, and a record that is not a JSON object, rather than merging past either.
- * `npm run policy:check` holds the records' shape; this holds only what every reader needs to read
+ * `npm run check:policy` holds the records' shape; this holds only what every reader needs to read
  * them at all.
  *
  * INVOCATION.
@@ -21,8 +21,10 @@
  *                                       readPolicy(root): the merged constants of the records under root
  *   node tools/lib/policy.ts <key>... [--prefix <p>]...
  *                                       prints the named constants, and every constant whose key starts
- *                                       with a prefix (no `Means`), as one JSON object, for a prompt or a
- *                                       workflow's command; refuses a key no record holds
+ *                                       with a prefix (no `Means`), as one JSON object in the merged
+ *                                       order, for a prompt or a workflow's command; refuses a key no
+ *                                       record holds. `check:policy:selftest` holds what it prints and
+ *                                       refuses.
  *   POLICY_ROOT=<dir> node tools/lib/policy.ts ...
  *                                       the same over a doctored copy
  *
@@ -108,11 +110,6 @@ export function readPolicyAt(git: (args: string[]) => string, rev: string): Cons
     .sort(byCodePoint)
     .map((name) => `${POLICY_DIR}/${name}`)
   return mergeRecords(paths.map((path) => parseRecord(path, git(['show', `${rev}:${path}`]))))
-}
-
-/** The record under `root` that holds `key`, repository-relative, or null when none does. */
-export function recordOf(root: string, key: string): string | null {
-  return readRecords(root).find((r) => Object.hasOwn(r.data, key) && !isHeader(key))?.path ?? null
 }
 
 /** Copy every record from the tree at `from` into the tree at `to`, for a fixture. */

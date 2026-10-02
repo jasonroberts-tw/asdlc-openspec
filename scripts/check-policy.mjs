@@ -13,6 +13,10 @@
  *   - `tools/policy.json`, the single file the records replaced, has not come back: a key added there
  *     would reach no reader, and its gate would pass.
  *
+ * Its selftest also holds the loader, `tools/lib/policy.ts`, which every reader and this gate stand
+ * on: what its command line prints and refuses, a key two records define refused for every reader,
+ * and a fixture's edit written back to the record that held each key.
+ *
  * What a constant's value must be is each reader's to hold, by the gates the record's `gatedBy`
  * names; a table's rows (`promptWordBudgets`) are `check:prompts`'. This gate holds only what every
  * record shares.
@@ -34,13 +38,15 @@
  * 0.09 s wall for the gate and 0.12 s for its selftest through `node --run` (`/usr/bin/time -p`, one
  * run each) on a macOS 26.7.1 laptop with Node 26.8.1, 2026-10-02.
  */
+import { spawnSync } from 'node:child_process'
 import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { HEADER_FIELDS, POLICY_DIR } from '../tools/lib/policy.ts'
+import { editPolicy, HEADER_FIELDS, POLICY_DIR, parseRecord, readPolicy, readRecords } from '../tools/lib/policy.ts'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+const LOADER = join(REPO_ROOT, 'tools/lib/policy.ts')
 const ROOT = process.env.POLICY_CHECK_ROOT ?? REPO_ROOT
 const README = `${POLICY_DIR}/README.md`
 /** The one file the records replaced; a key added there would reach no reader. */
@@ -48,7 +54,6 @@ const RETIRED = 'tools/policy.json'
 const RULE_HOME = '`CLAUDE.md` § Three kinds of file, and never a fourth'
 
 const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
-const isRecord = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
 const isText = (v) => typeof v === 'string' && v.trim() !== ''
 const isHeader = (key) => HEADER_FIELDS.includes(key)
 
@@ -72,13 +77,10 @@ export function runCheck(root) {
     const path = `${POLICY_DIR}/${name}`
     let data
     try {
-      data = JSON.parse(readFileSync(join(root, path), 'utf8'))
+      data = parseRecord(path, readFileSync(join(root, path), 'utf8')).data
     } catch (error) {
-      problems.push(`${path} does not parse as JSON: ${error.message}`)
-      continue
-    }
-    if (!isRecord(data)) {
-      problems.push(`${path} holds no JSON object.`)
+      // The loader's own refusal, so a reader and this gate say the same of a broken record.
+      problems.push(`${error.message}.`)
       continue
     }
     for (const field of HEADER_FIELDS) {
@@ -184,10 +186,82 @@ function cases() {
   ]
 }
 
+/** The loader's command line over a copy of the records, as a prompt or a workflow's command runs it. */
+const loader = (dir, ...args) =>
+  spawnSync(process.execPath, ['--no-warnings', LOADER, ...args], { cwd: dir, env: { ...process.env, POLICY_ROOT: dir }, encoding: 'utf8' })
+
+/** Why a run of the loader is not `status` with stdout `out` and stderr matching `err`, or null. */
+function ran(run, status, { out, err } = {}) {
+  if (run.status !== status) return `exited ${run.status}, not ${status}: ${(run.stderr || run.stdout).trim()}`
+  if (out !== undefined && run.stdout.trim() !== out) return `printed ${run.stdout.trim()}, not ${out}`
+  if (err !== undefined && !err.test(run.stderr)) return `said ${JSON.stringify(run.stderr.trim())}, not ${err}`
+  return null
+}
+
+/**
+ * The loader itself, which every reader and this gate stand on: what its command line prints and
+ * refuses, and that a fixture's edit goes back to the record that held each key. Each case runs over
+ * an undoctored copy unless it doctors one, and each refusal is asserted by its reason.
+ */
+function loaderCases() {
+  const live = readPolicy(REPO_ROOT)
+  const verifyTrace = Object.fromEntries(Object.entries(live).filter(([k]) => k.startsWith('verifyTrace') && !k.endsWith('Means')))
+  return [
+    {
+      name: 'loader: prints the keys it is named, from two records, in the merged order and nothing else',
+      check: (dir) => {
+        const named = ['specChangeLabel', 'prReviewMergeMethod']
+        const out = JSON.stringify(Object.fromEntries(Object.entries(live).filter(([k]) => named.includes(k))))
+        return ran(loader(dir, ...named), 0, { out })
+      },
+    },
+    {
+      name: 'loader: a prefix prints its constants and none of their Means',
+      check: (dir) => (Object.keys(verifyTrace).length === 0 ? 'cannot be exercised: no verifyTrace key' : ran(loader(dir, '--prefix', 'verifyTrace'), 0, { out: JSON.stringify(verifyTrace) })),
+    },
+    { name: 'loader: a key no record holds is refused, by its name', check: (dir) => ran(loader(dir, 'noSuchKey'), 1, { err: /^policy: no record under tools\/policy\/ holds `noSuchKey`/ }) },
+    { name: 'loader: a prefix with no value is refused', check: (dir) => ran(loader(dir, '--prefix'), 2, { err: /^policy: --prefix needs a value/ }) },
+    { name: 'loader: no key and no prefix is refused', check: (dir) => ran(loader(dir), 2, { err: /^policy: name at least one key or --prefix/ }) },
+    {
+      name: 'loader: a key two records define is refused for every reader, naming both',
+      doctor: editRecord('tool-settings.json', (d) => {
+        d.specChangeLabel = 'spec-change'
+      }),
+      check: (dir) => ran(loader(dir, 'typesafeModel'), 1, { err: /^policy: `specChangeLabel` is defined in both tools\/policy\/tool-settings\.json and tools\/policy\/vocabulary\.json/ }),
+    },
+    {
+      name: "loader: a fixture's edit goes back to the record that held each key, and a new Means beside its constant",
+      doctor: editRecord('vocabulary.json', (d) => delete d.specChangeLabelMeans),
+      check: (dir) => {
+        editPolicy(dir, (p) => {
+          p.couplingMinTogether = 999
+          p.specChangeLabelMeans = 'a fixture reason'
+        })
+        const records = Object.fromEntries(readRecords(dir).map((r) => [r.path, r.data]))
+        if (records['tools/policy/tool-settings.json'].couplingMinTogether !== 999) return 'the changed key did not go back to tool-settings.json'
+        if (records['tools/policy/vocabulary.json'].specChangeLabelMeans !== 'a fixture reason') return 'the new Means did not go beside its constant'
+        try {
+          editPolicy(dir, () => {})
+          return 'an edit that changed nothing was not refused'
+        } catch (error) {
+          return /changed nothing/.test(error.message) ? null : `refused for another reason: ${error.message}`
+        }
+      },
+    },
+  ]
+}
+
 function selftest() {
   const base = mkdtempSync(join(tmpdir(), 'check-policy-'))
   const results = []
   try {
+    for (const { name, doctor, check } of loaderCases()) {
+      const dir = join(base, name.replace(/[^a-z0-9]+/gi, '-'))
+      cpSync(join(REPO_ROOT, POLICY_DIR), join(dir, POLICY_DIR), { recursive: true })
+      doctor?.(dir)
+      const problem = check(dir)
+      results.push({ name, ok: problem === null, detail: problem ?? 'holds' })
+    }
     for (const { name, doctor, expect } of cases()) {
       const dir = join(base, name.replace(/[^a-z0-9]+/gi, '-'))
       cpSync(join(REPO_ROOT, POLICY_DIR), join(dir, POLICY_DIR), { recursive: true })
@@ -217,7 +291,11 @@ function selftest() {
   }
   const failed = results.filter((result) => !result.ok)
   for (const { name, ok, detail } of results) console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${name} -- ${detail}`)
-  console.log(`policy selftest: ${results.length - failed.length}/${results.length} cases hold (control plus ${results.length - 1} doctored copies).`)
+  const gate = cases().length
+  console.log(
+    `policy selftest: ${results.length - failed.length}/${results.length} cases hold ` +
+      `(the gate's control plus ${gate - 1} doctored copies, and ${results.length - gate} of the loader's).`,
+  )
   process.exit(failed.length === 0 ? 0 : 1)
 }
 
