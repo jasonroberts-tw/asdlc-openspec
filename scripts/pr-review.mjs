@@ -3,7 +3,8 @@
  * is told about it, and whether the verdict it returns merges it. `.github/workflows/pr-review.yml`
  * runs one subcommand per job. Claude Code, as `.claude/agents/pr-reviewer.md`, only writes a
  * verdict; this file alone turns a verdict into a status, a label and a merge, by the `prReview*`
- * keys of `tools/policy.json` (`docs/decisions.md` § D-07).
+ * keys of `tools/policy/pr-review.json` (`docs/decisions.md` § D-07), read through
+ * `tools/lib/policy.ts` with the rest of the policy.
  *
  *   PR=<n> node scripts/pr-review.mjs mark
  *                                       set pull request <n>'s head pending, from the session that
@@ -107,11 +108,15 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gitEnv } from '../tools/lib/git-env.ts'
+import { copyPolicy, editPolicy as editRecords, readPolicy as readRecords } from '../tools/lib/policy.ts'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ROOT = process.env.PR_REVIEW_ROOT ?? REPO_ROOT
 
-const POLICY = 'tools/policy.json'
+/** The record that holds the `prReview*` keys; the loader reads every record under `tools/policy/`. */
+const POLICY = 'tools/policy/pr-review.json'
+/** The record of every prompt's word budget, which the floor must also cover. */
+const BUDGETS = 'tools/policy/prompt-budgets.json'
 const WORKFLOW = '.github/workflows/pr-review.yml'
 const VERIFY = '.github/workflows/verify.yml'
 const AGENT = '.claude/agents/pr-reviewer.md'
@@ -212,20 +217,23 @@ export function policyProblems(policy) {
       problems.push(`${POLICY} \`prReviewApproverPermissions\` names \`${permission}\`, which GitHub does not (${PERMISSIONS.join(', ')}).`)
     }
   }
-  // The floor must cover the reviewer itself, or a pull request could change its own judge and merge.
-  for (const path of [WORKFLOW, AGENT, SELF]) {
+  // The floor must cover the reviewer itself, or a pull request could change its own judge and merge;
+  // and the two records only a person may change, or one could lower its own floor or raise a budget.
+  const covered = [
+    ...[WORKFLOW, AGENT, SELF].map((path) => [path, 'part of the reviewer itself']),
+    [POLICY, 'the record of what the reviewer decides by, this floor among it'],
+    [BUDGETS, "the record of every prompt's word budget"],
+  ]
+  for (const [path, what] of covered) {
     if (!matchesAny(path, Object.keys(policy.prReviewHighRiskPaths))) {
-      problems.push(`${POLICY} \`prReviewHighRiskPaths\` does not cover ${path}, part of the reviewer itself: a pull request changing it could merge without a person.`)
+      problems.push(`${POLICY} \`prReviewHighRiskPaths\` does not cover ${path}, ${what}: a pull request changing it could merge without a person.`)
     }
-  }
-  if (!(policy.prReviewHighRiskJsonKeys[POLICY] ?? []).some((pattern) => keyMatches('prReviewHighRiskPaths', pattern))) {
-    problems.push(`${POLICY} \`prReviewHighRiskJsonKeys\` does not cover the \`prReview*\` keys of ${POLICY}: a pull request could lower its own floor and merge without a person.`)
   }
   return problems
 }
 
 function readPolicy(root) {
-  const policy = JSON.parse(readFileSync(join(root, POLICY), 'utf8'))
+  const policy = readRecords(root)
   const problems = policyProblems(policy)
   if (problems.length > 0) throw new Error(problems.join('\n'))
   return policy
@@ -287,7 +295,7 @@ export function namedIssues(texts, pattern, cited) {
 /**
  * What the brief shows of the prompt counts, `{ ok, text }` as `promptCounts` returns them: the
  * table when a changed path is one of the prompts it counts, a new one with no budget among them, or
- * the policy that budgets them; null when neither changed, since the table then settles nothing. A
+ * the record that budgets them; null when neither changed, since the table then settles nothing. A
  * count that failed is shown whatever changed, so a criterion it would settle is not judged without
  * saying why.
  */
@@ -295,9 +303,9 @@ export function countsSection(counts, changedPaths) {
   if (!counts.ok) return counts.text
   const prompts = String(counts.text)
     .split('\n')
-    .map((line) => /^\s*\d+\s+(?:\d+|-)\s+\S+\s+(\S+)\s*$/.exec(line)?.[1])
+    .map((line) => /^\s*\d+\s+(?:\d+|-)\s+(\S+)\s*$/.exec(line)?.[1])
     .filter(Boolean)
-  return changedPaths.some((path) => path === POLICY || prompts.includes(path)) ? String(counts.text).trim() : null
+  return changedPaths.some((path) => path === BUDGETS || prompts.includes(path)) ? String(counts.text).trim() : null
 }
 
 /**
@@ -1200,7 +1208,7 @@ function brief({ dryRun, local }) {
     lines.push(
       "## The prompts' word counts at the head",
       '',
-      "`node scripts/check-prompts.mjs --counts`, this checkout's copy of the script run over the head's files: each prompt's words beside its key and budget, for a criterion that a budget equals its count. `check:prompts` refuses only a count over its budget, so a green `verify` cannot show that.",
+      "`node scripts/check-prompts.mjs --counts`, this checkout's copy of the script run over the head's files: each prompt's words beside its budget, for a criterion that a budget equals its count. `check:prompts` refuses only a count over its budget, so a green `verify` cannot show that.",
       '',
       fenced(counts),
       '',
@@ -1240,7 +1248,7 @@ function ensureLabels(dryRun, repo, policy) {
     write(dryRun, `create label ${name}`, 'POST', `repos/${repo}/labels`, {
       name,
       color: colours[role],
-      description: `The pull-request reviewer: ${role} (tools/policy.json prReviewLabels)`,
+      description: `The pull-request reviewer: ${role} (tools/policy/pr-review.json prReviewLabels)`,
     })
   }
 }
@@ -1377,9 +1385,9 @@ export async function runCheck(root) {
 
   let policy
   try {
-    policy = JSON.parse(readFileSync(join(root, POLICY), 'utf8'))
+    policy = readRecords(root)
   } catch (error) {
-    return [`${POLICY} does not parse: ${error.message}`]
+    return [`the policy under ${root} cannot be read: ${error.message}`]
   }
   failures.push(...policyProblems(policy))
   if (failures.length > 0) return failures
@@ -1544,7 +1552,7 @@ async function check() {
 /* -------------------------------------------------------------------------------- selftest ----- */
 
 /** The control's policy: the real one, so a case fails for the policy the reviewer runs on. */
-const livePolicy = () => JSON.parse(readFileSync(join(REPO_ROOT, POLICY), 'utf8'))
+const livePolicy = () => readRecords(REPO_ROOT)
 
 const ISSUE = 'asdlc-openspec-abc'
 const OTHER = 'asdlc-openspec-def.2'
@@ -1673,11 +1681,16 @@ function helperCases(policy) {
         ['asdlc-openspec-a1b', 'asdlc-openspec-b2c', OTHER],
         'named',
       )),
-    h('prompt counts: shown for a counted prompt, a new one with no budget, or the policy changed, and for nothing else', () => {
-      const table = '   words  budget  key  path\n     328     328  promptWordBudgetAgentX  .claude/agents/x.md\n      12       -  promptWordBudgetAgentY  .claude/agents/y.md\n\nprompts: 2 prompt(s)'
+    h('prompt counts: shown for a counted prompt, a new one with no budget, or the budgets changed, and for nothing else', () => {
+      const table = '   words  budget  path\n     328     328  .claude/agents/x.md\n      12       -  .claude/agents/y.md\n\nprompts: 2 prompt(s)'
       const counts = { ok: true, text: table }
       return assertEqual(
-        [countsSection(counts, ['.claude/agents/x.md']), countsSection(counts, ['.claude/agents/y.md']) !== null, countsSection(counts, [POLICY]) !== null, countsSection(counts, ['scripts/a.mjs', 'README.md'])],
+        [
+          countsSection(counts, ['.claude/agents/x.md']),
+          countsSection(counts, ['.claude/agents/y.md']) !== null,
+          countsSection(counts, [BUDGETS]) !== null,
+          countsSection(counts, ['scripts/a.mjs', 'README.md', POLICY]),
+        ],
         [table.trim(), true, true, null],
         'sections',
       )
@@ -1689,15 +1702,15 @@ function helperCases(policy) {
       try {
         const g = (...args) => execFileSync('git', ['-C', repo, '-c', 'user.name=selftest', '-c', 'user.email=selftest@example.invalid', ...args], { env: gitEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
         g('init', '-q')
-        mkdirSync(join(repo, 'tools'))
-        writeFileSync(join(repo, POLICY), JSON.stringify({ promptWordBudgetClaudeMd: 3, promptWordBudgetClaudeMdMeans: 'a fixture' }))
+        mkdirSync(join(repo, 'tools', 'policy'), { recursive: true })
+        writeFileSync(join(repo, BUDGETS), JSON.stringify({ promptWordBudgets: { 'CLAUDE.md': { words: 3, means: 'a fixture' } } }))
         writeFileSync(join(repo, 'CLAUDE.md'), 'one two three\n')
         g('add', '.')
         g('commit', '-qm', 'a fixture with one prompt')
         const sha = g('rev-parse', 'HEAD').trim()
         writeFileSync(join(repo, 'CLAUDE.md'), 'one two three four five six\n')
         const counted = promptCounts(sha, repo)
-        const row = /^\s*(\d+)\s+(\d+)\s+promptWordBudgetClaudeMd\s+CLAUDE\.md\s*$/m.exec(counted.text)
+        const row = /^\s*(\d+)\s+(\d+)\s+CLAUDE\.md\s*$/m.exec(counted.text)
         const bad = promptCounts('0'.repeat(40), repo)
         return assertEqual(
           [counted.ok, row?.slice(1), bad.ok, /^The counts could not be taken: /.test(bad.text)],
@@ -1752,16 +1765,21 @@ function helperCases(policy) {
       )
       return assertEqual([out.files.map((f) => [f.rubric, Boolean(f.highRisk)]), out.floor], [[['context', false], ['product', false], ['context', true]], 'high'], 'classes')
     }),
-    h('JSON keys: a dependency or a prReview key changed is caught, a script added is not', () =>
+    h('JSON keys: a dependency or the engine floor changed is caught, a script added is not', () =>
       assertEqual(
         [
           changedJsonKeys('package.json', { scripts: { a: 'x' }, devDependencies: { j: '1' } }, { scripts: { a: 'x', b: 'y' }, devDependencies: { j: '1' } }, policy.prReviewHighRiskJsonKeys['package.json']),
           changedJsonKeys('package.json', { engines: { node: '>=22' } }, {}, policy.prReviewHighRiskJsonKeys['package.json']).map((c) => c.key),
-          changedJsonKeys(POLICY, { prReviewLabels: { a: 1 }, buildReviewMaxRounds: 2 }, { prReviewLabels: { a: 2 }, buildReviewMaxRounds: 3 }, policy.prReviewHighRiskJsonKeys[POLICY]).map((c) => c.key),
+          changedJsonKeys('package.json', { dependencies: { a: '1' }, scripts: { a: 'x' } }, { dependencies: { a: '2' }, scripts: { a: 'y' } }, policy.prReviewHighRiskJsonKeys['package.json']).map((c) => c.key),
         ],
-        [[], ['engines'], ['prReviewLabels']],
+        [[], ['engines'], ['dependencies']],
         'changed keys',
       )),
+    h('classify: the reviewer\'s record and the budgets are on the floor whole, the other policy records are not', () => {
+      const records = [POLICY, BUDGETS, 'tools/policy/agent-workflows.json', 'tools/policy/vocabulary.json', 'tools/policy/tool-settings.json']
+      const out = classify(records.map((path) => ({ status: 'M', path })), [], policy)
+      return assertEqual(out.files.map((f) => [f.path, Boolean(f.highRisk)]), records.map((path, i) => [path, i < 2]), 'floor')
+    }),
     h('a verdict counts only from the workflow bot, on the head, on the first line, latest first', () =>
       assertEqual(
         [
@@ -1858,18 +1876,15 @@ function wiringCases() {
     if (after === before) throw new Error(`selftest fixture for ${path} changed nothing -- the doctoring missed its target`)
     writeFileSync(full, after)
   }
-  const editPolicy = (change) => (dir) => {
-    const full = join(dir, POLICY)
-    const policy = JSON.parse(readFileSync(full, 'utf8'))
-    change(policy)
-    writeFileSync(full, `${JSON.stringify(policy, null, 2)}\n`)
-  }
+  const editPolicy = (change) => (dir) => editRecords(dir, change)
   return [
     { name: 'control: the undoctored copy passes', doctor: () => {}, expect: 'pass' },
     { name: 'a prReview key goes missing', doctor: editPolicy((p) => delete p.prReviewMergeMethod), expect: /`prReviewMergeMethod` is missing/ },
     { name: 'a prReview key loses its Means sibling', doctor: editPolicy((p) => delete p.prReviewLabelsMeans), expect: /`prReviewLabels` has no `prReviewLabelsMeans` sibling/ },
     { name: 'the floor stops covering the reviewer\'s own script', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[SELF]), expect: /does not cover scripts\/pr-review\.mjs/ },
-    { name: 'the floor stops covering the prReview keys', doctor: editPolicy((p) => { p.prReviewHighRiskJsonKeys[POLICY] = ['buildReview*'] }), expect: /does not cover the `prReview\*` keys/ },
+    { name: 'the floor stops covering the record of the prReview keys', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[POLICY]), expect: /does not cover tools\/policy\/pr-review\.json, the record of what the reviewer decides by/ },
+    { name: 'the floor stops covering the word budgets', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[BUDGETS]), expect: /does not cover tools\/policy\/prompt-budgets\.json, the record of every prompt's word budget/ },
+    { name: 'a key the reviewer reads is defined in two records', doctor: (dir) => writeFileSync(join(dir, 'tools/policy/other.json'), JSON.stringify({ prReviewMergeMethod: 'merge' })), expect: /cannot be read: `prReviewMergeMethod` is defined in both tools\/policy\/other\.json and tools\/policy\/pr-review\.json/ },
     { name: 'a blocking severity the schema does not have', doctor: editPolicy((p) => { p.prReviewBlockingSeverities.push('nit') }), expect: /names `nit`, which the verdict schema does not have/ },
     { name: 'the approval label renamed in the policy only', doctor: editPolicy((p) => { p.prReviewLabels.approved = 'lgtm' }), expect: /filters on the label .* not on `prReviewLabels\.approved` \(`lgtm`\)/ },
     { name: 'the queue cancels a pending run', doctor: edit(WORKFLOW, /^  queue: max\n/m, ''), expect: /must set `queue: max`/ },
@@ -1918,10 +1933,11 @@ async function selftest() {
   try {
     for (const { name, doctor, expect } of wiringCases()) {
       const dir = join(base, name.replace(/[^a-z0-9]+/gi, '-'))
-      for (const path of [POLICY, WORKFLOW, VERIFY, AGENT]) {
+      for (const path of [WORKFLOW, VERIFY, AGENT]) {
         mkdirSync(dirname(join(dir, path)), { recursive: true })
         copyFileSync(join(REPO_ROOT, path), join(dir, path))
       }
+      copyPolicy(REPO_ROOT, dir)
       let detail
       let ok
       try {

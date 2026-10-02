@@ -25,10 +25,11 @@
  *      rewrite them from each machine's global configuration. They were retired by D-02 because their
  *      tracking model (a `tasks.md` checklist) contradicts `CLAUDE.md` § The task store.
  *   5. The change label spelled in a skill or agent that does not cite `specChangeLabel` in
- *      `tools/policy.json`, its one home (`docs/decisions.md` § D-03), or one that cites the key and
- *      still spells an old value after the label moved. The label decides what the general queue
- *      offers, so a prompt spelling a stale one sweeps a change's tasks into it. Before D-03 the
- *      spelling sat in eight files, the register and seven prompts, and nothing held them together.
+ *      `tools/policy/vocabulary.json`, its one home (`docs/decisions.md` § D-03), or one that cites
+ *      the key and still spells an old value after the label moved. The label decides what the
+ *      general queue offers, so a prompt spelling a stale one sweeps a change's tasks into it. Before
+ *      D-03 the spelling sat in eight files, the register and seven prompts, and nothing held them
+ *      together.
  *   6. A scenario or NFR requirement with no ID, or with an ID another header has or once had. Under
  *      D-13 a test is to name the ID it proves (asdlc-openspec-j09.5), so an ID on two scenarios
  *      would let one test stand for either, and an ID reused after its scenario was removed would
@@ -40,13 +41,13 @@
  * IDS (`docs/decisions.md` § D-13, items 1, 2 and 11, whose table names this header their home;
  * landed by asdlc-openspec-j09.3). A scenario is headed `#### Scenario: [<PREFIX>-NNN] <title>` and
  * an NFR requirement `### Requirement: [NFR-<PREFIX>-NNN] <title>`: the ID in brackets, one space,
- * then the title. The prefix is its capability's under `specIdPrefixes` in `tools/policy.json`, and
- * NNN is a number from 1, written with three digits or more and zero-padded to three, no further. A
- * requirement that is not an NFR carries no ID; its scenarios do. An ID is unique within its prefix
- * and never reused, and a reworded header is a removal and an addition with a new ID, because the
- * pinned OpenSpec matches a MODIFIED scenario by its whole header. Since an ID is never reused,
- * neither is a prefix: a capability that is removed keeps its key in the policy file, which no gate
- * holds.
+ * then the title. The prefix is its capability's under `specIdPrefixes` in
+ * `tools/policy/vocabulary.json`, and NNN is a number from 1, written with three digits or more and
+ * zero-padded to three, no further. A requirement that is not an NFR carries no ID; its scenarios
+ * do. An ID is unique within its prefix and never reused, and a reworded header is a removal and an
+ * addition with a new ID, because the pinned OpenSpec matches a MODIFIED scenario by its whole
+ * header. Since an ID is never reused, neither is a prefix: a capability that is removed keeps its
+ * key in the policy record, which no gate holds.
  *
  * WHAT COUNTS AS A HEADER is what the pinned OpenSpec 1.6.0 counts, reader by reader, outside fenced
  * code as its own fence rules draw it (`requirement-text.js`: a fence opens on three or more
@@ -120,6 +121,7 @@ import { dirname, join, resolve } from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { findBin } from './lib/bin-path.mjs'
+import { POLICY_DIR, readPolicy } from '../tools/lib/policy.ts'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ROOT = process.env.OPENSPEC_CHECK_ROOT ?? REPO_ROOT
@@ -127,8 +129,12 @@ const ROOT = process.env.OPENSPEC_CHECK_ROOT ?? REPO_ROOT
 const OPENSPEC_DIR = 'openspec'
 const SKILLS_DIR = '.claude/skills'
 const AGENTS_DIR = '.claude/agents'
-/** The workflow's policy file, and the key under which it spells the change label (D-03). */
-const POLICY_FILE = 'tools/policy.json'
+/**
+ * The policy record that holds the two keys below, named in each refusal about them; the gate reads
+ * them from every record merged, so a key that moves still reads. And the key under which it spells
+ * the change label (D-03).
+ */
+const VOCABULARY = `${POLICY_DIR}/vocabulary.json`
 const LABEL_KEY = 'specChangeLabel'
 /** The policy key that maps each capability to the prefix of its scenario and NFR IDs. */
 const PREFIX_KEY = 'specIdPrefixes'
@@ -188,7 +194,7 @@ export function runCheck(root, bin) {
 
   /* ------------------------------------------------- 2. the change label has one home ----------- */
 
-  const policy = readPolicy(root, fail)
+  const policy = loadPolicy(root, fail)
   const label = changeLabel(policy, fail)
   if (label !== null) {
     const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -200,13 +206,13 @@ export function runCheck(root, bin) {
       if (spells && !cites) {
         fail(
           `${path} spells the change label \`${label}\` without citing \`${LABEL_KEY}\` in` +
-            ` ${POLICY_FILE}, its one home (\`docs/decisions.md\` § D-03). Cite the key where the` +
+            ` ${VOCABULARY}, its one home (\`docs/decisions.md\` § D-03). Cite the key where the` +
             ` prompt first spells the label.`,
         )
       } else if (cites && !spells) {
         fail(
           `${path} cites \`${LABEL_KEY}\` but never spells its value \`${label}\`: the label moved in` +
-            ` ${POLICY_FILE} and this prompt still spells the old one. Respell it here.`,
+            ` ${VOCABULARY} and this prompt still spells the old one. Respell it here.`,
         )
       }
     }
@@ -323,32 +329,30 @@ export function runCheck(root, bin) {
   }
 }
 
-/** The policy file, parsed, or undefined after reporting why it cannot be read. */
-function readPolicy(root, fail) {
-  const path = join(root, POLICY_FILE)
-  if (!existsSync(path)) {
+/**
+ * The policy's constants, every record under `tools/policy/` merged, or undefined after reporting why
+ * they cannot be read: no record, one that does not parse, or a key two records define.
+ */
+function loadPolicy(root, fail) {
+  try {
+    return readPolicy(root)
+  } catch (error) {
     fail(
-      `${POLICY_FILE} is missing under ${root}. It is the one home of the change label` +
+      `${error.message} (under ${root}). ${POLICY_DIR}/ is the one home of the change label` +
         ` (\`docs/decisions.md\` § D-03), which the change-* skills and the general sweeps spell,` +
         ` and of the prefix of every capability's scenario and NFR IDs.`,
     )
     return undefined
   }
-  try {
-    return JSON.parse(readFileSync(path, 'utf8'))
-  } catch (error) {
-    fail(`${POLICY_FILE} does not parse as JSON: ${error.message}`)
-    return undefined
-  }
 }
 
-/** The change label as the policy file spells it, or null after reporting why it cannot be read. */
+/** The change label as the policy spells it, or null after reporting why it cannot be read. */
 function changeLabel(policy, fail) {
   if (policy === undefined) return null
   const label = policy?.[LABEL_KEY]
   if (typeof label !== 'string' || label.trim() === '') {
     fail(
-      `${POLICY_FILE} carries no \`${LABEL_KEY}\` string. D-03 moved the change label's spelling` +
+      `${VOCABULARY} carries no \`${LABEL_KEY}\` string. D-03 moved the change label's spelling` +
         ` there; restore the key rather than spelling the label in the prompts alone.`,
     )
     return null
@@ -356,7 +360,7 @@ function changeLabel(policy, fail) {
   const means = policy[`${LABEL_KEY}Means`]
   if (typeof means !== 'string' || means.trim() === '') {
     fail(
-      `${POLICY_FILE} carries \`${LABEL_KEY}\` with no \`${LABEL_KEY}Means\` sibling saying what it` +
+      `${VOCABULARY} carries \`${LABEL_KEY}\` with no \`${LABEL_KEY}Means\` sibling saying what it` +
         ` decides and where it is changed (\`CLAUDE.md\` § Three kinds of file, and never a fourth).`,
     )
   }
@@ -364,7 +368,7 @@ function changeLabel(policy, fail) {
 }
 
 /**
- * Each capability's ID prefix as the policy file holds it, as a Map, or null after reporting why it
+ * Each capability's ID prefix as the policy holds it, as a Map, or null after reporting why it
  * cannot be read. A malformed prefix is reported and mapped to null, so its headers go unread rather
  * than each refused; a shared one is reported and kept, so both capabilities' headers are read.
  */
@@ -373,7 +377,7 @@ function idPrefixes(policy, fail) {
   const held = policy?.[PREFIX_KEY]
   if (held === null || typeof held !== 'object' || Array.isArray(held) || Object.keys(held).length === 0) {
     fail(
-      `${POLICY_FILE} carries no \`${PREFIX_KEY}\` object mapping each capability to the prefix of its` +
+      `${VOCABULARY} carries no \`${PREFIX_KEY}\` object mapping each capability to the prefix of its` +
         ` scenario and NFR IDs. Restore the key: it is the prefixes' one home, and no skill or gate` +
         ` spells one.`,
     )
@@ -382,7 +386,7 @@ function idPrefixes(policy, fail) {
   const means = policy[`${PREFIX_KEY}Means`]
   if (typeof means !== 'string' || means.trim() === '') {
     fail(
-      `${POLICY_FILE} carries \`${PREFIX_KEY}\` with no \`${PREFIX_KEY}Means\` sibling saying what it` +
+      `${VOCABULARY} carries \`${PREFIX_KEY}\` with no \`${PREFIX_KEY}Means\` sibling saying what it` +
         ` decides and where it is changed (\`CLAUDE.md\` § Three kinds of file, and never a fourth).`,
     )
   }
@@ -392,7 +396,7 @@ function idPrefixes(policy, fail) {
     const prefix = held[capability]
     if (typeof prefix !== 'string' || !PREFIX_SHAPE.test(prefix) || prefix === 'NFR') {
       fail(
-        `${POLICY_FILE} gives capability \`${capability}\` the prefix ${JSON.stringify(prefix)} under` +
+        `${VOCABULARY} gives capability \`${capability}\` the prefix ${JSON.stringify(prefix)} under` +
           ` \`${PREFIX_KEY}\`: a prefix is capital letters and digits, opening with a letter, and is` +
           ` not \`NFR\`, which opens an NFR requirement's ID.`,
       )
@@ -401,7 +405,7 @@ function idPrefixes(policy, fail) {
     }
     if (owner.has(prefix)) {
       fail(
-        `${POLICY_FILE} gives capabilities \`${owner.get(prefix)}\` and \`${capability}\` one prefix,` +
+        `${VOCABULARY} gives capabilities \`${owner.get(prefix)}\` and \`${capability}\` one prefix,` +
           ` \`${prefix}\`, under \`${PREFIX_KEY}\`: an ID names one capability, so each has its own.`,
       )
     }
@@ -474,7 +478,7 @@ function checkIds(root, prefixes, fail) {
 
   for (const [capability, paths] of unprefixed) {
     fail(
-      `capability \`${capability}\` has no ID prefix under \`${PREFIX_KEY}\` in ${POLICY_FILE}, so no` +
+      `capability \`${capability}\` has no ID prefix under \`${PREFIX_KEY}\` in ${VOCABULARY}, so no` +
         ` header of ${paths.join(', ')} can be checked. Add one in the change that adds the capability.`,
     )
   }
@@ -873,7 +877,7 @@ function main() {
       console.log(
         `openspec: nothing to validate yet (no living spec under ${OPENSPEC_DIR}/specs/, no active` +
           ` change under ${OPENSPEC_DIR}/changes/); no retired skill under ${SKILLS_DIR}/; every` +
-          ` prompt that spells the change label cites ${LABEL_KEY} in ${POLICY_FILE}.`,
+          ` prompt that spells the change label cites ${LABEL_KEY} in ${VOCABULARY}.`,
       )
     } else {
       console.log(
@@ -882,7 +886,7 @@ function main() {
           ` capability's ID, unique, and given no other title by any archived change, within the limits` +
           ` this gate's header names (${ids.scenarios} scenario ID(s) and ${ids.nfrs} NFR ID(s) in the` +
           ` living specs; next free: ${ids.free.join(', ')}); no retired skill under` +
-          ` ${SKILLS_DIR}/; every prompt that spells the change label cites ${LABEL_KEY} in ${POLICY_FILE}.`,
+          ` ${SKILLS_DIR}/; every prompt that spells the change label cites ${LABEL_KEY} in ${VOCABULARY}.`,
       )
     }
     process.exit(0)
@@ -962,9 +966,9 @@ const FIXTURE = {
   'openspec/changes/add-farewell/proposal.md': PROPOSAL,
   'openspec/changes/add-farewell/specs/greeting/spec.md': DELTA,
   'openspec/changes/archive/2026-01-01-add-greeting/specs/greeting/spec.md': ARCHIVED_DELTA,
-  'tools/policy.json': POLICY,
+  [VOCABULARY]: POLICY,
   '.claude/skills/change-propose/SKILL.md':
-    '---\nname: change-propose\n---\n\nLabel the epic `spec-change` (`specChangeLabel` in `tools/policy.json`).\n',
+    '---\nname: change-propose\n---\n\nLabel the epic `spec-change` (`specChangeLabel` in `tools/policy/vocabulary.json`).\n',
 }
 
 function selftest() {
@@ -1098,19 +1102,19 @@ function cases() {
       expect: /^\.claude\/skills\/openspec-propose\/ is a generated OpenSpec skill, retired by D-02/,
     },
     {
-      name: 'the policy file is missing',
-      doctor: (dir) => rmSync(join(dir, 'tools/policy.json')),
-      expect: /^tools\/policy\.json is missing under /,
+      name: 'the policy records are missing',
+      doctor: (dir) => rmSync(join(dir, POLICY_DIR), { recursive: true }),
+      expect: /^no policy record: tools\/policy\/ holds no \.json file \(under /,
     },
     {
-      name: 'the policy file carries the label with no Means sibling',
+      name: 'the policy record carries the label with no Means sibling',
       doctor: (dir) =>
-        edit(dir, 'tools/policy.json', (t) => t.replace(/,\n\s*"specChangeLabelMeans": "[^"]*"/, '')),
-      expect: /^tools\/policy\.json carries `specChangeLabel` with no `specChangeLabelMeans` sibling/,
+        edit(dir, VOCABULARY, (t) => t.replace(/,\n\s*"specChangeLabelMeans": "[^"]*"/, '')),
+      expect: /^tools\/policy\/vocabulary\.json carries `specChangeLabel` with no `specChangeLabelMeans` sibling/,
     },
     {
       name: 'a skill spells the label without citing its key',
-      doctor: (dir) => edit(dir, skill, (t) => t.replace(' (`specChangeLabel` in `tools/policy.json`)', '')),
+      doctor: (dir) => edit(dir, skill, (t) => t.replace(' (`specChangeLabel` in `tools/policy/vocabulary.json`)', '')),
       expect: /^\.claude\/skills\/change-propose\/SKILL\.md spells the change label `spec-change` without citing `specChangeLabel`/,
     },
     {
@@ -1122,9 +1126,9 @@ function cases() {
       expect: /^\.claude\/agents\/sweep\.md spells the change label `spec-change` without citing/,
     },
     {
-      name: 'the label moves in the policy file and a skill still spells the old one',
+      name: 'the label moves in the policy record and a skill still spells the old one',
       doctor: (dir) =>
-        edit(dir, 'tools/policy.json', (t) =>
+        edit(dir, VOCABULARY, (t) =>
           t.replace('"specChangeLabel": "spec-change"', '"specChangeLabel": "product-change"'),
         ),
       expect: /^\.claude\/skills\/change-propose\/SKILL\.md cites `specChangeLabel` but never spells its value `product-change`/,
@@ -1368,40 +1372,40 @@ function cases() {
       expect: /^openspec\/specs\/greeting\/spec\.md:\d+: `\[GRT-001\]` heads "A reader walks in", but archived change `2026-01-01-add-greeting` gave it "A reader arrives"/,
     },
     {
-      name: 'the policy file carries no ID prefixes',
-      doctor: (dir) => edit(dir, 'tools/policy.json', (t) => t.replace(/,\n\s*"specIdPrefixes": \{[^}]*\}/, '')),
-      expect: /^tools\/policy\.json carries no `specIdPrefixes` object/,
+      name: 'the policy record carries no ID prefixes',
+      doctor: (dir) => edit(dir, VOCABULARY, (t) => t.replace(/,\n\s*"specIdPrefixes": \{[^}]*\}/, '')),
+      expect: /^tools\/policy\/vocabulary\.json carries no `specIdPrefixes` object/,
     },
     {
-      name: 'the policy file carries the ID prefixes with no Means sibling',
-      doctor: (dir) => edit(dir, 'tools/policy.json', (t) => t.replace(/,\n\s*"specIdPrefixesMeans": "[^"]*"/, '')),
-      expect: /^tools\/policy\.json carries `specIdPrefixes` with no `specIdPrefixesMeans` sibling/,
+      name: 'the policy record carries the ID prefixes with no Means sibling',
+      doctor: (dir) => edit(dir, VOCABULARY, (t) => t.replace(/,\n\s*"specIdPrefixesMeans": "[^"]*"/, '')),
+      expect: /^tools\/policy\/vocabulary\.json carries `specIdPrefixes` with no `specIdPrefixesMeans` sibling/,
     },
     {
       name: 'a capability with no ID prefix',
-      doctor: (dir) => edit(dir, 'tools/policy.json', (t) => t.replace('"greeting": "GRT"', '"welcome": "GRT"')),
-      expect: /^capability `greeting` has no ID prefix under `specIdPrefixes` in tools\/policy\.json/,
+      doctor: (dir) => edit(dir, VOCABULARY, (t) => t.replace('"greeting": "GRT"', '"welcome": "GRT"')),
+      expect: /^capability `greeting` has no ID prefix under `specIdPrefixes` in tools\/policy\/vocabulary\.json/,
     },
     {
       name: 'a prefix that is not capital letters and digits',
-      doctor: (dir) => edit(dir, 'tools/policy.json', (t) => t.replace('"greeting": "GRT"', '"greeting": "grt"')),
-      expect: /^tools\/policy\.json gives capability `greeting` the prefix "grt" under `specIdPrefixes`/,
+      doctor: (dir) => edit(dir, VOCABULARY, (t) => t.replace('"greeting": "GRT"', '"greeting": "grt"')),
+      expect: /^tools\/policy\/vocabulary\.json gives capability `greeting` the prefix "grt" under `specIdPrefixes`/,
     },
     {
       name: 'a prefix of NFR, which opens an NFR requirement ID',
-      doctor: (dir) => edit(dir, 'tools/policy.json', (t) => t.replace('"greeting": "GRT"', '"greeting": "NFR"')),
-      expect: /^tools\/policy\.json gives capability `greeting` the prefix "NFR" under `specIdPrefixes`/,
+      doctor: (dir) => edit(dir, VOCABULARY, (t) => t.replace('"greeting": "GRT"', '"greeting": "NFR"')),
+      expect: /^tools\/policy\/vocabulary\.json gives capability `greeting` the prefix "NFR" under `specIdPrefixes`/,
     },
     {
       name: 'a prefix that is not a string',
-      doctor: (dir) => edit(dir, 'tools/policy.json', (t) => t.replace('"greeting": "GRT"', '"greeting": ["GRT"]')),
-      expect: /^tools\/policy\.json gives capability `greeting` the prefix \["GRT"\] under `specIdPrefixes`/,
+      doctor: (dir) => edit(dir, VOCABULARY, (t) => t.replace('"greeting": "GRT"', '"greeting": ["GRT"]')),
+      expect: /^tools\/policy\/vocabulary\.json gives capability `greeting` the prefix \["GRT"\] under `specIdPrefixes`/,
     },
     {
       name: 'two capabilities that share one prefix',
       doctor: (dir) =>
-        edit(dir, 'tools/policy.json', (t) => t.replace('"greeting": "GRT"', '"farewell": "GRT",\n    "greeting": "GRT"')),
-      expect: /^tools\/policy\.json gives capabilities `farewell` and `greeting` one prefix, `GRT`/,
+        edit(dir, VOCABULARY, (t) => t.replace('"greeting": "GRT"', '"farewell": "GRT",\n    "greeting": "GRT"')),
+      expect: /^tools\/policy\/vocabulary\.json gives capabilities `farewell` and `greeting` one prefix, `GRT`/,
     },
     {
       name: 'no openspec/ directory',

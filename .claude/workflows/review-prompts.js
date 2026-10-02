@@ -61,8 +61,8 @@ export const meta = {
  *                           lines name
  *                 runs      the run ids in this batch that showed it, each as its marker line gives it
  *                 evidence  what those runs showed
- *   policy    the `promptReview*` keys of `tools/policy.json`, as the agent's § 4 prints them; this
- *             script reads the three in POLICY_KEYS below and ignores the rest
+ *   policy    the `promptReview*` keys of `tools/policy/agent-workflows.json`, as the agent's § 4
+ *             prints them; this script reads the three in POLICY_KEYS below and ignores the rest
  *   settled   optional [string]: decided already, by the maintainer or an earlier review; no agent
  *             raises it again
  *
@@ -281,9 +281,9 @@ function pathProblem(path) {
 /** Why the policy the session passed cannot drive a run, or null when it can. */
 function policyProblem() {
   const p = A.policy
-  if (!isPlainObject(p)) return 'args.policy must be the `promptReview*` keys of tools/policy.json, as the agent\'s § 4 prints them'
+  if (!isPlainObject(p)) return 'args.policy must be the `promptReview*` keys of tools/policy/agent-workflows.json, as the agent\'s § 4 prints them'
   const missing = POLICY_KEYS.filter((key) => p[key] === undefined || p[key] === null)
-  if (missing.length) return `args.policy has no ${missing.map((k) => `\`${k}\``).join(', ')}: pass the keys tools/policy.json holds`
+  if (missing.length) return `args.policy has no ${missing.map((k) => `\`${k}\``).join(', ')}: pass the keys tools/policy/agent-workflows.json holds`
   if (!isWhole(p.promptReviewRecurrenceCount)) return 'args.policy `promptReviewRecurrenceCount` must be a whole number of at least 1'
   const majors = p.promptReviewMajorSeverities
   if (!Array.isArray(majors) || majors.some((s) => !SEVERITIES.includes(s))) {

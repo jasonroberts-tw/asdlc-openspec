@@ -16,8 +16,8 @@
  *
  * INVOCATION. `npm run coupling:selftest`. Nothing to point at a copy: it builds its own.
  *
- * NEEDS git, and the live `tools/policy.json`, which the fixture copies with its `coupling*` keys
- * set to the ratified fixture's values, so a change to another key the gate reads is felt here; one
+ * NEEDS git, and the live records under `tools/policy/`, which the fixture copies with the `coupling*`
+ * keys set to the ratified fixture's values, so a change to another key the gate reads is felt here; one
  * case holds that the live values have the shapes the check reads. No network; it writes only under
  * the temporary directory.
  */
@@ -29,10 +29,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { generatedFileRedirect } from '../../scripts/hooks/_shared.mjs'
 import { SCRATCH_GIT_ENV, gitIn } from '../lib/git-env.ts'
 import { ROOT } from '../lib/paths.ts'
+import { copyPolicy, editPolicy } from '../lib/policy.ts'
 import { FIXTURE_OPTIONS, KEYS, MAP, RATIFIED, check, emit, jaccardPermille, parseDiffs, ratifiedStream, ratify, readPolicy, update, walk } from './coupling.ts'
 
 const COUPLING = fileURLToPath(new URL('./coupling.ts', import.meta.url))
-const POLICY = 'tools/policy.json'
+/** The record that holds the `coupling*` keys, which one case breaks. */
+const COUPLING_RECORD = 'tools/policy/tool-settings.json'
 const IDENTITY = ['-c', 'user.name=selftest', '-c', 'user.email=selftest@example.invalid', '-c', 'commit.gpgsign=false']
 
 /** git in a fixture repository, with no configuration of this machine's. */
@@ -43,11 +45,12 @@ function fastImport(dir: string, stream: string) {
   if (run.status !== 0) throw new Error(`git fast-import refused the fixture: ${run.stderr.trim()}`)
 }
 
-/** The live policy with each `coupling*` key set to the ratified fixture's value. */
-function fixturePolicy(): string {
-  const policy = JSON.parse(readFileSync(join(ROOT, POLICY), 'utf8'))
-  for (const [name, { key }] of Object.entries(KEYS)) policy[key] = (FIXTURE_OPTIONS as any)[name]
-  return `${JSON.stringify(policy, null, 2)}\n`
+/** The live records copied under `dir`, with each `coupling*` key set to the ratified fixture's value. */
+function writeFixturePolicy(dir: string) {
+  copyPolicy(ROOT, dir)
+  editPolicy(dir, (policy) => {
+    for (const [name, { key }] of Object.entries(KEYS)) policy[key] = (FIXTURE_OPTIONS as any)[name]
+  })
 }
 
 function edit(dir: string, path: string, change: (text: string) => string) {
@@ -69,7 +72,7 @@ function buildControl(dir: string) {
   git(['init', '-q', '-b', 'main'])
   fastImport(dir, ratifiedStream())
   git(['update-ref', 'refs/remotes/origin/main', 'refs/heads/through'])
-  writeFileSync(join(dir, POLICY), fixturePolicy())
+  writeFixturePolicy(dir)
   update(dir, { ratified: true })
   const tip = git(['rev-parse', 'refs/heads/main']).trim()
   const body = 'const c = 9\n'
@@ -98,12 +101,7 @@ function commitOn(dir: string, subject: string, parents: string[]): string {
 }
 
 const setThrough = (dir: string, sha: string) => edit(dir, MAP, (text) => text.replace(/"throughCommit": "[0-9a-f]+"/, `"throughCommit": "${sha}"`))
-const setPolicy = (dir: string, change: (policy: any) => void) =>
-  edit(dir, POLICY, (text) => {
-    const policy = JSON.parse(text)
-    change(policy)
-    return `${JSON.stringify(policy, null, 2)}\n`
-  })
+const setPolicy = editPolicy
 
 function cases(): Case[] {
   return [
@@ -194,38 +192,38 @@ function cases(): Case[] {
     },
     {
       name: 'policy: a policy file that is not JSON',
-      doctor: (dir) => writeFileSync(join(dir, POLICY), '{ "couplingMinTogether": \n'),
-      expect: /^policy: tools\/policy\.json cannot be read/,
+      doctor: (dir) => writeFileSync(join(dir, COUPLING_RECORD), '{ "couplingMinTogether": \n'),
+      expect: /^policy: tools\/policy\/ cannot be read: tools\/policy\/tool-settings\.json does not parse as JSON/,
     },
     {
       name: 'policy: a coupling key missing',
       doctor: (dir) => setPolicy(dir, (policy) => delete policy.couplingMinTogether),
-      expect: /^policy: tools\/policy\.json: `couplingMinTogether` is missing/,
+      expect: /^policy: tools\/policy\/tool-settings\.json `couplingMinTogether` is missing/,
     },
     {
       name: "policy: a coupling key's Means missing",
       doctor: (dir) => setPolicy(dir, (policy) => delete policy.couplingHubMinPercentMeans),
-      expect: /^policy: tools\/policy\.json: `couplingHubMinPercentMeans` is missing/,
+      expect: /^policy: tools\/policy\/tool-settings\.json `couplingHubMinPercentMeans` is missing/,
     },
     {
       name: 'policy: a committer pattern that does not compile',
       doctor: (dir) => setPolicy(dir, (policy) => (policy.couplingMergeCommitterPattern = '^[0-9+@')),
-      expect: /^policy: tools\/policy\.json: `couplingMergeCommitterPattern` is not a regular expression that compiles/,
+      expect: /^policy: tools\/policy\/tool-settings\.json `couplingMergeCommitterPattern` is not a regular expression that compiles/,
     },
     {
       name: 'policy: a share over 100 percent',
       doctor: (dir) => setPolicy(dir, (policy) => (policy.couplingHubMinPercent = 101)),
-      expect: /^policy: tools\/policy\.json: `couplingHubMinPercent` is not a whole number from 1 to 100/,
+      expect: /^policy: tools\/policy\/tool-settings\.json `couplingHubMinPercent` is not a whole number from 1 to 100/,
     },
     {
       name: 'policy: an ignore list that is not a list of globs',
       doctor: (dir) => setPolicy(dir, (policy) => (policy.couplingIgnoredPaths = 'artifacts/coupling/**')),
-      expect: /^policy: tools\/policy\.json: `couplingIgnoredPaths` is not a list of globs/,
+      expect: /^policy: tools\/policy\/tool-settings\.json `couplingIgnoredPaths` is not a list of globs/,
     },
     {
       name: 'policy: a merge method other than rebase, under which a squash merge reads as a direct push',
       doctor: (dir) => setPolicy(dir, (policy) => (policy.prReviewMergeMethod = 'squash')),
-      expect: /^policy: tools\/policy\.json: `prReviewMergeMethod` is "squash"/,
+      expect: /^policy: tools\/policy\/pr-review\.json `prReviewMergeMethod` is "squash"/,
     },
   ]
 }

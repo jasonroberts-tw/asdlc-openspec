@@ -9,7 +9,7 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 This skill is the one home of the analysis's form, of the rule for what is pending, and of a
 review's name; the read and held lines' form is the agent's. The markers and thresholds below are
-keys of `tools/policy.json`.
+keys of `tools/policy/agent-workflows.json`.
 
 ## 1. Write the analysis, or none
 

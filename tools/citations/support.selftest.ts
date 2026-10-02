@@ -29,17 +29,21 @@
  * SDK. No key, and no network beyond a refused connection to 127.0.0.1.
  */
 import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gitEnv } from '../lib/git-env.ts'
+import { readPolicy } from '../lib/policy.ts'
 import type { ChoiceAnswer, TypeSafeJudge } from '../lib/typesafe.ts'
 import { createJudge } from '../lib/typesafe.ts'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const SUPPORT = join(HERE, 'support.ts')
-const POLICY = join(HERE, '../policy.json')
+/** The checkout whose live policy records the fixtures start from. */
+const REPO = join(HERE, '../..')
+/** Where a fixture writes the policy, under the record that holds this command's keys. */
+const RECORD = 'tools/policy/tool-settings.json'
 
 let failures = 0
 let checks = 0
@@ -122,7 +126,8 @@ try {
   process.env.CITATIONS_ROOT = dir
   const support = await import('./support.ts')
 
-  const livePolicy = JSON.parse(readFileSync(POLICY, 'utf8')) as Record<string, unknown>
+  const livePolicy = readPolicy(REPO)
+  /** A checkout under the scratch folder whose one record holds the live policy, doctored; its root. */
   const policyFile = (name: string, edit: (p: Record<string, unknown>) => void): string => {
     const copy = JSON.parse(JSON.stringify(livePolicy)) as Record<string, unknown>
     // Fixed values, so the cases hold whatever the live policy is edited to.
@@ -133,9 +138,10 @@ try {
     copy.citationSupportMaxCitations = 100
     copy.citationSupportOverlapMinShare = 0.2
     edit(copy)
-    const path = join(scratch, `${name}.json`)
-    writeFileSync(path, JSON.stringify(copy))
-    return path
+    const root = join(scratch, name)
+    mkdirSync(dirname(join(root, RECORD)), { recursive: true })
+    writeFileSync(join(root, RECORD), JSON.stringify(copy))
+    return root
   }
   const CONTROL = policyFile('control', () => {})
 
@@ -181,7 +187,7 @@ try {
   const run = async (
     argv: string[],
     options: {
-      policyPath?: string
+      policyRoot?: string
       judge?: TypeSafeJudge | 'real'
       env?: Record<string, string | undefined>
     } = {},
@@ -192,7 +198,7 @@ try {
     const judge = options.judge === undefined ? stub(asked) : options.judge
     const code = await support.supportMain(argv, {
       env: options.env ?? { TYPESAFE_API_KEY: 'selftest-not-a-key' },
-      policyPath: options.policyPath ?? CONTROL,
+      policyRoot: options.policyRoot ?? CONTROL,
       out: (t) => out.push(t),
       err: (t) => err.push(t),
       ...(judge === 'real' ? {} : { makeJudge: async () => ({ judge }) }),
@@ -322,7 +328,7 @@ try {
    * 3. One break per copy: each must fail for the reason it was doctored for
    * ------------------------------------------------------------------------------------------- */
 
-  const noSkip = await run([], { policyPath: policyFile('no-skip', (p) => (p.citationSupportSkipPaths = [])) })
+  const noSkip = await run([], { policyRoot: policyFile('no-skip', (p) => (p.citationSupportSkipPaths = [])) })
   ok(
     'with the register not listed in the policy, its citation IS judged: the skip is the policy key, and counted as none',
     noSkip.asked.length === 7 && /0 in the register/.test(noSkip.out) && /docs\/decisions\.md:1/.test(noSkip.out),
@@ -339,13 +345,13 @@ try {
   const badFlag = await run(['--bogus'])
   ok('an unknown flag is refused, exit 2', badFlag.code === 2 && /unknown or incomplete flag "--bogus"/.test(badFlag.err), badFlag.err)
 
-  const capped = await run([], { policyPath: policyFile('cap', (p) => (p.citationSupportMaxCitations = 2)) })
+  const capped = await run([], { policyRoot: policyFile('cap', (p) => (p.citationSupportMaxCitations = 2)) })
   ok(
     'over the policy cap the run refuses before any call, and says how to narrow it',
     capped.code === 1 && capped.asked.length === 0 && /citationSupportMaxCitations/.test(capped.err) && /--file/.test(capped.err),
     capped.err,
   )
-  const cappedOffline = await run([], { judge: 'real', env: {}, policyPath: policyFile('cap-offline', (p) => (p.citationSupportMaxCitations = 2)) })
+  const cappedOffline = await run([], { judge: 'real', env: {}, policyRoot: policyFile('cap-offline', (p) => (p.citationSupportMaxCitations = 2)) })
   ok(
     'with no key the cap is not read, since the offline fallback sends nothing: the run judges all six',
     cappedOffline.code === 0 && /word overlap instead: 6 citations/.test(cappedOffline.out) && cappedOffline.err === '',
@@ -402,29 +408,29 @@ try {
   const dropped = (key: string): ((p: Record<string, unknown>) => void) => (p) => {
     delete p[key]
   }
-  const noKey = await run([], { policyPath: policyFile('no-key', dropped('citationSupportConcurrency')) })
+  const noKey = await run([], { policyRoot: policyFile('no-key', dropped('citationSupportConcurrency')) })
   ok(
     'a policy without a key this command reads fails, naming the key',
     noKey.code === 1 && /has no usable `citationSupportConcurrency`/.test(noKey.err),
     noKey.err,
   )
-  const noMeans = await run([], { policyPath: policyFile('no-means', dropped('citationSupportMinProbabilityMeans')) })
+  const noMeans = await run([], { policyRoot: policyFile('no-means', dropped('citationSupportMinProbabilityMeans')) })
   ok(
     'a key with no Means sibling fails, naming the Means key',
     noMeans.code === 1 && /`citationSupportMinProbability` and no `citationSupportMinProbabilityMeans`/.test(noMeans.err),
     noMeans.err,
   )
-  const noModel = await run([], { policyPath: policyFile('no-model', dropped('typesafeModelMeans')) })
+  const noModel = await run([], { policyRoot: policyFile('no-model', dropped('typesafeModelMeans')) })
   ok('the pinned model key needs its Means too', noModel.code === 1 && /`typesafeModelMeans`/.test(noModel.err), noModel.err)
-  const highMin = await run([], { policyPath: policyFile('high-min', (p) => (p.citationSupportMinProbability = 1.5)) })
+  const highMin = await run([], { policyRoot: policyFile('high-min', (p) => (p.citationSupportMinProbability = 1.5)) })
   ok('a threshold above 1 is refused as not a probability', highMin.code === 1 && /at most 1/.test(highMin.err), highMin.err)
-  const noShare = await run([], { judge: 'real', env: {}, policyPath: policyFile('no-share', dropped('citationSupportOverlapMinShare')) })
+  const noShare = await run([], { judge: 'real', env: {}, policyRoot: policyFile('no-share', dropped('citationSupportOverlapMinShare')) })
   ok(
     'a policy without the offline share fails, naming it, even with no key',
     noShare.code === 1 && /has no usable `citationSupportOverlapMinShare`/.test(noShare.err),
     noShare.err,
   )
-  const highShare = await run([], { policyPath: policyFile('high-share', (p) => (p.citationSupportOverlapMinShare = 1.5)) })
+  const highShare = await run([], { policyRoot: policyFile('high-share', (p) => (p.citationSupportOverlapMinShare = 1.5)) })
   ok(
     'an offline share above 1 is refused, with its reason',
     highShare.code === 1 && /`citationSupportOverlapMinShare` is a share of a claim's words, at most 1/.test(highShare.err),
@@ -432,7 +438,7 @@ try {
   )
   const live = (() => {
     try {
-      return support.loadPolicy(POLICY)
+      return support.loadPolicy(REPO)
     } catch (error) {
       return error as Error
     }

@@ -50,6 +50,7 @@ import {
 import { tmpdir } from 'node:os'
 import { delimiter, dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { copyPolicy, editPolicy, readPolicy } from '../../tools/lib/policy.ts'
 
 const HOOKS = resolve(dirname(fileURLToPath(import.meta.url)))
 const CREATE = join(HOOKS, 'worktree-create.mjs')
@@ -325,15 +326,15 @@ check('control: a command that is not git is allowed there', strayEcho.code === 
  * `gh` command that applies it, in the primary checkout as in a worktree. Each refusal is asserted by
  * its reason. The controls are the same commands with another label, removing it, or reading: without
  * them, a guard that refused every `gh pr edit` or every `gh api` would pass. Two doctored copies of
- * the policy, each with one thing broken, prove the spelling is read from `tools/policy.json` rather
+ * the policy, each with one thing broken, prove the spelling is read from `tools/policy/` rather
  * than written into the guard, and that a policy it cannot read refuses a label rather than allowing
  * it. The last four hold the parser: a flag before `pr create` once hid a missing `--base`, as did
  * gh's alias `pr new`, and a brace inside a word once split the statement, which hid the endpoint of
  * `repos/{owner}/{repo}/…`.
  * --------------------------------------------------------------------------------------------- */
 console.log('guard-git: the approval label, from any checkout')
-const POLICY_FILE = resolve(HOOKS, '..', '..', 'tools', 'policy.json')
-const APPROVED = JSON.parse(readFileSync(POLICY_FILE, 'utf8')).prReviewLabels.approved
+const POLICY_ROOT = resolve(HOOKS, '..', '..')
+const APPROVED = readPolicy(POLICY_ROOT).prReviewLabels.approved
 const APPROVAL_RULE = "is the reviewer's approval label"
 
 /** guard-git on `command` typed from `dir`, reading the policy under `root` when one is given. */
@@ -389,12 +390,12 @@ check(
   why(hidden),
 )
 
-// One break per copy: the approval label respelled, then the policy file gone.
+// One break per copy: the approval label respelled, then the policy's records gone.
 const respelled = mkdtempSync(join(tmpdir(), 'guard-policy-'))
-mkdirSync(join(respelled, 'tools'))
-const respelledPolicy = JSON.parse(readFileSync(POLICY_FILE, 'utf8'))
-respelledPolicy.prReviewLabels.approved = 'lgtm'
-writeFileSync(join(respelled, 'tools', 'policy.json'), JSON.stringify(respelledPolicy, null, 2))
+copyPolicy(POLICY_ROOT, respelled)
+editPolicy(respelled, (policy) => {
+  policy.prReviewLabels.approved = 'lgtm'
+})
 const lgtm = labelGuard(primary, 'gh pr edit 12 --add-label lgtm', respelled)
 check(
   "the policy's spelling is the one refused, by its reason",
@@ -480,7 +481,7 @@ for (const [label, dir, words, command] of [
 }
 for (const [label, command] of [
   ['graphify query', 'graphify query "what calls guard-git"'],
-  ['graphify path', 'graphify path "guard-git.mjs" "policy.json"'],
+  ['graphify path', 'graphify path "guard-git.mjs" "policy.ts"'],
   ['graphify explain', 'graphify explain "guard-git.mjs"'],
   ['graphify extract', 'graphify extract . --code-only'],
   ['graphify hook status, which shares its first word with hook install', 'graphify hook status'],
@@ -787,7 +788,7 @@ check(
 // host. `spare` was just cut, as a lane is at launch; `idle` has had HEAD still for twice the
 // threshold; `rebased` is as old, but HEAD moved a moment ago, as a lane's rebase moves it. Aging
 // sets the mtime of each file the script reads HEAD's last move from.
-const MIN_AGE = JSON.parse(readFileSync(POLICY_FILE, 'utf8')).worktreeGcMinAgeHours
+const MIN_AGE = readPolicy(POLICY_ROOT).worktreeGcMinAgeHours
 const age = (path, name, hours) => {
   const then = new Date(Date.now() - hours * 3_600_000)
   const admin = join(gcPrimary, '.git', 'worktrees', name)
@@ -803,10 +804,12 @@ const nowStamp = new Date()
 utimesSync(join(gcPrimary, '.git', 'worktrees', 'rebased', 'HEAD'), nowStamp, nowStamp)
 
 // With the policy unreadable there is no threshold, so nothing unseen is removed, however idle. The
-// script reads the policy beside itself, so a copy with no `tools/` beside it stands in.
+// script reads the policy beside itself, so a copy with the loader beside it and no records stands in.
 const noPolicyRoot = mkdtempSync(join(tmpdir(), 'wt-gc-nopolicy-'))
 mkdirSync(join(noPolicyRoot, 'scripts'))
+mkdirSync(join(noPolicyRoot, 'tools', 'lib'), { recursive: true })
 copyFileSync(GC, join(noPolicyRoot, 'scripts', 'prune-worktree-branches.mjs'))
+copyFileSync(join(POLICY_ROOT, 'tools', 'lib', 'policy.ts'), join(noPolicyRoot, 'tools', 'lib', 'policy.ts'))
 const unpolicied = runGcWith({
   script: join(noPolicyRoot, 'scripts', 'prune-worktree-branches.mjs'),
   liveness: 'none',
@@ -927,7 +930,7 @@ writeFileSync(mergedFile, JSON.stringify(merged))
 const ghArgsFile = join(ghDir, 'args')
 const stubGh = (body) => writeFileSync(join(ghDir, 'gh'), `#!/bin/sh\n${body}\n`, { mode: 0o755 })
 const ghPath = ghDir + delimiter + process.env.PATH
-const MERGED_LIMIT = JSON.parse(readFileSync(POLICY_FILE, 'utf8')).worktreeGcMergedPrLimit
+const MERGED_LIMIT = readPolicy(POLICY_ROOT).worktreeGcMergedPrLimit
 
 // gh failing is no proof and no failure: the sweep runs, names why, and falls through.
 stubGh("echo 'gh: offline' >&2\nexit 4")

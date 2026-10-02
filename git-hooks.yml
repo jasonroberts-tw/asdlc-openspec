@@ -132,16 +132,17 @@ pre-push:
       glob:
         - 'scripts/git-hooks.mjs'
         - 'git-hooks.yml'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
+        - 'tools/lib/policy.ts'
         - 'tools/lib/git-env.ts'
         - 'package.json'
         - 'package-lock.json'
       run: node --run hooks:selftest
     # Every skill and agent opens with the line CLAUDE.md requires, read out of CLAUDE.md itself, and
-    # every prompt is within its word budget in `tools/policy.json`: the skills and agents, CLAUDE.md,
-    # AGENTS.md, the worktree briefing template, and the string literals of each workflow. Reads
-    # those and the policy; 0.08 s wall through `node --run` (`/usr/bin/time -p`, two runs) on a
-    # macOS 26.7 laptop with Node 26.8.1, 2026-09-26.
+    # every prompt is within its word budget in `tools/policy/prompt-budgets.json`: the skills and
+    # agents, CLAUDE.md, AGENTS.md, the worktree briefing template, and the string literals of each
+    # workflow. Reads those and the policy through its loader; 0.08 s wall through `node --run`
+    # (`/usr/bin/time -p`, two runs) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-26.
     - name: check-prompts
       glob:
         - 'CLAUDE.md'
@@ -150,15 +151,39 @@ pre-push:
         - '.claude/agents/**'
         - '.claude/workflows/**'
         - '.claude/worktree-CONTEXT.md.tmpl'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
+        - 'tools/lib/policy.ts'
         - 'scripts/check-prompts.mjs'
       run: node --run check:prompts
     # Its refusals against a fixture tree it builds under the temporary directory, with one
-    # undoctored control. Reads nothing but the gate itself.
+    # undoctored control. Reads nothing but the gate itself and the policy loader it imports.
     - name: check-prompts-selftest
       glob:
         - 'scripts/check-prompts.mjs'
+        - 'tools/lib/policy.ts'
       run: node --run check:prompts:selftest
+    # Every record under `tools/policy/` carries its five header fields, a `Means` beside every
+    # constant and no `Means` without one; no key is defined in two records; the directory's README
+    # names every record and no other, the directory holding nothing else; and `tools/policy.json`,
+    # the single file the records replaced, has not come back, so its path is in the glob. Reads the
+    # records, the README and the loader the gate takes its header fields from: 0.09 s wall through
+    # `node --run` (`/usr/bin/time -p`, one run) on a macOS 26.7.1 laptop with Node 26.8.1, 2026-10-02.
+    - name: check-policy
+      glob:
+        - 'tools/policy/**'
+        - 'tools/policy.json'
+        - 'tools/lib/policy.ts'
+        - 'scripts/check-policy.mjs'
+      run: node --run check:policy
+    # Its refusals over copies of the live records under the temporary directory, one doctored per
+    # case and each asserting its reason, beside the undoctored copy: 0.12 s wall, one run, the same
+    # host and day.
+    - name: check-policy-selftest
+      glob:
+        - 'tools/policy/**'
+        - 'tools/lib/policy.ts'
+        - 'scripts/check-policy.mjs'
+      run: node --run check:policy:selftest
     # No glob: the citations gate reads every tracked text file, so any push can change its verdict.
     - name: citations
       run: node --run citations:check
@@ -184,7 +209,7 @@ pre-push:
       glob:
         - 'tools/citations/**'
         - 'tools/lib/**'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
         - 'package.json'
         - 'package-lock.json'
       run: node --run citations:support:selftest
@@ -194,7 +219,7 @@ pre-push:
     # in the glob, and renders the briefing template through a scratch copy of its renderer, so both
     # are in it too. It provisions twice through a scratch copy of `scripts/new-worktree.sh`, from a
     # checkout that trails its remote, and the guard reads the approval label and the gc sweep its
-    # `worktreeGcMinAgeHours` from `tools/policy.json`, so the policy is in the glob too. Its Vale case
+    # `worktreeGcMinAgeHours` from `tools/policy/`, so the policy is in the glob too. Its Vale case
     # copies this checkout's own `.vale.ini` and `.gitignore` into a scratch checkout and reads the
     # StylesPath the first names, so both are in it as well. Over a hundred and twenty git spawns,
     # two bash runs, four renders and, on macOS, three `lsof` calls:
@@ -215,7 +240,8 @@ pre-push:
         - 'scripts/prune-worktree-branches.mjs'
         - '.claude/worktree-CONTEXT.md.tmpl'
         - '.claude/settings.json'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
+        - 'tools/lib/policy.ts'
         - '.vale.ini'
         - '.gitignore'
       run: node --run worktree:selftest
@@ -267,10 +293,10 @@ pre-push:
       run: node --run check:register:selftest
     # Every living spec and active change under `openspec/` validated strictly by the pinned CLI,
     # every active change trial-archived into a scratch copy, every scenario and NFR requirement held
-    # to a unique ID with its capability's prefix from `tools/policy.json` that no archived change
-    # gave another title (never reused, within the limits the gate's header names), no retired
+    # to a unique ID with its capability's prefix from `tools/policy/vocabulary.json` that no archived
+    # change gave another title (never reused, within the limits the gate's header names), no retired
     # `openspec-*` skill, and every skill and agent that spells the change label held to
-    # `tools/policy.json`. The lockfile is in the glob because a new CLI version can change the
+    # `tools/policy/vocabulary.json`. The lockfile is in the glob because a new CLI version can change the
     # verdict. One CLI start per run plus one per active change; measured at 0.6 s with no active
     # change, on the author's macOS host.
     - name: openspec
@@ -278,7 +304,8 @@ pre-push:
         - 'openspec/**'
         - '.claude/skills/**'
         - '.claude/agents/**'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
+        - 'tools/lib/policy.ts'
         - 'scripts/check-openspec.mjs'
         - 'scripts/lib/bin-path.mjs'
         - 'package.json'
@@ -296,7 +323,7 @@ pre-push:
         - 'package-lock.json'
       run: node --run openspec:selftest
     # Every workflow under `.claude/workflows/` run against stubbed agents: the change-build review
-    # with the review sizes and red-first kinds in `tools/policy.json` (how it stops, how many skeptics
+    # with the review sizes and red-first kinds in `tools/policy/agent-workflows.json` (how it stops, how many skeptics
     # it sends, and what it returns), the prompt review with the policy's `promptReview*` keys (which
     # findings it refuses as below the threshold, how many skeptics judge each edit, which branches it
     # lets merge, which analyses it lets be marked read, and which findings it holds), and the
@@ -320,7 +347,8 @@ pre-push:
         - 'scripts/render-verify-report.mjs'
         - 'scripts/lib/trace.mjs'
         - 'scripts/lib/verify-report.mjs'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
+        - 'tools/lib/policy.ts'
       run: node --run workflows:selftest
     # The pull-request reviewer's wiring: the policy's `prReview*` keys whole, and `pr-review.yml`,
     # `verify.yml` and the reviewer's agent spelling the same labels, check and agent. The reviewer
@@ -333,7 +361,8 @@ pre-push:
       glob:
         - 'scripts/pr-review.mjs'
         - 'tools/lib/git-env.ts'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
+        - 'tools/lib/policy.ts'
         - '.github/workflows/*.yml'
         - '.claude/agents/pr-reviewer.md'
         - 'package.json'
@@ -351,7 +380,8 @@ pre-push:
         - 'scripts/pr-review.mjs'
         - 'scripts/check-prompts.mjs'
         - 'tools/lib/git-env.ts'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
+        - 'tools/lib/policy.ts'
         - '.github/workflows/*.yml'
         - '.claude/agents/pr-reviewer.md'
         - 'package.json'
@@ -393,11 +423,12 @@ pre-push:
               - 'scripts/test-trace.mjs'
               - 'scripts/lib/bin-path.mjs'
               - 'scripts/lib/test-dirs.mjs'
-              - 'tools/policy.json'
+              - 'tools/policy/**'
+              - 'tools/lib/policy.ts'
               - 'package.json'
               - 'package-lock.json'
             run: node --run calculator:test
-          # The thresholds of `tools/policy.json` held to the code the branch changes under apps/:
+          # The thresholds of `tools/policy/tool-settings.json` held to the code the branch changes under apps/:
           # every test file run once with Node's own coverage, its changed code lines and branches
           # counted and the whole product's figures printed beside them; the changed lines of the
           # Routines mutated by StrykerJS's tap runner, a change to a test alone mutating nothing; and
@@ -423,7 +454,8 @@ pre-push:
               - 'scripts/lib/bin-path.mjs'
               - 'scripts/lib/test-dirs.mjs'
               - 'tools/lib/git-env.ts'
-              - 'tools/policy.json'
+              - 'tools/policy/**'
+              - 'tools/lib/policy.ts'
               - 'package.json'
               - 'package-lock.json'
             run: node --run thresholds:check
@@ -447,7 +479,8 @@ pre-push:
               - 'scripts/test-trace.mjs'
               - 'scripts/lib/bin-path.mjs'
               - 'scripts/lib/test-dirs.mjs'
-              - 'tools/policy.json'
+              - 'tools/policy/**'
+              - 'tools/lib/policy.ts'
               - 'package.json'
               - 'package-lock.json'
             run: node --run calculator:test:independent
@@ -466,7 +499,8 @@ pre-push:
         - 'scripts/test-trace.mjs'
         - 'scripts/lib/bin-path.mjs'
         - 'scripts/lib/test-dirs.mjs'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
+        - 'tools/lib/policy.ts'
       run: node --run tests:selftest
     # The stand-in for `tests:fresh`, which runs `npm ci` and so reads the network (docs/decisions.md
     # § D-15, item 3): the verifier's fresh run over a fixture repository it builds with git and the
@@ -485,7 +519,7 @@ pre-push:
         - 'scripts/lib/test-dirs.mjs'
         - 'tools/trace/**'
         - 'tools/lib/**'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
       run: node --run tests:fresh:selftest
     # The stand-in for `code-graph`, which reads a language model and the person's plan
     # (docs/decisions.md § D-20): the script run against a fixture repository with stub graphify,
@@ -499,7 +533,7 @@ pre-push:
       glob:
         - 'scripts/code-graph.mjs'
         - 'tools/lib/**'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
       run: node --run code-graph:selftest
     # The test-trace reader's refusals, each on a doctored copy of a test file's source, and its
     # hash over a fixture spec tree: the definition's text, what moves a hash and what does not, the
@@ -511,7 +545,8 @@ pre-push:
       glob:
         - 'scripts/test-trace.mjs'
         - 'scripts/lib/bin-path.mjs'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
+        - 'tools/lib/policy.ts'
         - 'package.json'
         - 'package-lock.json'
       run: node --run tests:trace:selftest
@@ -534,7 +569,7 @@ pre-push:
         - 'scripts/test-trace.mjs'
         - 'scripts/lib/bin-path.mjs'
         - 'scripts/lib/test-dirs.mjs'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
         - 'package.json'
         - 'package-lock.json'
       run: node --run trace:check
@@ -553,7 +588,7 @@ pre-push:
         - 'scripts/test-trace.mjs'
         - 'scripts/lib/bin-path.mjs'
         - 'scripts/lib/test-dirs.mjs'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
         - 'package.json'
         - 'package-lock.json'
       run: node --run trace:selftest
@@ -569,7 +604,7 @@ pre-push:
         - 'artifacts/coupling/**'
         - 'tools/coupling/**'
         - 'tools/lib/**'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
         - 'package.json'
       run: node --run coupling:check
     # The co-change gate's refusals, each on a doctored copy of a fixture repository it builds under
@@ -584,7 +619,7 @@ pre-push:
         - 'tools/coupling/**'
         - 'tools/lib/**'
         - 'scripts/hooks/_shared.mjs'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
         - 'package.json'
       run: node --run coupling:selftest
     # The harness assessment (`docs/decisions.md` § D-26), whose two commands read the local code
@@ -627,7 +662,8 @@ pre-push:
         - 'scripts/lib/bin-path.mjs'
         - 'scripts/lib/test-dirs.mjs'
         - 'tools/lib/git-env.ts'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
+        - 'tools/lib/policy.ts'
       run: node --run tests:inventory:selftest
     # The gate's refusals over a fixture repository it builds under the temporary directory, laid out
     # as the calculator is and sized from the live policy's minimum samples, each asserting its reason
@@ -647,7 +683,8 @@ pre-push:
         - 'scripts/lib/bin-path.mjs'
         - 'scripts/lib/test-dirs.mjs'
         - 'tools/lib/git-env.ts'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
+        - 'tools/lib/policy.ts'
         - 'package.json'
         - 'package-lock.json'
       run: node --run thresholds:selftest
@@ -665,7 +702,7 @@ pre-push:
         - 'tools/lib/git-env.ts'
       run: node --run counts:selftest
     # The tracker's own pre-push hook, and the label and foreign-id rules over its open
-    # issues: a `repo:` label on every one, and a label `assetLabels` in `tools/policy.json` lists on
+    # issues: a `repo:` label on every one, and a label `assetLabels` in `tools/policy/vocabulary.json` lists on
     # every one filed `discovered-from`. Neither carries a glob: both read the tracker's database, not
     # the push.
     - name: beads
@@ -684,6 +721,7 @@ pre-push:
     - name: beads-selftest
       glob:
         - 'scripts/check-beads.mjs'
-        - 'tools/policy.json'
+        - 'tools/policy/**'
+        - 'tools/lib/policy.ts'
         - 'tools/lib/bd-launcher.ts'
       run: node --run beads:selftest

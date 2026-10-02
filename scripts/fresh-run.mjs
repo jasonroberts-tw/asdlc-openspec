@@ -42,11 +42,12 @@
  *   5. Writes the JSON, with a problem for a run given no `--tasks`.
  *
  * WHEN IT STOPS. Each long child runs in a process group of its own, under one deadline for the whole
- * call, `freshRunDeadlineSeconds` in `tools/policy.json`: a child still running then is killed with
- * every process it started, and the run is refused, saying so. The clone is removed when the run
- * ends, refuses or throws, and on SIGINT or SIGTERM, whose handler kills every child's group first
- * and exits 130 or 143, writing no JSON. A SIGKILL, which no handler sees, leaves the clone, a
- * `fresh-run-*` directory under the temporary root, and any child then running, until it ends.
+ * call, `freshRunDeadlineSeconds` in `tools/policy/tool-settings.json`: a child still running then
+ * is killed with every process it started, and the run is refused, saying so. The clone is removed
+ * when the run ends, refuses or throws, and on SIGINT or SIGTERM, whose handler kills every child's
+ * group first and exits 130 or 143, writing no JSON. A SIGKILL, which no handler sees, leaves the
+ * clone, a `fresh-run-*` directory under the temporary root, and any child then running, until it
+ * ends.
  * Before the pre-PR review of asdlc-openspec-j09.14 a killed call left both: the Bash tool's default
  * timeout is 120 s and the Commands' run can take 181-186 s.
  *
@@ -83,8 +84,11 @@ import { arch, platform, release, tmpdir } from 'node:os'
 import { delimiter, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { words } from './lib/test-dirs.mjs'
+import { POLICY_DIR, copyPolicy, readPolicy } from '../tools/lib/policy.ts'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+/** The policy record that holds the deadline, named in each refusal about it; the key is read from every record merged. */
+const TOOL_SETTINGS = `${POLICY_DIR}/tool-settings.json`
 export const RUNNER = 'scripts/run-tests.mjs'
 export const RECORD = 'artifacts/trace/record.json'
 export const BASELINE = 'artifacts/trace/baseline.json'
@@ -181,7 +185,7 @@ function runChild(command, args, cwd) {
 /** A child's run, refused when the deadline killed it. */
 function withinDeadline(run, what) {
   if (run.timedOut) {
-    refuse(`\`${what}\` did not finish within the run's deadline of ${deadlineSeconds} s (\`freshRunDeadlineSeconds\` in tools/policy.json), so it and every process it started were killed.`)
+    refuse(`\`${what}\` did not finish within the run's deadline of ${deadlineSeconds} s (\`freshRunDeadlineSeconds\` in ${TOOL_SETTINGS}), so it and every process it started were killed.`)
   }
   return run
 }
@@ -199,13 +203,18 @@ function onSignal(signal) {
  */
 async function guarded(root, deadlineMs, work) {
   let seconds
+  let unread = null
   try {
-    seconds = readJson(join(root, 'tools/policy.json')).freshRunDeadlineSeconds
-  } catch {
-    seconds = undefined
+    seconds = readPolicy(root).freshRunDeadlineSeconds
+  } catch (error) {
+    unread = error.message
   }
   if (deadlineMs === undefined && !(Number.isInteger(seconds) && seconds > 0)) {
-    refuse('tools/policy.json has no whole number of seconds under `freshRunDeadlineSeconds`, the most a run may take before its children are killed.')
+    refuse(
+      unread === null
+        ? `${TOOL_SETTINGS} has no whole number of seconds under \`freshRunDeadlineSeconds\`, the most a run may take before its children are killed.`
+        : `${POLICY_DIR}/ cannot be read (${unread}), so the run has no deadline: \`freshRunDeadlineSeconds\` is the most it may take before its children are killed.`,
+    )
   }
   deadlineSeconds = deadlineMs === undefined ? seconds : deadlineMs / 1000
   deadlineAt = Date.now() + deadlineSeconds * 1000
@@ -520,7 +529,10 @@ async function main(argv) {
 
 /* ------------------------------------------------------------------------------ the selftest --- */
 
-/** Files the fixture copies from this repository: the runner, the reader, the trace gate and the policy. */
+/**
+ * Files the fixture copies from this repository: the runner, the reader, the trace gate and the
+ * policy's loader. `copyPolicy` copies the policy's records beside them.
+ */
 const COPIED = [
   'scripts/run-tests.mjs',
   'scripts/test-trace.mjs',
@@ -530,7 +542,7 @@ const COPIED = [
   'tools/lib/committed.ts',
   'tools/lib/git-env.ts',
   'tools/lib/paths.ts',
-  'tools/policy.json',
+  'tools/lib/policy.ts',
 ]
 const TASK = 'asdlc-openspec-fx.1'
 const TEST_FILE = 'apps/calculator/test/a.test.js'
@@ -600,6 +612,7 @@ async function buildFixture(base) {
   const dir = join(base, 'fixture')
   mkdirSync(dir)
   for (const file of COPIED) write(dir, file, readFileSync(join(REPO_ROOT, file), 'utf8'))
+  copyPolicy(REPO_ROOT, dir)
   const scripts = {
     'calculator:test': `node ${RUNNER} "apps/calculator/test/*.test.js"`,
     'calculator:test:verify': `node ${RUNNER} --dir ${VERIFY_DIR}`,

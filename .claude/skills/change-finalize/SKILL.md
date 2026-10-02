@@ -20,8 +20,8 @@ option takes the form `CLAUDE.md` § A question shows where its recommendation l
   `EnterWorktree` and the path `.claude/worktrees/<change>`.
 - **The epic.** It is the one issue that
   `bd list --label spec-change --type epic --metadata-field change=<change> --json` returns (the
-  label is `specChangeLabel` in `tools/policy.json`). If none or several come back, stop and say
-  what was found.
+  label is `specChangeLabel` in `tools/policy/vocabulary.json`). If none or several come back, stop and
+  say what was found.
 
 ## 2. Rebase, and verify again
 
@@ -60,7 +60,7 @@ in step 2, so a refusal here means stop and read it.
   version of one it modified (`unknown` and `stale` in the header of `tools/trace/trace.ts`). On a
   refusal, never retire or regenerate the test here, where neither the build's review nor
   verification sees it: undo the archive (`git restore --staged --worktree .`, then
-  `git clean -fd openspec/`), label the epic for build (`rerouteLabels` in `tools/policy.json`),
+  `git clean -fd openspec/`), label the epic for build (`rerouteLabels` in `tools/policy/vocabulary.json`),
   note each refused test on it as `.claude/skills/change-verify/SKILL.md` § 6. Verdict notes a gap,
   and stop; `change-build` is next.
 - **Commit** the archive move, the living spec, the Purpose, the record and every file repointed
@@ -160,8 +160,8 @@ Report:
 - the counts across runs, as each command prints them, with the number of changes behind them.
   Report the counts, never a rate:
   - `bd count -t epic -l <the change label> --by-label`, where the label is `specChangeLabel` in
-    `tools/policy.json`: its total is the number of changes, and its `rerouteLabels` rows are how
-    many of them were sent back to each stage;
+    `tools/policy/vocabulary.json`: its total is the number of changes, and its `rerouteLabels` rows
+    are how many of them were sent back to each stage;
   - `bd count --by-label`: its `foundAtLabels` and `assetLabels` rows count the issues runs have
     filed, by where each was found and by what it would fix;
   - `bd count -l <label> --by-label`, once for each `foundAtLabels` label the previous command

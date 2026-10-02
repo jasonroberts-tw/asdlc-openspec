@@ -56,7 +56,8 @@
  *
  * Exit 0 with or without findings, and 0 when `TYPESAFE_API_KEY` is not set (it prints why and
  * judges by word overlap); 1 when the key is set and a call fails, or the policy is wrong; 2 on a
- * bad flag. Every threshold and constant is a key of `tools/policy.json` with a `Means` sibling.
+ * bad flag. Every threshold and constant is a key of `tools/policy/tool-settings.json` with a `Means`
+ * sibling, read through `tools/lib/policy.ts`.
  *
  * Needs `TYPESAFE_API_KEY` and the network to judge with TypeSafe (`tools/lib/typesafe.ts`), `git`
  * on PATH, and `npm ci` for the SDK. About 500 requests, sent in parallel, in seconds and a few
@@ -66,7 +67,8 @@ import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { ROOT, readJson } from '../lib/paths.ts'
+import { ROOT } from '../lib/paths.ts'
+import { POLICY_DIR, readPolicy } from '../lib/policy.ts'
 import type { TypeSafeJudge } from '../lib/typesafe.ts'
 import { createJudge } from '../lib/typesafe.ts'
 import {
@@ -85,7 +87,7 @@ import {
   untrackedFiles,
 } from './scan.ts'
 
-/** The keys of `tools/policy.json` this command reads, each with a `<key>Means` sibling. */
+/** The keys of `tools/policy/tool-settings.json` this command reads, each with a `<key>Means` sibling. */
 export interface SupportPolicy {
   typesafeModel: string
   citationSupportMinProbability: number
@@ -110,11 +112,17 @@ const POLICY_KEYS: ReadonlyArray<{ key: keyof SupportPolicy; type: 'string' | 'n
   { key: 'citationSupportOverlapMinShare', type: 'number' },
 ]
 
-const POLICY_FILE = 'tools/policy.json'
+/** The record that holds this command's keys, named in a refusal. */
+const POLICY_FILE = 'tools/policy/tool-settings.json'
 
-/** This command's keys from a policy file, or a thrown error naming the key that is missing or wrong. */
-export function loadPolicy(path: string = join(ROOT, POLICY_FILE)): SupportPolicy {
-  const raw = readJson<Record<string, unknown>>(path)
+/** This command's keys from the policy under `root`, or a thrown error naming the key that is missing or wrong. */
+export function loadPolicy(root: string = ROOT): SupportPolicy {
+  let raw: Record<string, unknown>
+  try {
+    raw = readPolicy(root)
+  } catch (error) {
+    throw new Error(`${POLICY_DIR}/ cannot be read: ${(error as Error).message}`)
+  }
   for (const { key, type } of POLICY_KEYS) {
     const value = raw[key]
     const shapeOk =
@@ -580,7 +588,8 @@ export interface MainDeps {
   makeJudge?: (options: { env: Readonly<Record<string, string | undefined>>; model: string }) => ReturnType<typeof createJudge>
   out?: (text: string) => void
   err?: (text: string) => void
-  policyPath?: string
+  /** The checkout whose policy records are read; this one by default, a fixture in the selftest. */
+  policyRoot?: string
 }
 
 /** The command, with its dependencies handed in so the selftest can run it whole over a stub. */
@@ -611,7 +620,7 @@ export async function supportMain(argv: readonly string[], deps: MainDeps = {}):
 
   let policy: SupportPolicy
   try {
-    policy = loadPolicy(deps.policyPath)
+    policy = loadPolicy(deps.policyRoot)
   } catch (error) {
     err(`citations:support FAILED: ${(error as Error).message}`)
     return 1

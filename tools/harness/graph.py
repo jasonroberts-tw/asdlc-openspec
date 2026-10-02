@@ -20,8 +20,8 @@ WHAT IT REPORTS, each item with a stable key and a level, as the core's are:
 
   - freshness (note): the graph's commit against HEAD and the map's baseline; files the graph holds
     that were tracked at its commit and are not now; harness files tracked now, of a type graphify
-    extracts (`graphifySemanticExtensions` in `tools/policy.json` and the code extensions), that it
-    lacks. A package node is not a file. `npm run code-graph` rebuilds the graph.
+    extracts (`graphifySemanticExtensions` in `tools/policy/tool-settings.json` and the code
+    extensions), that it lacks. A package node is not a file. `npm run code-graph` rebuilds the graph.
   - pairing (lead): the graph's `implements` edges from a script or tool to a rule section of the
     rules file. A language model drew them, and a rebuild draws others.
   - hidden (lead): two files that change together at or above the map's cluster index, neither a
@@ -44,7 +44,7 @@ core report for the date it exits 1. Run it under graphify's own interpreter to 
 check run; under any other Python 3 that check says it is skipped.
 
 NEEDS Python 3, standard library only; git; the core's report; the graph in the folder
-`graphifyOutDir` in `tools/policy.json` names, under the primary checkout, where
+`graphifyOutDir` in `tools/policy/tool-settings.json` names, under the primary checkout, where
 `scripts/code-graph.mjs` builds it from whichever checkout runs it, so a worktree reads the same
 graph. No network, and no language model: it reads a graph a person built.
 
@@ -321,8 +321,8 @@ def check_freshness(root: Path, graph: dict, cc: dict, cfg: dict, findings: list
         findings.append(finding("freshness", "note", "graph", "unknown commit",
                                 f"the graph's commit `{(built or 'none')[:12]}` cannot be read in this clone, so no file is reported gone; `git fetch` it, or rebuild the graph."))
     # The harness's files, from the config's own keys: the path roots, the prompts, the workflows'
-    # folder; and only the types graphify extracts, so a data file it never gives a node, such as
-    # `tools/policy.json` (`docs/decisions.md` § D-20), never reads as absent.
+    # folder; and only the types graphify extracts, so a data file it never gives a node, such as a
+    # record under `tools/policy/` (`docs/decisions.md` § D-20), never reads as absent.
     workflows = [cfg["ciWorkflow"], *cfg["otherWorkflows"]]
     dirs = {f"{r}/" for r in path_roots(root, cfg)} | {f"{os.path.dirname(w)}/" for w in workflows if os.path.dirname(w)}
     files = set(workflows)
@@ -543,9 +543,14 @@ def selftest() -> int:
         (root / "tools/harness").mkdir(parents=True)
         shutil.copyfile(live / CONFIG, root / CONFIG)
         cfg = read_config(root)
-        policy = {"couplingClusterMinJaccardPermille": 400, "couplingMinSampleUnits": 5, cfg["graphOutDirPolicy"]["key"]: "graph-out",
-                  cfg["graphExtensionsPolicy"]["key"]: [".md", ".yml", ".yaml"]}
-        (root / "tools/policy.json").write_text(json.dumps(policy), encoding="utf-8")
+        # Each value the config names, written to the file and key it names.
+        records = defaultdict(dict)
+        for name, value in (("observedJaccardPolicy", 400), ("cochangeSamplePolicy", 5), ("graphOutDirPolicy", "graph-out"),
+                            ("graphExtensionsPolicy", [".md", ".yml", ".yaml"])):
+            records[cfg[name]["file"]][cfg[name]["key"]] = value
+        for path, record in records.items():
+            (root / path).parent.mkdir(parents=True, exist_ok=True)
+            (root / path).write_text(json.dumps(record), encoding="utf-8")
         files = {"scripts/a.mjs": "import './b.mjs'\n", "scripts/b.mjs": "export const b = 1\n",
                  "scripts/c.mjs": "export const c = 1\n", "docs/hub.md": "# Hub\n",
                  cfg["pathRootsFrom"]["file"]: f"const {cfg['pathRootsFrom']['constant']} = ['tools', 'scripts', 'apps']\n",
@@ -633,7 +638,7 @@ def selftest() -> int:
         check("control: a pair under the map's cluster index is not", "hidden|scripts/b.mjs|scripts/c.mjs" not in keys, keys)
         check("control: a pair with a hub is not", "hidden|docs/hub.md|scripts/c.mjs" not in keys, keys)
         check("control: a tracked code file the graph lacks is reported absent", f"freshness|absent|{cfg['pathRootsFrom']['file']}" in keys, keys)
-        check("control: a data file graphify gives no node is not", "freshness|absent|tools/policy.json" not in keys, keys)
+        check("control: a data file graphify gives no node is not", f"freshness|absent|{cfg['graphExtensionsPolicy']['file']}" not in keys, keys)
         head = (env_git("rev-parse", "HEAD") or "").strip()
         verdict = next((f["reason"] for f in report["findings"] if f["key"] == "freshness|graph|commit"), "")
         check("control: the verdict names the graph's commit and HEAD", f"built at `{built[:12]}`, HEAD is `{head[:12]}`" in verdict, verdict)

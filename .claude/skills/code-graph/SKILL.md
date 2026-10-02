@@ -9,10 +9,10 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 The graph is graphify's map of the primary checkout at the commit it was last built from, not of
 your branch (`docs/decisions.md` § D-20). It lives in that checkout's gitignored folder that
-`graphifyOutDir` in `tools/policy.json` names.
+`graphifyOutDir` in `tools/policy/tool-settings.json` names.
 
 1. Use only the tools of the MCP server registered under `graphifyMcpServerName` in
-   `tools/policy.json`: `query_graph`, `get_node`, `get_neighbors`, `shortest_path`,
+   `tools/policy/tool-settings.json`: `query_graph`, `get_node`, `get_neighbors`, `shortest_path`,
    `get_community`, `god_nodes` and `graph_stats`. Never read the graph's folder directly: from a
    worktree it is outside the tree you may read.
 2. If that server is not connected, or a tool reports no graph, say so and stop. The person builds

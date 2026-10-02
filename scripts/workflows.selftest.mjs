@@ -1,7 +1,7 @@
 /**
  * Workflow selftest: runs each workflow script under `.claude/workflows/` against stubbed agents and
  * asserts how it stops and what it returns. `build-change-task.js` runs with the review sizes, the
- * red-first kinds and the independent-test keys `tools/policy.json` holds, and its cases assert how
+ * red-first kinds and the independent-test keys `tools/policy/` holds, and its cases assert how
  * many skeptics it sends, which kinds it stops as not-red when a named scenario has neither a red
  * record nor an already-green report, and, for its test-builder and architect, each stop and each
  * triage route, by its reason: the test-builder called by its agent type with a prompt built from
@@ -73,8 +73,9 @@
  * temporary directory holding only the suites' scripts must report nothing, and the same with one
  * more script must report it, by its reason.
  *
- * NEEDS only committed files: the workflows, `tools/policy.json`, `.claude/agents/test-builder.md`, and
- * the trace renderers with `scripts/lib/trace.mjs`; each renderer runs twice as a child process. It
+ * NEEDS only committed files: the workflows, the records under `tools/policy/` read through
+ * `tools/lib/policy.ts`, `.claude/agents/test-builder.md`, and the trace renderers with
+ * `scripts/lib/trace.mjs`; each renderer runs twice as a child process. It
  * writes only under the temporary directory. No agent, no network. 0.27 s wall, both of two runs,
  * through `node --run` (`/usr/bin/time -p`) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-29, with
  * the test-builder and architect cases, much of it those four child processes.
@@ -84,6 +85,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { POLICY_DIR, readPolicy } from '../tools/lib/policy.ts'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ROOT = process.env.WORKFLOWS_ROOT ?? REPO_ROOT
@@ -92,7 +94,7 @@ const WORKFLOWS = '.claude/workflows'
 const BUILD = `${WORKFLOWS}/build-change-task.js`
 const REVIEW = `${WORKFLOWS}/review-prompts.js`
 const VERIFY = `${WORKFLOWS}/verify-change-trace.js`
-const POLICY = 'tools/policy.json'
+/** The keys Setup's command prints, as `POLICY_KEYS` in `build-change-task.js` lists them: keep the two in agreement. */
 const POLICY_KEYS = [
   'buildReviewLenses', 'buildReviewSkeptics', 'buildReviewMaxRounds', 'buildReviewMajorSeverities', 'buildRedFirstKinds', 'assetLabels',
   'buildIndependentKinds', 'buildArchitectMaxRounds', 'independentInputs', 'independentTestDir', 'independentLayers', 'architectRunLayers', 'testTraceLayers',
@@ -404,7 +406,10 @@ function scenario(policy, s = {}) {
   const policyJson = s.policyJson ?? JSON.stringify(Object.fromEntries(POLICY_KEYS.map((k) => [k, policy[k]])))
   return (label, prompt) => {
     if (label === 'setup') {
-      const answer = { policyJson, toplevel: s.toplevel ?? WORKTREE, branch: s.branch ?? BRANCH, listeners: BASELINE }
+      // The keys the stub prints are the ones Setup's command names, so the two lists cannot drift apart.
+      const command = `node tools/lib/policy.ts ${POLICY_KEYS.join(' ')}`
+      const printed = prompt.includes(command) ? policyJson : `the Setup prompt does not run \`${command}\``
+      const answer = { policyJson: printed, toplevel: s.toplevel ?? WORKTREE, branch: s.branch ?? BRANCH, listeners: BASELINE }
       return prompt.includes('inputsJson') ? { ...answer, inputsJson: s.inputsJson ?? inputsJson() } : answer
     }
     if (label === 'cite') return { output: CITED.join('\n') }
@@ -703,7 +708,7 @@ function buildCases(policy) {
       name: 'refused: a policy without buildReviewMaxRounds',
       args: args(widest),
       scenario: { policyJson: JSON.stringify(Object.fromEntries(POLICY_KEYS.filter((k) => k !== 'buildReviewMaxRounds').map((k) => [k, policy[k]]))) },
-      expect: ['refused', /^tools\/policy\.json has no `buildReviewMaxRounds`/],
+      expect: ['refused', /^tools\/policy\/ has no `buildReviewMaxRounds`/],
       check: () => null,
     },
     {
@@ -744,7 +749,7 @@ function buildCases(policy) {
       check: noReview,
     })
   }
-  if (!redFirst.length) list.push(unexercised('not-red: a task of a red-first kind with neither record for a named scenario', 'tools/policy.json `buildRedFirstKinds` lists no kind'))
+  if (!redFirst.length) list.push(unexercised('not-red: a task of a red-first kind with neither record for a named scenario', 'tools/policy/agent-workflows.json `buildRedFirstKinds` lists no kind'))
   for (const kind of others) {
     list.push({
       name: `a task of kind ${kind} whose builder returns neither record for a named scenario is not held to one, and runs on to review`,
@@ -754,7 +759,7 @@ function buildCases(policy) {
       check: reviewedWith(kind),
     })
   }
-  if (!others.length) list.push(unexercised('a task of a kind not held to the red run', 'tools/policy.json `buildRedFirstKinds` lists every kind'))
+  if (!others.length) list.push(unexercised('a task of a kind not held to the red run', 'tools/policy/agent-workflows.json `buildRedFirstKinds` lists every kind'))
 
   if (redFirst.length) {
     const kind = redFirst[0]
@@ -814,7 +819,7 @@ function buildCases(policy) {
       scenario: {
         policyJson: JSON.stringify({ ...Object.fromEntries(POLICY_KEYS.map((k) => [k, policy[k]])), buildRedFirstKinds: [...redFirst, 'asset:nonesuch'] }),
       },
-      expect: ['refused', /^tools\/policy\.json `buildRedFirstKinds` must be a list of `assetLabels` keys/],
+      expect: ['refused', /^tools\/policy\/agent-workflows\.json `buildRedFirstKinds` must be a list of `assetLabels` keys/],
       check: ({ calls }) => (calls.join() === 'setup' ? null : `ran ${calls.join(', ')}`),
     },
   )
@@ -829,7 +834,7 @@ function buildCases(policy) {
 function independentCases(policy) {
   const kind = policy.buildIndependentKinds[0]
   if (kind === undefined) {
-    return [{ name: 'the test-builder and the architect', args: args(Object.keys(policy.buildReviewLenses)[0]), scenario: {}, check: () => 'cannot be exercised: tools/policy.json `buildIndependentKinds` lists no kind' }]
+    return [{ name: 'the test-builder and the architect', args: args(Object.keys(policy.buildReviewLenses)[0]), scenario: {}, check: () => 'cannot be exercised: tools/policy/agent-workflows.json `buildIndependentKinds` lists no kind' }]
   }
   const maxA = policy.buildArchitectMaxRounds
   const blocker = policy.buildReviewSkeptics.blocker
@@ -1145,7 +1150,7 @@ function independentCases(policy) {
       name: 'refused: a policy whose architectRunLayers is not drawn from independentLayers',
       args: args(kind),
       scenario: { policyJson: JSON.stringify({ ...Object.fromEntries(POLICY_KEYS.map((k) => [k, policy[k]])), architectRunLayers: ['unit'] }) },
-      expect: ['refused', /^tools\/policy\.json `architectRunLayers` must be a list drawn from `independentLayers`/],
+      expect: ['refused', /^tools\/policy\/agent-workflows\.json `architectRunLayers` must be a list drawn from `independentLayers`/],
       check: ({ calls }) => (calls.join() === 'setup' ? null : `ran ${calls.join(', ')}`),
     },
   ]
@@ -2709,12 +2714,12 @@ async function main() {
   }
   let policy
   try {
-    policy = JSON.parse(readFileSync(join(ROOT, POLICY), 'utf8'))
+    policy = readPolicy(ROOT)
   } catch (error) {
-    staticProblems.push(`${POLICY} could not be read: ${error.message}`)
+    staticProblems.push(`${POLICY_DIR}/ could not be read: ${error.message}`)
   }
   const missing = policy ? [...POLICY_KEYS, ...REVIEW_POLICY_KEYS, ...VERIFY_POLICY_KEYS].filter((k) => policy[k] === undefined) : []
-  if (missing.length) staticProblems.push(`${POLICY} has no ${missing.join(', ')}`)
+  if (missing.length) staticProblems.push(`${POLICY_DIR}/ has no ${missing.join(', ')}`)
   if (staticProblems.length || suites.some((s) => !s.body)) {
     console.error(`workflows selftest: a workflow or the policy cannot be run.\n`)
     for (const problem of staticProblems) console.error(`  - ${problem}\n`)

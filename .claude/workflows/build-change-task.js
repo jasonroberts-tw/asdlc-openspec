@@ -1,9 +1,9 @@
 export const meta = {
   name: 'build-change-task',
-  description: "Build one task of a product change in its worktree, with an independent test-builder's tests beside it, review it through the lenses tools/policy.json names for its kind, confirm each finding with skeptics sized to its severity, fix until a round confirms nothing major, then run the test-builder's tests and triage each failure",
+  description: "Build one task of a product change in its worktree, with an independent test-builder's tests beside it, review it through the lenses tools/policy/agent-workflows.json names for its kind, confirm each finding with skeptics sized to its severity, fix until a round confirms nothing major, then run the test-builder's tests and triage each failure",
   whenToUse: 'Step 3 of the change-build skill, once for each task of a planned change, from the change worktree',
   phases: [
-    { title: 'Setup', detail: "read the sizes from tools/policy.json, list the listeners on 127.0.0.1, and read the test-builder's inputs" },
+    { title: 'Setup', detail: "read the sizes from tools/policy/, list the listeners on 127.0.0.1, and read the test-builder's inputs" },
     { title: 'Build', detail: "the app-builder sees each scenario's proof fail and builds the task, while the test-builder writes its tests" },
     { title: 'Review', detail: 'one reviewer for each lens the policy names for the kind' },
     { title: 'Merge', detail: 'findings of one kind on one file that describe one defect become one' },
@@ -18,10 +18,11 @@ export const meta = {
  * Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
  *
  * WHAT IT DOES. Builds one task of a product change in the change's worktree, then reviews what was
- * built: one reviewer for each lens `tools/policy.json` names for the task's kind, the findings merged,
- * each defect and spec contradiction confirmed by skeptics, the confirmed defects fixed, and another
- * round only while a round confirms a major one. It commits nothing and writes nothing to the tracker:
- * the parent session does both (`.claude/skills/change-build/SKILL.md` § 3. Build it, and prove it).
+ * built: one reviewer for each lens `tools/policy/agent-workflows.json` names for the task's kind,
+ * the findings merged, each defect and spec contradiction confirmed by skeptics, the confirmed defects
+ * fixed, and another round only while a round confirms a major one. It commits nothing and writes
+ * nothing to the tracker: the parent session does both
+ * (`.claude/skills/change-build/SKILL.md` § 3. Build it, and prove it).
  *
  * THE FAILURE IT EXISTS TO PREVENT. On 2026-09-24 the calculator change (asdlc-openspec-zgh) built
  * every task through an untracked ancestor of this script, which three skeptics per finding and three
@@ -534,48 +535,48 @@ function readPolicy(setup) {
   try {
     p = JSON.parse(setup.policyJson)
   } catch (error) {
-    return { problem: `tools/policy.json could not be read: Setup printed ${JSON.stringify(setup.policyJson.slice(0, 200))}` }
+    return { problem: `tools/policy/ could not be read: Setup printed ${JSON.stringify(setup.policyJson.slice(0, 200))}` }
   }
-  if (!isPlainObject(p)) return { problem: 'tools/policy.json could not be read: Setup did not print an object' }
+  if (!isPlainObject(p)) return { problem: 'tools/policy/ could not be read: Setup did not print an object' }
   const missing = POLICY_KEYS.filter((key) => p[key] === undefined || p[key] === null)
-  if (missing.length) return { problem: `tools/policy.json has no ${missing.map((k) => `\`${k}\``).join(', ')}` }
+  if (missing.length) return { problem: `tools/policy/ has no ${missing.map((k) => `\`${k}\``).join(', ')}` }
 
   const labels = isPlainObject(p.assetLabels) ? Object.keys(p.assetLabels) : []
   const lensSets = p.buildReviewLenses
   if (!isPlainObject(lensSets) || Object.values(lensSets).some((set) => !Array.isArray(set) || !set.length)) {
-    return { problem: 'tools/policy.json `buildReviewLenses` must map each kind to a non-empty list of lens keys' }
+    return { problem: 'tools/policy/agent-workflows.json `buildReviewLenses` must map each kind to a non-empty list of lens keys' }
   }
   for (const [kind, set] of Object.entries(lensSets)) {
     if (!labels.includes(kind)) {
-      return { problem: `tools/policy.json \`buildReviewLenses\` has the kind ${kind}, which is not an \`assetLabels\` key` }
+      return { problem: `tools/policy/agent-workflows.json \`buildReviewLenses\` has the kind ${kind}, which is not an \`assetLabels\` key` }
     }
     const unknown = set.filter((lens) => !Object.prototype.hasOwnProperty.call(LENSES, lens))
     if (unknown.length) {
       return {
-        problem: `tools/policy.json \`buildReviewLenses\` names the lens ${unknown.join(', ')} for ${kind}, which this workflow does not have (it has: ${Object.keys(LENSES).join(', ')})`,
+        problem: `tools/policy/agent-workflows.json \`buildReviewLenses\` names the lens ${unknown.join(', ')} for ${kind}, which this workflow does not have (it has: ${Object.keys(LENSES).join(', ')})`,
       }
     }
   }
   const skeptics = p.buildReviewSkeptics
   if (!isPlainObject(skeptics) || SEVERITIES.some((s) => !isWhole(skeptics[s])) || Object.keys(skeptics).length !== SEVERITIES.length) {
-    return { problem: `tools/policy.json \`buildReviewSkeptics\` must give exactly ${SEVERITIES.join(', ')} each a whole number of at least 1` }
+    return { problem: `tools/policy/agent-workflows.json \`buildReviewSkeptics\` must give exactly ${SEVERITIES.join(', ')} each a whole number of at least 1` }
   }
   if (!isWhole(p.buildReviewMaxRounds)) {
-    return { problem: 'tools/policy.json `buildReviewMaxRounds` must be a whole number of at least 1' }
+    return { problem: 'tools/policy/agent-workflows.json `buildReviewMaxRounds` must be a whole number of at least 1' }
   }
   const majors = p.buildReviewMajorSeverities
   if (!Array.isArray(majors) || majors.some((s) => !SEVERITIES.includes(s))) {
-    return { problem: `tools/policy.json \`buildReviewMajorSeverities\` must be a list drawn from ${SEVERITIES.join(', ')}` }
+    return { problem: `tools/policy/agent-workflows.json \`buildReviewMajorSeverities\` must be a list drawn from ${SEVERITIES.join(', ')}` }
   }
   const redFirst = p.buildRedFirstKinds
   if (!Array.isArray(redFirst) || redFirst.some((kind) => !labels.includes(kind))) {
-    return { problem: 'tools/policy.json `buildRedFirstKinds` must be a list of `assetLabels` keys' }
+    return { problem: 'tools/policy/agent-workflows.json `buildRedFirstKinds` must be a list of `assetLabels` keys' }
   }
   const independentProblem = independentPolicyProblem(p, labels)
   if (independentProblem) return { problem: independentProblem }
 
   if (!Object.prototype.hasOwnProperty.call(lensSets, A.kind)) {
-    return { problem: `args.kind ${A.kind} has no lens set in tools/policy.json \`buildReviewLenses\` (it has: ${Object.keys(lensSets).join(', ')})` }
+    return { problem: `args.kind ${A.kind} has no lens set in tools/policy/agent-workflows.json \`buildReviewLenses\` (it has: ${Object.keys(lensSets).join(', ')})` }
   }
   const extra = Object.keys(A.lenses || {}).filter((lens) => !lensSets[A.kind].includes(lens))
   if (extra.length) {
@@ -599,20 +600,20 @@ function independentPolicyProblem(p, labels) {
   const isRelative = (path) => isText(path) && !path.startsWith('/') && !path.split('/').includes('..')
   const layers = isPlainObject(p.testTraceLayers) ? Object.keys(p.testTraceLayers) : []
   if (!Array.isArray(p.buildIndependentKinds) || p.buildIndependentKinds.some((kind) => !labels.includes(kind))) {
-    return 'tools/policy.json `buildIndependentKinds` must be a list of `assetLabels` keys'
+    return 'tools/policy/agent-workflows.json `buildIndependentKinds` must be a list of `assetLabels` keys'
   }
-  if (!isWhole(p.buildArchitectMaxRounds)) return 'tools/policy.json `buildArchitectMaxRounds` must be a whole number of at least 1'
+  if (!isWhole(p.buildArchitectMaxRounds)) return 'tools/policy/agent-workflows.json `buildArchitectMaxRounds` must be a whole number of at least 1'
   if (!Array.isArray(p.independentInputs) || !p.independentInputs.length || !p.independentInputs.every(isRelative)) {
-    return 'tools/policy.json `independentInputs` must be a non-empty list of relative paths, none climbing out'
+    return 'tools/policy/agent-workflows.json `independentInputs` must be a non-empty list of relative paths, none climbing out'
   }
   if (!isRelative(p.independentTestDir) || !p.independentTestDir.includes('{app}')) {
-    return 'tools/policy.json `independentTestDir` must be a relative path holding `{app}`'
+    return 'tools/policy/agent-workflows.json `independentTestDir` must be a relative path holding `{app}`'
   }
   if (!Array.isArray(p.independentLayers) || !p.independentLayers.length || p.independentLayers.some((l) => !layers.includes(l))) {
-    return 'tools/policy.json `independentLayers` must be a non-empty list of `testTraceLayers` keys'
+    return 'tools/policy/agent-workflows.json `independentLayers` must be a non-empty list of `testTraceLayers` keys'
   }
   if (!Array.isArray(p.architectRunLayers) || p.architectRunLayers.some((l) => !p.independentLayers.includes(l))) {
-    return 'tools/policy.json `architectRunLayers` must be a list drawn from `independentLayers`'
+    return 'tools/policy/agent-workflows.json `architectRunLayers` must be a list drawn from `independentLayers`'
   }
   return null
 }
@@ -992,7 +993,7 @@ function inputsCommand() {
   const js = [
     "const fs=require('fs'),cp=require('child_process');",
     `const sub=(p)=>p.split('{change}').join('${A.change}').split('{app}').join('${A.app}');`,
-    "const roots=require('./tools/policy.json').independentInputs.map(sub);",
+    "const roots=require('./tools/lib/policy.ts').readPolicy('.').independentInputs.map(sub);",
     "const walk=(p)=>!fs.existsSync(p)?[]:fs.statSync(p).isDirectory()?fs.readdirSync(p).filter((n)=>!n.startsWith('.')).flatMap((n)=>walk(p+'/'+n)):[p];",
     'const paths=[...new Set(roots.flatMap(walk))].sort();',
     "const files=paths.map((path)=>{const t=fs.readFileSync(path,'utf8');return {path,text:path.endsWith('.mjs')?t.slice(0,t.indexOf('*/')+2):t}});",
@@ -1237,7 +1238,7 @@ const setup = await agent(
   [
     `Work in ${A.worktree}. Run each of these, and return what each prints, verbatim, even where it looks wrong.`,
     '',
-    `1. policyJson: node -p "JSON.stringify(Object.fromEntries(${JSON.stringify(POLICY_KEYS).replace(/"/g, "'")}.map((k) => [k, require('./tools/policy.json')[k]])))"`,
+    `1. policyJson: node tools/lib/policy.ts ${POLICY_KEYS.join(' ')}`,
     '2. toplevel: git rev-parse --show-toplevel',
     '3. branch: git branch --show-current',
     '4. listeners: the TCP listeners on 127.0.0.1, with `lsof -nP -iTCP@127.0.0.1 -sTCP:LISTEN` on macOS or `ss -ltnpH src 127.0.0.1` on Linux; one entry per listening socket with its pid, its port and its command, and an empty list when there is none.',
@@ -1247,7 +1248,7 @@ const setup = await agent(
   ].join('\n'),
   { label: 'setup', phase: 'Setup', schema: setupSchema(), effort: 'low' },
 )
-if (!setup) return refuse('the Setup agent returned nothing, so tools/policy.json was not read')
+if (!setup) return refuse('the Setup agent returned nothing, so tools/policy/ was not read')
 const read = readPolicy(setup)
 if (read.problem) return refuse(read.problem, setup.listeners)
 policy = read.policy

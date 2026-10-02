@@ -27,12 +27,12 @@ no review starts, leaving out the session your name names.
 
 Print the trunk's prompt-review keys first, as one call; later steps apply them:
 
-    gh api "repos/{owner}/{repo}/contents/tools/policy.json?ref=main" -H "Accept: application/vnd.github.raw" --jq "with_entries(select((.key | startswith(\"promptReview\")) and (.key | endswith(\"Means\") | not)))"
+    gh api "repos/{owner}/{repo}/contents/tools/policy/agent-workflows.json?ref=main" -H "Accept: application/vnd.github.raw" --jq "with_entries(select((.key | startswith(\"promptReview\")) and (.key | endswith(\"Means\") | not)))"
 
 Find every pending analysis as the skill's § 2 says. If a review is not due by it, the launch was
 early: stop, editing nothing and writing nothing.
 
-Collect every held line too, whether its analysis is pending or not, listed as the analyses are, with
+Collect every held line too, its analysis pending or not, listed as the analyses are, with
 `promptReviewHeldMarker` as the marker.
 
 An analysis is an input, not a verdict. Check each claim it makes against the run's own evidence,
@@ -54,8 +54,8 @@ severity is in `promptReviewMajorSeverities`. Hold every finding that does not, 
 `below the threshold`: § 6 writes its held lines, and the next review counts them. A finding an
 earlier review held for any other reason, set aside by its file's agent or not upheld by its
 skeptics, goes to a group again only when a run in this batch shows it that none of its held lines
-names: new evidence, as § How a file is judged asks before a point set aside is raised again. It
-must still meet the threshold, because the workflow refuses a finding below it.
+names. Such new evidence is what § How a file is judged asks before a point set aside is raised
+again. It must still meet the threshold, because the workflow refuses a finding below it.
 
 A group is one file, or several when one finding concerns them together, such as two prompts that
 contradict each other; a file is in one group only. Its findings are those that met the threshold,
@@ -83,7 +83,7 @@ Before each merge, check what the agent reported against git: `git diff --name-o
 origin/main...<branch>` must list only files of that branch's group. A branch that lists another file
 is not merged: its group's runs are held as the workflow's `runsHeld` are. A conflict stops the
 merge: report it. For each consolidation a merged branch carries, set its file's budget in
-`tools/policy.json` as § How a prompt is consolidated says. Then gate as
+`tools/policy/prompt-budgets.json` as § How a prompt is consolidated says. Then gate as
 `.claude/skills/bead/SKILL.md` § 4 says, and open the pull request with the `open-pr` skill. Never
 merge it yourself. A gate that fails in a file a group changed is fixed on your branch; one that
 fails elsewhere is reported.
@@ -167,11 +167,11 @@ refuses it.
 
 ## How a prompt is consolidated
 
-An edit that would take a prompt past its word budget, a key in `tools/policy.json` that
+An edit that would take a prompt past its word budget, a row in `tools/policy/prompt-budgets.json` that
 `node scripts/check-prompts.mjs --counts` prints beside the prompt's words, consolidates the prompt
-first. A review never raises a budget, and a file's agent may not edit `tools/policy.json`: an edit
-that still does not fit once the prompt is consolidated is left out, and its finding set aside with
-the words the edit needs, so that its held line brings the raise to a person.
+first. A review never raises a budget, and a file's agent may not edit `tools/policy/prompt-budgets.json`:
+an edit that still does not fit once the prompt is consolidated is left out, and its finding set aside
+with the words the edit needs, so that its held line brings the raise to a person.
 
 What loads the prompt decides what can go: `CLAUDE.md`, in every session and in every workflow
 agent, since only the built-in Explore and Plan agents skip it, and each file the prompt sends the
@@ -192,5 +192,5 @@ each sentence or clause removed: kept, naming the file and section that state it
 file wherever this prompt is loaded; moved, naming the pull request that tells it; or deleted, saying
 why. A sentence whose row cannot name what loads its new home stays: a rule kept where the session
 never reads it is lost. Once the edit lands, the reviewer's session, not the file's agent, sets the
-prompt's budget in `tools/policy.json` to its count after the consolidation and the edit, never
-above the old budget (§ 5), and its `Means` names the consolidation.
+prompt's budget in `tools/policy/prompt-budgets.json` to its count after the consolidation and the edit,
+never above the old budget (§ 5), and its `means` names the consolidation.

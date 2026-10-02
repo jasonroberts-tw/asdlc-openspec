@@ -44,14 +44,17 @@ the `docs/decisions.md` entry the reversal needs.
 
 With `<change>` the confirmed name:
 
-- **From a seeding issue:** `bd update <id> -t epic --add-label spec-change --spec-id openspec/changes/<change> --set-metadata change=<change>`.
-  It becomes the change's epic rather than being closed. Stop if another actor holds it in progress.
+- **From a seeding issue:** `bd update <id> -t epic --add-label spec-change --spec-id openspec/changes/<change>
+  --set-metadata change=<change>`. It becomes the change's epic rather than being closed. Stop if another
+  actor holds it in progress.
 - **Otherwise:** write the epic's description (the why, in a paragraph; `change-plan` adds its
   acceptance criteria) to `.scratch/<change>-epic.md`, then
-  `bd create "<change>: <what changes, in a line>" -t epic -l spec-change,<the repo: label open issues here carry> --spec-id openspec/changes/<change> --metadata '{"change":"<change>"}' --body-file .scratch/<change>-epic.md --silent`.
+  `bd create "<change>: <what changes, in a line>" -t epic -l spec-change,<the repo: label open issues
+  here carry> --spec-id openspec/changes/<change> --metadata '{"change":"<change>"}' --body-file .scratch/<change>-epic.md
+  --silent`.
 
 The `spec-change` label keeps the epic and every child out of the general queue. The spelling's one
-home is `specChangeLabel` in `tools/policy.json`.
+home is `specChangeLabel` in `tools/policy/vocabulary.json`.
 
 ## 4. Cut the worktree
 
@@ -92,8 +95,8 @@ the living spec mechanically, so the grammar is exact:
   exactly four hashes. Three hashes, or a bullet, is silently not a scenario. Under it go
   `- **WHEN** <condition>` and `- **THEN** <outcome>` lines, with `- **AND** ...` lines as needed. A
   later stage traces every scenario to a test, so write each one so it can become one.
-- **IDs.** `<PREFIX>` is the capability's, under `specIdPrefixes` in `tools/policy.json`; a new
-  capability adds its own in this change. `npm run openspec:check` holds the rules an ID follows
+- **IDs.** `<PREFIX>` is the capability's, under `specIdPrefixes` in `tools/policy/vocabulary.json`;
+  a new capability adds its own in this change. `npm run openspec:check` holds the rules an ID follows
   (the header of `scripts/check-openspec.mjs`) and prints each prefix's next free ID.
 - **MODIFIED.** Copy the whole requirement block from `openspec/specs/<capability>/spec.md`, with
   its header and each scenario's exactly as they stand there, then edit the copy. A partial block
@@ -119,8 +122,8 @@ changes).
 
 A later stage's change to a scenario or an NFR comes back here, as does a spec gap `change-verify`
 finds (`.claude/skills/change-verify/SKILL.md` § 6. Verdict). Label the epic for propose
-(`rerouteLabels` in `tools/policy.json`). The change already exists: skip steps 1 to 4. Find the
-change and its epic as `.claude/skills/change-verify/SKILL.md` § 1. Find the change and its epic
+(`rerouteLabels` in `tools/policy/vocabulary.json`). The change already exists: skip steps 1 to 4. Find
+the change and its epic as `.claude/skills/change-verify/SKILL.md` § 1. Find the change and its epic
 says, and read the reason in the epic's latest note. Revise the proposal and the delta specs with
 the user under steps 5 and 6, check and commit them as step 7 says, then hand back to the stage that
 sent it; `change-verify` runs again from its step 2.

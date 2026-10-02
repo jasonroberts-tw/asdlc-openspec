@@ -6,21 +6,22 @@
  * CLAUDE.md § Standing rules for prompts and gates requires. The sentence is read out of `CLAUDE.md`
  * on every run, so it has one home and this file states it nowhere.
  *
- * THE WORD BUDGET. Every prompt is held to a word budget, a key of its own in `tools/policy.json`:
- * every skill and every agent, `CLAUDE.md`, `AGENTS.md`, `.claude/worktree-CONTEXT.md.tmpl` (the
- * briefing `CLAUDE.md` imports in a worktree), and each workflow under `.claude/workflows/`. A prompt
- * over its budget is refused, and so is a prompt with none, so a new prompt gets one when it lands. A
- * word is a whitespace-separated token. A markdown prompt and the briefing are counted whole,
- * frontmatter included. A workflow is counted on the text of its string and template literals, cooked
- * as the runtime cooks them, and on nothing else: that text is what its agents receive, and what its
- * caller reads back, whether a prompt is written as one template literal or concatenated from pieces.
+ * THE WORD BUDGET. Every prompt is held to a word budget, a row of its own in the table
+ * `promptWordBudgets` of `tools/policy/prompt-budgets.json`: every skill and every agent, `CLAUDE.md`,
+ * `AGENTS.md`, `.claude/worktree-CONTEXT.md.tmpl` (the briefing `CLAUDE.md` imports in a worktree),
+ * and each workflow under `.claude/workflows/`. A prompt over its budget is refused, and so is a prompt
+ * with none, so a new prompt gets one when it lands. A word is a whitespace-separated token. A
+ * markdown prompt and the briefing are counted whole, frontmatter included. A workflow is counted on
+ * the text of its string and template literals, cooked as the runtime cooks them, and on nothing
+ * else: that text is what its agents receive, and what its caller reads back, whether a prompt is
+ * written as one template literal or concatenated from pieces.
  *
- * A prompt's key is `promptWordBudget` followed by `ClaudeMd`, `AgentsMd`, `WorktreeContext`, or
- * `Skill`, `Agent` or `Workflow` and its name in PascalCase: `.claude/skills/open-pr/SKILL.md` is
- * `promptWordBudgetSkillOpenPr`. Each key has a `<key>Means` sibling. A budget rises only by an edit
- * to its key, with the reason in that sibling, and `prReviewHighRiskJsonKeys` makes every such edit
- * one a person merges. A `promptWordBudget` key that names no prompt is refused, so a retired
- * prompt's budget goes with it.
+ * A row is keyed by the prompt's repository-relative path and holds `words`, the budget, and
+ * `means`, the reason it is that figure (`docs/decisions.md` § D-27). A budget rises only by an edit
+ * to its row, with the reason in its `means`, and `prReviewHighRiskPaths` names the record, so a
+ * person merges every such edit. A row that names no prompt is refused, so a retired prompt's budget
+ * goes with it. Until D-27 each budget was a key of `tools/policy.json` whose name this gate built
+ * from the path, `.claude/skills/open-pr/SKILL.md` as `promptWordBudgetSkillOpenPr`.
  *
  * THE FAILURE IT EXISTS TO PREVENT, one incident for each check.
  *
@@ -47,8 +48,8 @@
  *
  *   npm run check:prompts                     the gate
  *   npm run check:prompts:selftest            its fixtures -- every refusal exercised on a doctored copy
- *   node scripts/check-prompts.mjs --counts   every prompt's words, its key and its budget, in
- *                                             code-point order of path; it refuses nothing
+ *   node scripts/check-prompts.mjs --counts   every prompt's words and its budget, in code-point
+ *                                             order of path; it refuses nothing
  *
  * NO EXEMPTION. `CLAUDE.md` asks the line of every *substantial* prompt. This gate asks it of every
  * skill and agent, because the line costs one line and deciding what is substantial is how six were
@@ -79,7 +80,8 @@
  *
  *   PROMPTS_CHECK_ROOT=/tmp/doctored node scripts/check-prompts.mjs
  *
- * NEEDS only committed files: `CLAUDE.md`, the prompts and `tools/policy.json`. No tool, no network.
+ * NEEDS only committed files: `CLAUDE.md`, the prompts and the records under `tools/policy/`, read
+ * through `tools/lib/policy.ts`. No tool, no network.
  * 0.08 s wall for the gate and 0.15 s for its selftest through `node --run` (`/usr/bin/time -p`,
  * two runs each, both alike) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-26.
  */
@@ -87,6 +89,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { editPolicy, POLICY_DIR, readPolicy } from '../tools/lib/policy.ts'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ROOT = process.env.PROMPTS_CHECK_ROOT ?? REPO_ROOT
@@ -95,13 +98,15 @@ const SKILLS_DIR = '.claude/skills'
 const AGENTS_DIR = '.claude/agents'
 const WORKFLOWS_DIR = '.claude/workflows'
 const TEMPLATE = '.claude/worktree-CONTEXT.md.tmpl'
-const POLICY = 'tools/policy.json'
+/** The record that holds the budgets, named in every message; the loader reads every record. */
+const BUDGETS = 'tools/policy/prompt-budgets.json'
+/** The constant in that record: a table from a prompt's path to `{ words, means }`. */
+const TABLE = 'promptWordBudgets'
 const RULE_HOME = 'CLAUDE.md § Standing rules for prompts and gates'
 /** The bullet in `CLAUDE.md` that carries the sentence, up to the quotation mark that opens it. */
 const RULE_LEAD = '**The first line of every substantial skill and agent** is: "'
-const BUDGET_PREFIX = 'promptWordBudget'
-/** The prompts outside the three directories, each with the name its budget key ends in. */
-const SINGLE_PROMPTS = { 'AGENTS.md': 'AgentsMd', 'CLAUDE.md': 'ClaudeMd', [TEMPLATE]: 'WorktreeContext' }
+/** The prompts outside the three directories. */
+const SINGLE_PROMPTS = ['AGENTS.md', 'CLAUDE.md', TEMPLATE]
 
 const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
 const isRecord = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
@@ -145,29 +150,8 @@ function budgeted(root) {
   if (existsSync(workflows)) {
     for (const name of readdirSync(workflows)) if (name.endsWith('.js')) found.push(`${WORKFLOWS_DIR}/${name}`)
   }
-  for (const path of Object.keys(SINGLE_PROMPTS)) if (existsSync(join(root, path))) found.push(path)
+  for (const path of SINGLE_PROMPTS) if (existsSync(join(root, path))) found.push(path)
   return found.sort(byCodePoint)
-}
-
-const pascal = (name) =>
-  name
-    .split(/[^A-Za-z0-9]+/)
-    .filter(Boolean)
-    .map((part) => part[0].toUpperCase() + part.slice(1))
-    .join('')
-
-/** The `tools/policy.json` key that holds the budget of the prompt at `path`. */
-export function budgetKey(path) {
-  if (Object.hasOwn(SINGLE_PROMPTS, path)) return BUDGET_PREFIX + SINGLE_PROMPTS[path]
-  for (const [kind, pattern] of [
-    ['Skill', /^\.claude\/skills\/([^/]+)\/SKILL\.md$/],
-    ['Agent', /^\.claude\/agents\/([^/]+)\.md$/],
-    ['Workflow', /^\.claude\/workflows\/([^/]+)\.js$/],
-  ]) {
-    const match = pattern.exec(path)
-    if (match) return BUDGET_PREFIX + kind + pascal(match[1])
-  }
-  throw new Error(`${path} is not a prompt this gate budgets`)
 }
 
 /** Why `text` does not open with `line` after its frontmatter, or null when it does. */
@@ -325,66 +309,69 @@ function countWords(root, path) {
 }
 
 /**
- * Every budgeted prompt under `root`, as { path, key, words, budget }, and the policy, or why it
- * could not be read. `budget` is whatever the policy holds under the key, or undefined.
+ * Every budgeted prompt under `root`, as { path, words, budget, means }, and the table, or why it
+ * could not be read. `budget` and `means` are whatever the prompt's row holds, or undefined.
  */
 export function measure(root) {
-  const measured = budgeted(root).map((path) => ({ path, key: budgetKey(path), words: countWords(root, path) }))
-  let policy = null
+  const measured = budgeted(root).map((path) => ({ path, words: countWords(root, path) }))
+  let table = null
   let unreadable = null
   try {
-    policy = JSON.parse(readFileSync(join(root, POLICY), 'utf8'))
-    if (!isRecord(policy)) throw new Error('it holds no JSON object')
+    table = readPolicy(root)[TABLE]
+    if (!isRecord(table)) throw new Error(`\`${TABLE}\` in ${BUDGETS} is ${table === undefined ? 'missing' : 'not a table keyed by path'}`)
   } catch (error) {
-    policy = null
+    table = null
     unreadable = error.message
   }
-  for (const m of measured) m.budget = policy?.[m.key]
-  return { measured, policy, unreadable }
+  for (const m of measured) {
+    const row = table?.[m.path]
+    m.budget = isRecord(row) ? row.words : row
+    m.means = isRecord(row) ? row.means : undefined
+    m.row = row
+  }
+  return { measured, table, unreadable }
 }
 
 /** Why the prompts under `root` break their budgets, one message per problem. */
-function budgetProblems(root, { measured, policy, unreadable }) {
+function budgetProblems(root, { measured, table, unreadable }) {
   if (unreadable !== null) {
-    return [`${POLICY} under ${root} could not be read (${unreadable}), and every prompt's word budget is there.`]
+    return [`${POLICY_DIR}/ under ${root} could not be read (${unreadable}), and every prompt's word budget is there.`]
   }
   const problems = []
-  for (const { path, key, words: count, budget } of measured) {
-    const where = `${POLICY} \`${key}\``
-    if (budget === undefined) {
+  for (const { path, words: count, budget, means, row } of measured) {
+    const where = `${BUDGETS} \`${TABLE}\` row for ${path}`
+    if (row === undefined) {
       problems.push(
-        `${path} has no word budget: ${POLICY} has no \`${key}\`. Add it, set to the ${count} word(s) the ` +
-          `prompt holds now, with a \`${key}Means\` sibling saying why.`,
+        `${path} has no word budget: ${BUDGETS} has no row for it. Add one, set to the ${count} word(s) the ` +
+          'prompt holds now, with a `means` saying why.',
       )
       continue
     }
     if (!Number.isInteger(budget) || budget < 1) {
-      problems.push(`${where} is ${JSON.stringify(budget)}, not a whole number of words of at least 1.`)
+      problems.push(`${where} has words ${JSON.stringify(budget)}, not a whole number of words of at least 1.`)
       continue
     }
-    const means = policy[`${key}Means`]
     if (typeof means !== 'string' || !means.trim()) {
       problems.push(
-        `${where} has no \`${key}Means\` sibling saying why the budget is what it is ` +
+        `${where} has no \`means\` saying why the budget is what it is ` +
           '(`CLAUDE.md` § Three kinds of file, and never a fourth).',
       )
     }
     if (count > budget) {
       const counted = path.startsWith(`${WORKFLOWS_DIR}/`) ? ' in its string and template literals' : ''
       problems.push(
-        `${path}: ${count} words${counted}, over its budget of ${budget} (\`${key}\` in ${POLICY}). ` +
+        `${path}: ${count} words${counted}, over its budget of ${budget} (its row in ${BUDGETS}). ` +
           'Consolidate it first, as `.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated says, ' +
-          `and raise the budget there only by what that does not free, with the reason in \`${key}Means\`; a person merges a raise.`,
+          "and raise the budget there only by what that does not free, with the reason in the row's `means`; a person merges a raise.",
       )
     }
   }
-  const keys = new Set(measured.map((m) => m.key))
-  for (const key of Object.keys(policy).filter((k) => k.startsWith(BUDGET_PREFIX)).sort(byCodePoint)) {
-    const base = key.endsWith('Means') ? key.slice(0, -'Means'.length) : key
-    if (!keys.has(base)) {
+  const paths = new Set(measured.map((m) => m.path))
+  for (const path of Object.keys(table).sort(byCodePoint)) {
+    if (!paths.has(path)) {
       problems.push(
-        `${POLICY} \`${key}\` is the budget of no prompt this gate reads, by the key the header of ` +
-          'scripts/check-prompts.mjs names for each. Remove it with its sibling, or restore its prompt.',
+        `${BUDGETS} \`${TABLE}\` has a row for ${path}, which is no prompt this gate reads. ` +
+          'Remove the row, or restore its prompt.',
       )
     }
   }
@@ -442,7 +429,7 @@ function main() {
     const allowed = measured.reduce((sum, m) => sum + m.budget, 0)
     console.log(
       `prompts: ${skills} skill(s) and ${agents} agent(s) each open with the line ${RULE_HOME} requires, ` +
-        `and ${measured.length} prompt(s) are each within the word budget ${POLICY} gives it ` +
+        `and ${measured.length} prompt(s) are each within the word budget ${BUDGETS} gives it ` +
         `(${total} words of ${allowed}).`,
     )
     process.exit(0)
@@ -452,15 +439,14 @@ function main() {
   process.exit(1)
 }
 
-/** `--counts`: every budgeted prompt's words beside its key and budget. It refuses nothing. */
+/** `--counts`: every budgeted prompt's words beside its budget. It refuses nothing. */
 function printCounts() {
   const { measured, unreadable } = measure(ROOT)
-  if (unreadable !== null) console.log(`prompts: ${POLICY} could not be read (${unreadable}), so no budget is shown.\n`)
-  const width = Math.max(3, ...measured.map((m) => m.key.length))
-  console.log(`  ${'words'.padStart(6)}  ${'budget'.padStart(6)}  ${'key'.padEnd(width)}  path`)
+  if (unreadable !== null) console.log(`prompts: ${POLICY_DIR}/ could not be read (${unreadable}), so no budget is shown.\n`)
+  console.log(`  ${'words'.padStart(6)}  ${'budget'.padStart(6)}  path`)
   for (const m of measured) {
     const budget = Number.isInteger(m.budget) ? String(m.budget) : '-'
-    console.log(`  ${String(m.words).padStart(6)}  ${budget.padStart(6)}  ${m.key.padEnd(width)}  ${m.path}`)
+    console.log(`  ${String(m.words).padStart(6)}  ${budget.padStart(6)}  ${m.path}`)
   }
   const whole = measured.filter((m) => Number.isInteger(m.budget))
   const over = whole.filter((m) => m.words > m.budget).length
@@ -514,27 +500,26 @@ const WORKFLOW = [
   '',
 ].join('\n')
 
-/** Each budgeted fixture file's key and its words, counted by hand, not by this gate. */
-const BUDGETS = {
-  '.claude/agents/gamma.md': ['promptWordBudgetAgentGamma', 18],
-  '.claude/skills/alpha/SKILL.md': ['promptWordBudgetSkillAlpha', 18],
-  '.claude/skills/beta/SKILL.md': ['promptWordBudgetSkillBeta', 18],
-  '.claude/workflows/delta.js': ['promptWordBudgetWorkflowDelta', 17],
-  '.claude/worktree-CONTEXT.md.tmpl': ['promptWordBudgetWorktreeContext', 7],
-  'AGENTS.md': ['promptWordBudgetAgentsMd', 2],
-  'CLAUDE.md': ['promptWordBudgetClaudeMd', 23],
+/** Each budgeted fixture file's words, counted by hand, not by this gate. */
+const FIXTURE_BUDGETS = {
+  '.claude/agents/gamma.md': 18,
+  '.claude/skills/alpha/SKILL.md': 18,
+  '.claude/skills/beta/SKILL.md': 18,
+  '.claude/workflows/delta.js': 17,
+  '.claude/worktree-CONTEXT.md.tmpl': 7,
+  'AGENTS.md': 2,
+  'CLAUDE.md': 23,
 }
 
-const FIXTURE_POLICY = {
+/** The fixture's budgets record, and a second record the gate reads past, as the live policy has. */
+const FIXTURE_RECORD = {
   describes: 'A fixture policy.',
-  otherKey: 'a key of another tool, which the gate leaves alone',
-  ...Object.fromEntries(
-    Object.entries(BUDGETS).flatMap(([path, [key, budget]]) => [
-      [key, budget],
-      [`${key}Means`, `The most words ${path} may hold.`],
-    ]),
+  [TABLE]: Object.fromEntries(
+    Object.entries(FIXTURE_BUDGETS).map(([path, words]) => [path, { words, means: `The most words ${path} may hold.` }]),
   ),
+  [`${TABLE}Means`]: 'The fixture budgets.',
 }
+const OTHER_RECORD = 'tools/policy/other.json'
 
 const FIXTURE = {
   'CLAUDE.md': RULES,
@@ -544,7 +529,8 @@ const FIXTURE = {
   '.claude/skills/beta/SKILL.md': `---\nname: beta\ndescription: second\n---\n\n${LINE}\n\nDo beta.\n`,
   '.claude/agents/gamma.md': `---\nname: gamma\ndescription: third\n---\n\n${LINE}\n\nBe gamma.\n`,
   '.claude/workflows/delta.js': WORKFLOW,
-  [POLICY]: `${JSON.stringify(FIXTURE_POLICY, null, 2)}\n`,
+  [BUDGETS]: `${JSON.stringify(FIXTURE_RECORD, null, 2)}\n`,
+  [OTHER_RECORD]: `${JSON.stringify({ otherKey: 'a key of another tool, which the gate leaves alone' }, null, 2)}\n`,
 }
 
 function selftest() {
@@ -609,19 +595,14 @@ function edit(dir, relative, transform) {
   writeFileSync(path, after)
 }
 
-/** Rewrite the fixture policy through `change`, which edits the parsed object in place. */
-const editPolicy = (change) => (dir) =>
-  edit(dir, POLICY, (text) => {
-    const policy = JSON.parse(text)
-    change(policy)
-    return `${JSON.stringify(policy, null, 2)}\n`
-  })
+/** Rewrite the fixture's budgets through `change`, which edits the table in place, as the loader does. */
+const editTable = (change) => (dir) => editPolicy(dir, (policy) => change(policy[TABLE]))
 
 const escaped = (text) => text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
 
-/** The refusal of `path` at `count` words over `budget`, naming its key, anchored at the start. */
+/** The refusal of `path` at `count` words over `budget`, naming its record, anchored at the start. */
 const refusedOver = (path, count, budget) =>
-  new RegExp(`^${escaped(path)}: ${count} words(?: in its string and template literals)?, over its budget of ${budget} \\(\`${BUDGETS[path][0]}\` in tools/policy\\.json\\)`)
+  new RegExp(`^${escaped(path)}: ${count} words(?: in its string and template literals)?, over its budget of ${budget} \\(its row in tools/policy/prompt-budgets\\.json\\)`)
 
 function cases() {
   const alpha = '.claude/skills/alpha/SKILL.md'
@@ -731,37 +712,41 @@ function cases() {
     {
       name: 'a new skill with no budget',
       doctor: (dir) => writeTree(dir, { '.claude/skills/epsilon/SKILL.md': `---\nname: epsilon\n---\n\n${LINE}\n` }),
-      expect: /^\.claude\/skills\/epsilon\/SKILL\.md has no word budget: tools\/policy\.json has no `promptWordBudgetSkillEpsilon`\. Add it, set to the 14 word\(s\)/,
+      expect: /^\.claude\/skills\/epsilon\/SKILL\.md has no word budget: tools\/policy\/prompt-budgets\.json has no row for it\. Add one, set to the 14 word\(s\)/,
     },
     {
       name: 'a new workflow with no budget',
       doctor: (dir) => writeTree(dir, { '.claude/workflows/new-flow.js': "export const meta = { name: 'new flow' }\n" }),
-      expect: /^\.claude\/workflows\/new-flow\.js has no word budget: tools\/policy\.json has no `promptWordBudgetWorkflowNewFlow`\. Add it, set to the 2 word\(s\)/,
+      expect: /^\.claude\/workflows\/new-flow\.js has no word budget: tools\/policy\/prompt-budgets\.json has no row for it\. Add one, set to the 2 word\(s\)/,
     },
     {
-      name: 'a budget with no Means sibling',
-      doctor: editPolicy((p) => delete p.promptWordBudgetSkillBetaMeans),
-      expect: /^tools\/policy\.json `promptWordBudgetSkillBeta` has no `promptWordBudgetSkillBetaMeans` sibling/,
+      name: 'a row with no reason',
+      doctor: editTable((t) => delete t['.claude/skills/beta/SKILL.md'].means),
+      expect: /^tools\/policy\/prompt-budgets\.json `promptWordBudgets` row for \.claude\/skills\/beta\/SKILL\.md has no `means`/,
     },
     {
       name: 'a budget that is not a whole number',
-      doctor: editPolicy((p) => {
-        p.promptWordBudgetAgentGamma = '18'
+      doctor: editTable((t) => {
+        t['.claude/agents/gamma.md'].words = '18'
       }),
-      expect: /^tools\/policy\.json `promptWordBudgetAgentGamma` is "18", not a whole number of words of at least 1/,
+      expect: /^tools\/policy\/prompt-budgets\.json `promptWordBudgets` row for \.claude\/agents\/gamma\.md has words "18", not a whole number of words of at least 1/,
     },
     {
-      name: 'a budget that names no prompt',
-      doctor: editPolicy((p) => {
-        p.promptWordBudgetSkillRetired = 10
-        p.promptWordBudgetSkillRetiredMeans = 'The most words a retired skill may hold.'
+      name: 'a row that names no prompt',
+      doctor: editTable((t) => {
+        t['.claude/skills/retired/SKILL.md'] = { words: 10, means: 'The most words a retired skill may hold.' }
       }),
-      expect: /^tools\/policy\.json `promptWordBudgetSkillRetired` is the budget of no prompt this gate reads/,
+      expect: /^tools\/policy\/prompt-budgets\.json `promptWordBudgets` has a row for \.claude\/skills\/retired\/SKILL\.md, which is no prompt this gate reads/,
     },
     {
-      name: 'no policy file',
-      doctor: (dir) => rmSync(join(dir, POLICY)),
-      expect: /^tools\/policy\.json under .* could not be read \(.*\), and every prompt's word budget is there/,
+      name: 'no table in the policy',
+      doctor: (dir) => rmSync(join(dir, BUDGETS)),
+      expect: /^tools\/policy\/ under .* could not be read \(`promptWordBudgets` in tools\/policy\/prompt-budgets\.json is missing\), and every prompt's word budget is there/,
+    },
+    {
+      name: 'the table defined in two records',
+      doctor: (dir) => writeTree(dir, { [OTHER_RECORD]: `${JSON.stringify({ [TABLE]: {} })}\n` }),
+      expect: /^tools\/policy\/ under .* could not be read \(`promptWordBudgets` is defined in both tools\/policy\/other\.json and tools\/policy\/prompt-budgets\.json/,
     },
   ]
 }

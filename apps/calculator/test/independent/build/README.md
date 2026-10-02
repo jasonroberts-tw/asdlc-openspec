@@ -2,7 +2,7 @@
 
 **The test-builder's tests of the calculator that run at Build: its contract tests and the fitness
 functions whose execution environment is `build`, each under the directory of its layer.** The
-build workflow writes a file here only at a layer `architectRunLayers` in `tools/policy.json` lists
+build workflow writes a file here only at a layer `architectRunLayers` in `tools/policy/agent-workflows.json` lists
 and declared to run at build, and stops a run that puts any other here (the header of
 `.claude/workflows/build-change-task.js`). `npm run calculator:test:independent` runs every test
 file here, at each push and in CI, and passes, saying so, while there is none.

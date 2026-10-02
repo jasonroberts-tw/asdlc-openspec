@@ -59,11 +59,17 @@ jobs:
       - name: the git hook runner, negative-tested
         run: npm run hooks:selftest
       # Milliseconds: CLAUDE.md, the prompts, the workflows' string literals and the word budgets in
-      # tools/policy.json.
+      # tools/policy/prompt-budgets.json.
       - name: every skill and agent opens with the line CLAUDE.md requires, and every prompt is within its word budget
         run: npm run check:prompts
       - name: the prompt gate, negative-tested
         run: npm run check:prompts:selftest
+      # Milliseconds: the records under tools/policy/, their headers, a Means beside every constant,
+      # no key in two records, and the directory's README naming each.
+      - name: every policy record carries its header and its reasons, and no key has two homes
+        run: npm run check:policy
+      - name: the policy gate, negative-tested
+        run: npm run check:policy:selftest
       # Milliseconds: each workflow under `.claude/workflows/` against stubbed agents, with the policy's
       # review sizes, prompt-review threshold and skeptic counts.
       - name: the workflows stop, confirm and report as their policy says

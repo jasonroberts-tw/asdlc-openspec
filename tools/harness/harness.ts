@@ -57,7 +57,8 @@
  * findings, which it reports and never enforces, and 1 when an input cannot be read.
  *
  * NEEDS git, `js-yaml`, Node's `path.matchesGlob`, and the files `tools/harness/harness.config.json`
- * names; the map's sample from `couplingMinSampleUnits` in `tools/policy.json`. No network.
+ * names; the map's sample from `couplingMinSampleUnits` in `tools/policy/tool-settings.json`. No
+ * network.
  *
  * KIND: assessment; writes a local report, never a committed artifact.
  * INVARIANTS: reads committed files only; every list sorted by code point; one serialiser; the date

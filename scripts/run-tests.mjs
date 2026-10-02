@@ -84,7 +84,7 @@
  *
  * NEEDS Node's own test runner and `fs.globSync`, within the `engines` floor in `package.json`
  * (asdlc-openspec-pta cites the release that marked `fs.globSync` stable), and the reader's keys in
- * `tools/policy.json` under the root, without which it refuses the run. No network and nothing
+ * `tools/policy/` under the root, without which it refuses the run. No network and nothing
  * outside the repository. Files run in parallel, one process each, as `node --test` runs them; the
  * cost is the tests' own, and `git-hooks.yml`'s `calculator-test` job carries the measurement.
  */
@@ -95,7 +95,8 @@ import { run } from 'node:test'
 import { spec } from 'node:test/reporters'
 import { fileURLToPath } from 'node:url'
 import { dirGlob } from './lib/test-dirs.mjs'
-import { POLICY_FILE, readTests, readTracePolicy } from './test-trace.mjs'
+import { VOCABULARY, readTests, readTracePolicy } from './test-trace.mjs'
+import { readPolicy, recordPaths } from '../tools/lib/policy.ts'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -340,8 +341,8 @@ async function main(args) {
  * with the policy missing is refused with its reason rather than failing on import.
  */
 function fixture() {
-  const policy = readFileSync(join(REPO_ROOT, POLICY_FILE), 'utf8')
-  const hash = 'a'.repeat(JSON.parse(policy).testTraceHashLength)
+  const policy = Object.fromEntries(recordPaths(REPO_ROOT).map((path) => [path, readFileSync(join(REPO_ROOT, path), 'utf8')]))
+  const hash = 'a'.repeat(readPolicy(REPO_ROOT).testTraceHashLength)
   const trace = (id) => `// trace: ${id}:happy@${hash}`
   const head = "import { describe, test } from 'node:test'\n// trace-defaults: layer=functional level=1\n"
   /** A test file of `head`, then `body`, with the trace line for `id` directly above it. */
@@ -362,7 +363,7 @@ function fixture() {
     trace,
     files: {
       'package.json': '{ "type": "module" }\n',
-      [POLICY_FILE]: policy,
+      ...policy,
       'test/a.test.js': passing,
       'test/b.test.js': file('GRT-003', "test('[GRT-003] three', () => {})"),
     },
@@ -598,8 +599,8 @@ function cases({ file, head, trace }) {
     },
     {
       name: 'a policy without the reader\'s keys',
-      files: { [POLICY_FILE]: '{}\n' },
-      expect: /^tools\/policy\.json has no whole number from 1 to 64 under `testTraceHashLength`/,
+      files: { [VOCABULARY]: '{}\n' },
+      expect: /^tools\/policy\/vocabulary\.json has no whole number from 1 to 64 under `testTraceHashLength`/,
     },
   ]
 }

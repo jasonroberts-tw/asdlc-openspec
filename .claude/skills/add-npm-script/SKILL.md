@@ -95,7 +95,7 @@ green.
 4. Search tracked files of every type for the bare name, one call per name:
    `git grep -n -w -F <old-name>`. Fix every live hit. Most citations carry no `npm run`:
    `git-hooks.yml` launches through `node --run`, the READMEs cite the name in backticks,
-   `tools/policy.json` in a `gatedBy` string, and a gate keeps it as a quoted string in a list. A
+   `tools/policy/*.json` in a `gatedBy` string, and a gate keeps it as a quoted string in a list. A
    recursive `grep` also walks `node_modules/` and, from the primary checkout, every worktree under
    `.claude/worktrees/`. Two files keep their hits: `docs/decisions.md`, whose entries are never
    rewritten (`CLAUDE.md` § Decisions live in the register), and `KIT-CHECKLIST.md`, left as

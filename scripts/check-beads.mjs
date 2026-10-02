@@ -16,8 +16,8 @@
  *
  * AN UNLABELLED FOUND ISSUE IS A HOLE IN A COUNT, AND THE COUNT DOES NOT SHOW IT. `docs/decisions.md`
  * § D-06 retired the run-outcome learning loop and put labels in its place: an issue a run files
- * `discovered-from` the issue it ran on carries a label that `assetLabels` in `tools/policy.json`
- * lists for each kind of file its work would change, so `bd count --by-label` shows what keeps
+ * `discovered-from` the issue it ran on carries a label that `assetLabels` in
+ * `tools/policy/vocabulary.json` lists for each kind of file its work would change, so `bd count --by-label` shows what keeps
  * needing a fix (`CLAUDE.md` § The task store). On 2026-09-26 a fan-out sweep's investigator found
  * asdlc-openspec-egt and asdlc-openspec-pkn open with no such label: both were filed
  * `discovered-from` on 2026-09-23, the day before D-06, and nothing had asked for the label since.
@@ -34,8 +34,8 @@
  * through `bd export`. CI has neither the database nor the binary, so it would compare against
  * nothing and pass. It is a `pre-push` job. Where `bd` is unavailable it SKIPS CLEAN and says so -- a
  * gate that is red on every fresh clone gets bypassed with `--no-verify`, which costs you every other
- * gate too. `--selftest` reads only the fixtures it writes and the committed `tools/policy.json`, and
- * runs no `bd`, so it is a pre-push job and a `.github/workflows/verify.yml` step both
+ * gate too. `--selftest` reads only the fixtures it writes and the committed records under
+ * `tools/policy/`, and runs no `bd`, so it is a pre-push job and a `.github/workflows/verify.yml` step both
  * (`CLAUDE.md` § The gate ladder).
  *
  * "UNAVAILABLE" MEANS NOT FOUND, AND NOTHING ELSE. `tools/lib/bd-launcher.ts` resolves `bd` on PATH
@@ -58,11 +58,11 @@
  *      Those beads carry the copied bundle facts; a cross-repo bead that does not point at one is
  *      asking the reader to go and open another checkout.
  *   4. An open bead with a `discovered-from` dependency and no label that `assetLabels` in
- *      `tools/policy.json` lists. The list is read from the policy on every run and spelled nowhere
- *      here, so a label added there is accepted at once, and a label renamed there strands every
- *      issue that carries the old spelling, as `assetLabelsMeans` warns. A closed bead is exempt:
- *      the count is read for what is still to fix. A policy with no such list, or an empty one, is a
- *      failure, never a pass over nothing.
+ *      `tools/policy/vocabulary.json` lists. The list is read from the policy on every run and
+ *      spelled nowhere here, so a label added there is accepted at once, and a label renamed there
+ *      strands every issue that carries the old spelling, as `assetLabelsMeans` warns. A closed bead
+ *      is exempt: the count is read for what is still to fix. A policy with no such list, or an
+ *      empty one, is a failure, never a pass over nothing.
  *
  * "Open" is every status but `closed`, for rules 2 to 4. Plus one consistency check: a context bead
  * cited by rule 3 must itself exist in the export, so this gate cannot be satisfied by pointing at an
@@ -74,8 +74,8 @@
  *   npm run beads:selftest                      its refusals over a fixture export (--selftest)
  *   BEADS_CHECK_ROOT=<dir> npm run beads:check  the gate over a doctored copy
  *
- * ROOT OVERRIDE. `BEADS_CHECK_ROOT` names a doctored copy: a directory holding `tools/policy.json` and
- * `export.jsonl`, one issue per line in the shape `bd export` writes. The gate then reads both from
+ * ROOT OVERRIDE. `BEADS_CHECK_ROOT` names a doctored copy: a directory holding the policy's records
+ * under `tools/policy/` and `export.jsonl`, one issue per line in the shape `bd export` writes. The gate then reads both from
  * there and runs no `bd`. A copy with no export is a failure, never a fall-back to the live tracker
  * or a skip.
  *
@@ -93,11 +93,13 @@
  */
 
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isDeepStrictEqual } from 'node:util'
 import { describeLauncher, resolveBd, runBd } from '../tools/lib/bd-launcher.ts'
+import { POLICY_DIR, copyPolicy, editPolicy, readPolicy } from '../tools/lib/policy.ts'
 
 const SELF = fileURLToPath(import.meta.url)
 const REPO_ROOT = resolve(dirname(SELF), '..')
@@ -105,7 +107,8 @@ const ROOT_ENV = 'BEADS_CHECK_ROOT'
 /** The doctored copy a by-hand run or the selftest names; unset or empty means the live tracker. */
 const OVERRIDE = process.env[ROOT_ENV] || null
 const ROOT = OVERRIDE ?? REPO_ROOT
-const POLICY = 'tools/policy.json'
+/** The policy record that holds the key, named in a refusal; the key is read from every record merged. */
+const POLICY = `${POLICY_DIR}/vocabulary.json`
 const POLICY_KEY = 'assetLabels'
 /** Under the override, the export sits here, where `bd export` would have written it. */
 const OVERRIDE_EXPORT = 'export.jsonl'
@@ -254,16 +257,14 @@ function loadBeads() {
 
 /** The labels `assetLabels` lists in the policy under `root`, or the reason there are none to read. */
 function loadAssetLabels(root) {
-  const path = join(root, POLICY)
   const missing =
     `Rule 4 reads the labels \`${POLICY_KEY}\` lists from it, and with no list it would pass every ` +
     'found issue without looking.'
-  if (!existsSync(path)) return { error: `${POLICY} is not at ${path}. ${missing}` }
   let policy
   try {
-    policy = JSON.parse(readFileSync(path, 'utf8'))
+    policy = readPolicy(root)
   } catch (err) {
-    return { error: `${POLICY} does not parse as JSON (${err.message}). ${missing}` }
+    return { error: `${POLICY_DIR}/ cannot be read under ${root} (${err.message}). ${missing}` }
   }
   const value = policy?.[POLICY_KEY]
   if (value === null || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length === 0) {
@@ -522,7 +523,7 @@ function cases(asset) {
       doctor: (fx) => {
         delete fx.policy[POLICY_KEY]
       },
-      expect: new RegExp(`^  tools/policy\\.json has no \`${POLICY_KEY}\` object with at least one label`, 'm'),
+      expect: new RegExp(`^  tools/policy/vocabulary\\.json has no \`${POLICY_KEY}\` object with at least one label`, 'm'),
     },
     {
       name: 'an open issue with no repo: label',
@@ -548,9 +549,15 @@ function cases(asset) {
   ]
 }
 
+/** The fixture under `dir`: the committed records, each key of a doctored policy put back in its own, and the export. */
 function writeFixture(dir, fx) {
-  mkdirSync(join(dir, dirname(POLICY)), { recursive: true })
-  writeFileSync(join(dir, POLICY), `${JSON.stringify(fx.policy, null, 2)}\n`)
+  copyPolicy(REPO_ROOT, dir)
+  if (!isDeepStrictEqual(fx.policy, readPolicy(dir))) {
+    editPolicy(dir, (constants) => {
+      for (const key of Object.keys(constants)) delete constants[key]
+      Object.assign(constants, fx.policy)
+    })
+  }
   if (fx.writeExport) {
     const lines = fx.beads.map((b) => JSON.stringify(b)).join('\n')
     writeFileSync(join(dir, OVERRIDE_EXPORT), `${lines}\n${fx.exportTail}`)
@@ -558,7 +565,7 @@ function writeFixture(dir, fx) {
 }
 
 function selftest() {
-  const committed = JSON.parse(readFileSync(join(REPO_ROOT, POLICY), 'utf8'))
+  const committed = readPolicy(REPO_ROOT)
   const listed = Object.keys(committed?.[POLICY_KEY] ?? {}).sort(byCodePoint)
   if (listed.length === 0) {
     console.error(
