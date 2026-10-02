@@ -1235,7 +1235,7 @@ Where it loses:
 
 Retirement checklist, the disposition *Delete it outright* of `docs/retired/README.md` § The three dispositions:
 
-- **Nothing live reads it.** `git grep -n -i -E "check-emitted-drift|emitted-output drift|PostToolUse"` finds this entry, the records of D-06 and D-24 with their amendments, and the generated `artifacts/coupling/cochange.json`.
+- **Nothing live reads it.** `git grep -n -i -E "check-emitted-drift|emitted-output drift|PostToolUse"` finds this entry and its table row, the records of D-06 and D-24, D-24's amendment, and the generated `artifacts/coupling/cochange.json`.
 - **Every live reference, and what became of it.** The registration in `.claude/settings.json` and the three README rows are removed, and `CNT-HOOKS` is re-derived. None is repointed or marked: no live file needs the hook's lineage.
 - **The recovery.** `git log -1 --diff-filter=D --format=%H -- scripts/hooks/check-emitted-drift.mjs` names the deleting commit. `git show <that commit>^:scripts/hooks/check-emitted-drift.mjs` recovers the file, and `git show <that commit>^:.claude/settings.json` its registration.
 - **Its return is not refused by a gate.** Review holds it. `1a998fd` removed the last row because the hook had no selftest to hold it to.
@@ -1245,7 +1245,7 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 - An empty `TRIGGERS`: lines 31 to 39 of `git show 2660d32:scripts/hooks/check-emitted-drift.mjs`.
 - 0.03-0.04 s wall per run with empty input, three runs on 2026-10-02 on a macOS 26.7.1 laptop (Apple M3 Max) with Node 26.8.1: `/usr/bin/time -p node scripts/hooks/check-emitted-drift.mjs` at `2660d32`.
 - Seven hook registrations at `2660d32` and one fewer after this entry: the `hooks` arrays of `git show 2660d32:.claude/settings.json`, and `npm run counts:check` for the current tree.
-- The row added and removed: `git log --format="%h %s" -- scripts/hooks/check-emitted-drift.mjs` lists `55b5dca` and `1a998fd`.
+- The map's row, added in `55b5dca` and removed in `1a998fd`: `git log --format="%h %s" -G "gates: \['coupling:check'\]" -- scripts/hooks/check-emitted-drift.mjs` lists those two and no other.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
