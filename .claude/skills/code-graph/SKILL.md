@@ -23,4 +23,3 @@ your branch (`docs/decisions.md` § D-20). It lives in that checkout's gitignore
    the graph's document layer or write graphify's rules into `CLAUDE.md` files. Never save an answer
    with `save-result` or follow a LESSONS file (`CLAUDE.md` § A program proposes; only a person
    promotes).
-5. Never use the server's pull-request tools (`CLAUDE.md` § Git workflow).
