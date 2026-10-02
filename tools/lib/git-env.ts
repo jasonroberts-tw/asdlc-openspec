@@ -37,13 +37,13 @@ export function gitEnv(): NodeJS.ProcessEnv {
   return env
 }
 
-/** A git command run in one tree: its arguments, and what it printed on success. */
-export type Git = (args: string[]) => string
+/** A git command run in one tree: its arguments and what to feed its stdin, and what it printed on success. */
+export type Git = (args: string[], input?: string) => string
 
 /** git in `root`, with no inherited `GIT_*` key, so a hook's `GIT_DIR` cannot point it elsewhere. */
 export function gitIn(root: string, env: NodeJS.ProcessEnv = gitEnv()): Git {
-  return (args) => {
-    const run = spawnSync('git', ['-c', 'core.quotepath=off', ...args], { cwd: root, env, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
+  return (args, input) => {
+    const run = spawnSync('git', ['-c', 'core.quotepath=off', ...args], { cwd: root, env, input, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
     if (run.error) throw new Error(`git could not start: ${run.error.message}`)
     if (run.status !== 0) throw new Error(`\`git ${args.join(' ')}\` failed: ${(run.stderr || run.stdout).trim()}`)
     return run.stdout

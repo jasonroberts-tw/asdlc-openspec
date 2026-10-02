@@ -166,6 +166,12 @@ const REDIRECTS = [
     where: 'the test that detects a mutant it lists, or a `Stryker disable next-line` comment with its reason; nothing adds one',
     command: 'npm run thresholds:update',
   },
+  {
+    owns: (rel) => rel === 'artifacts/coupling/cochange.json',
+    what: 'co-change map of the pull requests merged to main (tools/coupling/coupling.ts)',
+    where: 'tools/coupling/coupling.ts or its `coupling*` keys in tools/policy.json; `npm run coupling:update` moves its baseline',
+    command: 'npm run coupling',
+  },
 ]
 
 /** `null` when nothing generates this path, otherwise the message to hand back. */
