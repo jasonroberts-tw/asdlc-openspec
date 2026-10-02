@@ -1195,7 +1195,7 @@ Where it loses:
 
 - 93 merged pull requests through `f862fe0`, and 18 direct pushes: `npm run coupling:check` prints the first, and the map's `excluded.directCommits` is the second. The same 93 merge commits are those `gh pr list --state merged --base main --json number,mergeCommit` gave on 2026-10-02, outside this repository and not re-derived here.
 - Every figure behind a threshold: the `Means` of its key in `tools/policy.json`, each measured through `f862fe0`.
-- 0.43-0.49 s for `coupling:check` and 7.05-7.18 s for `coupling:selftest`: their jobs' comments in `git-hooks.yml`, which name the host.
+- 0.47-0.50 s for `coupling:check` and 7.98-11.81 s for `coupling:selftest`: their jobs' comments in `git-hooks.yml`, which name the host.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

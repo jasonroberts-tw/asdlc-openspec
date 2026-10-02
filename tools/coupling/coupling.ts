@@ -30,7 +30,10 @@
  * file added and deleted inside one pull request is not in it. Each path is then named as it is
  * at `throughCommit`, walking the units and direct pushes newest first: a rename maps the old name
  * to the new one's name at the baseline, and a path a later step adds, deletes or renames onto
- * ends the earlier file of that name, so a new file never inherits a deleted one's history. A
+ * ends the earlier file of that name, so a new file does not inherit a deleted one's history. The
+ * limit of reading net diffs: a pull request that deletes a file and moves another onto its path
+ * reads as an edit of that path, so the moved file's history stays at its old name and the deleted
+ * one's carries on. A
  * change to a file absent at `throughCommit` is dropped (`droppedChanges`), and one to a path a
  * glob of `couplingIgnoredPaths` matches is ignored (`ignoredChanges`). What is left is the unit's
  * files: none makes it an `emptyUnit`, more than `couplingMaxUnitFiles` an `oversizedUnit`, and
@@ -217,11 +220,14 @@ function chain(git: Git, tip: string): Commit[] {
     })
 }
 
-/** The chain as steps: a run of commits sharing a merger's address and time is one unit. */
-function steps(commits: Commit[], merger: RegExp): Step[] {
+/**
+ * The chain as steps: a run of commits sharing a merger's address and time is one unit. A merge
+ * commit is refused, unless `merges` allows it, as only counting the steps after the baseline does.
+ */
+function steps(commits: Commit[], merger: RegExp, { merges = false } = {}): Step[] {
   const out: Step[] = []
   commits.forEach((commit, n) => {
-    if (commit.parents.length > 1) {
+    if (commit.parents.length > 1 && !merges) {
       throw new Error(
         `history: ${commit.sha.slice(0, 12)} on the first-parent chain is a merge commit, and a pull request here lands by rebase merge` +
           ' (`prReviewMergeMethod`), so its files cannot be read as one pull request\'s.',
@@ -246,7 +252,7 @@ const PAIR = /^([0-9a-f]{40}|[0-9a-f]{64}) ([0-9a-f]{40}|[0-9a-f]{64})\n/
  * `<tree> <tree>` heads each pair, then NUL-ended records; a pair with no change prints its line
  * alone. Refuses a status the walk does not read, so nothing is skipped in silence.
  */
-function parseDiffs(out: string): Map<string, Change[]> {
+export function parseDiffs(out: string): Map<string, Change[]> {
   const pairs = new Map<string, Change[]>()
   let at = 0
   let open: Change[] | null = null
@@ -635,14 +641,18 @@ function firstDifference(a: string, b: string): string {
 export type Checked = { failures: string[]; notes: string[]; summary: string }
 
 /**
- * Every refusal of `coupling:check` under `root`. Writes nothing. `ratified` says the caller has
- * already held the walk to the ratified fixture, as the selftest does once for all its cases.
+ * What `check`, `emit` and `update` take: `ratified` says the caller has already held the walk to
+ * the ratified fixture, as the selftest does once for its cases, and `walker` is the walk held to
+ * it, which only the selftest replaces, with one that disagrees.
  */
-export function check(root: string, { ratified: already = false } = {}): Checked {
+type Guarded = { ratified?: boolean; walker?: typeof walk }
+
+/** Every refusal of `coupling:check` under `root`. Writes nothing. */
+export function check(root: string, { ratified: already = false, walker = walk }: Guarded = {}): Checked {
   const failures: string[] = []
   const notes: string[] = []
   const done = (line = '') => ({ failures, notes, summary: line })
-  const ratified = already ? null : ratify()
+  const ratified = already ? null : ratify(walker)
   if (ratified !== null) {
     failures.push(`map: ${ratified}; nothing is checked until it agrees.`)
     return done()
@@ -679,7 +689,8 @@ export function check(root: string, { ratified: already = false } = {}): Checked
       )
       return done()
     }
-    const after = steps(trunk, new RegExp(options.pattern)).filter((step) => step.kind === 'unit' && trunk.indexOf(step.first) > at).length
+    // Only counted: a merge commit after the baseline is the next `coupling:update`'s to refuse.
+    const after = steps(trunk.slice(at + 1), new RegExp(options.pattern), { merges: true }).filter((step) => step.kind === 'unit').length
     notes.push(`${count(after, 'merged pull request')} landed on ${TRUNK} after the map's baseline ${through.slice(0, 12)}; \`npm run coupling:update\` moves it there.`)
   } catch (error) {
     failures.push((error as Error).message)
@@ -693,8 +704,8 @@ export function check(root: string, { ratified: already = false } = {}): Checked
 }
 
 /** `npm run coupling`: re-derive the map through its recorded baseline and write it. */
-export function emit(root: string, { ratified: already = false } = {}): CoChange {
-  const ratified = already ? null : ratify()
+export function emit(root: string, { ratified: already = false, walker = walk }: Guarded = {}): CoChange {
+  const ratified = already ? null : ratify(walker)
   if (ratified !== null) throw new Error(`map: ${ratified}; refusing to write ${MAP}.`)
   const committed = readText(join(root, MAP))
   if (committed === null) throw new Error(`map: ${MAP} does not exist, so it records no baseline to re-derive through; run \`npm run coupling:update\` and commit it.`)
@@ -704,8 +715,8 @@ export function emit(root: string, { ratified: already = false } = {}): CoChange
 }
 
 /** `npm run coupling:update`: move the baseline to the trunk's tip and write the map through it. */
-export function update(root: string, { ratified: already = false } = {}): CoChange {
-  const ratified = already ? null : ratify()
+export function update(root: string, { ratified: already = false, walker = walk }: Guarded = {}): CoChange {
+  const ratified = already ? null : ratify(walker)
   if (ratified !== null) throw new Error(`map: ${ratified}; refusing to write ${MAP}.`)
   const git = gitIn(root)
   wholeHistory(git, root)
