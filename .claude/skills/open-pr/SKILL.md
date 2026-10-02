@@ -35,8 +35,8 @@ A shared file is not a conflict; a conflict this reports is. The body names each
 
 A sentence saying what changed, ending with the id of each issue the branch carries, in
 parentheses and separated by commas. The reviewer reads the issues from those parentheses and
-nowhere else, with `prReviewIssuePattern` in `tools/policy.json` (`CLAUDE.md` § Git workflow). An
-id in the title's middle or in the body is not carried.
+nowhere else, with `prReviewIssuePattern` in `tools/policy/pr-review.json` (`CLAUDE.md` § Git workflow).
+An id in the title's middle or in the body is not carried.
 
 A pull request that carries no issue, such as a prompt review's, ends with no parentheses. The
 reviewer then leaves its merge to a person (`docs/decisions.md` § D-07). Never cite an issue the
@@ -103,7 +103,7 @@ A push makes a new head with no status: review it first unless the push only reb
 (step 5), and watch it again (step 6).
 
 **A minor finding the reviewer names is neither fixed nor filed**, whatever the outcome: a push for
-one sends a new head back to review over what `prReviewBlockingSeverities` in `tools/policy.json`
+one sends a new head back to review over what `prReviewBlockingSeverities` in `tools/policy/pr-review.json`
 says blocks nothing. A person decides what becomes of it.
 
 Hand the caller the pull request's number and URL, the outcome in the words of its status, and the

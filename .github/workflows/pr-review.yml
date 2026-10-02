@@ -1,7 +1,7 @@
 # The pull-request reviewer: one pull request at a time, Claude Code reviews its head against the
 # issues its title cites, and the reviewer merges it when every dimension passes and its risk is not
 # high (`docs/decisions.md` § D-07). Claude Code only returns a verdict; `scripts/pr-review.mjs`
-# decides what the verdict does, by the `prReview*` keys of `tools/policy.json`.
+# decides what the verdict does, by the `prReview*` keys of `tools/policy/pr-review.json`.
 #
 # THE INCIDENTS. On 2026-09-25 the review of pull request #47 (run 36191751066) failed before it read
 # anything: `bd bootstrap` found no `bd` binary (asdlc-openspec-61t). `@beads/bd`'s postinstall

@@ -15,8 +15,9 @@ through a pull request. A rule with two homes has one that is stale, and the sta
 reader finds.
 
 The tracker's memory commands (in Beads, `remember`, `recall` and `memories`) are not used; do not
-write a memory and do not cite one from a tracked file. The harness's per-project memory directory under `~/.claude/projects/` is
-not used either. A fact worth keeping goes in a tracked file or, if it is work, in `bd`.
+write a memory and do not cite one from a tracked file. The harness's per-project memory directory under
+`~/.claude/projects/` is not used either. A fact worth keeping goes in a tracked file or, if it is work,
+in `bd`.
 
 A tracker plugin manages a block inside this file. It is task-tracking guidance, not permission to
 override the rest of the file. Keep your own sections outside it. The next regeneration erases
@@ -94,7 +95,7 @@ with its exact command and error, never forced. Long descriptions and notes go i
 open issue carries a label naming where its work lands.
 
 An issue a run files `discovered-from` the issue or epic it ran on also carries, from
-`tools/policy.json`, the `foundAtLabels` label for the stage that found it and one `assetLabels`
+`tools/policy/vocabulary.json`, the `foundAtLabels` label for the stage that found it and one `assetLabels`
 label for each kind of file it would change. Those pairs are what `bd count` reads across runs
 (`.claude/skills/change-finalize/SKILL.md` § 9. Report).
 
@@ -116,7 +117,7 @@ one session that runs every stage carries each stage's context into the next. It
 up from what the earlier stages wrote down:
 
 - **its name**: the stage's argument, or else the `change` metadata of the one open epic that carries
-  the change label (`specChangeLabel` in `tools/policy.json`), which
+  the change label (`specChangeLabel` in `tools/policy/vocabulary.json`), which
   `bd list --label <that label> --type epic --status open,in_progress,blocked --json` lists. With
   several, ask the user which;
 - **its epic**, with the epic's description, notes and children;
@@ -127,8 +128,8 @@ What a later stage needs from an earlier one, such as the user's answer to a que
 to write no design, goes into one of these before the earlier stage ends.
 
 When a later stage sends a change back, the epic gets the `rerouteLabels` label, from
-`tools/policy.json`, for each earlier stage whose work it reopens: the proposal or a delta spec
-revised, the design revised, a task added to the epic, or work `change-verify` sends back to
+`tools/policy/vocabulary.json`, for each earlier stage whose work it reopens: the proposal or a delta
+spec revised, the design revised, a task added to the epic, or work `change-verify` sends back to
 `change-build`. That rework lands as
 commits inside the change and never becomes an issue, so without the label no count sees it.
 
@@ -156,7 +157,8 @@ Hand-maintained source, which a person edits. Hand-authored decision records (JS
 read and nothing writes, each self-describing with `describes`, `whyThisFileExists`, `gatedBy`,
 `whatItDoesNOTDo` and `provenance` before its data, and for each constant a `<key>Means` sibling
 stating what the value decides and where it is changed: a reader needs to know what a record
-changes and what it leaves alone before the array.
+changes and what it leaves alone before the array. A table keyed by what it governs carries each
+row's reason in the row.
 Generated output under `artifacts/`, which nothing edits by hand: it carries a banner naming its
 emitter, and a correction goes into the hand-maintained source, so the next run carries it. A
 constant a tool or a prompt reads lives in a policy file under a key, and is stated nowhere else.
@@ -199,8 +201,8 @@ onto `origin/main`, and run it again.
 ## A workflow a session writes itself is bounded
 
 A review or design workflow a session writes itself, outside `.claude/workflows/`, stays within
-keys of `tools/policy.json`, because a review nothing bounds can cost more than the work it
-reviews. A branch that changes only prompts or documents gets none beyond the pull-request
+keys of `tools/policy/agent-workflows.json`, because a review nothing bounds can cost more than the work
+it reviews. A branch that changes only prompts or documents gets none beyond the pull-request
 reviewer. A branch with code or a gate gets one adversarial reviewer, at medium effort, that runs
 the code and reports at most `sessionReviewMaxFindings` findings; each goes to the skeptics
 `sessionReviewSkeptics` gives its severity, and one given none goes to the author unjudged. Every
@@ -267,8 +269,8 @@ A pull request reaches the trunk through the reviewer, `.github/workflows/pr-rev
 time (`docs/decisions.md` § D-07). Its title ends with the ids of the issues it carries, in
 parentheses, and the reviewer holds it to their acceptance criteria. The reviewer merges a pull
 request that satisfies every dimension and is not high risk. A person merges any other, or approves
-its head by applying the approval label (`prReviewLabels` in `tools/policy.json`), after which the
-reviewer merges it. An agent never applies that label: the approval is a person's, and GitHub cannot
+its head by applying the approval label (`prReviewLabels` in `tools/policy/pr-review.json`), after which
+the reviewer merges it. An agent never applies that label: the approval is a person's, and GitHub cannot
 tell a person from an agent holding their credentials (`docs/decisions.md` § R-01). An agent opens
 every pull request with the `open-pr` skill, which holds the steps from the push to the verdict.
 

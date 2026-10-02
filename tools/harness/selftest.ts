@@ -177,7 +177,7 @@ const FILES: Record<string, string> = {
   'tools/gen/gen.ts': "import { x } from './lib.ts'\nexport { x }\n",
   'tools/gen/lib.ts': 'export const x = 1\n',
   'artifacts/gen/out.json': '{}\n',
-  'tools/policy.json': JSON.stringify({ couplingMinSampleUnits: 5, couplingClusterMinJaccardPermille: 400 }),
+  'tools/policy/tool-settings.json': JSON.stringify({ couplingMinSampleUnits: 5, couplingClusterMinJaccardPermille: 400 }),
   'artifacts/coupling/cochange.json': JSON.stringify({
     throughCommit: 'HEAD',
     units: 9,
@@ -430,7 +430,7 @@ try {
     ['a constant of the wrong shape', (w, r) => w(CONFIG, JSON.stringify({ ...JSON.parse(r(CONFIG)), hubsTop: 0 })), /config: .*`hubsTop` is not a whole number of at least 1/],
     ['a preamble key missing', (w, r) => w(CONFIG, JSON.stringify({ ...JSON.parse(r(CONFIG)), provenance: undefined })), /config: .*`provenance` is missing/],
     ['a constant missing', (w, r) => w(CONFIG, JSON.stringify({ ...JSON.parse(r(CONFIG)), codeExtensions: undefined })), /config: .*`codeExtensions` is missing/],
-    ['a policy key the config names missing', (w) => w('tools/policy.json', JSON.stringify({ couplingMinSampleUnits: 5 })), /input: `couplingClusterMinJaccardPermille` in tools\/policy.json/],
+    ['a policy key the config names missing', (w) => w('tools/policy/tool-settings.json', JSON.stringify({ couplingMinSampleUnits: 5 })), /input: `couplingClusterMinJaccardPermille` in tools\/policy\/tool-settings\.json/],
     ['a constant the config names unreadable', (w) => w('scripts/check-jobs.mjs', 'export {}\n'), /input: `PATH_ROOTS` in scripts\/check-jobs.mjs, which .* names, is not a list of string literals/],
   ]
   let noMeans = ''

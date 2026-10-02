@@ -12,7 +12,7 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 You judge one pull request at one head commit and return a verdict in the schema you are given. You
 do not decide whether it merges. `scripts/pr-review.mjs` decides that from your verdict, by rules in
-`tools/policy.json` that you cannot change:
+`tools/policy/pr-review.json` that you cannot change:
 
 - a criterion you do not report counts as unverified;
 - a blocker or major finding fails maintainability;
@@ -29,8 +29,8 @@ the trunk a defect. A doubt you report costs a person a minute.
   request's title and body.
 - **Three facts the brief job computed**, since you run nothing: the tracker state of each other
   issue the cited issues and the body name; the branch's commits, each with the lines it changes;
-  and, when a prompt or `tools/policy.json` changed, each prompt's words beside its budget at the
-  head. A criterion one of them settles is met or not-met, never unverifiable.
+  and, when a prompt or `tools/policy/prompt-budgets.json` changed, each prompt's words beside its
+  budget at the head. A criterion one of them settles is met or not-met, never unverifiable.
 - **The diff** from the merge base, and **each changed file at the head**, with `.head` appended to
   its path. The brief gives both paths.
 - **Your working directory**, which is `main` checked out. It is the base for every file the pull
@@ -72,7 +72,7 @@ Some criteria are special:
 - **A criterion that asks for a test or a selftest case** is met only when the test exists at the head
   and would fail without the change. A test that passes against the base proves nothing.
 - **A pull request that carries a product change** (a cited issue labelled `spec-change`, the label
-  `specChangeLabel` in `tools/policy.json` spells) is also held to its delta specs under
+  `specChangeLabel` in `tools/policy/vocabulary.json` spells) is also held to its delta specs under
   `openspec/changes/<change>/`, and to the living spec. A scenario the code contradicts is not-met
   on the criterion it belongs to.
 

@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-26 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25 and D-26 added 2026-10-02).**
+**Status: every decision from D-01 to D-27 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26 and D-27 added 2026-10-02).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-26` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-27` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -82,6 +82,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-24** | The co-change map of merged pull requests is committed, pinned to a trunk commit that only its `:update` moves | `tools/coupling/` as `npm run coupling` and `coupling:update`, held by `coupling:check` and `coupling:selftest` at pre-push and in CI; `artifacts/coupling/cochange.json`; the `coupling*` keys in `tools/policy.json`; trace's git and committed-file helpers moved to `tools/lib/` |
 | **D-25** | The emitter-drift hook is retired, its list of triggers empty | `scripts/hooks/check-emitted-drift.mjs` and its `PostToolUse` registration in `.claude/settings.json` deleted; its rows in `README.md`, `.claude/README.md` and `scripts/hooks/README.md` removed; `CNT-HOOKS` re-derived; D-06's and D-24's amendments |
 | **D-26** | The harness assessment is split by what each half reads, reports and enforces nothing, and takes its repository's specifics from one record | `tools/harness/` as `npm run harness` and `harness:graph`, held by `harness:selftest` at pre-push and in CI, with a Python 3 beside the step; `tools/harness/harness.config.json`; five job globs widened and `worktree:selftest` named in the CI file's absent block, from its first report |
+| **D-27** | The policy is split under `tools/policy/` by who may change each key and who reads it, read through one loader and held by a gate of its own | `tools/policy/`, five records and a README, and `tools/policy.json` deleted; `tools/lib/policy.ts`; `check:policy` and its selftest at pre-push and in CI; `check:prompts` reading the budgets by path; `CLAUDE.md` § Three kinds of file, and never a fourth, consolidated first; D-03's, D-07's, D-23's and D-26's amendments |
 
 ## Risks
 
@@ -243,6 +244,8 @@ Retirement checklist for the deleted skills, each item done in this change:
 > **Amended 2026-09-24 by D-06.** Item 3 and the first alternative no longer apply: the run-outcome schema, `tools/outcomes/record.selftest.ts` and `tools/outcomes/policy.json` are deleted, so no intervention enum exists to tie to, and `outcomes-record-selftest` is no longer a job. `tools/policy.json` now also carries `assetLabels`, `foundAtLabels` and `rerouteLabels`, which no gate holds yet.
 
 > **Amended 2026-09-26 by D-11.** The amendment above no longer holds for `assetLabels`: `beads:check` holds it. `foundAtLabels` and `rerouteLabels` are still held by no gate.
+
+> **Amended 2026-10-02 by D-27.** The decision's file is gone. The policy is five records under `tools/policy/`, read whole through `tools/lib/policy.ts`, and they hold every constant a prompt or a tool of the workflow reads: the settings of single tools in `tools/policy/tool-settings.json` too, not only the constants that belong to no one tool. Each constant keeps its key and its `Means` sibling, or, in the budgets' table, its reason in its row. `specChangeLabel` is in `tools/policy/vocabulary.json`, and item 2 stands.
 
 ### D-04 · The repository carries a demo product, a calculator served on loopback only
 
@@ -457,6 +460,8 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 **Figures.** 45 pull requests, every one opened and merged by one account, as of 2026-09-25: `gh pr list --state all --limit 200 --json author,mergedBy`.
 
 > **Amended 2026-09-26 by D-09.** Item 8's rule is no longer all that holds the approval label: `scripts/hooks/guard-git.mjs` refuses a session's `gh` command that applies it, from any checkout. The rule stands, and still alone holds every other way of applying the label.
+
+> **Amended 2026-10-02 by D-27.** Item 4's keys are in `tools/policy/pr-review.json`. The floor holds that record and `tools/policy/prompt-budgets.json` whole, by path, through `prReviewHighRiskPaths`, where `prReviewHighRiskJsonKeys` held the `prReview*` keys of `tools/policy.json` one by one; `pr-review:check` refuses a floor that stops covering either record.
 
 ### D-08 · A run leaves its analysis in the tracker, and one review reads every pending analysis as a batch
 
@@ -1156,6 +1161,8 @@ Where it loses:
 - 12 refusals and 10 controls in the selftest's section `guard-git: graphify's eroding commands, from any checkout`: `node scripts/hooks/worktree-hooks.selftest.mjs`.
 - graphify reading its command from its first argument and a second word from its second, its help guard, and what `install` and `install --project` write: graphify 0.9.73's `__main__.py`, `cli.py` and `install.py`, read on 2026-10-01, outside this repository. Not re-derived here.
 
+> **Amended 2026-10-02 by D-27.** Item 4's reason no longer holds as written: the policy now holds the settings of single tools too, in `tools/policy/tool-settings.json`. The list stays in the guard. D-27 moves no constant an earlier decision kept out of the policy, and moving this one is a decision of its own.
+
 ### D-24 · The co-change map of merged pull requests is committed, pinned to a trunk commit that only its `:update` moves
 
 **Recorded 2026-10-02**, carried by `asdlc-openspec-3oln`. On 2026-10-02 the maintainer asked for a machine-readable map of the files that change together in this repository's pull requests, saved under `artifacts/`, for lane partitioning and for decomposition. They chose a committed map pinned to a recorded trunk commit over a local, gitignored one, and the emitter in one pull request with the fan-out wiring in a follow-up, `asdlc-openspec-gtjp`. Each choice was put with the case where its recommendation loses.
@@ -1295,6 +1302,73 @@ Where it loses:
 - 25 pre-push globs that match `tools/policy.json`, against the 20 the untracked script counted: the core's hubs table; the 20 is from that script's report of 2026-10-01, outside this repository.
 - 84 links lost, 12 of them imports, when the map was added to the maintainer's graph with `multigraph` false: a prototype run on 2026-10-02 against a graph built at `f862fe0`, outside this repository, not re-derived here.
 - 82 checks in the core's selftest and 38 in the graph half's, 39 under graphify's own interpreter, and 5.48-5.60 s for the job: `npm run harness:selftest`, and the job's comment in `git-hooks.yml`, which names the host.
+
+> **Amended 2026-10-02 by D-27.** The four keys item 4 names are in `tools/policy/tool-settings.json`, and the references in `tools/harness/harness.config.json` name that record. The alternative *Its constants in `tools/policy.json`* lost for two reasons, and the first no longer holds, since the policy now holds the settings of single tools too. The second keeps the record beside the tool: its constants are what changes when the assessment is pointed at another harness.
+
+### D-27 · The policy is split under `tools/policy/` by who may change each key and who reads it, read through one loader and held by a gate of its own
+
+**Recorded 2026-10-02**, carried by `asdlc-openspec-umg3`. On 2026-10-02 the maintainer asked whether the name "policy" fits `tools/policy.json`'s reason for being, and then which logical splits its contents support. Shown the seams with the case where each loses, they approved a plan for five records and asked for it to be built. Asked, they named the first two records `vocabulary.json` and `agent-workflows.json`, kept the single-tool settings in one record rather than one beside each tool, and made the word budgets a table in this change.
+
+**Builds on / amends:** amends D-03, whose decision made `tools/policy.json` the policy file, for constants that belong to no one tool; D-07, whose item 4 decides by the `prReview*` keys of that file and whose floor held them to a person key by key; D-23, whose item 4 kept the guard's graphify list out of that file because it held only constants that belong to no one tool; and D-26, whose assessment names four keys of that file and which gave the same reason for keeping its own record. Builds on D-12, under which `CLAUDE.md` was consolidated before it took the table's sentence, and on D-07, which leaves a pull request that changes `CLAUDE.md`, this register or a word budget to a person.
+
+**Decision.**
+
+1. **The policy is five records under `tools/policy/`**, split first by who may change a key and then by who reads it. `tools/policy/README.md` has a row per record.
+   - `pr-review.json`, the `prReview*` keys, and `prompt-budgets.json`, every prompt's word budget, are a person's to merge: `prReviewHighRiskPaths` names both, whole.
+   - `tool-settings.json` holds the settings of single tools: the coverage and mutation gate, the worktree sweep, the hook runner's output, the fresh run's deadline, the local code graph, the co-change map and the citation-support check.
+   - `vocabulary.json` holds the spellings every stage of the workflow agrees on, and `agent-workflows.json` the sizes and bounds of the agent workflows. The `promptReview*` keys stay together there, because the prompt reviewer fetches them by prefix.
+
+   Every key keeps its name, its value and its `Means`, except as items 2 and 3 say. An entry recorded before this one that names `tools/policy.json` means the record that now holds the key it names.
+2. **The `promptWordBudget*` keys are one table, `promptWordBudgets`, keyed by each prompt's path**, each row the budget (`words`) and its reason (`means`), the reason its key's `Means` gave. The one reason that named another budget's key, `.claude/workflows/build-change-task.js`'s, names that budget's row instead. `CLAUDE.md` § Three kinds of file, and never a fourth now says a table keyed by what it governs carries each row's reason in the row. `check:prompts` looks a budget up by the path it governs and refuses a row that names no prompt; it builds no key name.
+3. **Four values changed with the move.** `prReviewHighRiskPaths` gained the two records a person merges, and `prReviewHighRiskJsonKeys` lost its entry for `tools/policy.json`; `pr-review:check` refuses a floor that stops covering either record. `prReviewContextPaths` names `tools/policy/**`. `typesafeModelMeans` says the TypeSafe helper takes its model from its caller, as it did.
+4. **Every reader reads through `tools/lib/policy.ts`**, which merges the records and refuses a key two of them define, so a key can move between records with no reader changing. `node tools/lib/policy.ts <key>...` prints keys for a prompt or a workflow's command, and a fixture copies and doctors the records through it. The harness reads its four keys through its record's references, which now name `tools/policy/tool-settings.json`.
+5. **`check:policy` holds the records**: each one's five header fields, a `Means` beside every constant, no `Means` without its constant, no key in two records, the README naming every record and no other, nothing else in the directory, and no `tools/policy.json` back beside them. `check:policy:selftest` asserts each refusal's reason beside an undoctored copy. Both run at pre-push and in CI.
+6. **`tools/policy.json` is deleted outright** (`docs/retired/README.md` § The three dispositions, *Delete it outright*). Constants an earlier decision kept out of it stay where they are: the guard's graphify list (D-23) and the harness's own record (D-26).
+
+**Why.** The file said it held the constants that belong to no one tool and no rule, and it held four kinds of key in one namespace. Thirty-one were settings of single tools, each read by one script and its selftest, four of them by the harness as well. No code read its header fields, and each gate held the `Means` of only the keys it read. It held the reviewer's keys and the budgets to a person key by key, because, as that key's `Means` said, the whole file was too wide. Four alternatives lost:
+
+- **Two files, shared constants and policy**, the split the maintainer first proposed. A split by kind alone breaks the two groups that must stay whole: the `prReview*` keys mix spellings with the floor the reviewer protects, and the reviewer fetches the `promptReview*` keys by prefix.
+- **A record beside each tool**, as D-26 gave the harness. Seven records of five header fields each, and the tunables of the workflow in seven directories.
+- **Keeping the budget keys and deferring the table.** The gate would go on building a key name from each path, and a budget would stay two keys.
+- **Readers that each open one record by its path.** A key that moved would read as absent, and each reader would fall back to a default or skip.
+
+Where it loses:
+
+- **Every reader reads every record**, so a malformed `tool-settings.json` stops `check:prompts` as well as the tools it configures, and each job's glob names the whole directory.
+- **A tool's settings are not beside it.** Whoever edits `tools/coupling/coupling.ts` must know its thresholds are in `tools/policy/tool-settings.json`, and the repository has two patterns for single-tool constants, this one and the harness's.
+- **Prose names a record**, so a key that moves between records leaves a stale path in prose, which no gate reads.
+- **Five headers to keep true**, where there was one.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound; the amendments under D-03, D-07, D-23 and D-26.
+- **`tools/policy/`:** new, five records and a README, from `tools/policy.json` at `962358c`. **`tools/policy.json`:** deleted.
+- **`tools/lib/policy.ts`:** new, the loader, with its row in `tools/README.md`, where the `policy.json` row became the `policy/` row.
+- **`scripts/check-policy.mjs`:** new, the gate; `check:policy` and `check:policy:selftest` in `package.json`, each a pre-push job in `git-hooks.yml` and a step in `.github/workflows/verify.yml`, with their rows in `README.md` and `scripts/README.md`.
+- **`scripts/check-prompts.mjs`:** reads the budgets by path; `budgetKey()` is gone; `--counts` prints each prompt's words and budget.
+- **`scripts/pr-review.mjs`:** reads the policy through the loader, holds the floor to the two records, and shows the counts when the budgets' record changes.
+- **The readers, onto the loader:** `scripts/check-beads.mjs`, `scripts/check-openspec.mjs`, `scripts/check-test-inventory.mjs` (at HEAD, through `readPolicyAt`), `scripts/check-thresholds.mjs`, `scripts/test-trace.mjs`, `scripts/run-tests.mjs`, `scripts/fresh-run.mjs`, `scripts/git-hooks.mjs`, `scripts/hooks/guard-git.mjs` (which loads it only when a command applies a label), `scripts/prune-worktree-branches.mjs`, `scripts/code-graph.mjs`, `tools/trace/trace.ts`, `tools/citations/support.ts`, `tools/coupling/coupling.ts`, the three workflows under `.claude/workflows/` and `scripts/workflows.selftest.mjs`. The selftests and fixtures that copied or doctored the file copy and doctor the records through `copyPolicy` and `editPolicy`, or write records of their own.
+- **`tools/harness/harness.config.json`:** its four references name `tools/policy/tool-settings.json`, and `tools/harness/graph.py`'s selftest writes the record each names.
+- **`artifacts/coupling/cochange.json`:** its banner names the records, regenerated by `npm run coupling` with its baseline unmoved.
+- **`git-hooks.yml`:** every glob that named `tools/policy.json` names `tools/policy/**`, and the loader where the glob held no `tools/lib/`.
+- **`CLAUDE.md`:** consolidated first, in a commit of its own (", with its reason beside it," in § Three kinds of file, and never a fourth, which the sentence before it states); then the table's sentence, and five references repointed. Its budget rises by the 9 words the consolidation did not free.
+- **The skills and agents that cite a key:** each names the record that holds it, token for token, so no other prompt's count moved. `.claude/agents/continuous-prompt-improvement.md` reads the trunk's `promptReview*` keys from `tools/policy/agent-workflows.json`, and two of its sentences were re-split for Vale with no change in count.
+- **`README.md`, `.claude/README.md`, `scripts/README.md`, `scripts/hooks/README.md`, `openspec/README.md`, `count-index.md`, the two READMEs under `apps/calculator/test/independent/`, `.github/workflows/pr-review.yml` and `verify.yml`:** each reference repointed.
+- **Left as they are:** `artifacts/coupling/cochange.json`, generated output pinned to `f862fe0`, where the file still exists; `docs/playbook.md` and `docs/test-strategy.md`, dated documents that stay true about their dates; and `couplingHubMinPercentMeans`, a measurement through `f862fe0` that names the file among the hubs.
+
+Retirement checklist, the disposition *Delete it outright* of `docs/retired/README.md` § The three dispositions:
+
+- **Nothing live reads it.** `git grep -n -F "tools/policy.json"` finds this register, the records' provenance and headers and the comments that say the file was split, `check:policy`'s refusal of its return, and what *Left as they are* names above.
+- **Every live reference, and what became of it.** Each is repointed to the record that holds the key it names, or to `tools/policy/` where it meant the whole policy. None is marked: no live file needs the file's lineage, which each record's `provenance` gives.
+- **The recovery.** `git log -1 --diff-filter=D --format=%H -- tools/policy.json` names the deleting commit, and `git show <that commit>^:tools/policy.json` recovers the file.
+- **Its return is refused by a gate.** `check:policy` refuses `tools/policy.json` beside the records, since a key added there would reach no reader.
+
+**Figures.**
+
+- 104 data keys at `962358c`, the keys of `git show 962358c:tools/policy.json` less its five header fields and each `Means`; and 10, 25, 10 and 31 constants and 28 rows in `vocabulary.json`, `agent-workflows.json`, `pr-review.json`, `tool-settings.json` and `prompt-budgets.json`, each record's keys less its header and each `Means`, and the rows of `promptWordBudgets`.
+- 172 values and reasons unchanged and 9 differences, each one item 2 or 3 names: the one-off comparison of the records with `git show 962358c:tools/policy.json` that the pull request's body gives.
+- `CLAUDE.md` at 3,234 words, 3,229 after its consolidation and 3,243 after the table's sentence; `.claude/workflows/build-change-task.js` at 4,001 words and 3,995 after its Setup command became `node tools/lib/policy.ts` and its keys: `node scripts/check-prompts.mjs --counts` at `962358c`, at the consolidation's commit and at this entry's.
+- 0.09 s wall for `check:policy` and 0.12 s for its selftest, through `node --run` (`/usr/bin/time -p`, one run each) on a macOS 26.7.1 laptop with Node 26.8.1, 2026-10-02.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

@@ -69,7 +69,7 @@
  * holds those.
  *
  * THE DECISION is a trailer in the last paragraph of a commit message on the branch, where git reads
- * trailers, its key `testInventoryTrailer` in `tools/policy.json`, today:
+ * trailers, its key `testInventoryTrailer` in `tools/policy/vocabulary.json`, today:
  *
  *   Architect-Decision: remove apps/calculator/test/calculator.test.js "[CALC-003] Digits build a number" <reason>
  *
@@ -99,18 +99,21 @@
  * `origin/main` instead: `TEST_INVENTORY_ROOT=/tmp/doctored node scripts/check-test-inventory.mjs`.
  *
  * NEEDS git, a clone with `origin/main` and its history back to the merge base, and at HEAD
- * `testInventoryTrailer` and the reader's keys in `tools/policy.json`. It reads only committed files
- * and git history: no network, and nothing outside the repository. Seven git processes a run; the
- * cost of the gate and of its selftest is on their jobs in `git-hooks.yml`.
+ * `testInventoryTrailer` and the reader's keys in `tools/policy/`. It reads only committed files
+ * and git history: no network, and nothing outside the repository. Seven git processes a run, and
+ * one more to list the policy's records at HEAD and one to read each (`readPolicyAt` in
+ * `tools/lib/policy.ts`); the cost of the gate and of its selftest is on their jobs in
+ * `git-hooks.yml`.
  */
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, matchesGlob, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { gitEnv } from '../tools/lib/git-env.ts'
+import { gitEnv, gitIn } from '../tools/lib/git-env.ts'
+import { POLICY_DIR, mergeRecords, parseRecord, readPolicy, readPolicyAt } from '../tools/lib/policy.ts'
 import { dirGlob, runnerDirs } from './lib/test-dirs.mjs'
-import { POLICY_FILE, readTests, tracePolicy } from './test-trace.mjs'
+import { PR_REVIEW, VOCABULARY, readTests, tracePolicy } from './test-trace.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const SELF = fileURLToPath(import.meta.url)
@@ -709,14 +712,14 @@ function cleared(values, finding) {
 }
 
 /**
- * The trailer's key from a parsed `tools/policy.json`. Throws an Error saying so when it has none,
- * or one git could not read as a trailer's key.
+ * The trailer's key from the policy's constants, its records merged. Throws an Error saying so when
+ * it has none, or one git could not read as a trailer's key.
  */
 export function trailerKey(policy) {
   const key = policy?.[TRAILER_KEY]
   if (typeof key !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9-]*$/.test(key)) {
     throw new Error(
-      `${POLICY_FILE} at HEAD has no trailer key under \`${TRAILER_KEY}\`: the key of the trailer that` +
+      `${VOCABULARY} at HEAD has no trailer key under \`${TRAILER_KEY}\`: the key of the trailer that` +
         " records an architect's decision (the header of scripts/check-test-inventory.mjs).",
     )
   }
@@ -798,12 +801,12 @@ export function checkInventory(root) {
     }
   }
 
-  const meta = readBlobs(root, [`${base}:${MANIFEST}`, `${head}:${MANIFEST}`, `${head}:${POLICY_FILE}`])
+  const meta = readBlobs(root, [`${base}:${MANIFEST}`, `${head}:${MANIFEST}`])
   let policy = null
   try {
-    policy = JSON.parse(meta.get(`${head}:${POLICY_FILE}`) ?? 'null')
+    policy = readPolicyAt(gitIn(root), head)
   } catch (error) {
-    throw new Error(`${POLICY_FILE} at HEAD cannot be read as JSON (${error.message}).`)
+    throw new Error(`${POLICY_DIR}/ at HEAD cannot be read (${error.message}).`)
   }
   const trailer = trailerKey(policy)
   const listed = [base, head].map((commit) => ({ commit, paths: testFiles(listTree(root, commit), meta.get(`${commit}:${MANIFEST}`)) }))
@@ -839,11 +842,12 @@ function main() {
 
 /* --------------------------------------------------------------------------------- selftest ----- */
 
+/** The fixture's policy, by record: only the keys the reader and the gate read, each where it lives. */
 const FIXTURE_POLICY = {
-  testTraceHashLength: 12,
-  testTraceLayers: { functional: 1 },
-  prReviewIssuePattern: 'asdlc-openspec-[a-z0-9]+(?:\\.[0-9]+)*',
+  [VOCABULARY]: { testTraceHashLength: 12, testTraceLayers: { functional: 1 } },
+  [PR_REVIEW]: { prReviewIssuePattern: 'asdlc-openspec-[a-z0-9]+(?:\\.[0-9]+)*' },
 }
+const recordText = (data) => `${JSON.stringify(data, null, 2)}\n`
 
 const A_TEST = `import assert, { equal } from 'node:assert/strict'
 import { describe, test } from 'node:test'
@@ -927,7 +931,8 @@ function fixtureFiles(trailerKey) {
       null,
       2,
     )}\n`,
-    [POLICY_FILE]: `${JSON.stringify({ ...FIXTURE_POLICY, [TRAILER_KEY]: trailerKey }, null, 2)}\n`,
+    [VOCABULARY]: recordText({ ...FIXTURE_POLICY[VOCABULARY], [TRAILER_KEY]: trailerKey }),
+    [PR_REVIEW]: recordText(FIXTURE_POLICY[PR_REVIEW]),
     'test/a.test.js': A_TEST,
     'test/b.test.js': B_TEST,
     'test/nested/c.test.js': "// trace: FIX-005:happy@aaaaaaaaaaaa\ntest('[FIX-005] not matched', () => {})\n",
@@ -965,7 +970,7 @@ function selftest() {
   const record = (name, ok, detail) => results.push({ name, ok, detail })
   let live
   try {
-    live = trailerKey(JSON.parse(readFileSync(join(REPO_ROOT, POLICY_FILE), 'utf8')))
+    live = trailerKey(readPolicy(REPO_ROOT))
     record('the live policy spells the trailer', true, `${TRAILER_KEY} is ${live}`)
   } catch (error) {
     record('the live policy spells the trailer', false, error.message)
@@ -975,7 +980,7 @@ function selftest() {
   // The reading, by hand: the lexer's traps (a paren in a string, a template, a comment and a
   // regular expression; division; an assertion in a comment or a string) are all in the fixture.
   const files = fixtureFiles(live)
-  const policy = JSON.parse(files[POLICY_FILE])
+  const policy = mergeRecords([VOCABULARY, PR_REVIEW].map((path) => parseRecord(path, files[path])))
   const got = {}
   for (const file of ['test/a.test.js', 'test/b.test.js']) {
     const { tests, problems } = readInventory(file, files[file], tracePolicy(policy))
@@ -1261,7 +1266,7 @@ function gitCases(files, trailer) {
     { name: "a pattern narrowed in HEAD's package.json", commits: [{ edits: swap('package.json', 'test/*.test.js', 'test/a.test.js') }], expect: { refuse: removedB } },
     {
       name: 'a policy at HEAD with no trailer key',
-      commits: [{ edits: () => ({ [POLICY_FILE]: `${JSON.stringify(FIXTURE_POLICY, null, 2)}\n` }) }],
+      commits: [{ edits: () => ({ [VOCABULARY]: recordText(FIXTURE_POLICY[VOCABULARY]) }) }],
       expect: { refuse: /has no trailer key under `testInventoryTrailer`/ },
     },
     {

@@ -40,21 +40,24 @@
  * rules it is enforced in the primary checkout too.
  *
  * IT ALSO GUARDS THE APPROVAL LABEL, EVERYWHERE. It refuses a `gh` command that applies the
- * reviewer's approval label, `prReviewLabels.approved` in `tools/policy.json`, in any letter case,
- * alone or in a comma-separated list: `gh pr edit` or `gh issue edit` with `--add-label`, `gh pr
- * create` with `--label`, and `gh api` writing an issue's labels with a `labels` field. It also
- * refuses a `gh api` label write whose body it cannot read (`--input`, a `-F labels…=@file` field),
- * and any label at all while it cannot read the policy. The reviewer merges a high-risk pull request
- * once that label is applied after its verdict by an account with write access, and it cannot tell a
- * person from an agent holding their credentials (docs/decisions.md § R-01). No incident yet: were
- * this rule wrong, an agent could apply the label, and a pull request no person read would merge. It
- * holds in the primary checkout too, because the hook runs only on a session's Bash calls, and a
- * person approves from the web UI or a terminal of their own. It reads only the command line, so a
- * label applied through the web UI, curl, a browser tool, a GraphQL mutation (which names a label by
- * its id) or a program the command starts passes it. It reads the policy only when a command applies
- * a label, from this file's own checkout, the one the session started in (`.claude/README.md`
- * § The hooks); `GUARD_GIT_ROOT` names another checkout, so a by-hand run or the selftest can point
- * it at a doctored copy. The rule needs nothing but that file:
+ * reviewer's approval label, `prReviewLabels.approved` in `tools/policy/pr-review.json`, in any
+ * letter case, alone or in a comma-separated list: `gh pr edit` or `gh issue edit` with
+ * `--add-label`, `gh pr create` with `--label`, and `gh api` writing an issue's labels with a
+ * `labels` field. It also refuses a `gh api` label write whose body it cannot read (`--input`, a
+ * `-F labels…=@file` field), and any label at all while it cannot read the policy. The reviewer
+ * merges a high-risk pull request once that label is applied after its verdict by an account with
+ * write access, and it cannot tell a person from an agent holding their credentials
+ * (docs/decisions.md § R-01). No incident yet: were this rule wrong, an agent could apply the label,
+ * and a pull request no person read would merge. It holds in the primary checkout too, because the
+ * hook runs only on a session's Bash calls, and a person approves from the web UI or a terminal of
+ * their own. It reads only the command line, so a label applied through the web UI, curl, a browser
+ * tool, a GraphQL mutation (which names a label by its id) or a program the command starts passes
+ * it. It reads the policy only when a command applies a label, through the loader
+ * `tools/lib/policy.ts`, which it loads only then, so every other command costs nothing: importing
+ * that TypeScript took a `node -e` start from 31 ms to 61 ms, the mean of 20 runs each (Node 26.8.1,
+ * 2026-10-02). It reads the records of this file's own checkout, the one the session started in
+ * (`.claude/README.md` § The hooks); `GUARD_GIT_ROOT` names another checkout, so a by-hand run or the
+ * selftest can point it at a doctored copy. The rule needs nothing but those records:
  *
  *   printf '%s' '{"tool_input":{"command":"gh pr edit 1 --add-label x"}}' | GUARD_GIT_ROOT=/tmp/copy node scripts/hooks/guard-git.mjs
  *
@@ -79,8 +82,9 @@
  */
 import { spawnSync } from 'node:child_process'
 import { realpathSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { basename, join } from 'node:path'
-import { readHookInput, readOr, ROOT } from './_shared.mjs'
+import { readHookInput, ROOT } from './_shared.mjs'
 
 /* ============================================================================================= *
  * Are we in a linked worktree?
@@ -609,16 +613,21 @@ function basesTrunk(rest) {
  * The approval label, then every `gh` rule together.
  * ============================================================================================= */
 
-/** Where the approval label is spelled. `GUARD_GIT_ROOT` points a by-hand run at a doctored copy. */
-const POLICY = join(process.env.GUARD_GIT_ROOT ?? ROOT, 'tools', 'policy.json')
+/** The checkout whose records spell the approval label; `GUARD_GIT_ROOT` points a by-hand run at a doctored copy. */
+const POLICY_ROOT = process.env.GUARD_GIT_ROOT ?? ROOT
+/** Where those records are, for a refusal to name. */
+const POLICY = join(POLICY_ROOT, 'tools', 'policy')
+/** The loader, required synchronously and only when called (the header says what loading it costs). */
+const require = createRequire(import.meta.url)
 
 /**
- * `prReviewLabels.approved` from the policy, or `null` when the file cannot be read or does not
+ * `prReviewLabels.approved` from the policy, or `null` when the records cannot be read or do not
  * spell it. Read only once a command is found to apply a label, so every other command costs nothing.
  */
 function approvalLabel() {
   try {
-    const label = JSON.parse(readOr(POLICY, 'null'))?.prReviewLabels?.approved
+    const { readPolicy } = require('../../tools/lib/policy.ts')
+    const label = readPolicy(POLICY_ROOT)?.prReviewLabels?.approved
     return typeof label === 'string' && label.trim() !== '' ? label : null
   } catch {
     return null
@@ -698,7 +707,7 @@ function labelsApplied({ group, sub, rest }) {
 }
 
 const APPROVAL = (label) =>
-  `\`${label}\` is the reviewer's approval label (prReviewLabels.approved in tools/policy.json), ` +
+  `\`${label}\` is the reviewer's approval label (prReviewLabels.approved in tools/policy/pr-review.json), ` +
   `and a person applies it, never an agent: the reviewer merges a high-risk pull request on it, and ` +
   `cannot tell a person from an agent holding their credentials (CLAUDE.md § Git workflow, ` +
   `docs/decisions.md § R-01). Leave the pull request waiting for a person, and say so in your report.`
@@ -708,9 +717,9 @@ const LABEL_UNSEEN = (label) =>
   `approval label, which a person applies, never an agent (CLAUDE.md § Git workflow). Pass each ` +
   `label as \`-f labels[]=<name>\`, or use \`gh pr edit --add-label\`.`
 const POLICY_UNREAD =
-  `this applies a label, and \`prReviewLabels.approved\` could not be read from ${POLICY}, so the ` +
-  `guard cannot tell whether it is the reviewer's approval label, which a person applies, never an ` +
-  `agent (CLAUDE.md § Git workflow). It refuses every label until the policy reads.`
+  `this applies a label, and \`prReviewLabels.approved\` could not be read from the records under ` +
+  `${POLICY}/, so the guard cannot tell whether it is the reviewer's approval label, which a person ` +
+  `applies, never an agent (CLAUDE.md § Git workflow). It refuses every label until the policy reads.`
 
 /**
  * The reason to deny a `gh` call that applies the approval label, or `null` to allow it.
@@ -758,9 +767,9 @@ function denialForGh(call, linked) {
  * by, with what it does; each says it without naming another graphify command, so a refusal names
  * its own alone. graphify 0.9.73 takes its command from its first argument and a second word from its
  * second, with no option before them (its `__main__.py` and `cli.py`), so a command matches by
- * position and nowhere else; re-read both when `graphifyVersion` in tools/policy.json moves. Every
- * other command still runs: `query`, `path` and `explain` read the graph, and `extract` builds it as
- * `npm run code-graph` does.
+ * position and nowhere else; re-read both when `graphifyVersion` in tools/policy/tool-settings.json
+ * moves. Every other command still runs: `query`, `path` and `explain` read the graph, and
+ * `extract` builds it as `npm run code-graph` does.
  */
 const ERODES = 'the local code graph through the path that erodes its document layer'
 const GRAPHIFY_ERODING = new Map([

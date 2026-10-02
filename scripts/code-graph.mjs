@@ -79,16 +79,18 @@
  * stand-in a job can run for a script that reads a language model (asdlc-openspec-i3c, carried with
  * D-20), a pre-push job and a CI step; it is skipped on Windows, whose shell runs no POSIX stub.
  *
- * WHAT IT NEEDS. graphify with its MCP extra at the version `graphifyVersion` in `tools/policy.json`
- * pins (`uv tool install "graphifyy[mcp]==<version>"`); the `claude` CLI, logged in to a plan, unless
- * `--code-only --no-mcp`; the network, for the document layer. It writes the graph into the primary
- * checkout whichever checkout runs it, and a `graphify` entry into `~/.claude.json` under the primary
- * checkout's path, which Claude Code also reads for that repository's linked worktrees. Measured cost:
- * the first build by graphify's agent skill, 57 documents, made 3,649,692 tokens of calls, $10.40 at
- * Langfuse's prices for Opus (session 56c6cce4, 2026-09-30); a first build by this script is not yet
- * measured (asdlc-openspec-3rx). A build with nothing changed sends nothing to the LLM, and
- * `--code-only` took 2.24 s cold. Once a graph has a document layer, graphify keeps a dated backup
- * folder under `graphify-out/` for each day it builds, and nothing here removes them.
+ * WHAT IT NEEDS. graphify with its MCP extra at the version `graphifyVersion` in
+ * `tools/policy/tool-settings.json` pins (`uv tool install "graphifyy[mcp]==<version>"`), read from
+ * the records beside this script through `tools/lib/policy.ts`; the `claude` CLI, logged in to a
+ * plan, unless `--code-only --no-mcp`; the network, for the document layer. It writes the graph
+ * into the primary checkout whichever checkout runs it, and a `graphify` entry into `~/.claude.json`
+ * under the primary checkout's path, which Claude Code also reads for that repository's linked
+ * worktrees. Measured cost: the first build by graphify's agent skill, 57 documents, made 3,649,692
+ * tokens of calls, $10.40 at Langfuse's prices for Opus (session 56c6cce4, 2026-09-30); a first
+ * build by this script is not yet measured (asdlc-openspec-3rx). A build with nothing changed sends
+ * nothing to the LLM, and `--code-only` took 2.24 s cold. Once a graph has a document layer,
+ * graphify keeps a dated backup folder under `graphify-out/` for each day it builds, and nothing
+ * here removes them.
  * Written for macOS and Linux; not run on Windows.
  */
 import { spawn, spawnSync } from 'node:child_process'
@@ -110,9 +112,12 @@ import { tmpdir } from 'node:os'
 import { delimiter, dirname, extname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gitEnv } from '../tools/lib/git-env.ts'
+import { readPolicy } from '../tools/lib/policy.ts'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const POLICY_PATH = resolve(HERE, '..', 'tools', 'policy.json')
+const POLICY_ROOT = resolve(HERE, '..')
+/** The record that holds the graphify keys, named in a refusal. */
+const POLICY_RECORD = 'tools/policy/tool-settings.json'
 const POLICY_KEYS = ['graphifyVersion', 'graphifyClaudeCliModel', 'graphifySemanticExtensions', 'graphifyOutDir', 'graphifyMcpServerName']
 /** graphify's partial-extraction texts (its cli.py lines 4053, 4116-4123 and the chunk and coverage warnings of its llm.py). */
 const INCOMPLETE = [
@@ -152,10 +157,15 @@ function parseArgs(argv) {
   return flags
 }
 
-function readPolicy() {
-  const policy = JSON.parse(readFileSync(POLICY_PATH, 'utf8'))
+function loadPolicy() {
+  let policy
+  try {
+    policy = readPolicy(POLICY_ROOT)
+  } catch (error) {
+    throw new Stop(2, `tools/policy/ cannot be read: ${error.message}`)
+  }
   for (const key of POLICY_KEYS) {
-    if (policy[key] === undefined) throw new Stop(2, `tools/policy.json has no \`${key}\``)
+    if (policy[key] === undefined) throw new Stop(2, `${POLICY_RECORD} has no \`${key}\``)
   }
   return policy
 }
@@ -250,7 +260,7 @@ async function preflight(policy, flags, graphPath) {
   const version = spawnSync(tools.graphify, ['--version'], { encoding: 'utf8', env: { ...process.env, GRAPHIFY_NO_AUTO_REFRESH: '1' } })
   const found = (version.stdout || '').trim().split(/\s+/).pop()
   if (found !== policy.graphifyVersion) {
-    throw new Stop(2, `graphify ${found || '(unreadable)'} is installed; tools/policy.json pins ${policy.graphifyVersion}. Install it: ${installLine(policy)}`)
+    throw new Stop(2, `graphify ${found || '(unreadable)'} is installed; ${POLICY_RECORD} pins ${policy.graphifyVersion}. Install it: ${installLine(policy)}`)
   }
   if (!flags.noMcp) {
     const probe = await probeMcp(tools.mcp, graphPath)
@@ -577,7 +587,7 @@ async function selftest() {
     console.log('code-graph selftest: skipped on Windows, where its stub binaries are POSIX shell scripts.')
     return
   }
-  const policy = readPolicy()
+  const policy = loadPolicy()
   const base = mkdtempSync(join(tmpdir(), 'code-graph-selftest-'))
   const results = []
   const check = (name, ok, detail) => results.push({ name, ok: Boolean(ok), detail })
@@ -730,7 +740,7 @@ async function selftest() {
 
 async function main() {
   const flags = parseArgs(process.argv.slice(2))
-  const policy = readPolicy()
+  const policy = loadPolicy()
   const root = resolveRoot()
   const outDir = join(root, policy.graphifyOutDir)
   const graphPath = join(outDir, 'graph.json')

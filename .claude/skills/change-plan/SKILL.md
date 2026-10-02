@@ -18,8 +18,8 @@ option takes the form `CLAUDE.md` § A question shows where its recommendation l
   `.claude/worktrees/<change>`.
 - **The epic.** It is the one issue that
   `bd list --label spec-change --type epic --metadata-field change=<change> --json` returns (the
-  label is `specChangeLabel` in `tools/policy.json`). If none or several come back, stop and say
-  what was found.
+  label is `specChangeLabel` in `tools/policy/vocabulary.json`). If none or several come back, stop and
+  say what was found.
 
 Read the proposal, its `findings.md` where there is one, every delta spec, and the design, or else
 the note on the epic in which `change-design` ruled one out. With neither, `change-design` has not
@@ -32,7 +32,7 @@ Write the draft to `.scratch/<change>-plan.md`, not to the tracker. List the tas
 order. Give each one:
 
 - **A title** that says what exists once it is done.
-- **Its kind**: the `assetLabels` key in `tools/policy.json` for what it mainly changes.
+- **Its kind**: the `assetLabels` key in `tools/policy/vocabulary.json` for what it mainly changes.
 - **The scenarios and NFRs it satisfies**, as `[<ID>] <title>` from the delta specs.
 - **Its proof**: the test, gate or check that proves it, named precisely enough to run. A scenario
   no harness here can observe is proved by an automated test in a real browser, or the task names
@@ -87,10 +87,10 @@ already exist:
 - **Write each body first**, to its own file under `.scratch/`. It carries the IDs, the proof and
   what done means.
 - **Create the child:**
-  `bd create "<title>" --parent <epic> --no-inherit-labels -l spec-change,<its repo: label>,<its kind> --body-file <that file> --deps blocked-by:<predecessor id> --silent`.
-  Several predecessors go in the one flag, comma-separated:
-  `--deps blocked-by:<id>,blocked-by:<id>` (`bd create --help`). Leave out `--deps` for a task that
-  waits on nothing.
+  `bd create "<title>" --parent <epic> --no-inherit-labels -l spec-change,<its repo: label>,<its kind>
+  --body-file <that file> --deps blocked-by:<predecessor id> --silent`. Several predecessors go in the
+  one flag, comma-separated: `--deps blocked-by:<id>,blocked-by:<id>` (`bd create --help`). Leave out
+  `--deps` for a task that waits on nothing.
 - **Its labels are those three alone:** `spec-change`, which keeps it out of the general queue, the
   epic's `repo:` label, and its kind, which rule 3 reads. The epic's `asset:`, found-at and reroute
   labels are not the task's.

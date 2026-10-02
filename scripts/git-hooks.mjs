@@ -13,8 +13,8 @@
  * A job runs when it has no glob, when one of its globs matches one of those files
  * (`path.matchesGlob`, under which `*` stops at `/`), or when the run is forced. It prints one line
  * per job, the jobs it skipped and why, and a total; a failing job also prints the last
- * `gitHooksFailedOutputBytes` (in `tools/policy.json`) of its output and the path of a file holding
- * all of it.
+ * `gitHooksFailedOutputBytes` (in `tools/policy/tool-settings.json`) of its output and the path of
+ * a file holding all of it.
  *
  * THE FAILURE IT EXISTS TO PREVENT. lefthook ran these jobs until this runner replaced it, and
  * `asdlc-openspec-pp6` lists what that cost, each with its evidence:
@@ -53,13 +53,14 @@
  *   npm run hooks:selftest  (--selftest) every refusal and every path above, in scratch repositories
  *   GIT_HOOKS_FORCE=1       runs every job, whatever its glob
  *   GIT_HOOKS_SKIP=1        runs none, and says so
- *   GIT_HOOKS_ROOT=<dir>    reads `git-hooks.yml` and `tools/policy.json` from a doctored copy, and
+ *   GIT_HOOKS_ROOT=<dir>    reads `git-hooks.yml` and `tools/policy/` from a doctored copy, and
  *                           runs its jobs and git there
  *
  * NEEDS. Git 2.54.0 or later, the first that reads `hook.*` (the install and the gates refuse an
  * older one); Node 22.20.0 or later for `path.matchesGlob`, inside the `engines` floor; `js-yaml`
- * from `node_modules`. No network. The selftest needs `sh` for the cases that fake an old Git or
- * send a signal, and skips them, saying so, on Windows.
+ * from `node_modules`; the policy's loader, `tools/lib/policy.ts`, beside it. No network. The
+ * selftest needs `sh` for the cases that fake an old Git or send a signal, and skips them, saying
+ * so, on Windows.
  */
 import { spawn, spawnSync } from 'node:child_process'
 import {
@@ -78,13 +79,17 @@ import { availableParallelism, tmpdir } from 'node:os'
 import { dirname, join, matchesGlob, resolve } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { fileURLToPath } from 'node:url'
+import { POLICY_DIR, copyPolicy, editPolicy, readPolicy } from '../tools/lib/policy.ts'
 
 const SELF = fileURLToPath(import.meta.url)
 const REPO_ROOT = resolve(dirname(SELF), '..')
 const ROOT = process.env.GIT_HOOKS_ROOT ? resolve(process.env.GIT_HOOKS_ROOT) : REPO_ROOT
 
 const JOB_FILE = 'git-hooks.yml'
-const POLICY = 'tools/policy.json'
+/** The policy's loader, which the selftest's scratch repositories copy beside this file. */
+const LOADER = 'tools/lib/policy.ts'
+/** The record that holds the cap, named in a refusal. */
+const CAP_RECORD = 'tools/policy/tool-settings.json'
 const CAP_KEY = 'gitHooksFailedOutputBytes'
 /** The events this runner installs, in the order Git meets them in a commit and a push. */
 const EVENTS = ['pre-commit', 'prepare-commit-msg', 'post-checkout', 'post-merge', 'pre-push']
@@ -250,17 +255,16 @@ function readEntry(event, job, where) {
 
 /** The cap on a failing job's printed output, from the policy at `root`. */
 function readCap(root) {
-  const path = join(root, POLICY)
   let policy
   try {
-    policy = JSON.parse(readFileSync(path, 'utf8'))
+    policy = readPolicy(root)
   } catch (error) {
-    throw new Refusal(`${POLICY} cannot be read at ${path}: ${error.message}`)
+    throw new Refusal(`${POLICY_DIR}/ cannot be read at ${join(root, POLICY_DIR)}: ${error.message}`)
   }
   const cap = policy[CAP_KEY]
   if (!Number.isInteger(cap) || cap <= 0 || typeof policy[`${CAP_KEY}Means`] !== 'string') {
     throw new Refusal(
-      `${POLICY} has no whole-number \`${CAP_KEY}\` with a \`${CAP_KEY}Means\` beside it,` +
+      `${CAP_RECORD} has no whole-number \`${CAP_KEY}\` with a \`${CAP_KEY}Means\` beside it,` +
         ' so a failing job has no cap on what it prints',
     )
   }
@@ -849,7 +853,7 @@ async function readingCases(base, record) {
       name: 'a policy that cannot be read is refused',
       doctor: (t) => t,
       removePolicy: true,
-      expect: /tools\/policy\.json cannot be read at/,
+      expect: /tools\/policy\/ cannot be read at .*no policy record/,
     },
   ]
   for (const [index, { name, doctor, policy, removeJobs, removePolicy, expect }] of cases.entries()) {
@@ -861,9 +865,8 @@ async function readingCases(base, record) {
       continue
     }
     if (!removeJobs) writeFileSync(join(dir, JOB_FILE), doctored)
-    const parsed = JSON.parse(readFileSync(join(REPO_ROOT, POLICY), 'utf8'))
-    if (policy) policy(parsed)
-    if (!removePolicy) writeFileSync(join(dir, POLICY), JSON.stringify(parsed))
+    if (!removePolicy) copyPolicy(REPO_ROOT, dir)
+    if (policy) editPolicy(dir, policy)
     let message = null
     try {
       await readJobs(dir)
@@ -962,13 +965,14 @@ async function gitCases(base, env, record) {
     const dir = join(base, `git-${counter++}`)
     const repo = join(dir, 'repo')
     mkdirSync(join(repo, 'scripts'), { recursive: true })
-    mkdirSync(join(repo, 'tools'), { recursive: true })
+    mkdirSync(join(repo, 'tools', 'lib'), { recursive: true })
     ok(dir, ['init', '-q', '--bare', '-b', 'main', 'remote.git'])
     ok(repo, ['init', '-q', '-b', 'main'])
     ok(repo, ['config', 'user.email', 'selftest@example.invalid'])
     ok(repo, ['config', 'user.name', 'selftest'])
     copyFileSync(SELF, join(repo, 'scripts', 'git-hooks.mjs'))
-    copyFileSync(join(REPO_ROOT, POLICY), join(repo, POLICY))
+    copyFileSync(join(REPO_ROOT, LOADER), join(repo, LOADER))
+    copyPolicy(REPO_ROOT, repo)
     writeFileSync(join(repo, JOB_FILE), jobs)
     writeFileSync(join(repo, 'record.mjs'), RECORD)
     writeFileSync(join(repo, '.gitignore'), 'node_modules\nran.log\n*.pid\n')

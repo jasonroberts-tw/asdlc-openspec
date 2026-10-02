@@ -14,6 +14,8 @@
     "calculator:test:verify": "node scripts/run-tests.mjs --dir apps/calculator/test/independent/verify",
     "check:jobs": "node scripts/check-jobs.mjs",
     "check:jobs:selftest": "node scripts/check-jobs.mjs --selftest",
+    "check:policy": "node scripts/check-policy.mjs",
+    "check:policy:selftest": "node scripts/check-policy.mjs --selftest",
     "check:prompts": "node scripts/check-prompts.mjs",
     "check:prompts:selftest": "node scripts/check-prompts.mjs --selftest",
     "citations:check": "node tools/citations/check.ts",

@@ -69,8 +69,9 @@ export const meta = {
  *              decision checked, once, under a key no group or lens here has; with `lenses`, one per
  *              part of the design
  *   manual     optional [{ issue, covers }]: each manual proof the plan recorded, and what it proves
- *   policy     the `verifyTrace*` keys of `tools/policy.json`, as this prints them in the worktree:
- *                node -p "JSON.stringify(Object.fromEntries(Object.entries(require('./tools/policy.json')).filter(([k]) => k.startsWith('verifyTrace') && !k.endsWith('Means'))))"
+ *   policy     the `verifyTrace*` keys of `tools/policy/agent-workflows.json`, as this prints them in
+ *              the worktree:
+ *                node tools/lib/policy.ts --prefix verifyTrace
  *   settled    optional [string]: decided already, by the user or an earlier run; no agent raises it
  *
  * WHAT IT JUDGES IN CODE.
@@ -279,9 +280,9 @@ const sameCommit = (a, b) => {
 /** Why the policy the session passed cannot drive a run, or null when it can. */
 function policyProblem() {
   const p = A.policy
-  if (!isPlainObject(p)) return 'args.policy must be the `verifyTrace*` keys of tools/policy.json, as the header prints them'
+  if (!isPlainObject(p)) return 'args.policy must be the `verifyTrace*` keys of tools/policy/agent-workflows.json, as the header prints them'
   const missing = POLICY_KEYS.filter((key) => p[key] === undefined || p[key] === null)
-  if (missing.length) return `args.policy has no ${missing.map((k) => `\`${k}\``).join(', ')}: pass the keys tools/policy.json holds`
+  if (missing.length) return `args.policy has no ${missing.map((k) => `\`${k}\``).join(', ')}: pass the keys tools/policy/agent-workflows.json holds`
   const bad = POLICY_KEYS.find((key) => !isWhole(p[key]))
   return bad ? `args.policy \`${bad}\` must be a whole number of at least 1` : null
 }

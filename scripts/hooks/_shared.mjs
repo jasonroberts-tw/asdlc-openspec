@@ -169,7 +169,7 @@ const REDIRECTS = [
   {
     owns: (rel) => rel === 'artifacts/coupling/cochange.json',
     what: 'co-change map of the pull requests merged to main (tools/coupling/coupling.ts)',
-    where: 'tools/coupling/coupling.ts or its `coupling*` keys in tools/policy.json; `npm run coupling:update` moves its baseline',
+    where: 'tools/coupling/coupling.ts or its `coupling*` keys in tools/policy/tool-settings.json; `npm run coupling:update` moves its baseline',
     command: 'npm run coupling',
   },
 ]

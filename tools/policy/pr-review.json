@@ -1,0 +1,69 @@
+{
+  "describes": "What the pull-request reviewer (`.github/workflows/pr-review.yml`, deciding through `scripts/pr-review.mjs`) reads to decide a merge: the shape of an issue's ID in a title, the status context it sets and the check it waits for, its labels and who may apply the approval one, the severities that block, which paths a file is reviewed against which rubric by, which paths and JSON keys make a pull request high risk, and how it merges.",
+  "whyThisFileExists": "The reviewer decides by every value here, so a pull request that changed one could lower its own bar. `prReviewHighRiskPaths` names this file, so a person merges every change to it (`docs/decisions.md` § D-07 and § D-27). Before D-27 these keys shared `tools/policy.json` with the rest of the policy and were made high risk key by key, through `prReviewHighRiskJsonKeys`, because that whole file was too wide; in a record of their own they are held whole, by path.",
+  "gatedBy": "npm run policy:check holds this record's header, a `Means` beside every constant, and no key another record also defines. npm run pr-review:check holds the `prReview*` keys: it refuses a missing key or `Means` sibling, a value of the wrong shape, a policy whose `prReviewHighRiskPaths` does not cover the reviewer's own files, this record and `tools/policy/prompt-budgets.json`, and a `.github/workflows/pr-review.yml` or `.github/workflows/verify.yml` that spells a label, a status context or a check other than the policy does; npm run pr-review:selftest runs the reviewer's decisions over fixtures built from these values, and each refusal over a doctored copy; and npm run worktree:selftest holds `prReviewLabels.approved` as `scripts/hooks/guard-git.mjs` reads it, with a doctored respelling and a missing policy. npm run calculator:test and npm run trace:check read `prReviewIssuePattern` as the shape of a task's ID, through scripts/test-trace.mjs. npm run coupling:check reads `prReviewMergeMethod`, and refuses a merge method other than `rebase`.",
+  "whatItDoesNOTDo": "The pull-request reviewer's rubrics are the prose of `.claude/agents/pr-reviewer.md`, and how its verdict becomes a merge is `scripts/pr-review.mjs`; this file holds only the values both read. It holds no prompt's word budget, which a person also merges: that is `tools/policy/prompt-budgets.json`, which `prReviewHighRiskPaths` names too.",
+  "provenance": "Split out of `tools/policy.json` on 2026-10-02 by D-27 (asdlc-openspec-umg3), each key with its value and its `Means` as that file held them at 962358c (`git show 962358c:tools/policy.json`), except that `prReviewHighRiskPaths` gained this record and `tools/policy/prompt-budgets.json` and `prReviewHighRiskJsonKeys` lost its entry for `tools/policy.json`, each `Means` saying why, and `prReviewContextPaths` names `tools/policy/**` where it named `tools/policy.json`. The `prReview*` keys came with D-07 (asdlc-openspec-mi6) on 2026-09-25. Each key carries its date and its evidence in its `Means`.",
+  "prReviewIssuePattern": "asdlc-openspec-[a-z0-9]+(?:\\.[0-9]+)*",
+  "prReviewIssuePatternMeans": "A tracker issue id, as a regular expression without anchors: this tracker's prefix, the hash, and a child's dotted suffix (`asdlc-openspec-zgh.9`). The reviewer reads the issues a pull request carries from the ids that match it inside the parentheses at the end of the pull request's title, and nowhere else: a body names follow-ups and related issues it does not carry. A title with none cites no issue, and a person merges that pull request (`docs/decisions.md` § D-07). Change it with the tracker's prefix. Decided 2026-09-25 (asdlc-openspec-mi6).",
+  "prReviewStatusContext": "pr-review",
+  "prReviewStatusContextMeans": "The commit status the reviewer sets on a pull request's head commit: pending once the session that opened the pull request, or a person, marks the head with `scripts/pr-review.mjs mark` (no job has marked one since 2026-09-28, asdlc-openspec-08a), until the reviewer has judged that commit, then success, failure or error with the reason in its description. It is what `gh pr checks --watch` waits on, so an agent watching its own pull request (`.claude/skills/open-pr/SKILL.md` § 6) reads the review's outcome as it reads any check. A verdict that needs a person sets success, not pending, so no watcher waits on a person. Renaming it strands the pending status on every open pull request until its next push. Decided 2026-09-25 (asdlc-openspec-mi6).",
+  "prReviewRequiredCheck": "verify",
+  "prReviewRequiredCheckMeans": "The check run that must have passed on a commit before the reviewer acts on it: the one job of `.github/workflows/verify.yml`, whose check run carries the job's name. On a pull request's head it gates the review, so no review is spent on a head CI has refused; on `main`'s head it gates every merge, so after a bad merge the reviewer stops merging until `main` is green again. `npm run pr-review:check` refuses a `verify.yml` with no job of this name and a `pr-review.yml` whose `workflow_run` does not name that workflow. Decided 2026-09-25 (asdlc-openspec-mi6).",
+  "prReviewLabels": {
+    "approved": "review:approved",
+    "changes": "review:changes-requested",
+    "human": "review:needs-human"
+  },
+  "prReviewLabelsMeans": "The labels the reviewer reads and writes on a pull request, each key its role and each value its spelling. `changes`: a dimension failed, and the author fixes the branch; the next push is reviewed again. `human`: nothing failed, and a person decides, because the risk is high, a criterion could not be verified, or the title cites no issue. `approved`: a person approves the merge of the head commit the reviewer last judged. It counts only when a person with a permission in `prReviewApproverPermissions` applied it after that verdict, and an agent never applies it (`CLAUDE.md` § Git workflow). `scripts/hooks/guard-git.mjs` refuses a session's `gh` command that applies it and reads its spelling from here, so a rename moves the guard too (`docs/decisions.md` § R-01). The reviewer creates the three if they are missing. Renaming one means renaming it on the repository in the same change, and `npm run pr-review:check` refuses a `pr-review.yml` that filters on another spelling of `approved`. Decided 2026-09-25 (asdlc-openspec-mi6).",
+  "prReviewApproverPermissions": [
+    "admin",
+    "maintain",
+    "write"
+  ],
+  "prReviewApproverPermissionsMeans": "The repository permissions, as GitHub's collaborator-permission endpoint names them, of an account whose application of the approval label counts. A bot's never does. GitHub cannot tell a person from an agent acting with that person's credentials, which is `docs/decisions.md` § R-01. Decided 2026-09-25 (asdlc-openspec-mi6).",
+  "prReviewBlockingSeverities": [
+    "blocker",
+    "major"
+  ],
+  "prReviewBlockingSeveritiesMeans": "The severities of a maintainability finding that fail the dimension. A `minor` finding is posted in the review and blocks nothing, so the reviewer does not hold a merge on wording. The severities themselves are defined in `.claude/agents/pr-reviewer.md` § 2. Maintainability. Decided 2026-09-25 (asdlc-openspec-mi6).",
+  "prReviewContextPaths": [
+    "CLAUDE.md",
+    "AGENTS.md",
+    ".claude/**",
+    "docs/**",
+    "openspec/**",
+    "count-index.md",
+    "KIT-CHECKLIST.md",
+    "**/README.md",
+    "tools/policy/**"
+  ],
+  "prReviewContextPathsMeans": "The files held to the context-engineering rubric: what an agent reads to decide what to do, meaning the rules, the prompts, the documents, the specs and the constants they cite. Every other file is held to the product rubric. `*` matches within one directory, `**` across directories, and `**/` also matches none. A file is classed by its path at the pull request's head, and the brief names each file's class, so the reviewer does not choose. Decided 2026-09-25 (asdlc-openspec-mi6).",
+  "prReviewHighRiskPaths": {
+    ".github/**": "the workflows: what runs with the repository's token and secrets, this reviewer among them",
+    ".claude/settings.json": "the hooks every session runs, the guards among them",
+    ".claude/agents/pr-reviewer.md": "this reviewer's own prompt",
+    "scripts/pr-review.mjs": "this reviewer's own decisions",
+    "CLAUDE.md": "the rules every agent follows",
+    "AGENTS.md": "the pointer another harness follows to those rules",
+    "docs/decisions.md": "a recorded decision, which is the maintainer's to make",
+    "package-lock.json": "the dependency tree every gate and the product run on",
+    "tools/policy/pr-review.json": "the values this reviewer decides by, its own floor among them",
+    "tools/policy/prompt-budgets.json": "each prompt's word budget, which rises only with a person's approval"
+  },
+  "prReviewHighRiskPathsMeans": "The floor under the reviewer's risk judgement: a pull request that adds, changes, deletes or renames a file matching one of these globs is high risk whatever the reviewer says, and merges only on a person's approval. Each key is a glob, matched as `prReviewContextPaths` says, and each value is the reason the review comment gives. The reviewer can raise a pull request to high but never lower one below this floor, so no pull request can argue its way past a person into changing CI, this reviewer or the rules. Removing a line lets pull requests that change that file merge without a person, and this key is itself high risk, since its record is on the list. Decided 2026-09-25 (asdlc-openspec-mi6). `tools/policy/pr-review.json` and `tools/policy/prompt-budgets.json` added 2026-10-02 (D-27, asdlc-openspec-umg3), when the keys `prReviewHighRiskJsonKeys` had held to a person key by key moved into those two records whole.",
+  "prReviewHighRiskJsonKeys": {
+    "package.json": [
+      "dependencies",
+      "devDependencies",
+      "optionalDependencies",
+      "peerDependencies",
+      "overrides",
+      "allowScripts",
+      "engines"
+    ]
+  },
+  "prReviewHighRiskJsonKeysMeans": "The second half of the floor: top-level keys of committed JSON files whose value a pull request changes (added, removed or different, compared as parsed JSON) make it high risk. A trailing `*` matches any key with that prefix. It exists because the whole file is too wide: most pull requests that add a gate add a script to `package.json`, which needs no person. A dependency, an install-script permission or the engine floor does. Decided 2026-09-25 (asdlc-openspec-mi6). Until 2026-10-02 it also held `tools/policy.json` to a person by its `prReview*` keys and, from 2026-09-26 (asdlc-openspec-2wv), its `promptWordBudget*` keys; D-27 (asdlc-openspec-umg3) moved those keys into `tools/policy/pr-review.json` and `tools/policy/prompt-budgets.json`, which `prReviewHighRiskPaths` names whole, and the entry left.",
+  "prReviewMergeMethod": "rebase",
+  "prReviewMergeMethodMeans": "How the reviewer merges: the method GitHub's merge endpoint takes. It is `rebase` because `docs/decisions.md` § D-02, item 6, rebase-merges a change's pull request so `npm run worktree:gc` can prove its branch reached the trunk, and the repository allows no other method. Decided 2026-09-25 (asdlc-openspec-mi6)."
+}

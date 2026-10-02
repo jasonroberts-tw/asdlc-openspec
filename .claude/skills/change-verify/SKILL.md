@@ -20,8 +20,8 @@ from step 2.
   `.claude/worktrees/<change>`.
 - **The epic.** It is the one issue that
   `bd list --label spec-change --type epic --metadata-field change=<change> --json` returns (the
-  label is `specChangeLabel` in `tools/policy.json`). If none or several come back, stop and say
-  what was found.
+  label is `specChangeLabel` in `tools/policy/vocabulary.json`). If none or several come back, stop and
+  say what was found.
 
 ## 2. Every task is closed
 

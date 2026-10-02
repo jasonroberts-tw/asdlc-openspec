@@ -16,8 +16,8 @@
  * walk would not write.
  *
  * WHAT A UNIT IS. One pull request merged to `main`. A pull request lands by rebase merge
- * (`prReviewMergeMethod` in `tools/policy.json`), so the trunk has no merge commit, and GitHub
- * commits the rebased run with one committer address and one committer time. A unit is a maximal
+ * (`prReviewMergeMethod` in `tools/policy/pr-review.json`), so the trunk has no merge commit, and
+ * GitHub commits the rebased run with one committer address and one committer time. A unit is a maximal
  * run of consecutive commits on the first-parent chain through `throughCommit` that share both,
  * where the address matches `couplingMergeCommitterPattern`. Any other commit is a direct push: it
  * is no unit and is counted as `directCommits`, though its renames and deletions are followed. A
@@ -92,7 +92,9 @@
  *
  * NEEDS git and the whole history of `origin/main` (a shallow clone is refused, so CI checks out
  * with `fetch-depth: 0`), `origin/main` itself for `coupling:check` and `coupling:update`, and the
- * keys of `tools/policy.json` named above. Reads only committed files and git history; no network.
+ * keys named above: the `coupling*` keys of `tools/policy/tool-settings.json` and
+ * `prReviewMergeMethod` of `tools/policy/pr-review.json`, read through `tools/lib/policy.ts`. Reads
+ * only committed files and git history; no network.
  * Its cost is on its job in `git-hooks.yml`.
  *
  * KIND: emitter and gate; `coupling` and `coupling:update` write the map, `coupling:check` nothing.
@@ -102,22 +104,25 @@
  * RE-ENTRY: a second `npm run coupling` writes the same bytes, and `coupling:check` passes exactly
  *   when it would write none; `coupling:update` run twice with `origin/main` unmoved writes the same
  *   bytes.
- * STALE WHEN: a key of `tools/policy.json` it reads; this file or `tools/lib/git-env.ts`; a git
+ * STALE WHEN: a key under `tools/policy/` it reads; this file or `tools/lib/git-env.ts`; a git
  *   release that pairs renames differently; `coupling:update` moving `throughCommit`. A merge to
  *   `main` is not one: it is printed.
  */
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, matchesGlob, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { firstDifference, readText } from '../lib/committed.ts'
 import { SCRATCH_GIT_ENV, gitIn, gitOk, type Git } from '../lib/git-env.ts'
 import { ROOT as REPO_ROOT } from '../lib/paths.ts'
+import { POLICY_DIR, readPolicy as readRecords } from '../lib/policy.ts'
 
 export const DIR = 'artifacts/coupling'
 export const MAP = `${DIR}/cochange.json`
-const POLICY_FILE = 'tools/policy.json'
+/** The records that hold the keys this reads, named in a refusal. */
+const COUPLING_RECORD = 'tools/policy/tool-settings.json'
+const MERGE_RECORD = 'tools/policy/pr-review.json'
 /** The trunk the baseline is held to (`CLAUDE.md` § Git workflow). */
 const TRUNK = 'origin/main'
 const COMMIT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/
@@ -128,7 +133,7 @@ const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? on
 
 /* --------------------------------------------------------------------------------- policy ------- */
 
-/** The values the walk and the map read, each from its key of `tools/policy.json`. */
+/** The values the walk and the map read, each from its key of `tools/policy/tool-settings.json`. */
 export type Options = {
   pattern: string
   ignored: string[]
@@ -171,23 +176,23 @@ export const KEYS: { [K in keyof Options]: { key: string; ok: (value: unknown) =
 export function readPolicy(root: string): Options {
   let policy: any
   try {
-    policy = JSON.parse(readFileSync(join(root, POLICY_FILE), 'utf8'))
+    policy = readRecords(root)
   } catch (error) {
-    throw new Error(`policy: ${POLICY_FILE} cannot be read: ${(error as Error).message}.`)
+    throw new Error(`policy: ${POLICY_DIR}/ cannot be read: ${(error as Error).message}.`)
   }
   const problems: string[] = []
   const options: any = {}
   for (const [name, { key, ok, shape }] of Object.entries(KEYS)) {
-    if (!Object.hasOwn(policy, key)) problems.push(`\`${key}\` is missing`)
-    else if (!ok(policy[key])) problems.push(`\`${key}\` is not ${shape}`)
+    if (!Object.hasOwn(policy, key)) problems.push(`${COUPLING_RECORD} \`${key}\` is missing`)
+    else if (!ok(policy[key])) problems.push(`${COUPLING_RECORD} \`${key}\` is not ${shape}`)
     const means = policy[`${key}Means`]
-    if (typeof means !== 'string' || means.trim() === '') problems.push(`\`${key}Means\` is missing`)
+    if (typeof means !== 'string' || means.trim() === '') problems.push(`${COUPLING_RECORD} \`${key}Means\` is missing`)
     options[name] = policy[key]
   }
   if (policy.prReviewMergeMethod !== 'rebase') {
-    problems.push(`\`prReviewMergeMethod\` is ${JSON.stringify(policy.prReviewMergeMethod)}, and a pull request reads as one run of commits only when it is \`rebase\``)
+    problems.push(`${MERGE_RECORD} \`prReviewMergeMethod\` is ${JSON.stringify(policy.prReviewMergeMethod)}, and a pull request reads as one run of commits only when it is \`rebase\``)
   }
-  if (problems.length > 0) throw new Error(`policy: ${POLICY_FILE}: ${problems.join('; ')} (the header of tools/coupling/coupling.ts).`)
+  if (problems.length > 0) throw new Error(`policy: ${problems.join('; ')} (the header of tools/coupling/coupling.ts).`)
   return options as Options
 }
 
@@ -347,7 +352,7 @@ export type CoChange = {
 }
 
 const BANNER = [
-  'GENERATED by `npm run coupling` (tools/coupling/coupling.ts). Do not edit by hand: a correction goes into the emitter or its keys in tools/policy.json, and `npm run coupling` writes it again; only `npm run coupling:update` moves throughCommit.',
+  'GENERATED by `npm run coupling` (tools/coupling/coupling.ts). Do not edit by hand: a correction goes into the emitter or its keys under tools/policy/, and `npm run coupling` writes it again; only `npm run coupling:update` moves throughCommit.',
   'Which files change together in the pull requests merged to main, read from git history through throughCommit: units is the merged pull requests, counted those neither empty nor over couplingMaxUnitFiles, and excluded what was left out, by reason.',
   'files: each file at throughCommit a counted pull request changed, how many changed it, and whether it is a hub (couplingHubMinPercent). edges: each pair changed together by at least couplingMinTogether, how many, and their Jaccard index in thousandths, null under couplingMinSampleUnits. clusters: the connected groups of non-hub files over edges at or above couplingClusterMinJaccardPermille.',
   'npm run coupling:check re-derives it and refuses a difference; the rules are the header of tools/coupling/coupling.ts.',

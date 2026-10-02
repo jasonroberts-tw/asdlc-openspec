@@ -1,10 +1,11 @@
 /**
  * Thresholds gate: the coverage of the code a branch changes under `apps/`, and the mutation score of
  * the Routines and Commands it changes, each held to its threshold and its minimum sample in
- * `tools/policy.json`, with a ratchet baseline, `artifacts/thresholds/baseline.json`, of the mutants
- * the product left undetected where it measured below a threshold when the gate landed. This header
- * is the one home of the rules behind the strategy's two thresholds and their minimum samples
- * (`docs/decisions.md` § D-13, items 8 and 9, and item 17's table; landed by asdlc-openspec-j09.10).
+ * `tools/policy/tool-settings.json`, with a ratchet baseline, `artifacts/thresholds/baseline.json`,
+ * of the mutants the product left undetected where it measured below a threshold when the gate
+ * landed. This header is the one home of the rules behind the strategy's two thresholds and their
+ * minimum samples (`docs/decisions.md` § D-13, items 8 and 9, and item 17's table; landed by
+ * asdlc-openspec-j09.10).
  * What each metric counts is defined once, in `count-index.md` § Rates and metrics.
  *
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet; this is what it would let through if it were
@@ -154,8 +155,8 @@
  * Routines' mutants when their code changed; `git-hooks.yml` carries its measurement.
  *
  * NEEDS git and `origin/main` (a shallow clone has no merge base, so CI checks out with
- * `fetch-depth: 0`), the gate's keys in `tools/policy.json`, and `@stryker-mutator/core` and
- * `@stryker-mutator/tap-runner` (`npm ci`). No network.
+ * `fetch-depth: 0`), the gate's keys in `tools/policy/tool-settings.json`, and
+ * `@stryker-mutator/core` and `@stryker-mutator/tap-runner` (`npm ci`). No network.
  *
  * KIND: gate, and the emitter of the baseline: `thresholds:update` writes it, and the two checks
  *   write nothing.
@@ -174,11 +175,13 @@ import { tmpdir } from 'node:os'
 import { delimiter, dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gitEnv } from '../tools/lib/git-env.ts'
+import { POLICY_DIR, copyPolicy, readPolicy as readConstants } from '../tools/lib/policy.ts'
 import { runTests } from './run-tests.mjs'
 import { dirGlob, scriptDirs } from './lib/test-dirs.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const POLICY_FILE = 'tools/policy.json'
+/** The policy record that holds the gate's keys, named in each refusal about them; the keys are read from every record merged. */
+const TOOL_SETTINGS = `${POLICY_DIR}/tool-settings.json`
 export const BASELINE = 'artifacts/thresholds/baseline.json'
 /** The trunk a branch is measured from (`CLAUDE.md` § Git workflow). */
 const TRUNK = 'origin/main'
@@ -210,27 +213,27 @@ const posix = (path) => path.split('\\').join('/')
 
 /* --------------------------------------------------------------------------------- policy ------- */
 
-/** The gate's keys of `tools/policy.json` under `root`, or an Error naming the first that is wrong. */
+/** The gate's keys of the policy under `root`, or an Error naming the first that is wrong. */
 export function readPolicy(root) {
   let policy
   try {
-    policy = JSON.parse(readFileSync(join(root, POLICY_FILE), 'utf8'))
+    policy = readConstants(root)
   } catch (error) {
-    throw new Error(`${POLICY_FILE} cannot be read (${error.message}), so no threshold is known.`)
+    throw new Error(`${POLICY_DIR}/ cannot be read (${error.message}), so no threshold is known.`)
   }
   const whole = (value, low, high) => Number.isInteger(value) && value >= low && value <= high
   const percents = policy[KEYS.percents]
   if (!['branches', 'lines', 'mutation'].every((key) => whole(percents?.[key], 1, 100))) {
-    throw new Error(`${POLICY_FILE} has no whole percentage from 1 to 100 under each of \`${KEYS.percents}.lines\`, \`.branches\` and \`.mutation\`.`)
+    throw new Error(`${TOOL_SETTINGS} has no whole percentage from 1 to 100 under each of \`${KEYS.percents}.lines\`, \`.branches\` and \`.mutation\`.`)
   }
   const samples = policy[KEYS.samples]
   if (!['branches', 'lines', 'mutants'].every((key) => whole(samples?.[key], 1, 1e6))) {
-    throw new Error(`${POLICY_FILE} has no whole number of at least 1 under each of \`${KEYS.samples}.lines\`, \`.branches\` and \`.mutants\`.`)
+    throw new Error(`${TOOL_SETTINGS} has no whole number of at least 1 under each of \`${KEYS.samples}.lines\`, \`.branches\` and \`.mutants\`.`)
   }
   const scope = policy[KEYS.scope]
   const globs = (list) => Array.isArray(list) && list.length > 0 && list.every((glob) => typeof glob === 'string' && glob.startsWith('apps/'))
   if (!globs(scope?.code) || !globs(scope?.tests)) {
-    throw new Error(`${POLICY_FILE} has no \`${KEYS.scope}\` whose \`code\` and \`tests\` are each a list of globs under apps/.`)
+    throw new Error(`${TOOL_SETTINGS} has no \`${KEYS.scope}\` whose \`code\` and \`tests\` are each a list of globs under apps/.`)
   }
   const commands = policy[KEYS.commands]
   if (
@@ -239,10 +242,10 @@ export function readPolicy(root) {
     Array.isArray(commands) ||
     Object.entries(commands).some(([file, tests]) => !file.startsWith('apps/') || !Array.isArray(tests) || tests.length === 0 || tests.some((test) => typeof test !== 'string'))
   ) {
-    throw new Error(`${POLICY_FILE} has no \`${KEYS.commands}\` object mapping each Command's file under apps/ to the test files its mutation run runs.`)
+    throw new Error(`${TOOL_SETTINGS} has no \`${KEYS.commands}\` object mapping each Command's file under apps/ to the test files its mutation run runs.`)
   }
   for (const key of Object.values(KEYS)) {
-    if (typeof policy[`${key}Means`] !== 'string') throw new Error(`${POLICY_FILE} has \`${key}\` and no \`${key}Means\` saying what it decides.`)
+    if (typeof policy[`${key}Means`] !== 'string') throw new Error(`${TOOL_SETTINGS} has \`${key}\` and no \`${key}Means\` saying what it decides.`)
   }
   return { percents, samples, scope, commands }
 }
@@ -944,7 +947,7 @@ export async function check(given, { commands = false, product = false, stages =
   try {
     context = setUp(root, { product })
   } catch (error) {
-    return { refusals: [`${error.message.startsWith(POLICY_FILE) ? 'policy' : 'branch'}: ${error.message}`], printed }
+    return { refusals: [`${error.message.startsWith(POLICY_DIR) ? 'policy' : 'branch'}: ${error.message}`], printed }
   }
   const { policy, inScope, tests, changed, diff, base } = context
   printed.push(context.said)
@@ -1298,7 +1301,7 @@ function cases(f, policy) {
       expect: /^suite: it does not pass, so its coverage is not judged: 1 test\(s\) failed: apps\/calculator\/test\/calc\.test\.js:\d+ "\[GRT-801\] wrong" \(Expected values to be strictly equal/,
     },
     { name: 'no origin/main to measure from', files: f.branch, git: ['update-ref', '-d', 'refs/remotes/origin/main'], stages: only.none, expect: /^branch: origin\/main is not a ref here/ },
-    { name: 'a policy without the thresholds', files: { ...f.branch, [POLICY_FILE]: '{}\n' }, stages: only.none, expect: /^policy: tools\/policy\.json has no whole percentage from 1 to 100 under each of `thresholdPercents/ },
+    { name: 'a policy without the thresholds', files: { ...f.branch, [TOOL_SETTINGS]: '{}\n' }, stages: only.none, expect: /^policy: tools\/policy\/tool-settings\.json has no whole percentage from 1 to 100 under each of `thresholdPercents/ },
     {
       name: 'two of the new Routines untested, so their mutants fall below the mutation threshold',
       files: { ...f.branch, 'apps/calculator/test/calc.test.js': f.calcTest([...f.olds, ...f.news.slice(0, -2)]) },
@@ -1380,14 +1383,15 @@ function cases(f, policy) {
 async function selftest() {
   const started = Date.now()
   const policy = readPolicy(REPO_ROOT)
-  const hashLength = JSON.parse(readFileSync(join(REPO_ROOT, POLICY_FILE), 'utf8')).testTraceHashLength
+  const hashLength = readConstants(REPO_ROOT).testTraceHashLength
   const f = fixture(policy, hashLength)
   const temp = mkdtempSync(join(tmpdir(), 'thresholds-selftest-'))
   const results = []
   let untrusted = null
   try {
     const base = join(temp, 'base')
-    writeTree(base, { ...f.base, [POLICY_FILE]: readFileSync(join(REPO_ROOT, POLICY_FILE), 'utf8') })
+    writeTree(base, f.base)
+    copyPolicy(REPO_ROOT, base)
     gitSelftest(base, ['init', '-q', '-b', 'main'])
     gitSelftest(base, ['add', '-A'])
     gitSelftest(base, ['commit', '-q', '-m', 'base'])

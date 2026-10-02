@@ -42,8 +42,8 @@
  * ITS FIGURES ARE COUNTS. It computes no rate: a proportion over a change's handful of tests would
  * read as a measurement it is not (`CLAUDE.md` § Stateful counts live in `count-index.md`, under a
  * key, its reporting honesty). The only rates in the report are the thresholds gate's own lines,
- * which give one only at or above `thresholdMinSamples` in `tools/policy.json`, and are quoted as it
- * printed them.
+ * which give one only at or above `thresholdMinSamples` in `tools/policy/tool-settings.json`, and are
+ * quoted as it printed them.
  *
  * INVOCATION. Imported, never run: `verifyProblems(run)` says why a run cannot be reported,
  * `verifyReport(run)` builds the model, and `renderVerifySection(report)` writes the Markdown.

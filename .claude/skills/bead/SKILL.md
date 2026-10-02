@@ -9,7 +9,7 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 The argument is one issue id, several, or nothing (then take the top of
 `bd ready --exclude-label spec-change`, which leaves a product change's tasks to `change-build`; the
-label is `specChangeLabel` in `tools/policy.json`). Work agreed in conversation that no issue
+label is `specChangeLabel` in `tools/policy/vocabulary.json`). Work agreed in conversation that no issue
 carries yet is filed before it is worked, in step 3. Every tracker write below sits inside the
 bracket `CLAUDE.md` § The task store describes, `bd dolt pull` and `bd dolt push`.
 
@@ -27,9 +27,9 @@ which of four things is true, citing file and line for each claim:
 
 Read that code as the trunk has it: this step runs in the primary checkout, whose `main` trails
 `origin/main` until someone pulls it. Run `git fetch origin main`, then read with
-`git show origin/main:<path>`. Where a fetch is not wanted yet, as in plan mode, `gh api "repos/{owner}/{repo}/contents/<path>?ref=main" -H "Accept: application/vnd.github.raw"`
-reads the same file without one. An agent sent to read the code reads the checkout's copy unless its
-brief says otherwise, so say so.
+`git show origin/main:<path>`. Where a fetch is not wanted yet, as in plan mode, `gh api "repos/{owner}/{repo}/contents/<path>?ref=main"
+-H "Accept: application/vnd.github.raw"` reads the same file without one. An agent sent to read the code
+reads the checkout's copy unless its brief says otherwise, so say so.
 
 The harness read this skill and `CLAUDE.md` from that checkout too, so they can trail the trunk as
 well. Compare the trunk with the commit the session started from, the first of the recent commits in
@@ -103,8 +103,8 @@ list. A red gate is fixed or reported, never bypassed.
 A defect found on the way is fixed in this branch only when it sits in a file the issue already
 changes. One left unfixed is filed as its own issue, never folded in, and before the pull request
 opens, so the pull request's body names the new id. File it with `foundIssueCommand` in
-`tools/policy.json`, discovered from the issue worked here, with the labels `CLAUDE.md` § The task
-store names; here the found-at label is bead's.
+`tools/policy/vocabulary.json`, discovered from the issue worked here, with the labels `CLAUDE.md` §
+The task store names; here the found-at label is bead's.
 
 Before filing this or any follow-up, search for it. `bd search "<words>"` matches titles only and
 `bd list --all --desc-contains "<words>"` matches descriptions; both include closed issues. Run

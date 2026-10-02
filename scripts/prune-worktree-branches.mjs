@@ -47,8 +47,8 @@
  *
  * PROOF 2 reads GitHub once per sweep, and only when some branch is not an ancestor: `gh pr list
  * --state merged --base <trunk branch>`, the newest `worktreeGcMergedPrLimit`, waiting at most
- * `worktreeGcGhTimeoutSeconds` (`tools/policy.json`). A rebase merge replays exactly the head's
- * commits, so a branch whose tip is that head has nothing the trunk lacks. `gh` absent,
+ * `worktreeGcGhTimeoutSeconds` (`tools/policy/tool-settings.json`). A rebase merge replays exactly
+ * the head's commits, so a branch whose tip is that head has nothing the trunk lacks. `gh` absent,
  * unauthenticated, offline, or past its timeout is no proof, never a failure. `WORKTREE_GC_MERGED_PRS`
  * names a JSON file of `{ number, headRefOid, baseRefName }` to read in its place, or `none` to skip
  * it, for the selftest and a by-hand run; the report's `merged pull requests:` line names the source.
@@ -77,7 +77,7 @@
  *     on the next run;
  *   - its branch is contained in the trunk by one of the three proofs above;
  *   - where no liveness check works, HEAD there has not moved for `worktreeGcMinAgeHours`
- *     (`tools/policy.json`).
+ *     (`tools/policy/tool-settings.json`).
  *
  * THE LIVENESS CHECK, and the defect it closes. Until 2026-09-29 it read only `/proc/<pid>/cwd`, and
  * where `/proc` was absent it was skipped and the clean-and-contained proof stood alone. On
@@ -141,6 +141,7 @@ import {
 } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { readPolicy } from '../tools/lib/policy.ts'
 
 /* ============================================================================================= *
  * Arguments
@@ -607,8 +608,8 @@ function processesIn(dir) {
 }
 
 /**
- * The positive number `key` holds in `tools/policy.json` beside this script, or `null` if it cannot
- * be read as one -- which each caller treats as "remove nothing unproven".
+ * The positive number `key` holds in the policy beside this script (`tools/policy/tool-settings.json`),
+ * or `null` if it cannot be read as one -- which each caller treats as "remove nothing unproven".
  */
 let policyCache
 function policyNumber(key) {
@@ -616,7 +617,7 @@ function policyNumber(key) {
     policyCache = null
     try {
       const here = dirname(fileURLToPath(import.meta.url))
-      policyCache = JSON.parse(readFileSync(resolve(here, '..', 'tools', 'policy.json'), 'utf8'))
+      policyCache = readPolicy(resolve(here, '..'))
     } catch {
       /* unreadable: stays null */
     }

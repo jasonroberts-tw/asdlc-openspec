@@ -23,7 +23,7 @@ is red, stop and report the failing gate; do not dispatch.
 
 Read the queue (`bd ready --exclude-label spec-change`: a product change's tasks are worked in its
 own worktree by `change-build`, `docs/decisions.md` § D-02, and the label is `specChangeLabel` in
-`tools/policy.json`) and, for every pair of issues, decide
+`tools/policy/vocabulary.json`) and, for every pair of issues, decide
 the overlap by reading the files each will touch, not the titles:
 
 | Overlap kind | What it looks like | What to do |
@@ -65,8 +65,8 @@ its issues.
 
 As each lane reports green, cherry-pick its commits onto the dispatcher's branch, resolving any
 conflict there rather than in a merge commit, which the reviewer's rebase merge
-(`prReviewMergeMethod` in `tools/policy.json`) cannot carry. Never rebase a branch that has been
-pushed. After each lane, regenerate every generated file more than one lane touched,
+(`prReviewMergeMethod` in `tools/policy/pr-review.json`) cannot carry. Never rebase a branch that has
+been pushed. After each lane, regenerate every generated file more than one lane touched,
 renumber any register entry that collided, then run `npm run gates`.
 
 ## 6. Open the pull request and watch its checks

@@ -24,7 +24,8 @@
  * line inside a block comment that opens its line, `/*` after any indent, is not read. The name is
  * `[<ID>] <title>`, or `[<ID>, <ID>] <title>` for several: the IDs it references, then
  * its title. An ID is a scenario's (`CALC-003`), an NFR requirement's (`NFR-CALC-001`) or a tracker
- * task's (`asdlc-openspec-zgh.4`, the shape `prReviewIssuePattern` in `tools/policy.json` holds). A
+ * task's (`asdlc-openspec-zgh.4`, the shape `prReviewIssuePattern` in `tools/policy/pr-review.json`
+ * holds). A
  * happy-path test's title is its scenario's title, as its header has it after the ID. A name is
  * unique in its file. A test registered in a loop, by a helper or inside another test's body is
  * refused by the runner's cross-check, and so is one under a condition that does not hold where it
@@ -50,8 +51,8 @@
  * The IDs of its scenario, NFR and task tokens are exactly the IDs of its name. A test whose name
  * carries task IDs alone also cites its app's Binding Surface: a task is in the tracker, which a
  * clone does not have, so the surface is the artifact whose version the test was written against.
- * The layers and each one's default level are `testTraceLayers` in `tools/policy.json`; mutation is
- * not a layer, and a mutation run references the suite it targets (the strategy's rule 7). A line
+ * The layers and each one's default level are `testTraceLayers` in `tools/policy/vocabulary.json`;
+ * mutation is not a layer, and a mutation run references the suite it targets (the strategy's rule 7). A line
  * `// trace-defaults: layer=<layer> level=<n> ["<reason>"]`, at most one, above a file's first test,
  * gives the layer and level of every test that does not state its own: a test's level is its own,
  * else the file's, else its layer's default, and a layer with none (fitness) must be given one.
@@ -62,8 +63,8 @@
  *   // trace: asdlc-openspec-zgh.4 surface:apps/calculator/binding-surface.md@<hash>
  *   test('[asdlc-openspec-zgh.4] SIGTERM stops the server as Ctrl-C does', ...)
  *
- * THE HASH of an artifact is the first `testTraceHashLength` characters (`tools/policy.json`) of the
- * lowercase hex sha256 of its text, as UTF-8. `node scripts/test-trace.mjs cite <ref>` prints it.
+ * THE HASH of an artifact is the first `testTraceHashLength` characters
+ * (`tools/policy/vocabulary.json`) of the lowercase hex sha256 of its text, as UTF-8. `node scripts/test-trace.mjs cite <ref>` prints it.
  *
  *   - A scenario: its requirement's statement, the requirement's lines below its header up to the
  *     next header, then the scenario's block, from its header line up to the next header of its level
@@ -110,7 +111,7 @@
  * `cite` reads the specs and the policy there instead:
  * `TEST_TRACE_ROOT=/tmp/doctored node scripts/test-trace.mjs cite CALC-003:happy`.
  *
- * NEEDS `tools/policy.json` (`testTraceHashLength`, `testTraceLayers`, `prReviewIssuePattern`) and,
+ * NEEDS `tools/policy/` (`testTraceHashLength`, `testTraceLayers`, `prReviewIssuePattern`) and,
  * for a hash, the specs under `openspec/` and the file a ref names. The selftest also runs the
  * pinned OpenSpec CLI once, to archive a fixture change (`npm ci`). Reads only committed files; no
  * network. Reading the calculator's four test files through it, the policy included, took 3.4 ms on
@@ -125,11 +126,17 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
 import { findBin } from './lib/bin-path.mjs'
+import { POLICY_DIR, readPolicy } from '../tools/lib/policy.ts'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const SELF = fileURLToPath(import.meta.url)
 
-export const POLICY_FILE = 'tools/policy.json'
+/**
+ * The policy records that hold the keys below, named in each refusal about them. The keys are read
+ * from every record merged (`tools/lib/policy.ts`), so a key that moves still reads.
+ */
+export const VOCABULARY = `${POLICY_DIR}/vocabulary.json`
+export const PR_REVIEW = `${POLICY_DIR}/pr-review.json`
 const HASH_LENGTH_KEY = 'testTraceHashLength'
 const LAYERS_KEY = 'testTraceLayers'
 const TASK_PATTERN_KEY = 'prReviewIssuePattern'
@@ -151,25 +158,25 @@ const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
 /* --------------------------------------------------------------------------------- policy ------- */
 
 /**
- * The constants the convention reads, from `tools/policy.json` under `root`. Throws an Error whose
- * message says which key is missing or malformed.
+ * The constants the convention reads, from the policy records under `root`. Throws an Error whose
+ * message says which record cannot be read, or which key is missing or malformed.
  */
 export function readTracePolicy(root) {
   let policy
   try {
-    policy = JSON.parse(readFileSync(join(root, POLICY_FILE), 'utf8'))
+    policy = readPolicy(root)
   } catch (error) {
-    throw new Error(`${POLICY_FILE} cannot be read as JSON under ${root} (${error.message}).`)
+    throw new Error(`${POLICY_DIR}/ cannot be read under ${root} (${error.message}).`)
   }
   return tracePolicy(policy)
 }
 
-/** The same constants, from a policy already parsed: `{ hashLength, layers, task }`. */
+/** The same constants, from the policy's constants already merged: `{ hashLength, layers, task }`. */
 export function tracePolicy(policy) {
   const hashLength = policy[HASH_LENGTH_KEY]
   if (!Number.isInteger(hashLength) || hashLength < 1 || hashLength > 64) {
     throw new Error(
-      `${POLICY_FILE} has no whole number from 1 to 64 under \`${HASH_LENGTH_KEY}\`: the length of` +
+      `${VOCABULARY} has no whole number from 1 to 64 under \`${HASH_LENGTH_KEY}\`: the length of` +
         ` every hash a test's \`// trace:\` line carries (the header of scripts/test-trace.mjs).`,
     )
   }
@@ -183,7 +190,7 @@ export function tracePolicy(policy) {
     !Object.values(layers).every(levelOk)
   ) {
     throw new Error(
-      `${POLICY_FILE} has no object under \`${LAYERS_KEY}\` mapping each layer a test may declare` +
+      `${VOCABULARY} has no object under \`${LAYERS_KEY}\` mapping each layer a test may declare` +
         ` to its default orchestration level, 1 to 3, or null where the level is declared per test.`,
     )
   }
@@ -192,7 +199,7 @@ export function tracePolicy(policy) {
     if (typeof policy[TASK_PATTERN_KEY] !== 'string') throw new Error('not a string')
     task = new RegExp(`^(?:${policy[TASK_PATTERN_KEY]})$`)
   } catch {
-    throw new Error(`${POLICY_FILE} has no regular expression under \`${TASK_PATTERN_KEY}\`: a tracker task's ID.`)
+    throw new Error(`${PR_REVIEW} has no regular expression under \`${TASK_PATTERN_KEY}\`: a tracker task's ID.`)
   }
   return { hashLength, layers, task }
 }
@@ -395,7 +402,7 @@ function parseDefaults(words, policy, problem) {
 function checkLayer(layer, policy, problem) {
   if (Object.hasOwn(policy.layers, layer)) return layer
   const known = Object.keys(policy.layers).sort(byCodePoint).join(', ')
-  problem(`\`layer=${layer}\` names no layer; the layers are ${known} (\`${LAYERS_KEY}\` in ${POLICY_FILE}).`)
+  problem(`\`layer=${layer}\` names no layer; the layers are ${known} (\`${LAYERS_KEY}\` in ${VOCABULARY}).`)
   return null
 }
 
@@ -723,15 +730,15 @@ function citeCommand(refs) {
 
 /* --------------------------------------------------------------------------------- selftest ----- */
 
-const POLICY = `${JSON.stringify(
-  {
+/** The fixture's policy: each record the keys live in, holding only the keys the convention reads. */
+const POLICY = {
+  [VOCABULARY]: {
     [HASH_LENGTH_KEY]: 12,
     [LAYERS_KEY]: { unit: 1, functional: 1, integration: 2, contract: 2, e2e: 3, fitness: null },
-    [TASK_PATTERN_KEY]: 'asdlc-openspec-[a-z0-9]+(?:\\.[0-9]+)*',
   },
-  null,
-  2,
-)}\n`
+  [PR_REVIEW]: { [TASK_PATTERN_KEY]: 'asdlc-openspec-[a-z0-9]+(?:\\.[0-9]+)*' },
+}
+const policyText = (path) => `${JSON.stringify(POLICY[path], null, 2)}\n`
 
 const LIVING = `# greeting Specification
 
@@ -787,7 +794,8 @@ Readers who leave are never thanked, and every reviewer of the greeting has aske
 `
 
 const TREE = {
-  'tools/policy.json': POLICY,
+  [VOCABULARY]: policyText(VOCABULARY),
+  [PR_REVIEW]: policyText(PR_REVIEW),
   'openspec/config.yaml': 'schema: spec-driven\n',
   'openspec/specs/greeting/spec.md': LIVING,
   'openspec/changes/add-farewell/proposal.md': PROPOSAL,
@@ -879,7 +887,7 @@ function selftest() {
   }
 
   // The reader: the control, then one doctored source per refusal, each asserting its reason.
-  const fixturePolicy = tracePolicy(JSON.parse(POLICY))
+  const fixturePolicy = tracePolicy({ ...POLICY[VOCABULARY], ...POLICY[PR_REVIEW] })
   const control = readTests(SOURCE, fixturePolicy, 'f.test.js')
   const same = control.problems.length === 0 && isDeepStrictEqual(control.tests, READ)
   record(
@@ -1150,7 +1158,7 @@ function hashCases() {
     {
       name: 'a policy with no hash length is refused',
       run: (dir) => {
-        writeFileSync(join(dir, POLICY_FILE), POLICY.replace(`"${HASH_LENGTH_KEY}": 12,`, ''))
+        writeFileSync(join(dir, VOCABULARY), policyText(VOCABULARY).replace(`"${HASH_LENGTH_KEY}": 12,`, ''))
         try {
           readTracePolicy(dir)
           return [false, 'PASSED, but should have been refused']

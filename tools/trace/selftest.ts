@@ -12,8 +12,8 @@
  *
  * INVOCATION. `npm run trace:selftest`. Nothing to point at a copy: it builds its own.
  *
- * NEEDS git, the live `tools/policy.json`, which each fixture copies so a change to a key the gate
- * reads is felt here, and the pinned OpenSpec CLI (`npm ci`), which trial-archives an active change
+ * NEEDS git, the live records under `tools/policy/`, which each fixture copies so a change to a key
+ * the gate reads is felt here, and the pinned OpenSpec CLI (`npm ci`), which trial-archives an active change
  * eight times, two in each of four cases. No network; it writes only under the temporary directory.
  */
 import { spawnSync } from 'node:child_process'
@@ -24,6 +24,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { hashRef, readTracePolicy } from '../../scripts/test-trace.mjs'
 import { SCRATCH_GIT_ENV, gitIn } from '../lib/git-env.ts'
 import { ROOT } from '../lib/paths.ts'
+import { copyPolicy, editPolicy } from '../lib/policy.ts'
 import { BASELINE, README, RECORD, baselineText, check, derive, emit, ratify, serialise, update, walk } from './trace.ts'
 
 const TRACE = fileURLToPath(new URL('./trace.ts', import.meta.url))
@@ -167,7 +168,7 @@ function addChange(dir: string, name: string, delta: string) {
  */
 function buildControl(dir: string) {
   for (const [path, text] of Object.entries(TREE)) put(dir, path, text)
-  put(dir, 'tools/policy.json', readFileSync(join(ROOT, 'tools/policy.json'), 'utf8'))
+  copyPolicy(ROOT, dir)
   writeTests(dir)
   const git = scratchGit(dir)
   git(['init', '-q', '-b', 'main'])
@@ -536,8 +537,8 @@ function cases(): Case[] {
     },
     {
       name: 'record: a policy whose obligation layers name one testTraceLayers does not',
-      doctor: (dir) => edit(dir, 'tools/policy.json', (text) => text.replace(/"traceObligationLayers": \[[^\]]*\]/, '"traceObligationLayers": ["functional", "system"]')),
-      expect: /^record: it cannot be derived: tools\/policy\.json has no list under `traceObligationLayers` of layers `testTraceLayers` declares/,
+      doctor: (dir) => editPolicy(dir, (policy) => (policy.traceObligationLayers = ['functional', 'system'])),
+      expect: /^record: it cannot be derived: tools\/policy\/vocabulary\.json has no list under `traceObligationLayers` of layers `testTraceLayers` declares/,
     },
     {
       name: 'reader: no package script runs the test runner, so no test is read',

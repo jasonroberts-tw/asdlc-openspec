@@ -3,7 +3,7 @@
 **The calculator's contract, fitness and E2E tests, which the build workflow's test-builder writes
 from the specs, the design and the Binding Surface alone, and which the app-builder never reads, runs
 or changes.** Each sits under the directory of the stage it runs at, `build` or `verify`, then of its
-layer, one of `independentLayers` in `tools/policy.json`, under the path `independentTestDir` gives;
+layer, one of `independentLayers` in `tools/policy/agent-workflows.json`, under the path `independentTestDir` gives;
 its name and `// trace:` metadata follow the convention whose one home is the header of
 `scripts/test-trace.mjs`. The mechanics are the header of `.claude/workflows/build-change-task.js`.
 

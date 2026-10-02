@@ -14,8 +14,8 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
   `.claude/worktrees/<change>`.
 - **The epic.** It is the one issue that
   `bd list --label spec-change --type epic --metadata-field change=<change> --json` returns (the
-  label is `specChangeLabel` in `tools/policy.json`). If none or several come back, stop and say
-  what was found.
+  label is `specChangeLabel` in `tools/policy/vocabulary.json`). If none or several come back, stop and
+  say what was found.
 
 ## 2. Take the next task
 
@@ -98,15 +98,15 @@ Run `bd close <id> --reason "<the subject of the commit that built it>"`. The su
   skips visibly where the environment is not the one it needs, and never passes on a weaker branch
   that asserts less.
 - **Out of scope**, such as a defect nearby or a gap somewhere else: file it with
-  `foundIssueCommand` in `tools/policy.json`, discovered from the epic, with the labels `CLAUDE.md`
+  `foundIssueCommand` in `tools/policy/vocabulary.json`, discovered from the epic, with the labels `CLAUDE.md`
   § The task store names; here the found-at label is build's. Give it no `spec-change` label, so
   it joins the general queue, and carry on. Never fold it into this change unannounced.
 - **In scope but missing from the plan:** add it as a new child of the epic, once the user agrees,
   and label the epic for plan (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
 - **A spec that is wrong**, meaning a scenario or an NFR that cannot hold as written or a
   requirement that is missing: stop and tell the user; it goes back to `change-propose`. Label the
-  epic for propose (`rerouteLabels` in `tools/policy.json`) and note on it what must change and
-  why. The code never outruns the spec.
+  epic for propose (`rerouteLabels` in `tools/policy/vocabulary.json`) and note on it what must change
+  and why. The code never outruns the spec.
 - **A re-design pass**, when the design cannot hold as written: with the user, write a new version
   of `design.md` and of each contract artifact it affects, under
   `.claude/skills/change-design/SKILL.md` § 3. Write it. Commit it alone, named as step 3 says,

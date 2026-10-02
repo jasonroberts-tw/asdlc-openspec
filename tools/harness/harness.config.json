@@ -2,7 +2,7 @@
   "describes": "What the harness assessment, `tools/harness/harness.ts` and `tools/harness/graph.py`, takes to be this repository's harness: where its wiring is declared (the package manifest, the hook job file, the CI and other workflows, the session settings, the prompts, the README tables and the generated-file redirect table), which paths and extensions hold code, how a live read and a declared exception are spelled, where the co-change map and its thresholds are, where the reports go, and what the graph half names the edges it adds. The two halves read every repository-specific fact from here, so for another harness built from the same kinds of parts (npm scripts, a job file in lefthook's schema, GitHub Actions workflows, Claude Code's settings) the code is the same and this file is what changes; a harness of other parts needs a reader of its own for each.",
   "whyThisFileExists": "The untracked script this tool replaced hard-coded four wiring sources, three path roots, a filename pattern for gates and the citation format, so it could not be pointed at another harness and nobody could see what it assumed without reading its code. Each constant here says what it decides, so a report's limits are read from one place.",
   "gatedBy": "npm run harness:selftest refuses a config with a preamble key, a constant or its `Means` sibling missing, or a constant of the wrong shape, and copies this file into every fixture repository it builds, so each case runs with these values. No gate holds a value here to the files it names: a path that is wrong makes the check that reads it report nothing, which the report's own counts show.",
-  "whatItDoesNOTDo": "It copies no value another file holds: the co-change map's thresholds and graphify's file types are named as keys of `tools/policy.json` (`cochangeSamplePolicy`, `observedJaccardPolicy`, `graphExtensionsPolicy`, `graphOutDirPolicy`), and the path roots as a constant of `scripts/check-jobs.mjs` (`pathRootsFrom`), each staying the one home. It is not read by any gate, and changing it changes no verdict of a push or a pull request.",
+  "whatItDoesNOTDo": "It copies no value another file holds: the co-change map's thresholds and graphify's file types are named as keys of `tools/policy/tool-settings.json` (`cochangeSamplePolicy`, `observedJaccardPolicy`, `graphExtensionsPolicy`, `graphOutDirPolicy`), and the path roots as a constant of `scripts/check-jobs.mjs` (`pathRootsFrom`), each staying the one home. It is not read by any gate, and changing it changes no verdict of a push or a pull request.",
   "provenance": "Written 2026-10-02 with asdlc-openspec-o6w1, which `docs/decisions.md` § D-26 records, from the measurements of that issue at 2660d32.",
 
   "reportDir": ".scratch/harness",
@@ -75,10 +75,10 @@
   "cochangeMap": "artifacts/coupling/cochange.json",
   "cochangeMapMeans": "The co-change map (`docs/decisions.md` § D-24): each file's changes, the pairs and their Jaccard index, the hubs and the clusters, through its baseline commit. Without it the hubs table has no change column and the observed check reads nothing.",
 
-  "cochangeSamplePolicy": { "file": "tools/policy.json", "key": "couplingMinSampleUnits" },
+  "cochangeSamplePolicy": { "file": "tools/policy/tool-settings.json", "key": "couplingMinSampleUnits" },
   "cochangeSamplePolicyMeans": "Where the map's sample is held: the hubs table writes a file's jobs fired per hundred pull requests only when the map counts at least that many, the rule `CLAUDE.md` § Reporting honesty asks of every rate. Named here, not copied, so the value has one home.",
 
-  "observedJaccardPolicy": { "file": "tools/policy.json", "key": "couplingClusterMinJaccardPermille" },
+  "observedJaccardPolicy": { "file": "tools/policy/tool-settings.json", "key": "couplingClusterMinJaccardPermille" },
   "observedJaccardPolicyMeans": "Where the Jaccard index is held at or above which two code files that change together, neither importing the other, are a lead: the index at which the map joins two files into one cluster, read as one concern. Named here, not copied.",
 
   "hubsTop": 10,
@@ -87,10 +87,10 @@
   "neverChangedMinJobs": 10,
   "neverChangedMinJobsMeans": "The fewest pre-push globs a file must be in for the report to list it when no counted pull request changed it since the map's baseline: a file many jobs re-run on that never changes costs nothing, which is the other side of `git-hooks.yml`'s rule to make a glob wider when in doubt. Measured 2026-10-02 at 2660d32: two files sit in 10 or more such globs.",
 
-  "graphExtensionsPolicy": { "file": "tools/policy.json", "key": "graphifySemanticExtensions" },
+  "graphExtensionsPolicy": { "file": "tools/policy/tool-settings.json", "key": "graphifySemanticExtensions" },
   "graphExtensionsPolicyMeans": "Where the document types graphify extracts are listed; with `codeExtensions` they are the types the graph half expects a node for, so a tracked harness file of another type, such as the data JSON graphify gives no node (`docs/decisions.md` § D-20), never reads as absent and never makes the graph stale. Named here, not copied.",
 
-  "graphOutDirPolicy": { "file": "tools/policy.json", "key": "graphifyOutDir" },
+  "graphOutDirPolicy": { "file": "tools/policy/tool-settings.json", "key": "graphifyOutDir" },
   "graphOutDirPolicyMeans": "Where the graph half finds the local code graph: `<that folder>/graph.json` under the primary checkout, which `scripts/code-graph.mjs` builds into from whichever checkout runs it (`docs/decisions.md` § D-20), so a worktree reads the one graph; under `HARNESS_ROOT` when that is set. Named here, not copied.",
 
   "cochangeRelation": "co_changes_with",

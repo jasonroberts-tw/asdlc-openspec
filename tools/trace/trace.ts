@@ -69,10 +69,11 @@
  *     the current one. A test on a scenario an active delta modifies is refused this way until it is
  *     regenerated against the delta.
  *   - `obligation`: a scenario with no happy-path test or no negative test at a layer that
- *     `traceObligationLayers` in `tools/policy.json` lists, neither skipped nor todo, that the
- *     baseline does not list. A `no-negative:<ID> "<reason>"` on one of its happy-path tests meets
- *     the negative obligation and is printed as advisory (D-13, item 10); the scenarios of an NFR
- *     requirement owe neither test (item 14); a scenario an active change removes owes nothing.
+ *     `traceObligationLayers` in `tools/policy/vocabulary.json` lists, neither skipped nor todo,
+ *     that the baseline does not list. A `no-negative:<ID> "<reason>"` on one of its happy-path
+ *     tests meets the negative obligation and is printed as advisory (D-13, item 10); the scenarios
+ *     of an NFR requirement owe neither test (item 14); a scenario an active change removes owes
+ *     nothing.
  *   - `baseline`: below.
  *   - `reader`: any metadata `scripts/test-trace.mjs` refuses, in its words; `calculator:test`
  *     refuses it too.
@@ -107,7 +108,7 @@
  * `TRACE_ROOT=<dir>` points the first three at a doctored copy, the top of a git checkout.
  *
  * NEEDS git and the whole history of HEAD (a shallow clone is refused, so CI checks out with
- * `fetch-depth: 0`), `origin/main` for `trace:check` and `trace:update`, the keys of `tools/policy.json`
+ * `fetch-depth: 0`), `origin/main` for `trace:check` and `trace:update`, the keys of `tools/policy/`
  * the reader and this file read, and, only while a change is active, the pinned OpenSpec CLI
  * (`npm ci`). Reads only committed files and git history; no network. Its cost is on its job in
  * `git-hooks.yml`.
@@ -121,7 +122,7 @@
  *   passes exactly when it would write none; `trace:update` run twice drops nothing more.
  * STALE WHEN: a living spec or an active delta changes; a test file the runner's patterns or
  *   `--dir` directories match, or a pattern or a `--dir` in `package.json`; a contract or a Binding
- *   Surface; a key of `tools/policy.json` it reads; a commit that names a task and changes `apps/`
+ *   Surface; a key of `tools/policy/` it reads; a commit that names a task and changes `apps/`
  *   joins HEAD's history; this file, `scripts/test-trace.mjs` or `scripts/lib/test-dirs.mjs`.
  */
 import { spawnSync } from 'node:child_process'
@@ -131,10 +132,11 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { findBin } from '../../scripts/lib/bin-path.mjs'
 import { dirGlob, scriptDirs } from '../../scripts/lib/test-dirs.mjs'
-import { POLICY_FILE, hashRef, readTests, readTracePolicy, specIndex } from '../../scripts/test-trace.mjs'
+import { VOCABULARY, hashRef, readTests, readTracePolicy, specIndex } from '../../scripts/test-trace.mjs'
 import { firstDifference, readText } from '../lib/committed.ts'
 import { SCRATCH_GIT_ENV, gitIn, gitOk, type Git } from '../lib/git-env.ts'
 import { ROOT as REPO_ROOT } from '../lib/paths.ts'
+import { readPolicy } from '../lib/policy.ts'
 
 export const DIR = 'artifacts/trace'
 export const RECORD = `${DIR}/record.json`
@@ -319,16 +321,16 @@ export function ratify(walker: typeof walk = walk): string | null {
 
 /** The obligation layers and the task pattern, from the policy the reader also reads. */
 function tracePolicyExtras(root: string): { layers: string[]; task: string } {
-  const policy = JSON.parse(readFileSync(join(root, POLICY_FILE), 'utf8'))
+  const policy = readPolicy(root)
   const layers = policy[OBLIGATION_KEY]
-  const known = policy[LAYERS_KEY] ?? {}
+  const known = (policy[LAYERS_KEY] ?? {}) as object
   if (!Array.isArray(layers) || layers.length === 0 || layers.some((layer) => typeof layer !== 'string' || !Object.hasOwn(known, layer))) {
     throw new Error(
-      `${POLICY_FILE} has no list under \`${OBLIGATION_KEY}\` of layers \`${LAYERS_KEY}\` declares: the layers whose tests count toward a` +
+      `${VOCABULARY} has no list under \`${OBLIGATION_KEY}\` of layers \`${LAYERS_KEY}\` declares: the layers whose tests count toward a` +
         ` scenario's happy-path and negative obligation (the header of tools/trace/trace.ts).`,
     )
   }
-  return { layers, task: policy[TASK_KEY] }
+  return { layers, task: policy[TASK_KEY] as string }
 }
 
 /**
