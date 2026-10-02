@@ -1193,7 +1193,7 @@ Where it loses:
 
 **Figures.**
 
-- 93 merged pull requests through `f862fe0`, and 18 direct pushes: `npm run coupling:check` prints the first, and the map's `excluded.directCommits` is the second. The same 93 merge commits are those `gh pr list --state merged --base main --json number,mergeCommit` gave on 2026-10-02, outside this repository and not re-derived here.
+- 93 merged pull requests through `f862fe0`, and 18 direct pushes: `npm run coupling:check` prints the first, and the map's `excluded.directCommits` is the second. GitHub's list of the pull requests merged to `main` agreed with the units one for one on 2026-10-02; the pull request that carries this entry gives that check, which reads the network and is not re-derived here.
 - Every figure behind a threshold: the `Means` of its key in `tools/policy.json`, each measured through `f862fe0`.
 - 0.47-0.50 s for `coupling:check` and 7.98-11.81 s for `coupling:selftest`: their jobs' comments in `git-hooks.yml`, which name the host.
 
