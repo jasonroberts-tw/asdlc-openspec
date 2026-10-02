@@ -44,14 +44,11 @@ the `docs/decisions.md` entry the reversal needs.
 
 With `<change>` the confirmed name:
 
-- **From a seeding issue:** `bd update <id> -t epic --add-label spec-change --spec-id openspec/changes/<change>
-  --set-metadata change=<change>`. It becomes the change's epic rather than being closed. Stop if another
-  actor holds it in progress.
+- **From a seeding issue:** `bd update <id> -t epic --add-label spec-change --spec-id openspec/changes/<change> --set-metadata change=<change>`.
+  It becomes the change's epic rather than being closed. Stop if another actor holds it in progress.
 - **Otherwise:** write the epic's description (the why, in a paragraph; `change-plan` adds its
   acceptance criteria) to `.scratch/<change>-epic.md`, then
-  `bd create "<change>: <what changes, in a line>" -t epic -l spec-change,<the repo: label open issues
-  here carry> --spec-id openspec/changes/<change> --metadata '{"change":"<change>"}' --body-file .scratch/<change>-epic.md
-  --silent`.
+  `bd create "<change>: <what changes, in a line>" -t epic -l spec-change,<the repo: label open issues here carry> --spec-id openspec/changes/<change> --metadata '{"change":"<change>"}' --body-file .scratch/<change>-epic.md --silent`.
 
 The `spec-change` label keeps the epic and every child out of the general queue. The spelling's one
 home is `specChangeLabel` in `tools/policy/vocabulary.json`.

@@ -117,6 +117,8 @@ const ROOT = process.env.PR_REVIEW_ROOT ?? REPO_ROOT
 const POLICY = 'tools/policy/pr-review.json'
 /** The record of every prompt's word budget, which the floor must also cover. */
 const BUDGETS = 'tools/policy/prompt-budgets.json'
+/** The loader this script reads its floor through, which the floor must cover too. */
+const LOADER = 'tools/lib/policy.ts'
 const WORKFLOW = '.github/workflows/pr-review.yml'
 const VERIFY = '.github/workflows/verify.yml'
 const AGENT = '.claude/agents/pr-reviewer.md'
@@ -223,6 +225,7 @@ export function policyProblems(policy) {
     ...[WORKFLOW, AGENT, SELF].map((path) => [path, 'part of the reviewer itself']),
     [POLICY, 'the record of what the reviewer decides by, this floor among it'],
     [BUDGETS, "the record of every prompt's word budget"],
+    [LOADER, 'the loader this floor is read through'],
   ]
   for (const [path, what] of covered) {
     if (!matchesAny(path, Object.keys(policy.prReviewHighRiskPaths))) {
@@ -1775,10 +1778,10 @@ function helperCases(policy) {
         [[], ['engines'], ['dependencies']],
         'changed keys',
       )),
-    h('classify: the reviewer\'s record and the budgets are on the floor whole, the other policy records are not', () => {
-      const records = [POLICY, BUDGETS, 'tools/policy/agent-workflows.json', 'tools/policy/vocabulary.json', 'tools/policy/tool-settings.json']
+    h('classify: the reviewer\'s record, the budgets and the loader are on the floor whole, the other policy records are not', () => {
+      const records = [POLICY, BUDGETS, LOADER, 'tools/policy/agent-workflows.json', 'tools/policy/vocabulary.json', 'tools/policy/tool-settings.json']
       const out = classify(records.map((path) => ({ status: 'M', path })), [], policy)
-      return assertEqual(out.files.map((f) => [f.path, Boolean(f.highRisk)]), records.map((path, i) => [path, i < 2]), 'floor')
+      return assertEqual(out.files.map((f) => [f.path, Boolean(f.highRisk)]), records.map((path, i) => [path, i < 3]), 'floor')
     }),
     h('a verdict counts only from the workflow bot, on the head, on the first line, latest first', () =>
       assertEqual(
@@ -1884,6 +1887,7 @@ function wiringCases() {
     { name: 'the floor stops covering the reviewer\'s own script', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[SELF]), expect: /does not cover scripts\/pr-review\.mjs/ },
     { name: 'the floor stops covering the record of the prReview keys', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[POLICY]), expect: /does not cover tools\/policy\/pr-review\.json, the record of what the reviewer decides by/ },
     { name: 'the floor stops covering the word budgets', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[BUDGETS]), expect: /does not cover tools\/policy\/prompt-budgets\.json, the record of every prompt's word budget/ },
+    { name: 'the floor stops covering the loader it is read through', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[LOADER]), expect: /does not cover tools\/lib\/policy\.ts, the loader this floor is read through/ },
     { name: 'a key the reviewer reads is defined in two records', doctor: (dir) => writeFileSync(join(dir, 'tools/policy/other.json'), JSON.stringify({ prReviewMergeMethod: 'merge' })), expect: /cannot be read: `prReviewMergeMethod` is defined in both tools\/policy\/other\.json and tools\/policy\/pr-review\.json/ },
     { name: 'a blocking severity the schema does not have', doctor: editPolicy((p) => { p.prReviewBlockingSeverities.push('nit') }), expect: /names `nit`, which the verdict schema does not have/ },
     { name: 'the approval label renamed in the policy only', doctor: editPolicy((p) => { p.prReviewLabels.approved = 'lgtm' }), expect: /filters on the label .* not on `prReviewLabels\.approved` \(`lgtm`\)/ },

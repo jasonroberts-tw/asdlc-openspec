@@ -21,12 +21,10 @@ failure it prevents.
 - beads: how work is tracked by agents + humans
 - application development workflow (OpenSpec)
 - skills & agents - how agents operate, how they do work (not a complete list)
-	- fan-out-work: analyzes backlog, creates lanes where predicted changes don't overlap, dispatches in
-   parallel
+	- fan-out-work: analyzes backlog, creates lanes where predicted changes don't overlap, dispatches in parallel
 	- open-pr: creates structured PR and waits for reviewer with guidance on how to reply
-	- pr-reviewer: runs in CI, measures three dimensions (correctness, maintainability, blast radius). has
-   threshold for auto-approval
-- policy.json: conventions, definitions, configuration
+	- pr-reviewer: runs in CI, measures three dimensions (correctness, maintainability, blast radius). has threshold for auto-approval
+- tools/policy/: conventions, definitions, configuration
 - optional dev container for increased workload isolation
 
 ## Principles

@@ -156,9 +156,9 @@ conventions are `docs/README.md` § Conventions.
 Hand-maintained source, which a person edits. Hand-authored decision records (JSON), which emitters
 read and nothing writes, each self-describing with `describes`, `whyThisFileExists`, `gatedBy`,
 `whatItDoesNOTDo` and `provenance` before its data, and for each constant a `<key>Means` sibling
-stating what the value decides and where it is changed: a reader needs to know what a record
-changes and what it leaves alone before the array. A table keyed by what it governs carries each
-row's reason in the row.
+stating what the value decides and where it is changed. A table keyed by what it governs carries
+each row's reason in the row. Either way, a reader needs to know what a record changes and what it
+leaves alone before the array.
 Generated output under `artifacts/`, which nothing edits by hand: it carries a banner naming its
 emitter, and a correction goes into the hand-maintained source, so the next run carries it. A
 constant a tool or a prompt reads lives in a policy file under a key, and is stated nowhere else.
