@@ -34,8 +34,7 @@ start-up time to every run of every script it starts.
 
 Open the file with the header its neighbours use. It says what the file emits, **the failure it
 exists to prevent**, the `npm run <name>` call with its flags, and what it needs from outside this
-repository. The failure is the paragraph readers here actually need. Node emitters carry the
-`KIND / INVARIANTS / RE-ENTRY / STALE WHEN` block.
+repository.
 
 ## 3. If it writes an artifact, make it deterministic
 
@@ -111,9 +110,12 @@ npm run <new-script>
 npm run gates
 ```
 
-`npm run gates` forces every job. Then confirm your job actually fired rather than silently
-matching nothing: check that its name appears in the run's output. A job that never fires is worse
-than no job, because you will now defend the green result.
+Confirm your job actually fired rather than silently matching nothing: check that its name appears
+in the run's output. A job that never fires is worse than no job, because you will now defend the
+green result.
+
+One at a time, delete each refusal or check the script makes and rerun its selftest: each deletion
+must turn a case red, or nothing holds it.
 
 Run each command as a separate Bash call, as `CLAUDE.md` § Bash command style asks, so a red
 result names the step that produced it.
