@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-23 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01).**
+**Status: every decision from D-01 to D-24 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24 added 2026-10-02).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-23` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-24` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -79,6 +79,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-21** | `open-pr` reviews each branch before its push, in an agent's own context, and the reviewer's brief carries the facts its job can compute | `.claude/skills/open-pr/SKILL.md` § 5 and the `branch-reviewer` agent; `brief --local` and the brief's three facts in `scripts/pr-review.mjs`, held by `pr-review:selftest`; `.claude/agents/pr-reviewer.md` § What you are given; the three prompts' budgets in `tools/policy.json` |
 | **D-22** | The tracker's git integration runs from the job file, and the install clears what lefthook left in .git/hooks | The tracker's five jobs in `git-hooks.yml`; `.devcontainer/entrypoint.sh` without `bd hooks install`; the install's cleanup and the runner's warnings in `scripts/git-hooks.mjs`, held by `hooks:selftest`; D-19's amendment |
 | **D-23** | An in-session guard refuses graphify's update, watch, hook install and claude install, from any checkout | `scripts/hooks/guard-git.mjs`, held by `worktree:selftest`; the guard's rows in `.claude/README.md`, `scripts/hooks/README.md` and `README.md`, and the code graph's row in `README.md` § The guardrails; D-20's amendment |
+| **D-24** | The co-change map of merged pull requests is committed, pinned to a trunk commit that only its `:update` moves | `tools/coupling/` as `npm run coupling` and `coupling:update`, held by `coupling:check` and `coupling:selftest` at pre-push and in CI; `artifacts/coupling/cochange.json`; the `coupling*` keys in `tools/policy.json`; `gitIn` and `SCRATCH_GIT_ENV` moved to `tools/lib/git-env.ts` |
 
 ## Risks
 
@@ -1150,6 +1151,51 @@ Where it loses:
 - 157 to 22 concept nodes and 898 to 156 links, in the guard's header: D-20's Figures, quoted, not re-derived here.
 - 12 refusals and 10 controls in the selftest's section `guard-git: graphify's eroding commands, from any checkout`: `node scripts/hooks/worktree-hooks.selftest.mjs`.
 - graphify reading its command from its first argument and a second word from its second, its help guard, and what `install` and `install --project` write: graphify 0.9.73's `__main__.py`, `cli.py` and `install.py`, read on 2026-10-01, outside this repository. Not re-derived here.
+
+### D-24 · The co-change map of merged pull requests is committed, pinned to a trunk commit that only its `:update` moves
+
+**Recorded 2026-10-02**, carried by `asdlc-openspec-3oln`. On 2026-10-02 the maintainer asked for a machine-readable map of the files that change together in this repository's pull requests, saved under `artifacts/`, for lane partitioning and for decomposition. They chose a committed map pinned to a recorded trunk commit over a local, gitignored one, and the emitter in one pull request with the fan-out wiring in a follow-up, `asdlc-openspec-gtjp`. Each choice was put with the case where its recommendation loses.
+
+**Builds on / amends:** builds on D-03, which puts the emitter's thresholds in `tools/policy.json`, and on D-07, whose rebase merge (`prReviewMergeMethod`) lets a merged pull request be read from git alone, and which leaves a pull request that changes this register to a person. Builds on D-20 without amending it: D-20 refused to commit a graph that every change rewrites, and no ordinary change rewrites this map. It amends nothing.
+
+**Decision.**
+
+1. **`tools/coupling/coupling.ts` writes the co-change map, `artifacts/coupling/cochange.json`, from git history alone.** It reads one unit per pull request merged to `main`: a run of rebased commits that share a merger's committer address and time, with the files the run changed, each named as it is at the baseline. The header of `tools/coupling/coupling.ts` holds the rules, and the eight `coupling*` keys of `tools/policy.json` hold the thresholds.
+2. **The map is committed, and records the one trunk commit it is read through, `throughCommit`.** `npm run coupling` re-derives it through that commit and never moves it; only `npm run coupling:update` moves it, to `origin/main`. Regenerating every derived artifact before a pull request, as `CLAUDE.md` § The gate ladder asks, leaves the map's bytes as they were.
+3. **`coupling:check` is a pre-push job and a CI step.** Its verdict is a pure function of committed files and of trunk history through a commit that is never rewritten. It refuses a baseline off `origin/main`'s first-parent chain, and prints, without failing, how many pull requests landed after it.
+4. **No prompt reads the map yet.** Wiring it into `.claude/agents/fan-out-work.md` § 2 is `asdlc-openspec-gtjp`, which also settles how a derived map may steer dispatch under `CLAUDE.md` § A program proposes; only a person promotes.
+
+**Why.** Fan-out decides by hand which ready issues can share a lane, and its overlap kinds see only the files each issue is predicted to touch: a file that habitually changes beside them is found when two lanes conflict at cherry-pick. A committed map that every pull request regenerated through `origin/main` would rewrite itself in each of them, and two open pull requests would conflict on it, the reason D-20 gives for not committing its graph. Pinned, it is generated output with a `:check` twin, and only a deliberate `coupling:update` rewrites it. Three alternatives lost:
+
+- **A local, gitignored map built at dispatch.** It would always be current. But nothing would hold it to its emitter, no diff would show how the coupling moves, and a reader who only reads files, a reviewer among them, would find none.
+- **Reading pull requests from GitHub's API.** It names each pull request, but a check that reads the network runs in no pre-push job and no CI step (`CLAUDE.md` § The gate ladder).
+- **Grouping commits by the issue ids their subjects end with.** A direct push and a pull request that carry the same issue would read as one, and a commit naming no issue would be lost.
+
+Where it loses:
+
+- **The map lags the trunk between updates.** A file added after the baseline has no edges, so two issues coupled only through it look independent until someone runs `coupling:update`.
+- **It reads rebase merges only.** The check refuses a merge commit and a `prReviewMergeMethod` other than `rebase`, but a squash merged by hand reads as a direct push, and a direct push made with a GitHub noreply address reads as a pull request.
+- **Two pull requests merged by one address in one second read as one.** D-07 merges one at a time, which makes that unlikely, not impossible.
+- **A rename that also rewrites more than half the file** starts its history again at the new name, and a sweep of `couplingMaxUnitFiles` files or fewer is counted, its unrelated files coupled.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound.
+- **`tools/coupling/coupling.ts` and `tools/coupling/selftest.ts`:** new, with their row in `tools/README.md`.
+- **`artifacts/coupling/cochange.json`:** new, written by `npm run coupling:update` through `f862fe0`.
+- **`tools/lib/git-env.ts`:** `gitIn` and `SCRATCH_GIT_ENV`, moved from `tools/trace/trace.ts`, which with `tools/trace/selftest.ts` now imports them; `gitIn`'s runner takes a standard input.
+- **`tools/policy.json`:** the eight `coupling*` keys, each with its `Means`, and `describes`, `gatedBy` and `provenance` naming them.
+- **`package.json`:** `coupling`, `coupling:check`, `coupling:selftest` and `coupling:update`; `scripts/check-jobs.mjs` declares the bare emitter and the `:update`.
+- **`git-hooks.yml` and `.github/workflows/verify.yml`:** the `coupling-check` and `coupling-selftest` jobs and their steps.
+- **`scripts/hooks/_shared.mjs`, `scripts/assert-not-hand-edited.mjs` and `scripts/hooks/check-emitted-drift.mjs`:** a row each for the map.
+- **`README.md`:** § How it is laid out, the `### coupling` sub-section of § The npm scripts, a row in § The guardrails and two in § What runs automatically.
+- **`count-index.md` § Rates and metrics:** a pair's co-change and a file's hub share.
+
+**Figures.**
+
+- 93 merged pull requests through `f862fe0`, and 18 direct pushes: `npm run coupling:check` prints the first, and the map's `excluded.directCommits` is the second. The same 93 merge commits are those `gh pr list --state merged --base main --json number,mergeCommit` gave on 2026-10-02, outside this repository and not re-derived here.
+- Every figure behind a threshold: the `Means` of its key in `tools/policy.json`, each measured through `f862fe0`.
+- 0.43-0.49 s for `coupling:check` and 7.05-7.18 s for `coupling:selftest`: their jobs' comments in `git-hooks.yml`, which name the host.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
