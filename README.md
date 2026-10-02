@@ -170,8 +170,9 @@ does not apply to your platform is absent from its list, not marked optional.
 ### macOS and Linux
 
 1. Install Git 2.54.0 or newer, the first that runs the config-based hooks this repository installs,
-   and Node 22.22.2 or newer (`package.json` `engines` is the floor; it runs the
-   TypeScript tools here directly, so nothing else is needed to run a gate). The floor is never
+   Node 22.22.2 or newer (`package.json` `engines` is the floor; it runs the TypeScript tools here
+   directly), and a Python 3, which the `harness-selftest` job runs through `scripts/python.mjs` and
+   fails without (`docs/decisions.md` § D-26). Check that `python3 --version` answers. The floor is never
    below the lowest version on its major line that every package in `package-lock.json` accepts,
    or a dependency refuses a Node this step calls enough. After a change to the lockfile, this
    prints that version beside the floor, from the clone; raise `engines` if the floor is lower (it
@@ -204,8 +205,10 @@ does not apply to your platform is absent from its list, not marked optional.
 
 ### Windows, native
 
-1. Install Git 2.54.0 or newer, and Node 22.22.2 or newer. The command in step 1 of macOS and
-   Linux re-derives the floor. It holds no `$`, backtick or double quote inside its quotes, the
+1. Install Git 2.54.0 or newer, Node 22.22.2 or newer, and a Python 3, from python.org or with
+   `winget install -e --id Python.Python.3.12`, which none here has run; check that `py -3 --version`
+   answers, the first spelling `scripts/python.mjs` tries on Windows. The command in step 1 of macOS
+   and Linux re-derives the floor. It holds no `$`, backtick or double quote inside its quotes, the
    characters PowerShell would expand, but it has not been run in PowerShell
    (`asdlc-openspec-xn4`).
 1. Install `bd`, the tracker's CLI, and check that `bd --version` answers from the shell you will
@@ -232,8 +235,8 @@ holds platform-native binaries. Use one clone per platform.
 1. Wait for the first build. `.devcontainer/entrypoint.sh` then runs the install, the git hooks and
    the tracker's hydration on every start, and warns rather than fails; read its output once.
 1. If it warned that Vale cannot load `.vale.ini`, run `vale sync` once in the container, then check
-   that `vale ls-config` loads. The image carries Vale; the styles land in the clone, so a rebuild
-   keeps them.
+   that `vale ls-config` loads. The image carries Vale and the Python 3 `harness-selftest` needs; the
+   styles land in the clone, so a rebuild keeps them.
 1. Run `npm run gates` and read a green suite before the first change.
 
 `.devcontainer/README.md` has the reasons and the mounts.

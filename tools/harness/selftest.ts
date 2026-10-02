@@ -137,6 +137,7 @@ const FILES: Record<string, string> = {
     '',
   ].join('\n'),
   'scripts/lib/helper.mjs': 'export const helper = 1\n',
+  'scripts/check-jobs.mjs': "const PATH_ROOTS = ['tools', 'scripts', 'apps']\nexport { PATH_ROOTS }\n",
   'scripts/check-b.mjs': [
     "import { spawnSync } from 'node:child_process'",
     "// import { ghost } from './lib/helper.mjs'",
@@ -297,6 +298,14 @@ try {
       expect: genLeads(/launches `gen`, by a name it takes from data,/),
     },
     {
+      name: 'a script launched through a configured helper',
+      doctor: (w, r) => {
+        w('git-hooks.yml', withoutGen(r))
+        w('scripts/check-b.mjs', r('scripts/check-b.mjs').replace("spawnSync('node', ['--run', 'gen'])", "const GATES = ['gen']\nfor (const g of GATES) npmRun(g)"))
+      },
+      expect: genLeads(/launches `gen`, by a name it takes from data,/),
+    },
+    {
       name: 'a file read in a loop over literals, outside the glob',
       doctor: (w, r) => w('git-hooks.yml', r('git-hooks.yml').replace("        - 'config/b.json'\n", '')),
       expect: { 'glob|pre-push/check-a|read|config/b.json': /joined onto a checkout root and read in `scripts\/check-a.mjs`/ },
@@ -420,8 +429,9 @@ try {
     ['a constant without its Means', (w, r) => w(CONFIG, JSON.stringify({ ...JSON.parse(r(CONFIG)), hubsTopMeans: undefined })), /config: .*`hubsTopMeans` is missing/],
     ['a constant of the wrong shape', (w, r) => w(CONFIG, JSON.stringify({ ...JSON.parse(r(CONFIG)), hubsTop: 0 })), /config: .*`hubsTop` is not a whole number of at least 1/],
     ['a preamble key missing', (w, r) => w(CONFIG, JSON.stringify({ ...JSON.parse(r(CONFIG)), provenance: undefined })), /config: .*`provenance` is missing/],
-    ['a constant missing', (w, r) => w(CONFIG, JSON.stringify({ ...JSON.parse(r(CONFIG)), pathRoots: undefined, pathRootsMeans: 'x' })), /config: .*`pathRoots` is missing/],
+    ['a constant missing', (w, r) => w(CONFIG, JSON.stringify({ ...JSON.parse(r(CONFIG)), codeExtensions: undefined })), /config: .*`codeExtensions` is missing/],
     ['a policy key the config names missing', (w) => w('tools/policy.json', JSON.stringify({ couplingMinSampleUnits: 5 })), /input: `couplingClusterMinJaccardPermille` in tools\/policy.json/],
+    ['a constant the config names unreadable', (w) => w('scripts/check-jobs.mjs', 'export {}\n'), /input: `PATH_ROOTS` in scripts\/check-jobs.mjs, which .* names, is not a list of string literals/],
   ]
   let noMeans = ''
   for (const [name, doctor, reason] of refusals) {

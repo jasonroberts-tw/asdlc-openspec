@@ -196,8 +196,8 @@ pre-push:
     # checkout that trails its remote, and the guard reads the approval label and the gc sweep its
     # `worktreeGcMinAgeHours` from `tools/policy.json`, so the policy is in the glob too. Its Vale case
     # copies this checkout's own `.vale.ini` and `.gitignore` into a scratch checkout and reads the
-    # StylesPath the first names, so both are in it as well. Over a
-    # hundred and twenty git spawns, two bash runs, four renders and, on macOS, three `lsof` calls:
+    # StylesPath the first names, so both are in it as well. Over a hundred and twenty git spawns,
+    # two bash runs, four renders and, on macOS, three `lsof` calls:
     # 9.41 s wall through `node --run` (`/usr/bin/time -p`, one run, while other worktrees ran their
     # gates) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-29, with the guard's stray-directory
     # cases; 9.09 s without them, and 7.59-7.82 s before the gc sweep's liveness and age cases, so
@@ -593,9 +593,9 @@ pre-push:
     # reasons beside an undoctored control, the live config copied into each; then the graph half's
     # own selftest through `scripts/python.mjs`, which fails where no Python 3 is found. The glob is
     # both halves and their config, the helpers the core imports, the launcher, and the manifest and
-    # lockfile that pin its js-yaml. 5.09-5.18 s wall through `node --run` (`/usr/bin/time -p`, two
+    # lockfile that pin its js-yaml. 5.48-5.60 s wall through `node --run` (`/usr/bin/time -p`, two
     # runs) on a macOS 26.7.1 laptop with Node 26.8.1 and Python 3.12.8, 2026-10-02, most of it the
-    # git repositories of the core's 29 fixtures and the graph half's one.
+    # git repositories of the core's 31 fixtures and the graph half's one.
     - name: harness-selftest
       glob:
         - 'tools/harness/**'
