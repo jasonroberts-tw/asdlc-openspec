@@ -5,7 +5,7 @@
  * file to what it re-derives. A later change has `.claude/agents/fan-out-work.md` read it to keep
  * coupled issues out of parallel lanes (asdlc-openspec-gtjp); a person reads its clusters and hubs
  * for where a decomposition would cut. Why it is committed and pinned, where the code graph of
- * `docs/decisions.md` § D-20 is not, is `docs/decisions.md` § D-23.
+ * `docs/decisions.md` § D-20 is not, is `docs/decisions.md` § D-24.
  *
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet; this is what it would let through if it were
  * wrong or absent. A map that splits one pull request in two, drops one, or credits a deleted file's
