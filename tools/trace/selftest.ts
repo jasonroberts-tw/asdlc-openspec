@@ -22,8 +22,9 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { hashRef, readTracePolicy } from '../../scripts/test-trace.mjs'
+import { SCRATCH_GIT_ENV, gitIn } from '../lib/git-env.ts'
 import { ROOT } from '../lib/paths.ts'
-import { BASELINE, README, RECORD, SCRATCH_GIT_ENV, baselineText, check, derive, emit, gitIn, ratify, serialise, update, walk } from './trace.ts'
+import { BASELINE, README, RECORD, baselineText, check, derive, emit, ratify, serialise, update, walk } from './trace.ts'
 
 const TRACE = fileURLToPath(new URL('./trace.ts', import.meta.url))
 const SPEC = 'openspec/specs/greeting/spec.md'

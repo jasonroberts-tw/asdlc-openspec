@@ -1,6 +1,7 @@
 /**
  * git-env.ts — a copy of this process's environment without any `GIT_*` key, for running git
- * against a tree other than this checkout.
+ * against a tree other than this checkout; `gitIn`, which runs git in one tree with it; and
+ * `SCRATCH_GIT_ENV`, the environment of a scratch repository a tool builds for itself.
  *
  * THE FAILURE IT EXISTS TO PREVENT. Git exports `GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` to
  * every hook, and `GIT_DIR` outranks both `cwd` and `-C <dir>`. A tool that builds a scratch
@@ -14,9 +15,18 @@
  * `primaryCheckout` found a sibling checkout beside the primary one, and nothing here reads one.
  * `tools/lib/estate-root.ts`, its copy from before a rename, went with it.
  *
- * INVOCATION. Imported, never run: `import { gitEnv } from '../lib/git-env.ts'`.
- * NEEDS. Nothing; it reads `process.env` and writes nothing.
+ * WHAT A SECOND EMITTER BROUGHT IN. `gitIn` and `SCRATCH_GIT_ENV` came from `tools/trace/trace.ts`
+ * when `tools/coupling/coupling.ts` needed them too (asdlc-openspec-3oln, 2026-10-02): imported from
+ * trace, they would have loaded trace's own imports on every coupling run, and a retirement of
+ * trace would have taken coupling's git runner with it.
+ *
+ * INVOCATION. Imported, never run:
+ * `import { gitEnv, gitIn, SCRATCH_GIT_ENV, type Git } from '../lib/git-env.ts'`.
+ * NEEDS. Nothing at load: it reads `process.env` and writes nothing. A function `gitIn` returns
+ * needs git on the PATH when it is called.
  */
+import { spawnSync } from 'node:child_process'
+import { devNull } from 'node:os'
 
 /** `process.env` without any `GIT_*` key, so git run with `cwd` or `-C` means that directory. */
 export function gitEnv(): NodeJS.ProcessEnv {
@@ -26,3 +36,19 @@ export function gitEnv(): NodeJS.ProcessEnv {
   }
   return env
 }
+
+/** A git command run in one tree: its arguments, and what it printed on success. */
+export type Git = (args: string[]) => string
+
+/** git in `root`, with no inherited `GIT_*` key, so a hook's `GIT_DIR` cannot point it elsewhere. */
+export function gitIn(root: string, env: NodeJS.ProcessEnv = gitEnv()): Git {
+  return (args) => {
+    const run = spawnSync('git', ['-c', 'core.quotepath=off', ...args], { cwd: root, env, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
+    if (run.error) throw new Error(`git could not start: ${run.error.message}`)
+    if (run.status !== 0) throw new Error(`\`git ${args.join(' ')}\` failed: ${(run.stderr || run.stdout).trim()}`)
+    return run.stdout
+  }
+}
+
+/** The environment of a scratch repository: no `GIT_*` key, and no configuration of this machine's. */
+export const SCRATCH_GIT_ENV: NodeJS.ProcessEnv = { ...gitEnv(), GIT_CONFIG_GLOBAL: devNull, GIT_CONFIG_SYSTEM: devNull }
