@@ -8,9 +8,9 @@
  *
  * The failure mode is a property of emitted output, not of any one generator: the hook outlived
  * the generator that was the first example of it, and every emitter that has been retired since took
- * its trigger rows with it in the same change. The last was the learning loop's, so `TRIGGERS` is
- * empty: the one emitter of this repository's own, the trace record's, is left out on purpose, for
- * the reason the table gives.
+ * its trigger rows with it in the same change. The last was the learning loop's. Of this repository's
+ * own emitters, the co-change map's has a row and the trace record's is left out on purpose, each
+ * for the reason the table gives.
  *
  * Only fires for the inputs listed in `TRIGGERS`. A write to a README or a story file cannot change
  * emitted output, and paying two seconds to prove that on every edit is how a hook gets turned off.
@@ -29,11 +29,16 @@ import { npmRun, readHookInput, editTarget, toRepoRel } from './_shared.mjs'
  * loop. Delete this line when done.
  */
 const TRIGGERS = [
-  // Empty. Its one row was the learning loop's two hand-authored inputs, re-checked by
+  // The kit's one row was the learning loop's two hand-authored inputs, re-checked by
   // `outcomes:check`, and left with the loop (`docs/decisions.md` § D-06). The trace record's inputs
   // have none on purpose: its `trace:check` also refuses a scenario still owed a test, so it would
   // fail after nearly every edit to a spec or a test while a change is written, which is noise, and
   // a record its commits stale is stale until they exist; `trace:check` holds it at push and in CI.
+  //
+  // The co-change map's emitter and its inputs in this checkout: an edit to either changes the map
+  // without moving its baseline, which `npm run coupling` then writes. Under a second for the check
+  // itself (its job in git-hooks.yml has the measurement), and it fails only when the edit did.
+  { re: /^(?:tools\/coupling\/coupling\.ts|tools\/lib\/git-env\.ts|tools\/policy\.json)$/, gates: ['coupling:check'] },
 ]
 
 /** What to do about each gate's failure, appended to the report. */

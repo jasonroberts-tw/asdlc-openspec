@@ -146,6 +146,15 @@ jobs:
       # the pinned CLI.
       - name: the trace gate, negative-tested
         run: npm run trace:selftest
+      # Under a second (git-hooks.yml's `coupling-check` job has the measurement): the co-change map
+      # re-derived through the trunk commit it records, which the whole-history checkout above holds,
+      # and that commit held to origin/main.
+      - name: the co-change map is current through its baseline, and the baseline is on the trunk
+        run: npm run coupling:check
+      # About seven seconds (git-hooks.yml's `coupling-selftest` job has the measurement): fixture
+      # repositories under the temporary directory, and the command line run against them.
+      - name: the co-change gate, negative-tested
+        run: npm run coupling:selftest
       # Under a second (git-hooks.yml's `tests-inventory` job has the measurement): the tests at HEAD
       # against those at its merge base with origin/main, read from git. On a push to main HEAD is
       # its own merge base, and it passes; on a pull request HEAD is the merge commit.

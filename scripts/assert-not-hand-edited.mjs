@@ -58,13 +58,18 @@ if (suspect.length === 0) process.exit(0)
  * The kit's one row left with the learning loop. Delete this line when done.
  */
 const VERIFIERS = [
-  // Empty. Its one row was the learning loop's `outcomes:check`, over `artifacts/outcomes/`, and
+  // The kit's one row was the learning loop's `outcomes:check`, over `artifacts/outcomes/`, and
   // left with the loop (`docs/decisions.md` § D-06). `artifacts/trace/` has none on purpose: its
   // `trace:check` also refuses a scenario still owed a test, which a commit midway through a
   // change's build may hold, so a row here would refuse that commit. It is reported unverified
   // here, and `trace:check` holds it at push and in CI. `artifacts/thresholds/` has none either:
   // `thresholds:check` runs the suite and StrykerJS, seconds to tens of seconds a commit should not
   // wait on, and holds the baseline at push and in CI.
+  //
+  // The co-change map has one: `coupling:check` re-derives it through the trunk commit it records,
+  // in under a second (its job in git-hooks.yml has the measurement), and refuses nothing a commit
+  // midway through other work could hold, so a hand edit is caught at the commit that stages it.
+  { script: 'coupling:check', owns: (rel) => rel === 'artifacts/coupling/cochange.json' },
 ]
 
 /**
