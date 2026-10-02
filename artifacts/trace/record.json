@@ -3033,6 +3033,14 @@
       "tests": []
     },
     {
+      "id": "asdlc-openspec-umg3",
+      "paths": [
+        "apps/calculator/test/independent/README.md",
+        "apps/calculator/test/independent/build/README.md"
+      ],
+      "tests": []
+    },
+    {
       "id": "asdlc-openspec-zgh.2",
       "paths": [],
       "tests": [

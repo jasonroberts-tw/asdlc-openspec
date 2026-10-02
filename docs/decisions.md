@@ -1367,7 +1367,7 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 
 - 104 data keys at `962358c`, the keys of `git show 962358c:tools/policy.json` less its five header fields and each `Means`; and 10, 25, 10 and 31 constants and 28 rows in `vocabulary.json`, `agent-workflows.json`, `pr-review.json`, `tool-settings.json` and `prompt-budgets.json`, each record's keys less its header and each `Means`, and the rows of `promptWordBudgets`.
 - 172 values and reasons unchanged and 9 differences, each one item 2 or 3 names: the one-off comparison of the records with `git show 962358c:tools/policy.json` that the pull request's body gives.
-- `CLAUDE.md` at 3,234 words, 3,229 after its consolidation and 3,243 after the table's sentence; `.claude/workflows/build-change-task.js` at 4,001 words and 3,995 after its Setup command became `node tools/lib/policy.ts` and its keys: `node scripts/check-prompts.mjs --counts` at `962358c`, at the consolidation's commit and at this entry's.
+- `CLAUDE.md` at 3,234 words, 3,229 after its consolidation and 3,243 after the table's sentence; `.claude/workflows/build-change-task.js` at 4,001 words and 3,997 after its Setup and inputs commands read through the loader, run with `--no-warnings`: `node scripts/check-prompts.mjs --counts` at `962358c`, at the consolidation's commit and at this entry's.
 - 0.09 s wall for `check:policy` and 0.12 s for its selftest, through `node --run` (`/usr/bin/time -p`, one run each) on a macOS 26.7.1 laptop with Node 26.8.1, 2026-10-02.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
