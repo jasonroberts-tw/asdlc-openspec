@@ -15,13 +15,13 @@
  * `primaryCheckout` found a sibling checkout beside the primary one, and nothing here reads one.
  * `tools/lib/estate-root.ts`, its copy from before a rename, went with it.
  *
- * WHAT A SECOND EMITTER BROUGHT IN. `gitIn` and `SCRATCH_GIT_ENV` came from `tools/trace/trace.ts`
- * when `tools/coupling/coupling.ts` needed them too (asdlc-openspec-3oln, 2026-10-02): imported from
- * trace, they would have loaded trace's own imports on every coupling run, and a retirement of
- * trace would have taken coupling's git runner with it.
+ * WHAT A SECOND EMITTER BROUGHT IN. `gitIn`, `gitOk` and `SCRATCH_GIT_ENV` came from
+ * `tools/trace/trace.ts` when `tools/coupling/coupling.ts` needed them too (asdlc-openspec-3oln,
+ * 2026-10-02): imported from trace, they would have loaded trace's own imports on every coupling
+ * run, and a retirement of trace would have taken coupling's git runner with it.
  *
  * INVOCATION. Imported, never run:
- * `import { gitEnv, gitIn, SCRATCH_GIT_ENV, type Git } from '../lib/git-env.ts'`.
+ * `import { gitEnv, gitIn, gitOk, SCRATCH_GIT_ENV, type Git } from '../lib/git-env.ts'`.
  * NEEDS. Nothing at load: it reads `process.env` and writes nothing. A function `gitIn` returns
  * needs git on the PATH when it is called.
  */
@@ -47,6 +47,16 @@ export function gitIn(root: string, env: NodeJS.ProcessEnv = gitEnv()): Git {
     if (run.error) throw new Error(`git could not start: ${run.error.message}`)
     if (run.status !== 0) throw new Error(`\`git ${args.join(' ')}\` failed: ${(run.stderr || run.stdout).trim()}`)
     return run.stdout
+  }
+}
+
+/** Whether a git command succeeds, for a question asked by its exit status alone. */
+export function gitOk(git: Git, args: string[]): boolean {
+  try {
+    git(args)
+    return true
+  } catch {
+    return false
   }
 }
 

@@ -132,7 +132,8 @@ import { fileURLToPath } from 'node:url'
 import { findBin } from '../../scripts/lib/bin-path.mjs'
 import { dirGlob, scriptDirs } from '../../scripts/lib/test-dirs.mjs'
 import { POLICY_FILE, hashRef, readTests, readTracePolicy, specIndex } from '../../scripts/test-trace.mjs'
-import { SCRATCH_GIT_ENV, gitIn, type Git } from '../lib/git-env.ts'
+import { firstDifference, readText } from '../lib/committed.ts'
+import { SCRATCH_GIT_ENV, gitIn, gitOk, type Git } from '../lib/git-env.ts'
 import { ROOT as REPO_ROOT } from '../lib/paths.ts'
 
 export const DIR = 'artifacts/trace'
@@ -209,16 +210,8 @@ const BASELINE_BANNER = [
 
 /* --------------------------------------------------------------------------------- git ---------- */
 
-// `gitIn` and `SCRATCH_GIT_ENV` live in tools/lib/git-env.ts, which the co-change emitter reads too.
-
-function gitOk(git: Git, args: string[]): boolean {
-  try {
-    git(args)
-    return true
-  } catch {
-    return false
-  }
-}
+// `gitIn`, `gitOk` and `SCRATCH_GIT_ENV` live in tools/lib/git-env.ts, which the co-change emitter
+// reads too.
 
 /**
  * The task IDs a commit subject names: those matching `pattern` inside the parentheses that end
@@ -778,17 +771,7 @@ function baseBaseline(git: Git, base: string): Set<string> | null {
 
 /* --------------------------------------------------------------------------------- commands ----- */
 
-const readText = (path: string) => (existsSync(path) ? readFileSync(path, 'utf8').replace(/\r\n/g, '\n') : null)
-
-/** The first line where `a` and `b` differ, for a stale file's refusal. */
-function firstDifference(a: string, b: string): string {
-  const left = a.split('\n')
-  const right = b.split('\n')
-  for (let n = 0; n < Math.max(left.length, right.length); n++) {
-    if (left[n] !== right[n]) return `line ${n + 1}: committed ${JSON.stringify(left[n] ?? null)}, re-derived ${JSON.stringify(right[n] ?? null)}`
-  }
-  return 'no line differs'
-}
+// `readText` and `firstDifference` live in tools/lib/committed.ts, which the co-change emitter reads too.
 
 export type Checked = { failures: string[]; advisories: string[]; notes: string[]; summary: string }
 

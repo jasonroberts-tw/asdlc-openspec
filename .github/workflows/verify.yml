@@ -36,7 +36,9 @@ jobs:
       # for the tasks its record links, and measures the branch from its merge base with
       # origin/main, which a shallow clone has neither of (the header of tools/trace/trace.ts). The
       # test-inventory gate compares HEAD with that same merge base, and fails rather than pass in a
-      # shallow clone (the header of scripts/check-test-inventory.mjs).
+      # shallow clone (the header of scripts/check-test-inventory.mjs). `coupling:check` reads the
+      # trunk's history through the commit its map records, and holds that commit to origin/main
+      # (the header of tools/coupling/coupling.ts).
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0

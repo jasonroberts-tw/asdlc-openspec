@@ -79,7 +79,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-21** | `open-pr` reviews each branch before its push, in an agent's own context, and the reviewer's brief carries the facts its job can compute | `.claude/skills/open-pr/SKILL.md` § 5 and the `branch-reviewer` agent; `brief --local` and the brief's three facts in `scripts/pr-review.mjs`, held by `pr-review:selftest`; `.claude/agents/pr-reviewer.md` § What you are given; the three prompts' budgets in `tools/policy.json` |
 | **D-22** | The tracker's git integration runs from the job file, and the install clears what lefthook left in .git/hooks | The tracker's five jobs in `git-hooks.yml`; `.devcontainer/entrypoint.sh` without `bd hooks install`; the install's cleanup and the runner's warnings in `scripts/git-hooks.mjs`, held by `hooks:selftest`; D-19's amendment |
 | **D-23** | An in-session guard refuses graphify's update, watch, hook install and claude install, from any checkout | `scripts/hooks/guard-git.mjs`, held by `worktree:selftest`; the guard's rows in `.claude/README.md`, `scripts/hooks/README.md` and `README.md`, and the code graph's row in `README.md` § The guardrails; D-20's amendment |
-| **D-24** | The co-change map of merged pull requests is committed, pinned to a trunk commit that only its `:update` moves | `tools/coupling/` as `npm run coupling` and `coupling:update`, held by `coupling:check` and `coupling:selftest` at pre-push and in CI; `artifacts/coupling/cochange.json`; the `coupling*` keys in `tools/policy.json`; `gitIn` and `SCRATCH_GIT_ENV` moved to `tools/lib/git-env.ts` |
+| **D-24** | The co-change map of merged pull requests is committed, pinned to a trunk commit that only its `:update` moves | `tools/coupling/` as `npm run coupling` and `coupling:update`, held by `coupling:check` and `coupling:selftest` at pre-push and in CI; `artifacts/coupling/cochange.json`; the `coupling*` keys in `tools/policy.json`; trace's git and committed-file helpers moved to `tools/lib/` |
 
 ## Risks
 
@@ -1183,11 +1183,11 @@ Where it loses:
 - **This register:** this entry, its table row, the status line and the bound.
 - **`tools/coupling/coupling.ts` and `tools/coupling/selftest.ts`:** new, with their row in `tools/README.md`.
 - **`artifacts/coupling/cochange.json`:** new, written by `npm run coupling:update` through `f862fe0`.
-- **`tools/lib/git-env.ts`:** `gitIn` and `SCRATCH_GIT_ENV`, moved from `tools/trace/trace.ts`, which with `tools/trace/selftest.ts` now imports them; `gitIn`'s runner takes a standard input.
+- **`tools/lib/git-env.ts` and `tools/lib/committed.ts`:** `gitIn`, `gitOk` and `SCRATCH_GIT_ENV` in the first, and `readText` and `firstDifference` in the second, new, all moved from `tools/trace/trace.ts`, which with `tools/trace/selftest.ts` now imports them; `gitIn`'s runner takes a standard input.
 - **`tools/policy.json`:** the eight `coupling*` keys, each with its `Means`, and `describes`, `gatedBy` and `provenance` naming them.
 - **`package.json`:** `coupling`, `coupling:check`, `coupling:selftest` and `coupling:update`; `scripts/check-jobs.mjs` declares the bare emitter and the `:update`.
 - **`git-hooks.yml` and `.github/workflows/verify.yml`:** the `coupling-check` and `coupling-selftest` jobs and their steps.
-- **`scripts/hooks/_shared.mjs`, `scripts/assert-not-hand-edited.mjs` and `scripts/hooks/check-emitted-drift.mjs`:** a row each for the map.
+- **`scripts/hooks/_shared.mjs`:** the map's redirect row, which the in-session guard and the pre-commit hook read. `scripts/assert-not-hand-edited.mjs` and `scripts/hooks/check-emitted-drift.mjs` say why they have no row for it: neither has a selftest to hold one to.
 - **`README.md`:** § How it is laid out, the `### coupling` sub-section of § The npm scripts, a row in § The guardrails and two in § What runs automatically.
 - **`count-index.md` § Rates and metrics:** a pair's co-change and a file's hub share.
 

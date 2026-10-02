@@ -111,7 +111,8 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpath
 import { tmpdir } from 'node:os'
 import { dirname, join, matchesGlob, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { SCRATCH_GIT_ENV, gitIn, type Git } from '../lib/git-env.ts'
+import { firstDifference, readText } from '../lib/committed.ts'
+import { SCRATCH_GIT_ENV, gitIn, gitOk, type Git } from '../lib/git-env.ts'
 import { ROOT as REPO_ROOT } from '../lib/paths.ts'
 
 export const DIR = 'artifacts/coupling'
@@ -552,17 +553,6 @@ export function ratify(walker: typeof walk = walk): string | null {
 
 /* --------------------------------------------------------------------------------- inputs ------- */
 
-const readText = (path: string) => (existsSync(path) ? readFileSync(path, 'utf8').replace(/\r\n/g, '\n') : null)
-
-function gitOk(git: Git, args: string[]): boolean {
-  try {
-    git(args)
-    return true
-  } catch {
-    return false
-  }
-}
-
 /** Refuses a root that is not the top of its own git checkout, and a shallow clone. */
 function wholeHistory(git: Git, root: string) {
   let top: string
@@ -627,16 +617,6 @@ function summary(map: CoChange): string {
 }
 
 /* --------------------------------------------------------------------------------- commands ----- */
-
-/** The first line where `a` and `b` differ, for a stale file's refusal. */
-function firstDifference(a: string, b: string): string {
-  const left = a.split('\n')
-  const right = b.split('\n')
-  for (let n = 0; n < Math.max(left.length, right.length); n++) {
-    if (left[n] !== right[n]) return `line ${n + 1}: committed ${JSON.stringify(left[n] ?? null)}, re-derived ${JSON.stringify(right[n] ?? null)}`
-  }
-  return 'no line differs'
-}
 
 export type Checked = { failures: string[]; notes: string[]; summary: string }
 
