@@ -526,10 +526,13 @@ pre-push:
     # (docs/decisions.md § D-20): the script run against a fixture repository with stub graphify,
     # graphify-mcp and claude first on PATH, asserting the stamp, the withheld API key, the policy's
     # model, folder and server name, each partial-extraction text, the registration left alone or
-    # replaced, the lock, a hook's exported GIT_DIR, and each refusal by its reason, with one
-    # undoctored control. Reads the script, `tools/lib/git-env.ts` and the live policy. 11.98-12.06 s
-    # wall (`/usr/bin/time -p`, through `node --run` and directly) on a macOS laptop (Apple M3 Max)
-    # with Node 26.8.1, 2026-10-01, most of it a git repository and a stub server per case.
+    # replaced, the harness's combined graph registered only while it records the graph beside it
+    # (docs/decisions.md § D-28), the lock, a hook's exported GIT_DIR, and each refusal by its
+    # reason, with one undoctored control. Reads the script, `tools/lib/git-env.ts` and the live
+    # policy. 24.96-25.15 s wall for its 42 checks (`/usr/bin/time -p`, two runs through
+    # `node --run`) on a macOS 26.7.1 laptop with Node 26.8.1, 2026-10-02, most of it a git
+    # repository and a stub server per case; 11.98-12.06 s on 2026-10-01, with fewer cases and
+    # none of the combined graph's.
     - name: code-graph-selftest
       glob:
         - 'scripts/code-graph.mjs'
@@ -629,7 +632,7 @@ pre-push:
     # reasons beside an undoctored control, the live config copied into each; then the graph half's
     # own selftest through `scripts/python.mjs`, which fails where no Python 3 is found. The glob is
     # both halves and their config, the helpers the core imports, the launcher, and the manifest and
-    # lockfile that pin its js-yaml. 5.48-5.60 s wall through `node --run` (`/usr/bin/time -p`, two
+    # lockfile that pin its js-yaml. 5.67-6.33 s wall through `node --run` (`/usr/bin/time -p`, two
     # runs) on a macOS 26.7.1 laptop with Node 26.8.1 and Python 3.12.8, 2026-10-02, most of it the
     # git repositories of the core's 31 fixtures and the graph half's one.
     - name: harness-selftest

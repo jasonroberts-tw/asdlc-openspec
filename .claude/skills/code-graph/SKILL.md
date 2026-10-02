@@ -9,7 +9,10 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 The graph is graphify's map of the primary checkout at the commit it was last built from, not of
 your branch (`docs/decisions.md` § D-20). It lives in that checkout's gitignored folder that
-`graphifyOutDir` in `tools/policy/tool-settings.json` names.
+`graphifyOutDir` in `tools/policy/tool-settings.json` names. Where the server serves the harness
+assessment's combined graph (`docs/decisions.md` § D-28), an edge whose relation is
+`cochangeRelation` in `tools/harness/harness.config.json` counts pull requests that changed both
+files, not a dependency, and one whose context is `wiringContext` there is what the harness declares.
 
 1. Use only the tools of the MCP server registered under `graphifyMcpServerName` in
    `tools/policy/tool-settings.json`: `query_graph`, `get_node`, `get_neighbors`, `shortest_path`,

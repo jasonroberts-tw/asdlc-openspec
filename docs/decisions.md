@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-27 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26 and D-27 added 2026-10-02).**
+**Status: every decision from D-01 to D-28 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-27` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-28` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -83,6 +83,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-25** | The emitter-drift hook is retired, its list of triggers empty | `scripts/hooks/check-emitted-drift.mjs` and its `PostToolUse` registration in `.claude/settings.json` deleted; its rows in `README.md`, `.claude/README.md` and `scripts/hooks/README.md` removed; `CNT-HOOKS` re-derived; D-06's and D-24's amendments |
 | **D-26** | The harness assessment is split by what each half reads, reports and enforces nothing, and takes its repository's specifics from one record | `tools/harness/` as `npm run harness` and `harness:graph`, held by `harness:selftest` at pre-push and in CI, with a Python 3 beside the step; `tools/harness/harness.config.json`; five job globs widened and `worktree:selftest` named in the CI file's absent block, from its first report |
 | **D-27** | The policy is split under `tools/policy/` by who may change each key and who reads it, read through one loader and held by a gate of its own | `tools/policy/`, five records and a README, and `tools/policy.json` deleted; `tools/lib/policy.ts`; `check:policy` and its selftest at pre-push and in CI; `check:prompts` reading the budgets by path; `CLAUDE.md` § Three kinds of file, and never a fourth, consolidated first; D-03's, D-07's, D-23's and D-26's amendments |
+| **D-28** | The code-graph server serves the harness assessment's combined graph while it was built from the graph beside it | `scripts/code-graph.mjs`'s choice of the file it registers, held by `code-graph:selftest`; `tools/harness/graph.py` writing the combined graph beside the graph with the graph's blob id, held by `harness:selftest`; `graphifyCombinedGraphFile` in `tools/policy/tool-settings.json`; the `code-graph` skill, consolidated first; D-20's and D-26's amendments |
 
 ## Risks
 
@@ -1051,6 +1052,8 @@ Where it loses:
 
 > **Amended 2026-10-01 by D-23.** Item 2 and the loss "Only the script and the skill refuse graphify's eroding commands" no longer hold for a session's command line: `scripts/hooks/guard-git.mjs` refuses `graphify update`, `watch`, `hook install` and `claude install` in every session, from any checkout. A person's own terminal, graphify behind a launcher or a shell word such as `nohup`, graphify's library called through `python -c`, as a user-level graphify skill runs its `--update`, and `graphify install --project`, which writes all that `claude install` does, still pass it.
 
+> **Amended 2026-10-02 by D-28.** Item 5's server is registered on the harness assessment's combined graph, the file `graphifyCombinedGraphFile` names beside `graph.json`, while that file records the git blob id of the `graph.json` beside it, and on `graph.json` otherwise. Item 6's skill tells a session what the combined graph's added edges are.
+
 ### D-21 · `open-pr` reviews each branch before its push, in an agent's own context, and the reviewer's brief carries the facts its job can compute
 
 **Recorded 2026-10-01**, carried by `asdlc-openspec-ivn` and `asdlc-openspec-744`. On 2026-10-01 the maintainer adopted both from a meta-analysis of the pull-request reviewer's verdicts: the local review mandated by `open-pr` itself, done by a custom agent for its context, and the facts put in the brief or the prompt gate tightened. The session chose the brief, for the reasons below.
@@ -1305,6 +1308,8 @@ Where it loses:
 
 > **Amended 2026-10-02 by D-27.** The four keys item 4 names are in `tools/policy/tool-settings.json`, and the references in `tools/harness/harness.config.json` name that record. The alternative *Its constants in `tools/policy.json`* lost for two reasons, and the first no longer holds, since the policy now holds the settings of single tools too. The second keeps the record beside the tool: its constants are what changes when the assessment is pointed at another harness.
 
+> **Amended 2026-10-02 by D-28.** Item 2's combined graph records the git blob id of the graph it combines, and a run from the checkout that holds that graph, with no `--graph`, writes it beside the graph, in the file `graphifyCombinedGraphFile` names; any other run writes it beside the graph half's report, as before, under that name. The loss "A session's code-graph queries never see the co-change edges" now holds only between a build of the graph and the next run of the harness and of `npm run code-graph:mcp`.
+
 ### D-27 · The policy is split under `tools/policy/` by who may change each key and who reads it, read through one loader and held by a gate of its own
 
 **Recorded 2026-10-02**, carried by `asdlc-openspec-umg3`. On 2026-10-02 the maintainer asked whether the name "policy" fits `tools/policy.json`'s reason for being, and then which logical splits its contents support. Shown the seams with the case where each loses, they approved a plan for five records and asked for it to be built. Asked, they named the first two records `vocabulary.json` and `agent-workflows.json`, kept the single-tool settings in one record rather than one beside each tool, and made the word budgets a table in this change.
@@ -1369,6 +1374,46 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 - 172 values and reasons unchanged and 9 differences, each one item 2 or 3 names: the one-off comparison of the records with `git show 962358c:tools/policy.json` that the pull request's body gives.
 - `CLAUDE.md` at 3,234 words, 3,229 after its consolidation and 3,245 after the table's sentence; `.claude/workflows/build-change-task.js` at 4,001 words and 3,997 after its Setup and inputs commands read through the loader, run with `--no-warnings`: `node scripts/check-prompts.mjs --counts` at `962358c`, at the consolidation's commit and at this entry's.
 - 0.09 s wall for `check:policy` and 0.12 s for its selftest, through `node --run` (`/usr/bin/time -p`, one run each) on a macOS 26.7.1 laptop with Node 26.8.1, 2026-10-02.
+
+### D-28 · The code-graph server serves the harness assessment's combined graph while it was built from the graph beside it
+
+**Recorded 2026-10-02**, carried by `asdlc-openspec-fot7`. On 2026-10-02 the maintainer, given D-26's follow-ups, chose "code-graph serving the combined file when one exists": the graph half writing the combined graph into the graph's folder, and `scripts/code-graph.mjs` registering the server on it there. Serving it only while it was built from the graph beside it is this entry's session's choice, stated to the maintainer when the work began and written into the issue with the case where it loses. Writing it beside the graph only from the checkout that holds the graph is the maintainer's choice, made before the push once the session's review found a worktree's run serving that branch's wiring; the issue's criterion 1 records it.
+
+**Builds on / amends:** amends D-20, whose script registered the server on `graph.json` alone, and D-26, which wrote the combined graph beside its report and named among its losses that a session's code-graph queries never see the co-change edges. Builds on D-27, whose split puts the new key in `tools/policy/tool-settings.json` and the skill's budget in `tools/policy/prompt-budgets.json`; on D-12, under which the `code-graph` skill was consolidated before its edit; and on D-07, which leaves a change to this register or a word budget to a person.
+
+**Decision.**
+
+1. **`tools/harness/graph.py`, run from the checkout that holds the graph with no `--graph`, writes the combined graph beside it**, in the file `graphifyCombinedGraphFile` in `tools/policy/tool-settings.json` names, and records in it the git blob id of that `graph.json`, under the field `graphifyCombinedGraphBlobField` names. Run from a linked worktree, whose wiring and map are its branch's, or with `--graph`, it writes the file beside its report, not served, and says so. Its report stays under `.scratch/harness/<date>/`.
+2. **`scripts/code-graph.mjs` registers the MCP server on that file while the blob id it records is the `graph.json` beside it**, and on `graph.json` otherwise, printing which and why, after a build and on `npm run code-graph:mcp` alike. A build that registers nothing, with `--no-mcp` or because it failed, says that the server may still be on the combined graph of the build before.
+3. **The `code-graph` skill tells a session what the added edges are**: a co-change edge counts pull requests that changed both files, not a dependency, and a wiring edge is what the harness declares, each named by the key of `tools/harness/harness.config.json` that holds its relation or context. It was consolidated first, and its budget raised by what that did not free.
+
+**Why.** The combined graph is what combining the co-change map with the code graph was for, and D-26 left it to a person running graphify with `--graph`. The blob id keeps a rebuild that registers from being hidden: a build rewrites `graph.json`, and a combined graph of the build before would answer with files the new build dropped and without those it added, and nothing would say so. Three alternatives lost:
+
+- **Serving the combined file whenever it exists.** Simplest, and what the maintainer's words described. It loses on the first build after a harness run, as above.
+- **`code-graph` running the harness after each build.** Always current. But a build would then need a Python 3, the day's core report and the map, and could fail for reasons that have nothing to do with graphify.
+- **A second registered server for the combined graph.** Both graphs always served. But every session would load two servers' tools, and the skill would have to say which to ask, in words its budget does not hold.
+
+Where it loses:
+
+- **After every build that registers, the server is on the plain graph** until `npm run harness`, `npm run harness:graph` and `npm run code-graph:mcp` run again: three commands a person must remember, which `code-graph` prints each time. A build with `--no-mcp`, or one that fails, leaves the server where it was, possibly on the combined graph of the build before, and only warns.
+- **A worktree cannot refresh the served graph.** Its run writes beside its report, so the served combined graph moves only when the harness runs from the checkout that holds the graph, after a pull.
+- **The combined graph's wiring and co-change edges are as of the core report's date and the map's baseline**, which the blob id does not hold; only the graph's own build is checked.
+- **A co-change edge carries graphify's `EXTRACTED` confidence**, which the skill's rule for guesses does not reach; the skill's sentence is the one guard against reading it as a dependency.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound; the amendments under D-20 and D-26.
+- **`scripts/code-graph.mjs`:** `servedGraph` and `blobId`, the registration through them, a registration's argument compared whole, the warning after a build that registers nothing, the header, and ten selftest cases and a control check, with its row in `scripts/README.md`.
+- **`tools/harness/graph.py`:** the combined graph beside the graph, with the graph's blob id; the wiring edges' context and the blob's field read from the config and the policy; its header, banner and selftest. **`tools/harness/harness.config.json`:** `combinedGraphPolicy`, `combinedGraphBlobPolicy` and `wiringContext`; `reportDirMeans` and `cochangeRelationMeans` corrected; `gatedBy`, `whatItDoesNOTDo` and `provenance` naming them.
+- **`tools/policy/tool-settings.json`:** `graphifyCombinedGraphFile` and `graphifyCombinedGraphBlobField`, each with its `Means`; `describes`, `whyThisFileExists`, `gatedBy` and `provenance` naming it; and the record's row in `tools/policy/README.md`. **`tools/policy/prompt-budgets.json`:** the `code-graph` skill's row from 283 to 297.
+- **`.claude/skills/code-graph/SKILL.md`:** consolidated in two commits, then the sentence on the added edges.
+- **`git-hooks.yml`:** the comments of `code-graph-selftest` and `harness-selftest`, re-measured.
+- **`README.md`:** the `code-graph`, `code-graph:mcp`, `code-graph:selftest` and `harness:graph` rows; **`tools/README.md`:** the `harness/` row.
+
+**Figures.**
+
+- 283 words to 266 by the first consolidation and 255 by the second, and 297 with the sentence: `node scripts/check-prompts.mjs --counts` at each commit. The two consolidations freed 28 words, and the sentence adds 42.
+- 42 checks in `code-graph:selftest` and 24.96-25.15 s for its job; 82 and 48 checks in `harness:selftest`, 49 under graphify's own interpreter, and 5.67-6.33 s for its job: each run, and the jobs' comments in `git-hooks.yml`, which name the host.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
