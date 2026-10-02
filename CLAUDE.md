@@ -159,8 +159,7 @@ stating what the value decides and where it is changed: a reader needs to know w
 changes and what it leaves alone before the array.
 Generated output under `artifacts/`, which nothing edits by hand: it carries a banner naming its
 emitter, and a correction goes into the hand-maintained source, so the next run carries it. A
-constant a tool or a prompt reads lives in a policy file under a key, with its reason beside it, and
-is stated nowhere else.
+constant a tool or a prompt reads lives in a policy file under a key, and is stated nowhere else.
 
 ## The script suffix contract
 
