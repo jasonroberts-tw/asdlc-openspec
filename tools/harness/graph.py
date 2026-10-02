@@ -2,9 +2,15 @@
 """
 Harness assessment, the graph half. It reads the core's report (`tools/harness/harness.ts`), the
 local code graph graphify built (`docs/decisions.md` § D-20) and the co-change map
-(`docs/decisions.md` § D-24), and writes, beside the core's report, a report of its own and one
-combined graph graphify can serve: the graph, the wiring the harness declares and the co-change
-edges, in graphify's own id space. Why it is a half of its own is `docs/decisions.md` § D-26.
+(`docs/decisions.md` § D-24), and writes, beside the core's report, a report of its own; and, in
+the file `graphifyCombinedGraphFile` in `tools/policy/tool-settings.json` names, one combined
+graph: the graph, the wiring the harness declares and the co-change edges, in graphify's own id
+space, recording the git blob id of the graph it was built from under the field
+`graphifyCombinedGraphBlobField` names. Run from the checkout that holds the graph, with no
+`--graph`, it writes that file beside the graph, where `scripts/code-graph.mjs` registers the MCP
+server on it while that id is the graph beside it (`docs/decisions.md` § D-28); run from a linked
+worktree, whose wiring and map are its branch's, or with `--graph`, it writes it beside its report,
+not served. Why it is a half of its own is `docs/decisions.md` § D-26.
 
 THE FAILURE IT EXISTS TO PREVENT. Measured on 2026-10-02 against the maintainer's graph built at
 f862fe0, before this tool: the untracked script it replaces wrote its overlay with graphify's
@@ -48,8 +54,10 @@ NEEDS Python 3, standard library only; git; the core's report; the graph in the 
 `scripts/code-graph.mjs` builds it from whichever checkout runs it, so a worktree reads the same
 graph. No network, and no language model: it reads a graph a person built.
 
-KIND: assessment; writes local files under the core's report folder, never a committed artifact.
-INVARIANTS: reads the graph and never writes it; every list sorted; the date is the run's argument.
+KIND: assessment; writes its report under the core's report folder and the combined graph beside
+  the graph or the report, never a committed artifact.
+INVARIANTS: reads the graph and never writes it, refusing a combined graph's path that is the graph;
+  every list sorted; the date is the run's argument.
 RE-ENTRY: a second run with the same date and inputs writes the same bytes.
 STALE WHEN: the graph is rebuilt, the core's report is rewritten, or the map's baseline moves.
 """
@@ -70,7 +78,7 @@ PREAMBLE = ("describes", "whyThisFileExists", "gatedBy", "whatItDoesNOTDo", "pro
 KEYS = ("reportDir", "cochangeMap", "graphOutDirPolicy", "cochangeRelation", "cochangeContext",
         "observedJaccardPolicy", "rulesFile", "pathRootsFrom", "codeExtensions", "hookJobs",
         "graphExtensionsPolicy", "promptPaths", "ciWorkflow", "otherWorkflows",
-        "packageManifest")
+        "combinedGraphPolicy", "combinedGraphBlobPolicy", "packageManifest", "wiringContext")
 OVERLAY = "harness-overlay"
 
 
@@ -187,8 +195,10 @@ def anchors_for(nodes: dict, paths) -> tuple:
     return anchor, how
 
 
-def combine(graph: dict, report: dict, cc: dict, cfg: dict, date: str) -> dict:
-    """The graph with the core's wiring and the map's co-change edges added, in graphify's ids."""
+def combine(graph: dict, report: dict, cc: dict, cfg: dict, date: str, graph_blob: str, blob_field: str) -> dict:
+    """The graph with the core's wiring and the map's co-change edges added, in graphify's ids,
+    recording under `blob_field` the blob id of the graph it was built from, which
+    `scripts/code-graph.mjs` holds the `graph.json` beside it to before it serves this file."""
     nodes = {n["id"]: dict(n) for n in graph["nodes"]}
     community = 1 + max((n["community"] for n in nodes.values() if isinstance(n.get("community"), int)), default=-1)
     wired_files = {w[side][5:] for w in report["wiring"] for side in ("from", "to") if w[side].startswith("file:")}
@@ -229,7 +239,7 @@ def combine(graph: dict, report: dict, cc: dict, cfg: dict, date: str) -> dict:
     links = [dict(link) for link in graph["links"]]
     for wire in report["wiring"]:
         link = {"source": endpoint(wire["from"]), "target": endpoint(wire["to"]), "relation": wire["relation"],
-                "context": "wiring", "confidence": "EXTRACTED", "confidence_score": 1, "weight": 1,
+                "context": cfg["wiringContext"], "confidence": "EXTRACTED", "confidence_score": 1, "weight": 1,
                 "source_file": wire["declaredIn"], "_origin": OVERLAY}
         if wire.get("detail"):
             link["detail"] = wire["detail"]
@@ -249,7 +259,7 @@ def combine(graph: dict, report: dict, cc: dict, cfg: dict, date: str) -> dict:
                            "confidence": "EXTRACTED", "confidence_score": 1, "source_file": cfg["cochangeMap"],
                            "_origin": "cochange"})
     meta = dict(graph.get("graph") or {})
-    meta.update({"harness_overlay": date, "cochange_through": cc.get("throughCommit")})
+    meta.update({"harness_overlay": date, "cochange_through": cc.get("throughCommit"), blob_field: graph_blob})
     out = {k: v for k, v in graph.items() if k not in ("nodes", "links", "hyperedges", "graph", "multigraph")}
     out.update({"multigraph": True, "graph": meta, "nodes": [nodes[k] for k in sorted(nodes)],
                 "links": links, "hyperedges": hyperedges})
@@ -402,7 +412,7 @@ LIMITS = {
 
 BANNER = [
     "Written by `npm run harness:graph` (tools/harness/graph.py): a local assessment, never committed. Each item has a stable key and a level: finding, lead or note.",
-    "The combined graph beside it, graph-with-wiring.json, is the local graph with the harness's wiring and the co-change edges added; graphify serves it with `--graph`.",
+    "The combined graph, read.combined, is the local graph with the harness's wiring and the co-change edges added. Where read.served is true it is written beside that graph, and `npm run code-graph:mcp` serves it while it records the graph beside it (docs/decisions.md § D-28); otherwise it is beside this report and not served.",
 ]
 
 
@@ -427,6 +437,7 @@ def markdown(report: dict) -> str:
     out += [f"Written by `npm run harness:graph`. Script blob `{r['script'][:12]}`, graph blob `{r['graph'][:12]}` built at `{(r['graphBuiltAt'] or 'unknown')[:12]}`, core report of {report['date']}.", ""]
     s = report["summary"]
     out += [f"{s['findings']} findings, {s['leads']} leads, {s['notes']} notes. Combined graph: {s['nodes']} nodes, {s['links']} links, of which {s['cochangeLinks']} co-change and {s['wiringLinks']} wiring. Loader: {report['loader']['status']} ({report['loader']['detail']}).", ""]
+    out += [f"The combined graph is `{r['combined']}`; " + ("`npm run code-graph:mcp` serves it while it records the graph beside it." if r["served"] else "it is beside the report and not served: run from the checkout that holds the graph, with no `--graph`, to serve it."), ""]
     c = report["comparison"]
     out += ["## Compared with the last report", ""]
     if c["previous"] is None:
@@ -465,8 +476,13 @@ def run(root: Path, date: str, graph_path=None, out=None) -> tuple:
     core_path = base / date / "harness.json"
     if not core_path.exists():
         raise Refusal(f"input: no core report at {core_path}; `npm run harness` writes it for the same date first.")
+    # The combined graph is served only from beside the default graph, written by a run from the
+    # checkout that holds it: a run from a linked worktree reads its own branch's wiring and map, and
+    # beside the primary checkout's graph it would serve that branch to every session.
+    groot = graph_root(root, bool(os.environ.get("HARNESS_ROOT")))
+    serves = not graph_path and groot.resolve() == root.resolve()
     if not graph_path:
-        graph_path = graph_root(root, bool(os.environ.get("HARNESS_ROOT"))) / policy_value(root, cfg["graphOutDirPolicy"]) / "graph.json"
+        graph_path = groot / policy_value(root, cfg["graphOutDirPolicy"]) / "graph.json"
     graph_path = Path(graph_path)
     if not graph_path.exists():
         return None, f"no graph at {graph_path}, so nothing to read; `npm run code-graph` builds one (`docs/decisions.md` § D-20)."
@@ -475,13 +491,18 @@ def run(root: Path, date: str, graph_path=None, out=None) -> tuple:
     report_core = json.loads(core_path.read_text(encoding="utf-8"))
     cc_path = root / cfg["cochangeMap"]
     cc = json.loads(cc_path.read_text(encoding="utf-8")) if cc_path.exists() else {"files": [], "edges": [], "clusters": None}
-    combined = combine(graph, report_core, cc, cfg, date)
+    combined = combine(graph, report_core, cc, cfg, date, blob_id(graph_bytes), policy_value(root, cfg["combinedGraphBlobPolicy"]))
     problems = verify_overlay(combined, cc, cfg)
     if problems:
         raise Refusal("overlay: refusing to write the combined graph: " + "; ".join(problems) + ".")
     folder = base / date
     folder.mkdir(parents=True, exist_ok=True)
-    combined_path = folder / "graph-with-wiring.json"
+    # Beside the graph it combines, where `scripts/code-graph.mjs` serves it while it records that
+    # graph; beside the report when this run may not serve it.
+    name = policy_value(root, cfg["combinedGraphPolicy"])
+    combined_path = (graph_path.parent if serves else folder) / name
+    if combined_path.resolve() == graph_path.resolve():
+        raise Refusal(f"input: {graph_path} is where the combined graph would be written; name the graph itself with --graph.")
     combined_path.write_text(json.dumps(combined, ensure_ascii=False, sort_keys=True) + "\n", encoding="utf-8")
     findings = []
     check_freshness(root, graph, cc, cfg, findings)
@@ -490,7 +511,7 @@ def run(root: Path, date: str, graph_path=None, out=None) -> tuple:
         check_hidden(graph, cc, int(policy_value(root, cfg["observedJaccardPolicy"])), findings)
     status, detail = loader_check(combined_path)
     if status == "lost":
-        findings.append(finding("loader", "finding", "graph-with-wiring.json", "edges",
+        findings.append(finding("loader", "finding", combined_path.name, "edges",
                                 f"graphify's loader kept {detail} fewer edges than were written."))
     findings = sorted({f["key"]: f for f in findings}.values(), key=lambda f: f["key"])
     previous = latest_before(base, date)
@@ -504,7 +525,7 @@ def run(root: Path, date: str, graph_path=None, out=None) -> tuple:
         "date": date,
         "read": {"script": script_blob, "config": blob_id((root / CONFIG).read_bytes()), "graph": blob_id(graph_bytes),
                  "graphBuiltAt": graph.get("built_at_commit"), "core": blob_id(core_path.read_bytes()),
-                 "cochangeThrough": cc.get("throughCommit")},
+                 "cochangeThrough": cc.get("throughCommit"), "combined": str(combined_path), "served": serves},
         "limits": LIMITS,
         "summary": {"findings": sum(f["level"] == "finding" for f in findings), "leads": sum(f["level"] == "lead" for f in findings),
                     "notes": sum(f["level"] == "note" for f in findings), "nodes": len(combined["nodes"]), "links": len(links),
@@ -541,12 +562,19 @@ def selftest() -> int:
     try:
         root = tmp / "repo"
         (root / "tools/harness").mkdir(parents=True)
-        shutil.copyfile(live / CONFIG, root / CONFIG)
+        fixture_cfg = json.loads((live / CONFIG).read_text(encoding="utf-8"))
+        # Not the live value, so a context the code spells itself fails the check that reads this one.
+        fixture_cfg["wiringContext"] = "declared"
+        fixture_cfg_text = json.dumps(fixture_cfg)
+        (root / CONFIG).write_text(fixture_cfg_text, encoding="utf-8")
         cfg = read_config(root)
-        # Each value the config names, written to the file and key it names.
+        # Each value the config names, written to the file and key it names. The blob field is not
+        # the live one, so a field the code spells itself fails the checks that read this one.
+        blob_field = "fixture_graph_blob"
         records = defaultdict(dict)
         for name, value in (("observedJaccardPolicy", 400), ("cochangeSamplePolicy", 5), ("graphOutDirPolicy", "graph-out"),
-                            ("graphExtensionsPolicy", [".md", ".yml", ".yaml"])):
+                            ("graphExtensionsPolicy", [".md", ".yml", ".yaml"]), ("combinedGraphPolicy", "combined.json"),
+                            ("combinedGraphBlobPolicy", blob_field)):
             records[cfg[name]["file"]][cfg[name]["key"]] = value
         for path, record in records.items():
             (root / path).parent.mkdir(parents=True, exist_ok=True)
@@ -611,7 +639,16 @@ def selftest() -> int:
 
         # The control.
         report, folder = run(root, "2026-01-02", out=out)
-        combined = json.loads((folder / "graph-with-wiring.json").read_text(encoding="utf-8"))
+        combined_path = root / "graph-out" / "combined.json"
+        check("control: the combined graph is written beside the graph, under the policy's name, and not beside the report",
+              combined_path.exists() and Path(report["read"]["combined"]).resolve() == combined_path.resolve() and not (folder / "combined.json").exists(),
+              report["read"]["combined"])
+        combined = json.loads(combined_path.read_text(encoding="utf-8"))
+        check("control: the combined graph records the blob id of the graph it was built from",
+              combined["graph"].get(blob_field) == blob_id((root / "graph-out/graph.json").read_bytes()), combined["graph"])
+        hashed = (git(root, "hash-object", "--no-filters", str(root / "graph-out/graph.json"), scratch=True) or "").strip()
+        check("control: that id is git's, as `scripts/code-graph.mjs` computes it", hashed != "" and combined["graph"].get(blob_field) == hashed, hashed)
+        check("control: the report says the combined graph is served", report["read"]["served"] is True, report["read"])
         nodes = {n["id"]: n for n in combined["nodes"]}
         co = [l for l in combined["links"] if l.get("relation") == cfg["cochangeRelation"]]
         check("control: the combined graph is a multigraph", combined["multigraph"] is True, combined["multigraph"])
@@ -625,6 +662,8 @@ def selftest() -> int:
         new = [n for n in combined["nodes"] if n.get("source_file") == "notes/new.md"]
         check("control: a file the graph lacks gets one overlay node", len(new) == 1 and new[0]["_origin"] == OVERLAY, new)
         check("control: co-change edges carry the configured context", all(l.get("context") == cfg["cochangeContext"] for l in co), co)
+        wired = [l for l in combined["links"] if l.get("_origin") == OVERLAY]
+        check("control: wiring edges carry the configured context", wired != [] and all(l.get("context") == cfg["wiringContext"] for l in wired), wired)
         check("control: each cluster is a hyperedge", any(h["relation"] == "co_change_cluster" and set(h["nodes"]) == {"scripts_a", "scripts_b"} for h in combined["hyperedges"]), combined["hyperedges"])
         check("control: the wiring's script and job get overlay nodes", any(n["label"] == "check" for n in nodes.values()) and any(n["label"] == "job pre-push/check" for n in nodes.values()), list(nodes))
         keys = {f["key"] for f in report["findings"]}
@@ -674,10 +713,20 @@ def selftest() -> int:
         (tmp / "unknown.json").write_text(json.dumps(unknown), encoding="utf-8")
         (tmp / "out-unknown" / "2026-01-02").mkdir(parents=True)
         (tmp / "out-unknown" / "2026-01-02" / "harness.json").write_text(json.dumps(core), encoding="utf-8")
-        other, _ = run(root, "2026-01-02", graph_path=tmp / "unknown.json", out=tmp / "out-unknown")
+        served_bytes = combined_path.read_bytes()
+        other, other_folder = run(root, "2026-01-02", graph_path=tmp / "unknown.json", out=tmp / "out-unknown")
         okeys = {f["key"] for f in other["findings"]}
         check("an unreadable graph commit calls no file gone, and says so",
               "freshness|graph|unknown commit" in okeys and not any(k.startswith("freshness|gone|") for k in okeys), okeys)
+        check("a graph named with --graph gets its combined graph beside the report, not served",
+              other["read"]["served"] is False and (other_folder / "combined.json").exists() and not (tmp / "combined.json").exists(), other["read"])
+        check("and the served combined graph is untouched", combined_path.read_bytes() == served_bytes, "rewritten")
+        own = other_folder / "combined.json"
+        try:
+            run(root, "2026-01-02", graph_path=own, out=tmp / "out-unknown")
+            check("a graph that is where the combined graph would go is refused", False, "accepted")
+        except Refusal as error:
+            check("a graph that is where the combined graph would go is refused, for that reason", "is where the combined graph would be written" in str(error), str(error))
 
         # From a linked worktree, the graph is the primary checkout's, as code-graph.mjs builds it.
         linked = tmp / "linked"
@@ -685,6 +734,13 @@ def selftest() -> int:
         found = graph_root(linked, False)
         check("a linked worktree finds the graph under the primary checkout", found.resolve() == root.resolve(), str(found))
         check("a doctored root keeps its own graph", graph_root(linked, True) == linked, "moved")
+        # A worktree's wiring and map are its branch's: its combined graph must not reach the server.
+        (out / "2026-01-05").mkdir()
+        (out / "2026-01-05/harness.json").write_text(json.dumps(core), encoding="utf-8")
+        wt_report, wt_folder = run(linked, "2026-01-05", out=out)
+        check("from a linked worktree, the combined graph goes beside the report, not served",
+              wt_report["read"]["served"] is False and (wt_folder / "combined.json").exists(), wt_report["read"])
+        check("and the primary checkout's served combined graph is untouched", combined_path.read_bytes() == served_bytes, "rewritten by a worktree")
 
         # The inputs.
         reply = run(root, "2026-01-02", graph_path=tmp / "none.json", out=out)
@@ -702,7 +758,7 @@ def selftest() -> int:
             check("a config without a Means is refused", False, "accepted")
         except Refusal as error:
             check("a config without a Means is refused, for that reason", "`cochangeRelationMeans` is missing" in str(error), str(error))
-        shutil.copyfile(live / CONFIG, root / CONFIG)
+        (root / CONFIG).write_text(fixture_cfg_text, encoding="utf-8")
 
         # The comparison.
         (out / "2026-01-04").mkdir()
@@ -744,6 +800,10 @@ def main(argv=None) -> int:
         return 0
     s = report["summary"]
     print(f"harness:graph: {s['findings']} findings, {s['leads']} leads, {s['notes']} notes; combined graph of {s['nodes']} nodes and {s['links']} links; loader {report['loader']['status']}; wrote {folder}.")
+    if report["read"]["served"]:
+        print(f"harness:graph: wrote {report['read']['combined']}; `npm run code-graph:mcp` registers the server on it.")
+    else:
+        print(f"harness:graph: wrote {report['read']['combined']} beside the report, not served: run from the checkout that holds the graph, with no --graph, to serve it.")
     return 0
 
 

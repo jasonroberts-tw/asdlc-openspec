@@ -7,6 +7,15 @@
  * call per chunk with the model `graphifyClaudeCliModel` names, on the person's own Claude plan. It is
  * an operator command, not an emitter or a gate: what it writes is never committed, and no job runs it.
  *
+ * WHAT THE SERVER SERVES (`docs/decisions.md` § D-28). The harness assessment's combined graph, the
+ * file `graphifyCombinedGraphFile` names beside `graph.json`, which `npm run harness:graph` writes
+ * with the git blob id of the `graph.json` it was built from, is registered while that id is the
+ * `graph.json` beside it; otherwise `graph.json` is, and the run says why. A build rewrites
+ * `graph.json`, so after one that registers the server is on `graph.json` until `npm run harness`,
+ * `npm run harness:graph` and `npm run code-graph:mcp` run again: a combined graph of the build
+ * before would hide the new one. A build with `--no-mcp`, or one that fails, registers nothing and
+ * leaves the server where it was, which may be that combined graph, and says so.
+ *
  * THE FAILURES IT EXISTS TO PREVENT, each measured on 2026-10-01 against graphify 0.9.73
  * (asdlc-openspec-rsc).
  *
@@ -66,8 +75,12 @@
  * `--selftest` runs the script, through `CODE_GRAPH_ROOT`, against a fixture git repository under the
  * temporary directory, with stub graphify, graphify-mcp and claude first on a PATH from which the real
  * ones are removed. Each case changes one thing and asserts the exit code and the reason: each
- * partial-extraction text, a failing extract, a matching and a stale registration, an empty lock, one
- * whose holder has exited and a live one, a missing or wrong-version graphify, an MCP server without its tools, saved answers,
+ * partial-extraction text, a failing extract, a matching, a stale and a prefix-matching registration,
+ * the graph's blob id against git's, a combined graph that is current, of another build, of no
+ * recorded build, unreadable, with no graph.json beside it and made stale by a build, a build with
+ * `--no-mcp` and a failing one that each warn the server may still be on a combined graph, an empty
+ * lock, one whose holder has exited and a live one, a missing or wrong-version graphify, an MCP server
+ * without its tools, saved answers,
  * graphify's own git hook, `--code-only --no-mcp` with no claude, two bad flag sets, and a run under
  * a hook's exported `GIT_DIR`. That last case is the selftest's own incident: on 2026-10-01, run by
  * the pre-push hook, it committed its fixture onto the branch being pushed, because git exports
@@ -94,6 +107,7 @@
  * Written for macOS and Linux; not run on Windows.
  */
 import { spawn, spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import {
   accessSync,
   constants,
@@ -118,7 +132,7 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const POLICY_ROOT = resolve(HERE, '..')
 /** The record that holds the graphify keys, named in a refusal. */
 const POLICY_RECORD = 'tools/policy/tool-settings.json'
-const POLICY_KEYS = ['graphifyVersion', 'graphifyClaudeCliModel', 'graphifySemanticExtensions', 'graphifyOutDir', 'graphifyMcpServerName']
+const POLICY_KEYS = ['graphifyVersion', 'graphifyClaudeCliModel', 'graphifySemanticExtensions', 'graphifyOutDir', 'graphifyMcpServerName', 'graphifyCombinedGraphFile', 'graphifyCombinedGraphBlobField']
 /** graphify's partial-extraction texts (its cli.py lines 4053, 4116-4123 and the chunk and coverage warnings of its llm.py). */
 const INCOMPLETE = [
   /semantic chunk\(s\) failed/,
@@ -417,6 +431,35 @@ function fingerprint(path) {
   return `${stat.size}:${stat.mtimeMs}`
 }
 
+/** Git's blob id of a file, the id `git hash-object` gives it, as `tools/harness/graph.py` records the graph it combined. */
+function blobId(path) {
+  const bytes = readFileSync(path)
+  return createHash('sha1').update(`blob ${bytes.length}\u0000`).update(bytes).digest('hex')
+}
+
+/**
+ * The file the server is registered on, and why: the harness assessment's combined graph while it
+ * records the blob id of the `graph.json` beside it, and `graph.json` otherwise, so a rebuild is
+ * never hidden behind a combined graph of the build before (`docs/decisions.md` § D-28).
+ */
+function servedGraph(outDir, policy) {
+  const graphPath = join(outDir, 'graph.json')
+  const combined = join(outDir, policy.graphifyCombinedGraphFile)
+  if (!existsSync(combined)) return { path: graphPath, why: `no combined graph at ${combined}` }
+  if (!existsSync(graphPath)) return { path: graphPath, why: `no graph.json beside ${combined} to hold it to` }
+  let recorded
+  try {
+    recorded = JSON.parse(readFileSync(combined, 'utf8'))?.graph?.[policy.graphifyCombinedGraphBlobField]
+  } catch (error) {
+    return { path: graphPath, why: `${combined} cannot be read (${error.message})` }
+  }
+  if (typeof recorded !== 'string') return { path: graphPath, why: `${combined} records no graph.json it was built from` }
+  if (recorded !== blobId(graphPath)) {
+    return { path: graphPath, why: `${combined} is of another build of graph.json; npm run harness, npm run harness:graph and npm run code-graph:mcp serve a current one` }
+  }
+  return { path: combined, why: 'the combined graph, built from this graph.json' }
+}
+
 /** Register the server at local scope for `root`, or leave a matching registration alone. Never prints `claude mcp get`'s output, which can hold another server's credentials. */
 function registerMcp(root, tools, graphPath, server) {
   const run = (args) => spawnSync(tools.claude, ['mcp', ...args], { cwd: root, encoding: 'utf8', env: gitEnv() })
@@ -424,7 +467,9 @@ function registerMcp(root, tools, graphPath, server) {
   if (current.status === 0) {
     const text = current.stdout
     const local = /Scope:\s*Local/i.test(text)
-    if (local && text.includes(tools.mcp) && text.includes(graphPath)) return 'already registered'
+    // The argument read whole: `graph.json` is a prefix of a file named beside it.
+    const args = /^\s*Args:\s*(.+?)\s*$/m.exec(text)?.[1]
+    if (local && text.includes(tools.mcp) && args === graphPath) return 'already registered'
     if (local) {
       const removed = run(['remove', server, '-s', 'local'])
       if (removed.status !== 0) throw new Stop(1, `claude mcp remove ${server} -s local failed: ${removed.stderr.trim()}`)
@@ -609,6 +654,7 @@ async function selftest() {
       check('control: an exported ANTHROPIC_API_KEY is withheld from graphify, and the run says so', extract && extract.apiKey === false && /not passing ANTHROPIC_API_KEY/.test(r.out), r.out)
       check('control: cluster-only names communities with the policy model', cluster && cluster.rest.join(' ').includes(`--model ${policy.graphifyClaudeCliModel}`), JSON.stringify(cluster))
       check('control: the server is added at local scope, from the checkout, under the policy name, pointing at the graph', add && add.args.join(' ') === `mcp add --scope local ${policy.graphifyMcpServerName} -- ${join(c.bin, 'graphify-mcp')} ${c.graphPath}` && realpathSync(add.cwd) === realpathSync(c.repo), JSON.stringify(add))
+      check('control: with no combined graph, the run says the server is on graph.json for that reason', /on .*graph\.json: no combined graph at /.test(r.out), r.out)
       check('control: the lock is released', !existsSync(join(c.outDir, '.code-graph.lock')), '')
     }
     // Run as a git hook runs it. Git exports GIT_DIR to every hook, and GIT_DIR outranks cwd, so on
@@ -661,6 +707,71 @@ async function selftest() {
       const r = c.run(['--mcp-only'], { STUB_MCP_GET: get })
       const args = c.calls().map((call) => call.args.slice(0, 2).join(' '))
       check('a local registration pointing elsewhere is removed, then added again', r.status === 0 && args.join(',') === 'mcp remove,mcp add', `${r.out} ${args}`)
+    }
+    // The harness's combined graph (docs/decisions.md § D-28): registered only while it records the
+    // blob id of the graph.json beside it, so a rebuild is never hidden behind the build before's.
+    // `record` is the file's text, or a function from the graph's path to the id it records.
+    const recorded = (id) => (id === undefined ? {} : { [policy.graphifyCombinedGraphBlobField]: id })
+    const combinedCase = (name, record, flags = ['--mcp-only'], env = {}) => {
+      const c = makeCase(base, name, policy)
+      mkdirSync(c.outDir, { recursive: true })
+      writeFileSync(c.graphPath, JSON.stringify(fixtureGraph()))
+      const combined = join(c.outDir, policy.graphifyCombinedGraphFile)
+      writeFileSync(combined, typeof record === 'string' ? record : JSON.stringify({ ...fixtureGraph(), graph: recorded(record(c.graphPath)) }))
+      const r = c.run(flags, env)
+      const add = c.calls().find((call) => call.tool === 'claude' && call.args[1] === 'add')
+      return { c, r, combined, served: add?.args.at(-1) }
+    }
+    {
+      // The id the combined graph records is git's blob id, so the two scripts agree with git, not
+      // only with themselves: `tools/harness/graph.py` holds the same.
+      const c = makeCase(base, 'blob-id', policy)
+      mkdirSync(c.outDir, { recursive: true })
+      writeFileSync(c.graphPath, `${JSON.stringify(fixtureGraph())}\r\né`)
+      const git = spawnSync('git', ['hash-object', '--no-filters', c.graphPath], { cwd: c.repo, encoding: 'utf8', env: gitEnv() }).stdout.trim()
+      check("the graph's blob id is git's, CRLF and a non-ASCII byte included", git !== '' && blobId(c.graphPath) === git, `${blobId(c.graphPath)} against ${git}`)
+    }
+    {
+      const { c, r, served } = combinedCase('combined-malformed', '{ not json')
+      check('a combined graph that cannot be read leaves the server on graph.json, saying why', r.status === 0 && served === c.graphPath && /cannot be read/.test(r.out), `${r.out} served ${served}`)
+    }
+    {
+      const c = makeCase(base, 'combined-without-graph', policy)
+      mkdirSync(c.outDir, { recursive: true })
+      writeFileSync(join(c.outDir, policy.graphifyCombinedGraphFile), JSON.stringify({ ...fixtureGraph(), graph: recorded('0'.repeat(40)) }))
+      const r = c.run(['--mcp-only'])
+      check('a combined graph with no graph.json beside it is not served, saying why', r.status === 0 && /no graph\.json beside .* to hold it to/.test(r.out), r.out)
+    }
+    {
+      const { r } = combinedCase('combined-no-mcp', blobId, ['--no-mcp'])
+      check('a build with --no-mcp says the server may still be on the combined graph of the build before', r.status === 0 && /may still be on .*, of the build before; npm run code-graph:mcp moves it/.test(r.out), r.out)
+    }
+    {
+      const { r } = combinedCase('combined-partial', blobId, [], { STUB_EXTRACT_STDERR: PARTIAL_TEXTS[0] })
+      check('a build that fails says the server may still be on the combined graph of the build before', r.status === 1 && /may still be on .*, of the build before/.test(r.out), r.out)
+    }
+    {
+      const c = makeCase(base, 'registered-prefix', policy)
+      const get = `${policy.graphifyMcpServerName}:\n  Scope: Local config (private to you in this project)\n  Type: stdio\n  Command: ${join(c.bin, 'graphify-mcp')}\n  Args: ${c.graphPath}.combined\n`
+      const r = c.run(['--mcp-only'], { STUB_MCP_GET: get })
+      const args = c.calls().map((call) => call.args.slice(0, 2).join(' '))
+      check('a registration on a file whose path the graph is a prefix of is moved, not taken as matching', r.status === 0 && args.join(',') === 'mcp remove,mcp add', `${r.out} ${args}`)
+    }
+    {
+      const { r, combined, served } = combinedCase('combined-current', blobId)
+      check('a combined graph that records the graph.json beside it is registered, and the run says why', r.status === 0 && served === combined && /the combined graph, built from this graph\.json/.test(r.out), `${r.out} served ${served}`)
+    }
+    {
+      const { c, r, served } = combinedCase('combined-stale', () => '0'.repeat(40))
+      check('a combined graph of another build leaves the server on graph.json, naming what renews it', r.status === 0 && served === c.graphPath && /is of another build of graph\.json; npm run harness, npm run harness:graph and npm run code-graph:mcp/.test(r.out), `${r.out} served ${served}`)
+    }
+    {
+      const { c, r, served } = combinedCase('combined-unrecorded', () => undefined)
+      check('a combined graph that records no graph.json leaves the server on graph.json, saying so', r.status === 0 && served === c.graphPath && /records no graph\.json it was built from/.test(r.out), `${r.out} served ${served}`)
+    }
+    {
+      const { c, r, served } = combinedCase('combined-before-a-build', blobId, [])
+      check('a build makes the combined graph of the build before stale, and the server stays on the new graph.json', r.status === 0 && served === c.graphPath && /is of another build of graph\.json/.test(r.out), `${r.out} served ${served}`)
     }
     {
       const c = makeCase(base, 'empty-lock', policy)
@@ -752,19 +863,30 @@ async function main() {
     refuseMemory(outDir)
     const release = lock(outDir)
     const before = fingerprint(graphPath)
+    let built = false
     try {
       await runGraphify(root, policy, flags, tools)
+      built = true
     } finally {
       // A partial build that graphify wrote is stamped before the script exits 1 over it, so an
       // `update` before the next good build cannot delete what it does hold.
       if (fingerprint(graphPath) !== before) {
         const stamped = stampOrigins(graphPath, policy)
         console.log(`code-graph: stamped ${stamped} item(s) a language model produced as semantic`)
+        // A run that will not register leaves a registration where it was, which may be the
+        // combined graph of the build before (`docs/decisions.md` § D-28).
+        const combined = join(outDir, policy.graphifyCombinedGraphFile)
+        if ((flags.noMcp || !built) && existsSync(combined)) {
+          console.log(`code-graph: graph.json changed and the server was not registered again, so it may still be on ${combined}, of the build before; npm run code-graph:mcp moves it to graph.json`)
+        }
       }
       release()
     }
   }
-  if (!flags.noMcp) console.log(`code-graph: MCP server \`${server}\` ${registerMcp(root, tools, graphPath, server)} for ${root}`)
+  if (!flags.noMcp) {
+    const served = servedGraph(outDir, policy)
+    console.log(`code-graph: MCP server \`${server}\` ${registerMcp(root, tools, served.path, server)} for ${root} on ${served.path}: ${served.why}`)
+  }
   console.log(`code-graph: ${summary(root, graphPath, policy)}`)
 }
 

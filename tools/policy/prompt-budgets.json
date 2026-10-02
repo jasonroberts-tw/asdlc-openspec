@@ -66,8 +66,8 @@
       "means": "The most words `.claude/skills/close-prompt-run/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit it landed on, 672, most of it moved from `CLAUDE.md` § Prompt reviews; a raise edits this value and says why here. Decided 2026-09-29 by D-17 (asdlc-openspec-03c). Kept at 672 by the prompt review of 2026-09-29 (review-prompts-20260929-2206): consolidating it under D-12 freed 19 words (672 to 653), and § 1's three count commands, where it had named only change-finalize § 9, added 19; that pull request lists every clause removed and where each one went."
     },
     ".claude/skills/code-graph/SKILL.md": {
-      "words": 283,
-      "means": "The most words `.claude/skills/code-graph/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit it landed on, 283; a raise edits this value and says why here. Decided 2026-10-01 by D-20 (asdlc-openspec-rsc)."
+      "words": 297,
+      "means": "The most words `.claude/skills/code-graph/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit it landed on, 283; a raise edits this value and says why here. Decided 2026-10-01 by D-20 (asdlc-openspec-rsc). Raised 2026-10-02 from 283 to 297 by D-28 (asdlc-openspec-fot7): consolidating it under D-12 first freed 28 words, 17 and then 11: item 4's account of which graphify command does what and item 5, which item 1's list of tools already held; the sentence telling a session what the combined graph's co-change and wiring edges are, citing the keys of `tools/harness/harness.config.json` that name them, added 42, so a session does not read a co-change edge as a dependency."
     },
     ".claude/skills/eli5/SKILL.md": {
       "words": 559,
