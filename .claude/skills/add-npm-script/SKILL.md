@@ -114,5 +114,8 @@ Confirm your job actually fired rather than silently matching nothing: check tha
 in the run's output. A job that never fires is worse than no job, because you will now defend the
 green result.
 
+One at a time, delete each refusal or check the script makes and rerun its selftest: each deletion
+must turn a case red, or nothing holds it.
+
 Run each command as a separate Bash call, as `CLAUDE.md` § Bash command style asks, so a red
 result names the step that produced it.
