@@ -166,6 +166,7 @@ const UNJOBBED_BY_KIND = [
       'citations:support',
       'code-graph',
       'code-graph:mcp',
+      'coupling',
       'hooks:install',
       'trace',
       'worktree:gc',
@@ -175,7 +176,7 @@ const UNJOBBED_BY_KIND = [
     kind: ':update baseline',
     shape: /:update$/,
     why: 'rewrites a ratchet or golden; a job that ran it would move the baseline it is meant to hold.',
-    names: ['thresholds:update', 'trace:update'],
+    names: ['coupling:update', 'thresholds:update', 'trace:update'],
   },
   {
     kind: 'lint and format',
