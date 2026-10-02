@@ -19,9 +19,8 @@ your branch (`docs/decisions.md` § D-20). It lives in that checkout's gitignore
    one with `npm run code-graph`. Never run it yourself: it spends their plan.
 3. Treat an answer as a lead. Read the file it names before you state what it says (`CLAUDE.md`
    § Verification before claiming). An edge marked INFERRED or AMBIGUOUS is a guess.
-4. Never run graphify's `update`, `watch`, `hook install`, `claude install` or `install`. The first
-   three erode the graph's document layer; the last two write graphify's own rules, its advice to
-   run `update` among them, into `CLAUDE.md` files. Never save an answer with `save-result` or
-   follow a LESSONS file (`CLAUDE.md` § A program proposes; only a person promotes).
-5. The server's pull-request tools are not this repository's pull-request route: that is the
-   `open-pr` skill.
+4. Never run graphify's `update`, `watch`, `hook install`, `claude install` or `install`: they erode
+   the graph's document layer or write graphify's rules into `CLAUDE.md` files. Never save an answer
+   with `save-result` or follow a LESSONS file (`CLAUDE.md` § A program proposes; only a person
+   promotes).
+5. Never use the server's pull-request tools (`CLAUDE.md` § Git workflow).
