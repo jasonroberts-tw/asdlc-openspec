@@ -55,7 +55,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV NO_COLOR=1
 
 # --- base packages ------------------------------------------------------------------------------
-# build-essential: some npm dependencies still compile on install.
+# build-essential: some npm dependencies still compile on install. python3: the harness
+# assessment's graph half, which `harness:selftest`, a pre-push job, runs through
+# `scripts/python.mjs` and fails without (`docs/decisions.md` § D-26).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
@@ -64,6 +66,7 @@ RUN apt-get update \
         gnupg \
         jq \
         less \
+        python3 \
         unzip \
     && rm -rf /var/lib/apt/lists/*
 

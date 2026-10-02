@@ -44,8 +44,8 @@
  * THE REPORT. `<reportDir>/<date>/harness.json` and `harness.md`, under the configured gitignored
  * folder. It opens with what the run read, each source by its git blob id, this file's and the
  * config's ids, and the map's baseline, and with each check's limits. It compares itself with the
- * latest earlier report by key: the findings and leads that appeared and went, and whether this file
- * or the config changed between the two, so a moved count is not taken for a moved harness.
+ * latest earlier report by key: every item, notes included, that appeared and went, and whether this
+ * file or the config changed between the two, so a moved count is not taken for a moved harness.
  *
  * INVOCATION.
  *
@@ -84,8 +84,9 @@ export type ReadmeTable = { readme: string; fileColumn: string; kindColumn: stri
 
 export type Config = {
   reportDir: string
-  pathRoots: string[]
+  pathRootsFrom: { file: string; constant: string }
   codeExtensions: string[]
+  launchHelpers: string[]
   packageManifest: string
   packageLockfile: string
   hookJobs: string
@@ -125,8 +126,9 @@ const isRegex = (v: unknown) => {
 
 const KEYS: { [K in keyof Config]: { ok: (v: unknown) => boolean; shape: string } } = {
   reportDir: { ok: isString, shape: 'a path' },
-  pathRoots: { ok: isStrings, shape: 'a list of directories' },
+  pathRootsFrom: { ok: (v: any) => v && isString(v.file) && isString(v.constant), shape: 'a { file, constant }' },
   codeExtensions: { ok: isStrings, shape: 'a list of extensions' },
+  launchHelpers: { ok: isStrings, shape: 'a list of function names' },
   packageManifest: { ok: isString, shape: 'a path' },
   packageLockfile: { ok: isString, shape: 'a path' },
   hookJobs: { ok: isString, shape: 'a path' },
@@ -332,6 +334,7 @@ class Repo {
   trackedSet: Set<string>
   dirs: Set<string>
   read = new Map<string, string>()
+  pathRoots: string[]
   scripts: Record<string, string>
   dependencies: Set<string>
   scans = new Map<string, Scan>()
@@ -345,6 +348,7 @@ class Repo {
     this.trackedSet = new Set(this.tracked)
     this.dirs = new Set()
     for (const file of this.tracked) for (let dir = posix.dirname(file); dir !== '.'; dir = posix.dirname(dir)) this.dirs.add(dir)
+    this.pathRoots = this.constantList(cfg.pathRootsFrom)
     const manifest = JSON.parse(this.text(cfg.packageManifest) ?? '{}')
     this.scripts = manifest.scripts ?? {}
     this.dependencies = new Set([...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.devDependencies ?? {})])
@@ -357,6 +361,15 @@ class Repo {
     const body = readFileSync(join(this.root, path), 'utf8')
     this.read.set(path, body)
     return body
+  }
+
+  /** The list of string literals a module constant holds, read from its source, so it has one home. */
+  constantList(ref: { file: string; constant: string }): string[] {
+    const text = this.text(ref.file)
+    const body = text === null ? null : new RegExp(String.raw`\bconst\s+${ref.constant}\s*=\s*\[([^\]]*)\]`).exec(text)?.[1]
+    const items = body === null || body === undefined ? [] : [...body.matchAll(/(['"])([^'"]+)\1/g)].map((m) => m[2])
+    if (items.length === 0) throw new Error(`input: \`${ref.constant}\` in ${ref.file}, which ${CONFIG} names, is not a list of string literals.`)
+    return items
   }
 
   isCode(path: string) {
@@ -451,7 +464,8 @@ class Repo {
       if (next?.value === '--silent' && next.how === 'literal') next = argAfter(next.k)
       if (next && Object.hasOwn(this.scripts, next.value)) how.set(next.value, next.how)
     }
-    if (argv || /\bnpmRun\s*\(/.test(blank)) {
+    const helper = this.cfg.launchHelpers.length > 0 && new RegExp(String.raw`\b(?:${this.cfg.launchHelpers.map((h) => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\s*\(`).test(blank)
+    if (argv || helper) {
       for (const { value } of strings) if (value !== null && Object.hasOwn(this.scripts, value) && !how.has(value)) how.set(value, 'data')
     }
     out.launches = [...how].map(([script, h]) => ({ script, how: h })).sort((a, b) => byCodePoint(a.script, b.script))
@@ -471,7 +485,7 @@ class Repo {
 
   /** The repository paths a command names under the path roots, code files only. */
   pathsIn(command: string): string[] {
-    const roots = this.cfg.pathRoots.map((r) => r.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+    const roots = this.pathRoots.map((r) => r.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
     const re = new RegExp(String.raw`(?:^|[\s"'=/])((?:${roots})/[\w./-]+)`, 'g')
     return sorted([...command.matchAll(re)].map((m) => m[1].replace(/[.,;:]+$/, '')).filter((p) => this.trackedSet.has(p)))
   }
@@ -878,7 +892,7 @@ function pairing(repo: Repo): { section: string; citedBy: string[] }[] {
   const text = repo.text(repo.cfg.rulesFile) ?? ''
   const heads = [...text.matchAll(/^## (.+)$/gm)].map((m) => m[1].trim())
   const bodies = repo.tracked
-    .filter((f) => repo.cfg.pathRoots.some((r) => f.startsWith(`${r}/`)) && repo.isCode(f))
+    .filter((f) => repo.pathRoots.some((r) => f.startsWith(`${r}/`)) && repo.isCode(f))
     .map((f) => [f, (repo.text(f) ?? '').replace(/`/g, '')] as const)
   return heads.map((head) => {
     const plain = head.replace(/`/g, '')
@@ -942,7 +956,8 @@ export async function assess(root: string, date: string, previous: Report | null
     notes: count('note'),
   }
   for (const f of unique) summary[`${f.level}:${f.check}`] = (summary[`${f.level}:${f.check}`] ?? 0) + 1
-  const keyed = (r: Report | null) => new Set((r?.findings ?? []).filter((f) => f.level !== 'note').map((f) => f.key))
+  // Every item, notes included: a note that goes, such as a declared exception, is a change too.
+  const keyed = (r: Report | null) => new Set((r?.findings ?? []).map((f) => f.key))
   const now = keyed({ findings: unique } as Report)
   const before = keyed(previous)
   const report: Report = {
