@@ -527,6 +527,7 @@ const COPIED = [
   'scripts/lib/test-dirs.mjs',
   'scripts/lib/bin-path.mjs',
   'tools/trace/trace.ts',
+  'tools/lib/committed.ts',
   'tools/lib/git-env.ts',
   'tools/lib/paths.ts',
   'tools/policy.json',
