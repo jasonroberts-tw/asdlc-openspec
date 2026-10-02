@@ -157,6 +157,17 @@ jobs:
       # repositories under the temporary directory, and the command line run against them.
       - name: the co-change gate, negative-tested
         run: npm run coupling:selftest
+      # A Python 3 for the harness's graph half, which `scripts/python.mjs` launches and fails
+      # without, as its header says, rather than skip; pinned to one minor release.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # Seconds (git-hooks.yml's `harness-selftest` job has the measurement): the harness
+      # assessment's core over fixture repositories, then its graph half over fixture graphs. The two
+      # commands write a local report or read the local code graph, so no step runs them
+      # (docs/decisions.md § D-26).
+      - name: the harness assessment, negative-tested over fixtures
+        run: npm run harness:selftest
       # Under a second (git-hooks.yml's `tests-inventory` job has the measurement): the tests at HEAD
       # against those at its merge base with origin/main, read from git. On a push to main HEAD is
       # its own merge base, and it passes; on a pull request HEAD is the merge commit.
@@ -190,7 +201,7 @@ jobs:
       #   * the tracker's checks, `beads:check` and the tracker's own pre-push hook: they read the
       #     tracker's database, which a fresh clone does not have. `beads:selftest` is a step above:
       #     it reads a fixture export and the committed policy, and runs no `bd`.
-      #   * the worktree hooks' selftest: about a hundred git spawns against a scratch repository it
+      #   * the worktree hooks' selftest, `worktree:selftest`: about a hundred git spawns against a scratch repository it
       #     builds; it is a pre-push job, and nothing it reads differs in CI.
       #   * the Vale style's selftest, `vale:selftest`: it runs `vale`, which this runner does not
       #     install, so here it would only ever skip and read green. It is a pre-push job. The style

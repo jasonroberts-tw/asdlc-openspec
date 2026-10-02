@@ -1,0 +1,95 @@
+{
+  "describes": "What the harness assessment, `tools/harness/harness.ts` and `tools/harness/graph.py`, takes to be this repository's harness: where its wiring is declared (the package manifest, the hook job file, the CI and other workflows, the session settings, the prompts, the README tables and the generated-file redirect table), which paths and extensions hold code, how a live read and a declared exception are spelled, where the co-change map and its thresholds are, where the reports go, and what the graph half names the edges it adds. The two halves read every repository-specific fact from here, so the code is the same for another harness and this file is what changes.",
+  "whyThisFileExists": "The untracked script this tool replaced hard-coded four wiring sources, three path roots, a filename pattern for gates and the citation format, so it could not be pointed at another harness and nobody could see what it assumed without reading its code. Each constant here says what it decides, so a report's limits are read from one place.",
+  "gatedBy": "npm run harness:selftest refuses a config with a preamble key, a constant or its `Means` sibling missing, or a constant of the wrong shape, and copies this file into every fixture repository it builds, so each case runs with these values. No gate holds a value here to the files it names: a path that is wrong makes the check that reads it report nothing, which the report's own counts show.",
+  "whatItDoesNOTDo": "It holds no threshold of the co-change map: `cochangeSamplePolicy` and `observedJaccardPolicy` name keys of `tools/policy.json`, which stays their one home. It is not read by any gate, and changing it changes no verdict of a push or a pull request.",
+  "provenance": "Written 2026-10-02 with asdlc-openspec-o6w1, which `docs/decisions.md` § D-26 records, from the measurements of that issue at 2660d32.",
+
+  "reportDir": ".scratch/harness",
+  "reportDirMeans": "Where each run writes `<date>/harness.json` and `harness.md`, and the graph half its own files beside them, relative to the checkout that runs it. `.scratch/` is gitignored, so a report is never committed (`CLAUDE.md` § Three kinds of file). A run compares itself with the latest earlier date here, so moving it starts the comparison over.",
+
+  "pathRoots": ["scripts", "tools", "apps"],
+  "pathRootsMeans": "The directories under which a command's paths are read as entry files: a path a package script, a job, a workflow, a session hook or a prompt names under one of these. The same three as `scripts/check-jobs.mjs`'s own path roots, for the same reason, and a fourth root is added to both. A root left out makes every file under it unreached and every job that runs one look as if it had no entry.",
+
+  "codeExtensions": [".mjs", ".ts", ".js", ".cjs"],
+  "codeExtensionsMeans": "The extensions whose files are scanned for imports, live reads and launches. A file of another extension is an input only where a glob, a read or a comment names it.",
+
+  "packageManifest": "package.json",
+  "packageManifestMeans": "The file whose `scripts` are the package scripts and whose `dependencies` and `devDependencies` say which bare imports are pinned packages. A job whose closure imports one must have this in its glob, as the hook file's job comments state for each job that pins one.",
+
+  "packageLockfile": "package-lock.json",
+  "packageLockfileMeans": "The lockfile that pins each package's version, which a job importing a pinned package must have in its glob beside the manifest: a version bump changes no other file.",
+
+  "hookJobs": "git-hooks.yml",
+  "hookJobsMeans": "The hook job file, read in the schema `scripts/git-hooks.mjs` reads (`docs/decisions.md` § D-19): events, each with `jobs`, a job with `name`, `run` and an optional `glob`, and `group` nesting. The comment block above each `- name:` line is read as the job's own statement of what it reads.",
+
+  "prePushEvent": "pre-push",
+  "prePushEventMeans": "The event whose globs list a job's inputs: a push that changes none of them skips the job. Glob cover, the hubs table and the parity check read this event's jobs.",
+
+  "stagedFileEvents": ["pre-commit"],
+  "stagedFileEventsMeans": "Events whose globs filter which staged files a job inspects rather than list its inputs. Their jobs are held to one rule instead: a job whose closure imports the redirect table must cover every generated file it assigns.",
+
+  "ciWorkflow": ".github/workflows/verify.yml",
+  "ciWorkflowMeans": "The workflow that runs every gate on a pull request. Its `npm run` steps are set against the pre-push jobs for parity, and its paths and scripts are registrations for reachability.",
+
+  "ciAbsentMarker": "DELIBERATELY ABSENT",
+  "ciAbsentMarkerMeans": "A regular expression for the comment line that opens the CI file's list of scripts deliberately run at pre-push only. Each backticked package script in the comment lines after it, to the first empty comment line, is a declared exception to parity.",
+
+  "ciOnlyMarker": "no pre-push job",
+  "ciOnlyMarkerMeans": "A regular expression, case-insensitive, that the comment above a CI step must match for its scripts to be declared CI-only, as `thresholds:commands:check`'s comment cites `docs/decisions.md` § D-04.",
+
+  "otherWorkflows": [".github/workflows/pr-review.yml"],
+  "otherWorkflowsMeans": "Workflows besides the CI one whose `node <path>` and `npm run` lines are registrations: a script they run is reached. They hold no globs and are not set against the pre-push jobs.",
+
+  "sessionSettings": ".claude/settings.json",
+  "sessionSettingsMeans": "The session settings whose `hooks` commands register in-session hooks, each a registration for reachability and a `registers_hook` edge in the graph half's overlay.",
+
+  "promptPaths": [".claude", "CLAUDE.md", "AGENTS.md"],
+  "promptPathsMeans": "The prompts, as files or directories, whose `npm run <script>` mentions are registrations and `names_script` edges, and whose `node <path>` mentions are entries. A prompt naming a script is how an operator command is reached.",
+
+  "readmeTables": [
+    { "readme": "scripts/README.md", "fileColumn": "File", "kindColumn": "Kind", "gateKind": "\\bgate\\b|\\bselftest\\b|test runner|pre-commit job|hook runner", "notWired": "not wired" },
+    { "readme": "tools/README.md", "fileColumn": "Path", "kindColumn": "Kind", "gateKind": "\\bgate\\b|\\bselftest\\b", "notWired": "not wired" },
+    { "readme": "scripts/hooks/README.md", "fileColumn": "File", "kindColumn": "Event", "gateKind": "^(?!none: imported)\\S", "notWired": "not wired" }
+  ],
+  "readmeTablesMeans": "The README tables a gate's kind is read from, in place of a pattern over file names, which misses a gate named otherwise (`pr-review.mjs`, `trace.ts`). Each names the README, the columns holding the file and its kind, a case-insensitive regular expression a gate's kind matches, and one a kind matches when it says the gate is not wired yet, which makes an unreached gate a note. A README left out leaves its gates unchecked.",
+
+  "generatedRedirectModule": "scripts/hooks/_shared.mjs",
+  "generatedRedirectModuleMeans": "The module whose redirect table assigns each generated file to the command that writes it. It is imported, and its function asked about every tracked path under `generatedRoot`, so the table has one home.",
+
+  "generatedRedirectExport": "generatedFileRedirect",
+  "generatedRedirectExportMeans": "The function of that module that returns, for a path, null or a message naming `npm run <script>`, the command that writes it.",
+
+  "generatedRoot": "artifacts",
+  "generatedRootMeans": "The directory whose tracked files are asked about. A generated file elsewhere is not checked.",
+
+  "liveReadRootPattern": "^(?:[A-Z][A-Z_]*_)?ROOT$",
+  "liveReadRootPatternMeans": "A regular expression the first argument of `join(...)` or `resolve(...)` must match for the call to be a read of the checkout itself: `ROOT`, `REPO_ROOT`, `CHECKOUT_ROOT`. A lower-case `root` is a parameter that a selftest points at a fixture, so it is left out; widening this raises leads on every gate's selftest.",
+
+  "rulesFile": "CLAUDE.md",
+  "rulesFileMeans": "The file whose `## ` headings are the rule sections set against the scripts and tools that cite them as `§ <heading>`.",
+
+  "cochangeMap": "artifacts/coupling/cochange.json",
+  "cochangeMapMeans": "The co-change map (`docs/decisions.md` § D-24): each file's changes, the pairs and their Jaccard index, the hubs and the clusters, through its baseline commit. Without it the hubs table has no change column and the observed check reads nothing.",
+
+  "cochangeSamplePolicy": { "file": "tools/policy.json", "key": "couplingMinSampleUnits" },
+  "cochangeSamplePolicyMeans": "Where the map's sample is held: the hubs table writes a file's jobs fired per hundred pull requests only when the map counts at least that many, the rule `CLAUDE.md` § Reporting honesty asks of every rate. Named here, not copied, so the value has one home.",
+
+  "observedJaccardPolicy": { "file": "tools/policy.json", "key": "couplingClusterMinJaccardPermille" },
+  "observedJaccardPolicyMeans": "Where the Jaccard index is held at or above which two code files that change together, neither importing the other, are a lead: the index at which the map joins two files into one cluster, read as one concern. Named here, not copied.",
+
+  "hubsTop": 10,
+  "hubsTopMeans": "How many files the report's hubs table shows by declaring jobs, and again by jobs fired per pull request; the JSON holds every row. Chosen to fit a screen; it hides nothing from the JSON.",
+
+  "neverChangedMinJobs": 10,
+  "neverChangedMinJobsMeans": "The fewest pre-push globs a file must be in for the report to list it when no counted pull request changed it since the map's baseline: a file many jobs re-run on that never changes costs nothing, which is the other side of `git-hooks.yml`'s rule to make a glob wider when in doubt. Measured 2026-10-02 at 2660d32: two files sit in 10 or more such globs.",
+
+  "graphOutDirPolicy": { "file": "tools/policy.json", "key": "graphifyOutDir" },
+  "graphOutDirPolicyMeans": "Where the graph half finds the local code graph: `<that folder>/graph.json` under the primary checkout, which `scripts/code-graph.mjs` builds into from whichever checkout runs it (`docs/decisions.md` § D-20), so a worktree reads the one graph; under `HARNESS_ROOT` when that is set. Named here, not copied.",
+
+  "cochangeRelation": "co_changes_with",
+  "cochangeRelationMeans": "The relation the graph half gives each co-change edge in the combined graph, so `get_neighbors` with this as its `relation_filter`, and `graphify affected --relation` with it, return a file's co-change neighbours alone.",
+
+  "cochangeContext": "co_change",
+  "cochangeContextMeans": "The `context` each co-change edge carries. graphify's query traversal keeps only the edges whose context its filter names, and infers `call` or `import` from a question that says so, so a question about calls never walks a co-change edge; `--context co_change` walks only these."
+}
