@@ -97,10 +97,11 @@ pre-push:
     # `apps/**`, the roots a script's path is read under, are in both globs: moving, renaming or
     # emptying a file a script names changes the verdict (the path and glob checks), and a push that
     # touched only that file would otherwise skip the job. The selftest's control reads those same
-    # files, and `scripts/**` holds the gate itself.
+    # files, and `scripts/**` holds the gate itself. The lockfile pins the js-yaml the gate imports.
     - name: check-jobs
       glob:
         - 'package.json'
+        - 'package-lock.json'
         - 'git-hooks.yml'
         - '.github/workflows/verify.yml'
         - 'tools/**'
@@ -110,6 +111,7 @@ pre-push:
     - name: check-jobs-selftest
       glob:
         - 'package.json'
+        - 'package-lock.json'
         - 'git-hooks.yml'
         - '.github/workflows/verify.yml'
         - 'tools/**'
@@ -192,7 +194,9 @@ pre-push:
     # in the glob, and renders the briefing template through a scratch copy of its renderer, so both
     # are in it too. It provisions twice through a scratch copy of `scripts/new-worktree.sh`, from a
     # checkout that trails its remote, and the guard reads the approval label and the gc sweep its
-    # `worktreeGcMinAgeHours` from `tools/policy.json`, so the policy is in the glob too. Over a
+    # `worktreeGcMinAgeHours` from `tools/policy.json`, so the policy is in the glob too. Its Vale case
+    # copies this checkout's own `.vale.ini` and `.gitignore` into a scratch checkout and reads the
+    # StylesPath the first names, so both are in it as well. Over a
     # hundred and twenty git spawns, two bash runs, four renders and, on macOS, three `lsof` calls:
     # 9.41 s wall through `node --run` (`/usr/bin/time -p`, one run, while other worktrees ran their
     # gates) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-29, with the guard's stray-directory
@@ -212,6 +216,8 @@ pre-push:
         - '.claude/worktree-CONTEXT.md.tmpl'
         - '.claude/settings.json'
         - 'tools/policy.json'
+        - '.vale.ini'
+        - '.gitignore'
       run: node --run worktree:selftest
     # This repository's own Vale style, `.vale-styles/Layout/`: each rule over a control and one
     # doctored fixture per fault under the temporary directory, each asserting its rule and its line,
@@ -321,7 +327,8 @@ pre-push:
     # itself reads a token and a language model and runs only as `pr-review.yml`. 0.10 s wall
     # through `node --run` (`/usr/bin/time -p`) on a macOS 26.7 laptop (Apple M3 Max) with Node
     # 26.8.1, 2026-09-25. Its glob's `*.yml` reaches only the files directly in
-    # `.github/workflows/`, which holds no subdirectory.
+    # `.github/workflows/`, which holds no subdirectory. The manifest and lockfile pin the js-yaml
+    # the script imports.
     - name: pr-review-check
       glob:
         - 'scripts/pr-review.mjs'
@@ -329,14 +336,16 @@ pre-push:
         - 'tools/policy.json'
         - '.github/workflows/*.yml'
         - '.claude/agents/pr-reviewer.md'
+        - 'package.json'
+        - 'package-lock.json'
       run: node --run pr-review:check
     # Every decision over fixtures built from the live policy, each asserting its reason, and the
     # wiring gate over doctored copies of the four files it reads, with an undoctored control. The
     # same files decide its verdict, and the brief's prompt counts are taken over a scratch
     # repository by `scripts/check-prompts.mjs`, so it is in the glob too, beside the git helper the
-    # script imports. 0.61 s wall through `node --run` (`/usr/bin/time -p`, one run) on a macOS
-    # 26.7.1 laptop with Node 26.8.1, 2026-10-01, with that case; 0.16 s before it, on the host and
-    # date above.
+    # script imports, and the manifest and lockfile that pin its js-yaml. 0.61 s wall through
+    # `node --run` (`/usr/bin/time -p`, one run) on a macOS 26.7.1 laptop with Node 26.8.1,
+    # 2026-10-01, with that case; 0.16 s before it, on the host and date above.
     - name: pr-review-selftest
       glob:
         - 'scripts/pr-review.mjs'
@@ -345,6 +354,8 @@ pre-push:
         - 'tools/policy.json'
         - '.github/workflows/*.yml'
         - '.claude/agents/pr-reviewer.md'
+        - 'package.json'
+        - 'package-lock.json'
       run: node --run pr-review:selftest
     # The calculator's scenarios, each a test named for the IDs it proves under a suite named for its
     # requirement, run by Node's own test runner over `apps/calculator/test/` through
@@ -576,6 +587,23 @@ pre-push:
         - 'tools/policy.json'
         - 'package.json'
       run: node --run coupling:selftest
+    # The harness assessment (`docs/decisions.md` § D-26), whose two commands read the local code
+    # graph or write a local report and run in no job: the core over fixture repositories it builds
+    # under the temporary directory, one planted gap per case asserting the keys it adds and their
+    # reasons beside an undoctored control, the live config copied into each; then the graph half's
+    # own selftest through `scripts/python.mjs`, which fails where no Python 3 is found. The glob is
+    # both halves and their config, the helpers the core imports, the launcher, and the manifest and
+    # lockfile that pin its js-yaml. 5.09-5.18 s wall through `node --run` (`/usr/bin/time -p`, two
+    # runs) on a macOS 26.7.1 laptop with Node 26.8.1 and Python 3.12.8, 2026-10-02, most of it the
+    # git repositories of the core's 29 fixtures and the graph half's one.
+    - name: harness-selftest
+      glob:
+        - 'tools/harness/**'
+        - 'tools/lib/**'
+        - 'scripts/python.mjs'
+        - 'package.json'
+        - 'package-lock.json'
+      run: node --run harness:selftest
     # No test removed, skipped or weakened on this branch without an architect decision recorded in
     # a commit's trailer: the tests at HEAD against the tests at its merge base with origin/main,
     # read from git through the reader. No glob: its verdict also turns on the branch's commit

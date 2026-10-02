@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-25 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24 and D-25 added 2026-10-02).**
+**Status: every decision from D-01 to D-26 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25 and D-26 added 2026-10-02).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-25` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-26` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -81,6 +81,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-23** | An in-session guard refuses graphify's update, watch, hook install and claude install, from any checkout | `scripts/hooks/guard-git.mjs`, held by `worktree:selftest`; the guard's rows in `.claude/README.md`, `scripts/hooks/README.md` and `README.md`, and the code graph's row in `README.md` § The guardrails; D-20's amendment |
 | **D-24** | The co-change map of merged pull requests is committed, pinned to a trunk commit that only its `:update` moves | `tools/coupling/` as `npm run coupling` and `coupling:update`, held by `coupling:check` and `coupling:selftest` at pre-push and in CI; `artifacts/coupling/cochange.json`; the `coupling*` keys in `tools/policy.json`; trace's git and committed-file helpers moved to `tools/lib/` |
 | **D-25** | The emitter-drift hook is retired, its list of triggers empty | `scripts/hooks/check-emitted-drift.mjs` and its `PostToolUse` registration in `.claude/settings.json` deleted; its rows in `README.md`, `.claude/README.md` and `scripts/hooks/README.md` removed; `CNT-HOOKS` re-derived; D-06's and D-24's amendments |
+| **D-26** | The harness assessment is split by what each half reads, reports and enforces nothing, and takes its repository's specifics from one record | `tools/harness/` as `npm run harness` and `harness:graph`, held by `harness:selftest` at pre-push and in CI, with a Python 3 beside the step; `tools/harness/harness.config.json`; five job globs widened and `worktree:selftest` named in the CI file's absent block, from its first report |
 
 ## Risks
 
@@ -1246,6 +1247,52 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 - 0.03-0.04 s wall per run with empty input, three runs on 2026-10-02 on a macOS 26.7.1 laptop (Apple M3 Max) with Node 26.8.1: `/usr/bin/time -p node scripts/hooks/check-emitted-drift.mjs` at `2660d32`.
 - Seven hook registrations at `2660d32` and one fewer after this entry: the `hooks` arrays of `git show 2660d32:.claude/settings.json`, and `npm run counts:check` for the current tree.
 - The map's row, added in `55b5dca` and removed in `1a998fd`: `git log --format="%h %s" -G "gates: \['coupling:check'\]" -- scripts/hooks/check-emitted-drift.mjs` lists those two and no other.
+
+### D-26 · The harness assessment is split by what each half reads, reports and enforces nothing, and takes its repository's specifics from one record
+
+**Recorded 2026-10-02**, carried by `asdlc-openspec-o6w1`. On 2026-10-02 the maintainer brought an untracked script a contributor wrote, which held the hook jobs' globs and the harness's wiring against the local code graph, with the contributor's own list of what it assumed. The maintainer asked how D-24's co-change map could be combined with that graph, and for a proposal that took in the script and widened what it could see along the glob axis. They approved the proposal, which put each choice with the case where it loses, and asked for it to be filed and worked.
+
+**Builds on / amends:** builds on D-24, whose map is an input and whose `couplingMinSampleUnits` and `couplingClusterMinJaccardPermille` the assessment reads from `tools/policy.json` rather than copying; on D-20, whose local graph the graph half reads as `scripts/code-graph.mjs` does, as a person's command and never a session's, and beside which it writes a second local file, leaving the registered server on `graph.json`; and on D-19, whose job file it reads in the runner's schema. It amends nothing.
+
+**Decision.**
+
+1. **The core, `tools/harness/harness.ts` (`npm run harness`), reads only committed files and the map.** It writes a dated report, JSON and Markdown, under `.scratch/harness/`, never committed. The report holds each hook job's glob to its inputs by kind: what its entry imports, the manifest and lockfile of a package it imports, what it reads from the checkout, what a script it launches imports, the file its check twin compares, what its comment names. It also holds each gate a README table names to some registration, and each script to both the pre-push and the CI tier unless the CI file declares otherwise. Each item has a stable key and a level: a finding rests on exact evidence, a lead on a heuristic, a note on a declaration. Its header gives the rules and each check's limits.
+2. **The graph half, `tools/harness/graph.py` (`npm run harness:graph`), is standard-library Python run through `scripts/python.mjs`.** It reads the core's report, the local graph and the map, reports the graph's freshness, the co-change pairs it has no edge for and the map's clusters against its communities, and writes one combined graph: the wiring and the co-change edges in graphify's ids, each pair in both directions, under a relation and a context of their own, with `multigraph` true. It refuses to write a combined graph that would lose an edge in graphify's loader or hide a pair from one end. It never writes the graph and runs no graphify command.
+3. **Neither command runs in a job; `harness:selftest` does, at pre-push and in CI.** The selftest plants one gap per case in fixture repositories beside a control that reports nothing, then runs the graph half's own selftest. CI installs a Python 3 beside its step, as `scripts/python.mjs`'s header says it does.
+4. **Every repository-specific fact both halves read is in `tools/harness/harness.config.json`**, a self-describing record with a `Means` for each constant (`CLAUDE.md` § Three kinds of file, and never a fourth). Pointing the assessment at another harness changes that file and no code.
+5. **What its first report found is fixed where the issue already changed the file:** five job globs in `git-hooks.yml` gained the manifest, the lockfile, `.vale.ini` or `.gitignore`, and the CI file's absent block names `worktree:selftest`. The one finding left, a gate nothing runs, was already `asdlc-openspec-b1b`.
+
+**Why.** The script found two gaps along the axis it was built for, and it could not see most of the rest. It read every input through the code graph, so a file a job reads at run time, a lockfile and a launched script were invisible. Its glob matcher approximated `path.matchesGlob`, and it counted package nodes as deleted files, so it called every graph stale. Splitting by what each half reads is `CLAUDE.md` § The gate ladder applied to the tool: the core needs nothing a fresh clone lacks, and the graph half needs what only a person's machine has. Five alternatives lost:
+
+- **Keeping the untracked script.** Nobody else could run it or trust it, and its contributor named its missing selftest among its gaps.
+- **One Node script for both.** The check that a combined graph loads without loss needs graphify's own loader, which is Python, so the graph half would shell out to Python regardless.
+- **One Python script for both.** The core would match globs by a copy of Node's rules rather than Node's, read YAML through a dependency graphify's own interpreter lacks, and need a Python toolchain on every machine before any of its checks could become a gate.
+- **Making the core a gate now.** Its first run gave three read leads, two of them real; a gate that fails on the third is a gate people push past with `--no-verify`. Promoting a check is a person's decision on the evidence the reports leave (`CLAUDE.md` § A program proposes; only a person promotes).
+- **Its constants in `tools/policy.json`.** That file holds the workflow's constants that belong to no one tool (D-03). These belong to one tool, and they are what changes when it is pointed at another harness.
+
+Where it loses:
+
+- **The repository tracks its first Python file.** The selftest's job now needs a Python 3 on every machine that pushes, and fails, as `scripts/python.mjs` rules, where none is found; CI pays a `setup-python` step.
+- **The core reads code by pattern, not by parsing.** A computed import, a path built at run time, a read through a parameter and a launch from a table are invisible or leads, as its limits say. A read made only in a mode the job does not run is over-reported: one of the first run's three read leads.
+- **A finding waits for someone to run it.** Nothing runs `npm run harness` on a schedule, so a glob can drift between reports.
+- **A session's code-graph queries never see the co-change edges.** The registered server serves `graph.json`, and `scripts/code-graph.mjs` points it back there on every build; a person serves the combined graph with `--graph`.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound.
+- **`tools/harness/harness.ts`, `tools/harness/graph.py`, `tools/harness/selftest.ts` and `tools/harness/harness.config.json`:** new, with their row in `tools/README.md`.
+- **`package.json`:** `harness`, `harness:graph` and `harness:selftest`; `scripts/check-jobs.mjs` declares the first two as operator commands.
+- **`git-hooks.yml`:** the `harness-selftest` job; `package-lock.json` in the globs of `check-jobs` and `check-jobs-selftest`, `package.json` and `package-lock.json` in those of `pr-review-check` and `pr-review-selftest`, and `.vale.ini` and `.gitignore` in that of `worktree-hooks`, each comment saying why.
+- **`.github/workflows/verify.yml`:** `actions/setup-python@v5` and the `harness:selftest` step; `worktree:selftest` named in the absent block.
+- **`README.md`:** the `### harness` sub-section of § The npm scripts, a row in § The guardrails, a row in § What runs automatically and the three rows whose jobs' globs widened, and `.scratch/`'s line.
+- **`count-index.md` § Rates and metrics:** the jobs a file fires per hundred pull requests.
+
+**Figures.**
+
+- 8 findings, 11 leads and 5 notes over 42 jobs before the globs widened, and 1 finding, 9 leads and 6 notes over 43 jobs after: `npm run harness` at this change's head, and the same over a copy of it through `HARNESS_ROOT` with `git-hooks.yml` and `.github/workflows/verify.yml` as `2660d32` has them.
+- 25 pre-push globs that match `tools/policy.json`, against the 20 the untracked script counted: the core's hubs table; the 20 is from that script's report of 2026-10-01, outside this repository.
+- 84 links lost, 12 of them imports, when the map was added to the maintainer's graph with `multigraph` false: a prototype run on 2026-10-02 against a graph built at `f862fe0`, outside this repository, not re-derived here.
+- 78 checks in the core's selftest and 37 in the graph half's, 38 under graphify's own interpreter, and 5.09-5.18 s for the job: `npm run harness:selftest`, and the job's comment in `git-hooks.yml`, which names the host.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

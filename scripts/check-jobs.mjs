@@ -167,6 +167,8 @@ const UNJOBBED_BY_KIND = [
       'code-graph',
       'code-graph:mcp',
       'coupling',
+      'harness',
+      'harness:graph',
       'hooks:install',
       'trace',
       'worktree:gc',
