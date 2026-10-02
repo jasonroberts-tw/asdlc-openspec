@@ -126,13 +126,13 @@
  */
 import { spawnSync } from 'node:child_process'
 import { cpSync, existsSync, globSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { devNull, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { findBin } from '../../scripts/lib/bin-path.mjs'
 import { dirGlob, scriptDirs } from '../../scripts/lib/test-dirs.mjs'
 import { POLICY_FILE, hashRef, readTests, readTracePolicy, specIndex } from '../../scripts/test-trace.mjs'
-import { gitEnv } from '../lib/git-env.ts'
+import { SCRATCH_GIT_ENV, gitIn, type Git } from '../lib/git-env.ts'
 import { ROOT as REPO_ROOT } from '../lib/paths.ts'
 
 export const DIR = 'artifacts/trace'
@@ -209,17 +209,7 @@ const BASELINE_BANNER = [
 
 /* --------------------------------------------------------------------------------- git ---------- */
 
-type Git = (args: string[]) => string
-
-/** git in `root`, with no inherited `GIT_*` key, so a hook's `GIT_DIR` cannot point it elsewhere. */
-export function gitIn(root: string, env: NodeJS.ProcessEnv = gitEnv()): Git {
-  return (args) => {
-    const run = spawnSync('git', ['-c', 'core.quotepath=off', ...args], { cwd: root, env, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
-    if (run.error) throw new Error(`git could not start: ${run.error.message}`)
-    if (run.status !== 0) throw new Error(`\`git ${args.join(' ')}\` failed: ${(run.stderr || run.stdout).trim()}`)
-    return run.stdout
-  }
-}
+// `gitIn` and `SCRATCH_GIT_ENV` live in tools/lib/git-env.ts, which the co-change emitter reads too.
 
 function gitOk(git: Git, args: string[]): boolean {
   try {
@@ -273,9 +263,6 @@ function taskPaths(commits: Commit[]): Map<string, string[]> {
   }
   return new Map(sorted(paths.keys()).map((task) => [task, sorted(paths.get(task)!)]))
 }
-
-/** The environment of a scratch repository: no `GIT_*` key, and no configuration of this machine's. */
-export const SCRATCH_GIT_ENV: NodeJS.ProcessEnv = { ...gitEnv(), GIT_CONFIG_GLOBAL: devNull, GIT_CONFIG_SYSTEM: devNull }
 
 /**
  * The walk of a history built here and ratified by hand: the task each commit names and the paths
