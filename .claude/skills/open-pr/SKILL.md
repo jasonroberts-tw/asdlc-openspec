@@ -14,7 +14,7 @@ A caller brings three things:
 - **the body**, in a file under `.scratch/`, holding what the caller says it holds.
 
 This skill does the rest, and hands back the pull request and the outcome its checks reached
-(step 7). What follows, such as closing an issue or removing a worktree, is the caller's.
+(step 7). What follows is the caller's.
 
 ## 1. The branch is ready
 
@@ -36,7 +36,6 @@ A shared file is not a conflict; a conflict this reports is. The body names each
 A sentence saying what changed, ending with the id of each issue the branch carries, in
 parentheses and separated by commas. The reviewer reads the issues from those parentheses and
 nowhere else, with `prReviewIssuePattern` in `tools/policy/pr-review.json` (`CLAUDE.md` § Git workflow).
-An id in the title's middle or in the body is not carried.
 
 A pull request that carries no issue, such as a prompt review's, ends with no parentheses. The
 reviewer then leaves its merge to a person (`docs/decisions.md` § D-07). Never cite an issue the
@@ -72,8 +71,8 @@ Then, at once, set the reviewer's status pending on the new head:
 
     env PR=<number> node scripts/pr-review.mjs mark
 
-No job does it for you, and until it is done a watcher has no check to wait on. Nothing else here
-sets `pr-review` by hand: every verdict is the reviewer's workflow's.
+Until it is done, a watcher has no check to wait on. Nothing else here sets `pr-review` by hand:
+every verdict is the reviewer's workflow's.
 
 ## 6. Watch it with one watcher
 
@@ -94,7 +93,7 @@ descriptions below are the ones `scripts/pr-review.mjs` sets (`statusFor`, `choo
 |---|---|
 | `verify` fails, and `pr-review` says "verify failed at …; the review waits for a green run" | Read the failing job, then fix, gate and push on the same branch. |
 | `pr-review` fails: "Conflicts with main: rebase onto origin/main and push" | Fetch, rebase onto `origin/main`, gate, and push with `--force-with-lease`. |
-| `pr-review` fails: "Changes requested: …" | Fix what the comment's reasons name, and no minor finding (below); gate and push on the same branch. The reviewer judges the new head. |
+| `pr-review` fails: "Changes requested: …" | Fix what the comment's reasons name, and no minor finding (below); gate and push on the same branch. |
 | `pr-review` passes: "Every dimension passes; the reviewer merges it" | The reviewer merges it. `gh pr view <number> --json state,mergedAt` shows `MERGED` once it has. |
 | `pr-review` passes: "A person decides: …" | It waits for a person, for the reason given; say so, and why. Never apply the approval label yourself (`CLAUDE.md` § Git workflow). |
 | `pr-review` errors: "The review did not complete: …" | Read the review job's log first: `gh run list --workflow pr-review.yml`, then `gh run view <run> --log-failed`. A cause in the reviewer's own workflow is not this branch's to fix: the caller files it as a defect found on the way, and the pull request waits on that issue. A cause that does not repeat, such as a network error, is run again once with the command the comment gives, `gh workflow run pr-review.yml -f pr=<number>`. |
