@@ -58,20 +58,14 @@ if (suspect.length === 0) process.exit(0)
  * The kit's one row left with the learning loop. Delete this line when done.
  */
 const VERIFIERS = [
-  // The kit's one row was the learning loop's `outcomes:check`, over `artifacts/outcomes/`, and
+  // Empty. Its one row was the learning loop's `outcomes:check`, over `artifacts/outcomes/`, and
   // left with the loop (`docs/decisions.md` § D-06). `artifacts/trace/` has none on purpose: its
   // `trace:check` also refuses a scenario still owed a test, which a commit midway through a
   // change's build may hold, so a row here would refuse that commit. It is reported unverified
   // here, and `trace:check` holds it at push and in CI. `artifacts/thresholds/` has none either:
   // `thresholds:check` runs the suite and StrykerJS, seconds to tens of seconds a commit should not
-  // wait on, and holds the baseline at push and in CI.
-  //
-  // The co-change map has one: `coupling:check` re-derives it through the trunk commit it records,
-  // in under a second (its job in git-hooks.yml has the measurement), and a map that stays in step
-  // with its emitter passes it whatever else the commit holds, so a hand edit is caught at the
-  // commit that stages it. It also refuses a checkout with no `origin/main` or a shallow history,
-  // where `npm run coupling` would not help, so its own output is printed after the redirect.
-  { script: 'coupling:check', owns: (rel) => rel === 'artifacts/coupling/cochange.json' },
+  // wait on, and holds the baseline at push and in CI. `artifacts/coupling/` has none while this
+  // script has no selftest to hold a row to: `coupling:check` holds it at push and in CI.
 ]
 
 /**
@@ -136,10 +130,8 @@ for (const { paths } of failures) {
     console.error('')
   }
 }
-// The check's own words follow the redirect, since it can refuse for a reason that is not a hand
-// edit, such as a checkout it cannot read, where the redirect alone would send the reader to an
-// emitter run that does not clear it.
-for (const { script, out } of failures) {
+for (const { script, out, paths } of failures) {
+  if (paths.some((rel) => generatedFileRedirect(rel) !== null)) continue
   console.error(`\`npm run ${script}\` failed. Its full output:\n`)
   console.error(out)
 }
