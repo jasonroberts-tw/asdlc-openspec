@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-24 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24 added 2026-10-02).**
+**Status: every decision from D-01 to D-25 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24 and D-25 added 2026-10-02).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-24` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-25` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -80,6 +80,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-22** | The tracker's git integration runs from the job file, and the install clears what lefthook left in .git/hooks | The tracker's five jobs in `git-hooks.yml`; `.devcontainer/entrypoint.sh` without `bd hooks install`; the install's cleanup and the runner's warnings in `scripts/git-hooks.mjs`, held by `hooks:selftest`; D-19's amendment |
 | **D-23** | An in-session guard refuses graphify's update, watch, hook install and claude install, from any checkout | `scripts/hooks/guard-git.mjs`, held by `worktree:selftest`; the guard's rows in `.claude/README.md`, `scripts/hooks/README.md` and `README.md`, and the code graph's row in `README.md` § The guardrails; D-20's amendment |
 | **D-24** | The co-change map of merged pull requests is committed, pinned to a trunk commit that only its `:update` moves | `tools/coupling/` as `npm run coupling` and `coupling:update`, held by `coupling:check` and `coupling:selftest` at pre-push and in CI; `artifacts/coupling/cochange.json`; the `coupling*` keys in `tools/policy.json`; trace's git and committed-file helpers moved to `tools/lib/` |
+| **D-25** | The emitter-drift hook is retired, its list of triggers empty | `scripts/hooks/check-emitted-drift.mjs` and its `PostToolUse` registration in `.claude/settings.json` deleted; its rows in `README.md`, `.claude/README.md` and `scripts/hooks/README.md` removed; `CNT-HOOKS` re-derived; D-06's and D-24's amendments |
 
 ## Risks
 
@@ -389,6 +390,8 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 > **Amended 2026-09-26 by D-11.** Item 4 no longer holds for `assetLabels`: `beads:check` refuses an open issue filed `discovered-from` that carries none of its labels, and `beads:selftest` holds that refusal in CI. `foundAtLabels` and `rerouteLabels` are still held by no gate.
 
 > **Amended 2026-09-29 by D-17.** Item 5's second reader is unchanged, but the rule that an analysis ends with the counts is no longer in `CLAUDE.md` § Prompt reviews: `.claude/skills/close-prompt-run/SKILL.md` § 1. Write the analysis, or none, holds it.
+
+> **Amended 2026-10-02 by D-25.** Of the three tables of emitter-owned paths that "What changed" and the retirement checklist name, the drift hook's has gone with the hook. `scripts/assert-not-hand-edited.mjs`'s and `scripts/hooks/_shared.mjs`'s remain.
 
 ### D-07 · A reviewer merges each pull request that satisfies the issues it carries, one at a time
 
@@ -1196,6 +1199,53 @@ Where it loses:
 - 93 merged pull requests through `f862fe0`, and 18 direct pushes: `npm run coupling:check` prints the first, and the map's `excluded.directCommits` is the second. GitHub's list of the pull requests merged to `main` agreed with the units one for one on 2026-10-02; the pull request that carries this entry gives that check, which reads the network and is not re-derived here.
 - Every figure behind a threshold: the `Means` of its key in `tools/policy.json`, each measured through `f862fe0`.
 - 0.47-0.50 s for `coupling:check` and 7.98-11.81 s for `coupling:selftest`: their jobs' comments in `git-hooks.yml`, which name the host.
+
+> **Amended 2026-10-02 by D-25.** `scripts/hooks/check-emitted-drift.mjs` is deleted, so of the two files "What changed" names as saying why they have no row for the map, only `scripts/assert-not-hand-edited.mjs` remains. No hook re-runs `coupling:check` in session. It holds the map at pre-push and in CI, as before.
+
+### D-25 · The emitter-drift hook is retired, its list of triggers empty
+
+**Recorded 2026-10-02**, carried by `asdlc-openspec-ehk5`. On 2026-10-02 the maintainer asked whether `scripts/hooks/check-emitted-drift.mjs` did anything with no triggers, and whether anything argued against retiring it. Shown that it did nothing and that nothing argued for it, they asked for it to be retired.
+
+**Builds on / amends:** amends D-06 and D-24, whose records name the hook as live. Builds on D-24 item 3, which holds the co-change map at pre-push and in CI.
+
+**Decision.** `scripts/hooks/check-emitted-drift.mjs`, the `PostToolUse` hook on Write and Edit, is deleted outright (`docs/retired/README.md` § The three dispositions, *Delete it outright*). Its one registration leaves `.claude/settings.json`, which then registers no `PostToolUse` hook. No emitter's `:check` runs in session; each still runs at pre-push and in CI.
+
+**Why.** Its `TRIGGERS` array was empty, so every run exited 0 having checked nothing. Every emitter had left it or been left out:
+
+- the learning loop's row left with the loop (D-06);
+- the trace record's inputs had none on purpose: `trace:check` also refuses a scenario still owed a test, so it would fail after nearly every edit to a spec or a test while a change is written;
+- the co-change map's row was added in `55b5dca` and removed in `1a998fd`, because the hook had no selftest to hold a row to.
+
+Yet the settings file started it on every Write and Edit under the status "Re-checking emitted-output drift". Three README rows said it re-ran the `:check` twin of any emitter whose input was just edited. The tables named a guardrail that nothing provided. Its cost per run was not the reason (Figures). One alternative lost:
+
+- **A selftest for the hook, and the co-change map's row restored.** An edit to `tools/coupling/coupling.ts` or a `coupling*` key of `tools/policy.json` would then be reported at the edit. No open issue asked for it, and `coupling:check` already holds the map at pre-push and in CI, as `trace:check` holds the trace record.
+
+Where it loses:
+
+- **An emitter edit not followed by its re-run is found at push, not at the edit.** A session that edits `tools/coupling/coupling.ts` and goes on without `npm run coupling` learns of it from the pre-push `coupling-check` job, under every edit made since. That was already true with the empty hook. Against the alternative above, it is what this entry gives up.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound; the amendments under D-06 and D-24.
+- **`scripts/hooks/check-emitted-drift.mjs`:** deleted.
+- **`.claude/settings.json`:** the `PostToolUse` block, the hook's one registration, is removed.
+- **`count-index.md`:** the `CNT-HOOKS` value, one registration fewer, as `npm run counts:check` re-derives it.
+- **`README.md` § What runs automatically, `.claude/README.md` § The hooks and `scripts/hooks/README.md`:** the hook's row in each is removed.
+- **Left as they are:** `artifacts/coupling/cochange.json`, generated output pinned to `f862fe0`, where the hook still exists, names it among the files it read. Once `coupling:update` moves its baseline past this entry's commit, the hook is a file absent at `throughCommit`, whose changes the header of `tools/coupling/coupling.ts` says are dropped. `scripts/hooks/_shared.mjs` keeps `npmRun`, which `gate-summary.mjs` calls.
+
+Retirement checklist, the disposition *Delete it outright* of `docs/retired/README.md` § The three dispositions:
+
+- **Nothing live reads it.** `git grep -n -i -E "check-emitted-drift|emitted-output drift|PostToolUse"` finds this entry, the records of D-06 and D-24 with their amendments, and the generated `artifacts/coupling/cochange.json`.
+- **Every live reference, and what became of it.** The registration in `.claude/settings.json` and the three README rows are removed, and `CNT-HOOKS` is re-derived. None is repointed or marked: no live file needs the hook's lineage.
+- **The recovery.** `git log -1 --diff-filter=D --format=%H -- scripts/hooks/check-emitted-drift.mjs` names the deleting commit. `git show <that commit>^:scripts/hooks/check-emitted-drift.mjs` recovers the file, and `git show <that commit>^:.claude/settings.json` its registration.
+- **Its return is not refused by a gate.** Review holds it. `1a998fd` removed the last row because the hook had no selftest to hold it to.
+
+**Figures.**
+
+- An empty `TRIGGERS`: lines 31 to 39 of `git show 2660d32:scripts/hooks/check-emitted-drift.mjs`.
+- 0.03-0.04 s wall per run with empty input, three runs on 2026-10-02 on a macOS 26.7.1 laptop (Apple M3 Max) with Node 26.8.1: `/usr/bin/time -p node scripts/hooks/check-emitted-drift.mjs` at `2660d32`.
+- Seven hook registrations at `2660d32` and one fewer after this entry: the `hooks` arrays of `git show 2660d32:.claude/settings.json`, and `npm run counts:check` for the current tree.
+- The row added and removed: `git log --format="%h %s" -- scripts/hooks/check-emitted-drift.mjs` lists `55b5dca` and `1a998fd`.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
