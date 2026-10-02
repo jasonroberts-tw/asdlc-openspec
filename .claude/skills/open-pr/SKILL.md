@@ -76,6 +76,10 @@ every verdict is the reviewer's workflow's.
 
 ## 6. Watch it with one watcher
 
+First ask `gh pr view <number> --json mergeable` until it is not `UNKNOWN`. At `CONFLICTING`
+GitHub starts no `verify`, so the watcher would never end: rebase as step 7's conflict row says.
+Otherwise:
+
     gh pr checks <number> --watch
 
 Run it in the background, and no second watcher; end the turn to wait only if its exit wakes the
