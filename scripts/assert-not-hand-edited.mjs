@@ -67,8 +67,10 @@ const VERIFIERS = [
   // wait on, and holds the baseline at push and in CI.
   //
   // The co-change map has one: `coupling:check` re-derives it through the trunk commit it records,
-  // in under a second (its job in git-hooks.yml has the measurement), and refuses nothing a commit
-  // midway through other work could hold, so a hand edit is caught at the commit that stages it.
+  // in under a second (its job in git-hooks.yml has the measurement), and a map that stays in step
+  // with its emitter passes it whatever else the commit holds, so a hand edit is caught at the
+  // commit that stages it. It also refuses a checkout with no `origin/main` or a shallow history,
+  // where `npm run coupling` would not help, so its own output is printed after the redirect.
   { script: 'coupling:check', owns: (rel) => rel === 'artifacts/coupling/cochange.json' },
 ]
 
@@ -134,8 +136,10 @@ for (const { paths } of failures) {
     console.error('')
   }
 }
-for (const { script, out, paths } of failures) {
-  if (paths.some((rel) => generatedFileRedirect(rel) !== null)) continue
+// The check's own words follow the redirect, since it can refuse for a reason that is not a hand
+// edit, such as a checkout it cannot read, where the redirect alone would send the reader to an
+// emitter run that does not clear it.
+for (const { script, out } of failures) {
   console.error(`\`npm run ${script}\` failed. Its full output:\n`)
   console.error(out)
 }

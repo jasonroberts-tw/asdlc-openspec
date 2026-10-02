@@ -1,9 +1,11 @@
 /**
- * The co-change gate's selftest: every refusal of `tools/coupling/coupling.ts`, each on a doctored
- * copy of a fixture repository it builds under the temporary directory, asserting the reason the
- * refusal reports, beside an undoctored control that must pass; the history walk held to its
- * ratified fixture; the rounding of the index; and the command line run end to end through
- * `COUPLING_ROOT`, under a hook's exported `GIT_DIR` and a hostile git configuration.
+ * The co-change gate's selftest: every refusal of `tools/coupling/coupling.ts`, asserting the reason
+ * each reports. The check's are on doctored copies of a fixture repository it builds under the
+ * temporary directory, beside an undoctored control that must pass. Each of `check`, `emit` and
+ * `update` is given a walk that disagrees with the ratified fixture, and must refuse and write
+ * nothing; the walk's refusals of git output it cannot read are fed that output. It also holds the
+ * walk to its ratified fixture, the rounding of the index, and the command line run end to end
+ * through `COUPLING_ROOT`, under a hook's exported `GIT_DIR` and a hostile git configuration.
  *
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet; this is what the gate would let through if a
  * rule of it broke and this file were absent. The live map passes the check whatever the rules
@@ -27,7 +29,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { generatedFileRedirect } from '../../scripts/hooks/_shared.mjs'
 import { SCRATCH_GIT_ENV, gitIn } from '../lib/git-env.ts'
 import { ROOT } from '../lib/paths.ts'
-import { FIXTURE_OPTIONS, KEYS, MAP, RATIFIED, check, jaccardPermille, ratifiedStream, ratify, readPolicy, update, walk } from './coupling.ts'
+import { FIXTURE_OPTIONS, KEYS, MAP, RATIFIED, check, emit, jaccardPermille, parseDiffs, ratifiedStream, ratify, readPolicy, update, walk } from './coupling.ts'
 
 const COUPLING = fileURLToPath(new URL('./coupling.ts', import.meta.url))
 const POLICY = 'tools/policy.json'
@@ -180,6 +182,22 @@ function cases(): Case[] {
       expect: /^history: [0-9a-f]{12} on the first-parent chain is a merge commit/,
     },
     {
+      name: 'a merge commit on origin/main after the baseline is counted in the note, never refused',
+      doctor: (dir) => {
+        const git = scratchGit(dir)
+        const merge = commitOn(dir, 'a merge commit after the baseline', [git(['rev-parse', 'refs/remotes/origin/main']).trim(), recorded(dir).throughCommit])
+        git(['update-ref', 'refs/remotes/origin/main', merge])
+      },
+      expect: 'pass',
+      also: (_dir, _failures, notes) =>
+        notes.some((note) => /^2 merged pull requests landed on origin\/main after the map's baseline/.test(note)) ? null : `the note is not the two pull requests: ${JSON.stringify(notes)}`,
+    },
+    {
+      name: 'policy: a policy file that is not JSON',
+      doctor: (dir) => writeFileSync(join(dir, POLICY), '{ "couplingMinTogether": \n'),
+      expect: /^policy: tools\/policy\.json cannot be read/,
+    },
+    {
       name: 'policy: a coupling key missing',
       doctor: (dir) => setPolicy(dir, (policy) => delete policy.couplingMinTogether),
       expect: /^policy: tools\/policy\.json: `couplingMinTogether` is missing/,
@@ -270,12 +288,61 @@ function others(base: string, control: string): Result[] {
     const problem = ratify()
     return [problem === null, problem ?? 'agrees']
   })
-  attempt('a history walk that drops a pull request is refused before anything is written', () => {
-    const problem = ratify((git, through, o) => {
-      const read = walk(git, through, o)
-      return { ...read, units: read.units.slice(1) }
+  // A walk that loses the oldest pull request: it returns a smaller answer and says nothing.
+  const dropping: typeof walk = (git, through, o) => {
+    const read = walk(git, through, o)
+    return { ...read, units: read.units.slice(1) }
+  }
+  const DISAGREES = /^map: the history walk read the hand-ratified fixture as /
+  attempt('the ratification reads a walk that drops a pull request as a disagreement', () => {
+    const problem = ratify(dropping)
+    return [problem !== null && /^the history walk read the hand-ratified fixture as /.test(problem), problem?.slice(0, 120) ?? 'PASSED, but should have been refused']
+  })
+  attempt('coupling:check, given a walk that disagrees with its fixture, refuses and checks nothing else', () => {
+    const { failures } = check(copy('guard-check'), { walker: dropping })
+    return [failures.length === 1 && DISAGREES.test(failures[0]) && /; nothing is checked until it agrees\.$/.test(failures[0]), JSON.stringify(failures.map((f) => f.slice(0, 120)))]
+  })
+  for (const [name, run] of [
+    ['coupling', emit],
+    ['coupling:update', update],
+  ] as const) {
+    attempt(`${name}, given a walk that disagrees with its fixture, refuses to write and leaves the map as it was`, () => {
+      const dir = copy(`guard-${name.replace(':', '-')}`)
+      edit(dir, MAP, (body) => body.replace('"b":"src/c.js","together":6', '"b":"src/c.js","together":7'))
+      const before = readFileSync(join(dir, MAP), 'utf8')
+      let refusal = ''
+      try {
+        run(dir, { walker: dropping })
+      } catch (error) {
+        refusal = (error as Error).message
+      }
+      const untouched = readFileSync(join(dir, MAP), 'utf8') === before
+      return [DISAGREES.test(refusal) && /; refusing to write artifacts\/coupling\/cochange\.json\.$/.test(refusal) && untouched, `${untouched ? 'map untouched' : 'map REWRITTEN'}, ${JSON.stringify(refusal.slice(0, 120))}`]
     })
-    return [problem !== null && /^the history walk read the hand-ratified fixture as /.test(problem), problem ?? 'PASSED, but should have been refused']
+  }
+  attempt("the walk refuses git diff-tree output it cannot read, each in its own words", () => {
+    const pair = `${'a'.repeat(40)} ${'b'.repeat(40)}\n`
+    const reasons = ['M\u0000x.js\u0000', `${pair}M\u0000x.js`, `${pair}C075\u0000x.js\u0000y.js\u0000`].map((out) => {
+      try {
+        parseDiffs(out)
+        return 'PASSED'
+      } catch (error) {
+        return (error as Error).message
+      }
+    })
+    const want = [/^history: git diff-tree printed a record before any pair/, /^history: git diff-tree's output ends inside a record/, /^history: git diff-tree printed the status "C075", which this walk does not read/]
+    return [reasons.every((reason, n) => want[n].test(reason)), JSON.stringify(reasons.map((r) => r.slice(0, 80)))]
+  })
+  attempt('the walk refuses a step git diff-tree printed nothing for', () => {
+    const git = scratchGit(control)
+    const silent = (args: string[], input?: string) => (args[0] === 'diff-tree' ? '' : git(args, input))
+    let refusal = ''
+    try {
+      walk(silent, git(['rev-parse', 'refs/heads/through']).trim(), FIXTURE_OPTIONS)
+    } catch (error) {
+      refusal = (error as Error).message
+    }
+    return [/^history: git diff-tree printed nothing for the step ending [0-9a-f]{12}\.$/.test(refusal), JSON.stringify(refusal)]
   })
   attempt('the index is in thousandths, rounded half up', () => {
     const got = [jaccardPermille(1, 16), jaccardPermille(1, 3), jaccardPermille(2, 3), jaccardPermille(3, 8), jaccardPermille(5, 5)]
@@ -350,6 +417,12 @@ function others(base: string, control: string): Result[] {
     const run = cli(dir, [], { HOME: home, XDG_CONFIG_HOME: join(home, '.config') })
     const same = readFileSync(join(dir, MAP), 'utf8') === readFileSync(join(control, MAP), 'utf8')
     return [run.status === 0 && same, `status ${run.status}, ${same ? 'same bytes as the control' : 'DIFFERENT bytes'}, ${text(run)}`]
+  })
+  attempt('the command line: a COUPLING_ROOT in no git checkout is refused', () => {
+    const outside = join(base, 'outside')
+    mkdirSync(outside)
+    const run = cli(outside, ['--check'])
+    return [run.status === 1 && /history: .* is not in a git checkout/.test(run.stderr), `status ${run.status}, ${text(run)}`]
   })
   attempt('the command line: a COUPLING_ROOT below the top of its checkout is refused', () => {
     const run = cli(join(control, 'tools'), ['--check'])

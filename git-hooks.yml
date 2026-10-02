@@ -550,7 +550,7 @@ pre-push:
     # held to origin/main's first-parent chain. Its verdict is a pure function of the files below and
     # of trunk history through that commit, which never changes: a merge to main moves only the note
     # of how many pull requests landed after it. It reads the emitter, the git helpers it imports,
-    # the map, the policy's coupling keys and merge method, and the manifest's script. 0.43-0.49 s
+    # the map, the policy's coupling keys and merge method, and the manifest's script. 0.47-0.50 s
     # wall through `node --run` (`/usr/bin/time -p`, two runs) on a macOS 26.7.1 laptop with Node
     # 26.8.1, 2026-10-02, over 93 merged pull requests.
     - name: coupling-check
@@ -564,10 +564,10 @@ pre-push:
     # The co-change gate's refusals, each on a doctored copy of a fixture repository it builds under
     # the temporary directory from the ratified history, the live policy copied in with its coupling
     # keys set to the fixture's, asserting the reason, beside a control; the walk against its
-    # ratified fixture; and the command line through COUPLING_ROOT, under an exported GIT_DIR and a
-    # hostile git configuration. It imports the hand-edit guards' table of generated files.
-    # 7.05-7.18 s wall for its 32 cases through `node --run` (`/usr/bin/time -p`, two runs) on the
-    # host and date above, most of it git starts.
+    # ratified fixture, and each command's refusal when it disagrees; and the command line through
+    # COUPLING_ROOT, under an exported GIT_DIR and a hostile git configuration. It imports the
+    # hand-edit guards' table of generated files. 7.98-11.81 s wall for its 40 cases through
+    # `node --run` (`/usr/bin/time -p`, two runs) on the host and date above, most of it git starts.
     - name: coupling-selftest
       glob:
         - 'tools/coupling/**'
