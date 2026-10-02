@@ -407,7 +407,7 @@ function scenario(policy, s = {}) {
   return (label, prompt) => {
     if (label === 'setup') {
       // The keys the stub prints are the ones Setup's command names, so the two lists cannot drift apart.
-      const command = `node tools/lib/policy.ts ${POLICY_KEYS.join(' ')}`
+      const command = `node --no-warnings tools/lib/policy.ts ${POLICY_KEYS.join(' ')}`
       const printed = prompt.includes(command) ? policyJson : `the Setup prompt does not run \`${command}\``
       const answer = { policyJson: printed, toplevel: s.toplevel ?? WORKTREE, branch: s.branch ?? BRANCH, listeners: BASELINE }
       return prompt.includes('inputsJson') ? { ...answer, inputsJson: s.inputsJson ?? inputsJson() } : answer

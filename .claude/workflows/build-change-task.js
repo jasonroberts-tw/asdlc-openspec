@@ -1001,7 +1001,7 @@ function inputsCommand() {
     'const s=JSON.stringify({files,tasks});let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0}',
     'console.log(JSON.stringify({files,tasks,fnv:h}))',
   ].join('')
-  return `node -e "${js}"`
+  return `node --no-warnings -e "${js}"`
 }
 
 /**
@@ -1238,7 +1238,7 @@ const setup = await agent(
   [
     `Work in ${A.worktree}. Run each of these, and return what each prints, verbatim, even where it looks wrong.`,
     '',
-    `1. policyJson: node tools/lib/policy.ts ${POLICY_KEYS.join(' ')}`,
+    `1. policyJson: node --no-warnings tools/lib/policy.ts ${POLICY_KEYS.join(' ')}`,
     '2. toplevel: git rev-parse --show-toplevel',
     '3. branch: git branch --show-current',
     '4. listeners: the TCP listeners on 127.0.0.1, with `lsof -nP -iTCP@127.0.0.1 -sTCP:LISTEN` on macOS or `ss -ltnpH src 127.0.0.1` on Linux; one entry per listening socket with its pid, its port and its command, and an empty list when there is none.',
