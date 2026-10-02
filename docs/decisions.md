@@ -1183,7 +1183,7 @@ Where it loses:
 - **This register:** this entry, its table row, the status line and the bound.
 - **`tools/coupling/coupling.ts` and `tools/coupling/selftest.ts`:** new, with their row in `tools/README.md`.
 - **`artifacts/coupling/cochange.json`:** new, written by `npm run coupling:update` through `f862fe0`.
-- **`tools/lib/git-env.ts` and `tools/lib/committed.ts`:** `gitIn`, `gitOk` and `SCRATCH_GIT_ENV` in the first, and `readText` and `firstDifference` in the second, new, all moved from `tools/trace/trace.ts`, which with `tools/trace/selftest.ts` now imports them; `gitIn`'s runner takes a standard input.
+- **`tools/lib/git-env.ts` and `tools/lib/committed.ts`:** `gitIn`, `gitOk` and `SCRATCH_GIT_ENV` in the first, and `readText` and `firstDifference` in the second, new, all moved from `tools/trace/trace.ts`, which with `tools/trace/selftest.ts` now imports them; `gitIn`'s runner takes a standard input. `scripts/fresh-run.mjs` copies `tools/lib/committed.ts` into its selftest's fixture beside trace.
 - **`tools/policy.json`:** the eight `coupling*` keys, each with its `Means`, and `describes`, `gatedBy` and `provenance` naming them.
 - **`package.json`:** `coupling`, `coupling:check`, `coupling:selftest` and `coupling:update`; `scripts/check-jobs.mjs` declares the bare emitter and the `:update`.
 - **`git-hooks.yml` and `.github/workflows/verify.yml`:** the `coupling-check` and `coupling-selftest` jobs and their steps.
