@@ -518,8 +518,15 @@ const STRYKER_DIRECTIVE = /^\s?Stryker (disable|restore)(?: (next-line))? ([a-zA
 
 /* --------------------------------------------------------------------------------- scope -------- */
 
-/** The tree's tasks, read through `scripts/lib/tasks.mjs`; none where it has no manifest. */
-const tasksOf = (root) => loadTasks(root)?.tasks ?? {}
+/**
+ * The tree's tasks, read through `scripts/lib/tasks.mjs`. A tree with neither manifest throws, as a
+ * missing `package.json` did before the loader: judged with no test patterns, it would pass.
+ */
+function tasksOf(root) {
+  const manifest = loadTasks(root)
+  if (manifest === null) throw new Error(`${root} has neither ${TASKS_TOML} nor ${PACKAGE_JSON}, so no test pattern can be read.`)
+  return manifest.tasks
+}
 
 /** The quoted patterns of every task that runs the runner, as `tools/trace/trace.ts` reads them. */
 function testPatterns(root) {

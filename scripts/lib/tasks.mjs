@@ -22,6 +22,9 @@
  *   parseTasks(file, text)   one manifest's text; throws naming the file and the task at fault
  *   taskFiles(file, tasks)   a fixture's manifest in either shape, for the readers' selftests
  *
+ * Each refusal is held, in its words, by `check:jobs:selftest`, since the job gate reports a
+ * manifest this refuses with its reason; the readers' selftests hold each reader in both shapes.
+ *
  * NEEDS `smol-toml` from this checkout's `node_modules`, only to read or write a `tasks.toml`. It is
  * required then, not when this file loads, so a hook loads this file in a checkout with no
  * `tasks.toml` or no `npm ci`, and so does the copy under the temporary directory that
