@@ -25,7 +25,7 @@
  * missing `vale` and skipped (the pull-request review of `61f0323`, asdlc-openspec-m7p).
  *
  * NEEDS. `vale` on PATH, the release `mise.toml` pins, which README.md § Setup, the dev container and
- * CI each install (`docs/decisions.md` § D-29). Without it the run skips clean and says why. A
+ * CI each install (`docs/decisions.md` § D-31). Without it the run skips clean and says why. A
  * `vale` that is found and then fails is a failure.
  * No network: the style is tracked, and `vale sync` is never run. Under a second.
  */

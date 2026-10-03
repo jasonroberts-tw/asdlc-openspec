@@ -186,7 +186,7 @@ pre-push:
         - 'tools/lib/policy.ts'
         - 'scripts/check-policy.mjs'
       run: node --run check:policy:selftest
-    # `mise.toml` is the one home of every tool version (docs/decisions.md § D-29): each pin exact
+    # `mise.toml` is the one home of every tool version (docs/decisions.md § D-31): each pin exact
     # and in `mise.lock` for every platform the policy names, one mise for every workflow's
     # `jdx/mise-action` and the dev container, no second home in a workflow, the Dockerfile or a
     # version file at the root, and no other mise config at any depth, whose names are in the glob for

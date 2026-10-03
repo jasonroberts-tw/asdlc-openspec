@@ -58,7 +58,7 @@
  * still skipped it. So the wiring gate also held the job that runs `brief` to installing `bd` with
  * `CI` unset, with `--allow-scripts`, and with `bd --version` in the same step. Since 2026-10-03 the
  * job takes `bd` through `jdx/mise-action` from its GitHub release, which has no postinstall
- * (`docs/decisions.md` § D-29), so the gate holds it to that install, not turned off and not left out
+ * (`docs/decisions.md` § D-31), so the gate holds it to that install, not turned off and not left out
  * of `install_args`, and to `bd --version` after it and before `bd bootstrap`.
  *
  * The third, across the verdicts of 2026-09-25 to 2026-10-01 (asdlc-openspec-744): criteria marked
@@ -224,7 +224,7 @@ export function policyProblems(policy) {
   }
   // The floor must cover the reviewer itself, or a pull request could change its own judge and merge;
   // the two records only a person may change, or one could lower its own floor or raise a budget; and
-  // the toolchain (docs/decisions.md § D-29): every place mise reads a config or a lock from, and the
+  // the toolchain (docs/decisions.md § D-31): every place mise reads a config or a lock from, and the
   // image that installs it, or one could change what every shim, hook and session runs.
   const covered = [
     ...[WORKFLOW, AGENT, SELF].map((path) => [path, 'part of the reviewer itself']),
@@ -1504,7 +1504,7 @@ export async function runCheck(root) {
   }
 
   // `brief` reads each cited issue with `bd`, which comes from `mise.toml`'s pin through
-  // jdx/mise-action (docs/decisions.md § D-29), and an install can leave no binary.
+  // jdx/mise-action (docs/decisions.md § D-31), and an install can leave no binary.
   const runOf = (step) => String(step?.run ?? '')
   const briefId = Object.keys(jobs).find((id) => (jobs[id]?.steps ?? []).some((step) => /node scripts\/pr-review\.mjs brief\b/.test(runOf(step))))
   if (briefId) {

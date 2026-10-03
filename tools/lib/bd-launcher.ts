@@ -19,7 +19,7 @@
  * the output told the two apart.
  *
  * Since 2026-10-03 every machine set up from README.md § Setup takes `bd` from mise
- * (`docs/decisions.md` § D-29), whose shims on Windows are `.exe` files by default, so the first
+ * (`docs/decisions.md` § D-31), whose shims on Windows are `.exe` files by default, so the first
  * rule below finds `bd.exe`. That has not been run on Windows here (asdlc-openspec-8juz.9). The npm
  * rule stays for a machine set up the old way.
  *

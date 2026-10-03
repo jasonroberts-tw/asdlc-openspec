@@ -2,7 +2,7 @@
 node_modules/
 
 # A person's own mise overrides, which mise reads beside `mise.toml` and above it. The toolchain's
-# versions have one home, `mise.toml` with `mise.lock` (docs/decisions.md § D-29); a local file
+# versions have one home, `mise.toml` with `mise.lock` (docs/decisions.md § D-31); a local file
 # stays on the machine that wrote it.
 mise.local.toml
 mise.*.local.toml

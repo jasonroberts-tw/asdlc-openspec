@@ -47,7 +47,7 @@ jobs:
       # toolset, so no step installs a tool of its own mid-run, and the action caches mise's installs
       # by the two files' hash. `version` and `sha256` pin mise itself to the release
       # `.devcontainer/Dockerfile` copies in, which `npm run check:toolchain` holds
-      # (`docs/decisions.md` § D-29). `sha256` is the linux-x64 binary's line in that release's signed
+      # (`docs/decisions.md` § D-31). `sha256` is the linux-x64 binary's line in that release's signed
       # SHASUMS256.txt, read 2026-10-03: `gh release download v<version> --repo jdx/mise --pattern
       # SHASUMS256.txt`. The action is a third party's, so it is pinned by commit rather than by a
       # tag that can be moved, at v5.0.1, the release that verifies a cached mise before running it.
@@ -85,7 +85,7 @@ jobs:
       - name: the policy gate, negative-tested
         run: npm run check:policy:selftest
       # Milliseconds: `mise.toml` held to `mise.lock`, to the mise each workflow and the dev container
-      # pin, and to every other place a tool could be installed (`docs/decisions.md` § D-29).
+      # pin, and to every other place a tool could be installed (`docs/decisions.md` § D-31).
       - name: every tool version has one home, mise.toml, and the lockfile covers it
         run: npm run check:toolchain
       - name: the toolchain gate, negative-tested
