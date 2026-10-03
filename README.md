@@ -239,7 +239,9 @@ holds platform-native binaries. Use one clone per platform.
 
 `.devcontainer/README.md` has the reasons and the mounts.
 
-**The Node floor.** `package.json` `engines` is the oldest Node the repository supports, and
+### The Node floor, on every platform
+
+`package.json` `engines` is the oldest Node the repository supports, and
 `mise.toml` pins a newer one for every machine, so nothing here runs the floor
 (`docs/decisions.md` § D-29). The floor is never below the lowest version on its major line that
 every package in `package-lock.json` accepts, or a dependency refuses a Node the floor calls
