@@ -7,8 +7,11 @@
 // YOUR machine, and an image is shared by everyone.
 {
   "name": "Development container",
+  // The repository's root is the build context, so the image can install the toolchain from
+  // `mise.toml` and `mise.lock`; `Dockerfile.dockerignore` keeps everything else out of it.
   "build": {
-    "dockerfile": "Dockerfile"
+    "dockerfile": "Dockerfile",
+    "context": ".."
   },
   // The image already runs as this user; naming it keeps the CLI from falling back to root and
   // leaving root-owned files in a bind-mounted clone.

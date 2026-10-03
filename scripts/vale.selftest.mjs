@@ -24,8 +24,9 @@
  * that exits non-zero it must fail and not skip. It once read any failure of `vale --version` as a
  * missing `vale` and skipped (the pull-request review of `61f0323`, asdlc-openspec-m7p).
  *
- * NEEDS. `vale` on PATH (README.md § Setup). Without it the run skips clean and says why, which is
- * what it does in CI, whose runner has no Vale. A `vale` that is found and then fails is a failure.
+ * NEEDS. `vale` on PATH, the release `mise.toml` pins, which README.md § Setup, the dev container and
+ * CI each install (`docs/decisions.md` § D-29). Without it the run skips clean and says why. A
+ * `vale` that is found and then fails is a failure.
  * No network: the style is tracked, and `vale sync` is never run. Under a second.
  */
 import { execFileSync, spawnSync } from 'node:child_process'

@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-30 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29 and D-30 added 2026-10-03).**
+**Status: every decision from D-01 to D-31 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30 and D-31 added 2026-10-03).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-30` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-31` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -86,6 +86,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-28** | The code-graph server serves the harness assessment's combined graph while it was built from the graph beside it | `scripts/code-graph.mjs`'s choice of the file it registers, held by `code-graph:selftest`; `tools/harness/graph.py` writing the combined graph beside the graph with the graph's blob id, held by `harness:selftest`; `graphifyCombinedGraphFile` in `tools/policy/tool-settings.json`; the `code-graph` skill, consolidated first; D-20's and D-26's amendments |
 | **D-29** | An issue's type and priority are the first rows of a rubric in the policy that fit it, and `beads:check` refuses a type the rubric does not name | `issueTypes`, `issuePriorities` and `foundIssueCommand` in `tools/policy/vocabulary.json`; rule 5 of `scripts/check-beads.mjs`, held by `beads:selftest` at pre-push and in CI; `CLAUDE.md` § The task store, consolidated first, and its budget in `tools/policy/prompt-budgets.json` |
 | **D-30** | The explore skill is OpenSpec's explore stance, adapted: it draws, cites, writes only a brief, and hands a change to `change-propose` | `.claude/skills/explore/SKILL.md` and the `LICENSE` beside it; its budget in `tools/policy/prompt-budgets.json`; the skills row of `.claude/README.md`; `README.md` § Working here; D-13's amendment |
+| **D-31** | mise is the toolchain: `mise.toml` is the one home of every tool version, and CI, the dev container and the setup steps install from it | `mise.toml` and `mise.lock`; `check:toolchain` and its selftest at pre-push and in CI; `jdx/mise-action` in both workflows, with `bd` from it held by `pr-review:check`; the dev container's mise layer; `README.md` § Setup; `toolchainLockPlatforms` in `tools/policy/tool-settings.json`; D-26's amendment |
 
 ## Risks
 
@@ -1314,6 +1315,8 @@ Where it loses:
 
 > **Amended 2026-10-02 by D-28.** Item 2's combined graph records the git blob id of the graph it combines, and a run from the checkout that holds that graph, with no `--graph`, writes it beside the graph, in the file `graphifyCombinedGraphFile` names; any other run writes it beside the graph half's report, as before, under that name. The loss "A session's code-graph queries never see the co-change edges" now holds only between a build of the graph and the next run of the harness and of `npm run code-graph:mcp`.
 
+> **Amended 2026-10-03 by D-31.** The Python 3 the selftest's job needs is the one `mise.toml` pins, which every machine set up from `README.md` § Setup, CI and the dev container install through mise. The loss "CI pays a `setup-python` step, and the dev container image installs one" now reads: mise installs it beside the rest of the toolchain, and `check:toolchain` refuses a second install of it.
+
 ### D-27 · The policy is split under `tools/policy/` by who may change each key and who reads it, read through one loader and held by a gate of its own
 
 **Recorded 2026-10-02**, carried by `asdlc-openspec-umg3`. On 2026-10-02 the maintainer asked whether the name "policy" fits `tools/policy.json`'s reason for being, and then which logical splits its contents support. Shown the seams with the case where each loses, they approved a plan for five records and asked for it to be built. Asked, they named the first two records `vocabulary.json` and `agent-workflows.json`, kept the single-tool settings in one record rather than one beside each tool, and made the word budgets a table in this change.
@@ -1504,6 +1507,56 @@ On the license, MIT asks that "the above copyright notice and this permission no
 - 118, the old skill's words, and 1,114, the new skill's: `node scripts/check-prompts.mjs --counts` at `aa20aee` and at this entry's commit.
 - 1,372 and 1,389, the candidate's words without and with the opening line: trials E2 and E3 on `asdlc-openspec-wox3`. The candidate is untracked; its text is OpenSpec 1.14.0's `getExploreSkillTemplate()` with that issue's list of edits.
 - 169, the words the notice would add inside the skill: `wc -w .claude/skills/explore/LICENSE`.
+
+### D-31 · mise is the toolchain: `mise.toml` is the one home of every tool version, and CI, the dev container and the setup steps install from it
+
+**Recorded 2026-10-03**, carried by `asdlc-openspec-8juz.2`, a child of `asdlc-openspec-8juz`. On 2026-10-03 the maintainer asked for a plan to introduce mise, replacing every tool or mechanism it can replace, to consolidate the project's setup. Each choice was put with the case where it loses, and the maintainer chose: mise required, as the only documented setup path; Node 24 on every machine; graphify, uv and gh pinned too; and the scripts moved to mise tasks, with the hook runner kept. A spike, `asdlc-openspec-8juz.1`, measured mise in this repository first, and its findings set item 5.
+
+**Builds on / amends:** amends D-26, whose loss named a `setup-python` step in CI and a Python in the dev container's apt layer. Builds on D-19, whose runner and jobs are unchanged and run on the Node mise installs; on D-27, whose split puts `toolchainLockPlatforms` in `tools/policy/tool-settings.json` and whose reviewer floor gains `mise.toml` and `mise.lock`; and on D-07, which leaves a change to `.github/**`, `package-lock.json` or this register to a person.
+
+**Decision.**
+
+1. **`mise.toml` is the one home of every tool version the repository installs**: Node 24.21.0, Python 3.12.15, Vale 3.23.0, `bd` 1.3.0 from its own GitHub release, and gh 2.102.0, each an exact version. `mise.lock` records each one's download URL and checksum for every platform `toolchainLockPlatforms` names. Not in it: Git, a system prerequisite whose floor the hook runner holds; Claude Code, which updates itself; and the npm packages, which `package.json` pins. graphify and uv join it in `asdlc-openspec-8juz.3`.
+2. **mise is required.** `README.md` § Setup installs Git and mise, puts mise's shims first on the `PATH` every process inherits, and runs `mise trust` and `mise install`; it installs no other tool by hand.
+3. **CI installs through `jdx/mise-action`**, pinned to one mise release and its binary's `sha256`, the whole toolset in every job, locked. The reviewer's workflow takes `bd` that way and runs `bd --version` before `bd bootstrap`, which `pr-review:check` holds. Vale is then on the runner, and `vale:selftest` becomes a CI step.
+4. **The dev container copies in the same mise** and installs the toolset, locked, as an image layer, with the shims on `PATH` through `ENV`; its entrypoint warns, and never installs, while the image lags `mise.toml`. Claude Code moves to its own installer.
+5. **`[settings] not_found_system_fallback = false`, with auto-install left on.** The spike found that with `auto_install = false`, `mise run` and a shim each ran the system's Node when the pinned one was missing, and said nothing. With the fallback off a shim refuses instead, and with auto-install on a moved pin installs at its next use, which eight runs at once did without a failure.
+6. **`check:toolchain` holds all of it**, at pre-push and in CI: an exact pin, a lock entry for each pin and platform, one mise for CI and the container no older than `min_version`, no second home for a pinned tool, and nothing in `mise.toml` but its four tables, the one template the task move needs, and the two settings of item 5.
+
+**Why.** Node's version had four homes that disagreed: `engines` said 22.22.2 or newer, the container ran the newest 22.x, CI the newest release `engines` allowed (24.21.0), and the maintainer's machine 26.8.1. `bd`'s version lived in a Dockerfile `ARG` that the reviewer's workflow read back with `sed`, Vale's in another, and Python's in CI alone, and a contributor installed each by hand from a list per platform. Four alternatives lost:
+
+- **asdf.** It manages versions the same way, but reads `.tool-versions` alone, with no lockfile and no checksums, and each of its plugins is a shell script fetched from a repository of its own.
+- **Nix or devbox.** Reproducible to the byte, but a second package manager on every machine, slower to install, and nothing in this repository's CI or container speaks it.
+- **Keeping the per-tool installs and gating their agreement.** A gate could hold the Dockerfile's ARGs, CI's setup steps and the README's lists equal, but every install would stay its own mechanism on each platform, and setup would stay a list a person runs by hand.
+- **mise as an optional convenience.** The README's manual lists would stay beside it, and every version would be stated twice, which `CLAUDE.md` § Three kinds of file, and never a fourth forbids.
+
+Where it loses:
+
+- **The `engines` floor goes unexercised.** Every machine runs 24, so code that needs 24 passes every gate and fails for someone on 22.22.2. `asdlc-openspec-8juz.8` carries the decision whether the floor rises.
+- **The container no longer runs the oldest supported major**, which its Dockerfile had chosen so that code needing a newer major failed there first.
+- **mise is required.** A contributor who cannot install it has no documented route.
+- **A Claude Code session whose `PATH` lacks the shims runs no guards.** Its hooks run a bare `node` and exit 127 when none is found, which Claude Code does not treat as a block. The README's step prevents that for a terminal; a session launched from the desktop app is unmeasured, and `asdlc-openspec-8juz.10` asks the maintainer to measure it.
+- **A pin bump matches no job's glob but `check:toolchain`'s**, so the other gates meet the new version only on a forced `npm run gates` or in CI.
+- **A bare `node` run in a directory with no `mise.toml` above it fails in the container**, which has no system Node. Every gate runs from the clone, and a shim hands the real tool directories to what it starts, so no gate meets it; a global default would be a second home for the pin.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound; the amendment under D-26.
+- **`mise.toml` and `mise.lock`:** new, at the root, with their row in `README.md` § How it is laid out.
+- **`scripts/check-toolchain.mjs`:** new, the gate; `check:toolchain` and `check:toolchain:selftest` in `package.json`, each a pre-push job in `git-hooks.yml` and a step in `.github/workflows/verify.yml`, with their rows in `README.md` and `scripts/README.md`. **`package.json` and `package-lock.json`:** `smol-toml` at exactly 1.9.0, the TOML parser the gate reads with.
+- **`tools/policy/tool-settings.json`:** `toolchainLockPlatforms` with its `Means`, and the record's header and its row in `tools/policy/README.md` naming it. **`tools/policy/pr-review.json`:** `mise.toml` and `mise.lock` in `prReviewHighRiskPaths`.
+- **`.github/workflows/verify.yml`:** `jdx/mise-action` and an npm cache in place of the Node and Python setup actions; the two gate steps and `vale:selftest`; Vale out of the absent block.
+- **`.github/workflows/pr-review.yml`:** `jdx/mise-action` in each job, and in the review job `bd` from it, with `bd --version` a step of its own, in place of the npm install that read `ARG BD_VERSION` with `sed`; the header's incident and needs. **`scripts/pr-review.mjs`:** `pr-review:check` holds the new install, its three old checks and their cases replaced by four.
+- **`.devcontainer/`:** the Dockerfile without its version ARGs, NodeSource, the gh and Vale layers, apt `python3` and the global npm installs, and with mise and the locked install; `devcontainer.json` with the repository's root as its build context; `Dockerfile.dockerignore`, new, admitting only what the build reads; `entrypoint.sh` warning while the image lags `mise.toml`; and the directory's README.
+- **`README.md`:** § Setup on each platform; the Node floor's command in a paragraph of its own; rows in § The guardrails, § The npm scripts and § What runs automatically, and the `vale:selftest` rows now CI's too.
+- **`.gitignore`:** a person's own mise files. **Headers:** `scripts/check-beads.mjs`, `scripts/vale.selftest.mjs`, `scripts/python.mjs` and `tools/lib/bd-launcher.ts`, each where it named the old installs.
+
+**Figures.**
+
+- 5 tools pinned, each locked for 5 platforms, 25 platform entries: `mise lock --platform linux-arm64,linux-x64,macos-arm64,macos-x64,windows-x64` at this change, and `npm run check:toolchain`.
+- 39 cases in `check:toolchain:selftest`, 3 of them controls; 31 of 31 refusals, deleted one at a time, each turning a case red: `npm run check:toolchain:selftest`, and a run of it with each `problems.push` and each second-home pattern disabled in turn, by a helper that is not tracked.
+- 0.11 s wall for the gate and 0.36 s for its selftest: the jobs' comments in `git-hooks.yml`, which name the host.
+- The spike's figures, each in `asdlc-openspec-8juz.1`'s notes with its command: medians of 95 ms through `node --run` and 91 to 98 ms through `mise run` over 20 runs, 39 of 39 pre-push gates with the same exit status both ways, and 7 tools installed in 6.0 s.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
