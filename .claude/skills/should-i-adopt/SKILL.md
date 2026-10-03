@@ -9,10 +9,12 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 # Should I adopt it?
 
 The argument names a candidate, a tool or a pattern, and may name the problem it would solve. A run
-ends with a decision brief in the tracker and changes no tracked file: adopting is a person's choice,
-recorded after they make it (`CLAUDE.md` § A program proposes; only a person promotes). Run it from
-the primary checkout: a worktree session refuses a container command that runs git, which step 5
-needs.
+ends with a decision brief in the tracker, or with the prior decision that settles it (step 2), and
+changes no tracked file: adopting is a person's choice, recorded after they make it
+(`CLAUDE.md` § A program proposes; only a person promotes). Run it from the primary checkout: a
+worktree session refuses a container command that runs git, which step 5 needs. A run in a
+worktree session says so to the user, and any claim it then leaves untried is named as no trial
+checked.
 
 ## 1. Name the problem
 
@@ -61,7 +63,8 @@ that matters.
    script that runs from whichever worktree runs `npm ci`, `~/.claude/`, global git or shell config.
    Every checkout shares that state, and no tracked file can remove it.
 5. **How it behaves in a linked worktree:** paths baked to one checkout, per-machine state, and
-   `CLAUDE_PROJECT_DIR`, which names the primary checkout (`.claude/README.md` § The hooks).
+   `CLAUDE_PROJECT_DIR`, which names the directory a session started in and does not follow it
+   into a worktree (`.claude/README.md` § The hooks).
 6. **What it does to output an agent reads.** A filter, cap or rewrite breaks `CLAUDE.md` §
    Verification before claiming, and output larger than a tool result holds is read in part.
 7. **The commands a session would run:** which `scripts/hooks/guard-git.mjs` or the permission
