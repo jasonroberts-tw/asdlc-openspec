@@ -121,9 +121,7 @@ Choose **adopt**, **adopt with conditions** (each condition is work an issue can
 
 File it as a `decision` issue titled as the question ("Decide whether to adopt X for Y"), with the
 `repo:` label and one `assetLabels` label (`tools/policy/vocabulary.json`) for each kind of file
-adopting would change, from a file in a `mktemp -d` directory, inside the bracket `CLAUDE.md` § The
-task store describes. Every figure is re-derived and cited (`CLAUDE.md` § Verification before
-claiming). The brief, in this order:
+adopting would change. The brief, in this order:
 
 1. **Measured:** the commit and date the run read, and the candidate's version.
 2. **Why it is open:** step 1's problem and its evidence.
