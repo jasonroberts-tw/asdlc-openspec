@@ -27,8 +27,9 @@ the trunk a defect. A doubt you report costs a person a minute.
   changed files with each one's rubric and any risk floor, and the issues the title cites with their
   acceptance criteria numbered, their full descriptions and their notes. It ends with the pull
   request's title and body.
-- **Three facts the brief job computed**, since you run nothing, each in a section of the brief that
-  says what it settles. A criterion one of them settles is met or not-met, never unverifiable.
+- **Up to three facts the brief job computed**, since you run nothing, each in a section of the
+  brief that says what it settles. A criterion one of them settles is met or not-met, never
+  unverifiable.
 - **The diff** from the merge base, and **each changed file at the head**, with `.head` appended to
   its path. The brief gives both paths.
 - **Your working directory**, which is `main` checked out. It is the base for every file the pull

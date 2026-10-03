@@ -187,8 +187,9 @@ jobs:
           anthropic_workspace_id: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
           github_token: ${{ github.token }}
           # The session hooks guard agents that edit; the reviewer edits nothing. Writing to the
-          # prompt cache is most of a review's cost, and a review lasts minutes, so it writes at the
-          # five-minute lifetime, not the one-hour one at twice the input price (asdlc-openspec-tvv3).
+          # prompt cache is the largest part of a review's cost, and a review lasts minutes, so it
+          # writes at the five-minute lifetime, not the one-hour one at twice the input price
+          # (asdlc-openspec-tvv3).
           settings: '{"disableAllHooks": true, "promptCacheTtl": "5m"}'
           prompt: >-
             Review pull request #${{ needs.select.outputs.pr }} at head commit
