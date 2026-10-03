@@ -41,8 +41,8 @@
  * would stop saying anything.
  *
  * WHY THE LIVE RUN IS NOT A CI STEP, AND ITS SELFTEST IS. The live run reads the Dolt database
- * through `bd export`. CI has neither the database nor the binary, so it would compare against
- * nothing and pass. It is a `pre-push` job. Where `bd` is unavailable it SKIPS CLEAN and says so -- a
+ * through `bd export`. CI has no database, though mise installs the binary there since
+ * `docs/decisions.md` § D-29, so it would compare against nothing and pass. It is a `pre-push` job. Where `bd` is unavailable it SKIPS CLEAN and says so -- a
  * gate that is red on every fresh clone gets bypassed with `--no-verify`, which costs you every other
  * gate too. `--selftest` reads only the fixtures it writes and the committed records under
  * `tools/policy/`, and runs no `bd`, so it is a pre-push job and a `.github/workflows/verify.yml` step both

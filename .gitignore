@@ -1,6 +1,13 @@
 # Dependencies. The lockfile is authoritative; `npm ci` restores this directory.
 node_modules/
 
+# A person's own mise overrides, which mise reads beside `mise.toml` and above it. The toolchain's
+# versions have one home, `mise.toml` with `mise.lock` (docs/decisions.md § D-29); a local file
+# stays on the machine that wrote it.
+mise.local.toml
+mise.*.local.toml
+mise.local.lock
+
 # Worktrees the harness provisions live INSIDE the checkout, at the harness's own location. A
 # checkout inside the working tree carries its own .git, which the parent reads as a gitlink and
 # would commit as a phantom submodule. This rule is load-bearing. Do not remove it.

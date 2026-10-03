@@ -10,7 +10,8 @@
 #                                    which run scripts/git-hooks.mjs at each event.
 #   3. the beads issue database   -- a Dolt DB under .beads/embeddeddolt/, not in git.
 #
-# ...a warning when Vale cannot load `.vale.ini`. Its styles are what `vale sync` downloads into the
+# ...a warning when the image's tools lag `mise.toml`, since it installs none, and a warning when Vale
+# cannot load `.vale.ini`. Its styles are what `vale sync` downloads into the
 # repository, once, and a person runs it (.devcontainer/README.md): this script does not...
 #
 # ...and the wiring for the credential mounts declared in devcontainer.json, which is here for the
@@ -54,6 +55,13 @@ setup() {
   fi
 
   cd "$repo" || return 0
+
+  # The image installed the toolchain from `mise.toml` and `mise.lock` when it was built (the
+  # Dockerfile), so a pin moved since then is missing here, and mise would install it over the
+  # network at its first use. Say so, and install nothing: a rebuild is the fix.
+  if command -v mise >/dev/null 2>&1 && [ -n "$(mise ls --current --missing --no-header 2>/dev/null)" ]; then
+    warn 'a tool mise.toml pins is missing from this image -- rebuild the container (`mise ls --missing` names it)'
+  fi
 
   # `npm ci`, but only when it would change something. The marker records the lockfile hash the
   # current node_modules was installed from, so a rebuild after a dependency bump reinstalls, and an

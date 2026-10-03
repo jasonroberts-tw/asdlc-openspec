@@ -42,10 +42,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      # Every tool at the version `mise.toml` pins, from `mise.lock`: the action adds `--locked`
+      # because the lockfile is committed, so a pin moved without `mise lock` fails here. The whole
+      # toolset, so no step installs a tool of its own mid-run, and the action caches mise's installs
+      # by the two files' hash. `version` and `sha256` pin mise itself to the release
+      # `.devcontainer/Dockerfile` copies in, which `npm run check:toolchain` holds
+      # (`docs/decisions.md` § D-29).
+      - uses: jdx/mise-action@v4
         with:
-          node-version-file: package.json
-          cache: npm
+          version: 2026.10.0
+          sha256: 57ced973f968b8fbab07aa8e32bd7077d4a357e200a22356d98963c723c6de0a
+      # npm's download cache, keyed by the lockfile, which the Node setup step mise replaced kept.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npm ci
       # Milliseconds: three committed files held to each other.
       - name: every job names a script, and every unjobbed script is declared
@@ -70,6 +81,17 @@ jobs:
         run: npm run check:policy
       - name: the policy gate, negative-tested
         run: npm run check:policy:selftest
+      # Milliseconds: `mise.toml` held to `mise.lock`, to the mise each workflow and the dev container
+      # pin, and to every other place a tool could be installed (`docs/decisions.md` § D-29).
+      - name: every tool version has one home, mise.toml, and the lockfile covers it
+        run: npm run check:toolchain
+      - name: the toolchain gate, negative-tested
+        run: npm run check:toolchain:selftest
+      # Under a second (git-hooks.yml's `vale-selftest` job has the measurement): this repository's own
+      # Vale style over fixtures, with the `vale` mise installed above. Until mise, this runner had no
+      # Vale and the step was left out, since it would only ever have skipped.
+      - name: the Layout style's rules fire on their faults and nothing else
+        run: npm run vale:selftest
       # Milliseconds: each workflow under `.claude/workflows/` against stubbed agents, with the policy's
       # review sizes, prompt-review threshold and skeptic counts.
       - name: the workflows stop, confirm and report as their policy says
@@ -163,15 +185,10 @@ jobs:
       # repositories under the temporary directory, and the command line run against them.
       - name: the co-change gate, negative-tested
         run: npm run coupling:selftest
-      # A Python 3 for the harness's graph half, which `scripts/python.mjs` launches and fails
-      # without, as its header says, rather than skip; pinned to one minor release.
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
       # Seconds (git-hooks.yml's `harness-selftest` job has the measurement): the harness
-      # assessment's core over fixture repositories, then its graph half over fixture graphs. The two
-      # commands write a local report or read the local code graph, so no step runs them
-      # (docs/decisions.md § D-26).
+      # assessment's core over fixture repositories, then its graph half over fixture graphs, on the
+      # Python 3 `mise.toml` pins, which mise installed above. The two commands write a local report
+      # or read the local code graph, so no step runs them (docs/decisions.md § D-26).
       - name: the harness assessment, negative-tested over fixtures
         run: npm run harness:selftest
       # Under a second (git-hooks.yml's `tests-inventory` job has the measurement): the tests at HEAD
@@ -209,9 +226,6 @@ jobs:
       #     it reads a fixture export and the committed policy, and runs no `bd`.
       #   * the worktree hooks' selftest, `worktree:selftest`: about a hundred git spawns against a
       #     scratch repository it builds; it is a pre-push job, and nothing it reads differs in CI.
-      #   * the Vale style's selftest, `vale:selftest`: it runs `vale`, which this runner does not
-      #     install, so here it would only ever skip and read green. It is a pre-push job. The style
-      #     it tests runs in the vale@agent-tools hook on each edit, never in CI.
       #   * the pull-request review itself: it reads a token, a language model and the tracker, so it
       #     is `.github/workflows/pr-review.yml`, and only its wiring and decisions are steps here.
       #

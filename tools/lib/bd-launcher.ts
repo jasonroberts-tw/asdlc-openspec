@@ -18,6 +18,11 @@
  * looked is the mirror of the failure `check-beads.mjs`'s own header argues against, and nothing in
  * the output told the two apart.
  *
+ * Since 2026-10-03 every machine set up from README.md § Setup takes `bd` from mise
+ * (`docs/decisions.md` § D-29), whose shims on Windows are `.exe` files by default, so the first
+ * rule below finds `bd.exe`. That has not been run on Windows here (asdlc-openspec-8juz.9). The npm
+ * rule stays for a machine set up the old way.
+ *
  * WHAT THIS RESOLVES, in PATH order, first hit wins:
  *
  *   win32     `bd.exe` in a PATH directory -> spawn it directly.

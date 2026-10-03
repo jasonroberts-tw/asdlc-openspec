@@ -55,8 +55,11 @@
  * The second, the same day (asdlc-openspec-61t): the review of pull request #47 in CI stopped at
  * `bd bootstrap`, which found no `bd` binary. `@beads/bd`'s postinstall skips its download whenever
  * `CI` is set, and Actions sets it on every step; the fix first proposed, `--allow-scripts` alone,
- * still skipped it. So the wiring gate also holds the job that runs `brief` to installing `bd` with
- * `CI` unset, with `--allow-scripts`, and with `bd --version` in the same step.
+ * still skipped it. So the wiring gate also held the job that runs `brief` to installing `bd` with
+ * `CI` unset, with `--allow-scripts`, and with `bd --version` in the same step. Since 2026-10-03 the
+ * job takes `bd` through `jdx/mise-action` from its GitHub release, which has no postinstall
+ * (`docs/decisions.md` § D-29), so the gate holds it to that install, not turned off and not left out
+ * of `install_args`, and to `bd --version` after it and before `bd bootstrap`.
  *
  * The third, across the verdicts of 2026-09-25 to 2026-10-01 (asdlc-openspec-744): criteria marked
  * unverifiable for a fact the brief job could have computed and the reviewer, who runs nothing,
@@ -1492,36 +1495,34 @@ export async function runCheck(root) {
     fail(`${WORKFLOW} does not pass EVENT_NAME to \`next\`, so a \`pull_request_target\` run could take a review whose OIDC token the federation rule refuses.`)
   }
 
-  // `brief` reads each cited issue with `bd`, and an install of `@beads/bd` can exit 0 with no binary.
+  // `brief` reads each cited issue with `bd`, which comes from `mise.toml`'s pin through
+  // jdx/mise-action (docs/decisions.md § D-29), and an install can leave no binary.
   const runOf = (step) => String(step?.run ?? '')
-  const installsBd = (line) => /\bnpm (?:install|i)\b.*@beads\/bd@/.test(line)
   const briefId = Object.keys(jobs).find((id) => (jobs[id]?.steps ?? []).some((step) => /node scripts\/pr-review\.mjs brief\b/.test(runOf(step))))
   if (briefId) {
-    const installs = (jobs[briefId].steps ?? []).filter((step) => installsBd(runOf(step)))
-    if (installs.length === 0) {
-      fail(`${WORKFLOW}'s \`${briefId}\` job runs \`brief\`, which reads each cited issue with \`bd\`, but installs no \`@beads/bd\`.`)
+    const steps = jobs[briefId].steps ?? []
+    const mise = steps.findIndex((step) => /^jdx\/mise-action@/.test(String(step?.uses ?? '')))
+    const bootstrap = steps.findIndex((step) => /\bbd bootstrap\b/.test(runOf(step)))
+    const answers = steps.findIndex((step) => runOf(step).split('\n').some((line) => /^bd (?:--version|version)\b/.test(line.trim())))
+    if (mise === -1) {
+      fail(
+        `${WORKFLOW}'s \`${briefId}\` job runs \`brief\`, which reads each cited issue with \`bd\`, but takes no \`bd\` from \`jdx/mise-action\`,` +
+          ' which installs it at the version `mise.toml` pins.',
+      )
+    } else {
+      const inputs = steps[mise].with ?? {}
+      if (String(inputs.install ?? 'true') === 'false') {
+        fail(`${WORKFLOW}'s \`${briefId}\` job runs jdx/mise-action with \`install: false\`, so no \`bd\` is installed for \`brief\` to read the tracker with.`)
+      }
+      if (inputs.install_args !== undefined && !/\bbeads\b|\bbd\b/.test(String(inputs.install_args))) {
+        fail(`${WORKFLOW}'s \`${briefId}\` job runs jdx/mise-action with \`install_args\` that leave out the tracker's CLI, so no \`bd\` is installed for \`brief\`.`)
+      }
     }
-    for (const step of installs) {
-      const lines = runOf(step).split('\n').map((line) => line.trim())
-      const at = lines.findIndex(installsBd)
-      if (!lines.slice(0, at).some((line) => /^unset\b.*\bCI\b/.test(line))) {
-        fail(
-          `${WORKFLOW} installs \`@beads/bd\` with \`CI\` set, as Actions leaves it on every step: its postinstall then prints` +
-            ' "Skipping binary download in CI environment", and on 2026-09-25 `bd bootstrap` found no binary. Put `unset CI` before the install.',
-        )
-      }
-      if (!/--allow-scripts=\S*@beads\/bd\b/.test(lines[at])) {
-        fail(
-          `${WORKFLOW} installs \`@beads/bd\` without \`--allow-scripts=@beads/bd\`: npm 11.19.0 warns that its postinstall is not` +
-            ' covered by `allowScripts`, and an npm that enforces that downloads no binary.',
-        )
-      }
-      if (!lines.slice(at + 1).some((line) => /^bd (?:--version|version)\b/.test(line))) {
-        fail(
-          `${WORKFLOW} does not run \`bd --version\` after installing \`@beads/bd\`, in the same step: an install with no binary exits 0,` +
-            ' and the failure surfaces a step later as "bd binary not found".',
-        )
-      }
+    if (answers === -1 || answers < mise || (bootstrap !== -1 && answers > bootstrap)) {
+      fail(
+        `${WORKFLOW}'s \`${briefId}\` job does not run \`bd --version\` after installing \`bd\` and before \`bd bootstrap\`: an install with no binary` +
+          ' can pass, and on 2026-09-25 the failure surfaced a step later, as "bd binary not found".',
+      )
     }
   }
 
@@ -1906,10 +1907,10 @@ function wiringCases() {
     { name: 'an API key comes back through the review job\'s env', doctor: edit(WORKFLOW, '    env:\n      PR: ${{ needs.select.outputs.pr }}', '    env:\n      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}\n      PR: ${{ needs.select.outputs.pr }}'), expect: /sets `ANTHROPIC_API_KEY` in the `review` job's env/ },
     { name: 'a federation id passed as a variable, which a public log prints', doctor: edit(WORKFLOW, '${{ secrets.ANTHROPIC_ORGANIZATION_ID }}', '${{ vars.ANTHROPIC_ORGANIZATION_ID }}'), expect: /passes `anthropic_organization_id` as .* not as an Actions secret/ },
     { name: 'next is no longer told the event', doctor: edit(WORKFLOW, /^ {10}EVENT_NAME: .*\n/m, ''), expect: /does not pass EVENT_NAME/ },
-    { name: 'the review job no longer installs the tracker\'s CLI', doctor: edit(WORKFLOW, '"@beads/bd@$(', '"@beads/cli@$('), expect: /runs `brief`, .* but installs no `@beads\/bd`/ },
-    { name: 'the tracker\'s CLI is installed with CI set', doctor: edit(WORKFLOW, /^ {10}unset CI\n/m, ''), expect: /installs `@beads\/bd` with `CI` set/ },
-    { name: 'the tracker\'s CLI is installed without --allow-scripts', doctor: edit(WORKFLOW, ' --allow-scripts=@beads/bd', ''), expect: /without `--allow-scripts=@beads\/bd`/ },
-    { name: 'the install step no longer runs bd --version', doctor: edit(WORKFLOW, /^ {10}bd --version\n/m, ''), expect: /does not run `bd --version` after installing/ },
+    { name: 'the review job no longer takes the tracker\'s CLI from mise', doctor: edit(WORKFLOW, "the tracker's CLI among it\n        uses: jdx/mise-action@", "the tracker's CLI among it\n        uses: actions/checkout@"), expect: /runs `brief`, .* but takes no `bd` from `jdx\/mise-action`/ },
+    { name: 'the review job\'s mise installs nothing', doctor: edit(WORKFLOW, /(the tracker's CLI among it\n {8}uses: jdx\/mise-action@\S+\n {8}with:\n)/, '$1          install: false\n'), expect: /runs jdx\/mise-action with `install: false`/ },
+    { name: 'the review job\'s mise installs everything but the tracker\'s CLI', doctor: edit(WORKFLOW, /(the tracker's CLI among it\n {8}uses: jdx\/mise-action@\S+\n {8}with:\n)/, '$1          install_args: node gh\n'), expect: /`install_args` that leave out the tracker's CLI/ },
+    { name: 'the review job no longer runs bd --version', doctor: edit(WORKFLOW, /^( {8}run: )bd --version$/m, '$1echo skipped'), expect: /does not run `bd --version` after installing `bd` and before `bd bootstrap`/ },
     { name: 'verify loses its dispatch trigger', doctor: edit(VERIFY, /^  workflow_dispatch:\n/m, ''), expect: /cannot be dispatched/ },
     { name: 'verify\'s job no longer carries the required check\'s name', doctor: edit(VERIFY, /^  verify:$/m, '  gates:'), expect: /has no job whose check is `verify`/ },
   ]

@@ -1,49 +1,36 @@
 # The whole "new machine setup" of README.md, baked into an image.
 #
-# Everything a person would otherwise do by hand -- Node, `bd`, `gh`, Vale, Claude Code and the tracker's plugin marketplace -- is a layer here
-# rather than a devcontainer.json `feature` or `postCreateCommand`. That is deliberate: features
-# resolve at container-create time over the network and fail differently on every machine, and a
+# Everything a person would otherwise do by hand -- the toolchain `mise.toml` pins (Node, Python,
+# `bd`, `gh` and Vale), Claude Code and the tracker's plugin marketplace -- is a layer here rather
+# than a devcontainer.json `feature` or `postCreateCommand`. That is deliberate: features resolve at
+# container-create time over the network and fail differently on every machine, and a
 # `postCreateCommand` re-runs on every rebuild. A layer is built once, cached, and identical for
-# everyone. devcontainer.json next to this file does nothing but point at it.
+# everyone. devcontainer.json next to this file does little but point at it.
 #
 # The only steps NOT in a layer are the three that need the repository itself, which is a bind mount
 # that does not exist at build time: `npm ci`, the git hooks, and hydrating the issue database.
 # Those live in entrypoint.sh, which this file copies in and wires to ENTRYPOINT -- so the setup is
 # still owned by the image, and devcontainer.json still has no lifecycle command in it.
 #
-# Versions are the base tag and the ARGs below, and the comment above each one says where it is
-# re-derived from. Bump one here when its source moves.
+# Versions are the base tag below, and `mise.toml`, whose every tool installs here through
+# `mise.lock` (docs/decisions.md § D-29); this file states no tool's version. The build context is
+# the repository's root, so the image can read those two files, and `Dockerfile.dockerignore` beside
+# this file admits them and the entrypoint and nothing else. After a pin moves, rebuild: entrypoint.sh
+# warns while the image's tools lag `mise.toml`.
 
 # The base image's major version, on its Ubuntu 24.04 codename tag. `3-noble` takes every 3.x
-# release devcontainers/images publishes and never crosses a major, as NODE_MAJOR does for Node.
-# The codename form is the tag that image's manifest builds (`${VERSION}-${VARIANT}`, in its
-# src/base-ubuntu/manifest.json). Until 2026-10-01 this line named `ubuntu-24.04`, a form upstream
-# renamed (devcontainers/images#1630), and that tag stayed on image 2.0.5 with Git 2.51.1, older than
-# the 2.54 that config-based hooks need (asdlc-openspec-tvy). A major tag stops moving the same way
-# when the next major ships, and nothing says so: `2-noble` has resolved to 2.1.8 since 3.0.0
-# shipped. So bump the major here by hand when a new one appears, after reading that release's
-# history file in devcontainers/images for what it changes. List the majors with
+# release devcontainers/images publishes and never crosses a major. The codename form is the tag that
+# image's manifest builds (`${VERSION}-${VARIANT}`, in its src/base-ubuntu/manifest.json). Until
+# 2026-10-01 this line named `ubuntu-24.04`, a form upstream renamed (devcontainers/images#1630), and
+# that tag stayed on image 2.0.5 with Git 2.51.1, older than the 2.54 that config-based hooks need
+# (asdlc-openspec-tvy). A major tag stops moving the same way when the next major ships, and nothing
+# says so: `2-noble` has resolved to 2.1.8 since 3.0.0 shipped. So bump the major here by hand when a
+# new one appears, after reading that release's history file in devcontainers/images for what it
+# changes. List the majors with
 # `curl -s https://mcr.microsoft.com/v2/devcontainers/base/tags/list | jq -r '.tags[]' | grep -E '^[0-9]+-noble$'`.
 # Chosen by the maintainer on 2026-10-01 over `noble`, which crosses majors unasked, and over a pinned
 # digest, which never moves until bumped. Read 3 there that day: image 3.0.8, Git 2.55.0.
 FROM mcr.microsoft.com/devcontainers/base:3-noble
-
-# 22, the major line of the floor package.json `engines` sets. README.md's setup step 1 restates
-# that floor and holds the command that re-derives it from package-lock.json. CI does not pin a
-# major: .github/workflows/verify.yml reads the same `engines` range, and setup-node takes the
-# newest release it allows (24.21.0 on 2026-09-23). NodeSource installs the newest 22.x, not the
-# floor itself, so the container runs the repository's oldest supported major: code that needs a
-# newer major fails here first, and code that needs a newer patch than the floor does not.
-ARG NODE_MAJOR=22
-# The version of the bd that owns the tracker's database, so the container never runs an older client
-# against a newer schema. Re-derive it from `bd version` on the maintainer's machine, or from
-# .beads/.local_version there: bd writes that file itself and it is gitignored, so a fresh clone does
-# not have it. Read 1.3.0 from both on 2026-09-23.
-ARG BD_VERSION=1.3.0
-# The Vale that the vale@agent-tools plugin's hook runs on every Write and Edit of prose. Re-derive it
-# from `vale --version` on the maintainer's machine, where the styles `.vale.ini` names were synced
-# and checked. Read 3.23.0 there on 2026-09-30, then the newest release.
-ARG VALE_VERSION=3.23.0
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -55,9 +42,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV NO_COLOR=1
 
 # --- base packages ------------------------------------------------------------------------------
-# build-essential: some npm dependencies still compile on install. python3: the harness
-# assessment's graph half, which `harness:selftest`, a pre-push job, runs through
-# `scripts/python.mjs` and fails without (`docs/decisions.md` § D-26).
+# build-essential: some npm dependencies still compile on install. curl: the Claude Code installer
+# below.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
@@ -66,64 +52,13 @@ RUN apt-get update \
         gnupg \
         jq \
         less \
-        python3 \
         unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Node ---------------------------------------------------------------------------------------
-# NodeSource rather than nvm: nvm is a shell function, so it exists only in an interactive login
-# shell, and every hook, ENTRYPOINT and `docker exec` would miss it.
-RUN curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && rm -rf /var/lib/apt/lists/* \
-    && node -v \
-    && npm -v
-
-# --- GitHub CLI ---------------------------------------------------------------------------------
-# Every pull request here is `gh pr create --base main` (CLAUDE.md § Git workflow), and in a linked
-# worktree a pull request is the only route to trunk.
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-        -o /usr/share/keyrings/githubcli-archive-keyring.gpg \
-    && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-        > /etc/apt/sources.list.d/github-cli.list \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends gh \
-    && rm -rf /var/lib/apt/lists/*
-
-# --- Vale ---------------------------------------------------------------------------------------
-# .claude/settings.json enables the vale@agent-tools plugin, whose hook lints prose on every Write
-# and Edit and exits in silence when `vale` is not on PATH: without this layer, no prose written in
-# the container is checked, and nothing says so. The styles are not in the image. `vale sync`
-# downloads what `.vale.ini` names into the clone, which is a bind mount that does not exist at
-# build time; .devcontainer/README.md says where they come from. The release's own binaries, one per
-# architecture, each a glibc build, which this Ubuntu base carries.
-RUN case "$(dpkg --print-architecture)" in \
-        amd64) asset="vale_${VALE_VERSION}_Linux_64-bit.tar.gz" ;; \
-        arm64) asset="vale_${VALE_VERSION}_Linux_arm64.tar.gz" ;; \
-        *) echo "no Vale ${VALE_VERSION} release for $(dpkg --print-architecture)" >&2; exit 1 ;; \
-    esac \
-    && curl -fsSL "https://github.com/vale-cli/vale/releases/download/v${VALE_VERSION}/${asset}" \
-        | tar -xz --no-same-owner -C /usr/local/bin vale \
-    && vale --version
-
-# --- a language toolchain, if your project needs one ---------------------------------------------
-# NOTHING IS INSTALLED HERE BY DEFAULT. Add the SDK your own projects build with, and take it from
-# the base image's own archive where it carries one, so the layer costs no third-party repository.
-#
-# THE VERSION HAS TO TRACK WHAT THE PROJECTS TARGET: pin ONE, re-derived from where the projects
-# declare it. Left to drift, this layer lets through a change that moves every project to a newer
-# SDK and updates README.md's setup steps without touching this file: it builds on every machine set
-# up from README.md and fails every build in this container. An older version pinned alongside the
-# new one hides that mismatch rather than preventing it.
-
-# --- global npm tools ---------------------------------------------------------------------------
-# `bd` is pinned to the database's version. Claude Code deliberately is not: it self-updates, so a
-# pin here would only ever be stale.
-RUN npm install -g \
-        "@beads/bd@${BD_VERSION}" \
-        @anthropic-ai/claude-code \
-    && npm cache clean --force
+# --- mise ---------------------------------------------------------------------------------------
+# mise itself, at the release every workflow's `jdx/mise-action` pins, which `npm run
+# check:toolchain` holds equal to this tag, copied from mise's own image as its documentation does.
+COPY --from=ghcr.io/jdx/mise:2026.10.0 /usr/local/bin/mise /usr/local/bin/mise
 
 # --- git configuration --------------------------------------------------------------------------
 # The workspace is a bind mount owned by the host user, whose uid rarely matches the container's;
@@ -138,10 +73,41 @@ RUN git config --system --add safe.directory '*' \
 # mounted, so they cannot be layers. ENTRYPOINT is how they stay in the image anyway: the
 # devcontainer CLI replaces the container's *command* with a sleep, and leaves the image's
 # entrypoint alone.
-COPY entrypoint.sh /usr/local/bin/workspace-entrypoint
+COPY .devcontainer/entrypoint.sh /usr/local/bin/workspace-entrypoint
 RUN chmod 0755 /usr/local/bin/workspace-entrypoint
 
 USER vscode
+
+# --- the toolchain `mise.toml` pins ---------------------------------------------------------------
+# Every tool, as the user the container runs as, each verified against `mise.lock`: `--locked`
+# refuses a tool the lock does not cover for this platform. They install under that user's home,
+# which no mount covers (devcontainer.json mounts only `~/.claude`, `~/.claude.json` and
+# `~/.config/gh`).
+#
+# The shims go on PATH through ENV, not `mise activate`, which is a shell function, as nvm is: it
+# exists only in an interactive shell, and every hook, the ENTRYPOINT and `docker exec` would miss
+# it. A shim takes its version from the `mise.toml` above the directory it runs in, and
+# MISE_TRUSTED_CONFIG_PATHS trusts the clone under /workspaces, since nothing can answer a shim's
+# prompt to trust it.
+#
+# No global default is set, so a bare `node` in a directory with no `mise.toml` above it fails and
+# says "No version is set for shim: node" (asdlc-openspec-8juz.1, question 6). Every gate runs from
+# the clone, and a shim hands the real tool directories to what it starts, so no gate meets that; a
+# global default would be a second home for the pin.
+ENV PATH="/home/vscode/.local/share/mise/shims:/home/vscode/.local/bin:${PATH}"
+ENV MISE_TRUSTED_CONFIG_PATHS=/workspaces
+COPY --chown=vscode:vscode mise.toml mise.lock /tmp/toolchain/
+RUN MISE_TRUSTED_CONFIG_PATHS=/tmp/toolchain mise -C /tmp/toolchain install --locked \
+    && MISE_TRUSTED_CONFIG_PATHS=/tmp/toolchain mise -C /tmp/toolchain exec -- \
+        sh -c 'node -v && npm -v && python --version && vale --version && bd --version && gh --version' \
+    && rm -rf /tmp/toolchain
+
+# --- Claude Code ---------------------------------------------------------------------------------
+# Deliberately unpinned: it updates itself, so a pin here would only ever be stale. Its own installer,
+# into the user's home, rather than a global npm package, which lives inside one Node install and
+# would vanish when `mise.toml` moves the Node pin.
+RUN curl -fsSL https://claude.ai/install.sh | bash \
+    && claude --version
 
 # .claude/settings.json (committed) enables `beads@beads-marketplace`, but the marketplace itself is
 # a per-user registration, and without it the beads skills do not show up. Non-fatal, and

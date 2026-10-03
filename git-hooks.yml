@@ -186,6 +186,45 @@ pre-push:
         - 'tools/lib/policy.ts'
         - 'scripts/check-policy.mjs'
       run: node --run check:policy:selftest
+    # `mise.toml` is the one home of every tool version (docs/decisions.md § D-29): each pin exact
+    # and in `mise.lock` for every platform the policy names, one mise for every workflow's
+    # `jdx/mise-action` and the dev container, and no second home in a workflow, the Dockerfile or a
+    # version file at the root, whose names are in the glob for that reason. Reads those, the policy
+    # through its loader, and the TOML and YAML parsers the manifest and lockfile pin: 0.11 s wall
+    # through `node --run` (`/usr/bin/time -p`, one run) on a macOS 26.7.1 laptop with Node 26.8.1,
+    # 2026-10-03.
+    - name: check-toolchain
+      glob:
+        - 'mise.toml'
+        - 'mise.lock'
+        - '.github/workflows/*.yml'
+        - '.devcontainer/Dockerfile'
+        - '.mise.toml'
+        - '.node-version'
+        - '.nvmrc'
+        - '.python-version'
+        - '.tool-versions'
+        - 'tools/policy/**'
+        - 'tools/lib/policy.ts'
+        - 'scripts/check-toolchain.mjs'
+        - 'package.json'
+        - 'package-lock.json'
+      run: node --run check:toolchain
+    # Its refusals over copies of those files under the temporary directory, one doctored per case and
+    # each asserting its reason, beside three controls: 0.36 s wall for its 39 cases, one run, the same
+    # host and day.
+    - name: check-toolchain-selftest
+      glob:
+        - 'mise.toml'
+        - 'mise.lock'
+        - '.github/workflows/*.yml'
+        - '.devcontainer/Dockerfile'
+        - 'tools/policy/**'
+        - 'tools/lib/policy.ts'
+        - 'scripts/check-toolchain.mjs'
+        - 'package.json'
+        - 'package-lock.json'
+      run: node --run check:toolchain:selftest
     # No glob: the citations gate reads every tracked text file, so any push can change its verdict.
     - name: citations
       run: node --run citations:check

@@ -92,6 +92,7 @@ level above them. `apps/` and `openspec/` hold the product; every other path is 
 | `count-index.md` | Every count that more than one file restates, under a `CNT-*` key, with the source it re-derives from. |
 | `.beads/` | The configuration of `bd`, the issue tracker. Its database syncs through the git remote and is never committed; `bd bootstrap` hydrates it. `PRIME.md` is what `bd prime` prints in place of its own text when the tracker's plugin runs it at a session's start and before a compaction: it points at where each rule lives and states none. |
 | `git-hooks.yml` | The git-hook tiers: which gate runs at commit and at push, each with the glob that scopes it and a note of its measured cost. `scripts/git-hooks.mjs` runs it, called by the five `hook.asdlc-*` entries `npm run hooks:install` writes into the repository's config. |
+| `mise.toml`, `mise.lock` | The toolchain: every tool version the repository installs, and the lockfile that holds each one's download URL and checksum per platform. CI, the dev container and § Setup install from them (`docs/decisions.md` § D-29), and `npm run check:toolchain` holds them. |
 | `.vale.ini`, `.vale-styles/Layout/` | The configuration of Vale, the prose linter the `vale@agent-tools` hook runs on each edit of prose, and `Layout`, the one style this repository writes itself. |
 | `.github/workflows/verify.yml` | The slowest tier: every gate that reads only committed files, on every pull request and every push to `main`. |
 | `.github/workflows/pr-review.yml` | The pull-request reviewer: one pull request at a time, Claude Code judges it against the issues its title cites, and it merges when every dimension passes and the risk is not high. |
@@ -137,6 +138,7 @@ the rule. The third column wins over the first two.
 | A gate that still passes with its guard deleted | Every gate's `:selftest`: one break per case, the refusal's reason asserted, one undoctored control | `CLAUDE.md` § Standing rules for prompts and gates |
 | A skill or agent that does not defer to `CLAUDE.md`; a prompt that grows without a person deciding it may | `check:prompts` refuses a skill or agent whose first line is not the line `CLAUDE.md` requires, and a prompt over its word budget in `tools/policy/prompt-budgets.json` or with none; a raise changes a record the pull-request reviewer holds high risk | `CLAUDE.md` § Standing rules for prompts and gates; the budgets' rules in the header of `scripts/check-prompts.mjs` |
 | A constant with no reason beside it, one key given two values, or a key added where no reader reads it | `check:policy`, at push and in CI, refuses a policy record without its header or a `Means` beside each constant, a key two records define, and `tools/policy.json` back beside the records; `tools/lib/policy.ts` refuses a key two records define for every reader; `check:policy:selftest` holds each refusal | `CLAUDE.md` § Three kinds of file, and never a fourth; `docs/decisions.md` § D-27 |
+| A tool version stated in a second place, a pin that is a range, a pin the lockfile does not verify, or CI and the dev container on two mise releases | `check:toolchain`, at push and in CI, holds `mise.toml` to `mise.lock`, the workflows and the Dockerfile, and `check:toolchain:selftest` holds each refusal. CI's locked install refuses a pin the lockfile does not hold | the header of `mise.toml`; `docs/decisions.md` § D-29 |
 | An agent in a worktree pushing to, switching to or rewriting a protected branch | `scripts/hooks/guard-git.mjs`, and the worktree hooks that provision only through `scripts/new-worktree.sh` | `CLAUDE.md` § Git workflow |
 | An agent applying the reviewer's approval label, which only a person applies | `scripts/hooks/guard-git.mjs`, from any checkout, for a `gh` command; nothing for the web UI, curl or a browser tool (`docs/decisions.md` § R-01) | `CLAUDE.md` § Git workflow |
 | A figure restated from memory that has since moved | `counts:check` re-derives every keyed count from its source | `count-index.md` § How to use it |
@@ -171,24 +173,21 @@ does not apply to your platform is absent from its list, not marked optional.
 ### macOS and Linux
 
 1. Install Git 2.54.0 or newer, the first that runs the config-based hooks this repository installs,
-   Node 22.22.2 or newer (`package.json` `engines` is the floor; it runs the TypeScript tools here
-   directly), and a Python 3, which the `harness-selftest` job runs through `scripts/python.mjs` and
-   fails without (`docs/decisions.md` § D-26). Check that `python3 --version` answers. The floor is never
-   below the lowest version on its major line that every package in `package-lock.json` accepts,
-   or a dependency refuses a Node this step calls enough. After a change to the lockfile, this
-   prints that version beside the floor, from the clone; raise `engines` if the floor is lower (it
-   may sit above). It refuses a range form it cannot read rather than skip it:
-
-   ```sh
-   node -e "const L=require('./package-lock.json').packages,F=require('./package.json').engines.node,M=+F.match(/[0-9]+/)[0],n=s=>{const p=s.replace(/^v/,'').split('.').map(Number);return[p.length,(p[0]*1e3+(p[1]||0))*1e3+(p[2]||0)]},iv=c=>{const m=c.match(/^(>=|\^)?(v?[0-9]+(\.[0-9]+){0,2})$/);if(m===null)throw Error('cannot read '+c);const[k,lo]=n(m[2]);return[lo,m[1]=='>='?Infinity:m[1]?((lo/1e6|0)+1)*1e6:lo+[1e6,1e3,1][k-1]]},R=Object.entries(L).filter(([p,x])=>p&&x.engines&&x.engines.node).map(([p,x])=>x.engines.node.replace(/>=\s+/g,'>=').split('||').map(a=>a.trim().split(/\s+/).map(iv).reduce((a,b)=>[Math.max(a[0],b[0]),Math.min(a[1],b[1])]))),C=R.flat().map(i=>i[0]).concat(M*1e6).filter(c=>(c/1e6|0)==M&&R.every(r=>r.some(i=>i[0]<=c&&c<i[1]))).sort((a,b)=>a-b),f=c=>[c/1e6|0,(c/1e3|0)-(c/1e6|0)*1e3,c-(c/1e3|0)*1e3].join('.');console.log(C.length?'lowest '+M+'.x every locked package accepts: '+f(C[0])+'; package.json engines: '+F:'no '+M+'.x version satisfies every locked package; package.json engines: '+F)"
-   ```
-1. Install `bd`, the tracker's CLI, and check that `bd --version` answers.
-1. Install Vale, the prose linter the `vale@agent-tools` plugin in `.claude/settings.json` runs on
-   every edit of prose: `brew install vale`, or the release binary for your platform from
-   `https://github.com/vale-cli/vale/releases`. Check that `vale --version` answers. 3.23.0 is the
-   version `.devcontainer/Dockerfile` pins. Without Vale, the plugin's hook exits in silence and no
-   prose is checked.
-1. Clone, then `npm ci`. Its `prepare` step writes the git hooks into the clone's config, and
+   and mise: `brew install mise`, or `curl https://mise.run | sh`. Check that `mise --version`
+   answers with a release no older than the `min_version` in `mise.toml`. mise installs every other
+   tool at the version `mise.toml` pins (`docs/decisions.md` § D-29).
+1. Put mise's shims first on the `PATH` that every process inherits: add
+   `export PATH="$HOME/.local/share/mise/shims:$PATH"` to `~/.zshenv`, or under bash to `~/.profile`
+   and `~/.bashrc`. Open a new terminal, and check that `sh -c 'command -v node'` prints a path under
+   `~/.local/share/mise/shims`. Git's hooks and Claude Code's hooks run a bare `node`. Without the
+   shims they find another Node or none, and Claude Code's guard hooks stop guarding in silence.
+1. Clone, then run `mise trust` and `mise install` in the clone. The trust is needed because
+   `mise.toml` carries a setting, and a linked worktree shares it. The install fetches Node, Python
+   3, `bd`, `gh` and Vale from `mise.lock`, each download checked against its checksum. Vale is the
+   prose linter the `vale@agent-tools` plugin in `.claude/settings.json` runs on every edit of
+   prose; without it, the plugin's hook exits in silence. Check that `node -v` and `bd --version`
+   answer with the versions `mise.toml` pins.
+1. Run `npm ci` in the clone. Its `prepare` step writes the git hooks into the clone's config, and
    refuses a Git older than 2.54.0; if your package manager blocks install scripts, run
    `npm run hooks:install` once.
 1. Run `vale sync` in the clone. It downloads the styles `.vale.ini` names into the directory its
@@ -206,19 +205,15 @@ does not apply to your platform is absent from its list, not marked optional.
 
 ### Windows, native
 
-1. Install Git 2.54.0 or newer, Node 22.22.2 or newer, and a Python 3, from python.org or with
-   `winget install -e --id Python.Python.3.12`, which none here has run; check that `py -3 --version`
-   answers, the first spelling `scripts/python.mjs` tries on Windows. The command in step 1 of macOS
-   and Linux re-derives the floor. It holds no `$`, backtick or double quote inside its quotes, the
-   characters PowerShell would expand, but it has not been run in PowerShell
-   (`asdlc-openspec-xn4`).
-1. Install `bd`, the tracker's CLI, and check that `bd --version` answers from the shell you will
-   work in.
-1. Install Vale with `winget install -e --id errata-ai.Vale`, `choco install vale` or
-   `scoop install vale`, or put `vale.exe` from a release on your PATH. Check that `vale --version`
-   answers from the shell you will work in. Vale's installation page gives these commands; none has
-   been run on Windows here.
-1. Clone, then `npm ci`. If install scripts are blocked, run `npm run hooks:install` once.
+1. Install Git 2.54.0 or newer, and mise with `winget install -e --id jdx.mise`. Check that
+   `mise --version` answers with a release no older than the `min_version` in `mise.toml`. None of
+   this list has been run on Windows here (`asdlc-openspec-8juz.9`).
+1. Put `%LOCALAPPDATA%\mise\shims` first on your user `PATH`, in System Properties under
+   Environment Variables. Open a new shell, and check that `Get-Command node` names a path in it.
+   Git's hooks and Claude Code's hooks run a bare `node`, and mise's shims there are `.exe` files.
+1. Clone, then run `mise trust` and `mise install` in the clone, as step 3 of macOS and Linux says.
+   Check that `node -v` and `bd --version` answer from the shell you will work in.
+1. Run `npm ci` in the clone. If install scripts are blocked, run `npm run hooks:install` once.
 1. Run `vale sync` in the clone, then check that `vale ls-config` loads, as step 5 of macOS and
    Linux says.
 1. Set `sync.remote` in `.beads/config.yaml` if it still holds a placeholder (`<protocol>` is
@@ -233,14 +228,28 @@ holds platform-native binaries. Use one clone per platform.
 
 1. On the host, run `claude` and `gh` once each, so the files the container bind-mounts exist.
 1. Clone, open the folder in VS Code, and choose "Reopen in Container".
-1. Wait for the first build. `.devcontainer/entrypoint.sh` then runs the install, the git hooks and
-   the tracker's hydration on every start, and warns rather than fails; read its output once.
+1. Wait for the first build, which installs every tool `mise.toml` pins from `mise.lock`.
+   `.devcontainer/entrypoint.sh` then runs the install, the git hooks and the tracker's hydration on
+   every start, and warns rather than fails; read its output once. If it warns that a tool
+   `mise.toml` pins is missing from the image, rebuild the container.
 1. If it warned that Vale cannot load `.vale.ini`, run `vale sync` once in the container, then check
-   that `vale ls-config` loads. The image carries Vale and the Python 3 `harness-selftest` needs; the
-   styles land in the clone, so a rebuild keeps them.
+   that `vale ls-config` loads. The image carries every tool `mise.toml` pins; the styles land in the
+   clone, so a rebuild keeps them.
 1. Run `npm run gates` and read a green suite before the first change.
 
 `.devcontainer/README.md` has the reasons and the mounts.
+
+**The Node floor.** `package.json` `engines` is the oldest Node the repository supports, and
+`mise.toml` pins a newer one for every machine, so nothing here runs the floor
+(`docs/decisions.md` § D-29). The floor is never below the lowest version on its major line that
+every package in `package-lock.json` accepts, or a dependency refuses a Node the floor calls
+enough. After a change to the lockfile, this prints that version beside the floor, from the clone;
+raise `engines` if the floor is lower (it may sit above). It refuses a range form it cannot read
+rather than skip it, and it has not been run in PowerShell (`asdlc-openspec-xn4`):
+
+```sh
+node -e "const L=require('./package-lock.json').packages,F=require('./package.json').engines.node,M=+F.match(/[0-9]+/)[0],n=s=>{const p=s.replace(/^v/,'').split('.').map(Number);return[p.length,(p[0]*1e3+(p[1]||0))*1e3+(p[2]||0)]},iv=c=>{const m=c.match(/^(>=|\^)?(v?[0-9]+(\.[0-9]+){0,2})$/);if(m===null)throw Error('cannot read '+c);const[k,lo]=n(m[2]);return[lo,m[1]=='>='?Infinity:m[1]?((lo/1e6|0)+1)*1e6:lo+[1e6,1e3,1][k-1]]},R=Object.entries(L).filter(([p,x])=>p&&x.engines&&x.engines.node).map(([p,x])=>x.engines.node.replace(/>=\s+/g,'>=').split('||').map(a=>a.trim().split(/\s+/).map(iv).reduce((a,b)=>[Math.max(a[0],b[0]),Math.min(a[1],b[1])]))),C=R.flat().map(i=>i[0]).concat(M*1e6).filter(c=>(c/1e6|0)==M&&R.every(r=>r.some(i=>i[0]<=c&&c<i[1]))).sort((a,b)=>a-b),f=c=>[c/1e6|0,(c/1e3|0)-(c/1e6|0)*1e3,c-(c/1e3|0)*1e3].join('.');console.log(C.length?'lowest '+M+'.x every locked package accepts: '+f(C[0])+'; package.json engines: '+F:'no '+M+'.x version satisfies every locked package; package.json engines: '+F)"
+```
 
 ## Working here
 
@@ -311,6 +320,8 @@ they win.
 | `check:prompts:selftest` | The prompt gate, negative-tested against a fixture tree it builds. | pre-push + CI |
 | `check:register` | Holds the register's status line, summary table and dates to its entries, in both directions. | pre-push + CI |
 | `check:register:selftest` | The register gate, negative-tested. | pre-push + CI |
+| `check:toolchain` | Holds `mise.toml`, the one home of every tool version, to `mise.lock` and to every other place a tool could be installed. Each pin is exact, and locked with a URL and checksum for every platform `toolchainLockPlatforms` names. Every workflow's `jdx/mise-action` pins the mise the dev container copies in. No setup action, NodeSource, npm install of `bd`, `uv tool install`, version `ARG` or other manager's version file installs a tool a second way. `mise.toml` holds no `[env]`, `[hooks]` or `[tasks]`, and no template but `[task_config] dir = "{{cwd}}"`. Without it a second home comes back and drifts from the pin unseen. | pre-push + CI |
+| `check:toolchain:selftest` | The toolchain gate, negative-tested over copies of the live files, beside three controls. | pre-push + CI |
 
 ### citations
 
@@ -419,7 +430,7 @@ they win.
 
 | Script | What it does | Gate |
 |---|---|---|
-| `vale:selftest` | This repository's own Vale style, `.vale-styles/Layout/`, over fixtures: a control holding every construct its rules must pass draws no alert, and each doctored case draws exactly its rule's alert at its line; every section of `.vale.ini` that lints with a style applies it, and one with the style taken out is refused by name. It runs `vale`, and skips clean where none is on PATH, as in CI; a `vale` that is found and fails is a failure, which it holds by running itself with a failing stub. Without it a rule that stops matching leaves the hook silent over the fault it names. | pre-push |
+| `vale:selftest` | This repository's own Vale style, `.vale-styles/Layout/`, over fixtures: a control holding every construct its rules must pass draws no alert, and each doctored case draws exactly its rule's alert at its line; every section of `.vale.ini` that lints with a style applies it, and one with the style taken out is refused by name. It runs the `vale` mise installs, in CI too, and skips clean where none is on PATH; a `vale` that is found and fails is a failure, which it holds by running itself with a failing stub. Without it a rule that stops matching leaves the hook silent over the fault it names. | pre-push + CI |
 
 ### workflows
 
@@ -496,12 +507,13 @@ at its start: restart the session after changing it.
 | `git push` that changes `scripts/git-hooks.mjs`, `git-hooks.yml`, `tools/policy/`, `tools/lib/policy.ts`, `tools/lib/git-env.ts`, `package.json` or the lockfile | `hooks:selftest`: the hook runner's refusals of a key, token or event it does not read and of a policy without its cap, each asserting its reason, and commits, pushes, a linked worktree, the install, `npm run gates`, an older Git and a signal through real Git in scratch repositories. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `package.json`, the lockfile, `git-hooks.yml`, `.github/workflows/verify.yml`, or anything under `tools/`, `scripts/` or `apps/`, the gate among them | `check:jobs` and its selftest: every job names a script that exists; every script no job runs is declared, and no declaration is stale or of the wrong kind; every `tools/`, `scripts/` or `apps/` path a script names exists as spelled, case included; and every glob a script names matches a file. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes a skill, an agent, a workflow, `CLAUDE.md`, `AGENTS.md`, the worktree briefing template, `.beads/PRIME.md`, `tools/policy/`, `tools/lib/policy.ts` or the gate | `check:prompts`: every skill and agent opens with the line `CLAUDE.md` requires, and every prompt is within its word budget; `check:prompts:selftest` holds the gate. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `mise.toml`, `mise.lock`, a workflow, the Dockerfile, a version file at the root, `tools/policy/`, `tools/lib/policy.ts`, the gate, `package.json` or the lockfile | `check:toolchain`: every pin exact and in the lockfile for every platform the policy names, one mise for CI and the dev container, and no second home; `check:toolchain:selftest` holds the gate. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `tools/policy/`, `tools/policy.json`, `tools/lib/policy.ts` or the gate | `check:policy`: every policy record carries its header and a `Means` beside every constant, no key has two homes, the directory's README names each record, and the retired single file has not come back; `check:policy:selftest` holds the gate. | `git-hooks.yml` (`pre-push`) |
 | `git push` | `citations:check`: every line and section pointer in every tracked text file resolves. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes the citations gate, `tools/lib/`, `CLAUDE.md` or a prompt file | `citations:selftest`: the citations gate, negative-tested. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `tools/citations/`, `tools/lib/`, `tools/policy/`, `package.json` or `package-lock.json` | `citations:support:selftest`: the citation-support advisory over a stubbed judge. The advisory itself reads a token and the network, so it runs in no job. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes a hook, a worktree script, `.vale.ini` or `.gitignore` | `worktree:selftest`: the worktree hooks and the guard, negative-tested. | `git-hooks.yml` (`pre-push`) |
-| `git push` that changes `.vale.ini`, `.vale-styles/Layout/` or its selftest | `vale:selftest`: the `Layout` style's rules over fixtures, and every styled section of `.vale.ini` applying it. It runs `vale`, which the CI runner does not install, so it is no `.github/workflows/verify.yml` step. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `.vale.ini`, `.vale-styles/Layout/` or its selftest | `vale:selftest`: the `Layout` style's rules over fixtures, and every styled section of `.vale.ini` applying it. It runs `vale`, which mise installs on the CI runner too, so it is a `.github/workflows/verify.yml` step as well. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes a hook, the citations gate, `tools/lib/` or what `check:jobs` reads | `gate-summary:selftest`: the Stop hook's verdict over untracked and ignored files, and the checkout it gates. | `git-hooks.yml` (`pre-push`) |
 | `git push` | `counts:check` re-derives every value in `count-index.md` from the source the index names for it; `counts:selftest` holds the gate to its fixtures when the gate changes. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes the register, `CLAUDE.md` or the gate | `check:register` holds the register's header, summary table and dates to its entries, and its selftest holds the gate. | `git-hooks.yml` (`pre-push`) |
@@ -525,7 +537,7 @@ at its start: restart the session after changing it.
 | `git push` that changes the reviewer's script, `tools/policy/`, `tools/lib/policy.ts`, a workflow, the reviewer's agent, `package.json` or the lockfile | `pr-review:check`: the reviewer's workflow, agent and policy agree; `pr-review:selftest`: its decisions over fixtures, and the check over doctored copies. | `git-hooks.yml` (`pre-push`) |
 | A pull request, a push to `main`, or a merge the reviewer made | Every gate that reads only committed files, cheapest first. It trusts none of the faster tiers. After a reviewer's merge it runs by dispatch, since that merge starts no push run. | `.github/workflows/verify.yml` |
 | A `verify` run ends, a person applies the approval label, every 15 minutes, or by hand | The reviewer takes one action, one run at a time: it merges a pull request whose verdict allows it, or reviews the oldest head that passed `verify` and has no verdict, and runs again while more are waiting. | `.github/workflows/pr-review.yml` |
-| The dev container starts | `npm ci` when the lockfile moved, the git hooks, and the tracker's hydration; each step warns and carries on. It warns, too, while Vale cannot load `.vale.ini`, and runs no `vale sync`. | `.devcontainer/entrypoint.sh` |
+| The dev container starts | `npm ci` when the lockfile moved, the git hooks, and the tracker's hydration; each step warns and carries on. It warns, too, while a tool `mise.toml` pins is missing from the image, which it never installs, and while Vale cannot load `.vale.ini`, and runs no `vale sync`. | `.devcontainer/entrypoint.sh` |
 
 ## What is still a placeholder
 

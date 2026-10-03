@@ -23,8 +23,9 @@
  * It fails, exit 1, when no interpreter is found. That is deliberate and is not the skip-clean rule:
  * a Python gate reads only committed files, and Python 3 is the suite's own runtime
  * (the one script it launches is standard-library Python 3 and always was), so a
- * machine without it has a setup gap to report, not an input that is legitimately absent -- and CI
- * installs one beside the step (`actions/setup-python@v5` in `.github/workflows/verify.yml`). Reads
+ * machine without it has a setup gap to report, not an input that is legitimately absent -- and every
+ * machine set up from README.md § Setup, CI and the dev container among them, has the one
+ * `mise.toml` pins (`docs/decisions.md` § D-29). Reads
  * nothing; writes nothing; needs no `../sibling` checkout.
  */
 import { spawnSync } from 'node:child_process'

@@ -8,20 +8,25 @@ git clone https://github.com/<owner>/<repository>.git
 code <repository>           # then: "Reopen in Container" when VS Code offers
 ```
 
-The first build takes several minutes and is cached afterwards. You get Node, `bd`, `gh`, Vale,
-Claude Code and the tracker's plugin marketplace, plus whatever toolchain you add to the image.
+The first build takes several minutes and is cached afterwards. You get the toolchain the root
+`mise.toml` pins (Node, Python, `bd`, `gh` and Vale), Claude Code and the tracker's plugin
+marketplace.
 
 | File | What it holds |
 |---|---|
-| `Dockerfile` | Every tool, as a layer. The base image's major tag and the versions, as `ARG`s, are at the top, each with a comment saying where it is re-derived from — bump one when its source moves. |
-| `devcontainer.json` | Almost nothing: a pointer at the Dockerfile, the `remoteUser`, three bind mounts and one passthrough env var. |
-| `entrypoint.sh` | The three setup steps that read the repository, which is a bind mount and does not exist at build time, and a warning while Vale cannot load `.vale.ini`. |
+| `Dockerfile` | Every tool, as a layer. The base image's major tag is at the top; every other version is in the root `mise.toml`, installed through `mise.lock` by the mise the Dockerfile copies in (`docs/decisions.md` § D-29). After a pin moves, rebuild. |
+| `Dockerfile.dockerignore` | What the build may read from the repository's root, its context: `mise.toml`, `mise.lock` and `entrypoint.sh`, and nothing else. |
+| `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, three bind mounts and one passthrough env var. |
+| `entrypoint.sh` | The three setup steps that read the repository, which is a bind mount and does not exist at build time; a warning while a tool `mise.toml` pins is missing from the image; and a warning while Vale cannot load `.vale.ini`. |
 
 ## Why the split is where it is
 
 **Setup goes in a layer, not in a lifecycle command.** `features` resolve over the network every
 time a container is created and fail differently on every machine; a `postCreateCommand` re-runs on
-every rebuild. A layer is built once and is identical for everyone. If you add a tool, add a layer.
+every rebuild. A layer is built once and is identical for everyone. If you add a tool, pin it in
+`mise.toml` and run `mise lock`: the image's mise layer installs it. `entrypoint.sh` never installs a
+tool; it warns while the image lags `mise.toml`, because a rebuild, not the network at start, is how
+the container catches up.
 
 `entrypoint.sh` holds only what cannot be an image layer — `npm ci` (whose `node_modules` carries
 native binaries and so belongs to the container's platform), installing the git
@@ -30,8 +35,8 @@ needs no lifecycle command, runs on every start, and is idempotent. **Nothing in
 container**: this is the process that starts the shell you would use to fix a setup problem, so
 every step warns and carries on.
 
-**Vale's styles come from the clone, not the image.** The image carries `vale`, pinned in the
-`Dockerfile`. The packages `.vale.ini` names are what `vale sync` downloads into the clone, which
+**Vale's styles come from the clone, not the image.** The image carries `vale`, pinned in the root
+`mise.toml`. The packages `.vale.ini` names are what `vale sync` downloads into the clone, which
 the image cannot see at build time; `Layout`, the one style the clone tracks, comes with it. A clone
 synced on the host brings its styles in through the bind
 mount. Otherwise, run `vale sync` once in the container: it needs the network, and the styles land
