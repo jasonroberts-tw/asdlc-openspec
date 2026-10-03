@@ -1,6 +1,6 @@
 /**
  * Toolchain gate. It holds `mise.toml`, the one home of every tool version this repository installs
- * (`docs/decisions.md` § D-29), to its lockfile and to every other place a tool could be installed:
+ * (`docs/decisions.md` § D-31), to its lockfile and to every other place a tool could be installed:
  *
  *   1. every `[tools]` pin is an exact MAJOR.MINOR.PATCH version, so the file says what runs rather
  *      than a range each later install resolves again;
@@ -49,7 +49,7 @@
  * a lock from to a person, is for. Rule 7 compares tools, settings and files, not `[task_config]`.
  *
  * THE FAILURE IT EXISTS TO PREVENT. No incident on the trunk yet: the gate came with mise
- * (`docs/decisions.md` § D-29). Before it, Node's version had four homes that disagreed
+ * (`docs/decisions.md` § D-31). Before it, Node's version had four homes that disagreed
  * (`package.json` `engines`, the dev container's `NODE_MAJOR`, CI's setup step reading `engines`, and
  * each machine's own install), and the reviewer's workflow read bd's version back out of the
  * Dockerfile with `sed`. Were this gate wrong, a second home could come back and drift from the pin
@@ -94,7 +94,7 @@ const WORKFLOWS = '.github/workflows'
 const DOCKERFILE = '.devcontainer/Dockerfile'
 const PLATFORMS_KEY = 'toolchainLockPlatforms'
 /** The decision every refusal rests on, with its parentheses, so the citation ends where the section's name does. */
-const DECISION = '(`docs/decisions.md` § D-29)'
+const DECISION = '(`docs/decisions.md` § D-31)'
 const SPIKE = 'asdlc-openspec-8juz.1'
 
 /** What `mise.toml` may hold at its top level; an `[env]`, `[hooks]` or `[tasks]` would act on every shim, hook and session. */

@@ -25,7 +25,7 @@
  * (the one script it launches is standard-library Python 3 and always was), so a
  * machine without it has a setup gap to report, not an input that is legitimately absent -- and every
  * machine set up from README.md § Setup, CI and the dev container among them, has the one
- * `mise.toml` pins (`docs/decisions.md` § D-29). Reads
+ * `mise.toml` pins (`docs/decisions.md` § D-31). Reads
  * nothing; writes nothing; needs no `../sibling` checkout.
  */
 import { spawnSync } from 'node:child_process'

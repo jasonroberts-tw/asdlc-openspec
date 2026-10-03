@@ -92,7 +92,7 @@ level above them. `apps/` and `openspec/` hold the product; every other path is 
 | `count-index.md` | Every count that more than one file restates, under a `CNT-*` key, with the source it re-derives from. |
 | `.beads/` | The configuration of `bd`, the issue tracker. Its database syncs through the git remote and is never committed; `bd bootstrap` hydrates it. `PRIME.md` is what `bd prime` prints in place of its own text when the tracker's plugin runs it at a session's start and before a compaction: it points at where each rule lives and states none. |
 | `git-hooks.yml` | The git-hook tiers: which gate runs at commit and at push, each with the glob that scopes it and a note of its measured cost. `scripts/git-hooks.mjs` runs it, called by the five `hook.asdlc-*` entries `npm run hooks:install` writes into the repository's config. |
-| `mise.toml`, `mise.lock` | The toolchain: every tool version the repository installs, and the lockfile that holds each one's download URL and checksum per platform. CI, the dev container and § Setup install from them (`docs/decisions.md` § D-29), and `npm run check:toolchain` holds them. |
+| `mise.toml`, `mise.lock` | The toolchain: every tool version the repository installs, and the lockfile that holds each one's download URL and checksum per platform. CI, the dev container and § Setup install from them (`docs/decisions.md` § D-31), and `npm run check:toolchain` holds them. |
 | `.vale.ini`, `.vale-styles/Layout/` | The configuration of Vale, the prose linter the `vale@agent-tools` hook runs on each edit of prose, and `Layout`, the one style this repository writes itself. |
 | `.github/workflows/verify.yml` | The slowest tier: every gate that reads only committed files, on every pull request and every push to `main`. |
 | `.github/workflows/pr-review.yml` | The pull-request reviewer: one pull request at a time, Claude Code judges it against the issues its title cites, and it merges when every dimension passes and the risk is not high. |
@@ -138,7 +138,7 @@ the rule. The third column wins over the first two.
 | A gate that still passes with its guard deleted | Every gate's `:selftest`: one break per case, the refusal's reason asserted, one undoctored control | `CLAUDE.md` § Standing rules for prompts and gates |
 | A skill or agent that does not defer to `CLAUDE.md`; a prompt that grows without a person deciding it may | `check:prompts` refuses a skill or agent whose first line is not the line `CLAUDE.md` requires, and a prompt over its word budget in `tools/policy/prompt-budgets.json` or with none; a raise changes a record the pull-request reviewer holds high risk | `CLAUDE.md` § Standing rules for prompts and gates; the budgets' rules in the header of `scripts/check-prompts.mjs` |
 | A constant with no reason beside it, one key given two values, or a key added where no reader reads it | `check:policy`, at push and in CI, refuses a policy record without its header or a `Means` beside each constant, a key two records define, and `tools/policy.json` back beside the records; `tools/lib/policy.ts` refuses a key two records define for every reader; `check:policy:selftest` holds each refusal | `CLAUDE.md` § Three kinds of file, and never a fourth; `docs/decisions.md` § D-27 |
-| A tool version stated in a second place, a pin that is a range, a pin the lockfile does not verify, a second mise config, or CI and the dev container on two mise releases | `check:toolchain`, at push and in CI, holds `mise.toml` to `mise.lock`, the workflows and the Dockerfile, and `check:toolchain:selftest` holds each refusal. CI's locked install refuses a pin the lockfile does not hold | the header of `mise.toml`; `docs/decisions.md` § D-29 |
+| A tool version stated in a second place, a pin that is a range, a pin the lockfile does not verify, a second mise config, or CI and the dev container on two mise releases | `check:toolchain`, at push and in CI, holds `mise.toml` to `mise.lock`, the workflows and the Dockerfile, and `check:toolchain:selftest` holds each refusal. CI's locked install refuses a pin the lockfile does not hold | the header of `mise.toml`; `docs/decisions.md` § D-31 |
 | An agent in a worktree pushing to, switching to or rewriting a protected branch | `scripts/hooks/guard-git.mjs`, and the worktree hooks that provision only through `scripts/new-worktree.sh` | `CLAUDE.md` § Git workflow |
 | An agent applying the reviewer's approval label, which only a person applies | `scripts/hooks/guard-git.mjs`, from any checkout, for a `gh` command; nothing for the web UI, curl or a browser tool (`docs/decisions.md` § R-01) | `CLAUDE.md` § Git workflow |
 | A figure restated from memory that has since moved | `counts:check` re-derives every keyed count from its source | `count-index.md` § How to use it |
@@ -175,7 +175,7 @@ does not apply to your platform is absent from its list, not marked optional.
 1. Install Git 2.54.0 or newer, the first that runs the config-based hooks this repository installs,
    and mise: `brew install mise`, or `curl https://mise.run | sh`. Check that `mise --version`
    answers with a release no older than the `min_version` in `mise.toml`. mise installs every other
-   tool at the version `mise.toml` pins (`docs/decisions.md` § D-29).
+   tool at the version `mise.toml` pins (`docs/decisions.md` § D-31).
 1. Put mise's shims first on the `PATH` that every process inherits: add
    `export PATH="$HOME/.local/share/mise/shims:$PATH"` to `~/.zshenv`, or under bash to `~/.profile`
    and `~/.bashrc`. Open a new terminal, and check that `sh -c 'command -v node'` prints a path under
@@ -243,7 +243,7 @@ holds platform-native binaries. Use one clone per platform.
 
 `package.json` `engines` is the oldest Node the repository supports, and
 `mise.toml` pins a newer one for every machine, so nothing here runs the floor
-(`docs/decisions.md` § D-29). The floor is never below the lowest version on its major line that
+(`docs/decisions.md` § D-31). The floor is never below the lowest version on its major line that
 every package in `package-lock.json` accepts, or a dependency refuses a Node the floor calls
 enough. After a change to the lockfile, this prints that version beside the floor, from the clone;
 raise `engines` if the floor is lower (it may sit above). It refuses a range form it cannot read

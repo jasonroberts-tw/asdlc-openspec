@@ -11,7 +11,7 @@
 # download when measured with `CI=true`. So the install step unset `CI`, passed `--allow-scripts`
 # for the npm that will enforce it, and ran `bd --version` itself, and `pr-review:check` held all
 # three. Since 2026-10-03 bd comes through `jdx/mise-action` from its own GitHub release, which has
-# no postinstall to skip (docs/decisions.md § D-29), so the first two went with the npm install;
+# no postinstall to skip (docs/decisions.md § D-31), so the first two went with the npm install;
 # `bd --version` stays, as a step of its own before `bd bootstrap`, and `pr-review:check` holds
 # that and the install.
 #
@@ -154,7 +154,7 @@ jobs:
         with:
           fetch-depth: 0
       # The tracker's CLI, beside Node and gh, at the versions `mise.toml` pins: bd from its own
-      # GitHub release, verified against the checksum `mise.lock` holds (docs/decisions.md § D-29).
+      # GitHub release, verified against the checksum `mise.lock` holds (docs/decisions.md § D-31).
       - name: install the toolchain mise.toml pins, the tracker's CLI among it
         uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:

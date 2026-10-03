@@ -1,4 +1,4 @@
-# The one home of every tool version this repository installs (docs/decisions.md § D-29). CI's
+# The one home of every tool version this repository installs (docs/decisions.md § D-31). CI's
 # `jdx/mise-action`, the dev container's image and README.md § Setup each install from this file
 # through `mise.lock`, and nothing else states a version it pins. `npm run check:toolchain` holds
 # that: each pin exact, each in the lockfile for every platform `toolchainLockPlatforms` in
@@ -15,7 +15,7 @@ min_version = "2026.10.0"
 [tools]
 # Node, the line every machine runs. 24 is the line CI already ran (24.21.0 on 2026-09-23), chosen
 # by the maintainer on 2026-10-03; package.json `engines` stays the floor, 22.22.2, which nothing
-# here then runs (docs/decisions.md § D-29). Re-derive with `mise latest node@24`.
+# here then runs (docs/decisions.md § D-31). Re-derive with `mise latest node@24`.
 node = "24.21.0"
 # Python 3, for the harness assessment's graph half, which `harness:selftest` runs
 # (docs/decisions.md § D-26). 3.12 is the minor line CI pinned before mise. Re-derive with

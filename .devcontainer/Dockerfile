@@ -13,7 +13,7 @@
 # still owned by the image, and devcontainer.json still has no lifecycle command in it.
 #
 # Versions are the base tag below, and `mise.toml`, whose every tool installs here through
-# `mise.lock` (docs/decisions.md § D-29); this file states no tool's version. The build context is
+# `mise.lock` (docs/decisions.md § D-31); this file states no tool's version. The build context is
 # the repository's root, so the image can read those two files, and `Dockerfile.dockerignore` beside
 # this file admits them and the entrypoint and nothing else. After a pin moves, rebuild: entrypoint.sh
 # warns while the image's tools lag `mise.toml`.
