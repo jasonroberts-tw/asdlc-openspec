@@ -27,18 +27,23 @@
  * when one appears, with the review that found it.
  *
  * WHERE IT LOOKS. The prompt homes that CLAUDE.md section names, and only those: `.claude/`,
- * a workflow's own directory once one exists, `.beads/formulas/`, `CLAUDE.md` and `README.md`
- * (`MEMORY_SCOPE`) -- every tracked
+ * a workflow's own directory once one exists, `.beads/formulas/`, `.beads/PRIME.md`, `CLAUDE.md` and
+ * `README.md` (`MEMORY_SCOPE`). `.beads/PRIME.md` is what `bd prime` prints, in place of its own text,
+ * whenever the tracker's plugin runs it at a session's start or before a compaction; on 2026-10-03
+ * that built-in text, which this repository had no file to replace, told every session "Use
+ * `bd remember` for persistent knowledge across sessions" (asdlc-openspec-z5gy). Every tracked
  * file under them regardless of extension, because the formulas are `.toml` and the plugin's tools
  * carry their prompts in `.ps1` headers, neither of which `scan.ts`'s `SCANNED_EXTENSIONS` covers.
  * A roster rather than the whole tree, unlike `scan.ts`, on purpose: the word `memory` before a
  * code span is ordinary prose in a tool's comment and a defect only where an agent reads it as an
  * instruction, and a whole-tree scan would begin by exempting this file.
  *
- * WHAT IS EXEMPT, and the design problem it answers. CLAUDE.md names the forbidden commands twice:
- * once in the section that forbids them, and once in the `bd`-generated Beads block, which says
- * "Use `bd remember` for persistent knowledge", is regenerated from the hash in its marker, and
- * cannot be edited (the section above it says so). Three ways to exempt those; this takes the third.
+ * WHAT IS EXEMPT, and the design problem it answers. CLAUDE.md names the forbidden commands in the
+ * section that forbids them, and would name them again in the Beads block `bd`'s set-up can write
+ * into it, which says "Use `bd remember` for persistent knowledge", is regenerated from the hash in
+ * its marker, and cannot be edited. No such block is written here: the tracker's text reaches a
+ * session through `bd prime` and `.beads/PRIME.md`, which is in scope. Three ways to exempt those
+ * mentions; this takes the third.
  *
  *   - NOT the whole of CLAUDE.md. It is the most-read prompt in the repository and the bead puts
  *     it in scope by name; exempting it wholesale is the hole dressed as an exemption every list in
@@ -69,6 +74,7 @@
 export const MEMORY_SCOPE: ReadonlyArray<string> = [
   '.claude/',
   '.beads/formulas/',
+  '.beads/PRIME.md',
   'CLAUDE.md',
   'README.md',
 ]
@@ -99,9 +105,10 @@ export const MEMORY_EXEMPT_REGIONS: ReadonlyArray<ExemptRegion> = [
       ' renaming the heading turns every mention in the section into a finding until this entry' +
       ' follows it.',
   },
-  // ADD THE TRACKER PLUGIN'S BLOCK HERE ONCE IT EXISTS. When the tracker's set-up writes its managed
-  // block into CLAUDE.md, that block tells its reader to use the memory commands, nobody can edit
-  // it, and the section above it says it is overridden; register it then, keyed on its own markers:
+  // NO TRACKER BLOCK IS REGISTERED. The tracker's plugin reaches a session through `bd prime`, which
+  // prints `.beads/PRIME.md`, a file in `MEMORY_SCOPE` held to this rule like any prompt, and nothing
+  // writes a block into CLAUDE.md. Should `bd`'s set-up ever write one, which tells its reader to use
+  // the memory commands and cannot be edited, register it keyed on its own markers:
   //   { file: 'CLAUDE.md', between: ['<!-- BEGIN BEADS INTEGRATION', '<!-- END BEADS INTEGRATION -->'], why: '...' },
   // Registered BEFORE the block exists it is a finding, by the rule in the header: a region that is
   // not found is reported, never silently passed.

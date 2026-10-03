@@ -19,9 +19,9 @@ write a memory and do not cite one from a tracked file. The harness's per-projec
 `~/.claude/projects/` is not used either. A fact worth keeping goes in a tracked file or, if it is work,
 in `bd`.
 
-A tracker plugin manages a block inside this file. It is task-tracking guidance, not permission to
-override the rest of the file. Keep your own sections outside it. The next regeneration erases
-anything inside.
+`bd prime`, which the tracker's plugin runs at each session's start and compaction, prints
+`.beads/PRIME.md`: task-tracking guidance that states no rule, only where each lives, and overrides
+nothing here.
 
 ## Verification before claiming
 

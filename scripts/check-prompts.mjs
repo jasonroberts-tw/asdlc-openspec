@@ -9,7 +9,9 @@
  * THE WORD BUDGET. Every prompt is held to a word budget, a row of its own in the table
  * `promptWordBudgets` of `tools/policy/prompt-budgets.json`: every skill and every agent, `CLAUDE.md`,
  * `AGENTS.md`, `.claude/worktree-CONTEXT.md.tmpl` (the briefing `CLAUDE.md` imports in a worktree),
- * and each workflow under `.claude/workflows/`. A prompt over its budget is refused, and so is a prompt
+ * `.beads/PRIME.md` (what `bd prime` prints in place of its own text when the tracker's plugin runs it
+ * at a session's start and before a compaction), and each workflow under `.claude/workflows/`. A
+ * prompt over its budget is refused, and so is a prompt
  * with none, so a new prompt gets one when it lands. A word is a whitespace-separated token. A
  * markdown prompt and the briefing are counted whole, frontmatter included. A workflow is counted on
  * the text of its string and template literals, cooked as the runtime cooks them, and on nothing
@@ -70,7 +72,8 @@
  * that is not prompt text, such as a schema's type name, is counted anyway. A file beside a
  * `SKILL.md` in its skill's directory, of which none is tracked, and a `README.md` under
  * `.claude/agents/`, which describes the agents and is not one. The opening line of `CLAUDE.md`,
- * `AGENTS.md`, the briefing and a workflow, none of which is a skill or an agent. A `Reviewed:`
+ * `AGENTS.md`, the briefing, `.beads/PRIME.md` and a workflow, none of which is a skill or an agent.
+ * A `Reviewed:`
  * trailer is not refused here: prompts carry none since `docs/decisions.md` § D-05, and review is
  * what holds that.
  *
@@ -98,6 +101,8 @@ const SKILLS_DIR = '.claude/skills'
 const AGENTS_DIR = '.claude/agents'
 const WORKFLOWS_DIR = '.claude/workflows'
 const TEMPLATE = '.claude/worktree-CONTEXT.md.tmpl'
+/** What `bd prime` prints in place of its own text, at every session start and compaction. */
+const PRIME = '.beads/PRIME.md'
 /** The record that holds the budgets, named in every message; the loader reads every record. */
 const BUDGETS = 'tools/policy/prompt-budgets.json'
 /** The constant in that record: a table from a prompt's path to `{ words, means }`. */
@@ -106,7 +111,7 @@ const RULE_HOME = 'CLAUDE.md § Standing rules for prompts and gates'
 /** The bullet in `CLAUDE.md` that carries the sentence, up to the quotation mark that opens it. */
 const RULE_LEAD = '**The first line of every substantial skill and agent** is: "'
 /** The prompts outside the three directories. */
-const SINGLE_PROMPTS = ['AGENTS.md', 'CLAUDE.md', TEMPLATE]
+const SINGLE_PROMPTS = ['AGENTS.md', 'CLAUDE.md', TEMPLATE, PRIME]
 
 const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
 const isRecord = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
@@ -502,6 +507,7 @@ const WORKFLOW = [
 
 /** Each budgeted fixture file's words, counted by hand, not by this gate. */
 const FIXTURE_BUDGETS = {
+  '.beads/PRIME.md': 6,
   '.claude/agents/gamma.md': 18,
   '.claude/skills/alpha/SKILL.md': 18,
   '.claude/skills/beta/SKILL.md': 18,
@@ -524,6 +530,7 @@ const OTHER_RECORD = 'tools/policy/other.json'
 const FIXTURE = {
   'CLAUDE.md': RULES,
   'AGENTS.md': 'Read `CLAUDE.md`.\n',
+  [PRIME]: 'Read `CLAUDE.md` § The task store.\n',
   '.claude/worktree-CONTEXT.md.tmpl': '# Local context\n\nYou are in {{WORKTREE_PATH}}.\n',
   '.claude/skills/alpha/SKILL.md': `---\nname: alpha\ndescription: first\n---\n\n${LINE}\n\nDo alpha.\n`,
   '.claude/skills/beta/SKILL.md': `---\nname: beta\ndescription: second\n---\n\n${LINE}\n\nDo beta.\n`,
@@ -683,6 +690,11 @@ function cases() {
       name: 'AGENTS.md one word over its budget',
       doctor: (dir) => edit(dir, 'AGENTS.md', (t) => t.replace('`CLAUDE.md`.', '`CLAUDE.md` first.')),
       expect: refusedOver('AGENTS.md', 3, 2),
+    },
+    {
+      name: "the tracker's session text one word over its budget",
+      doctor: (dir) => edit(dir, PRIME, (t) => t.replace('task store.', 'task store first.')),
+      expect: refusedOver(PRIME, 7, 6),
     },
     {
       name: 'the worktree briefing one word over its budget',
