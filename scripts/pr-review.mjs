@@ -223,12 +223,20 @@ export function policyProblems(policy) {
     }
   }
   // The floor must cover the reviewer itself, or a pull request could change its own judge and merge;
-  // and the two records only a person may change, or one could lower its own floor or raise a budget.
+  // the two records only a person may change, or one could lower its own floor or raise a budget; and
+  // the toolchain (docs/decisions.md § D-29): every place mise reads a config or a lock from, and the
+  // image that installs it, or one could change what every shim, hook and session runs.
   const covered = [
     ...[WORKFLOW, AGENT, SELF].map((path) => [path, 'part of the reviewer itself']),
     [POLICY, 'the record of what the reviewer decides by, this floor among it'],
     [BUDGETS, "the record of every prompt's word budget"],
     [LOADER, 'the loader this floor is read through'],
+    ['mise.toml', 'the one home of every tool version'],
+    ['mise.lock', 'the lock every tool is verified from'],
+    ['apps/mise.toml', 'a nested mise config'],
+    ['mise.local.toml', 'a mise config beside mise.toml'],
+    ['.mise/config.toml', 'a mise config directory'],
+    ['.devcontainer/Dockerfile', 'the image that installs the toolchain'],
   ]
   for (const [path, what] of covered) {
     if (!matchesAny(path, Object.keys(policy.prReviewHighRiskPaths))) {
@@ -1892,6 +1900,9 @@ function wiringCases() {
     { name: 'the floor stops covering the record of the prReview keys', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[POLICY]), expect: /does not cover tools\/policy\/pr-review\.json, the record of what the reviewer decides by/ },
     { name: 'the floor stops covering the word budgets', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[BUDGETS]), expect: /does not cover tools\/policy\/prompt-budgets\.json, the record of every prompt's word budget/ },
     { name: 'the floor stops covering the loader it is read through', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[LOADER]), expect: /does not cover tools\/lib\/policy\.ts, the loader this floor is read through/ },
+    { name: 'the floor stops covering mise.toml at any depth', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths['**/mise.toml']), expect: /does not cover mise\.toml, the one home of every tool version/ },
+    { name: 'the floor stops covering a mise config directory', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths['**/.mise/**']), expect: /does not cover \.mise\/config\.toml, a mise config directory/ },
+    { name: 'the floor stops covering the dev container', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths['.devcontainer/**']), expect: /does not cover \.devcontainer\/Dockerfile, the image that installs the toolchain/ },
     { name: 'a key the reviewer reads is defined in two records', doctor: (dir) => writeFileSync(join(dir, 'tools/policy/other.json'), JSON.stringify({ prReviewMergeMethod: 'merge' })), expect: /cannot be read: `prReviewMergeMethod` is defined in both tools\/policy\/other\.json and tools\/policy\/pr-review\.json/ },
     { name: 'a blocking severity the schema does not have', doctor: editPolicy((p) => { p.prReviewBlockingSeverities.push('nit') }), expect: /names `nit`, which the verdict schema does not have/ },
     { name: 'the approval label renamed in the policy only', doctor: editPolicy((p) => { p.prReviewLabels.approved = 'lgtm' }), expect: /filters on the label .* not on `prReviewLabels\.approved` \(`lgtm`\)/ },
