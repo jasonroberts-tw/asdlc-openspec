@@ -364,7 +364,7 @@ function metBy(f) {
 const settledBlock = () => (A.settled && A.settled.length ? `\n\n## Settled already; do not raise these again\n\n${A.settled.map((s) => `- ${s}`).join('\n')}` : '')
 
 /** What every skeptic is told of its own conduct, and of an answer it could not establish. */
-const SKEPTIC_RULES = 'You change nothing, commit nothing and write nothing to the tracker; throwaway files go under .scratch/ only. Run each command as its own Bash call, as CLAUDE.md asks.'
+const SKEPTIC_RULES = 'You change nothing, commit nothing and write nothing to the tracker; throwaway files go under .scratch/ only.'
 const UNVERIFIED = '- unverified: you could not establish either. Say what stopped you. Never answer refuted because you could not verify it.'
 
 /** The consolidation group `g` reports of `file`, or undefined. */
@@ -383,13 +383,12 @@ function findingBlock(f) {
 function reviewPrompt(g) {
   const files = g.files.map((f) => `- ${clean(f)}`).join('\n')
   return [
-    `You are one of ${A.groups.length} reviewers in a batched review of this repository's prompts (\`CLAUDE.md\` § Prompt reviews). You work in a git worktree of your own, on a branch of its own: \`git branch --show-current\` names it.`,
+    `You are one of ${A.groups.length} reviewers in a batched review of this repository's prompts (\`CLAUDE.md\` § Prompt reviews). You work in a git worktree of your own, on a branch of its own.`,
     '',
-    'Rules for this run, on top of CLAUDE.md and .worktree/CONTEXT.md:',
+    'Rules for this run:',
     '- Change only the files listed under Your files. Create, delete and rename none.',
     "- Commit your change on your branch as one commit, after a consolidation's own commit if you made one. Do not push, open a pull request, stash, reset, rebase or switch branches, and write nothing to the tracker: the session that ran this workflow merges your branch, opens the one pull request and marks the analyses read.",
     '- Throwaway files go under .scratch/ only.',
-    '- Run each command as its own Bash call, as CLAUDE.md asks.',
     '',
     `Read ${JUDGED} before anything else.`,
     '',
@@ -405,7 +404,7 @@ function reviewPrompt(g) {
     '',
     '- Account for every finding above by its key: each change names under finding the one it answers, and each finding you leave alone goes under notChanged with your reason.',
     '- If nothing should change: edit nothing and commit nothing. Return the verdict unchanged.',
-    '- If a file should change: make the edit, run `npm ci`, stage it with `git add`, run `npm run check:prompts` and `npm run citations:check`, fix what they report in your own files, and commit. Return the verdict changed, with each gate you ran and what it printed.',
+    '- If a file should change: make the edit, stage it with `git add`, run `npm run check:prompts` and `npm run citations:check`, fix what they report in your own files, and commit. Return the verdict changed, with each gate you ran and what it printed.',
     `- If your edit would take a file past its word budget, consolidate the file first, as ${CONSOLIDATED} says, commit that alone, and report it under consolidations.`,
     "- Each change states how often the situation arises (frequency) and what it costs when it does (cost), each figure citing a run, a label count or a pull request, and the net words the edit adds (words, negative when it removes more), counted from `git diff --word-diff=porcelain origin/main...HEAD` on its file.",
     "- After you finish, skeptics judge each change against your branch's diff. A branch merges only when a majority upholds every change on it, so leave out an edit you would not defend.",
