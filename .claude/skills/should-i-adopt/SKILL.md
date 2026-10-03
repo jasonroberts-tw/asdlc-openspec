@@ -96,8 +96,8 @@ documentation, release notes, source, and calls to a service that change nothing
   `git bundle create <dir>/trunk.bundle origin/main` in a directory `mktemp -d` made, mounted
   read-only. Inside, `git init`, then
   `git fetch <bundle> refs/remotes/origin/main:refs/heads/trunk` and `git switch trunk`.
-- **Use the image** `.devcontainer/Dockerfile` builds when the trial needs the harness's toolchain,
-  a slim official one otherwise, and pin the candidate's version.
+- **Use the image** `.devcontainer/Dockerfile` builds, and pin the candidate's version. A slim one
+  lacks a compiler and the Git the hooks need, and npm exits 0 on a failed optional build.
 - **Number each trial** E1, E2 and on, keeping its commands and the output it rests on. A trial
   outranks a document where they disagree.
 - **A candidate no container can hold**, because it needs Claude Code's own settings, a GUI or a
@@ -129,8 +129,8 @@ adopting would change. The brief, in this order:
 4. **What any option must provide:** step 3's requirements.
 5. **Friction:** step 4 as a table of question, answer, severity and evidence.
 6. **Trials:** each one's number, commands and result.
-7. **Options**, then **Ruled out**.
-8. **Recommendation**, and where it loses.
+7. **Alternatives Considered**, bd's required name for the options, then **Ruled out**.
+8. **Rationale**, its required name for the recommendation, and where it loses.
 9. **Open questions:** what no source or trial settled.
 10. **Acceptance Criteria:** the person chooses an option or none. Adopting becomes an entry under
     `docs/decisions.md` § How an entry is written, its work filed as issues; not adopting is the
@@ -138,5 +138,6 @@ adopting would change. The brief, in this order:
 
 ## 9. Report
 
-Close the run with the `close-prompt-run` skill. Then report the recommendation in one line with
-where it loses, the issue's id, the trials run, and every claim left unverified.
+Close the run with the `close-prompt-run` skill, its analysis on the brief's issue. Then report the
+recommendation in one line with where it loses, the issue's id, the trials run, and every claim left
+unverified.
