@@ -11,9 +11,9 @@
  * `AGENTS.md`, `.claude/worktree-CONTEXT.md.tmpl` (the briefing `CLAUDE.md` imports in a worktree),
  * `.beads/PRIME.md` (what `bd prime` prints in place of its own text when the tracker's plugin runs it
  * at a session's start and before a compaction), and each workflow under `.claude/workflows/`. A
- * prompt over its budget is refused, and so is a prompt
- * with none, so a new prompt gets one when it lands. A word is a whitespace-separated token. A
- * markdown prompt and the briefing are counted whole, frontmatter included. A workflow is counted on
+ * prompt over its budget is refused, and so is a prompt with none, so a new prompt gets one when it
+ * lands. A word is a whitespace-separated token. A markdown prompt, the briefing and
+ * `.beads/PRIME.md` are counted whole, frontmatter included. A workflow is counted on
  * the text of its string and template literals, cooked as the runtime cooks them, and on nothing
  * else: that text is what its agents receive, and what its caller reads back, whether a prompt is
  * written as one template literal or concatenated from pieces.
@@ -73,9 +73,8 @@
  * `SKILL.md` in its skill's directory, of which none is tracked, and a `README.md` under
  * `.claude/agents/`, which describes the agents and is not one. The opening line of `CLAUDE.md`,
  * `AGENTS.md`, the briefing, `.beads/PRIME.md` and a workflow, none of which is a skill or an agent.
- * A `Reviewed:`
- * trailer is not refused here: prompts carry none since `docs/decisions.md` § D-05, and review is
- * what holds that.
+ * A `Reviewed:` trailer is not refused here: prompts carry none since `docs/decisions.md` § D-05, and
+ * review is what holds that.
  *
  * NEGATIVE TESTING. `--selftest` builds a fixture tree under `os.tmpdir()`, doctors ONE thing per
  * case and asserts the run fails FOR THAT REASON, plus an undoctored control that must pass. By
