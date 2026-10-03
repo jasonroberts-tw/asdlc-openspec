@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-29 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29 added 2026-10-03).**
+**Status: every decision from D-01 to D-30 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29 and D-30 added 2026-10-03).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-29` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-30` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -85,6 +85,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-27** | The policy is split under `tools/policy/` by who may change each key and who reads it, read through one loader and held by a gate of its own | `tools/policy/`, five records and a README, and `tools/policy.json` deleted; `tools/lib/policy.ts`; `check:policy` and its selftest at pre-push and in CI; `check:prompts` reading the budgets by path; `CLAUDE.md` § Three kinds of file, and never a fourth, consolidated first; D-03's, D-07's, D-23's and D-26's amendments |
 | **D-28** | The code-graph server serves the harness assessment's combined graph while it was built from the graph beside it | `scripts/code-graph.mjs`'s choice of the file it registers, held by `code-graph:selftest`; `tools/harness/graph.py` writing the combined graph beside the graph with the graph's blob id, held by `harness:selftest`; `graphifyCombinedGraphFile` in `tools/policy/tool-settings.json`; the `code-graph` skill, consolidated first; D-20's and D-26's amendments |
 | **D-29** | An issue's type and priority are the first rows of a rubric in the policy that fit it, and `beads:check` refuses a type the rubric does not name | `issueTypes`, `issuePriorities` and `foundIssueCommand` in `tools/policy/vocabulary.json`; rule 5 of `scripts/check-beads.mjs`, held by `beads:selftest` at pre-push and in CI; `CLAUDE.md` § The task store, consolidated first, and its budget in `tools/policy/prompt-budgets.json` |
+| **D-30** | The explore skill is OpenSpec's explore stance, adapted: it draws, cites, writes only a brief, and hands a change to `change-propose` | `.claude/skills/explore/SKILL.md` and the `LICENSE` beside it; its budget in `tools/policy/prompt-budgets.json`; the skills row of `.claude/README.md`; `README.md` § Working here; D-13's amendment |
 
 ## Risks
 
@@ -713,6 +714,8 @@ How the strategy maps onto this repository:
 - **To come:** each home in item 17's table, in the issue it names.
 
 **Figures.** None.
+
+> **Amended 2026-10-03 by D-30.** Item 4's `explore` skill is now OpenSpec's explore stance, adapted. It writes its brief only on request, to `.scratch/`, and `change-propose` still commits that brief as `findings.md`. Explore stays optional, and is still not a stage.
 
 ### D-14 · A build task sees each scenario's proof fail before the code that passes it, or reports it already green, and the build workflow stops a run that does neither
 
@@ -1457,6 +1460,50 @@ Where it loses:
 - 3 tasks carry `## Steps to Reproduce`, the section `bd lint` asks of a bug, all filed from 2026-10-01 to 2026-10-03: `asdlc-openspec-dw7b`, `asdlc-openspec-d2qv` and `asdlc-openspec-23bi` (`bd count --type task --desc-contains "## Steps to Reproduce"`).
 - `CLAUDE.md` from 3,240 words to 3,213 by the consolidation and 3,258 with the sentences: `node scripts/check-prompts.mjs --counts` at each commit.
 - 14 checks in `beads:selftest`, and 1.11-1.98 s for its job: each run, and the job's comment in `git-hooks.yml`, which names the host.
+
+### D-30 · The explore skill is OpenSpec's explore stance, adapted: it draws, cites, writes only a brief, and hands a change to change-propose
+
+**Recorded 2026-10-03**, carried by `asdlc-openspec-wox3`. On 2026-10-03 the maintainer named the problems: the skill was too rigid, and it drew nothing. Given that issue's brief, they asked for a version that met the seven conditions of its recommended option, with guidance on citations added and the license question researched. The skill's text, the license file beside it and the hand-off through `.scratch/` are this entry's session's choices.
+
+**Builds on / amends:** amends D-13, whose item 4 made Explore the existing `explore` skill and its brief a change's `findings.md`. Builds on D-02, whose item 7 retired the `openspec-*` skills `openspec init` generated, `openspec-explore` among them; this entry does not reverse it, since no generated skill returns and `openspec:check` still refuses one. Builds on D-12, under which a prompt is consolidated before its budget rises; on D-27, whose table holds that budget; and on D-07, which leaves a change to this register or to a word budget to a person.
+
+**Decision.** `.claude/skills/explore/SKILL.md` is an adaptation of OpenSpec 1.14.0's `openspec-explore` template.
+
+1. **A stance, not a procedure.** It follows the conversation, asks one question at a time in dependency order when a change is being planned, and draws in plain ASCII. Where it loses: a user who wanted only the evidence gets a conversation until they ask for a brief.
+2. **The old procedure is kept, on request.** Asked for research or a decision brief, it lists its assumptions with its guesses and stops for correction, then has a subagent inventory the evidence, paths and quotes with no recommendation.
+3. **Every claim about the repository carries a citation**, in a form `citations:check` resolves, a document by section and never by line, so that a brief is committed as it stands. Where it loses: a reply grows longer by its sources.
+4. **It writes only the brief**, to `.scratch/explore-<topic>.md`, after the user says yes, and nothing under `openspec/changes/`. A change is started by `change-propose`, which commits the brief as `findings.md`, as D-13 item 4 has it. The hand-off names the brief's path, to be read before the worktree is cut, since a worktree does not carry `.scratch/`. Where it loses: a `change-propose` run started without that path finds no brief, and the change gets no `findings.md`.
+5. **OpenSpec's notice travels with its text.** The skill names its source, and `.claude/skills/explore/LICENSE` holds OpenSpec's copyright line and the MIT permission notice as OpenSpec 1.14.0 publishes them. Where it loses: a reader who takes the file to cover the whole skill reads this repository's additions as MIT too, though the skill's attribution says only that it is adapted from OpenSpec's.
+6. **It is not kept in step with upstream.** A later OpenSpec release is ported by hand if anyone chooses to, and nothing reports drift.
+
+**Why.** The maintainer found the skill too rigid: every run stopped at a numbered list of assumptions, then returned an inventory with no recommendation. They also wanted diagrams, and asked for guidance on citations. Items 1 to 3 answer those. The brief on `asdlc-openspec-wox3` assessed the untracked candidate, OpenSpec 1.14.0's template with its OpenSpec-specific sections cut, and found it could not land as it stood. Each problem, and where it is answered:
+
+- **`check:prompts` refused it**, for want of the opening line and over its budget. The skill opens with the line, its text is consolidated, and its budget rises by what that left (What changed).
+- **Two of its pointers named sections it had cut.** Both are gone, and the skill's § Planning a change names what to read instead.
+- **It let a request to capture a change write change artifacts by hand**, outside `change-propose`. Item 4.
+- **It kept its record "in the conversation, not in files"**, which left `findings.md` nothing to commit. Item 4.
+- **Its recommendations showed no losing case.** The skill's § Planning a change asks for one, pointing at `CLAUDE.md` § A question shows where its recommendation loses, and the example that had none is cut.
+- **It dropped the license notice.** Item 5.
+
+On the license, MIT asks that "the above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software", and does not define substantial. The GNU licensing FAQ says of a program that copies part of itself into its output that "the copied text in the output is covered by the same license that covers it in the source code" (https://www.gnu.org/licenses/gpl-faq.en.html, read 2026-10-03). The template is a string in OpenSpec's own source, `dist/core/templates/workflows/explore.js`, and its generator writes only `license: MIT` into a skill's frontmatter, with no copyright line or notice (`dist/core/shared/skill-generation.js`, in the 1.14.0 package). A file beside the skill costs nothing a run loads, where the notice inside it would load with every run. Three alternatives lost:
+
+- **Not adopting.** Both problems stay.
+- **Rewriting the old skill in a few hundred words.** Cheaper per run, but it rebuilds from scratch a stance the upstream text already states, and no trial showed that a shorter prompt keeps it.
+- **The adaptation as a second skill beside the old one.** Two descriptions that both claim exploring and planning leave it unpredictable which one a session selects.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound; the amendment under D-13.
+- **`.claude/skills/explore/SKILL.md`:** replaced. `git show aa20aee:.claude/skills/explore/SKILL.md` recovers the old text.
+- **`.claude/skills/explore/LICENSE`:** added, OpenSpec 1.14.0's `LICENSE` as published. **`.claude/README.md`:** the skills row says a skill adapted from another project's text keeps that project's license beside it.
+- **`tools/policy/prompt-budgets.json`:** the skill's row from 118 to 1,114, and `provenance`.
+- **`README.md` § Working here:** the skill's row.
+
+**Figures.**
+
+- 118, the old skill's words, and 1,114, the new skill's: `node scripts/check-prompts.mjs --counts` at `aa20aee` and at this entry's commit.
+- 1,372 and 1,389, the candidate's words without and with the opening line: trials E2 and E3 on `asdlc-openspec-wox3`. The candidate is untracked; its text is OpenSpec 1.14.0's `getExploreSkillTemplate()` with that issue's list of edits.
+- 169, the words the notice would add inside the skill: `wc -w .claude/skills/explore/LICENSE`.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
