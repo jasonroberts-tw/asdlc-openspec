@@ -81,8 +81,8 @@ under `.claude/prompt-cases/`. For each seed, choose one candidate or combine se
 id, and drop one whose answer no source settles. Run it again with those as `cases`.
 
 With a group, run `.claude/workflows/review-prompts.js` with the groups of § 3, anything already
-settled, and as `cases` every case under `.claude/prompt-cases/` whose `prompt` is a group's file,
-with those just validated.
+settled, and as `cases` every case whose `prompt` is a group's file, from `.claude/prompt-cases/` and
+those just validated.
 
 ## 5. Merge, gate, and open one pull request
 

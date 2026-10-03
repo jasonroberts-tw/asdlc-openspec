@@ -384,7 +384,7 @@ pre-push:
     # result then rendered by the trace and pull-request-body renderers, and a stubbed fresh run by the
     # verification report's two renderers; the change-build workflow's
     # test-builder and architect, each stop and route by its reason, and the tools line of each agent a
-    # workflow runs by agentType with no tool but its structured output; the prompt cases' authoring
+    # workflow runs by agentType with only the tools it may have; the prompt cases' authoring
     # workflow with the policy's `promptReviewCase*` keys (how many authors, which case it stores), the
     # prompt review's answers to stored cases (which outcome keeps a branch out), and every stored case
     # under `.claude/prompt-cases/` through both; and refuses a workflow with no suite. Reads the

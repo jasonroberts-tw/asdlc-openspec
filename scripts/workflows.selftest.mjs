@@ -7,7 +7,7 @@
  * triage route, by its reason: the test-builder called by its agent type with a prompt built from
  * the allowed inputs alone, and no planted test source, assertion text or stack frame in any
  * builder's or fixer's prompt. It also holds `.claude/agents/test-builder.md` to a `tools:` line of
- * StructuredOutput alone, on the tracked file and on a copy given Read; `review-prompts.js` runs
+ * StructuredOutput alone, on the tracked file and on a copy given Bash; `review-prompts.js` runs
  * with groups of findings built here and the policy's `promptReview*` keys, and its cases assert
  * which findings it refuses as below the threshold, how many skeptics it sends each change and each
  * consolidation, which reports it refuses, which branches it lets the session merge, which analyses
@@ -15,9 +15,9 @@
  * case of a changed file with the old text and the new and which outcome keeps a branch out.
  * `author-prompt-cases.js` runs with seeds and cases built here and the policy's `promptReviewCase*`
  * keys, and its cases assert how many authors it sends each seed, what each is shown, which reader's
- * copy it refuses, and which case it stores. Every stored case under `.claude/prompt-cases/` goes
- * through both, and the two must give one case and one text the same answer prompt; the two agents
- * they run by agentType are held, as the test-builder is, to a `tools:` line of StructuredOutput
+ * copy or path it refuses, and which case it stores. Every stored case under `.claude/prompt-cases/`
+ * goes through both, and the two must give one case and one file the same answer prompt; the two
+ * agents they run by agentType are held the same way to a `tools:` line of Read and StructuredOutput
  * alone. `verify-change-trace.js` runs with a
  * two-capability change built here and the policy's `verifyTrace*` keys, and its cases assert which
  * inputs it refuses, how it matches each tracer's rows to its scenarios, which gap it gives each
@@ -48,9 +48,13 @@
  * asdlc-openspec-pnm); or a consolidation merged whose rows do not say where each removed rule went,
  * or that a majority of its skeptics did not uphold (since asdlc-openspec-aa0); or a branch merged
  * that turned a stored case from right to wrong or left one unanswered, a case stored that some
- * answer with the trunk's text did not choose as expected, an answer or an author that could read
- * the repository, or a text copied with a clause lost (since asdlc-openspec-7c1, each case seen
- * failing against a copy of its guard removed before it was trusted). For the trace (since
+ * answer with the trunk's text did not choose as expected, an answer or an author that could run a
+ * command, one sent to a path its reader's command did not write, or a changed file a report left
+ * unlisted, whose cases no one answered (since asdlc-openspec-7c1). Each of the flip, the bar to
+ * store, the unlisted file and the authoring reader's path was seen failing with its guard removed;
+ * the review reader's path check was not, since the session's classifier refused that edit. A
+ * reader stub never meets the tools' limit on a line's length, so the session's review measured the
+ * real commands instead (`docs/decisions.md` § D-32). For the trace (since
  * asdlc-openspec-as9): a scenario left out of every group, a group a tracer returned short or read at
  * another commit counted as traced, a row's gap taken from the tracer's words rather than its
  * reading, a gap nobody could verify counted refuted, a failed proof cleared by a skeptic's vote, a
@@ -115,8 +119,17 @@ const POLICY_KEYS = [
   'buildIndependentKinds', 'buildArchitectMaxRounds', 'independentInputs', 'independentTestDir', 'independentLayers', 'architectRunLayers', 'testTraceLayers',
 ]
 const TEST_BUILDER_AGENT = '.claude/agents/test-builder.md'
-/** Each agent a workflow runs by agentType with no tool but its structured output, so nothing on disk or in git reaches it. */
-const TOOLLESS_AGENTS = [TEST_BUILDER_AGENT, '.claude/agents/prompt-case-author.md', '.claude/agents/prompt-case-answerer.md']
+/**
+ * Each agent a workflow runs by agentType with the tools it may have and no other: the test-builder
+ * its structured output alone, so nothing on disk or in git reaches it; a prompt case's author and
+ * answerer Read beside it, to read the one file their workflow wrote, and no command or search.
+ */
+const AGENT_TOOLS = {
+  [TEST_BUILDER_AGENT]: 'StructuredOutput',
+  '.claude/agents/prompt-case-author.md': 'Read, StructuredOutput',
+  '.claude/agents/prompt-case-answerer.md': 'Read, StructuredOutput',
+}
+const TOOLLESS_AGENTS = Object.keys(AGENT_TOOLS)
 const REVIEW_POLICY_KEYS = ['promptReviewRecurrenceCount', 'promptReviewMajorSeverities', 'promptReviewSkeptics', 'promptReviewCaseLenses', 'promptReviewCaseRepetitions']
 const VERIFY_POLICY_KEYS = ['verifyTraceMaxScenarios', 'verifyTraceDesignLenses', 'verifyTraceSkeptics']
 const HEAD = 'export const meta = {'
@@ -1303,8 +1316,12 @@ const storedCase = (policy, file, id, extra = {}) => ({
   ...extra,
 })
 
-/** The text of `file` at `ref`, as a reader stub prints it. */
+/** The text of `file` at `ref`, as a reader stub writes it: only its length reaches the stub's output. */
 const textAt = (ref, file) => `The text of ${file} at ${ref}.`
+/** Where a reader stub says its command wrote the texts, as the real command's `root` would be. */
+const TEXTS_ROOT = '/tmp/worktrees/example/.scratch/prompt-case-texts'
+/** Where a reader stub says it wrote `file` at `ref`. */
+const pathAt = (ref, file) => `${TEXTS_ROOT}/${ref}/${file}`
 
 /** The answer an answer stub returns to choose `optionId` of case `c`, at the place `prompt` shows it. */
 function choiceOf(prompt, c, optionId) {
@@ -1314,13 +1331,20 @@ function choiceOf(prompt, c, optionId) {
   return { choice: shown.indexOf(c.options.find((o) => o.id === optionId).text) + 1, why: `the text leads to ${optionId}` }
 }
 
-/** The review reader stub's reply: each file its command names at the merge base and at the head, with the checksum, unless `doctor` changes it. */
+/** The review reader stub's reply: the path of each file its command names at the merge base and at the head, with the checksum, unless `doctor` changes it. */
 function reviewReader(prompt, doctor) {
   const head = /const head='([^']*)'/.exec(prompt)[1]
   const files = JSON.parse(/const files=(\[[^\]]*\])/.exec(prompt)[1].replace(/'/g, '"'))
-  const texts = [BASE_SHA, head].flatMap((ref) => files.map((file) => ({ ref, file, text: textAt(ref, file) })))
-  const out = { base: BASE_SHA, texts, fnv: fnv(JSON.stringify({ base: BASE_SHA, texts })) }
+  const texts = [BASE_SHA, head].flatMap((ref) => files.map((file) => ({ ref, file, path: pathAt(ref, file), bytes: textAt(ref, file).length })))
+  const out = { base: BASE_SHA, root: TEXTS_ROOT, texts, fnv: fnv(JSON.stringify({ base: BASE_SHA, root: TEXTS_ROOT, texts })) }
   return { output: JSON.stringify(doctor ? doctor(out) : out) }
+}
+
+/** A reader's output with `change` made to its texts, its checksum computed over the change, so only the change itself can refuse it. */
+const reseal = (out, change) => {
+  const texts = out.texts.map(change)
+  const { fnv: _old, ...rest } = out
+  return { ...rest, texts, fnv: fnv(JSON.stringify({ ...rest, texts })) }
 }
 
 /**
@@ -1532,6 +1556,17 @@ function reviewCases(policy) {
       (g) => changed(g, { changes: [{ ...change(g.findings[0]), file: OPEN_PR }] }),
       /states a change to \.claude\/skills\/open-pr\/SKILL\.md, which it was not given/,
     ),
+    {
+      name: 'a report stating a change to a file of its own that its branch does not list as changed is not merged, so no stored case of that file goes unanswered',
+      args: reviewArgs(policy, [
+        { id: 'bead', files: [BEAD, OTHER], findings: [reviewFinding(policy, BEAD, 'gates-before-staging', [RUN_A, RUN_B]), reviewFinding(policy, OTHER, 'other', [RUN_A, RUN_B])] },
+        one('open-pr', OPEN_PR, 'second-watcher', [RUN_B, RUN_C]),
+      ]),
+      reports: { bead: (g) => changed(g, { filesChanged: [BEAD] }) },
+      expect: ['done', /^0 to merge, 1 unchanged, 0 not upheld, 1 refused, 0 died;/],
+      check: ({ result }) =>
+        /states a change to \.claude\/skills\/other\/SKILL\.md, which its branch does not change/.test(problemsOf(result, 'bead')) ? null : `bead's problems were ${problemsOf(result, 'bead')}`,
+    },
     refusedBead(
       policy,
       'a change naming a finding its group was not given is not merged',
@@ -1788,8 +1823,9 @@ function storedCaseCases(policy) {
         if (read.map((o) => o.label).join() !== 'read bead' || !read[0].prompt.includes(`const head='${HEAD_SHA}'`) || !read[0].prompt.includes(BEAD)) return "the reader was not asked for bead's file at its head"
         const old = answers.find((o) => o.label === `answer 1/${reps} old bead: ${CASE}`)
         const neu = answers.find((o) => o.label === `answer 1/${reps} new bead: ${CASE}`)
-        if (!old?.prompt.includes(textAt(BASE_SHA, BEAD)) || old.prompt.includes(textAt(HEAD_SHA, BEAD))) return "the old answer was not given the merge base's text alone"
-        if (!neu?.prompt.includes(textAt(HEAD_SHA, BEAD)) || neu.prompt.includes(textAt(BASE_SHA, BEAD))) return "the new answer was not given the head's text alone"
+        if (!old?.prompt.includes(pathAt(BASE_SHA, BEAD)) || old.prompt.includes(pathAt(HEAD_SHA, BEAD))) return "the old answer was not sent to the merge base's text alone"
+        if (!neu?.prompt.includes(pathAt(HEAD_SHA, BEAD)) || neu.prompt.includes(pathAt(BASE_SHA, BEAD))) return "the new answer was not sent to the head's text alone"
+        if (old.prompt.includes(textAt(BASE_SHA, BEAD))) return "an answer's prompt carries the text itself, which a model would have had to copy"
         if (old.prompt.includes('expected') || old.prompt.includes('settled')) return "an answer's prompt names the expected option or what settles it"
         if (reps >= 2) {
           const second = answers.find((o) => o.label === `answer 2/${reps} old bead: ${CASE}`)
@@ -1861,9 +1897,17 @@ function storedCaseCases(policy) {
       name: "a reader's copy that does not match its checksum leaves every case unanswered, by that reason, and no answer runs",
       args: one,
       reports: {},
-      reader: (prompt) => reviewReader(prompt, (out) => ({ ...out, texts: out.texts.map((t) => ({ ...t, text: t.text.replace('The text', 'A text') })) })),
+      reader: (prompt) => reviewReader(prompt, (out) => ({ ...out, texts: out.texts.map((t) => ({ ...t, bytes: t.bytes + 1 })) })),
       expect: ['done', keptOut(0, 1)],
       check: (outcome) => regressedOn('unanswered', /not copied verbatim/)(outcome) ?? (labelled(outcome.options, 'answer ').length ? 'an answer ran on an unverified copy' : null),
+    },
+    {
+      name: 'a reader that names a path other than where its command writes, its checksum sound, leaves every case unanswered by that reason, and no answer is sent there',
+      args: one,
+      reports: {},
+      reader: (prompt) => reviewReader(prompt, (out) => reseal(out, (t) => (t.ref === BASE_SHA ? { ...t, path: '/etc/hosts' } : t))),
+      expect: ['done', keptOut(0, 1)],
+      check: (outcome) => regressedOn('unanswered', /names "\/etc\/hosts" for \.claude\/skills\/bead\/SKILL\.md, which is not where its command writes/)(outcome) ?? (labelled(outcome.options, 'answer ').length ? 'an answer was sent to that path' : null),
     },
     {
       name: 'a reader that returns nothing leaves every case unanswered, which keeps the branch out',
@@ -1951,11 +1995,15 @@ const candidate = (key, lens, extra = {}) => ({
 
 const authorArgs = (policy, extra = {}) => ({ policy: promptPolicy(policy), seeds: [SEED_RUN, SEED_SECTION], cases: [storedCase(policy, BEAD, 'bead-stages-first')], ...extra })
 
-/** The authoring reader stub's reply: each `[ref, file]` its command names, from `texts`, with the checksum. */
-function authorReader(prompt, texts = textAt) {
+/** The authoring reader stub's reply: the path of each `[ref, file]` its command names, null where `texts` has none, with the checksum, unless `doctor` changes it. */
+function authorReader(prompt, texts = textAt, doctor) {
   const want = JSON.parse(/const want=(\[\[.*?\]\]);/.exec(prompt)[1].replace(/'/g, '"'))
-  const out = want.map(([ref, file]) => ({ ref, file, text: texts(ref, file) }))
-  return { output: JSON.stringify({ texts: out, fnv: fnv(JSON.stringify(out)) }) }
+  const list = want.map(([ref, file]) => {
+    const text = texts(ref, file)
+    return { ref, file, path: text === null ? null : pathAt(ref, file), bytes: text === null ? 0 : text.length }
+  })
+  const out = { root: TEXTS_ROOT, texts: list, fnv: fnv(JSON.stringify({ root: TEXTS_ROOT, texts: list })) }
+  return { output: JSON.stringify(doctor ? doctor(out) : out) }
 }
 
 /**
@@ -1966,7 +2014,7 @@ function authorReader(prompt, texts = textAt) {
  */
 function authorAnswer(args, s = {}) {
   return (label, prompt) => {
-    if (label === 'read') return s.reader ? s.reader(prompt) : authorReader(prompt, s.texts)
+    if (label === 'read') return s.reader ? s.reader(prompt) : authorReader(prompt, s.texts, s.doctor)
     let m = /^author (\S+) (\S+)$/.exec(label)
     if (m) return s.authors ? s.authors(m[2], m[1]) : candidate(m[2], m[1])
     m = /^answer (\d+)\/(\d+) (\S+)$/.exec(label)
@@ -2010,10 +2058,11 @@ function authorCases(policy) {
         const sectionLabels = written.filter((o) => o.label.endsWith(SEED_SECTION.key)).map((o) => o.label.split(' ')[1])
         if (runLabels.join() !== lenses.join() || sectionLabels.join() !== sectionLenses.join()) return `wrote through ${runLabels.join()} and ${sectionLabels.join()}`
         const own = written.find((o) => o.label.endsWith(SEED_RUN.key))
-        if (!own.prompt.includes(SEED_RUN.evidence) || !own.prompt.includes(textAt(CASE_COMMIT, BEAD))) return "a run's author was not given its evidence and the text at its commit"
-        if (own.prompt.includes(SEED_SECTION.evidence) || own.prompt.includes(textAt(TRUNK, BEAD)) || own.prompt.includes('bead-stages-first')) return 'an author was shown another seed, another text or a stored case'
+        if (!own.prompt.includes(SEED_RUN.evidence) || !own.prompt.includes(pathAt(CASE_COMMIT, BEAD))) return "a run's author was not given its evidence and sent to the text at its commit"
+        if (own.prompt.includes(SEED_SECTION.evidence) || own.prompt.includes(pathAt(TRUNK, BEAD)) || own.prompt.includes('bead-stages-first')) return 'an author was shown another seed, another text or a stored case'
+        if (own.prompt.includes(textAt(CASE_COMMIT, BEAD))) return "an author's prompt carries the text itself, which a model would have had to copy"
         const answers = labelled(options, 'answer ')
-        if (answers.length !== reps || answers.some((o) => o.agentType !== 'prompt-case-answerer' || !o.prompt.includes(textAt(TRUNK, BEAD)))) return "the case was not answered by the tool-less answerer with the trunk's text"
+        if (answers.length !== reps || answers.some((o) => o.agentType !== 'prompt-case-answerer' || !o.prompt.includes(pathAt(TRUNK, BEAD)))) return "the case was not answered by the answerer agent, sent to the trunk's text"
         const c = result.candidates.find((x) => x.key === SEED_RUN.key && x.lens === lenses[0])
         if (c?.problem !== null || c.case.prompt !== BEAD || c.case.lens !== lenses[0] || JSON.stringify(c.case.source) !== JSON.stringify(SEED_RUN.source)) return `a candidate came back ${JSON.stringify(c)}`
         const v = result.validated[0]
@@ -2044,8 +2093,22 @@ function authorCases(policy) {
     {
       name: "a reader's copy that does not match its checksum stops the run as unread, by that reason, and no author or answer runs",
       args: authorArgs(policy),
-      stubs: { reader: (prompt) => ({ output: authorReader(prompt).output.replace('The text', 'A text') }) },
+      stubs: { doctor: (out) => ({ ...out, texts: out.texts.map((t) => ({ ...t, bytes: t.bytes + 1 })) }) },
       expect: ['unread', /not copied verbatim/],
+      check: ({ calls }) => (calls.join() === 'read' ? null : `ran ${calls.join(', ')}`),
+    },
+    {
+      name: 'a reader that names a path other than where its command writes, its checksum sound, stops the run as unread by that reason, and no author or answer is sent there',
+      args: authorArgs(policy),
+      stubs: { doctor: (out) => reseal(out, (t) => (t.ref === CASE_COMMIT ? { ...t, path: '/etc/hosts' } : t)) },
+      expect: ['unread', /names "\/etc\/hosts" for \.claude\/skills\/bead\/SKILL\.md, which is not where its command writes$/],
+      check: ({ calls }) => (calls.join() === 'read' ? null : `ran ${calls.join(', ')}`),
+    },
+    {
+      name: 'a reader whose root is not where its command writes stops the run as unread',
+      args: authorArgs(policy),
+      stubs: { doctor: (out) => reseal({ ...out, root: '/etc' }, (t) => t) },
+      expect: ['unread', /^the reader's root "\/etc" is not where its command writes$/],
       check: ({ calls }) => (calls.join() === 'read' ? null : `ran ${calls.join(', ')}`),
     },
     {
@@ -3105,7 +3168,7 @@ function toolsOf(text) {
   return line ? line[1].trim() : null
 }
 
-/** Why the agent file `file` under `root` grants more than its structured output, or null. */
+/** Why the agent file `file` under `root` grants other tools than `AGENT_TOOLS` gives it, or null. */
 function toolsProblem(root, file) {
   let text
   try {
@@ -3114,14 +3177,14 @@ function toolsProblem(root, file) {
     return `${file} could not be read: ${error.message}`
   }
   const tools = toolsOf(text)
-  return tools === 'StructuredOutput'
+  return tools === AGENT_TOOLS[file]
     ? null
-    : `${file} gives its agent the tools ${tools ?? 'it names none of, which is every tool'}, where it may have StructuredOutput alone, so that nothing on disk or in git reaches it`
+    : `${file} gives its agent the tools ${tools ?? 'it names none of, which is every tool'}, where it may have ${AGENT_TOOLS[file]} alone`
 }
 
 /**
- * For each tool-less agent, the tools line held on the tracked file, which must pass, and on a copy
- * under the temporary directory that adds Read, which must be refused by its reason.
+ * For each such agent, the tools line held on the tracked file, which must pass, and on a copy under
+ * the temporary directory that adds Bash, which must be refused by its reason.
  */
 function toolsResults() {
   const root = mkdtempSync(join(tmpdir(), 'workflows-tools-'))
@@ -3130,12 +3193,12 @@ function toolsResults() {
     return TOOLLESS_AGENTS.flatMap((file) => {
       const control = toolsProblem(ROOT, file)
       const live = control ? '' : readFileSync(join(ROOT, file), 'utf8')
-      writeFileSync(join(root, file), live.replace(/^tools:.*$/m, 'tools: StructuredOutput, Read'))
+      writeFileSync(join(root, file), live.replace(/^tools:.*$/m, `tools: ${AGENT_TOOLS[file]}, Bash`))
       const doctored = toolsProblem(root, file)
-      const refused = /gives its agent the tools StructuredOutput, Read, where it may have StructuredOutput alone/.test(doctored ?? '')
+      const refused = (doctored ?? '').endsWith(`gives its agent the tools ${AGENT_TOOLS[file]}, Bash, where it may have ${AGENT_TOOLS[file]} alone`)
       return [
-        { file, name: "control: the tracked agent's tools are StructuredOutput alone", control: true, ok: control === null, detail: control ?? 'holds' },
-        { file, name: 'the agent given Read beside its structured output is refused, by its reason', control: false, ok: refused, detail: refused ? 'holds' : `reported ${JSON.stringify(doctored)}` },
+        { file, name: `control: the tracked agent's tools are ${AGENT_TOOLS[file]} alone`, control: true, ok: control === null, detail: control ?? 'holds' },
+        { file, name: 'the agent given Bash beside them is refused, by its reason', control: false, ok: refused, detail: refused ? 'holds' : `reported ${JSON.stringify(doctored)}` },
       ]
     })
   } finally {
@@ -3217,19 +3280,16 @@ async function bankResults(authorBody, reviewBody, policy) {
 async function parityResults(authorBody, reviewBody, policy) {
   const reps = policy.promptReviewCaseRepetitions
   const c = storedCase(policy, BEAD, 'bead-parity')
-  const SAME = 'One text of the prompt, the same at every ref.'
+  /** A prompt with the path of the text it is sent to masked, since each workflow's reader writes the text under its own ref. */
+  const masked = (prompt) => prompt.split(TEXTS_ROOT).map((part, i) => (i ? part.replace(/^[^`]*/, '') : part)).join('<the text>')
   const authorPrompts = async () => {
-    const out = await run(authorBody, { policy: promptPolicy(policy), cases: [c] }, authorAnswer({ cases: [c] }, { texts: () => SAME }))
-    return out.options.filter((o) => o.label.startsWith('answer ')).map((o) => o.prompt)
+    const out = await run(authorBody, { policy: promptPolicy(policy), cases: [c] }, authorAnswer({ cases: [c] }))
+    return out.options.filter((o) => o.label.startsWith('answer ')).map((o) => masked(o.prompt))
   }
   const reviewPrompts = async (body) => {
     const args = reviewArgs(policy, undefined, { cases: [c] })
-    const reader = (prompt) => reviewReader(prompt, (out) => {
-      const texts = out.texts.map((t) => ({ ...t, text: SAME }))
-      return { ...out, texts, fnv: fnv(JSON.stringify({ base: out.base, texts })) }
-    })
-    const out = await run(body, args, reviewAnswer(args, {}, undefined, undefined, reader))
-    const of = (side) => out.options.filter((o) => o.label.startsWith('answer ') && o.label.includes(` ${side} `)).map((o) => o.prompt)
+    const out = await run(body, args, reviewAnswer(args))
+    const of = (side) => out.options.filter((o) => o.label.startsWith('answer ') && o.label.includes(` ${side} `)).map((o) => masked(o.prompt))
     return [of('old'), of('new')]
   }
   const one = (a, [olds, news]) => a.length === reps && a.every((p, i) => p === olds[i] && p === news[i])

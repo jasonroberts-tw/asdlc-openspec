@@ -41,8 +41,9 @@ export const meta = {
  * needed, and nothing says so (https://arxiv.org/abs/2510.04618, "context collapse"). Since
  * asdlc-openspec-7c1 it would also let through an edit that turns a decision the prompt made right into
  * a wrong one, which a skeptic reading the diff for the runs it was given never sees; an answer from
- * an agent that could read the case's expected answer; and a text copied with a clause lost, so that
- * the answers judge a prompt no session reads.
+ * an agent that could run a command or search for the case's expected answer; an answer sent to a
+ * file other than the text its reader wrote; and a file the branch changed whose cases go unanswered
+ * because its report did not list it.
  *
  * Wrong the other way, it refuses what it should pass. On 2026-09-28 (run wf_5aec3e94-07b) it refused
  * 3 of 4 groups, each with an edit whose gates passed, because each listed under `notChanged` a point
@@ -114,7 +115,8 @@ export const meta = {
  *     fallback names it `worktree-<name>` (CLAUDE.md § Git workflow);
  *   - no two groups report one branch;
  *   - a changed report lists the files its branch changes, every one of them its own, states at
- *     least one change, each to a file of its own, and ran gates that all passed;
+ *     least one change, each to a file of its own that it lists, and ran gates that all passed: the
+ *     stored cases a branch is answered on are those of the files it lists;
  *   - each consolidation it states is of a file of its own that its branch changes, one per file,
  *     names its commit, frees words, and lists what it removed, every row saying where its text went:
  *     a kept row names the place and what loads it, a moved row the pull request, a deleted row why;
@@ -149,10 +151,13 @@ export const meta = {
  * THE STORED CASES. For each group still `merge` once its skeptics have voted, every case whose prompt
  * its branch changes is answered `promptReviewCaseRepetitions` times with the file's text at the
  * branch's merge base with `origin/main`, the old, and as many with its text at the branch's head, the
- * new. One reader agent per group prints those texts with a checksum this script re-derives, so a copy
- * that is not verbatim is refused; each answer is an agent by the agentType `prompt-case-answerer`,
- * whose only tool is its structured output, shown the options in an order turned by one place at
- * each repetition. A text is right when floor(n/2)+1 of its n answers chose the case's expected
+ * new. One reader agent per group runs a command that writes those texts under
+ * `.scratch/prompt-case-texts/` where the session stands and prints their paths with a checksum this
+ * script re-derives; a copy that is not verbatim, or a path other than where the command writes, is
+ * refused. Each answer is an agent by the agentType `prompt-case-answerer`, whose only tools are
+ * Read and its structured output, sent to one of those files and shown the options in an order
+ * turned by one place at each repetition. No model copies a text: one that did would retype tens of
+ * thousands of characters, more than the tools show an agent of a single line. A text is right when floor(n/2)+1 of its n answers chose the case's expected
  * option. A case's outcome is `held` when both texts are right, `flipped` when the old is and the new
  * is not, `fixed` when only the new is, `failing` when neither is, and `unanswered` when an answer is
  * missing or out of range, or a text could not be read. A `flipped` or `unanswered` case makes its
@@ -171,9 +176,9 @@ export const meta = {
  * <key>`, each skeptic of a consolidation `skeptic <i>/<n> <id>: consolidation of <file>`, each reader
  * `read <id>`, and each answer `answer <i>/<n> old <id>: <case>` or `answer <i>/<n> new <id>: <case>`.
  * scripts/workflows.selftest.mjs routes its stubbed agents by those labels: change one here and change
- * it there. `answerPrompt` and `fenced` are copies of `.claude/workflows/author-prompt-cases.js`'s, and
- * the selftest holds the two to one answer prompt for one case and text, so a case is answered alike
- * when it is validated and when it is judged.
+ * it there. `answerPrompt` is a copy of `.claude/workflows/author-prompt-cases.js`'s, and the selftest
+ * holds the two to one answer prompt for one case and file, so a case is answered alike when it is
+ * validated and when it is judged.
  *
  * NEEDS a review worktree, the Workflow tool, and a WorktreeCreate hook that cuts each agent's
  * worktree from `origin/main`: on 2026-09-26 a workflow agent's `isolation: 'worktree'` landed on
@@ -183,9 +188,10 @@ export const meta = {
  * skeptics and the readers run where the session does, in the review worktree, and read each branch
  * there. The answers need the agent `prompt-case-answerer` in the checkout the session started in, the
  * primary checkout for a review `close-prompt-run` launched (`.claude/README.md`): where it is absent,
- * every answer returns nothing, and every branch whose files have a stored case is `regressed`. Nothing
- * here reads a file: the session passes the policy as `args.policy`. `npm run workflows:selftest`
- * runs this script against stubbed agents.
+ * every answer returns nothing, and every branch whose files have a stored case is `regressed`. An
+ * answer could read a file other than the one it is sent to if it guessed its path, and nothing here
+ * records that it did not. The script reads no file: the session passes the policy as `args.policy`.
+ * `npm run workflows:selftest` runs this script against stubbed agents.
  */
 
 const A = args || {}
@@ -528,22 +534,13 @@ function consolidationPrompt(k, i, n) {
   ].join('\n')
 }
 
-/** A fence longer than any run of backticks in `text`, so no file's text can close it. */
-function fenced(text) {
-  const runs = text.match(/`+/g) || []
-  const fence = '`'.repeat(Math.max(3, ...runs.map((r) => r.length + 1)))
-  return `${fence}\n${text}\n${fence}`
-}
-
 /** The case's options in the order the `r`th repetition shows them, so each takes each place in turn. */
 const rotated = (options, r) => options.slice(r % options.length).concat(options.slice(0, r % options.length))
 
-/** The prompt one answer to case `c` is given, with `text` as the version of its prompt under test. */
-function answerPrompt(c, text, r) {
+/** The prompt one answer to case `c` is given, with the version of its prompt under test at `path`. */
+function answerPrompt(c, path, r) {
   return [
-    `You are a session running \`${c.prompt}\`. Its text, the version under test:`,
-    '',
-    fenced(text),
+    `You are a session running \`${c.prompt}\`. Read its text, the version under test, from \`${path}\`, and no other file.`,
     '',
     '## The situation',
     '',
@@ -565,20 +562,24 @@ function fnv(s) {
   return h
 }
 
-/** The reader's command: each file at the merge base of `head` with `origin/main` and at `head`, and a checksum over them. */
+/**
+ * The reader's command: git shows each file at the merge base of `head` with `origin/main` and at
+ * `head` into `<root>/<ref>/<file>`, root `.scratch/prompt-case-texts` where the session stands, and
+ * it prints each path with a checksum. No model copies a text: each answer reads its file.
+ */
 function readCommand(head, files) {
   const js = [
-    "const cp=require('child_process');const git=(a)=>cp.execFileSync('git',a,{encoding:'utf8',maxBuffer:1e8,stdio:['ignore','pipe','ignore']});",
-    `const head='${head}';const files=${JSON.stringify(files).replace(/"/g, "'")};`,
+    "const cp=require('child_process'),fs=require('fs'),p=require('path');const git=(a)=>cp.execFileSync('git',a,{encoding:'utf8',maxBuffer:1e8,stdio:['ignore','pipe','ignore']});",
+    `const root=p.resolve('.scratch/prompt-case-texts');const head='${head}';const files=${JSON.stringify(files).replace(/"/g, "'")};`,
     "const base=git(['merge-base','origin/main',head]).trim();",
-    "const texts=[base,head].flatMap((ref)=>files.map((file)=>{try{return {ref,file,text:git(['show',ref+':'+file])}}catch(e){return {ref,file,text:null}}}));",
-    'const s=JSON.stringify({base,texts});let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0}',
-    'console.log(JSON.stringify({base,texts,fnv:h}))',
+    "const texts=[base,head].flatMap((ref)=>files.map((file)=>{const path=p.join(root,ref,file);try{const t=git(['show',ref+':'+file]);fs.mkdirSync(p.dirname(path),{recursive:true});fs.writeFileSync(path,t);return {ref,file,path,bytes:Buffer.byteLength(t)}}catch(e){return {ref,file,path:null,bytes:0}}}));",
+    'const s=JSON.stringify({base,root,texts});let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0}',
+    'console.log(JSON.stringify({base,root,texts,fnv:h}))',
   ].join('')
   return `node --no-warnings -e "${js}"`
 }
 
-/** The old and new texts the reader printed, keyed by file, or the reason they cannot be used. */
+/** The paths of the old and new texts the reader wrote, keyed by file, or the reason they cannot be used. */
 function readTexts(reply, head) {
   let p
   try {
@@ -586,9 +587,12 @@ function readTexts(reply, head) {
   } catch (error) {
     return { problem: `the reader's output is not the JSON its command prints: ${JSON.stringify(String(reply.output).slice(0, 200))}` }
   }
-  if (!isPlainObject(p) || !isText(p.base) || !Array.isArray(p.texts) || !Number.isInteger(p.fnv)) return { problem: "the reader's output holds no base, texts and checksum" }
-  if (fnv(JSON.stringify({ base: p.base, texts: p.texts })) !== p.fnv) return { problem: "the reader's copy does not match the checksum its command printed, so it was not copied verbatim" }
-  const at = (ref, file) => p.texts.find((t) => t.ref === ref && t.file === file)?.text ?? null
+  if (!isPlainObject(p) || !isText(p.base) || !isText(p.root) || !Array.isArray(p.texts) || !Number.isInteger(p.fnv)) return { problem: "the reader's output holds no base, root, paths and checksum" }
+  if (fnv(JSON.stringify({ base: p.base, root: p.root, texts: p.texts })) !== p.fnv) return { problem: "the reader's copy does not match the checksum its command printed, so it was not copied verbatim" }
+  if (!/^[0-9a-f]{40}$/.test(p.base) || !p.root.startsWith('/') || !p.root.endsWith('/.scratch/prompt-case-texts')) return { problem: `the reader's base ${JSON.stringify(p.base)} or root ${JSON.stringify(p.root)} is not what its command prints` }
+  const stray = p.texts.find((t) => t.path !== null && t.path !== `${p.root}/${t.ref}/${t.file}`)
+  if (stray) return { problem: `the reader names ${JSON.stringify(stray.path)} for ${stray.file}, which is not where its command writes` }
+  const at = (ref, file) => p.texts.find((t) => t.ref === ref && t.file === file)?.path ?? null
   return { old: (file) => at(p.base, file), new: (file) => at(head, file) }
 }
 
@@ -639,6 +643,8 @@ function problemsOf(g, r) {
     if (!r.changes.length) problems.push('it reports a change, but states none')
     const elsewhere = [...new Set(r.changes.map((c) => clean(c.file)).filter((f) => !own.has(f)))]
     if (elsewhere.length) problems.push(`it states a change to ${elsewhere.join(', ')}, which it was not given`)
+    const unlisted = [...new Set(r.changes.map((c) => clean(c.file)).filter((f) => own.has(f) && !changed.includes(f)))]
+    if (unlisted.length) problems.push(`it states a change to ${unlisted.join(', ')}, which its branch does not change`)
     const failing = r.gates.filter((gate) => !gate.passed)
     if (!r.gates.length) problems.push('it changed a file and ran no gate')
     else if (failing.length) problems.push(`its gate(s) ${failing.map((gate) => gate.command).join(', ')} did not pass`)
@@ -763,11 +769,11 @@ function judgeCase(g, c, olds, news) {
 /** Every answer to case `c` of group `g`, `reps` with its old text and `reps` with its new. */
 async function answerCase(g, c, texts) {
   const file = clean(c.prompt)
-  const [oldText, newText] = [texts.old(file), texts.new(file)]
-  if (oldText === null || newText === null) return { ...judgeCase(g, c, [null], []), answers: [], why: `git could not show ${file} at both texts` }
-  const asks = ['old', 'new'].flatMap((side) => Array.from({ length: reps }, (_, r) => ({ side, r, text: side === 'old' ? oldText : newText })))
+  const [oldPath, newPath] = [texts.old(file), texts.new(file)]
+  if (oldPath === null || newPath === null) return { ...judgeCase(g, c, [null], []), answers: [], why: `git could not show ${file} at both texts` }
+  const asks = ['old', 'new'].flatMap((side) => Array.from({ length: reps }, (_, r) => ({ side, r, path: side === 'old' ? oldPath : newPath })))
   const replies = await parallel(
-    asks.map(({ side, r, text }) => () => agent(answerPrompt(c, text, r), { label: `answer ${r + 1}/${reps} ${side} ${g.id}: ${c.id}`, phase: 'Regress', schema: ANSWER_SCHEMA, agentType: ANSWERER })),
+    asks.map(({ side, r, path }) => () => agent(answerPrompt(c, path, r), { label: `answer ${r + 1}/${reps} ${side} ${g.id}: ${c.id}`, phase: 'Regress', schema: ANSWER_SCHEMA, agentType: ANSWERER })),
   )
   const answers = asks.map(({ side, r }, i) => ({ side, option: replies[i] ? rotated(c.options, r)[replies[i].choice - 1]?.id ?? null : null, why: replies[i]?.why ?? 'the answerer returned nothing' }))
   const of = (side) => answers.filter((a) => a.side === side).map((a) => a.option)
@@ -783,7 +789,7 @@ async function regress(g) {
   const unread = (why) => mine.map((c) => ({ ...judgeCase(g, c, [null], []), answers: [], why }))
   if (!/^[0-9a-f]{40}$/.test(head)) return unread(`its head ${JSON.stringify(head)} is no commit hash, so its text cannot be read`)
   const reply = await agent(
-    `Run this one command where you stand, and return in output the one line it prints, verbatim, even where it looks wrong. Change nothing.\n\n${readCommand(head, [...new Set(mine.map((c) => clean(c.prompt)))])}`,
+    `Run this one command where you stand, and return in output the one line it prints, verbatim, even where it looks wrong. Change nothing else.\n\n${readCommand(head, [...new Set(mine.map((c) => clean(c.prompt)))])}`,
     { label: `read ${g.id}`, phase: 'Regress', schema: READ_SCHEMA, effort: 'low' },
   )
   const texts = reply ? readTexts(reply, head) : { problem: 'the reader returned nothing' }

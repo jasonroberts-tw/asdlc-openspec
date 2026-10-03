@@ -21,16 +21,20 @@ export const meta = {
  * them chose its expected option. A case is the format `.claude/prompt-cases/README.md` gives; the
  * session writes each validated case there, and `.claude/workflows/review-prompts.js` answers the
  * bank with the old text and the new of every prompt a review changes (`docs/decisions.md` § D-32).
- * It writes nothing and commits nothing.
+ * It commits nothing. Its reader writes each text it needs under `.scratch/prompt-case-texts/` where
+ * the session stands, and each author or answer reads its own file there: a model that copied a text
+ * through its output would have to retype tens of thousands of characters exactly, and the tools
+ * show an agent only part of a line that long (the session review of asdlc-openspec-7c1 measured
+ * `CLAUDE.md`'s at 39,891 characters, and a Read that showed 21,247 of them).
  *
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet: this script lands with the bank it fills
  * (asdlc-openspec-7c1). Were it wrong, it would let through: a case stored that the trunk's text does
  * not answer as expected, which could never flip and so guards nothing, or which flips by noise and
- * keeps a sound edit out; a case answered by an agent that could read its expected answer or another
- * version of the prompt; an author shown another finding or an edit, so that the case is shaped by the
- * change it will judge; a prompt's text copied with a clause lost, the failure a consolidation of bead
- * once caused (asdlc-openspec-aa0), so that every answer judges a text no session reads; and a case
- * whose options sit in one order, so that an answerer's taste for the first option reads as the text.
+ * keeps a sound edit out; a case answered by an agent that could run a command or search the
+ * repository for its expected answer; an author shown another finding or an edit, so that the case is
+ * shaped by the change it will judge; an author or an answer sent to a file other than the one its
+ * command wrote; and a case whose options sit in one order, so that an answerer's taste for the first
+ * option reads as the text.
  *
  * INVOCATION. The Workflow tool, with `scriptPath` set to this file in the session's worktree, and
  * `args`:
@@ -49,7 +53,8 @@ export const meta = {
  *
  * WHAT IT RETURNS. { stopped, why, candidates, validated, turnedAway, counts }. `stopped` is
  * `refused` when an argument did not hold, before any agent ran; `unread` when the reader returned
- * nothing or a copy its checksum refuses; `done` otherwise. Each candidate carries its seed's `key`,
+ * nothing, a copy its checksum refuses, or a path other than where its command writes; `done`
+ * otherwise. Each candidate carries its seed's `key`,
  * its `lens`, the `case` with the seed's prompt, lens and source filled in, and the `problem` that
  * drops it, or null. A seed whose text git could not show gets no author, and its candidate carries
  * that problem. Each case validated or turned away carries `right`, the answers that chose its
@@ -57,17 +62,18 @@ export const meta = {
  * included. Every count is computed here.
  *
  * LABELS. `read`, `author <lens> <key>`, and `answer <i>/<n> <case id>`. scripts/workflows.selftest.mjs
- * routes its stubbed agents by them: change one here and change it there. `answerPrompt` and
- * `fenced` are copied in `.claude/workflows/review-prompts.js`, and the selftest holds the two to one
- * answer prompt for one case and text.
+ * routes its stubbed agents by them: change one here and change it there. `answerPrompt` is copied in
+ * `.claude/workflows/review-prompts.js`, and the selftest holds the two to one answer prompt for one
+ * case and file.
  *
  * NEEDS the Workflow tool, a checkout whose `origin/main` and commits hold each prompt, and the agents
- * `prompt-case-author` and `prompt-case-answerer`: an agentType is resolved from the checkout the
- * calling session started in (`.claude/README.md`), so in a session started where those files are
- * absent every candidate is dropped and every case turned away, each because its agent returned
- * nothing. Nothing here reads a
- * file: the session passes the policy as `args.policy`. `npm run workflows:selftest` runs this script
- * against stubbed agents.
+ * `prompt-case-author` and `prompt-case-answerer`, whose only tools are Read and their structured
+ * output: an agentType is resolved from the checkout the calling session started in
+ * (`.claude/README.md`), so in a session started where those files are absent every candidate is
+ * dropped and every case turned away, each because its agent returned nothing. Such an agent could
+ * read a file other than the one it is sent to if it guessed its path, and nothing here records that
+ * it did not. The script reads no file: the session passes the policy as `args.policy`.
+ * `npm run workflows:selftest` runs this script against stubbed agents.
  */
 
 const A = args || {}
@@ -197,13 +203,6 @@ function argsProblem() {
 
 /* ------------------------------------------------------------------------------ the prompts ----- */
 
-/** A fence longer than any run of backticks in `text`, so no file's text can close it. */
-function fenced(text) {
-  const runs = text.match(/`+/g) || []
-  const fence = '`'.repeat(Math.max(3, ...runs.map((r) => r.length + 1)))
-  return `${fence}\n${text}\n${fence}`
-}
-
 /** FNV-1a over the UTF-16 code units of `s`, as the reader's command computes it. */
 function fnv(s) {
   let h = 2166136261
@@ -214,21 +213,25 @@ function fnv(s) {
   return h
 }
 
-/** The reader's command: each `[ref, file]` git shows, and a checksum over them. */
+/**
+ * The reader's command: git shows each `[ref, file]` into `<root>/<ref>/<file>`, root
+ * `.scratch/prompt-case-texts` where the session stands, and it prints each path with a checksum.
+ * No model copies a text: an author or an answer reads its file.
+ */
 function readCommand(want) {
   const js = [
-    "const cp=require('child_process');",
+    "const cp=require('child_process'),fs=require('fs'),p=require('path');const root=p.resolve('.scratch/prompt-case-texts');",
     `const want=${JSON.stringify(want).replace(/"/g, "'")};`,
-    "const texts=want.map(([ref,file])=>{try{return {ref,file,text:cp.execFileSync('git',['show',ref+':'+file],{encoding:'utf8',maxBuffer:1e8,stdio:['ignore','pipe','ignore']})}}catch(e){return {ref,file,text:null}}});",
-    'const s=JSON.stringify(texts);let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0}',
-    'console.log(JSON.stringify({texts,fnv:h}))',
+    "const texts=want.map(([ref,file])=>{const path=p.join(root,ref,file);try{const t=cp.execFileSync('git',['show',ref+':'+file],{encoding:'utf8',maxBuffer:1e8,stdio:['ignore','pipe','ignore']});fs.mkdirSync(p.dirname(path),{recursive:true});fs.writeFileSync(path,t);return {ref,file,path,bytes:Buffer.byteLength(t)}}catch(e){return {ref,file,path:null,bytes:0}}});",
+    'const s=JSON.stringify({root,texts});let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0}',
+    'console.log(JSON.stringify({root,texts,fnv:h}))',
   ].join('')
   return `node --no-warnings -e "${js}"`
 }
 
-const readPrompt = (want) => `Run this one command where you stand, and return in output the one line it prints, verbatim, even where it looks wrong. Change nothing.\n\n${readCommand(want)}`
+const readPrompt = (want) => `Run this one command where you stand, and return in output the one line it prints, verbatim, even where it looks wrong. Change nothing else.\n\n${readCommand(want)}`
 
-/** The texts the reader printed, keyed `<ref>:<file>`, or the reason they cannot be used. */
+/** The path the reader wrote each text to, keyed `<ref>:<file>`, or the reason they cannot be used. */
 function readTexts(reply) {
   let parsed
   try {
@@ -236,20 +239,21 @@ function readTexts(reply) {
   } catch (error) {
     return { problem: `the reader's output is not the JSON its command prints: ${JSON.stringify(String(reply.output).slice(0, 200))}` }
   }
-  if (!isPlainObject(parsed) || !Array.isArray(parsed.texts) || !Number.isInteger(parsed.fnv)) return { problem: "the reader's output holds no texts and checksum" }
-  if (fnv(JSON.stringify(parsed.texts)) !== parsed.fnv) return { problem: "the reader's copy does not match the checksum its command printed, so it was not copied verbatim" }
-  return { texts: new Map(parsed.texts.map((t) => [`${t.ref}:${t.file}`, t.text])) }
+  if (!isPlainObject(parsed) || !isText(parsed.root) || !Array.isArray(parsed.texts) || !Number.isInteger(parsed.fnv)) return { problem: "the reader's output holds no root, paths and checksum" }
+  if (fnv(JSON.stringify({ root: parsed.root, texts: parsed.texts })) !== parsed.fnv) return { problem: "the reader's copy does not match the checksum its command printed, so it was not copied verbatim" }
+  if (!parsed.root.startsWith('/') || !parsed.root.endsWith('/.scratch/prompt-case-texts')) return { problem: `the reader's root ${JSON.stringify(parsed.root)} is not where its command writes` }
+  const stray = parsed.texts.find((t) => t.path !== null && t.path !== `${parsed.root}/${t.ref}/${t.file}`)
+  if (stray) return { problem: `the reader names ${JSON.stringify(stray.path)} for ${stray.file}, which is not where its command writes` }
+  return { texts: new Map(parsed.texts.map((t) => [`${t.ref}:${t.file}`, t.path])) }
 }
 
 /** The case's options in the order the `r`th repetition shows them, so each takes each place in turn. */
 const rotated = (options, r) => options.slice(r % options.length).concat(options.slice(0, r % options.length))
 
-/** The prompt one answer to case `c` is given, with `text` as the version of its prompt under test. */
-function answerPrompt(c, text, r) {
+/** The prompt one answer to case `c` is given, with the version of its prompt under test at `path`. */
+function answerPrompt(c, path, r) {
   return [
-    `You are a session running \`${c.prompt}\`. Its text, the version under test:`,
-    '',
-    fenced(text),
+    `You are a session running \`${c.prompt}\`. Read its text, the version under test, from \`${path}\`, and no other file.`,
     '',
     '## The situation',
     '',
@@ -261,7 +265,7 @@ function answerPrompt(c, text, r) {
   ].join('\n')
 }
 
-function authorPrompt(seed, lens, text, n) {
+function authorPrompt(seed, lens, path, n) {
   const s = seed.source
   const where = s.run ? `as the run ${s.run} read it, at ${s.commit}` : `as the trunk has it; the finding is drawn from ${s.section}`
   return [
@@ -275,7 +279,7 @@ function authorPrompt(seed, lens, text, n) {
     '',
     `## \`${seed.prompt}\`, ${where}`,
     '',
-    fenced(text),
+    `Read it from \`${path}\`, and no other file.`,
   ].join('\n')
 }
 
@@ -302,16 +306,16 @@ if (read.problem) {
   log(`Stopped (unread): ${read.problem}`)
   return { stopped: 'unread', why: read.problem, candidates: [], validated: [], turnedAway: [], counts: null }
 }
-const textOf = (ref, file) => read.texts.get(`${ref}:${file}`) ?? null
+const pathOf = (ref, file) => read.texts.get(`${ref}:${file}`) ?? null
 
 /** One seed's candidates: one author per lens it can take, each checked against the README's format. */
 async function authorSeed(seed) {
   const lenses = A.policy.promptReviewCaseLenses.filter((l) => seed.source.run || !LENSES[l].needsRun)
-  const text = textOf(refOf(seed.source), seed.prompt)
-  if (text === null) return [{ key: seed.key, lens: null, case: null, problem: `git could not show ${seed.prompt} at ${refOf(seed.source)}` }]
+  const path = pathOf(refOf(seed.source), seed.prompt)
+  if (path === null) return [{ key: seed.key, lens: null, case: null, problem: `git could not show ${seed.prompt} at ${refOf(seed.source)}` }]
   authorsRun += lenses.length
   const written = await parallel(
-    lenses.map((lens) => () => agent(authorPrompt(seed, lens, text, lenses.length), { label: `author ${lens} ${seed.key}`, phase: 'Author', schema: CANDIDATE_SCHEMA, agentType: AUTHOR })),
+    lenses.map((lens) => () => agent(authorPrompt(seed, lens, path, lenses.length), { label: `author ${lens} ${seed.key}`, phase: 'Author', schema: CANDIDATE_SCHEMA, agentType: AUTHOR })),
   )
   return lenses.map((lens, i) => {
     if (!written[i]) return { key: seed.key, lens, case: null, problem: 'the author returned nothing' }
@@ -322,10 +326,10 @@ async function authorSeed(seed) {
 
 /** One case's answers against the trunk's text, and whether every one chose its expected option. */
 async function validate(c) {
-  const text = textOf(TRUNK, c.prompt)
-  if (text === null) return { case: c, right: 0, of: n, answers: [], problem: `git could not show ${c.prompt} at ${TRUNK}` }
+  const path = pathOf(TRUNK, c.prompt)
+  if (path === null) return { case: c, right: 0, of: n, answers: [], problem: `git could not show ${c.prompt} at ${TRUNK}` }
   const replies = await parallel(
-    Array.from({ length: n }, (_, r) => () => agent(answerPrompt(c, text, r), { label: `answer ${r + 1}/${n} ${c.id}`, phase: 'Validate', schema: ANSWER_SCHEMA, agentType: ANSWERER })),
+    Array.from({ length: n }, (_, r) => () => agent(answerPrompt(c, path, r), { label: `answer ${r + 1}/${n} ${c.id}`, phase: 'Validate', schema: ANSWER_SCHEMA, agentType: ANSWERER })),
   )
   const answers = replies.map((a, r) => {
     const chosen = a ? rotated(c.options, r)[a.choice - 1]?.id ?? null : null
