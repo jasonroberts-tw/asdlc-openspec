@@ -48,17 +48,18 @@
  * change to both at once is what the reviewer's floor, which holds every place mise reads a config or
  * a lock from to a person, is for. Rule 7 compares tools, settings and files, not `[task_config]`.
  *
- * The rules 6 and 7 and the floor's wider globs came from a security review of the branch that added
- * the gate, which found a config beside `mise.toml` and a parser difference each able to pass it.
- *
- * THE FAILURE IT EXISTS TO PREVENT. No incident yet: the gate came with mise (`docs/decisions.md`
- * § D-29). Before it, Node's version had four homes that disagreed (`package.json` `engines`, the
- * dev container's `NODE_MAJOR`, CI's setup step reading `engines`, and each machine's own install),
- * and the reviewer's workflow read bd's version back out of the Dockerfile with `sed`. Were this gate
- * wrong, a second home could come back and drift from the pin unseen; a range would let two machines
- * run two versions from one file; a pin moved without `mise lock` would fail every locked install in
- * CI, or install unverified on the first machine of a kind CI does not run; and CI's mise and the
- * container's could drift apart.
+ * THE FAILURE IT EXISTS TO PREVENT. No incident on the trunk yet: the gate came with mise
+ * (`docs/decisions.md` § D-29). Before it, Node's version had four homes that disagreed
+ * (`package.json` `engines`, the dev container's `NODE_MAJOR`, CI's setup step reading `engines`, and
+ * each machine's own install), and the reviewer's workflow read bd's version back out of the
+ * Dockerfile with `sed`. Were this gate wrong, a second home could come back and drift from the pin
+ * unseen; a range would let two machines run two versions from one file; a pin moved without
+ * `mise lock` would fail every locked install in CI, or install unverified on the first machine of a
+ * kind CI does not run; and CI's mise and the container's could drift apart. The near miss, on
+ * 2026-10-03: a security review of the branch that added the gate found that a config beside
+ * `mise.toml`, and a `mise.toml` the gate's parser and mise's read differently, would each pass the
+ * gate as it then stood while mise acted on what the gate never read. Rules 6 and 7, and the floor's
+ * wider globs, came from it.
  *
  * INVOCATION.
  *
@@ -71,9 +72,9 @@
  * pinned `smol-toml` and YAML with `js-yaml`. For rule 7 it runs the `mise` on PATH, which reads only
  * `mise.toml` and never the network, in a checkout `mise trust` has trusted, as README.md § Setup
  * asks; its selftest runs a stub, and only in its controls and rule 7's cases: with the stub and a
- * `git ls-files` in every case, its 59 cases took 7.96 s. 0.18 s wall for the gate (0.98 s on the
- * first of two runs) and 1.65 s for its selftest through `node --run` (`/usr/bin/time -p`) on a
- * macOS 26.7.1 laptop with Node 26.8.1 and mise 2026.10.0, 2026-10-03.
+ * `git ls-files` in every case, its 59 cases took 7.96 s. 0.41 s wall for the gate (1.17 s on the
+ * first of two runs) and 2.02 s for its selftest's 61 cases through `node --run` (`/usr/bin/time -p`,
+ * the second of two runs) on a macOS 26.7.1 laptop with Node 26.8.1 and mise 2026.10.0, 2026-10-03.
  */
 import { spawnSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
@@ -113,18 +114,14 @@ const OTHER_VERSION_FILES = ['.node-version', '.nvmrc', '.python-version']
 /** Where the `pypi:` backend keeps its locks (asdlc-openspec-8juz.3): a lock, which configures nothing. */
 const PYPI_LOCKS = '.mise/locks/'
 
-/** Whether mise would read the tracked file at `path` as a project config beside the root `mise.toml` (rule 6). */
+/**
+ * Whether mise would read the tracked file at `path` as a project config beside the root `mise.toml`
+ * (rule 6). `.config/mise.toml` is a `mise.toml` by name, and `.config/mise/` a `mise/` directory.
+ */
 function isOtherMiseConfig(path) {
   if (path === CONFIG || path.startsWith(PYPI_LOCKS)) return false
   const name = path.slice(path.lastIndexOf('/') + 1)
-  return (
-    name === CONFIG ||
-    name === '.mise.toml' ||
-    name === '.tool-versions' ||
-    /^\.?mise\..+\.toml$/.test(name) ||
-    /(^|\/)\.?mise\//.test(path) ||
-    /(^|\/)\.config\/mise(\.toml$|\/)/.test(path)
-  )
+  return name === CONFIG || name === '.mise.toml' || name === '.tool-versions' || /^\.?mise\..+\.toml$/.test(name) || /(^|\/)\.?mise\//.test(path)
 }
 const EXACT = /^\d+\.\d+\.\d+$/
 const CHECKSUM = /^[a-z0-9]+:[0-9a-f]{32,}$/
@@ -220,13 +217,24 @@ const canonical = (value) =>
  * why it compared nothing, when no `mise` is on PATH.
  */
 function miseView(root, mise, pins, settings, notes) {
+  // A directory of this process's own for the global config that never exists: a fixed name in the
+  // shared temporary directory is one another user could create first, and mise would load it.
+  const private_ = mkdtempSync(join(tmpdir(), 'check-toolchain-mise-'))
+  try {
+    return askMise(root, mise, pins, settings, notes, join(private_, 'no-global-config.toml'))
+  } finally {
+    rmSync(private_, { recursive: true, force: true })
+  }
+}
+
+function askMise(root, mise, pins, settings, notes, globalConfig) {
   const real = realpathSync(root)
   const own = join(real, CONFIG)
   const env = {
     ...process.env,
     MISE_OVERRIDE_CONFIG_FILENAMES: CONFIG,
     MISE_CEILING_PATHS: dirname(real),
-    MISE_GLOBAL_CONFIG_FILE: join(tmpdir(), 'check-toolchain-no-global-config.toml'),
+    MISE_GLOBAL_CONFIG_FILE: globalConfig,
   }
   const problems = []
   const ask = (args) => {
@@ -573,6 +581,8 @@ function cases() {
     { name: 'a mise.local.toml tracked', doctor: write('mise.local.toml', '[settings]\njobs = 3\n'), expect: /^mise\.local\.toml is a mise config beside mise\.toml/ },
     { name: 'a .tool-versions', doctor: write('.tool-versions', 'node 22.0.0\n'), expect: /^\.tool-versions is a mise config beside mise\.toml/ },
     { name: 'a .config/mise config', doctor: write('.config/mise/config.toml', '[env]\nFOO = "1"\n'), expect: /^\.config\/mise\/config\.toml is a mise config beside mise\.toml/ },
+    { name: 'a .config/mise.toml', doctor: write('.config/mise.toml', '[env]\nFOO = "1"\n'), expect: /^\.config\/mise\.toml is a mise config beside mise\.toml/ },
+    { name: 'a .mise.toml', doctor: write('.mise.toml', '[hooks]\nenter = "echo"\n'), expect: /^\.mise\.toml is a mise config beside mise\.toml/ },
     // 7. What mise itself reads, through the stub `mise`.
     { name: 'control: no mise on PATH, so mise is not asked, and says so', doctor: () => {}, mise: 'absent', expect: 'pass' },
     { name: 'mise is on PATH and fails', doctor: () => {}, stub: (o) => { o.fail = 'mise ERROR Config files in mise.toml are not trusted.' }, expect: /^mise is on PATH, and `mise config ls --json` fails: mise ERROR Config files in mise\.toml are not trusted\./ },
