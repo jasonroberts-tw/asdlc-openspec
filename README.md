@@ -256,6 +256,7 @@ holds platform-native binaries. Use one clone per platform.
 | Run the calculator on your machine | `npm run calculator:serve` | It prints the URL to open, on `127.0.0.1` only, and serves until Ctrl-C. Set `PORT` to serve on another port, such as when its default is taken. |
 | Have agents work the ready issues in parallel | the `fan-out-work` agent | One fresh agent per lane, each in its own worktree, integrated on the dispatcher's branch. |
 | Research a topic before changing anything | the `explore` skill | Assumptions and guesses first, then an inventory of evidence with no recommendations. |
+| Decide whether to bring a tool or a pattern into the harness | the `should-i-adopt` skill | Looks for a prior decision first, tries the candidate against this repository's rules in Docker only, and files a decision brief for a person to choose from. It changes no tracked file. Run it from the primary checkout, since a worktree session refuses a container command that runs git. |
 | Have the last reply, or one term, explained in plain words | the `eli5` skill | It supplies the missing background and changes nothing; the original's facts and caveats survive exactly. |
 | Draft what a person must do for an issue an agent cannot finish | the `human-plan` skill | |
 | Retire a file | the `retire-asset` skill | A register decision with a checklist, not a tidy-up. |
