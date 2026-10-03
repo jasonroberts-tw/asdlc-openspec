@@ -768,7 +768,7 @@ console.log('citation scanner selftest\n')
 
   // A SYNTHETIC REGISTRY, one region of each shape. These cases once ran against the live
   // `MEMORY_EXEMPT_REGIONS` and asserted an exempt generated block, which the live registry does not
-  // hold until the tracker writes the block into CLAUDE.md (`memory.ts` says why); on 2026-09-23 they
+  // hold, since no block is written into CLAUDE.md (`memory.ts` says why); on 2026-09-23 they
   // found 3 exempt where they expected 4, and 2 problems where they expected 1. The gate was right and
   // the fixture was not. Held to its own registry, the fixture exercises both shapes whatever the
   // live one holds; the live registry is held to the live CLAUDE.md at the end of this section.

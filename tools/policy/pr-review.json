@@ -30,6 +30,7 @@
   "prReviewContextPaths": [
     "CLAUDE.md",
     "AGENTS.md",
+    ".beads/PRIME.md",
     ".claude/**",
     "docs/**",
     "openspec/**",
@@ -38,7 +39,7 @@
     "**/README.md",
     "tools/policy/**"
   ],
-  "prReviewContextPathsMeans": "The files held to the context-engineering rubric: what an agent reads to decide what to do, meaning the rules, the prompts, the documents, the specs and the constants they cite. Every other file is held to the product rubric. `*` matches within one directory, `**` across directories, and `**/` also matches none. A file is classed by its path at the pull request's head, and the brief names each file's class, so the reviewer does not choose. Decided 2026-09-25 (asdlc-openspec-mi6).",
+  "prReviewContextPathsMeans": "The files held to the context-engineering rubric: what an agent reads to decide what to do, meaning the rules, the prompts, the documents, the specs and the constants they cite. Every other file is held to the product rubric. `*` matches within one directory, `**` across directories, and `**/` also matches none. A file is classed by its path at the pull request's head, and the brief names each file's class, so the reviewer does not choose. Decided 2026-09-25 (asdlc-openspec-mi6). `.beads/PRIME.md` added 2026-10-03 (asdlc-openspec-z5gy), with the file: it is the text `bd prime` puts into every session, so a prompt.",
   "prReviewHighRiskPaths": {
     ".github/**": "the workflows: what runs with the repository's token and secrets, this reviewer among them",
     ".claude/settings.json": "the hooks every session runs, the guards among them",

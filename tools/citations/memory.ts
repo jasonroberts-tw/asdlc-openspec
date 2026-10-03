@@ -26,7 +26,7 @@
  * matched either -- the three tokens are the bead's and no review found a fourth; widen the list
  * when one appears, with the review that found it.
  *
- * WHERE IT LOOKS. The prompt homes that CLAUDE.md section names, and only those: `.claude/`,
+ * WHERE IT LOOKS. The prompt files an agent reads its instructions from, and only those: `.claude/`,
  * a workflow's own directory once one exists, `.beads/formulas/`, `.beads/PRIME.md`, `CLAUDE.md` and
  * `README.md` (`MEMORY_SCOPE`). `.beads/PRIME.md` is what `bd prime` prints, in place of its own text,
  * whenever the tracker's plugin runs it at a session's start or before a compaction; on 2026-10-03
