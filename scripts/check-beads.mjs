@@ -26,13 +26,13 @@
  *
  * A TYPE NO ROW DESCRIBES IS ONE NO FILER WAS TOLD WHEN TO USE. Until 2026-10-03 nothing said which
  * type an issue takes, and every filer but two took `bd`'s default. The tracker drifted: three
- * bug-shaped issues were filed as tasks in three days, and "the text is wrong" was filed as a chore,
- * a bug and a task alike (`docs/decisions.md` § D-29). D-29 put the types in `issueTypes`, rows
- * tried in order, and rule 5 refuses an open bead whose type no row names, so a filer who reaches
- * for `story` or `milestone`, which `bd` also takes, finds the rubric. Day one, no incident yet: if
- * this rule were wrong it would pass a type the rubric never describes, and `bd count --by-type`
- * would split what no one chose to split. It cannot tell whether the row a filer chose is the one
- * that fits, and nothing holds an issue's priority: both are judgements no check can make.
+ * tasks filed from 2026-10-01 to 2026-10-03 carry the `## Steps to Reproduce` that `bd lint` asks of
+ * a bug (`docs/decisions.md` § D-29). D-29 answered with a rubric, `issueTypes`, rows tried in
+ * order, and rule 5 holds only its vocabulary: it refuses an open bead whose type no row names, so a
+ * filer who reaches for `story` or `milestone`, which `bd create --help` also lists, finds the
+ * rubric. Wrong, it would pass a type the rubric never describes, and `bd count --by-type` would
+ * split what no one chose to split. It cannot catch the drift itself: whether the row a filer chose
+ * is the one that fits, like an issue's priority, is a judgement no check can make.
  *
  * WHY A REGISTRY RATHER THAN A BAN. A bead that CORRECTS a stale foreign citation has to name the
  * id it is correcting, so a flat prohibition would forbid the fix along with the defect. This is the

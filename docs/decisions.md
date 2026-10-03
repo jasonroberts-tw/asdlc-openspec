@@ -1425,7 +1425,7 @@ Where it loses:
 **Decision.**
 
 1. **Seven types, tried in order, the first that fits winning:** epic, decision, bug, spike, feature, chore, task. They are `issueTypes` in `tools/policy/vocabulary.json`, each row saying when it applies. An epic is only `change-propose`'s to set. A bug is a wrong result a command shows, a document that contradicts the code included. A chore changes no behaviour and no rule. A task is what the other rows leave.
-2. **Five priorities, each defined by what leaving the issue undone costs:** 0, work cannot proceed; 1, a safeguard fails silently; 2, planned work, `bd`'s default; 3, found on the way, costing friction only, and the default for an issue filed `discovered-from`; 4, someday. They are `issuePriorities` in the same record, tried from 0 down.
+2. **Five priorities, each defined by what leaving the issue undone costs:** 0, work cannot proceed; 1, a safeguard fails silently; 2, planned work, `bd`'s default; 3, found on the way with nothing breaking while it waits, and the default for an issue filed `discovered-from`; 4, someday. They are `issuePriorities` in the same record, tried from 0 down.
 3. **`CLAUDE.md` § The task store says an issue takes the first rows that fit,** and that a session that works or notes an issue moves it to the rows that fit, with a note naming them. No issue already filed is retyped or re-ranked in bulk.
 4. **`foundIssueCommand` carries `-t` and `-p`,** so a found issue is filed with both rather than taking `bd`'s defaults.
 5. **`npm run beads:check` refuses an issue that is not closed whose type no row names** (rule 5 of `scripts/check-beads.mjs`), reading the types from the policy and spelling none. It refuses a policy without the key, or with a row that names no type. `npm run beads:selftest` holds each refusal. Nothing holds an issue's priority.
@@ -1448,14 +1448,14 @@ Where it loses:
 - **This register:** this entry, its table row, the status line and the bound.
 - **`tools/policy/vocabulary.json`:** `issueTypes` and `issuePriorities`, each with its `Means`; `foundIssueCommand` and its `Means`; `describes`, `gatedBy`, `whatItDoesNOTDo` and `provenance` naming them. **`tools/policy/README.md`:** the record's row.
 - **`scripts/check-beads.mjs`:** rule 5, the policy read once for rules 4 and 5, the header, and five selftest cases, with a closed issue of an unnamed type in the control. Its rows in `scripts/README.md` and `README.md`, the jobs' comment in `git-hooks.yml`, and the step's comment in `.github/workflows/verify.yml`, re-measured.
-- **`CLAUDE.md`:** consolidated in a commit of its own, then § The task store's two sentences. **`tools/policy/prompt-budgets.json`:** its row from 3,240 to 3,259.
+- **`CLAUDE.md`:** consolidated in a commit of its own, then § The task store's two sentences. **`tools/policy/prompt-budgets.json`:** its row from 3,240 to 3,258.
 
 **Figures.** Each was taken on 2026-10-03 from `bd export --output <file>`, counted by a script over that file, with the `bd count` equivalent beside it:
 
 - 232 issues: 163 task, 42 bug, 10 chore, 6 epic, 6 feature, 3 decision, 2 spike (`bd count --by-type`). The 87 not closed are 70 task, 12 bug, 3 epic, 1 feature and 1 decision, each a type `issueTypes` names (`bd count --status open --by-type`, 85, and `bd count --status in_progress --by-type`, 2).
 - Priorities: none at 0, 14 at 1, 127 at 2, 82 at 3, 9 at 4 (`bd count --by-priority`). The 14 at 1 are 8 bugs and 6 tasks, all closed. 60 of the 82 at 3 and 45 of the 127 at 2 were filed `discovered-from`; 37 of those at 2 are an epic's children.
 - 3 tasks carry `## Steps to Reproduce`, the section `bd lint` asks of a bug, all filed from 2026-10-01 to 2026-10-03: `asdlc-openspec-dw7b`, `asdlc-openspec-d2qv` and `asdlc-openspec-23bi` (`bd count --type task --desc-contains "## Steps to Reproduce"`).
-- `CLAUDE.md` from 3,240 words to 3,213 by the consolidation and 3,259 with the sentences: `node scripts/check-prompts.mjs --counts` at each commit.
+- `CLAUDE.md` from 3,240 words to 3,213 by the consolidation and 3,258 with the sentences: `node scripts/check-prompts.mjs --counts` at each commit.
 - 14 checks in `beads:selftest`, and 1.11-1.98 s for its job: each run, and the job's comment in `git-hooks.yml`, which names the host.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
