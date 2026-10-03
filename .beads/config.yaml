@@ -65,7 +65,11 @@
 # - linear.api_key  → use LINEAR_API_KEY env var instead
 # - github.token    → use GITHUB_TOKEN env var instead
 
-agent.profile: "team-maintainer"
+# Shapes only bd prime's built-in text, which a session sees where .beads/PRIME.md is not read
+# (bd prime --export, a checkout older than that file). conservative keeps that text from telling a
+# session to commit or push unasked, which CLAUDE.md § Git workflow forbids; the cost is that it also
+# discourages the bd dolt push CLAUDE.md § The task store requires (asdlc-openspec-z5gy).
+agent.profile: "conservative"
 sync.remote: "git+ssh://git@github.com/jasonroberts-tw/asdlc-openspec.git"
 dolt:
     auto-commit: "on"

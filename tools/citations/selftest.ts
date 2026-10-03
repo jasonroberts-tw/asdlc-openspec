@@ -743,11 +743,17 @@ console.log('citation scanner selftest\n')
     '.claude/agents/fixture.md',
     '.claude/settings.json',
     '.beads/formulas/fixture.formula.toml',
+    '.beads/PRIME.md',
     'CLAUDE.md',
     'README.md',
   ]) {
     ok(`${f} is in scope`, inMemoryScope(f))
   }
+  ok(
+    'the text `bd prime` prints at every session start is a prompt, and naming the store there is a finding',
+    memoryProblemsIn('.beads/PRIME.md', 'Use `bd remember "insight"` for persistent knowledge').problems
+      .length === 1,
+  )
   const outside = memoryProblemsIn('tools/citations/memory.ts', 'bd recall')
   ok(
     'a file outside the roster is skipped with the reason, not scanned',
