@@ -103,7 +103,7 @@
     },
     ".claude/skills/should-i-adopt/SKILL.md": {
       "words": 1590,
-      "means": "The most words `.claude/skills/should-i-adopt/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit it landed on, 1,590, after three rounds of evaluation runs; a raise edits this value and says why here. Decided 2026-10-03 (asdlc-openspec-hpdd)."
+      "means": "The most words `.claude/skills/should-i-adopt/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit it landed on, 1,590, after three rounds of evaluation runs; a raise edits this value and says why here. Decided 2026-10-03 (asdlc-openspec-hpdd). Kept at 1,590 by the prompt review of 2026-10-03 (review-prompts-20261003-2052): consolidating it under D-12 freed 28 words (1,590 to 1,562), removing § 8's \"from a file in a `mktemp -d` directory\" and \"inside the bracket `CLAUDE.md` § The task store describes\", which `CLAUDE.md` § Bash command style and § The task store state, and \"Every figure is re-derived and cited (`CLAUDE.md` § Verification before claiming).\", which that section states of every issue; § 8's items 7 and 8 taking the section names bd's decision type requires added 13, § 5's one image for every trial added 9, and § 9's clause putting the analysis on the brief's issue added 6, so the budget stays at the count, as D-12 item 6 asks; that pull request lists each removal and where it is kept."
     },
     ".claude/skills/typesafe-ai/SKILL.md": {
       "words": 1305,
