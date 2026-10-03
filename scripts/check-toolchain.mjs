@@ -8,19 +8,29 @@
  *      `toolchainLockPlatforms` in `tools/policy/tool-settings.json` names, so `mise install --locked`,
  *      which CI runs, verifies what it downloads on every kind of machine this repository is set up on;
  *   3. every `jdx/mise-action` step under `.github/workflows/` pins `version:` to the mise the dev
- *      container copies in (`COPY --from=ghcr.io/jdx/mise:<version>` in `.devcontainer/Dockerfile`)
- *      and carries the `sha256:` of that binary, and `mise.toml`'s `min_version` is no newer than it;
+ *      container copies in (`COPY --from=ghcr.io/jdx/mise:<version>@sha256:<digest>` in
+ *      `.devcontainer/Dockerfile`) and carries the `sha256:` of that binary; the container's copy
+ *      names its image's digest, not the tag alone; and `mise.toml`'s `min_version` is no newer;
  *   4. nothing installs a tool a second way: no `actions/setup-node` or `actions/setup-python`, no
  *      NodeSource, no npm install of `@beads/bd` and no `uv tool install` in a workflow's step or a
  *      line of the Dockerfile that is not a comment; no version `ARG` in the Dockerfile; and no file
  *      another version manager reads (`.tool-versions`, `.nvmrc`, `.node-version`, `.python-version`,
  *      `.mise.toml`) at the checkout root;
- *   5. `mise.toml` holds only `min_version`, `[tools]`, `[settings]` and `[task_config]`; no template
- *      but `[task_config] dir = "{{cwd}}"`, under which a task a worktree borrows from the primary
- *      checkout runs on the worktree's own files; and `[settings] not_found_system_fallback = false`
- *      with `auto_install` left on, the two settings under which a pin that is not installed fails or
- *      installs rather than run the system's binary in its place (asdlc-openspec-8juz.1, questions 1
- *      and 6).
+ *   5. `mise.toml` holds only `min_version`, `[tools]`, `[settings]` and `[task_config]`; each tool a
+ *      plain version string, since an option table can run a command at install (`postinstall`) or
+ *      fetch from a URL the lock does not name; only the settings this file needs, since a setting can
+ *      turn off mise's checksum, signature and provenance checks or trust other files, for every
+ *      install and shim; no template but `[task_config] dir = "{{cwd}}"`, under which a task a
+ *      worktree borrows from the primary checkout runs on the worktree's own files; and
+ *      `[settings] not_found_system_fallback = false` with `auto_install` left on, the two settings
+ *      under which a pin that is not installed fails or installs rather than run the system's binary
+ *      in its place (asdlc-openspec-8juz.1, questions 1 and 6).
+ *
+ * WHAT IT DOES NOT SEE. It reads the spellings of a second install named above and no others, so a
+ * tool fetched by another route -- a `curl` of a release, `pip`, `corepack` -- passes it, and review
+ * is what refuses that. It holds that the lock has a URL and a checksum, not that they are honest: a
+ * change to both at once is what the reviewer's floor, which holds `mise.toml` and `mise.lock` to a
+ * person, is for.
  *
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet: the gate came with mise (`docs/decisions.md`
  * § D-29). Before it, Node's version had four homes that disagreed (`package.json` `engines`, the
@@ -39,7 +49,7 @@
  *
  * NEEDS only committed files: `mise.toml`, `mise.lock`, the workflows, the Dockerfile and the policy
  * records. No mise and no network: it parses TOML with the pinned `smol-toml` and YAML with `js-yaml`.
- * 0.11 s wall for the gate and 0.36 s for its selftest's 39 cases through `node --run`
+ * 0.10 s wall for the gate and 0.37 s for its selftest's 42 cases through `node --run`
  * (`/usr/bin/time -p`, one run each) on a macOS 26.7.1 laptop with Node 26.8.1, 2026-10-03.
  */
 import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -64,6 +74,8 @@ const SPIKE = 'asdlc-openspec-8juz.1'
 /** What `mise.toml` may hold at its top level; an `[env]`, `[hooks]` or `[tasks]` would act on every shim, hook and session. */
 const TOP_LEVEL = ['min_version', 'settings', 'task_config', 'tools']
 const TASK_CONFIG = ['dir', 'includes']
+/** The settings `mise.toml` may carry: each other one could weaken every install or shim, as item 5 of the header says. */
+const SETTINGS = ['auto_install', 'not_found_system_fallback']
 /** The one template admitted: tasks run in the caller's directory (spike, question 1). */
 const CWD_TEMPLATE = '{{cwd}}'
 /** Files another version manager reads, each a second home for a version `mise.toml` pins. */
@@ -72,7 +84,7 @@ const EXACT = /^\d+\.\d+\.\d+$/
 const CHECKSUM = /^[a-z0-9]+:[0-9a-f]{32,}$/
 const SHA256 = /^[0-9a-f]{64}$/
 const MISE_ACTION = /^jdx\/mise-action@/
-const MISE_IMAGE = /^COPY\s+--from=ghcr\.io\/jdx\/mise:(\S+)\s/m
+const MISE_IMAGE = /^COPY\s+--from=ghcr\.io\/jdx\/mise:([^\s@]+)(@sha256:[0-9a-f]{64})?\s/m
 const VERSION_ARG = /^ARG\s+(\w+_(?:VERSION|MAJOR))\b/gm
 /** Each second way to install a tool `mise.toml` pins, as a workflow's step or a Dockerfile line would spell it. */
 const SECOND_HOMES = [
@@ -143,6 +155,11 @@ export function runCheck(root) {
       `\`[${key}]\` in ${CONFIG} is not one of min_version, [tools], [settings] or [task_config]: an [env] or a [hooks] there acts on every shim, hook and session that enters the checkout, and a task there is a second registry of command names.`,
     )
   }
+  for (const key of Object.keys(config.settings ?? {}).filter((k) => !SETTINGS.includes(k)).sort(byCodePoint)) {
+    problems.push(
+      `\`settings.${key}\` in ${CONFIG} is not one of the settings it may carry (${SETTINGS.join(', ')}): a setting acts on every install and shim, and one can turn off mise's checksum, signature or provenance checks, or trust other files.`,
+    )
+  }
   for (const key of Object.keys(config.task_config ?? {}).filter((k) => !TASK_CONFIG.includes(k)).sort(byCodePoint)) {
     problems.push(`\`task_config.${key}\` in ${CONFIG} is not one of \`task_config.dir\` or \`task_config.includes\`.`)
   }
@@ -169,8 +186,14 @@ export function runCheck(root) {
   const tools = config.tools ?? {}
   if (Object.keys(tools).length === 0) problems.push(`${CONFIG} pins no tool under [tools].`)
   for (const [name, value] of Object.entries(tools)) {
-    const version = typeof value === 'string' ? value : value?.version
-    if (typeof version !== 'string' || !EXACT.test(version)) {
+    if (typeof value !== 'string') {
+      problems.push(
+        `${CONFIG} pins ${name} with a table of options, not a plain version string: an option can run a command at install (\`postinstall\`) or fetch from a URL the lock does not name.`,
+      )
+      continue
+    }
+    const version = value
+    if (!EXACT.test(version)) {
       problems.push(
         `${CONFIG} pins ${name} at ${JSON.stringify(version ?? value)}, not an exact MAJOR.MINOR.PATCH version: a range or a prefix resolves again on each install, so two machines can run two versions from one file.`,
       )
@@ -221,10 +244,13 @@ export function runCheck(root) {
 
   // 3. One mise for CI and the dev container.
   const dockerText = read(root, DOCKERFILE)
-  const image = dockerText === null ? undefined : MISE_IMAGE.exec(dockerText)?.[1]
+  const copied = dockerText === null ? null : MISE_IMAGE.exec(dockerText)
+  const image = copied?.[1]
   if (dockerText === null) problems.push(`${DOCKERFILE} is missing: the dev container's tools are installed by the mise it copies in.`)
   else if (!image) {
-    problems.push(`${DOCKERFILE} copies in no mise (\`COPY --from=ghcr.io/jdx/mise:<version> …\`): the dev container would install the toolchain with a mise nothing pins, or none.`)
+    problems.push(`${DOCKERFILE} copies in no mise (\`COPY --from=ghcr.io/jdx/mise:<version>@sha256:<digest> …\`): the dev container would install the toolchain with a mise nothing pins, or none.`)
+  } else if (!copied[2]) {
+    problems.push(`${DOCKERFILE} copies in mise by its tag alone: a tag can be moved to another image, so the container would install with a mise nobody checked. Pin it \`@sha256:<digest>\`, as the workflows pin theirs.`)
   }
   const wfs = workflows(root, problems)
   for (const { path, steps } of wfs) {
@@ -331,6 +357,7 @@ function cases() {
     { name: 'a min_version newer than the pinned mise', doctor: edit(CONFIG, /^min_version = "[^"]+"$/m, 'min_version = "2099.1.0"'), expect: /^mise\.toml's `min_version` 2099\.1\.0 is newer than the mise/ },
     { name: 'no min_version', doctor: edit(CONFIG, /^min_version = "[^"]+"\n/m, ''), expect: /^mise\.toml has no `min_version`/ },
     { name: 'the dev container copies in no mise', doctor: edit(DOCKERFILE, /^COPY --from=ghcr\.io\/jdx\/mise:.*\n/m, ''), expect: /^\.devcontainer\/Dockerfile copies in no mise/ },
+    { name: 'the dev container copies in mise by its tag alone', doctor: edit(DOCKERFILE, /(COPY --from=ghcr\.io\/jdx\/mise:[^\s@]+)@sha256:[0-9a-f]+/, '$1'), expect: /^\.devcontainer\/Dockerfile copies in mise by its tag alone/ },
     { name: 'actions/setup-node back in a workflow', doctor: edit(VERIFY, 'uses: jdx/mise-action@', 'uses: actions/setup-node@'), expect: /^\.github\/workflows\/verify\.yml's `verify` job installs `actions\/setup-node`: a second home/ },
     { name: 'actions/setup-python back in a workflow', doctor: edit(VERIFY, 'uses: jdx/mise-action@', 'uses: actions/setup-python@'), expect: /^\.github\/workflows\/verify\.yml's `verify` job installs `actions\/setup-python`: a second home/ },
     { name: 'NodeSource back in the Dockerfile', doctor: beforeEntrypoint('RUN curl -fsSL https://deb.nodesource.com/setup_24.x | bash -'), expect: /^\.devcontainer\/Dockerfile installs NodeSource: a second home/ },
@@ -343,6 +370,8 @@ function cases() {
     { name: 'a task_config key other than dir and includes', doctor: append(CONFIG, '\n[task_config]\nfoo = "bar"\n'), expect: /^`task_config\.foo` in mise\.toml is not one of/ },
     { name: 'a template other than task_config dir {{cwd}}', doctor: append(CONFIG, '\n[task_config]\ndir = "{{config_root}}"\n'), expect: /^mise\.toml holds a template at `task_config\.dir` \("\{\{config_root\}\}"\)/ },
     { name: 'the system fallback left on', doctor: edit(CONFIG, /^not_found_system_fallback = false\n/m, ''), expect: /^mise\.toml does not set `\[settings\] not_found_system_fallback = false`/ },
+    { name: 'a tool pinned with a table of options', doctor: edit(CONFIG, /^gh = "([^"]+)"$/m, 'gh = { version = "$1", postinstall = "echo installed" }'), expect: /^mise\.toml pins gh with a table of options, not a plain version string/ },
+    { name: 'a setting that turns a check off', doctor: edit(CONFIG, /^(not_found_system_fallback = false)$/m, '$1\ngithub_attestations = false'), expect: /^`settings\.github_attestations` in mise\.toml is not one of the settings it may carry/ },
     { name: 'auto_install turned off', doctor: edit(CONFIG, /^(not_found_system_fallback = false)$/m, '$1\nauto_install = false'), expect: /^mise\.toml turns `auto_install` off/ },
     { name: 'a mise.toml that is not TOML', doctor: write(CONFIG, 'node = \n'), expect: /^mise\.toml does not parse as TOML/ },
     { name: 'no mise.toml', doctor: remove(CONFIG), expect: /^mise\.toml is missing under / },
