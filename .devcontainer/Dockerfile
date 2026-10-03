@@ -58,7 +58,10 @@ RUN apt-get update \
 # --- mise ---------------------------------------------------------------------------------------
 # mise itself, at the release every workflow's `jdx/mise-action` pins, which `npm run
 # check:toolchain` holds equal to this tag, copied from mise's own image as its documentation does.
-COPY --from=ghcr.io/jdx/mise:2026.10.0 /usr/local/bin/mise /usr/local/bin/mise
+# The digest pins the image as the workflows' `sha256` pins their binary: a tag can be moved to
+# another image, and a digest cannot. Read on 2026-10-03 from ghcr.io's manifest for the tag; when
+# the tag moves, read the new one with `docker buildx imagetools inspect ghcr.io/jdx/mise:<tag>`.
+COPY --from=ghcr.io/jdx/mise:2026.10.0@sha256:5253aad873240675097e6229786dff87d54a9ac9d52917e42903de37511f74b3 /usr/local/bin/mise /usr/local/bin/mise
 
 # --- git configuration --------------------------------------------------------------------------
 # The workspace is a bind mount owned by the host user, whose uid rarely matches the container's;
@@ -86,16 +89,16 @@ USER vscode
 #
 # The shims go on PATH through ENV, not `mise activate`, which is a shell function, as nvm is: it
 # exists only in an interactive shell, and every hook, the ENTRYPOINT and `docker exec` would miss
-# it. A shim takes its version from the `mise.toml` above the directory it runs in, and
-# MISE_TRUSTED_CONFIG_PATHS trusts the clone under /workspaces, since nothing can answer a shim's
-# prompt to trust it.
+# it. A shim takes its version from the `mise.toml` above the directory it runs in, and only a
+# trusted one: devcontainer.json trusts the clone's own folder through MISE_TRUSTED_CONFIG_PATHS,
+# since nothing can answer a shim's prompt to trust it, and nothing wider, so a repository cloned
+# beside it under /workspaces is not trusted unasked.
 #
 # No global default is set, so a bare `node` in a directory with no `mise.toml` above it fails and
 # says "No version is set for shim: node" (asdlc-openspec-8juz.1, question 6). Every gate runs from
 # the clone, and a shim hands the real tool directories to what it starts, so no gate meets that; a
 # global default would be a second home for the pin.
 ENV PATH="/home/vscode/.local/share/mise/shims:/home/vscode/.local/bin:${PATH}"
-ENV MISE_TRUSTED_CONFIG_PATHS=/workspaces
 COPY --chown=vscode:vscode mise.toml mise.lock /tmp/toolchain/
 RUN MISE_TRUSTED_CONFIG_PATHS=/tmp/toolchain mise -C /tmp/toolchain install --locked \
     && MISE_TRUSTED_CONFIG_PATHS=/tmp/toolchain mise -C /tmp/toolchain exec -- \

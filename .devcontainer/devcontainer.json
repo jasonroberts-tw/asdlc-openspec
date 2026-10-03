@@ -39,6 +39,14 @@
     "source=${localEnv:HOME}${localEnv:USERPROFILE}/.config/gh,target=/home/vscode/.config/gh,type=bind"
   ],
 
+  // mise trusts the clone's `mise.toml`, which a shim, a git hook or the entrypoint reads with no one
+  // there to answer a prompt to trust it, and nothing else: a path wider than the workspace folder
+  // would trust any other repository's `mise.toml` cloned beside it, and its settings with it. Set on
+  // the container rather than in the image, because only the CLI knows the folder's name.
+  "containerEnv": {
+    "MISE_TRUSTED_CONFIG_PATHS": "${containerWorkspaceFolder}"
+  },
+
   "remoteEnv": {
     // Windows keeps gh's config in %APPDATA%\GitHub CLI rather than ~/.config/gh, so on a Windows
     // host the third mount above lands empty. `gh auth token > $env:GH_TOKEN` before launching VS

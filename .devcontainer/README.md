@@ -16,7 +16,7 @@ marketplace.
 |---|---|
 | `Dockerfile` | Every tool, as a layer. The base image's major tag is at the top; every other version is in the root `mise.toml`, installed through `mise.lock` by the mise the Dockerfile copies in (`docs/decisions.md` § D-29). After a pin moves, rebuild. |
 | `Dockerfile.dockerignore` | What the build may read from the repository's root, its context: `mise.toml`, `mise.lock` and `entrypoint.sh`, and nothing else. |
-| `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, three bind mounts and one passthrough env var. |
+| `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, three bind mounts, one passthrough env var, and the one folder whose `mise.toml` mise trusts, the workspace's own. |
 | `entrypoint.sh` | The three setup steps that read the repository, which is a bind mount and does not exist at build time; a warning while a tool `mise.toml` pins is missing from the image; and a warning while Vale cannot load `.vale.ini`. |
 
 ## Why the split is where it is
