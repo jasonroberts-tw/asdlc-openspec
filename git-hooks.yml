@@ -733,9 +733,10 @@ pre-push:
     # TEST_INVENTORY_ROOT. Reads the gate, the reader it imports and the helper that imports, the
     # helper that reads a script's `--dir`, the task loader and the `smol-toml` it requires for the
     # fixtures that move the scripts to a `tasks.toml`, which the manifest and lockfile pin, the
-    # helper that strips a hook's GIT_* keys, and the live policy's trailer key. 49 cases: 2.31-2.33 s wall through `node --run` (`/usr/bin/time -p`, two
-    # runs) on the host above, 2026-09-28; 51, with the two `--dir` cases: 2.71-2.77 s, 2026-09-29;
-    # 55, with the four that move the scripts to a `tasks.toml`: 3.96-3.99 s, 2026-10-03.
+    # helper that strips a hook's GIT_* keys, and the live policy's trailer key. 49 cases:
+    # 2.31-2.33 s wall through `node --run` (`/usr/bin/time -p`, two runs) on the host above,
+    # 2026-09-28; 51, with the two `--dir` cases: 2.71-2.77 s, 2026-09-29; 55, with the four that
+    # move the scripts to a `tasks.toml`: 3.96-3.99 s, 2026-10-03.
     - name: tests-inventory-selftest
       glob:
         - 'scripts/check-test-inventory.mjs'

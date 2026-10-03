@@ -131,7 +131,7 @@ const JOB_FILES = [HOOK_JOBS, VERIFY]
  * `mise run`, with `-q` or `--quiet` as `runTask` passes it, is the spelling once the tasks move to
  * mise; never `--silent` there, which in mise silences the task's own output.
  */
-const NPM_RUN_RE = /\b(?:(npm run|node --run) (?:--silent )?|(mise run) (?:-q |--quiet )?)([A-Za-z0-9][A-Za-z0-9:._-]*)/g
+const RUN_TOKEN_RE = /\b(?:(npm run|node --run) (?:--silent )?|(mise run) (?:-q |--quiet )?)([A-Za-z0-9][A-Za-z0-9:._-]*)/g
 /** The spellings this repository gives a gate: `check:<noun>`, and the `:check` / `:selftest` / `:selfcheck` twins. */
 const GATE_SHAPED_RE = /^check:|:(?:check|selftest|selfcheck)$/
 /**
@@ -375,7 +375,7 @@ export function runCheck(root, { pathsRoot = root } = {}) {
     const blocks = runBlocks(file, doc)
     let carrying = 0
     for (const block of blocks) {
-      const found = [...withoutComments(block.run).matchAll(NPM_RUN_RE)].map((m) => ({
+      const found = [...withoutComments(block.run).matchAll(RUN_TOKEN_RE)].map((m) => ({
         launcher: m[1] ?? m[2],
         name: m[3],
       }))
@@ -752,12 +752,45 @@ function cases() {
     },
     {
       // The manifest's other shape, which the loader reads before package.json: the same scripts.
-      name: "the copy's scripts moved to a tasks.toml pass, with a `mise run --quiet` job among them",
+      name: "the copy's scripts moved to a tasks.toml pass, with a `mise run --quiet` job and a task's description among them",
       doctor: (dir) => {
         toTasksToml(dir)
         edit(dir, HOOK_JOBS, appendJob('doctored', 'mise run --quiet check:jobs'))
+        edit(dir, TASKS_TOML, (t) => t.replace('run = "node scripts/check-jobs.mjs"\n', 'run = "node scripts/check-jobs.mjs"\ndescription = "the job cross-check"\n'))
       },
       expect: 'pass',
+    },
+    // Each refusal of the task loader (`scripts/lib/tasks.mjs`), reported in its words.
+    ...[
+      ['a tasks.toml that does not parse', (t) => `${t}[unclosed\n`, /^tasks\.toml cannot be read as TOML/],
+      ['a value in the tasks.toml that is not a table', (t) => `stray = "node scripts/check-jobs.mjs"\n${t}`, /^tasks\.toml: `stray` is not a table, so it is no task\./],
+      ['a task in the tasks.toml whose `run` is not a string', (t) => t.replace('run = "node scripts/check-jobs.mjs"\n', 'run = ["node", "scripts/check-jobs.mjs"]\n'), /^tasks\.toml: the task `check:jobs` has no `run` string\./],
+      ['a task in the tasks.toml whose description is not a string', (t) => t.replace('run = "node scripts/check-jobs.mjs"\n', 'run = "node scripts/check-jobs.mjs"\ndescription = 1\n'), /^tasks\.toml: the task `check:jobs` has a `description` that is not a string\./],
+    ].map(([name, change, expect]) => ({
+      name,
+      doctor: (dir) => {
+        toTasksToml(dir)
+        edit(dir, TASKS_TOML, change)
+      },
+      expect,
+    })),
+    {
+      name: 'a package.json that does not parse',
+      doctor: (dir) => edit(dir, PACKAGE, (t) => `${t},`),
+      expect: /^package\.json cannot be read as JSON/,
+    },
+    {
+      name: "a package.json whose `scripts` is not an object",
+      doctor: (dir) => edit(dir, PACKAGE, (t) => `${JSON.stringify({ ...JSON.parse(t), scripts: ['node scripts/check-jobs.mjs'] }, null, 2)}\n`),
+      expect: /^package\.json's `scripts` is not an object\./,
+    },
+    {
+      name: 'a package.json script that is not a string',
+      doctor: (dir) =>
+        editScripts(dir, (scripts) => {
+          scripts['check:jobs'] = ['node', 'scripts/check-jobs.mjs']
+        }),
+      expect: /^package\.json's script `check:jobs` is not a string\./,
     },
     {
       name: 'a job invokes a task the tasks.toml copy does not define',
