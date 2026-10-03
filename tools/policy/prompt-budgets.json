@@ -90,8 +90,8 @@
       "means": "The most words `.claude/skills/retire-asset/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gate landed on; a raise edits this value and says why here. Decided 2026-09-26 (asdlc-openspec-2wv)."
     },
     ".claude/skills/should-i-adopt/SKILL.md": {
-      "words": 1545,
-      "means": "The most words `.claude/skills/should-i-adopt/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit it landed on, 1,545, after three rounds of evaluation runs; a raise edits this value and says why here. Decided 2026-10-03 (asdlc-openspec-hpdd)."
+      "words": 1590,
+      "means": "The most words `.claude/skills/should-i-adopt/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit it landed on, 1,590, after three rounds of evaluation runs; a raise edits this value and says why here. Decided 2026-10-03 (asdlc-openspec-hpdd)."
     },
     ".claude/skills/typesafe-ai/SKILL.md": {
       "words": 1305,
