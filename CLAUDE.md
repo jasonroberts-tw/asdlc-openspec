@@ -92,7 +92,9 @@ Every task is an issue in `bd`, never a markdown checklist or an in-session todo
 `bd ready` is the queue; do not add a status table to a document. Every run of tracker writes is
 bracketed: pull before the first write and push after the last, and a rejected push is reported
 with its exact command and error, never forced. Every open issue carries a label naming where its
-work lands.
+work lands. An issue's type and priority are the first rows of `issueTypes` and `issuePriorities` in
+`tools/policy/vocabulary.json` that fit it, or `bd ready` ranks by who filed it. A session that works
+or notes an issue moves it to the rows that fit, with a note naming them.
 
 An issue a run files `discovered-from` the issue or epic it ran on also carries, from
 `tools/policy/vocabulary.json`, the `foundAtLabels` label for the stage that found it and one `assetLabels`
