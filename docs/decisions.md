@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-28 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02).**
+**Status: every decision from D-01 to D-29 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29 added 2026-10-03).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-28` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-29` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -84,6 +84,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-26** | The harness assessment is split by what each half reads, reports and enforces nothing, and takes its repository's specifics from one record | `tools/harness/` as `npm run harness` and `harness:graph`, held by `harness:selftest` at pre-push and in CI, with a Python 3 beside the step; `tools/harness/harness.config.json`; five job globs widened and `worktree:selftest` named in the CI file's absent block, from its first report |
 | **D-27** | The policy is split under `tools/policy/` by who may change each key and who reads it, read through one loader and held by a gate of its own | `tools/policy/`, five records and a README, and `tools/policy.json` deleted; `tools/lib/policy.ts`; `check:policy` and its selftest at pre-push and in CI; `check:prompts` reading the budgets by path; `CLAUDE.md` § Three kinds of file, and never a fourth, consolidated first; D-03's, D-07's, D-23's and D-26's amendments |
 | **D-28** | The code-graph server serves the harness assessment's combined graph while it was built from the graph beside it | `scripts/code-graph.mjs`'s choice of the file it registers, held by `code-graph:selftest`; `tools/harness/graph.py` writing the combined graph beside the graph with the graph's blob id, held by `harness:selftest`; `graphifyCombinedGraphFile` in `tools/policy/tool-settings.json`; the `code-graph` skill, consolidated first; D-20's and D-26's amendments |
+| **D-29** | An issue's type and priority are the first rows of a rubric in the policy that fit it, and `beads:check` refuses a type the rubric does not name | `issueTypes`, `issuePriorities` and `foundIssueCommand` in `tools/policy/vocabulary.json`; rule 5 of `scripts/check-beads.mjs`, held by `beads:selftest` at pre-push and in CI; `CLAUDE.md` § The task store, consolidated first, and its budget in `tools/policy/prompt-budgets.json` |
 
 ## Risks
 
@@ -1414,6 +1415,48 @@ Where it loses:
 
 - 283 words to 266 by the first consolidation and 255 by the second, and 297 with the sentence: `node scripts/check-prompts.mjs --counts` at each commit. The two consolidations freed 28 words, and the sentence adds 42.
 - 42 checks in `code-graph:selftest` and 24.96-25.15 s for its job; 82 and 48 checks in `harness:selftest`, 49 under graphify's own interpreter, and 5.67-6.33 s for its job: each run, and the jobs' comments in `git-hooks.yml`, which name the host.
+
+### D-29 · An issue's type and priority are the first rows of a rubric in the policy that fit it, and `beads:check` refuses a type the rubric does not name
+
+**Recorded 2026-10-03**, carried by `asdlc-openspec-6g6w`. On 2026-10-03 the maintainer chose each part from recommendations put with the case where each loses. They chose seven types over the recommended four, and the other three as recommended: a priority scale by what leaving an issue undone costs, a gate on the type alone, and no bulk re-triage of the issues already filed. The rows' wording is this entry's session's, shown to the maintainer before the work began.
+
+**Builds on / amends:** builds on D-02, whose item 3 makes a change's epic and is the rubric's first row; on D-06, whose labels the found-issue command already carries; on D-11, whose rule 4 of `beads:check` the new rule 5 follows; on D-27, which puts a spelling every stage reads in `tools/policy/vocabulary.json`; and on D-12, under which `CLAUDE.md` was consolidated before its edit. It amends none: no entry decided a type or a priority beyond D-02's epic.
+
+**Decision.**
+
+1. **Seven types, tried in order, the first that fits winning:** epic, decision, bug, spike, feature, chore, task. They are `issueTypes` in `tools/policy/vocabulary.json`, each row saying when it applies. An epic is only `change-propose`'s to set. A bug is a wrong result a command shows, a document that contradicts the code included. A chore changes no behaviour and no rule. A task is what the other rows leave.
+2. **Five priorities, each defined by what leaving the issue undone costs:** 0, work cannot proceed; 1, a safeguard fails silently; 2, planned work, `bd`'s default; 3, found on the way, costing friction only, and the default for an issue filed `discovered-from`; 4, someday. They are `issuePriorities` in the same record, tried from 0 down.
+3. **`CLAUDE.md` § The task store says an issue takes the first rows that fit,** and that a session that works or notes an issue moves it to the rows that fit, with a note naming them. No issue already filed is retyped or re-ranked in bulk.
+4. **`foundIssueCommand` carries `-t` and `-p`,** so a found issue is filed with both rather than taking `bd`'s defaults.
+5. **`npm run beads:check` refuses an issue that is not closed whose type no row names** (rule 5 of `scripts/check-beads.mjs`), reading the types from the policy and spelling none. It refuses a policy without the key, or with a row that names no type. `npm run beads:selftest` holds each refusal. Nothing holds an issue's priority.
+
+**Why.** Before this entry nothing said which type or priority an issue takes. Only `change-propose`, with `-t epic`, and `should-i-adopt`, with a `decision`, chose a type, and nothing chose a priority. Yet the priority decides what is worked next: `bd ready` sorts by it unless told otherwise, and `bead`, `change-build` and `fan-out-work` take what it lists first. Without a rubric the tracker drifted, as § Figures shows. Three alternatives lost:
+
+- **Four types, epic, decision, bug and task.** Fewer judgements, and every issue not then closed already carried one of them. The maintainer kept feature, chore and spike so that `bd count --by-type` can separate a new capability, upkeep and an investigation.
+- **Three priorities, 1, 2 and 4.** Fewer judgements. But work found on the way would share 2 with work a person asked for, and a sweep that takes the top of `bd ready` could take a nit first.
+- **No gate, the rubric in the policy and the prompt alone.** Nothing would refuse a stray type, and the drift in § Figures came from prose that no gate read.
+
+Where it loses:
+
+- **The line between feature, chore and task stays a filer's judgement.** The order settles an issue that fits two rows, not one that two filers read differently, and the gate cannot tell a fitting row from a wrong one.
+- **Friction that recurs sinks.** A cost every session pays is ranked by its size each time, so it stays at 3, below all planned work, however many sessions it slows. `asdlc-openspec-23bi` is one: a hook that asks each edit of `scripts/README.md` to rewrite rows the edit did not touch.
+- **One stray type blocks unrelated pushes.** `beads-check` runs on every push with no glob, so an issue someone files as `story` from the command line refuses the push of every branch until it is retyped.
+- **Issues already filed keep their old rows until someone works or notes them.** Found work filed at 2 sorts alongside planned work until then.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound.
+- **`tools/policy/vocabulary.json`:** `issueTypes` and `issuePriorities`, each with its `Means`; `foundIssueCommand` and its `Means`; `describes`, `gatedBy`, `whatItDoesNOTDo` and `provenance` naming them. **`tools/policy/README.md`:** the record's row.
+- **`scripts/check-beads.mjs`:** rule 5, the policy read once for rules 4 and 5, the header, and five selftest cases, with a closed issue of an unnamed type in the control. Its rows in `scripts/README.md` and `README.md`, the jobs' comment in `git-hooks.yml`, and the step's comment in `.github/workflows/verify.yml`, re-measured.
+- **`CLAUDE.md`:** consolidated in a commit of its own, then § The task store's two sentences. **`tools/policy/prompt-budgets.json`:** its row from 3,240 to 3,259.
+
+**Figures.** Each was taken on 2026-10-03 from `bd export --output <file>`, counted by a script over that file, with the `bd count` equivalent beside it:
+
+- 232 issues: 163 task, 42 bug, 10 chore, 6 epic, 6 feature, 3 decision, 2 spike (`bd count --by-type`). The 87 not closed are 70 task, 12 bug, 3 epic, 1 feature and 1 decision, each a type `issueTypes` names (`bd count --status open --by-type`, 85, and `bd count --status in_progress --by-type`, 2).
+- Priorities: none at 0, 14 at 1, 127 at 2, 82 at 3, 9 at 4 (`bd count --by-priority`). The 14 at 1 are 8 bugs and 6 tasks, all closed. 60 of the 82 at 3 and 45 of the 127 at 2 were filed `discovered-from`; 37 of those at 2 are an epic's children.
+- 3 tasks carry `## Steps to Reproduce`, the section `bd lint` asks of a bug, all filed from 2026-10-01 to 2026-10-03: `asdlc-openspec-dw7b`, `asdlc-openspec-d2qv` and `asdlc-openspec-23bi` (`bd count --type task --desc-contains "## Steps to Reproduce"`).
+- `CLAUDE.md` from 3,240 words to 3,213 by the consolidation and 3,259 with the sentences: `node scripts/check-prompts.mjs --counts` at each commit.
+- 14 checks in `beads:selftest`, and 1.11-1.98 s for its job: each run, and the job's comment in `git-hooks.yml`, which names the host.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

@@ -105,7 +105,7 @@ jobs:
         run: npm run check:register
       - name: the register gate, negative-tested
         run: npm run check:register:selftest
-      # Under a second (git-hooks.yml's `beads-selftest` job has the measurement): a fixture export
+      # Under two seconds (git-hooks.yml's `beads-selftest` job has the measurement): a fixture export
       # and a copy of the policy under the temporary directory, read through `BEADS_CHECK_ROOT`,
       # with no `bd`. The gate it tests reads the tracker, so it is absent below.
       - name: the tracker gate, negative-tested over a fixture export
