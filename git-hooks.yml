@@ -188,31 +188,39 @@ pre-push:
       run: node --run check:policy:selftest
     # `mise.toml` is the one home of every tool version (docs/decisions.md § D-29): each pin exact
     # and in `mise.lock` for every platform the policy names, one mise for every workflow's
-    # `jdx/mise-action` and the dev container, and no second home in a workflow, the Dockerfile or a
-    # version file at the root, whose names are in the glob for that reason. Reads those, the policy
-    # through its loader, and the TOML and YAML parsers the manifest and lockfile pin: 0.11 s wall
-    # through `node --run` (`/usr/bin/time -p`, one run) on a macOS 26.7.1 laptop with Node 26.8.1,
-    # 2026-10-03.
+    # `jdx/mise-action` and the dev container, no second home in a workflow, the Dockerfile or a
+    # version file at the root, and no other mise config at any depth, whose names are in the glob for
+    # that reason. Reads those, the tracked file list, the policy through its loader, the TOML and
+    # YAML parsers the manifest and lockfile pin, and what the `mise` on PATH reads from `mise.toml`:
+    # 0.18 s wall through `node --run` (`/usr/bin/time -p`, the second of two runs; the first took
+    # 0.98 s) on a macOS 26.7.1 laptop with Node 26.8.1 and mise 2026.10.0, 2026-10-03.
     - name: check-toolchain
       glob:
-        - 'mise.toml'
         - 'mise.lock'
+        - '**/mise.toml'
+        - '**/mise.*.toml'
+        - '**/.mise.toml'
+        - '**/.mise.*.toml'
+        - '**/mise/**'
+        - '**/.mise/**'
+        - '**/.config/mise.toml'
+        - '**/.config/mise/**'
+        - '**/.tool-versions'
         - '.github/workflows/*.yml'
         - '.devcontainer/Dockerfile'
-        - '.mise.toml'
         - '.node-version'
         - '.nvmrc'
         - '.python-version'
-        - '.tool-versions'
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
+        - 'tools/lib/git-env.ts'
         - 'scripts/check-toolchain.mjs'
         - 'package.json'
         - 'package-lock.json'
       run: node --run check:toolchain
     # Its refusals over copies of those files under the temporary directory, one doctored per case and
-    # each asserting its reason, beside three controls: 0.38 s wall for its 46 cases, one run, the same
-    # host and day.
+    # each asserting its reason, beside five controls, and rule 7's through a stub `mise`: 1.65 s wall
+    # for its 59 cases, one run, the same host and day.
     - name: check-toolchain-selftest
       glob:
         - 'mise.toml'
@@ -221,6 +229,7 @@ pre-push:
         - '.devcontainer/Dockerfile'
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
+        - 'tools/lib/git-env.ts'
         - 'scripts/check-toolchain.mjs'
         - 'package.json'
         - 'package-lock.json'

@@ -15,9 +15,9 @@
  *      `min_version` is no newer;
  *   4. nothing installs a tool a second way: no `actions/setup-node` or `actions/setup-python`, no
  *      NodeSource, no npm install of `@beads/bd` and no `uv tool install` in a workflow's step or a
- *      line of the Dockerfile that is not a comment; no version `ARG` in the Dockerfile; and no file
- *      another version manager reads (`.tool-versions`, `.nvmrc`, `.node-version`, `.python-version`,
- *      `.mise.toml`) at the checkout root;
+ *      line of the Dockerfile that is not a comment; no version `ARG` in the Dockerfile; and no
+ *      tracked file another version manager reads (`.nvmrc`, `.node-version`, `.python-version`) at
+ *      the checkout root;
  *   5. `mise.toml` holds only `min_version`, `[tools]`, `[settings]` and `[task_config]`; each tool a
  *      plain version string, since an option table can run a command at install (`postinstall`) or
  *      fetch from a URL the lock does not name; only the settings this file needs, since a setting can
@@ -27,13 +27,29 @@
  *      `[task_config]` but that and `includes = ["tasks.toml"]`, the task move's one registry; and
  *      `[settings] not_found_system_fallback = false` with `auto_install` left on, the two settings
  *      under which a pin that is not installed fails or installs rather than run the system's binary
- *      in its place (asdlc-openspec-8juz.1, questions 1 and 6).
+ *      in its place (asdlc-openspec-8juz.1, questions 1 and 6);
+ *   6. no tracked file is a mise config but the root `mise.toml`: not `.mise.toml`, `mise.*.toml`,
+ *      `.tool-versions`, a `mise.toml` below the root, nor anything under a `mise/`, `.mise/` or
+ *      `.config/mise` directory but the `pypi:` backend's locks under `.mise/locks/`. mise loads each
+ *      of those beside `mise.toml`, and trusts it where it trusts the checkout, so its tools, settings,
+ *      env or hooks would act on every shim and session while this gate read none of them;
+ *   7. what mise itself reads from `mise.toml` -- the config files it loads, each tool's requested
+ *      version, and the settings -- is what this gate parsed. The gate reads the file with
+ *      `smol-toml`, and mise with its own parser, so a file the two read differently would otherwise
+ *      pass here and mean something else to mise. mise is told to read only files named `mise.toml`,
+ *      nothing above the checkout and no global config, so a person's own `mise.local.toml` and a
+ *      parent checkout's config play no part. Where no `mise` is on PATH the comparison is skipped,
+ *      and says so; a `mise` that is found and fails, an untrusted checkout among the causes, is a
+ *      failure.
  *
  * WHAT IT DOES NOT SEE. It reads the spellings of a second install named above and no others, so a
  * tool fetched by another route -- a `curl` of a release, `pip`, `corepack` -- passes it, and review
  * is what refuses that. It holds that the lock has a URL and a checksum, not that they are honest: a
- * change to both at once is what the reviewer's floor, which holds `mise.toml` and `mise.lock` to a
- * person, is for.
+ * change to both at once is what the reviewer's floor, which holds every place mise reads a config or
+ * a lock from to a person, is for. Rule 7 compares tools, settings and files, not `[task_config]`.
+ *
+ * The rules 6 and 7 and the floor's wider globs came from a security review of the branch that added
+ * the gate, which found a config beside `mise.toml` and a parser difference each able to pass it.
  *
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet: the gate came with mise (`docs/decisions.md`
  * § D-29). Before it, Node's version had four homes that disagreed (`package.json` `engines`, the
@@ -50,17 +66,23 @@
  *   npm run check:toolchain:selftest                      its fixtures -- every refusal on a doctored copy
  *   TOOLCHAIN_CHECK_ROOT=<dir> npm run check:toolchain    the same gate over a doctored copy
  *
- * NEEDS only committed files: `mise.toml`, `mise.lock`, the workflows, the Dockerfile and the policy
- * records. No mise and no network: it parses TOML with the pinned `smol-toml` and YAML with `js-yaml`.
- * 0.11 s wall for the gate and 0.38 s for its selftest's 46 cases through `node --run`
- * (`/usr/bin/time -p`, one run each) on a macOS 26.7.1 laptop with Node 26.8.1, 2026-10-03.
+ * NEEDS committed files: `mise.toml`, `mise.lock`, the workflows, the Dockerfile, the policy records
+ * and the tracked file list, through `git ls-files` at a checkout's root. It parses TOML with the
+ * pinned `smol-toml` and YAML with `js-yaml`. For rule 7 it runs the `mise` on PATH, which reads only
+ * `mise.toml` and never the network, in a checkout `mise trust` has trusted, as README.md § Setup
+ * asks; its selftest runs a stub, and only in its controls and rule 7's cases: with the stub and a
+ * `git ls-files` in every case, its 59 cases took 7.96 s. 0.18 s wall for the gate (0.98 s on the
+ * first of two runs) and 1.65 s for its selftest through `node --run` (`/usr/bin/time -p`) on a
+ * macOS 26.7.1 laptop with Node 26.8.1 and mise 2026.10.0, 2026-10-03.
  */
-import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { load as yamlLoad } from 'js-yaml'
 import { parse as parseToml } from 'smol-toml'
+import { gitEnv } from '../tools/lib/git-env.ts'
 import { copyPolicy, editPolicy, readPolicy } from '../tools/lib/policy.ts'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -86,8 +108,24 @@ const CWD_TEMPLATE = '{{cwd}}'
 const TASK_CONFIG = { dir: CWD_TEMPLATE, includes: ['tasks.toml'] }
 /** The settings `mise.toml` may carry: each other one could weaken every install or shim, as item 5 of the header says. */
 const SETTINGS = ['auto_install', 'not_found_system_fallback']
-/** Files another version manager reads, each a second home for a version `mise.toml` pins. */
-const OTHER_VERSION_FILES = ['.mise.toml', '.node-version', '.nvmrc', '.python-version', '.tool-versions']
+/** Files another version manager reads at the root, each a second home for a version `mise.toml` pins. */
+const OTHER_VERSION_FILES = ['.node-version', '.nvmrc', '.python-version']
+/** Where the `pypi:` backend keeps its locks (asdlc-openspec-8juz.3): a lock, which configures nothing. */
+const PYPI_LOCKS = '.mise/locks/'
+
+/** Whether mise would read the tracked file at `path` as a project config beside the root `mise.toml` (rule 6). */
+function isOtherMiseConfig(path) {
+  if (path === CONFIG || path.startsWith(PYPI_LOCKS)) return false
+  const name = path.slice(path.lastIndexOf('/') + 1)
+  return (
+    name === CONFIG ||
+    name === '.mise.toml' ||
+    name === '.tool-versions' ||
+    /^\.?mise\..+\.toml$/.test(name) ||
+    /(^|\/)\.?mise\//.test(path) ||
+    /(^|\/)\.config\/mise(\.toml$|\/)/.test(path)
+  )
+}
 const EXACT = /^\d+\.\d+\.\d+$/
 const CHECKSUM = /^[a-z0-9]+:[0-9a-f]{32,}$/
 const SHA256 = /^[0-9a-f]{64}$/
@@ -145,8 +183,110 @@ function workflows(root, problems) {
   return out
 }
 
-/** Every problem with the toolchain under `root`, one message each; empty when it holds. */
-export function runCheck(root) {
+/**
+ * The files git tracks under `root`, or every file when `root` is no checkout's root, as the
+ * selftest's copies and a doctored copy under `.scratch/` are not: git there would list another
+ * tree's files. `gitEnv` drops the `GIT_*` keys a hook sets, which would point git at another tree.
+ */
+function trackedFiles(root) {
+  const listed = existsSync(join(root, '.git'))
+    ? spawnSync('git', ['ls-files', '-z'], { cwd: root, env: gitEnv(), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+    : { status: null }
+  if (listed.status === 0) return listed.stdout.split('\0').filter(Boolean)
+  const out = []
+  const walk = (dir, prefix) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === '.git' || entry.name === 'node_modules') continue
+      const path = `${prefix}${entry.name}`
+      if (entry.isDirectory()) walk(join(dir, entry.name), `${path}/`)
+      else out.push(path)
+    }
+  }
+  walk(root, '')
+  return out
+}
+
+/** `value` with every object's keys in code-point order, so two readings compare as JSON. */
+const canonical = (value) =>
+  Array.isArray(value)
+    ? value.map(canonical)
+    : value && typeof value === 'object'
+      ? Object.fromEntries(Object.keys(value).sort(byCodePoint).map((key) => [key, canonical(value[key])]))
+      : value
+
+/**
+ * Rule 7: what `mise` itself reads from `mise.toml`, held to `pins` and `settings` as this gate parsed
+ * them. `mise` is the command and its leading arguments, a stub in the selftest. Pushes onto `notes`
+ * why it compared nothing, when no `mise` is on PATH.
+ */
+function miseView(root, mise, pins, settings, notes) {
+  const real = realpathSync(root)
+  const own = join(real, CONFIG)
+  const env = {
+    ...process.env,
+    MISE_OVERRIDE_CONFIG_FILENAMES: CONFIG,
+    MISE_CEILING_PATHS: dirname(real),
+    MISE_GLOBAL_CONFIG_FILE: join(tmpdir(), 'check-toolchain-no-global-config.toml'),
+  }
+  const problems = []
+  const ask = (args) => {
+    const run = spawnSync(mise[0], [...mise.slice(1), ...args], { cwd: root, env, encoding: 'utf8' })
+    if (run.error?.code === 'ENOENT') return { absent: true }
+    if (run.status !== 0) {
+      problems.push(
+        `mise is on PATH, and \`mise ${args.join(' ')}\` fails: ${firstLine(run.stderr || run.stdout).trim()} If it says ${CONFIG} is not trusted, run \`mise trust\` in the checkout.`,
+      )
+      return {}
+    }
+    try {
+      return { value: JSON.parse(run.stdout) }
+    } catch {
+      problems.push(`\`mise ${args.join(' ')}\` printed no JSON, so what mise reads from ${CONFIG} cannot be compared.`)
+      return {}
+    }
+  }
+  const configs = ask(['config', 'ls', '--json'])
+  if (configs.absent) {
+    notes.push(`no \`mise\` on PATH, so what mise itself reads from ${CONFIG} was not compared with this gate's reading (rule 7).`)
+    return problems
+  }
+  if (Array.isArray(configs.value)) {
+    for (const path of configs.value.map((c) => String(c?.path ?? '')).filter((p) => p !== own && p.startsWith(`${real}/`))) {
+      problems.push(`mise reads ${path.slice(real.length + 1)} as well as ${CONFIG}: a second config, whose tools, settings, env or hooks this gate does not read.`)
+    }
+  }
+  const listed = ask(['ls', '--current', '--json'])
+  if (listed.value && typeof listed.value === 'object') {
+    const seen = new Map()
+    for (const [name, entries] of Object.entries(listed.value)) {
+      for (const entry of Array.isArray(entries) ? entries : []) {
+        if (entry?.source?.path === own) seen.set(name, String(entry.requested_version ?? entry.version ?? ''))
+      }
+    }
+    for (const name of [...new Set([...seen.keys(), ...pins.keys()])].sort(byCodePoint)) {
+      if (seen.get(name) !== pins.get(name)) {
+        problems.push(
+          `mise reads ${name} at ${seen.get(name) ?? 'nothing'} from ${CONFIG}, where this gate reads ${pins.get(name) ?? 'nothing'}: the two parsers read the file differently, so a pin this gate holds is not the one mise installs.`,
+        )
+      }
+    }
+  }
+  const local = ask(['settings', 'ls', '--local', '--json'])
+  if (local.value !== undefined) {
+    const theirs = JSON.stringify(canonical(local.value ?? {}))
+    const ours = JSON.stringify(canonical(settings ?? {}))
+    if (theirs !== ours) {
+      problems.push(`mise reads [settings] in ${CONFIG} as ${theirs}, where this gate reads ${ours}: the two parsers read the file differently, so a setting this gate admits is not the one mise applies.`)
+    }
+  }
+  return problems
+}
+
+/**
+ * Every problem with the toolchain under `root`, one message each; empty when it holds. `mise` is the
+ * command rule 7 runs, and `notes` receives why it compared nothing, when no `mise` is on PATH.
+ */
+export function runCheck(root, { mise = ['mise'], notes = [] } = {}) {
   const problems = []
   const configText = read(root, CONFIG)
   if (configText === null) return [`${CONFIG} is missing under ${root}: it is the one home of every tool version this repository installs ${DECISION}.`]
@@ -214,6 +354,9 @@ export function runCheck(root) {
     }
     pins.set(name, version)
   }
+
+  // 7. What mise itself reads, once every pin parsed here, so a refusal above is not said twice.
+  if (pins.size === Object.keys(tools).length) problems.push(...miseView(root, mise, pins, config.settings, notes))
 
   // 2. The lockfile, for every platform the policy names.
   let platforms = []
@@ -311,14 +454,24 @@ export function runCheck(root) {
       problems.push(`${DOCKERFILE} declares \`ARG ${name}\`: a version stated in the Dockerfile is a second home for one ${CONFIG} pins. Pin the tool in ${CONFIG}.`)
     }
   }
-  for (const name of OTHER_VERSION_FILES.filter((n) => existsSync(join(root, n)))) {
+  const tracked = trackedFiles(root)
+  for (const name of OTHER_VERSION_FILES.filter((n) => tracked.includes(n))) {
     problems.push(`${name} is at the checkout root, and another version manager reads it: a second home for a version ${CONFIG} pins. Delete it.`)
+  }
+
+  // 6. No other mise config, at any depth.
+  for (const path of tracked.filter(isOtherMiseConfig).sort(byCodePoint)) {
+    problems.push(
+      `${path} is a mise config beside ${CONFIG}: mise loads its tools, settings, env and hooks too, and trusts it where it trusts the checkout, and this gate reads none of them. Move what it holds into ${CONFIG}, or delete it.`,
+    )
   }
   return problems
 }
 
 function main() {
-  const problems = runCheck(ROOT)
+  const notes = []
+  const problems = runCheck(ROOT, { notes })
+  for (const note of notes) console.log(`toolchain: ${note}`)
   if (problems.length === 0) {
     const config = parseToml(readFileSync(join(ROOT, CONFIG), 'utf8'))
     const platforms = readPolicy(ROOT)[PLATFORMS_KEY]
@@ -326,7 +479,8 @@ function main() {
     const actions = workflows(ROOT, []).flatMap(({ steps }) => steps).filter(({ step }) => MISE_ACTION.test(String(step.uses ?? ''))).length
     console.log(
       `toolchain: ${Object.keys(config.tools).length} tool(s) pinned exactly in ${CONFIG}, each in ${LOCK} for ${platforms.length} platform(s); ` +
-        `${actions} jdx/mise-action step(s) and the dev container on mise ${image}; no second home.`,
+        `${actions} jdx/mise-action step(s) and the dev container on mise ${image}; no second home and no other mise config; ` +
+        (notes.length === 0 ? `and mise reads ${CONFIG} as this gate does.` : 'mise itself not asked.'),
     )
     process.exit(0)
   }
@@ -349,7 +503,10 @@ const edit = (path, from, to) => (dir) => {
   writeFileSync(full, after)
 }
 const append = (path, text) => (dir) => writeFileSync(join(dir, path), `${readFileSync(join(dir, path), 'utf8')}${text}`)
-const write = (path, text) => (dir) => writeFileSync(join(dir, path), text)
+const write = (path, text) => (dir) => {
+  mkdirSync(dirname(join(dir, path)), { recursive: true })
+  writeFileSync(join(dir, path), text)
+}
 const remove = (path) => (dir) => rmSync(join(dir, path))
 const policy = (change) => (dir) => editPolicy(dir, change)
 const beforeEntrypoint = (line) => edit(DOCKERFILE, /^ENTRYPOINT \[/m, `${line}\nENTRYPOINT [`)
@@ -409,7 +566,58 @@ function cases() {
     { name: 'a mise.lock that is not TOML', doctor: write(LOCK, 'tools = \n'), expect: /^mise\.lock does not parse as TOML/ },
     { name: 'a workflow that is not YAML', doctor: write(VERIFY, 'jobs: [\n'), expect: /^\.github\/workflows\/verify\.yml does not parse as YAML/ },
     { name: 'no Dockerfile', doctor: remove(DOCKERFILE), expect: /^\.devcontainer\/Dockerfile is missing/ },
+    // 6. Another mise config, at any depth.
+    { name: 'control: a pypi lock under .mise/locks configures nothing', doctor: write(`${PYPI_LOCKS}pypi-graphifyy/0.9.73~0d7b0bde/uv.lock`, 'version = 1\n'), expect: 'pass' },
+    { name: 'a mise config directory beside mise.toml', doctor: write('.mise/config.toml', '[env]\nFOO = "1"\n'), expect: /^\.mise\/config\.toml is a mise config beside mise\.toml/ },
+    { name: 'a mise.toml below the root', doctor: write('apps/mise.toml', '[hooks]\nenter = "echo"\n'), expect: /^apps\/mise\.toml is a mise config beside mise\.toml/ },
+    { name: 'a mise.local.toml tracked', doctor: write('mise.local.toml', '[settings]\njobs = 3\n'), expect: /^mise\.local\.toml is a mise config beside mise\.toml/ },
+    { name: 'a .tool-versions', doctor: write('.tool-versions', 'node 22.0.0\n'), expect: /^\.tool-versions is a mise config beside mise\.toml/ },
+    { name: 'a .config/mise config', doctor: write('.config/mise/config.toml', '[env]\nFOO = "1"\n'), expect: /^\.config\/mise\/config\.toml is a mise config beside mise\.toml/ },
+    // 7. What mise itself reads, through the stub `mise`.
+    { name: 'control: no mise on PATH, so mise is not asked, and says so', doctor: () => {}, mise: 'absent', expect: 'pass' },
+    { name: 'mise is on PATH and fails', doctor: () => {}, stub: (o) => { o.fail = 'mise ERROR Config files in mise.toml are not trusted.' }, expect: /^mise is on PATH, and `mise config ls --json` fails: mise ERROR Config files in mise\.toml are not trusted\./ },
+    { name: 'mise prints no JSON', doctor: () => {}, stub: (o) => { o.raw = 'node 24.21.0\n' }, expect: /^`mise config ls --json` printed no JSON, so what mise reads from mise\.toml cannot be compared/ },
+    { name: 'mise reads another version than this gate', doctor: () => {}, stub: (o) => { o['ls --current --json'].node[0].requested_version = '24.20.0' }, expect: /^mise reads node at 24\.20\.0 from mise\.toml, where this gate reads [0-9.]+: the two parsers read the file differently/ },
+    {
+      name: 'mise reads a tool this gate does not',
+      doctor: () => {},
+      stub: (o) => { o['ls --current --json'].jq = [{ version: '1.8.1', requested_version: '1.8.1', source: { type: 'mise.toml', path: o.own } }] },
+      expect: /^mise reads jq at 1\.8\.1 from mise\.toml, where this gate reads nothing/,
+    },
+    { name: 'mise reads a setting this gate does not', doctor: () => {}, stub: (o) => { o['settings ls --local --json'].jobs = 3 }, expect: /^mise reads \[settings\] in mise\.toml as .*"jobs":3.*, where this gate reads/ },
+    { name: 'mise reads a second config file', doctor: () => {}, stub: (o) => { o['config ls --json'].push({ path: join(o.real, '.mise/config.toml'), tools: [] }) }, expect: /^mise reads \.mise\/config\.toml as well as mise\.toml/ },
   ]
+}
+
+/**
+ * The stub `mise` the selftest runs: it answers each query with what the fixture's own `mise.toml`
+ * says, as this gate parsed it, unless a case doctors an answer. The first argument is its answers.
+ */
+const STUB = `import { readFileSync } from 'node:fs'
+const [answers, ...args] = process.argv.slice(2)
+const out = JSON.parse(readFileSync(answers, 'utf8'))
+if (out.fail) { process.stderr.write(out.fail + '\\n'); process.exit(1) }
+if (out.raw) { process.stdout.write(out.raw); process.exit(0) }
+process.stdout.write(JSON.stringify(out[args.join(' ')] ?? null))
+`
+
+/** The answers a mise that reads the fixture's `mise.toml` as this gate does would give. */
+function stubAnswers(dir) {
+  const real = realpathSync(dir)
+  const own = join(real, CONFIG)
+  let config = {}
+  try {
+    config = parseToml(readFileSync(join(dir, CONFIG), 'utf8'))
+  } catch {
+    // A case whose mise.toml does not parse never reaches rule 7.
+  }
+  const tools = Object.fromEntries(
+    Object.entries(config.tools ?? {}).map(([name, value]) => {
+      const version = typeof value === 'string' ? value : String(value?.version ?? '')
+      return [name, [{ version, requested_version: version, source: { type: 'mise.toml', path: own } }]]
+    }),
+  )
+  return { own, real, 'config ls --json': [{ path: own, tools: Object.keys(tools) }], 'ls --current --json': tools, 'settings ls --local --json': config.settings ?? {} }
 }
 
 function copyInputs(dir) {
@@ -422,11 +630,22 @@ function selftest() {
   const base = mkdtempSync(join(tmpdir(), 'check-toolchain-'))
   const results = []
   try {
-    for (const { name, doctor, expect } of cases()) {
+    const stub = join(base, 'mise-stub.mjs')
+    writeFileSync(stub, STUB)
+    for (const { name, doctor, expect, stub: doctorAnswers, mise } of cases()) {
       const dir = join(base, name.replace(/[^a-z0-9]+/gi, '-'))
       copyInputs(dir)
       doctor(dir)
-      const problems = runCheck(dir)
+      const answers = stubAnswers(dir)
+      doctorAnswers?.(answers)
+      const answersFile = `${dir}.answers.json`
+      writeFileSync(answersFile, JSON.stringify(answers))
+      const notes = []
+      // Only a control or a rule-7 case asks the stub: three spawns a case cost every case 0.1 s.
+      const asks = mise !== 'absent' && (doctorAnswers || name.startsWith('control'))
+      const command = asks ? [process.execPath, stub, answersFile] : [join(base, 'no-such-mise')]
+      const problems = runCheck(dir, { mise: command, notes })
+      if (mise === 'absent' && notes.length === 0) problems.push('selftest: no note says mise was not asked')
       let ok
       let detail
       if (expect === 'pass') {
