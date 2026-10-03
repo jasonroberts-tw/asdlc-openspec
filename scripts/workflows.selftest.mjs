@@ -1980,15 +1980,11 @@ const SEED_SECTION = {
   settledBy: "The step's own sentence.",
 }
 
-/** An author's clean candidate for the seed `key` through `lens`. */
+/** An author's clean candidate for the seed `key` through `lens`: its options as texts, and its expected one by its place among them. */
 const candidate = (key, lens, extra = {}) => ({
-  id: `${key.split('#')[1]}-${lens}`,
   situation: `The situation of ${key}, through ${lens}.`,
-  options: [
-    { id: 'a', text: `For ${key} through ${lens}, the right thing.` },
-    { id: 'b', text: `For ${key} through ${lens}, the wrong thing.` },
-  ],
-  expected: 'a',
+  options: [`For ${key} through ${lens}, the wrong thing.`, `For ${key} through ${lens}, the right thing.`],
+  expected: 2,
   settledBy: 'The run did the right thing.',
   ...extra,
 })
@@ -2065,6 +2061,10 @@ function authorCases(policy) {
         if (answers.length !== reps || answers.some((o) => o.agentType !== 'prompt-case-answerer' || !o.prompt.includes(pathAt(TRUNK, BEAD)))) return "the case was not answered by the answerer agent, sent to the trunk's text"
         const c = result.candidates.find((x) => x.key === SEED_RUN.key && x.lens === lenses[0])
         if (c?.problem !== null || c.case.prompt !== BEAD || c.case.lens !== lenses[0] || JSON.stringify(c.case.source) !== JSON.stringify(SEED_RUN.source)) return `a candidate came back ${JSON.stringify(c)}`
+        const ids = c.case.options.map((o) => o.id).join()
+        if (c.case.id !== `stage-before-gates-${lenses[0]}` || ids !== 'a,b' || c.case.expected !== 'b' || c.case.options[1].text !== candidate(SEED_RUN.key, lenses[0]).options[1]) {
+          return `a candidate's ids were not assigned by place: id ${c.case.id}, options ${ids}, expected ${c.case.expected}`
+        }
         const v = result.validated[0]
         return v?.case.id === 'bead-stages-first' && v.right === reps && v.answers.length === reps ? null : `validated ${JSON.stringify(v)}`
       },
@@ -2132,11 +2132,11 @@ function authorCases(policy) {
     {
       name: 'a candidate whose expected answer is none of its options is dropped by that reason, and one whose author returned nothing is dropped too',
       args: authorArgs(policy, { seeds: [SEED_RUN] }),
-      stubs: { authors: (key, lens) => (lens === lenses[0] ? candidate(key, lens, { expected: 'z' }) : null) },
+      stubs: { authors: (key, lens) => (lens === lenses[0] ? candidate(key, lens, { expected: 3 }) : null) },
       expect: ['done', new RegExp(`^${lenses.length} author\\(s\\) wrote 0 candidate\\(s\\) for 1 seed\\(s\\), ${lenses.length} dropped;`)],
       check: ({ result }) => {
         const bad = result.candidates.find((c) => c.lens === lenses[0])
-        if (bad?.problem !== 'its expected answer "z" is none of its options') return `the bad candidate came back ${JSON.stringify(bad)}`
+        if (bad?.problem !== 'its expected answer, option 3, is none of its 2 options') return `the bad candidate came back ${JSON.stringify(bad)}`
         const none = result.candidates.filter((c) => c.lens !== lenses[0])
         return none.every((c) => c.problem === 'the author returned nothing') ? null : `the others came back ${JSON.stringify(none)}`
       },

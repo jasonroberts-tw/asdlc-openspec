@@ -34,8 +34,8 @@
       "means": "The most words `.claude/agents/prompt-case-answerer.md` may hold (`npm run check:prompts`): how an answer to a stored decision case reads its one file and chooses, which neither workflow that runs it restates, since its prompt carries only the case and the file to read. Every answer of every review loads it, and its words are context beside the text under test, so it stays small. First set to its size at the commit it landed on, 237; a raise edits this value and says why here. Decided 2026-10-03 by D-32 (asdlc-openspec-7c1)."
     },
     ".claude/agents/prompt-case-author.md": {
-      "words": 372,
-      "means": "The most words `.claude/agents/prompt-case-author.md` may hold (`npm run check:prompts`): how a candidate decision case is written, which `.claude/workflows/author-prompt-cases.js` does not restate, since its prompt carries only the seed, the lens and the file to read. First set to its size at the commit it landed on, 372; a raise edits this value and says why here. Decided 2026-10-03 by D-32 (asdlc-openspec-7c1)."
+      "words": 386,
+      "means": "The most words `.claude/agents/prompt-case-author.md` may hold (`npm run check:prompts`): how a candidate decision case is written, which `.claude/workflows/author-prompt-cases.js` does not restate, since its prompt carries only the seed, the lens and the file to read. First set to its size at the commit it landed on, 386; a raise edits this value and says why here. Decided 2026-10-03 by D-32 (asdlc-openspec-7c1)."
     },
     ".claude/agents/test-builder.md": {
       "words": 636,
@@ -110,8 +110,8 @@
       "means": "The most words `.claude/skills/typesafe-ai/SKILL.md` may hold (`npm run check:prompts`). First set to its size at the commit that gave it a budget, 1,305: the 1,288 words it landed with in ec1b41c plus the 17 of the first line CLAUDE.md § Standing rules for prompts and gates requires; a raise edits this value and says why here. Decided 2026-09-30."
     },
     ".claude/workflows/author-prompt-cases.js": {
-      "words": 760,
-      "means": "The most words the string and template literals of `.claude/workflows/author-prompt-cases.js` may hold (`npm run check:prompts`): its lens texts, its prompts to the reader, the authors and the answers, its reader's command and its refusals. First set to its size at the commit it landed on, 760; a raise edits this value and says why here. Decided 2026-10-03 by D-32 (asdlc-openspec-7c1)."
+      "words": 773,
+      "means": "The most words the string and template literals of `.claude/workflows/author-prompt-cases.js` may hold (`npm run check:prompts`): its lens texts, its prompts to the reader, the authors and the answers, its reader's command and its refusals. First set to its size at the commit it landed on, 773; a raise edits this value and says why here. Decided 2026-10-03 by D-32 (asdlc-openspec-7c1)."
     },
     ".claude/workflows/build-change-task.js": {
       "words": 4002,

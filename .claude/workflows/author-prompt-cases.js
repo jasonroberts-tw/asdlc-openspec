@@ -56,7 +56,10 @@ export const meta = {
  * nothing, a copy its checksum refuses, or a path other than where its command writes; `done`
  * otherwise. Each candidate carries its seed's `key`,
  * its `lens`, the `case` with the seed's prompt, lens and source filled in, and the `problem` that
- * drops it, or null. A seed whose text git could not show gets no author, and its candidate carries
+ * drops it, or null. An author gives its options as texts and its expected one by place, and the
+ * case's id, `<name>-<lens>`, and its option ids, `a` to `d`, are assigned here: the first run, with
+ * the authors left to spell them, dropped 23 of its 27 candidates for an id or an option id alone,
+ * their content whole. The session gives each case it keeps an id of its own. A seed whose text git could not show gets no author, and its candidate carries
  * that problem. Each case validated or turned away carries `right`, the answers that chose its
  * expected option, `of`, the repetitions, and `answers`, each answer's option and why, a missing one
  * included. Every count is computed here.
@@ -94,12 +97,13 @@ const LENSES = {
 /* ----------------------------------------------------------------------------- the schemas ----- */
 
 const STRING = { type: 'string' }
-const OPTIONS = { type: 'array', items: { type: 'object', properties: { id: STRING, text: STRING }, required: ['id', 'text'] } }
+/** An author gives its options as texts and its expected one by place: ids are assigned here, so no author's spelling of one can drop its case. */
 const CANDIDATE_SCHEMA = {
   type: 'object',
-  properties: { id: STRING, situation: STRING, options: OPTIONS, expected: STRING, settledBy: STRING },
-  required: ['id', 'situation', 'options', 'expected', 'settledBy'],
+  properties: { situation: STRING, options: { type: 'array', items: STRING }, expected: { type: 'integer' }, settledBy: STRING },
+  required: ['situation', 'options', 'expected', 'settledBy'],
 }
+const OPTION_IDS = ['a', 'b', 'c', 'd']
 const ANSWER_SCHEMA = { type: 'object', properties: { choice: { type: 'integer' }, why: STRING }, required: ['choice', 'why'] }
 const READ_SCHEMA = { type: 'object', properties: { output: STRING }, required: ['output'] }
 
@@ -318,9 +322,20 @@ async function authorSeed(seed) {
     lenses.map((lens) => () => agent(authorPrompt(seed, lens, path, lenses.length), { label: `author ${lens} ${seed.key}`, phase: 'Author', schema: CANDIDATE_SCHEMA, agentType: AUTHOR })),
   )
   return lenses.map((lens, i) => {
-    if (!written[i]) return { key: seed.key, lens, case: null, problem: 'the author returned nothing' }
-    const c = { ...written[i], prompt: seed.prompt, lens, source: seed.source }
-    return { key: seed.key, lens, case: c, problem: shapeProblem(c) }
+    const w = written[i]
+    if (!w) return { key: seed.key, lens, case: null, problem: 'the author returned nothing' }
+    const c = {
+      id: `${seed.key.split('#').pop()}-${lens}`,
+      prompt: seed.prompt,
+      lens,
+      source: seed.source,
+      situation: w.situation,
+      options: w.options.map((text, j) => ({ id: OPTION_IDS[j] ?? String(j + 1), text })),
+      expected: OPTION_IDS[w.expected - 1] ?? null,
+      settledBy: w.settledBy,
+    }
+    const out = w.expected < 1 || w.expected > w.options.length ? `its expected answer, option ${w.expected}, is none of its ${w.options.length} options` : null
+    return { key: seed.key, lens, case: c, problem: out ?? shapeProblem(c) }
   })
 }
 
