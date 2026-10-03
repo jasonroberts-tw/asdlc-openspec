@@ -29,8 +29,11 @@ export const meta = {
  * 46,547 characters, did match, in the first run, on the design this replaced; one slip in it would
  * have failed the run.
  *
- * THE FAILURE IT EXISTS TO PREVENT. No incident yet: this script lands with the bank it fills
- * (asdlc-openspec-7c1). Were it wrong, it would let through: a case stored that the trunk's text does
+ * THE FAILURE IT EXISTS TO PREVENT. On 2026-10-03 its first run, on the 9 settled findings of
+ * asdlc-openspec-7c1, dropped 23 of its 27 candidates, their content whole, for a case id or option
+ * ids whose form no author had been told (workflow run wf_da18974f-de7, whose record is outside this
+ * repository); authors now give option texts and the expected one's place, and every id is assigned
+ * here. Were it wrong otherwise, it would let through: a case stored that the trunk's text does
  * not answer as expected, which could never flip and so guards nothing, or which flips by noise and
  * keeps a sound edit out; a case answered by an agent that could run a command or search the
  * repository for its expected answer; an author shown another finding or an edit, so that the case is
@@ -58,10 +61,8 @@ export const meta = {
  * nothing, a copy its checksum refuses, or a path other than where its command writes; `done`
  * otherwise. Each candidate carries its seed's `key`,
  * its `lens`, the `case` with the seed's prompt, lens and source filled in, and the `problem` that
- * drops it, or null. An author gives its options as texts and its expected one by place, and the
- * case's id, `<name>-<lens>`, and its option ids, `a` to `d`, are assigned here: the first run, with
- * the authors left to spell them, dropped 23 of its 27 candidates for an id or an option id alone,
- * their content whole. The session gives each case it keeps an id of its own. A seed whose text git could not show gets no author, and its candidate carries
+ * drops it, or null. The case's id, `<name>-<lens>`, and its option ids, `a` to `d`, are assigned
+ * here, and the session gives each case it keeps an id of its own. A seed whose text git could not show gets no author, and its candidate carries
  * that problem. Each case validated or turned away carries `right`, the answers that chose its
  * expected option, `of`, the repetitions, and `answers`, each answer's option and why, a missing one
  * included. Every count is computed here.

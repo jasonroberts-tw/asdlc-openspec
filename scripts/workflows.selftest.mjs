@@ -94,7 +94,9 @@
  * twice as a child process. It
  * writes only under the temporary directory. No agent, no network. 0.27 s wall, both of two runs,
  * through `node --run` (`/usr/bin/time -p`) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-29, with
- * the test-builder and architect cases, much of it those four child processes.
+ * the test-builder and architect cases, much of it those four child processes; 0.63 s and 0.62 s on
+ * 2026-10-03, with the stored prompt cases' suites, timed by a script around `node --run` on the same
+ * laptop (asdlc-openspec-7c1).
  */
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'

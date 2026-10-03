@@ -92,8 +92,9 @@ Otherwise write each validated case to `.claude/prompt-cases/<id>.json`, with it
 directory's README, and commit them. Merge each branch in `merge` into yours, in its order, with
 `git merge --no-ff <branch>`.
 Before each merge, check what the agent reported against git: `git diff --name-only
-origin/main...<branch>` must list only files of that branch's group. A branch that lists another file
-is not merged: its group's runs are held as the workflow's `runsHeld` are. A conflict stops the
+origin/main...<branch>` must list only the files its report's `filesChanged` lists, whose stored
+cases were answered. A branch that lists another file is not merged: its group's runs are held as
+the workflow's `runsHeld` are. A conflict stops the
 merge: report it. For each consolidation a merged branch carries, set its file's budget in
 `tools/policy/prompt-budgets.json` as § How a prompt is consolidated says. Then gate as
 `.claude/skills/bead/SKILL.md` § 4 says, and open the pull request with the `open-pr` skill. Never

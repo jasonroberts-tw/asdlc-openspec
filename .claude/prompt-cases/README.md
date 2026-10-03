@@ -12,21 +12,21 @@ this page and a header disagree, the header wins.
 1. **Written.** For a finding whose right answer a source settles, the prompt reviewer runs
    `.claude/workflows/author-prompt-cases.js`, which sends one author per lens of
    `promptReviewCaseLenses` (`tools/policy/agent-workflows.json`). Each author sees that finding,
-   the prompt's text and `CLAUDE.md`, and nothing else. The reviewer chooses one candidate or
-   combines several. A session that writes cases from a prompt's own rules writes the candidate
-   itself.
+   the prompt's text and `CLAUDE.md`, and nothing else. A seed may be a prompt's section rather than
+   a run, for a case written from the prompt's own rules. The reviewer chooses one candidate or
+   combines several.
 2. **Validated.** The same workflow answers the chosen case `promptReviewCaseRepetitions` times with
    the trunk's text. It is stored only if every answer chose its expected option: a case the text
    already fails could never flip, and one it passes only sometimes would flip by noise.
-3. **Stored.** One file here, named `<id>.json`, and one row below, in the pull request that adds
-   it. A person or the reviewer merges it, as any pull request.
+3. **Stored.** One file here, named `<id>.json`, and one row below, in the pull request that adds it.
 4. **Judged.** `.claude/workflows/review-prompts.js` answers every case of each file an upheld
    branch changes with the old text and the new, as many times each. It keeps the branch out when a
    case flips or goes unanswered.
 
-Only a person changes a stored case's expected answer, by hand (`asdlc-openspec-a484` asks whether
-an edit's finding may). A case's expected answer is an option, never prose the prompt writes
-(`asdlc-openspec-1kie` asks whether that changes).
+A review changes no stored case: its file agents may change only their prompts, and the reviewer
+writes only the cases it validated. Changing one's expected answer is a pull request of its own
+(`asdlc-openspec-a484` asks whether an edit's finding may do it). A case's expected answer is an
+option, never prose the prompt writes (`asdlc-openspec-1kie` asks whether that changes).
 
 ## The format
 
