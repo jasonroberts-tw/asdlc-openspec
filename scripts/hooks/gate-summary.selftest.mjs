@@ -38,13 +38,14 @@
  *      citations stub ignores `CITATIONS_UNTRACKED`, passes there with a verdict naming the worktree
  *      and saying tracked files only; and a stub that fails there fails the verdict there.
  *   4. `taskLaunch` and `runTask` over scratch checkouts: one with a `package.json` alone runs a task
- *      with `npm run --silent` (the control, run for real), one with a `tasks.toml` with
- *      `mise run --quiet`; and a task its own manifest lacks is refused before any launcher starts,
- *      in a worktree whose enclosing checkout defines it and in a `package.json` checkout alike.
+ *      with `npm run --silent` (the control), one with a `tasks.toml` with `mise run --quiet`, each
+ *      run for real; and a task its own manifest lacks is refused before any launcher starts, in a
+ *      worktree whose enclosing checkout defines it and in a `package.json` checkout alike.
  *
  *   npm run gate-summary:selftest
  *
- * Needs `git`, and `npm ci` in this checkout; the scratch repositories are its own and removed after.
+ * Needs `git`, `mise` (`docs/decisions.md` § D-31), and `npm ci` in this checkout; the scratch
+ * repositories are its own and removed after.
  * Every GIT_* variable is dropped first: a pre-push hook exports GIT_DIR, which outranks `cwd`, and
  * git would answer for this repository while the case meant a scratch one.
  */
@@ -263,12 +264,16 @@ try {
 
   console.log("runTask: the launcher each checkout's own manifest calls for, and a task it lacks refused")
   const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm'
-  // A string, not a number: console.log colours a number when FORCE_COLOR is set.
-  const probe = `node -e "console.log('ran')"`
+  // This node by its path, since a bare `node` may be mise's shim, which pins no version in a scratch
+  // directory; and a string, since console.log colours a number when FORCE_COLOR is set.
+  const probe = `"${process.execPath}" -e "console.log('ran')"`
   const npmSide = join(base, 'tasks-npm')
   writeTree(npmSide, taskFiles('package.json', { 'probe:here': probe }, { private: true }))
   const miseSide = join(base, 'tasks-mise')
-  writeTree(miseSide, taskFiles('tasks.toml', { 'probe:here': probe }, { private: true }))
+  writeTree(miseSide, {
+    ...taskFiles('tasks.toml', { 'probe:here': probe }, { private: true }),
+    'mise.toml': '[task_config]\nincludes = ["tasks.toml"]\n',
+  })
   // A worktree inside a checkout that defines a task its own manifest does not: what mise would borrow.
   const inner = join(miseSide, '.claude/worktrees/inner')
   writeTree(inner, taskFiles('tasks.toml', { 'probe:other': probe }, { private: true }))
@@ -290,6 +295,13 @@ try {
     'a checkout with a tasks.toml launches `mise run --quiet <task>`',
     viaMise.command === 'mise' && viaMise.args.join(' ') === 'run --quiet probe:here' && viaMise.label === 'mise run probe:here',
     JSON.stringify(viaMise),
+  )
+  // A scratch directory shares no trust, so the run is given it, as a fresh clone's would be.
+  const ranMise = await runTask('probe:here', { cwd: miseSide, env: { MISE_TRUSTED_CONFIG_PATHS: miseSide } })
+  check(
+    'a checkout with a tasks.toml runs the task through mise, returning its output and the line it ran',
+    ranMise.code === 0 && ranMise.out === 'ran' && ranMise.command === 'mise run probe:here',
+    JSON.stringify(ranMise),
   )
   const borrowed = await runTask('probe:here', { cwd: inner })
   check(

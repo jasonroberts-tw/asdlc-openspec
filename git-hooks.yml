@@ -320,7 +320,9 @@ pre-push:
     # `tasks.toml` fixture.
     # 3.35-3.43 s wall through `node --run` (`/usr/bin/time -p`, two runs, while other worktrees ran
     # their gates) on a macOS 26.7 laptop (Apple M3 Max) with Node 26.8.1, 2026-09-26: seven hook
-    # runs, each two npm starts, three of them against stub gates.
+    # runs, each two npm starts, three of them against stub gates. 3.60-3.61 s (two runs, the same
+    # host with mise 2026.10.0, 2026-10-03) with `runTask`'s cases, which run one task through npm
+    # and one through mise.
     - name: gate-summary-selftest
       glob:
         - 'package.json'
@@ -651,6 +653,8 @@ pre-push:
     # 12.01-12.53 s wall for its 49 cases through `node --run` (`/usr/bin/time -p`, two runs, while
     # other worktrees ran) on the host and date above, most of it git and CLI starts; the jobs run
     # in parallel. 13.87-14.48 s (two runs, 2026-09-29) for 50, with a test under a `--dir`.
+    # 14.73-14.80 s (two runs, 2026-10-03) for 52, with two cases whose scripts sit in a
+    # `tasks.toml`, which the task loader reads through `smol-toml`, pinned by the lockfile.
     - name: trace-selftest
       glob:
         - 'tools/trace/**'
@@ -702,7 +706,9 @@ pre-push:
     # both halves and their config, the helpers the core imports, the launcher, and the manifest and
     # lockfile that pin its js-yaml. 5.67-6.33 s wall through `node --run` (`/usr/bin/time -p`, two
     # runs) on a macOS 26.7.1 laptop with Node 26.8.1 and Python 3.12.8, 2026-10-02, most of it the
-    # git repositories of the core's 31 fixtures and the graph half's one.
+    # git repositories of the core's 31 fixtures and the graph half's one. 5.87-6.19 s (two runs,
+    # 2026-10-03) with 33, a `mise run` launch and the tasks in a `tasks.toml` among them; the core
+    # reads the tasks through `scripts/lib/tasks.mjs`, so it is in the glob.
     - name: harness-selftest
       glob:
         - 'tools/harness/**'
@@ -728,7 +734,8 @@ pre-push:
     # helper that reads a script's `--dir`, the task loader and the `smol-toml` it requires for the
     # fixtures that move the scripts to a `tasks.toml`, which the manifest and lockfile pin, the
     # helper that strips a hook's GIT_* keys, and the live policy's trailer key. 49 cases: 2.31-2.33 s wall through `node --run` (`/usr/bin/time -p`, two
-    # runs) on the host above, 2026-09-28; 51, with the two `--dir` cases: 2.71-2.77 s, 2026-09-29.
+    # runs) on the host above, 2026-09-28; 51, with the two `--dir` cases: 2.71-2.77 s, 2026-09-29;
+    # 55, with the four that move the scripts to a `tasks.toml`: 3.96-3.99 s, 2026-10-03.
     - name: tests-inventory-selftest
       glob:
         - 'scripts/check-test-inventory.mjs'
@@ -751,7 +758,8 @@ pre-push:
     # GIT_* keys. 24.07-24.29 s wall for its 35 cases through `node --run` (`/usr/bin/time -p`, two
     # runs) on the host above, 2026-09-29, most of it twelve StrykerJS runs; 17.05-20.80 s for 33
     # before a Command's case over the mutant sample took one of them; 23.33-25.16 s (two runs, the
-    # same day) for 36, with a `--dir` case.
+    # same day) for 36, with a `--dir` case; 24.52-24.91 s (two runs, 2026-10-03) for 37, that case
+    # again with its tasks in a `tasks.toml`, which the task loader reads through `smol-toml`.
     - name: thresholds-selftest
       glob:
         - 'scripts/check-thresholds.mjs'
