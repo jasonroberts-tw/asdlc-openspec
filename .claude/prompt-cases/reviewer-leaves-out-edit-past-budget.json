@@ -15,7 +15,7 @@
     },
     {
       "id": "b",
-      "text": "Raise the skill's budget key in `tools/policy.json` on your own branch, in the edit's commit, so that `check:prompts` passes in your worktree."
+      "text": "Raise the skill's budget row in `tools/policy/prompt-budgets.json` on your own branch, in the edit's commit, so that `check:prompts` passes in your worktree."
     },
     {
       "id": "c",

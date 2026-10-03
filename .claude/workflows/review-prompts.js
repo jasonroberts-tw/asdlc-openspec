@@ -43,7 +43,9 @@ export const meta = {
  * a wrong one, which a skeptic reading the diff for the runs it was given never sees; an answer from
  * an agent that could run a command or search for the case's expected answer; an answer sent to a
  * file other than the text its reader wrote; and a file the branch changed whose cases go unanswered
- * because its report did not list it.
+ * because its report states a change to it and does not list it. A file the report neither states
+ * nor lists is the session's to catch: it holds a branch whose diff names a file the report does not
+ * list (`.claude/agents/continuous-prompt-improvement.md` § 5).
  *
  * Wrong the other way, it refuses what it should pass. On 2026-09-28 (run wf_5aec3e94-07b) it refused
  * 3 of 4 groups, each with an edit whose gates passed, because each listed under `notChanged` a point
