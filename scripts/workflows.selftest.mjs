@@ -11,7 +11,14 @@
  * with groups of findings built here and the policy's `promptReview*` keys, and its cases assert
  * which findings it refuses as below the threshold, how many skeptics it sends each change and each
  * consolidation, which reports it refuses, which branches it lets the session merge, which analyses
- * it lets the session mark read and which findings it holds. `verify-change-trace.js` runs with a
+ * it lets the session mark read and which findings it holds, and how it answers each stored decision
+ * case of a changed file with the old text and the new and which outcome keeps a branch out.
+ * `author-prompt-cases.js` runs with seeds and cases built here and the policy's `promptReviewCase*`
+ * keys, and its cases assert how many authors it sends each seed, what each is shown, which reader's
+ * copy it refuses, and which case it stores. Every stored case under `.claude/prompt-cases/` goes
+ * through both, and the two must give one case and one text the same answer prompt; the two agents
+ * they run by agentType are held, as the test-builder is, to a `tools:` line of StructuredOutput
+ * alone. `verify-change-trace.js` runs with a
  * two-capability change built here and the policy's `verifyTrace*` keys, and its cases assert which
  * inputs it refuses, how it matches each tracer's rows to its scenarios, which gap it gives each
  * row, how many skeptics it sends each gap, how it tallies them, and what a run again keeps. Its
@@ -39,7 +46,11 @@
  * uphold; a finding below the threshold passed to an agent; an analysis marked read whose file's
  * agent returned nothing; or a finding read and not proposed that is not returned to be held (since
  * asdlc-openspec-pnm); or a consolidation merged whose rows do not say where each removed rule went,
- * or that a majority of its skeptics did not uphold (since asdlc-openspec-aa0). For the trace (since
+ * or that a majority of its skeptics did not uphold (since asdlc-openspec-aa0); or a branch merged
+ * that turned a stored case from right to wrong or left one unanswered, a case stored that some
+ * answer with the trunk's text did not choose as expected, an answer or an author that could read
+ * the repository, or a text copied with a clause lost (since asdlc-openspec-7c1, each case seen
+ * failing against a copy of its guard removed before it was trusted). For the trace (since
  * asdlc-openspec-as9): a scenario left out of every group, a group a tracer returned short or read at
  * another commit counted as traced, a row's gap taken from the tracer's words rather than its
  * reading, a gap nobody could verify counted refuted, a failed proof cleared by a skeptic's vote, a
@@ -74,8 +85,9 @@
  * more script must report it, by its reason.
  *
  * NEEDS only committed files: the workflows, the records under `tools/policy/` read through
- * `tools/lib/policy.ts`, `.claude/agents/test-builder.md`, and the trace renderers with
- * `scripts/lib/trace.mjs`; each renderer runs twice as a child process. It
+ * `tools/lib/policy.ts`, the three tool-less agents under `.claude/agents/`, the stored cases under
+ * `.claude/prompt-cases/`, and the trace renderers with `scripts/lib/trace.mjs`; each renderer runs
+ * twice as a child process. It
  * writes only under the temporary directory. No agent, no network. 0.27 s wall, both of two runs,
  * through `node --run` (`/usr/bin/time -p`) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-29, with
  * the test-builder and architect cases, much of it those four child processes.
@@ -94,13 +106,18 @@ const WORKFLOWS = '.claude/workflows'
 const BUILD = `${WORKFLOWS}/build-change-task.js`
 const REVIEW = `${WORKFLOWS}/review-prompts.js`
 const VERIFY = `${WORKFLOWS}/verify-change-trace.js`
+const AUTHOR = `${WORKFLOWS}/author-prompt-cases.js`
+/** The bank of stored decision cases, one JSON file per case (`.claude/prompt-cases/README.md`). */
+const CASES_DIR = '.claude/prompt-cases'
 /** The keys Setup's command prints, as `POLICY_KEYS` in `build-change-task.js` lists them: keep the two in agreement. */
 const POLICY_KEYS = [
   'buildReviewLenses', 'buildReviewSkeptics', 'buildReviewMaxRounds', 'buildReviewMajorSeverities', 'buildRedFirstKinds', 'assetLabels',
   'buildIndependentKinds', 'buildArchitectMaxRounds', 'independentInputs', 'independentTestDir', 'independentLayers', 'architectRunLayers', 'testTraceLayers',
 ]
 const TEST_BUILDER_AGENT = '.claude/agents/test-builder.md'
-const REVIEW_POLICY_KEYS = ['promptReviewRecurrenceCount', 'promptReviewMajorSeverities', 'promptReviewSkeptics']
+/** Each agent a workflow runs by agentType with no tool but its structured output, so nothing on disk or in git reaches it. */
+const TOOLLESS_AGENTS = [TEST_BUILDER_AGENT, '.claude/agents/prompt-case-author.md', '.claude/agents/prompt-case-answerer.md']
+const REVIEW_POLICY_KEYS = ['promptReviewRecurrenceCount', 'promptReviewMajorSeverities', 'promptReviewSkeptics', 'promptReviewCaseLenses', 'promptReviewCaseRepetitions']
 const VERIFY_POLICY_KEYS = ['verifyTraceMaxScenarios', 'verifyTraceDesignLenses', 'verifyTraceSkeptics']
 const HEAD = 'export const meta = {'
 
@@ -1261,13 +1278,61 @@ const unchanged = (group, extra = {}) => ({
 
 const reviewVote = (verdict) => ({ verdict, reason: `the skeptic's ${verdict} reason` })
 
+/* --------------------------------------------------------------- the stored cases: fixtures ----- */
+
+/** The merge base the review's reader stub prints, and the commit a stored case's run read its prompt at. */
+const BASE_SHA = 'd'.repeat(40)
+const CASE_COMMIT = 'e'.repeat(7)
+/** What an answer stub returns to choose a place the case does not have. */
+const OUT_OF_RANGE = 'out-of-range'
+
+/** A stored case on `file`, expecting `a`, in the format `.claude/prompt-cases/README.md` gives. */
+const storedCase = (policy, file, id, extra = {}) => ({
+  id,
+  prompt: file,
+  lens: policy.promptReviewCaseLenses[0],
+  source: { run: RUN_A, point: 1, commit: CASE_COMMIT },
+  situation: `A session running ${file} has written a new file and is about to run the gates.`,
+  options: [
+    { id: 'a', text: `For ${id}, stage the new file, then run the gates.` },
+    { id: 'b', text: `For ${id}, run the gates first, and stage the new file after.` },
+    { id: 'c', text: `For ${id}, skip the gates.` },
+  ],
+  expected: 'a',
+  settledBy: 'The run staged first, and the gates read the new file.',
+  ...extra,
+})
+
+/** The text of `file` at `ref`, as a reader stub prints it. */
+const textAt = (ref, file) => `The text of ${file} at ${ref}.`
+
+/** The answer an answer stub returns to choose `optionId` of case `c`, at the place `prompt` shows it. */
+function choiceOf(prompt, c, optionId) {
+  if (optionId === null) return null
+  if (optionId === OUT_OF_RANGE) return { choice: c.options.length + 1, why: 'a place the case does not have' }
+  const shown = prompt.split('## The options')[1].trim().split('\n').map((line) => line.replace(/^\d+\. /, ''))
+  return { choice: shown.indexOf(c.options.find((o) => o.id === optionId).text) + 1, why: `the text leads to ${optionId}` }
+}
+
+/** The review reader stub's reply: each file its command names at the merge base and at the head, with the checksum, unless `doctor` changes it. */
+function reviewReader(prompt, doctor) {
+  const head = /const head='([^']*)'/.exec(prompt)[1]
+  const files = JSON.parse(/const files=(\[[^\]]*\])/.exec(prompt)[1].replace(/'/g, '"'))
+  const texts = [BASE_SHA, head].flatMap((ref) => files.map((file) => ({ ref, file, text: textAt(ref, file) })))
+  const out = { base: BASE_SHA, texts, fnv: fnv(JSON.stringify({ base: BASE_SHA, texts })) }
+  return { output: JSON.stringify(doctor ? doctor(out) : out) }
+}
+
 /**
  * Answers each `review <id>` agent: `reports[id]` is a function of the group, or null for an agent
  * that returns nothing. By default `bead` changes its file and `open-pr` changes nothing. Each
- * `skeptic <i>/<n> <id>: <key>` is answered by `verdict(key, i, n)`, upheld by default.
+ * `skeptic <i>/<n> <id>: <key>` is answered by `verdict(key, i, n)`, upheld by default. Each
+ * `read <id>` is answered by `reader(prompt)`, the stub above by default, and each `answer <i>/<n>
+ * <side> <id>: <case>` chooses the option `answers(case, side, i, n)` names, the expected one by
+ * default.
  */
-function reviewAnswer(args, reports = {}, verdict) {
-  return (label) => {
+function reviewAnswer(args, reports = {}, verdict, answers, reader) {
+  return (label, prompt) => {
     let m = /^review (\S+)$/.exec(label)
     if (m) {
       const group = args.groups.find((g) => g.id === m[1])
@@ -1277,6 +1342,12 @@ function reviewAnswer(args, reports = {}, verdict) {
     }
     m = /^skeptic (\d+)\/(\d+) (\S+): (.+)$/.exec(label)
     if (m) return verdict ? verdict(m[4], Number(m[1]), Number(m[2])) : reviewVote('upheld')
+    if (/^read \S+$/.test(label)) return reader ? reader(prompt) : reviewReader(prompt)
+    m = /^answer (\d+)\/(\d+) (old|new) (\S+): (\S+)$/.exec(label)
+    if (m) {
+      const c = args.cases.find((x) => x.id === m[5])
+      return choiceOf(prompt, c, answers ? answers(c, m[3], Number(m[1]), Number(m[2])) : c.expected)
+    }
     throw new Error(`no stub answers the label "${label}"`)
   }
 }
@@ -1674,8 +1745,384 @@ function reviewCases(policy) {
       check: ({ result }) =>
         !result.runsRead.length && result.runsHeld.length === 3 && !result.merge.length && !result.findingsHeld.length ? null : 'a run was read, a finding held or a branch merged',
     },
+    ...storedCaseCases(policy),
   ]
   return list
+}
+
+/** The review's cases for the stored decision cases (`docs/decisions.md` § D-32). */
+function storedCaseCases(policy) {
+  const reps = policy.promptReviewCaseRepetitions
+  const HEAD_SHA = 'a'.repeat(40)
+  const CASE = 'bead-stages-first'
+  const withCases = (cases, extra) => reviewArgs(policy, undefined, { cases, ...extra })
+  const one = withCases([storedCase(policy, BEAD, CASE)])
+  const caseOf = (result, id) => result.cases.find((r) => r.id === id)
+  const labelled = (options, prefix) => options.filter((o) => o.label.startsWith(prefix))
+  const regressedOn = (outcome, reason) => ({ result }) => {
+    if (statusOf(result, 'bead') !== 'regressed') return `bead is ${statusOf(result, 'bead')}, not regressed`
+    if (result.merge.length) return `merge is ${result.merge.join(', ')}, not empty`
+    const c = caseOf(result, CASE)
+    if (c?.outcome !== outcome) return `the case came back ${JSON.stringify(c)}, not ${outcome}`
+    if (reason && !reason.test(c.why ?? '')) return `the case is ${outcome} for another reason: ${c.why}`
+    const held = heldFinding(result, BEAD_KEY)
+    if (!held || !held.reason.startsWith(`upheld, but its branch turned a stored case wrong or left one unanswered, so the branch was not merged: ${CASE} (${outcome}`)) return `held as ${JSON.stringify(held)}`
+    return result.runsRead.join() === [RUN_A, RUN_B, RUN_C].join() ? null : `read ${result.runsRead.join()}, held ${heldRuns(result)}`
+  }
+  const keptOut = (n, unanswered) => new RegExp(`; ${n} of 1 stored case\\(s\\) flipped and ${unanswered} unanswered, by \\d+ answer\\(s\\), 1 branch\\(es\\) kept out; 3 of 3 run\\(s\\) read, 2 finding\\(s\\) held$`)
+  const unexercised = (name, why) => ({ name, args: one, reports: {}, check: () => `cannot be exercised: ${why}` })
+
+  return [
+    {
+      name: `control with stored cases: each case of a file an upheld branch changes is answered ${reps} time(s) with its old text and as many with its new, by the tool-less answerer, its options turned one place each time; a case of a file no branch changes is not answered, and the branch merges`,
+      control: true,
+      args: withCases([storedCase(policy, BEAD, CASE), storedCase(policy, OPEN_PR, 'open-pr-one-watcher')]),
+      reports: {},
+      expect: ['done', new RegExp(`^1 to merge, 1 unchanged, 0 not upheld, 0 refused, 0 died; 1 of 1 change\\(s\\) upheld by \\d+ skeptic\\(s\\); 0 of 1 stored case\\(s\\) flipped and 0 unanswered, by ${2 * reps} answer\\(s\\), 0 branch\\(es\\) kept out; 3 of 3 run\\(s\\) read, 1 finding\\(s\\) held$`)],
+      check: ({ result, options }) => {
+        const answers = labelled(options, 'answer ')
+        if (answers.length !== 2 * reps) return `ran ${answers.length} answer(s), not ${2 * reps}`
+        if (answers.some((o) => o.agentType !== 'prompt-case-answerer')) return 'an answer ran without the agentType prompt-case-answerer'
+        if (answers.some((o) => !o.label.endsWith(`bead: ${CASE}`))) return 'a case of a file no branch changes was answered'
+        const read = labelled(options, 'read ')
+        if (read.map((o) => o.label).join() !== 'read bead' || !read[0].prompt.includes(`const head='${HEAD_SHA}'`) || !read[0].prompt.includes(BEAD)) return "the reader was not asked for bead's file at its head"
+        const old = answers.find((o) => o.label === `answer 1/${reps} old bead: ${CASE}`)
+        const neu = answers.find((o) => o.label === `answer 1/${reps} new bead: ${CASE}`)
+        if (!old?.prompt.includes(textAt(BASE_SHA, BEAD)) || old.prompt.includes(textAt(HEAD_SHA, BEAD))) return "the old answer was not given the merge base's text alone"
+        if (!neu?.prompt.includes(textAt(HEAD_SHA, BEAD)) || neu.prompt.includes(textAt(BASE_SHA, BEAD))) return "the new answer was not given the head's text alone"
+        if (old.prompt.includes('expected') || old.prompt.includes('settled')) return "an answer's prompt names the expected option or what settles it"
+        if (reps >= 2) {
+          const second = answers.find((o) => o.label === `answer 2/${reps} old bead: ${CASE}`)
+          const first = second.prompt.split('## The options')[1].trim().split('\n')[0]
+          if (first !== `1. ${storedCase(policy, BEAD, CASE).options[1].text}`) return `the second repetition shows first ${first}, not the case's second option`
+        }
+        const c = caseOf(result, CASE)
+        if (c?.outcome !== 'held' || c.old !== reps || c.new !== reps || c.of !== reps || c.group !== 'bead') return `the case came back ${JSON.stringify(c)}`
+        return result.merge.join() === 'agent/wf_example-bead' ? null : `merge is ${result.merge.join(', ')}`
+      },
+    },
+    {
+      name: 'a stored case the old text answers right and the new text wrong flips: its branch is regressed and not merged, its runs are read, and its upheld finding is held naming the case',
+      args: one,
+      reports: {},
+      answers: (c, side) => (side === 'new' ? 'b' : c.expected),
+      expect: ['done', keptOut(1, 0)],
+      check: regressedOn('flipped'),
+    },
+    reps >= 3
+      ? {
+          name: `a majority decides each text: ${reps - 1} of ${reps} right with the old text and 1 with the new flips the case`,
+          args: one,
+          reports: {},
+          answers: (c, side, i) => (side === 'old' ? (i === reps ? 'b' : c.expected) : i === 1 ? c.expected : 'b'),
+          expect: ['done', keptOut(1, 0)],
+          check: regressedOn('flipped'),
+        }
+      : unexercised('a majority decides each text', `with ${reps} repetition(s) no text can be right by a majority short of every answer`),
+    reps >= 3
+      ? {
+          name: `one stray answer on each text holds the case (${reps - 1} of ${reps} right on both), so noise in one answer keeps no branch out`,
+          args: one,
+          reports: {},
+          answers: (c, _side, i) => (i === reps ? 'b' : c.expected),
+          expect: ['done', /^1 to merge, .*; 0 of 1 stored case\(s\) flipped and 0 unanswered/],
+          check: ({ result }) => (caseOf(result, CASE)?.outcome === 'held' && caseOf(result, CASE).old === reps - 1 ? null : `the case came back ${JSON.stringify(caseOf(result, CASE))}`),
+        }
+      : unexercised('one stray answer on each text holds the case', `with ${reps} repetition(s) one stray answer is a majority`),
+    {
+      name: 'a case the trunk already answers wrong is failing and keeps no branch out, and one only the new text answers right is fixed',
+      args: withCases([storedCase(policy, BEAD, 'bead-failing'), storedCase(policy, BEAD, 'bead-fixed')]),
+      reports: {},
+      answers: (c, side) => (c.id === 'bead-fixed' && side === 'new' ? c.expected : 'b'),
+      expect: ['done', /^1 to merge, .*; 0 of 2 stored case\(s\) flipped and 0 unanswered, by \d+ answer\(s\), 0 branch\(es\) kept out;/],
+      check: ({ result }) => {
+        const got = ['bead-failing', 'bead-fixed'].map((id) => caseOf(result, id)?.outcome).join()
+        if (got !== 'failing,fixed') return `the cases came back ${got}`
+        return result.merge.join() === 'agent/wf_example-bead' ? null : `merge is ${result.merge.join(', ')}`
+      },
+    },
+    {
+      name: 'an answer that returns nothing leaves its case unanswered, which keeps the branch out, never counted as a wrong answer',
+      args: one,
+      reports: {},
+      answers: (c, side, i) => (side === 'new' && i === 1 ? null : c.expected),
+      expect: ['done', keptOut(0, 1)],
+      check: regressedOn('unanswered'),
+    },
+    {
+      name: 'an answer choosing a place the case does not have leaves its case unanswered, which keeps the branch out',
+      args: one,
+      reports: {},
+      answers: (c, side, i) => (side === 'old' && i === 1 ? OUT_OF_RANGE : c.expected),
+      expect: ['done', keptOut(0, 1)],
+      check: regressedOn('unanswered'),
+    },
+    {
+      name: "a reader's copy that does not match its checksum leaves every case unanswered, by that reason, and no answer runs",
+      args: one,
+      reports: {},
+      reader: (prompt) => reviewReader(prompt, (out) => ({ ...out, texts: out.texts.map((t) => ({ ...t, text: t.text.replace('The text', 'A text') })) })),
+      expect: ['done', keptOut(0, 1)],
+      check: (outcome) => regressedOn('unanswered', /not copied verbatim/)(outcome) ?? (labelled(outcome.options, 'answer ').length ? 'an answer ran on an unverified copy' : null),
+    },
+    {
+      name: 'a reader that returns nothing leaves every case unanswered, which keeps the branch out',
+      args: one,
+      reports: {},
+      reader: () => null,
+      expect: ['done', keptOut(0, 1)],
+      check: regressedOn('unanswered', /^the reader returned nothing$/),
+    },
+    {
+      name: 'a head that is no commit hash is never put in the reader\'s command, and its cases are unanswered',
+      args: one,
+      reports: { bead: (g) => changed(g, { head: "x';rm -rf ." }) },
+      expect: ['done', keptOut(0, 1)],
+      check: (outcome) => regressedOn('unanswered', /is no commit hash/)(outcome) ?? (labelled(outcome.options, 'read ').length ? 'a reader ran with that head' : null),
+    },
+    {
+      name: 'a branch its skeptics did not uphold has none of its cases answered',
+      args: one,
+      reports: {},
+      verdict: () => reviewVote('refuted'),
+      expect: ['done', /^0 to merge, 1 unchanged, 1 not upheld, 0 refused, 0 died; 0 of 1 change\(s\) upheld by \d+ skeptic\(s\); 3 of 3 run\(s\) read, 2 finding\(s\) held$/],
+      check: ({ options, result }) => (labelled(options, 'read ').length || labelled(options, 'answer ').length || result.cases.length ? 'a case of a branch kept out was answered' : null),
+    },
+    {
+      name: "refused: a stored case whose prompt is no group's file, before any agent runs",
+      args: withCases([storedCase(policy, OTHER, 'other-case')]),
+      expect: ['refused', /^args\.cases\[0\] cannot be answered: its prompt "\.claude\/skills\/other\/SKILL\.md" is no group's file$/],
+      check: ({ calls }) => (calls.length ? `ran ${calls.join(', ')} before refusing` : null),
+    },
+    {
+      name: 'refused: a stored case whose expected answer is none of its options',
+      args: withCases([storedCase(policy, BEAD, CASE, { expected: 'z' })]),
+      expect: ['refused', /^args\.cases\[0\] cannot be answered: its expected answer "z" is none of its options$/],
+      check: ({ calls }) => (calls.length ? `ran ${calls.join(', ')} before refusing` : null),
+    },
+    {
+      name: 'refused: two stored cases with one id',
+      args: withCases([storedCase(policy, BEAD, CASE), storedCase(policy, OPEN_PR, CASE)]),
+      expect: ['refused', /^the case id bead-stages-first is on two cases$/],
+      check: ({ calls }) => (calls.length ? `ran ${calls.join(', ')} before refusing` : null),
+    },
+    {
+      name: 'refused: a policy without promptReviewCaseRepetitions',
+      args: reviewArgs(policy, undefined, { policy: Object.fromEntries(Object.entries(promptPolicy(policy)).filter(([k]) => k !== 'promptReviewCaseRepetitions')) }),
+      expect: ['refused', /^args\.policy has no `promptReviewCaseRepetitions`/],
+      check: ({ calls }) => (calls.length ? `ran ${calls.join(', ')} before refusing` : null),
+    },
+  ]
+}
+
+/* --------------------------------------------------- author-prompt-cases.js: fixtures ----- */
+
+/** The lenses the workflow's library marks as needing a run, which a seed from a section never gets. */
+const RUN_ONLY_LENSES = ['recorded']
+const TRUNK = 'origin/main'
+
+const SEED_RUN = {
+  key: `${BEAD}#stage-before-gates`,
+  prompt: BEAD,
+  source: { run: RUN_A, point: 3, commit: CASE_COMMIT },
+  evidence: 'The run staged its new file before the gates, and the gates read it.',
+  settledBy: "The run's action.",
+}
+const SEED_SECTION = {
+  key: `${OPEN_PR}#one-watcher`,
+  prompt: OPEN_PR,
+  source: { section: "The open-pr skill's step that watches the checks" },
+  evidence: 'The step says to watch with one watcher.',
+  settledBy: "The step's own sentence.",
+}
+
+/** An author's clean candidate for the seed `key` through `lens`. */
+const candidate = (key, lens, extra = {}) => ({
+  id: `${key.split('#')[1]}-${lens}`,
+  situation: `The situation of ${key}, through ${lens}.`,
+  options: [
+    { id: 'a', text: `For ${key} through ${lens}, the right thing.` },
+    { id: 'b', text: `For ${key} through ${lens}, the wrong thing.` },
+  ],
+  expected: 'a',
+  settledBy: 'The run did the right thing.',
+  ...extra,
+})
+
+const authorArgs = (policy, extra = {}) => ({ policy: promptPolicy(policy), seeds: [SEED_RUN, SEED_SECTION], cases: [storedCase(policy, BEAD, 'bead-stages-first')], ...extra })
+
+/** The authoring reader stub's reply: each `[ref, file]` its command names, from `texts`, with the checksum. */
+function authorReader(prompt, texts = textAt) {
+  const want = JSON.parse(/const want=(\[\[.*?\]\]);/.exec(prompt)[1].replace(/'/g, '"'))
+  const out = want.map(([ref, file]) => ({ ref, file, text: texts(ref, file) }))
+  return { output: JSON.stringify({ texts: out, fnv: fnv(JSON.stringify(out)) }) }
+}
+
+/**
+ * Answers the authoring workflow's agents: `read` by `s.reader(prompt)`, the stub above over
+ * `s.texts` by default; `author <lens> <key>` by `s.authors(key, lens)`, a clean candidate by
+ * default; and `answer <i>/<n> <case>` with the option `s.answers(case, i, n)` names, the expected
+ * one by default.
+ */
+function authorAnswer(args, s = {}) {
+  return (label, prompt) => {
+    if (label === 'read') return s.reader ? s.reader(prompt) : authorReader(prompt, s.texts)
+    let m = /^author (\S+) (\S+)$/.exec(label)
+    if (m) return s.authors ? s.authors(m[2], m[1]) : candidate(m[2], m[1])
+    m = /^answer (\d+)\/(\d+) (\S+)$/.exec(label)
+    if (m) {
+      const c = args.cases.find((x) => x.id === m[3])
+      return choiceOf(prompt, c, s.answers ? s.answers(c, Number(m[1]), Number(m[2])) : c.expected)
+    }
+    throw new Error(`no stub answers the label "${label}"`)
+  }
+}
+
+/* ------------------------------------------------------- author-prompt-cases.js: cases ----- */
+
+function authorCases(policy) {
+  const lenses = policy.promptReviewCaseLenses
+  const reps = policy.promptReviewCaseRepetitions
+  const sectionLenses = lenses.filter((l) => !RUN_ONLY_LENSES.includes(l))
+  const authors = lenses.length + sectionLenses.length
+  const labelled = (options, prefix) => options.filter((o) => o.label.startsWith(prefix))
+  const beforeAnyAgent = ({ calls }) => (calls.length ? `ran ${calls.join(', ')} before refusing` : null)
+  const turnedAway = (right) => ({ result }) => {
+    const t = result.turnedAway[0]
+    if (result.validated.length || t?.case.id !== 'bead-stages-first') return `validated ${result.validated.map((r) => r.case.id).join()}, turned away ${result.turnedAway.map((r) => r.case.id).join()}`
+    return t.right === right && t.of === reps ? null : `turned away with ${t.right} of ${t.of} right, not ${right} of ${reps}`
+  }
+  const validateOnly = authorArgs(policy, { seeds: [] })
+
+  return [
+    {
+      name: `control: one author per lens for a run's seed (${lenses.length}) and per lens needing no run for a section's (${sectionLenses.length}), each given its own seed and text alone; a case every one of ${reps} answers chose as expected is validated`,
+      control: true,
+      args: authorArgs(policy),
+      expect: ['done', new RegExp(`^${authors} author\\(s\\) wrote ${authors} candidate\\(s\\) for 2 seed\\(s\\), 0 dropped; 1 of 1 case\\(s\\) validated by ${reps} answer\\(s\\), 0 turned away$`)],
+      check: ({ result, options }) => {
+        const read = labelled(options, 'read')
+        const want = [`'${CASE_COMMIT}','${BEAD}'`, `'${TRUNK}','${OPEN_PR}'`, `'${TRUNK}','${BEAD}'`]
+        if (read.length !== 1 || want.some((w) => !read[0].prompt.includes(w))) return 'the reader was not asked for each seed\'s text at its ref and the case\'s at the trunk'
+        const written = labelled(options, 'author ')
+        if (written.some((o) => o.agentType !== 'prompt-case-author')) return 'an author ran without the agentType prompt-case-author'
+        const runLabels = written.filter((o) => o.label.endsWith(SEED_RUN.key)).map((o) => o.label.split(' ')[1])
+        const sectionLabels = written.filter((o) => o.label.endsWith(SEED_SECTION.key)).map((o) => o.label.split(' ')[1])
+        if (runLabels.join() !== lenses.join() || sectionLabels.join() !== sectionLenses.join()) return `wrote through ${runLabels.join()} and ${sectionLabels.join()}`
+        const own = written.find((o) => o.label.endsWith(SEED_RUN.key))
+        if (!own.prompt.includes(SEED_RUN.evidence) || !own.prompt.includes(textAt(CASE_COMMIT, BEAD))) return "a run's author was not given its evidence and the text at its commit"
+        if (own.prompt.includes(SEED_SECTION.evidence) || own.prompt.includes(textAt(TRUNK, BEAD)) || own.prompt.includes('bead-stages-first')) return 'an author was shown another seed, another text or a stored case'
+        const answers = labelled(options, 'answer ')
+        if (answers.length !== reps || answers.some((o) => o.agentType !== 'prompt-case-answerer' || !o.prompt.includes(textAt(TRUNK, BEAD)))) return "the case was not answered by the tool-less answerer with the trunk's text"
+        const c = result.candidates.find((x) => x.key === SEED_RUN.key && x.lens === lenses[0])
+        if (c?.problem !== null || c.case.prompt !== BEAD || c.case.lens !== lenses[0] || JSON.stringify(c.case.source) !== JSON.stringify(SEED_RUN.source)) return `a candidate came back ${JSON.stringify(c)}`
+        const v = result.validated[0]
+        return v?.case.id === 'bead-stages-first' && v.right === reps && v.answers.length === reps ? null : `validated ${JSON.stringify(v)}`
+      },
+    },
+    {
+      name: `a case one of whose ${reps} answers chose another option is turned away, not stored`,
+      args: validateOnly,
+      stubs: { answers: (c, i) => (i === reps ? 'b' : c.expected) },
+      expect: ['done', /; 0 of 1 case\(s\) validated by \d+ answer\(s\), 1 turned away$/],
+      check: turnedAway(reps - 1),
+    },
+    {
+      name: 'a case whose answer returned nothing is turned away, the missing answer named',
+      args: validateOnly,
+      stubs: { answers: (c, i) => (i === 1 ? null : c.expected) },
+      expect: ['done', /; 0 of 1 case\(s\) validated by \d+ answer\(s\), 1 turned away$/],
+      check: (outcome) => turnedAway(reps - 1)(outcome) ?? (outcome.result.turnedAway[0].answers.some((a) => a.option === null && a.why === 'the answerer returned nothing') ? null : 'the missing answer is not named'),
+    },
+    {
+      name: 'a case whose answer chose a place it does not have is turned away',
+      args: validateOnly,
+      stubs: { answers: (c, i) => (i === 1 ? OUT_OF_RANGE : c.expected) },
+      expect: ['done', /; 0 of 1 case\(s\) validated by \d+ answer\(s\), 1 turned away$/],
+      check: turnedAway(reps - 1),
+    },
+    {
+      name: "a reader's copy that does not match its checksum stops the run as unread, by that reason, and no author or answer runs",
+      args: authorArgs(policy),
+      stubs: { reader: (prompt) => ({ output: authorReader(prompt).output.replace('The text', 'A text') }) },
+      expect: ['unread', /not copied verbatim/],
+      check: ({ calls }) => (calls.join() === 'read' ? null : `ran ${calls.join(', ')}`),
+    },
+    {
+      name: 'a reader that returns nothing stops the run as unread',
+      args: authorArgs(policy),
+      stubs: { reader: () => null },
+      expect: ['unread', /^the reader returned nothing$/],
+      check: ({ calls }) => (calls.join() === 'read' ? null : `ran ${calls.join(', ')}`),
+    },
+    {
+      name: "a seed whose text git could not show gets no author, and its candidate says why; the others are written",
+      args: authorArgs(policy),
+      stubs: { texts: (ref, file) => (ref === CASE_COMMIT ? null : textAt(ref, file)) },
+      expect: ['done', new RegExp(`^${sectionLenses.length} author\\(s\\) wrote ${sectionLenses.length} candidate\\(s\\) for 2 seed\\(s\\), 1 dropped;`)],
+      check: ({ result, calls }) => {
+        if (calls.some((l) => l.startsWith('author ') && l.endsWith(SEED_RUN.key))) return 'an author ran on a text git could not show'
+        const c = result.candidates.find((x) => x.key === SEED_RUN.key)
+        return c?.problem === `git could not show ${BEAD} at ${CASE_COMMIT}` ? null : `the seed came back ${JSON.stringify(c)}`
+      },
+    },
+    {
+      name: 'a candidate whose expected answer is none of its options is dropped by that reason, and one whose author returned nothing is dropped too',
+      args: authorArgs(policy, { seeds: [SEED_RUN] }),
+      stubs: { authors: (key, lens) => (lens === lenses[0] ? candidate(key, lens, { expected: 'z' }) : null) },
+      expect: ['done', new RegExp(`^${lenses.length} author\\(s\\) wrote 0 candidate\\(s\\) for 1 seed\\(s\\), ${lenses.length} dropped;`)],
+      check: ({ result }) => {
+        const bad = result.candidates.find((c) => c.lens === lenses[0])
+        if (bad?.problem !== 'its expected answer "z" is none of its options') return `the bad candidate came back ${JSON.stringify(bad)}`
+        const none = result.candidates.filter((c) => c.lens !== lenses[0])
+        return none.every((c) => c.problem === 'the author returned nothing') ? null : `the others came back ${JSON.stringify(none)}`
+      },
+    },
+    {
+      name: 'refused: a lens the workflow has no text for, before any agent runs',
+      args: authorArgs(policy, { policy: { ...promptPolicy(policy), promptReviewCaseLenses: [...lenses, 'invented'] } }),
+      expect: ['refused', /^args\.policy `promptReviewCaseLenses` must be distinct lenses drawn from /],
+      check: beforeAnyAgent,
+    },
+    {
+      name: 'refused: a policy without promptReviewCaseRepetitions',
+      args: authorArgs(policy, { policy: Object.fromEntries(Object.entries(promptPolicy(policy)).filter(([k]) => k !== 'promptReviewCaseRepetitions')) }),
+      expect: ['refused', /^args\.policy has no `promptReviewCaseRepetitions`/],
+      check: beforeAnyAgent,
+    },
+    {
+      name: 'refused: no seed and no case',
+      args: authorArgs(policy, { seeds: [], cases: [] }),
+      expect: ['refused', /^args holds no seed to write a case for and no case to validate$/],
+      check: beforeAnyAgent,
+    },
+    {
+      name: 'refused: a case whose id the bank already holds',
+      args: authorArgs(policy, { known: ['bead-stages-first'] }),
+      expect: ['refused', /^the case id bead-stages-first is already taken$/],
+      check: beforeAnyAgent,
+    },
+    {
+      name: 'refused: a case whose expected answer is none of its options',
+      args: authorArgs(policy, { cases: [storedCase(policy, BEAD, 'bead-stages-first', { expected: 'z' })] }),
+      expect: ['refused', /^args\.cases\[0\] is not a case as `\.claude\/prompt-cases\/README\.md` gives one: its expected answer "z" is none of its options$/],
+      check: beforeAnyAgent,
+    },
+    {
+      name: "refused: a seed whose commit is no hash, so it never reaches the reader's command",
+      args: authorArgs(policy, { seeds: [{ ...SEED_RUN, source: { ...SEED_RUN.source, commit: "x';rm -rf ." } }] }),
+      expect: ['refused', /^seed \.claude\/skills\/bead\/SKILL\.md#stage-before-gates: its commit must be the hash the run read the prompt at$/],
+      check: beforeAnyAgent,
+    },
+    lenses.some((l) => RUN_ONLY_LENSES.includes(l))
+      ? {
+          name: `refused: a case through the ${lenses.find((l) => RUN_ONLY_LENSES.includes(l))} lens whose source is a section`,
+          args: authorArgs(policy, { cases: [storedCase(policy, BEAD, 'bead-stages-first', { lens: lenses.find((l) => RUN_ONLY_LENSES.includes(l)), source: { section: 'A section of bead' } })] }),
+          expect: ['refused', /lens needs a run, and its source is a section$/],
+          check: beforeAnyAgent,
+        }
+      : { name: 'refused: a case through a lens needing a run whose source is a section', args: authorArgs(policy), check: () => 'cannot be exercised: the policy names no lens that needs a run' },
+  ]
 }
 
 /* ------------------------------------------------------- verify-change-trace.js: fixtures ----- */
@@ -2649,7 +3096,7 @@ function unheldResults(suites) {
   }
 }
 
-/* ------------------------------------------------------------------ the test-builder's tools ----- */
+/* -------------------------------------------------------------- the tool-less agents' tools ----- */
 
 /** The `tools:` line of an agent file's frontmatter, or null when it names none, which grants every tool. */
 function toolsOf(text) {
@@ -2658,40 +3105,141 @@ function toolsOf(text) {
   return line ? line[1].trim() : null
 }
 
-/** Why the test-builder's agent file under `root` grants more than its structured output, or null. */
-function toolsProblem(root) {
+/** Why the agent file `file` under `root` grants more than its structured output, or null. */
+function toolsProblem(root, file) {
   let text
   try {
-    text = readFileSync(join(root, TEST_BUILDER_AGENT), 'utf8')
+    text = readFileSync(join(root, file), 'utf8')
   } catch (error) {
-    return `${TEST_BUILDER_AGENT} could not be read: ${error.message}`
+    return `${file} could not be read: ${error.message}`
   }
   const tools = toolsOf(text)
   return tools === 'StructuredOutput'
     ? null
-    : `${TEST_BUILDER_AGENT} gives the test-builder the tools ${tools ?? 'it names none of, which is every tool'}, where it may have StructuredOutput alone, so that nothing on disk or in git reaches it`
+    : `${file} gives its agent the tools ${tools ?? 'it names none of, which is every tool'}, where it may have StructuredOutput alone, so that nothing on disk or in git reaches it`
 }
 
 /**
- * The tools line held on the tracked agent file, which must pass, and on a copy under the temporary
- * directory that adds Read, which must be refused by its reason.
+ * For each tool-less agent, the tools line held on the tracked file, which must pass, and on a copy
+ * under the temporary directory that adds Read, which must be refused by its reason.
  */
 function toolsResults() {
-  const control = toolsProblem(ROOT)
   const root = mkdtempSync(join(tmpdir(), 'workflows-tools-'))
   try {
     mkdirSync(join(root, '.claude/agents'), { recursive: true })
-    const live = control ? '' : readFileSync(join(ROOT, TEST_BUILDER_AGENT), 'utf8')
-    writeFileSync(join(root, TEST_BUILDER_AGENT), live.replace(/^tools:.*$/m, 'tools: StructuredOutput, Read'))
-    const doctored = toolsProblem(root)
-    const refused = /gives the test-builder the tools StructuredOutput, Read, where it may have StructuredOutput alone/.test(doctored ?? '')
+    return TOOLLESS_AGENTS.flatMap((file) => {
+      const control = toolsProblem(ROOT, file)
+      const live = control ? '' : readFileSync(join(ROOT, file), 'utf8')
+      writeFileSync(join(root, file), live.replace(/^tools:.*$/m, 'tools: StructuredOutput, Read'))
+      const doctored = toolsProblem(root, file)
+      const refused = /gives its agent the tools StructuredOutput, Read, where it may have StructuredOutput alone/.test(doctored ?? '')
+      return [
+        { file, name: "control: the tracked agent's tools are StructuredOutput alone", control: true, ok: control === null, detail: control ?? 'holds' },
+        { file, name: 'the agent given Read beside its structured output is refused, by its reason', control: false, ok: refused, detail: refused ? 'holds' : `reported ${JSON.stringify(doctored)}` },
+      ]
+    })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+}
+
+/* --------------------------------------------------------------------- the stored cases' bank ----- */
+
+/** Every stored case under `root`'s bank, each with its file, or why the bank cannot be read. */
+function readBank(root) {
+  let names
+  try {
+    names = readdirSync(join(root, CASES_DIR)).filter((n) => n.endsWith('.json')).sort()
+  } catch (error) {
+    return { problem: `${CASES_DIR} could not be listed: ${error.message}` }
+  }
+  const cases = []
+  for (const name of names) {
+    let c
+    try {
+      c = JSON.parse(readFileSync(join(root, CASES_DIR, name), 'utf8'))
+    } catch (error) {
+      return { problem: `${CASES_DIR}/${name} is not JSON: ${error.message}` }
+    }
+    if (c?.id !== name.replace(/\.json$/, '')) return { problem: `${CASES_DIR}/${name} holds the case ${JSON.stringify(c?.id)}, not the one its name gives` }
+    cases.push(c)
+  }
+  return { cases }
+}
+
+/** Why the bank under `root` is not one both workflows accept, or null: the authoring workflow validates it, and the review answers every case. */
+async function bankProblem(root, authorBody, reviewBody, policy) {
+  const bank = readBank(root)
+  if (bank.problem) return bank.problem
+  if (!bank.cases.length) return null
+  const authored = await run(authorBody, { policy: promptPolicy(policy), cases: bank.cases }, authorAnswer({ cases: bank.cases }))
+  if (authored.problems.length) return authored.problems.join(' | ')
+  if (authored.result.stopped !== 'done') return `the authoring workflow ${authored.result.stopped} the bank: ${authored.result.why}`
+  if (authored.result.validated.length !== bank.cases.length) return `the authoring workflow validated ${authored.result.validated.length} of the bank's ${bank.cases.length} case(s)`
+  const files = [...new Set(bank.cases.map((c) => c.prompt))]
+  const groups = files.map((file, i) => ({ id: `bank-${i + 1}`, files: [file], findings: [reviewFinding(policy, file, 'bank', [RUN_A])] }))
+  const args = { policy: promptPolicy(policy), groups, cases: bank.cases }
+  const reviewed = await run(reviewBody, args, reviewAnswer(args, Object.fromEntries(groups.map((g) => [g.id, (group) => changed(group)]))))
+  if (reviewed.problems.length) return reviewed.problems.join(' | ')
+  if (reviewed.result.stopped !== 'done') return `the review ${reviewed.result.stopped} the bank: ${reviewed.result.why}`
+  const held = reviewed.result.cases.filter((r) => r.outcome === 'held').length
+  return held === bank.cases.length ? null : `the review held ${held} of the bank's ${bank.cases.length} case(s)`
+}
+
+/**
+ * The tracked bank, which both workflows must accept, and a copy under the temporary directory with
+ * one case's expected answer made none of its options, which must be refused by that reason.
+ */
+async function bankResults(authorBody, reviewBody, policy) {
+  const bank = readBank(ROOT)
+  const control = await bankProblem(ROOT, authorBody, reviewBody, policy)
+  const root = mkdtempSync(join(tmpdir(), 'workflows-bank-'))
+  try {
+    mkdirSync(join(root, CASES_DIR), { recursive: true })
+    const first = bank.cases?.[0] ?? storedCase(policy, BEAD, 'bead-stages-first')
+    writeFileSync(join(root, CASES_DIR, `${first.id}.json`), JSON.stringify({ ...first, expected: 'z' }))
+    const doctored = await bankProblem(root, authorBody, reviewBody, policy)
+    const refused = /^the authoring workflow refused the bank: args\.cases\[0\] is not a case as .* gives one: its expected answer "z" is none of its options$/.test(doctored ?? '')
     return [
-      { file: TEST_BUILDER_AGENT, name: "control: the tracked test-builder's tools are StructuredOutput alone", control: true, ok: control === null, detail: control ?? 'holds' },
-      { file: TEST_BUILDER_AGENT, name: 'a test-builder given Read beside its structured output is refused, by its reason', control: false, ok: refused, detail: refused ? 'holds' : `reported ${JSON.stringify(doctored)}` },
+      { file: CASES_DIR, name: `control: every stored case (${bank.cases?.length ?? 0}) is one the authoring workflow validates and the review answers, its file named for its id`, control: true, ok: control === null, detail: control ?? 'holds' },
+      { file: CASES_DIR, name: 'a stored case whose expected answer is none of its options is refused, by its reason', control: false, ok: refused, detail: refused ? 'holds' : `reported ${JSON.stringify(doctored)}` },
     ]
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
+}
+
+/**
+ * The answer prompt each workflow builds for one case and one text, at every repetition: the two
+ * must be one, so a case is answered alike when it is validated and when it is judged. The doctored
+ * run changes one word of the review's copy, which must be seen.
+ */
+async function parityResults(authorBody, reviewBody, policy) {
+  const reps = policy.promptReviewCaseRepetitions
+  const c = storedCase(policy, BEAD, 'bead-parity')
+  const SAME = 'One text of the prompt, the same at every ref.'
+  const authorPrompts = async () => {
+    const out = await run(authorBody, { policy: promptPolicy(policy), cases: [c] }, authorAnswer({ cases: [c] }, { texts: () => SAME }))
+    return out.options.filter((o) => o.label.startsWith('answer ')).map((o) => o.prompt)
+  }
+  const reviewPrompts = async (body) => {
+    const args = reviewArgs(policy, undefined, { cases: [c] })
+    const reader = (prompt) => reviewReader(prompt, (out) => {
+      const texts = out.texts.map((t) => ({ ...t, text: SAME }))
+      return { ...out, texts, fnv: fnv(JSON.stringify({ base: out.base, texts })) }
+    })
+    const out = await run(body, args, reviewAnswer(args, {}, undefined, undefined, reader))
+    const of = (side) => out.options.filter((o) => o.label.startsWith('answer ') && o.label.includes(` ${side} `)).map((o) => o.prompt)
+    return [of('old'), of('new')]
+  }
+  const one = (a, [olds, news]) => a.length === reps && a.every((p, i) => p === olds[i] && p === news[i])
+  const authored = await authorPrompts()
+  const control = one(authored, await reviewPrompts(reviewBody))
+  const doctored = one(authored, await reviewPrompts(reviewBody.replace('the version under test', 'the version being tested')))
+  return [
+    { file: AUTHOR, name: `control: the authoring and review workflows give one case and text one answer prompt at each of ${reps} repetition(s)`, control: true, ok: control, detail: control ? 'holds' : 'the two answer prompts differ' },
+    { file: AUTHOR, name: "a word changed in the review's answer prompt is seen", control: false, ok: !doctored, detail: !doctored ? 'holds' : 'the changed prompt still matched' },
+  ]
 }
 
 /* ------------------------------------------------------------------------------- selftest ----- */
@@ -2706,7 +3254,7 @@ function judge(c, outcome) {
 }
 
 async function main() {
-  const suites = [{ file: BUILD }, { file: REVIEW }, { file: VERIFY }]
+  const suites = [{ file: BUILD }, { file: REVIEW }, { file: VERIFY }, { file: AUTHOR }]
   const staticProblems = unheld(ROOT, suites)
   for (const s of suites) {
     Object.assign(s, readWorkflow(ROOT, s.file))
@@ -2726,8 +3274,9 @@ async function main() {
     process.exit(1)
   }
   suites[0].cases = buildCases(policy).map((c) => ({ ...c, answer: scenario(policy, c.scenario), twinAnswer: c.twin && scenario(policy, c.twin) }))
-  suites[1].cases = reviewCases(policy).map((c) => ({ ...c, answer: reviewAnswer(c.args, c.reports, c.verdict) }))
+  suites[1].cases = reviewCases(policy).map((c) => ({ ...c, answer: reviewAnswer(c.args, c.reports, c.verdict, c.answers, c.reader) }))
   suites[2].cases = verifyCases(policy).map((c) => ({ ...c, answer: verifyAnswer(c.args, c.scenario) }))
+  suites[3].cases = authorCases(policy).map((c) => ({ ...c, answer: authorAnswer(c.args, c.stubs) }))
 
   const results = unheldResults(suites)
   if (!results[0].ok) {
@@ -2735,8 +3284,9 @@ async function main() {
     process.exit(1)
   }
   const tools = toolsResults()
-  if (!tools[0].ok) {
-    console.error(`workflows selftest: the test-builder's tools line fails on the tracked agent file, so its refusal cannot be trusted: ${tools[0].detail}`)
+  const untrusted = tools.find((t) => t.control && !t.ok)
+  if (untrusted) {
+    console.error(`workflows selftest: the tools line of ${untrusted.file} fails on the tracked agent file, so its refusal cannot be trusted: ${untrusted.detail}`)
     process.exit(1)
   }
   results.push(...tools)
@@ -2758,11 +3308,18 @@ async function main() {
     process.exit(1)
   }
   results.push(...rendered)
+  for (const extra of [await bankResults(suites[3].body, suites[1].body, policy), await parityResults(suites[3].body, suites[1].body, policy)]) {
+    if (!extra[0].ok) {
+      console.error(`workflows selftest: ${extra[0].name} fails, so its refusal cannot be trusted: ${extra[0].detail}`)
+      process.exit(1)
+    }
+    results.push(...extra)
+  }
 
   const failed = results.filter((r) => !r.ok)
   for (const { file, name, ok, detail } of results) console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${file.split('/').pop()}: ${name} -- ${detail}`)
   const renderers = [...new Set(rendered.map((r) => r.file))]
-  const tally = [...suites.map((s) => s.file), ...renderers, TEST_BUILDER_AGENT, WORKFLOWS].map((file) => {
+  const tally = [...suites.map((s) => s.file), ...renderers, ...TOOLLESS_AGENTS, CASES_DIR, WORKFLOWS].map((file) => {
     const mine = results.filter((r) => r.file === file)
     const controls = mine.filter((r) => r.control).length
     return `${file === WORKFLOWS ? 'the unheld-file check' : file}: ${controls} control(s) and ${mine.length - controls} scenario(s)`
