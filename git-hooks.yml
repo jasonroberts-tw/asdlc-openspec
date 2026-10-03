@@ -383,16 +383,24 @@ pre-push:
     # which gap each row is, which gaps skeptics judge and how many, what a run again keeps), its
     # result then rendered by the trace and pull-request-body renderers, and a stubbed fresh run by the
     # verification report's two renderers; the change-build workflow's
-    # test-builder and architect, each stop and route by its reason, and the test-builder agent's tools
-    # line; and refuses a workflow with no suite. Reads the workflows, the policy, the test-builder's
-    # agent file and the renderers, and writes only under the temporary directory. 0.27 s wall, both of
-    # two runs, through `node --run` (`/usr/bin/time -p`) on a macOS 26.7 laptop with Node 26.8.1,
-    # 2026-09-29, much of it the trace renderers' four child processes; 0.60 s on 2026-09-29 with the
-    # report's renderers and their cases (asdlc-openspec-j09.14).
+    # test-builder and architect, each stop and route by its reason, and the tools line of each agent a
+    # workflow runs by agentType with no tool but its structured output; the prompt cases' authoring
+    # workflow with the policy's `promptReviewCase*` keys (how many authors, which case it stores), the
+    # prompt review's answers to stored cases (which outcome keeps a branch out), and every stored case
+    # under `.claude/prompt-cases/` through both; and refuses a workflow with no suite. Reads the
+    # workflows, the policy, those agent files, the stored cases and the renderers, and writes only under
+    # the temporary directory. 0.27 s wall, both of two runs, through `node --run` (`/usr/bin/time -p`)
+    # on a macOS 26.7 laptop with Node 26.8.1, 2026-09-29, much of it the trace renderers' four child
+    # processes; 0.60 s on 2026-09-29 with the report's renderers and their cases
+    # (asdlc-openspec-j09.14); 0.63 s and 0.62 s on 2026-10-03 with the stored cases' suites, timed
+    # by a script around `node --run` on the same laptop (asdlc-openspec-7c1).
     - name: workflows-selftest
       glob:
         - '.claude/workflows/**'
         - '.claude/agents/test-builder.md'
+        - '.claude/agents/prompt-case-author.md'
+        - '.claude/agents/prompt-case-answerer.md'
+        - '.claude/prompt-cases/**'
         - 'scripts/workflows.selftest.mjs'
         - 'scripts/render-trace.mjs'
         - 'scripts/render-pr-body.mjs'

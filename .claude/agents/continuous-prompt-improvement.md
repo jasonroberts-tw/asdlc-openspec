@@ -60,23 +60,37 @@ contradict each other; a file is in one group only. Its findings are those that 
 in the fields the script's header gives `args.groups`. Add to that evidence the counts across runs
 the analyses end with.
 
+A finding whose right answer a source settles, the run's action, the pull-request reviewer's finding
+or a later commit, is also a seed for a stored decision case, held or not, unless a case under
+`.claude/prompt-cases/` already holds that decision. A seed is the fields
+`.claude/workflows/author-prompt-cases.js`'s header gives `args.seeds`.
+
 A finding that concerns no prompt, such as a gate or the product, is not this review's: the run that
 found it files it (`CLAUDE.md` § The task store). Name it in the description, or in the closing
 report when no pull request opens (§ 6).
 
 ## 4. Run the workflow
 
-If § 3 formed no group, make no worktree, skip this section and § 5, and go to § 6. Otherwise make
-your worktree with `EnterWorktree`, named by your review's name, and run `npm ci` there. Then run the
-Workflow tool with `scriptPath` set to `.claude/workflows/review-prompts.js` in that worktree, and
-`args` holding the groups of § 3, what § 2 printed as `policy`, and anything already settled. The
-script's header says what it takes, returns and refuses.
+If § 3 formed no group and found no seed, make no worktree, skip this section and § 5, and go to
+§ 6. Otherwise make your worktree with `EnterWorktree`, named by your review's name, and run `npm ci`
+there. Run each workflow below with the Workflow tool, `scriptPath` in that worktree and what § 2
+printed as `policy`; its header says what it takes, returns and refuses.
+
+With a seed, run `.claude/workflows/author-prompt-cases.js` with the seeds, and as `known` the ids
+under `.claude/prompt-cases/`. For each seed, choose one candidate or combine several, give it an
+id, and drop one whose answer no source settles. Run it again with those as `cases`.
+
+With a group, run `.claude/workflows/review-prompts.js` with the groups of § 3, anything already
+settled, and as `cases` every case under `.claude/prompt-cases/` whose `prompt` is a group's file,
+with those just validated.
 
 ## 5. Merge, gate, and open one pull request
 
-If `merge` is empty, open no pull request and go to § 6.
+If `merge` is empty and § 4 validated no case, open no pull request and go to § 6.
 
-Otherwise merge each branch in `merge` into yours, in its order, with `git merge --no-ff <branch>`.
+Otherwise write each validated case to `.claude/prompt-cases/<id>.json`, with its row in that
+directory's README, and commit them. Merge each branch in `merge` into yours, in its order, with
+`git merge --no-ff <branch>`.
 Before each merge, check what the agent reported against git: `git diff --name-only
 origin/main...<branch>` must list only files of that branch's group. A branch that lists another file
 is not merged: its group's runs are held as the workflow's `runsHeld` are. A conflict stops the
@@ -125,7 +139,10 @@ sections are the value.
    often the situation arises, what it costs when it does, the net words its edit adds, and its fix:
    the sentence added, changed or removed, and where. Under each, every skeptic's vote as the
    workflow returns it. Before a file's findings, its consolidation, if it has one: the table
-   § How a prompt is consolidated asks for, and its skeptics' votes.
+   § How a prompt is consolidated asks for, and its skeptics' votes. After them, the stored cases:
+   each the review workflow answered, from its `cases`, with its outcome and its right answers of
+   each text; each § 4 validated or turned away, with its counts; and the cost, the authors and
+   answers each workflow's `counts` gives.
 4. **Corrections to the runs' own analyses.** Where a session's account of itself is wrong, say so,
    with the evidence.
 5. **What this review read and held.** The runs marked read; each run held with the group that held

@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-31 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30 and D-31 added 2026-10-03).**
+**Status: every decision from D-01 to D-32 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31 and D-32 added 2026-10-03).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-31` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-32` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -87,6 +87,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-29** | An issue's type and priority are the first rows of a rubric in the policy that fit it, and `beads:check` refuses a type the rubric does not name | `issueTypes`, `issuePriorities` and `foundIssueCommand` in `tools/policy/vocabulary.json`; rule 5 of `scripts/check-beads.mjs`, held by `beads:selftest` at pre-push and in CI; `CLAUDE.md` § The task store, consolidated first, and its budget in `tools/policy/prompt-budgets.json` |
 | **D-30** | The explore skill is OpenSpec's explore stance, adapted: it draws, cites, writes only a brief, and hands a change to `change-propose` | `.claude/skills/explore/SKILL.md` and the `LICENSE` beside it; its budget in `tools/policy/prompt-budgets.json`; the skills row of `.claude/README.md`; `README.md` § Working here; D-13's amendment |
 | **D-31** | mise is the toolchain: `mise.toml` is the one home of every tool version, and CI, the dev container and the setup steps install from it | `mise.toml` and `mise.lock`; `check:toolchain` and its selftest at pre-push and in CI; `jdx/mise-action` in both workflows, with `bd` from it held by `pr-review:check`; the dev container's mise layer; `README.md` § Setup; `toolchainLockPlatforms` in `tools/policy/tool-settings.json`; D-26's amendment |
+| **D-32** | A prompt review answers each changed prompt's stored decision cases with its old text and its new, and a case that flips from right to wrong keeps the edit out | `.claude/workflows/author-prompt-cases.js` and the Regress phase of `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; the agents `prompt-case-author` and `prompt-case-answerer`; `.claude/prompt-cases/` and its first cases; `promptReviewCaseLenses` and `promptReviewCaseRepetitions` in `tools/policy/agent-workflows.json`; the reviewer and the workflow, consolidated first; D-10's, D-12's and D-17's amendments |
 
 ## Risks
 
@@ -586,6 +587,8 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 
 > **Amended 2026-09-29 by D-17.** The held line's form is no longer in `CLAUDE.md` § Prompt reviews: `.claude/agents/continuous-prompt-improvement.md` § 6. Mark what was read spells it, and the rule stands. Item 7's source of the policy no longer holds: the session prints the `promptReview*` keys from `main`'s `tools/policy.json` through one `gh api` call, before it applies any threshold and before any worktree exists, where it printed them from the review worktree's copy. Both read the trunk, so `args.policy` carries the same values; the script still reads no file and refuses a key that is missing or of the wrong shape.
 
+> **Amended 2026-10-03 by D-32.** Item 4 merged a branch once a majority upheld every edit on it. Such a branch is now answered too: each stored decision case of a file it changes, with the old text and the new, and a case that flips from right to wrong, or goes unanswered, keeps it out as an edit not upheld does. Its runs are still read, and its findings held with the case named.
+
 ### D-11 · beads:check refuses an open found issue with no asset label, as D-06 item 4 asked
 
 **Recorded 2026-09-26**, carried by `asdlc-openspec-dzi`. D-06 item 4, the maintainer's on 2026-09-24, named this gate as the one to come. This entry records that it now holds, and corrects the two places the register said no gate did.
@@ -648,6 +651,8 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 **Figures.** Each is `node scripts/check-prompts.mjs --counts`, at `d69527a` for the first figure and at this entry's commit for the second: `.claude/skills/bead/SKILL.md` 1,857 and 1,635; `.claude/agents/continuous-prompt-improvement.md` 2,261 and 2,516; the literals of `.claude/workflows/review-prompts.js` 1,441 and 1,720. What each consolidation freed on its own, 229, 126 and 43, is the same command at its own commit, and the pull request lists those commits; bead's 7 words back came from the review, which found that removing one qualifier had broadened a rule. The ACE figures are the paper's.
 
 > **Amended 2026-09-29 by D-17.** Item 4 holds in a workflow's literals too: a workflow's agents load `CLAUDE.md`, so a restatement of it may go there as anywhere, where the agent's § How a prompt is consolidated had counted only the files a prompt sends its session to.
+
+> **Amended 2026-10-03 by D-32.** Item 5 merged a consolidated file's branch once its consolidation was upheld too. The stored decision cases of that file are now answered as well, its old text the trunk's and its new the branch's, consolidation and edit together, and a case that flips keeps the branch out. A rule a consolidation lost that a stored case holds now shows as a flip.
 
 ### D-13 · The agentic test strategy is adopted, and each of its rules lands in a home of its own
 
@@ -872,6 +877,8 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 - **`README.md` and `docs/playbook.md`:** a row for the skill, and the rows and steps that cited `CLAUDE.md` § Prompt reviews for what moved.
 
 **Figures.** Each word count is `node scripts/check-prompts.mjs --counts`, at `658d708` for the first figure and at this entry's commit for the second: `CLAUDE.md` 3,886 and 3,262; `.claude/agents/continuous-prompt-improvement.md` 2,516 and 2,161, through 2,069 at the consolidation's commit; `.claude/skills/bead/SKILL.md` 1,617 and 1,609; the new skill 672. The probe is workflow run `wf_d0754fca-d86`, whose record is outside this repository.
+
+> **Amended 2026-10-03 by D-32.** Item 4 had the reviewer make a worktree only when a group formed. It now makes one when a group formed or a finding settled by a source seeds a stored decision case, since `.claude/workflows/author-prompt-cases.js` runs from it; with neither, it still makes none.
 
 ### D-18 · RTK is removed, with the ripgrep step it needed and the guard's reading of its prefix
 
@@ -1558,6 +1565,50 @@ Where it loses:
 - 61 cases in `check:toolchain:selftest`, 5 of them controls; 50 of 50 deletions each turning a case red, one at a time: the gate's 39 `problems.push` sites, its one `notes.push`, its 5 second-home patterns and the 5 spellings of rule 6. `npm run check:toolchain:selftest`, and a run of it with each of those disabled in turn, by a helper that is not tracked.
 - 0.41 s wall for the gate and 2.02 s for its selftest: the jobs' comments in `git-hooks.yml`, which name the host.
 - The spike's figures, each in `asdlc-openspec-8juz.1`'s notes with its command: medians of 95 ms through `node --run` and 91 to 98 ms through `mise run` over 20 runs, 39 of 39 pre-push gates with the same exit status both ways, and 7 tools installed in 6.0 s.
+
+### D-32 · A prompt review answers each changed prompt's stored decision cases with its old text and its new, and a case that flips from right to wrong keeps the edit out
+
+**Recorded 2026-10-03**, carried by `asdlc-openspec-7c1`. The maintainer chose items 1 to 3 on 2026-09-26 and items 4 to 7 on 2026-10-03, each from options put with the case where the recommendation loses: item 3 was their own proposal, the others the recommendation. The session that built it chose items 8 and 9.
+
+**Builds on / amends:** amends D-10, whose item 4 merged a branch once a majority upheld every edit on it; D-12, whose item 5 merged a consolidated file's branch once its consolidation was upheld too; and D-17, whose item 4 had the reviewer make a worktree only when a group formed. Builds on D-08, whose batched review it extends; on D-27, whose `tools/policy/agent-workflows.json` holds the new keys and `tools/policy/prompt-budgets.json` the new and raised budgets; and on D-07, which leaves a change to this register or a budget to a person.
+
+**Decision.** How a prompt review tests what an edit does to the decisions its prompt already makes. `.claude/prompt-cases/README.md` holds a case's format and how one is written, validated and judged; the header of each workflow, `.claude/workflows/author-prompt-cases.js` and `.claude/workflows/review-prompts.js`, holds its mechanics; `.claude/agents/continuous-prompt-improvement.md` § 3 to § 5 and § 7 hold the reviewer's part. Each item gives its cost per review.
+
+1. **Stored decision cases, run as a regression check.** For each file a branch changes, by an edit or a consolidation, every stored case of that file is answered with the old text and the new, once a majority of the branch's skeptics upheld it. An edit's own case is not required to fail first. Cost: twice `promptReviewCaseRepetitions` answers for each stored case of each changed file, and one reader for each branch with such a case. Where it loses: the bank starts at the cases of item 7, so most paths through most prompts have no case, and a clean run can read as safe when it covered little.
+2. **A case the old text answers right and the new text answers wrong keeps the branch out**, as an edit a majority did not uphold does under D-10; so does a case left unanswered. A text answers it right when a majority of its answers chose the expected option. Cost: none beyond item 1. Where it loses: a case whose expected answer the edit means to change blocks that fix until a person updates the case; `asdlc-openspec-a484` asks whether the edit's finding may.
+3. **Several authors, each with narrowly scoped context, write candidate cases for a settled finding, and the reviewer chooses one or combines them.** One author per lens `promptReviewCaseLenses` names, each given one finding's evidence, the prompt as that run read it, and `CLAUDE.md`, in a workflow of its own run before `review-prompts.js`, so no one who shapes a case has seen the change it will judge. A seed drawn from a section gets no lens that needs a run. Cost: one author per lens for each settled finding, then the answers of item 4. Where it loses: an author cannot see that two findings are one, so the reviewer merges their candidates by hand; the case stored still rests on the reviewer's one choice, and a combined case is one no author wrote.
+4. **A case is stored only when every one of `promptReviewCaseRepetitions` answers with the trunk's text chooses its expected option.** Cost: that many answers for each case chosen. Where it loses: a sound case answered right 80% of the time is turned away about half the time, so the bank grows slowly; and a case that shows a failure the trunk still has is turned away, though it is evidence for an edit.
+5. **A case's expected answer is an option, judged in code, never prose the prompt writes; its source is a run, with the point of its analysis and the commit the run read the prompt at, or a prompt's section.** The second admits the cases the issues waiting on this one write from a prompt's rules. Cost: none. Where it loses: a prompt whose output is prose, such as eli5, is held only on what it says it would do; `asdlc-openspec-1kie` asks whether a model grades prose cases.
+6. **One JSON file per case under `.claude/prompt-cases/`, with a `README.md`, carried in the review's pull request**, whose description lists each case's outcome and counts and the authors and answers each workflow spent. The reviewer opens one when it validated a case, even with no branch to merge. Cost: none. Where it loses: a review that only adds cases opens a pull request that someone still has to merge.
+7. **The first cases are built by running the authoring workflow on the 9 settled findings** that `asdlc-openspec-7c1`'s description lists, each re-checked against its analysis first. Cost: once, the authors, a reader and the answers the Figures below give. Where it loses: the workflow's first real run is part of the change that adds it.
+8. **Each author and each answer is an agent by `agentType` whose only tool is its structured output**, `prompt-case-author` and `prompt-case-answerer`, as `test-builder` is, so it cannot read a case's expected answer or another version of the prompt. One reader agent prints the texts with a checksum the script re-derives, and each answer sees the options in an order turned one place per repetition. Where it loses: an agentType resolves from the checkout the calling session started in, which for a review is the primary checkout, so until that checkout's `main` holds this change every answer returns nothing and every branch with a stored case is kept out.
+9. **The reviewer makes its worktree when a group formed or a seed was found**, since the authoring workflow runs from it. Where it loses: a review whose seeds all yield no case cuts a worktree for nothing.
+
+**Why.** A skeptic under D-10 reads an edit's diff and asks whether the runs it was given would have gone differently and whether another caller breaks; nothing ran the edited prompt against a decision it already made right. Point 7 of `asdlc-openspec-aa0`'s analysis records one: a consolidation of `bead` dropped "stated as requirements" and broadened a routing rule, and the pull-request reviewer, not the review, caught it. Superpowers' `writing-skills` tests a skill with written scenarios that each force a choice, and the maintainer took that shape on 2026-09-26. Six alternatives lost:
+
+- **Replaying whole recorded runs**, the issue's first framing. Claude Code cannot resume a run from a mid-point, and a whole `bead` run needs a sandbox for git, GitHub and `bd`.
+- **Requiring each edit's own case to fail on the old text first.** In 6 of the 9 settled findings the run had already chosen right under the old text, so it would hold most edits and add little to D-10's first skeptic question.
+- **`claude plugin eval` as the harness**, moved to `asdlc-openspec-31k`, since packaging the prompts as a plugin has value beyond evaluation.
+- **A majority of the repetitions as the bar to store a case.** A case answered right 70% of the time on both texts would be stored 78% of the time and then flip by noise alone in 17% of the reviews that change its prompt.
+- **llm-rubric as the judge of prose cases**, moved to `asdlc-openspec-1kie`: a devDependency, a pinned grader, and a key this repository does not store.
+- **An answer with tools, told to read one version.** It could read the case's expected answer under `.claude/prompt-cases/`, and nothing would show it had.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound; amendments under D-10, D-12 and D-17.
+- **Added:** `.claude/workflows/author-prompt-cases.js`; `.claude/agents/prompt-case-author.md` and `.claude/agents/prompt-case-answerer.md`; `.claude/prompt-cases/`, its `README.md` and the first cases.
+- **`.claude/workflows/review-prompts.js`:** consolidated under D-12 in a commit of its own, then `args.cases`, the Regress phase, the `regressed` status, `cases` in its result, and the `promptReviewCaseRepetitions` key it reads.
+- **`.claude/agents/continuous-prompt-improvement.md`:** consolidated under D-12 in a commit of its own, then the seeds in § 3, the authoring workflow and the cases passed in § 4, the cases written in § 5, and the stored cases in § 7 item 3.
+- **`tools/policy/agent-workflows.json`:** `promptReviewCaseLenses` and `promptReviewCaseRepetitions`, each with its `Means`, and the record's header naming them. **`tools/policy/prompt-budgets.json`:** a budget for each new prompt, and the raised budgets of the two consolidated ones.
+- **`scripts/workflows.selftest.mjs`:** a suite for the authoring workflow, the stored cases' cases in the review's suite, the bank run through both workflows, one answer prompt held across the two, and the two agents' tools lines; its job's glob and cost in `git-hooks.yml`, and its step's comment in `.github/workflows/verify.yml`.
+- **`README.md`, `.claude/README.md` and `scripts/README.md`:** the rows that describe the workflows, the agents, the bank and the selftest.
+
+**Figures.**
+
+- 9 settled findings, `asdlc-openspec-7c1`'s description, § Current state and § Re-measured 2026-10-03: `bead` 3, `fan-out-work` 4, `continuous-prompt-improvement` 1 and the worktree briefing 1.
+- At the policy's values, 3 lenses and 3 repetitions: a review spends 6 answers on each stored case of each changed file, 3 authors on each settled finding, and 3 answers on each case it validates (`tools/policy/agent-workflows.json`).
+- The probabilities in item 4 and in the alternatives are binomial: with n answers each right with probability p, a text is right when at least floor(n/2)+1 are, a case is stored with probability p^n, and a stored case flips by noise with probability P(right)·(1 − P(right)). At n = 3: p = 0.7 gives 0.784 right, 0.343 stored and 0.169 flipped; p = 0.8 gives 0.512 stored; p = 0.95 gives 0.857 stored and 0.007 flipped.
+- Word counts, each `node scripts/check-prompts.mjs --counts`: the literals of `review-prompts.js` 1,720 at `e8919c3`, 1,683 after its consolidation, and 2,006 with the cases' step; `continuous-prompt-improvement.md` 2,161, 2,076 and 2,256.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

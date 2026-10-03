@@ -1,10 +1,11 @@
 export const meta = {
   name: 'review-prompts',
-  description: 'Review the prompt files a batch of prompt-run analyses concerns, one agent per file or group of files in a worktree of its own, have skeptics judge each edit, and return which branches to merge, which analyses were read and which findings were held',
+  description: 'Review the prompt files a batch of prompt-run analyses concerns, one agent per file or group of files in a worktree of its own, have skeptics judge each edit, answer the stored decision cases of each changed file with its old text and its new, and return which branches to merge, which analyses were read and which findings were held',
   whenToUse: 'Step 4 of the continuous-prompt-improvement agent, once per review, from the review worktree',
   phases: [
     { title: 'Review', detail: 'one agent per file or group of files, each in its own worktree, changes its files or leaves them' },
     { title: 'Confirm', detail: "skeptics, as many as the policy gives the finding's severity, judge each edit against its branch's diff" },
+    { title: 'Regress', detail: 'each stored case of a file an upheld branch changes, answered with the old text and the new' },
   ],
 }
 
@@ -16,10 +17,12 @@ export const meta = {
  * each finding across runs, holds each one below the threshold, groups the rest by the prompt file
  * each concerns, and passes the groups here. Each group gets one agent, in a worktree of its own,
  * which changes its files and commits on its branch, or changes nothing. Skeptics then judge each
- * change against its branch's diff. This script judges each agent's report and tallies each vote in
- * code, and returns the branches the session may merge, the analyses it may mark read and the
- * findings it holds. It merges nothing, pushes nothing and writes nothing to the tracker: the session
- * does all three (`.claude/agents/continuous-prompt-improvement.md` § 5 and § 6).
+ * change against its branch's diff, and each stored decision case of a file an upheld branch changes
+ * is answered with that file's old text and its new (`docs/decisions.md` § D-32). This script judges
+ * each agent's report and tallies each vote and each answer in code, and returns the branches the
+ * session may merge, the analyses it may mark read and the findings it holds. It merges nothing,
+ * pushes nothing and writes nothing to the tracker: the session does all three
+ * (`.claude/agents/continuous-prompt-improvement.md` § 5 and § 6).
  *
  * THE FAILURE IT EXISTS TO PREVENT. On 2026-09-25 two reviews of `.claude/skills/bead/SKILL.md` ran at
  * once, one per run, and collided: #48 and #51 were superseded by #53, which carries one commit from
@@ -35,7 +38,11 @@ export const meta = {
  * held line records, so that its count starts again at the next review. Since asdlc-openspec-aa0 it
  * would also let through a consolidation that removes a rule and says nowhere where the rule went, or
  * one no majority of its skeptics upheld: a rewrite that collapses a context loses what the next run
- * needed, and nothing says so (https://arxiv.org/abs/2510.04618, "context collapse").
+ * needed, and nothing says so (https://arxiv.org/abs/2510.04618, "context collapse"). Since
+ * asdlc-openspec-7c1 it would also let through an edit that turns a decision the prompt made right into
+ * a wrong one, which a skeptic reading the diff for the runs it was given never sees; an answer from
+ * an agent that could read the case's expected answer; and a text copied with a clause lost, so that
+ * the answers judge a prompt no session reads.
  *
  * Wrong the other way, it refuses what it should pass. On 2026-09-28 (run wf_5aec3e94-07b) it refused
  * 3 of 4 groups, each with an edit whose gates passed, because each listed under `notChanged` a point
@@ -61,17 +68,20 @@ export const meta = {
  *                           lines name
  *                 runs      the run ids in this batch that showed it, each as its marker line gives it
  *                 evidence  what those runs showed
- *   policy    the `promptReview*` keys of `tools/policy/agent-workflows.json`, as the agent's § 4
- *             prints them; this script reads the three in POLICY_KEYS below and ignores the rest
+ *   policy    the `promptReview*` keys of `tools/policy/agent-workflows.json`, as the agent's § 2
+ *             prints them; this script reads the four in POLICY_KEYS below and ignores the rest
  *   settled   optional [string]: decided already, by the maintainer or an earlier review; no agent
  *             raises it again
+ *   cases     optional [case]: every stored decision case, in the format
+ *             `.claude/prompt-cases/README.md` gives, whose prompt is a file of a group, and each new
+ *             one `.claude/workflows/author-prompt-cases.js` validated for this review
  *
  * THE THRESHOLD, checked before any agent runs. A finding meets it when its count is at least
  * `promptReviewRecurrenceCount` or its severity is in `promptReviewMajorSeverities`. The session holds
  * every finding that meets neither, so one that reaches this script refuses the run. Each change
  * returns `met`, the condition its finding met: `recurrence`, `severity`, or both.
  *
- * WHAT IT RETURNS. { stopped, why, groups, merge, runsRead, runsHeld, findingsHeld, counts }. Every
+ * WHAT IT RETURNS. { stopped, why, groups, merge, runsRead, runsHeld, findingsHeld, cases, counts }. Every
  * count in it is computed here, never by an agent. `stopped` is one of:
  *
  *   refused     an argument did not hold; `why` names it, and no agent ran
@@ -86,6 +96,9 @@ export const meta = {
  *   unchanged   it changed nothing, and said why
  *   not-upheld  it changed its files and broke no rule below, but one of its changes was not upheld;
  *               its branch is not merged, its runs are read, and its findings are held
+ *   regressed   every change was upheld, but a stored case of a file it changed flipped or went
+ *               unanswered (below); its branch is not merged, its runs are read, and its findings
+ *               are held
  *   refused     its report broke a rule below; its branch is not merged, and `problems` says why
  *   died        the agent returned nothing
  *
@@ -133,24 +146,44 @@ export const meta = {
  * each row holds. A group merges only when every change and every consolidation it carries is
  * upheld: the script runs no git, so it cannot take one commit of a branch and leave another.
  *
+ * THE STORED CASES. For each group still `merge` once its skeptics have voted, every case whose prompt
+ * its branch changes is answered `promptReviewCaseRepetitions` times with the file's text at the
+ * branch's merge base with `origin/main`, the old, and as many with its text at the branch's head, the
+ * new. One reader agent per group prints those texts with a checksum this script re-derives, so a copy
+ * that is not verbatim is refused; each answer is an agent by the agentType `prompt-case-answerer`,
+ * whose only tool is its structured output, shown the options in an order turned by one place at
+ * each repetition. A text is right when floor(n/2)+1 of its n answers chose the case's expected
+ * option. A case's outcome is `held` when both texts are right, `flipped` when the old is and the new
+ * is not, `fixed` when only the new is, `failing` when neither is, and `unanswered` when an answer is
+ * missing or out of range, or a text could not be read. A `flipped` or `unanswered` case makes its
+ * group `regressed`; a `failing` one blocks nothing, since the trunk already answers it wrong, and is
+ * returned for the session to report. `cases` lists each case answered, with its group, its
+ * `outcome`, its `old` and `new` counts of right answers of `of`, and each answer's option and why.
+ *
  *   `merge` lists the merging groups' branches in the order of `args.groups`. A run is in `runsRead`
- *   when every group whose findings cite it is `merge`, `unchanged` or `not-upheld`; otherwise it is
+ *   when every group whose findings cite it is `merge`, `unchanged`, `not-upheld` or `regressed`; otherwise it is
  *   in `runsHeld`, with the groups that held it, and the session leaves it pending for the next
  *   review. `findingsHeld` lists each finding of a read group that no merged branch carries, set aside
  *   by its agent, not upheld, or upheld on a branch kept out, with its key, its runs, its count and
  *   the reason; the session appends a held line for each of its runs.
  *
  * LABELS. Each file agent is labelled `review <id>`, each skeptic of a change `skeptic <i>/<n> <id>:
- * <key>`, and each skeptic of a consolidation `skeptic <i>/<n> <id>: consolidation of <file>`.
+ * <key>`, each skeptic of a consolidation `skeptic <i>/<n> <id>: consolidation of <file>`, each reader
+ * `read <id>`, and each answer `answer <i>/<n> old <id>: <case>` or `answer <i>/<n> new <id>: <case>`.
  * scripts/workflows.selftest.mjs routes its stubbed agents by those labels: change one here and change
- * it there.
+ * it there. `answerPrompt` and `fenced` are copies of `.claude/workflows/author-prompt-cases.js`'s, and
+ * the selftest holds the two to one answer prompt for one case and text, so a case is answered alike
+ * when it is validated and when it is judged.
  *
  * NEEDS a review worktree, the Workflow tool, and a WorktreeCreate hook that cuts each agent's
  * worktree from `origin/main`: on 2026-09-26 a workflow agent's `isolation: 'worktree'` landed on
  * `agent/wf_<run>-<n>` at `origin/main` with its briefing, from a session and from a `claude --bg`
  * session alike (asdlc-openspec-lzr). A worktree an agent leaves is not removed when it ends, changed
  * or not; `npm run worktree:gc` removes each once its branch is contained in `origin/main`. The
- * skeptics run where the session does, in the review worktree, and read each branch there. Nothing
+ * skeptics and the readers run where the session does, in the review worktree, and read each branch
+ * there. The answers need the agent `prompt-case-answerer` in the checkout the session started in, the
+ * primary checkout for a review `close-prompt-run` launched (`.claude/README.md`): where it is absent,
+ * every answer returns nothing, and every branch whose files have a stored case is `regressed`. Nothing
  * here reads a file: the session passes the policy as `args.policy`. `npm run workflows:selftest`
  * runs this script against stubbed agents.
  */
@@ -160,7 +193,10 @@ const A = args || {}
 const VERDICTS = ['changed', 'unchanged']
 const OUTCOMES = ['working', 'not working', 'not exercised']
 const SEVERITIES = ['blocker', 'major', 'minor']
-const POLICY_KEYS = ['promptReviewRecurrenceCount', 'promptReviewMajorSeverities', 'promptReviewSkeptics']
+const POLICY_KEYS = ['promptReviewRecurrenceCount', 'promptReviewMajorSeverities', 'promptReviewSkeptics', 'promptReviewCaseRepetitions']
+const ANSWERER = 'prompt-case-answerer'
+/** A case outcome that keeps its branch out, as the header says why. */
+const BLOCKING = ['flipped', 'unanswered']
 const DISPOSITIONS = ['kept', 'moved', 'deleted']
 /** The severity whose skeptic count judges a consolidation, as the header says why. */
 const CONSOLIDATION_SEVERITY = 'blocker'
@@ -259,6 +295,9 @@ const VERDICT_SCHEMA = {
   required: ['verdict', 'reason'],
 }
 
+const ANSWER_SCHEMA = { type: 'object', properties: { choice: { type: 'integer' }, why: { type: 'string' } }, required: ['choice', 'why'] }
+const READ_SCHEMA = { type: 'object', properties: { output: { type: 'string' } }, required: ['output'] }
+
 /* ------------------------------------------------------------------------ checking the input ----- */
 
 const isText = (v) => typeof v === 'string' && v.trim() !== ''
@@ -281,7 +320,7 @@ function pathProblem(path) {
 /** Why the policy the session passed cannot drive a run, or null when it can. */
 function policyProblem() {
   const p = A.policy
-  if (!isPlainObject(p)) return 'args.policy must be the `promptReview*` keys of tools/policy/agent-workflows.json, as the agent\'s § 4 prints them'
+  if (!isPlainObject(p)) return 'args.policy must be the `promptReview*` keys of tools/policy/agent-workflows.json, as the agent\'s § 2 prints them'
   const missing = POLICY_KEYS.filter((key) => p[key] === undefined || p[key] === null)
   if (missing.length) return `args.policy has no ${missing.map((k) => `\`${k}\``).join(', ')}: pass the keys tools/policy/agent-workflows.json holds`
   if (!isWhole(p.promptReviewRecurrenceCount)) return 'args.policy `promptReviewRecurrenceCount` must be a whole number of at least 1'
@@ -293,7 +332,17 @@ function policyProblem() {
   if (!isPlainObject(skeptics) || SEVERITIES.some((s) => !isWhole(skeptics[s])) || Object.keys(skeptics).length !== SEVERITIES.length) {
     return `args.policy \`promptReviewSkeptics\` must give exactly ${SEVERITIES.join(', ')} each a whole number of at least 1`
   }
-  return null
+  return isWhole(p.promptReviewCaseRepetitions) ? null : 'args.policy `promptReviewCaseRepetitions` must be a whole number of at least 1'
+}
+
+/** Why a stored case cannot be answered, or null; `owner` maps each group's files to it. */
+function caseProblem(c, owner) {
+  if (!isPlainObject(c) || !isText(c.id) || !/^[a-z0-9][a-z0-9-]*$/.test(c.id)) return 'it has no id of lower case letters, digits and dashes'
+  if (!isText(c.prompt) || !/^[A-Za-z0-9._/-]+$/.test(c.prompt) || !owner.has(clean(c.prompt))) return `its prompt ${JSON.stringify(c.prompt)} is no group's file`
+  if (!isText(c.situation) || !Array.isArray(c.options) || c.options.length < 2 || c.options.length > 4) return 'it needs a situation and two to four options'
+  const ids = c.options.map((o) => (isPlainObject(o) ? o.id : undefined))
+  if (c.options.some((o) => !isPlainObject(o) || !isText(o.id) || !isText(o.text)) || new Set(ids).size !== ids.length) return 'its options need distinct ids and a text each'
+  return ids.includes(c.expected) ? null : `its expected answer ${JSON.stringify(c.expected)} is none of its options`
 }
 
 /** Why one finding of group `g` cannot be passed to its agent, or null when it can. */
@@ -348,6 +397,14 @@ function argsProblem() {
   }
   if (A.settled !== undefined && (!Array.isArray(A.settled) || A.settled.some((s) => !isText(s)))) {
     return 'args.settled must be a list of non-empty strings'
+  }
+  if (A.cases !== undefined && !Array.isArray(A.cases)) return 'args.cases must be a list'
+  const caseIds = new Set()
+  for (const [i, c] of (A.cases || []).entries()) {
+    const problem = caseProblem(c, owner)
+    if (problem) return `args.cases[${i}] cannot be answered: ${problem}`
+    if (caseIds.has(c.id)) return `the case id ${c.id} is on two cases`
+    caseIds.add(c.id)
   }
   return null
 }
@@ -471,6 +528,70 @@ function consolidationPrompt(k, i, n) {
   ].join('\n')
 }
 
+/** A fence longer than any run of backticks in `text`, so no file's text can close it. */
+function fenced(text) {
+  const runs = text.match(/`+/g) || []
+  const fence = '`'.repeat(Math.max(3, ...runs.map((r) => r.length + 1)))
+  return `${fence}\n${text}\n${fence}`
+}
+
+/** The case's options in the order the `r`th repetition shows them, so each takes each place in turn. */
+const rotated = (options, r) => options.slice(r % options.length).concat(options.slice(0, r % options.length))
+
+/** The prompt one answer to case `c` is given, with `text` as the version of its prompt under test. */
+function answerPrompt(c, text, r) {
+  return [
+    `You are a session running \`${c.prompt}\`. Its text, the version under test:`,
+    '',
+    fenced(text),
+    '',
+    '## The situation',
+    '',
+    c.situation,
+    '',
+    '## The options',
+    '',
+    ...rotated(c.options, r).map((o, i) => `${i + 1}. ${o.text}`),
+  ].join('\n')
+}
+
+/** FNV-1a over the UTF-16 code units of `s`, as the reader's command computes it. */
+function fnv(s) {
+  let h = 2166136261
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i)
+    h = Math.imul(h, 16777619) >>> 0
+  }
+  return h
+}
+
+/** The reader's command: each file at the merge base of `head` with `origin/main` and at `head`, and a checksum over them. */
+function readCommand(head, files) {
+  const js = [
+    "const cp=require('child_process');const git=(a)=>cp.execFileSync('git',a,{encoding:'utf8',maxBuffer:1e8,stdio:['ignore','pipe','ignore']});",
+    `const head='${head}';const files=${JSON.stringify(files).replace(/"/g, "'")};`,
+    "const base=git(['merge-base','origin/main',head]).trim();",
+    "const texts=[base,head].flatMap((ref)=>files.map((file)=>{try{return {ref,file,text:git(['show',ref+':'+file])}}catch(e){return {ref,file,text:null}}}));",
+    'const s=JSON.stringify({base,texts});let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0}',
+    'console.log(JSON.stringify({base,texts,fnv:h}))',
+  ].join('')
+  return `node --no-warnings -e "${js}"`
+}
+
+/** The old and new texts the reader printed, keyed by file, or the reason they cannot be used. */
+function readTexts(reply, head) {
+  let p
+  try {
+    p = JSON.parse(reply.output)
+  } catch (error) {
+    return { problem: `the reader's output is not the JSON its command prints: ${JSON.stringify(String(reply.output).slice(0, 200))}` }
+  }
+  if (!isPlainObject(p) || !isText(p.base) || !Array.isArray(p.texts) || !Number.isInteger(p.fnv)) return { problem: "the reader's output holds no base, texts and checksum" }
+  if (fnv(JSON.stringify({ base: p.base, texts: p.texts })) !== p.fnv) return { problem: "the reader's copy does not match the checksum its command printed, so it was not copied verbatim" }
+  const at = (ref, file) => p.texts.find((t) => t.ref === ref && t.file === file)?.text ?? null
+  return { old: (file) => at(p.base, file), new: (file) => at(head, file) }
+}
+
 /* ------------------------------------------------------------------------ judging a report ----- */
 
 /** Whether a consolidation's row says where its text went, as the header's rules ask. */
@@ -553,7 +674,7 @@ const voteLine = (c) => `${c.upheld} upheld, ${c.refuted} refuted and ${c.skepti
 const badArgs = argsProblem()
 if (badArgs) {
   log(`Refused: ${badArgs}`)
-  return { stopped: 'refused', why: badArgs, groups: [], merge: [], runsRead: [], runsHeld: [], findingsHeld: [], counts: null }
+  return { stopped: 'refused', why: badArgs, groups: [], merge: [], runsRead: [], runsHeld: [], findingsHeld: [], cases: [], counts: null }
 }
 
 phase('Review')
@@ -628,7 +749,66 @@ if (toJudge.length) {
   }
 }
 
-const read = (g) => g.status === 'merge' || g.status === 'unchanged' || g.status === 'not-upheld'
+const reps = A.policy.promptReviewCaseRepetitions
+const majority = Math.floor(reps / 2) + 1
+
+/** One case's outcome from its old and new answers, each the option an answer chose or null. */
+function judgeCase(g, c, olds, news) {
+  const right = (list) => list.filter((o) => o === c.expected).length
+  const [o, w] = [right(olds), right(news)]
+  const outcome = [...olds, ...news].includes(null) ? 'unanswered' : o >= majority ? (w >= majority ? 'held' : 'flipped') : w >= majority ? 'fixed' : 'failing'
+  return { id: c.id, prompt: clean(c.prompt), group: g.id, outcome, old: o, new: w, of: reps }
+}
+
+/** Every answer to case `c` of group `g`, `reps` with its old text and `reps` with its new. */
+async function answerCase(g, c, texts) {
+  const file = clean(c.prompt)
+  const [oldText, newText] = [texts.old(file), texts.new(file)]
+  if (oldText === null || newText === null) return { ...judgeCase(g, c, [null], []), answers: [], why: `git could not show ${file} at both texts` }
+  const asks = ['old', 'new'].flatMap((side) => Array.from({ length: reps }, (_, r) => ({ side, r, text: side === 'old' ? oldText : newText })))
+  const replies = await parallel(
+    asks.map(({ side, r, text }) => () => agent(answerPrompt(c, text, r), { label: `answer ${r + 1}/${reps} ${side} ${g.id}: ${c.id}`, phase: 'Regress', schema: ANSWER_SCHEMA, agentType: ANSWERER })),
+  )
+  const answers = asks.map(({ side, r }, i) => ({ side, option: replies[i] ? rotated(c.options, r)[replies[i].choice - 1]?.id ?? null : null, why: replies[i]?.why ?? 'the answerer returned nothing' }))
+  const of = (side) => answers.filter((a) => a.side === side).map((a) => a.option)
+  return { ...judgeCase(g, c, of('old'), of('new')), answers, why: null }
+}
+
+/** The outcome of every stored case of the files group `g`'s branch changes. */
+async function regress(g) {
+  const files = new Set(g.filesChanged.map(clean))
+  const mine = (A.cases || []).filter((c) => files.has(clean(c.prompt)))
+  if (!mine.length) return []
+  const head = g.head.trim()
+  const unread = (why) => mine.map((c) => ({ ...judgeCase(g, c, [null], []), answers: [], why }))
+  if (!/^[0-9a-f]{40}$/.test(head)) return unread(`its head ${JSON.stringify(head)} is no commit hash, so its text cannot be read`)
+  const reply = await agent(
+    `Run this one command where you stand, and return in output the one line it prints, verbatim, even where it looks wrong. Change nothing.\n\n${readCommand(head, [...new Set(mine.map((c) => clean(c.prompt)))])}`,
+    { label: `read ${g.id}`, phase: 'Regress', schema: READ_SCHEMA, effort: 'low' },
+  )
+  const texts = reply ? readTexts(reply, head) : { problem: 'the reader returned nothing' }
+  if (texts.problem) return unread(texts.problem)
+  return (await pipeline(mine, (c) => answerCase(g, c, texts))).map((r, i) => r || { ...judgeCase(g, mine[i], [null], []), answers: [], why: 'its answers could not be run' })
+}
+
+const stillMerging = groups.filter((g) => g.status === 'merge')
+const caseResults = []
+if (stillMerging.some((g) => (A.cases || []).some((c) => g.filesChanged.map(clean).includes(clean(c.prompt))))) {
+  phase('Regress')
+  const regressed = await pipeline(stillMerging, regress)
+  stillMerging.forEach((g, i) => {
+    const mine = regressed[i] || []
+    caseResults.push(...mine)
+    const blocking = mine.filter((r) => BLOCKING.includes(r.outcome))
+    if (blocking.length) {
+      g.status = 'regressed'
+      g.regressedBy = blocking.map((r) => `${r.id} (${r.outcome}: ${r.why ?? `${r.old} then ${r.new} of ${r.of} right`})`)
+      log(`Group ${g.id} regressed: ${g.regressedBy.join('; ')}`)
+    }
+  })
+}
+
+const read = (g) => g.status === 'merge' || g.status === 'unchanged' || g.status === 'not-upheld' || g.status === 'regressed'
 const allRuns = [...new Set(A.groups.flatMap(runsOf))]
 const runsRead = []
 const runsHeld = []
@@ -653,6 +833,8 @@ for (const g of groups.filter(read)) {
       reason = `the skeptics did not uphold its edit: ${mine.filter((c) => c.outcome !== 'upheld').map(voteLine).join('; ')}`
     } else if (g.status === 'not-upheld') {
       reason = `upheld, but its branch also carried ${[...new Set(lost)].join(', ')}, which the skeptics did not uphold, so the branch was not merged`
+    } else if (g.status === 'regressed') {
+      reason = `upheld, but its branch turned a stored case wrong or left one unanswered, so the branch was not merged: ${g.regressedBy.join('; ')}`
     }
     if (reason) findingsHeld.push({ key, runs: f.runs, count: f.count, reason })
   }
@@ -678,17 +860,26 @@ const counts = {
   runsRead: runsRead.length,
   runsHeld: runsHeld.length,
   findingsHeld: findingsHeld.length,
+  cases: caseResults.length,
+  flipped: caseResults.filter((r) => r.outcome === 'flipped').length,
+  unanswered: caseResults.filter((r) => r.outcome === 'unanswered').length,
+  answers: caseResults.reduce((n, r) => n + r.answers.length, 0),
+  regressed: count('regressed'),
 }
 const merge = groups.filter((g) => g.status === 'merge').map((g) => g.branch.trim())
+const cases = caseResults
 
 if (counts.died === counts.groups) {
   const why = 'every agent returned nothing, so no file was reviewed and every run stays pending'
   log(`Stopped (agent-died): ${why}`)
-  return { stopped: 'agent-died', why, groups, merge, runsRead, runsHeld, findingsHeld, counts }
+  return { stopped: 'agent-died', why, groups, merge, runsRead, runsHeld, findingsHeld, cases, counts }
 }
 const consolidationClause = counts.consolidations
   ? `; ${counts.consolidationsUpheld} of ${counts.consolidations} consolidation(s) upheld by ${counts.consolidationSkeptics} skeptic(s)`
   : ''
-const why = `${counts.merge} to merge, ${counts.unchanged} unchanged, ${counts.notUpheld} not upheld, ${counts.refused} refused, ${counts.died} died; ${counts.upheld} of ${counts.changes} change(s) upheld by ${counts.skeptics} skeptic(s)${consolidationClause}; ${counts.runsRead} of ${counts.runs} run(s) read, ${counts.findingsHeld} finding(s) held`
+const caseClause = counts.cases
+  ? `; ${counts.flipped} of ${counts.cases} stored case(s) flipped and ${counts.unanswered} unanswered, by ${counts.answers} answer(s), ${counts.regressed} branch(es) kept out`
+  : ''
+const why = `${counts.merge} to merge, ${counts.unchanged} unchanged, ${counts.notUpheld} not upheld, ${counts.refused} refused, ${counts.died} died; ${counts.upheld} of ${counts.changes} change(s) upheld by ${counts.skeptics} skeptic(s)${consolidationClause}${caseClause}; ${counts.runsRead} of ${counts.runs} run(s) read, ${counts.findingsHeld} finding(s) held`
 log(`Stopped (done): ${why}`)
-return { stopped: 'done', why, groups, merge, runsRead, runsHeld, findingsHeld, counts }
+return { stopped: 'done', why, groups, merge, runsRead, runsHeld, findingsHeld, cases, counts }
