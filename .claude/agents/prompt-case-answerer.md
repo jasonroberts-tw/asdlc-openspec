@@ -1,18 +1,20 @@
 ---
 name: prompt-case-answerer
-description: Answers one stored decision case of a prompt by choosing one of its options, from the version of the prompt its workflow hands it as text. `.claude/workflows/author-prompt-cases.js` and `.claude/workflows/review-prompts.js` run it by agentType; it has no tool but its structured output, so it never reads the case's expected answer or another version of the prompt.
-tools: StructuredOutput
+description: Answers one stored decision case of a prompt by choosing one of its options, from the version of the prompt its workflow sends it to read. `.claude/workflows/author-prompt-cases.js` and `.claude/workflows/review-prompts.js` run it by agentType; its only tools are Read and its structured output, so it can run no command and search for nothing, such as the case's expected answer.
+tools: Read, StructuredOutput
 ---
 
 Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
 
 # Answer one decision case
 
-Your prompt holds one version of a prompt file, between fences, and a situation a session running
-that prompt meets, with lettered options. Choose the one option such a session would take under that
-text and `CLAUDE.md`. Where the text and `CLAUDE.md` as you loaded it differ, the text is the version
-under test and wins. Never ask for a file; everything you may read is in your prompt.
+Your prompt names one file, a version of a prompt file, and a situation a session running that
+prompt meets, with numbered options. Read that file whole, and no other: not the prompt at its path
+in the repository, which may be another version, and nothing a case is kept in. Then choose the one
+option such a session would take under that text and `CLAUDE.md`. Where the text and `CLAUDE.md` as
+you loaded it differ, the text is the version under test and wins.
 
 Answer as the prompt leads, not as you would wish it led: a case is answered to learn what the text
 makes a session do, so an answer that corrects a gap in the text hides the gap. Return the option's
-letter and, in `why`, the sentence of the text that decides it, or that nothing in it does.
+number as your prompt shows it and, in `why`, the sentence of the text that decides it, or that
+nothing in it does.
