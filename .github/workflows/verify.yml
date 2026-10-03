@@ -47,8 +47,11 @@ jobs:
       # toolset, so no step installs a tool of its own mid-run, and the action caches mise's installs
       # by the two files' hash. `version` and `sha256` pin mise itself to the release
       # `.devcontainer/Dockerfile` copies in, which `npm run check:toolchain` holds
-      # (`docs/decisions.md` § D-29).
-      - uses: jdx/mise-action@v4
+      # (`docs/decisions.md` § D-29). `sha256` is the linux-x64 binary's line in that release's signed
+      # SHASUMS256.txt, read 2026-10-03: `gh release download v<version> --repo jdx/mise --pattern
+      # SHASUMS256.txt`. The action is a third party's, so it is pinned by commit rather than by a
+      # tag that can be moved, at v5.0.1, the release that verifies a cached mise before running it.
+      - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.10.0
           sha256: 57ced973f968b8fbab07aa8e32bd7077d4a357e200a22356d98963c723c6de0a
@@ -89,7 +92,10 @@ jobs:
         run: npm run check:toolchain:selftest
       # Under a second (git-hooks.yml's `vale-selftest` job has the measurement): this repository's own
       # Vale style over fixtures, with the `vale` mise installed above. Until mise, this runner had no
-      # Vale and the step was left out, since it would only ever have skipped.
+      # Vale and the step was left out, since it would only ever have skipped. The selftest skips clean
+      # where no `vale` is on PATH, so the step before it fails the run instead, here, where one must be.
+      - name: Vale is on PATH, so the style's selftest cannot skip
+        run: vale --version
       - name: the Layout style's rules fire on their faults and nothing else
         run: npm run vale:selftest
       # Milliseconds: each workflow under `.claude/workflows/` against stubbed agents, with the policy's

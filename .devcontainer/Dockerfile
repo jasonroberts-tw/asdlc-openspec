@@ -34,7 +34,7 @@ FROM mcr.microsoft.com/devcontainers/base:3-noble
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Observed on bd 1.2.2, and not re-measured since the pin moved to 1.3.0: bd sniffs terminal
+# Observed on bd 1.2.2, and not re-measured on the release `mise.toml` now pins: bd sniffs terminal
 # capability by writing OSC 11 to the tty and exiting without reading the reply; the terminal's answer
 # lands in the shell's input queue and is executed as if typed (`11: command not found`). NO_COLOR
 # makes it skip the probe entirely. Same reason as the NO_COLOR on every bd job in git-hooks.yml --

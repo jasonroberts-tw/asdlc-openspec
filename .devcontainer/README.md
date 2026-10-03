@@ -24,9 +24,11 @@ marketplace.
 **Setup goes in a layer, not in a lifecycle command.** `features` resolve over the network every
 time a container is created and fail differently on every machine; a `postCreateCommand` re-runs on
 every rebuild. A layer is built once and is identical for everyone. If you add a tool, pin it in
-`mise.toml` and run `mise lock`: the image's mise layer installs it. `entrypoint.sh` never installs a
-tool; it warns while the image lags `mise.toml`, because a rebuild, not the network at start, is how
-the container catches up.
+`mise.toml` and run `mise lock --platform` with the platforms `toolchainLockPlatforms` names, as the
+header of `mise.toml` says: the image's mise layer installs it. `entrypoint.sh` never installs a tool
+itself; it warns while the image lags `mise.toml`, because a rebuild is how the container catches up.
+Until then a shim installs the moved pin over the network at its first use, the entrypoint's
+`npm ci` among them.
 
 `entrypoint.sh` holds only what cannot be an image layer — `npm ci` (whose `node_modules` carries
 native binaries and so belongs to the container's platform), installing the git
