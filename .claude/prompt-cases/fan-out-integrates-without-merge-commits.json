@@ -1,0 +1,23 @@
+{
+  "id": "fan-out-integrates-without-merge-commits",
+  "prompt": ".claude/agents/fan-out-work.md",
+  "lens": "recorded",
+  "source": {
+    "run": "asdlc-openspec-6q6@2026-09-26T17:05:14Z",
+    "point": 3,
+    "commit": "16440e9"
+  },
+  "situation": "You are the dispatcher of a fan-out sweep. The trunk passed `npm run gates` on your fresh branch cut from `origin/main`. You wrote the partition down, claimed every issue in one tracker bracket, and briefed one fresh agent per lane, each in its own worktree. The lanes have now reported green: each lane's rebased branch passed `npm run gates`. Two of the lanes added blocks to the same file at different named anchors, so bringing the second lane in after the first may mean resolving a conflict between them. No lane's branch has been pushed; each exists only in its lane's worktree. Your own integration branch has not been pushed either. The pull-request reviewer lands every pull request on the trunk by rebase (the reviewer policy's `prReviewMergeMethod`), and `git log --merges origin/main` prints nothing: the trunk has no merge commits. Next you integrate the lanes on your branch, then open the one pull request that carries every lane's issues.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Merge each lane's branch into your branch as step 5 directs, one merge commit per lane, and resolve any conflict between the two lanes inside that merge commit. Then regenerate the shared generated files, renumber any register entries that collided, and run `npm run gates`."
+    },
+    {
+      "id": "b",
+      "text": "Don't make any merge commits. Fast-forward your branch to the first lane's branch, then cherry-pick each later lane's commits onto it, resolving any conflict in the replayed commit itself. Then regenerate the shared generated files, renumber any register entries that collided, and run `npm run gates`. This rewrites only branches that were never pushed."
+    }
+  ],
+  "expected": "b",
+  "settledBy": "The run's action. The dispatcher brought the lanes in by fast-forward and cherry-pick instead of merging as step 5 says. Its analysis gives the reason: the trunk rebase-merges every pull request, so the reviewer's merge would replay the branch commit by commit, and a conflict resolved in a merge commit would come back. The lane branches were never pushed, so nothing pushed was rewritten. The integration branch passed `npm run gates` before and after its rebase onto `origin/main`, and its pull request (#56) merged."
+}
