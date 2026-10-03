@@ -190,7 +190,7 @@ pre-push:
     # and in `mise.lock` for every platform the policy names, one mise for every workflow's
     # `jdx/mise-action` and the dev container, and no second home in a workflow, the Dockerfile or a
     # version file at the root, whose names are in the glob for that reason. Reads those, the policy
-    # through its loader, and the TOML and YAML parsers the manifest and lockfile pin: 0.10 s wall
+    # through its loader, and the TOML and YAML parsers the manifest and lockfile pin: 0.11 s wall
     # through `node --run` (`/usr/bin/time -p`, one run) on a macOS 26.7.1 laptop with Node 26.8.1,
     # 2026-10-03.
     - name: check-toolchain
@@ -211,7 +211,7 @@ pre-push:
         - 'package-lock.json'
       run: node --run check:toolchain
     # Its refusals over copies of those files under the temporary directory, one doctored per case and
-    # each asserting its reason, beside three controls: 0.37 s wall for its 42 cases, one run, the same
+    # each asserting its reason, beside three controls: 0.38 s wall for its 46 cases, one run, the same
     # host and day.
     - name: check-toolchain-selftest
       glob:

@@ -1502,8 +1502,11 @@ export async function runCheck(root) {
   if (briefId) {
     const steps = jobs[briefId].steps ?? []
     const mise = steps.findIndex((step) => /^jdx\/mise-action@/.test(String(step?.uses ?? '')))
-    const bootstrap = steps.findIndex((step) => /\bbd bootstrap\b/.test(runOf(step)))
-    const answers = steps.findIndex((step) => runOf(step).split('\n').some((line) => /^bd (?:--version|version)\b/.test(line.trim())))
+    // Every line of every step's `run`, by step and line, so an order within one step counts too.
+    const lines = steps.flatMap((step, i) => runOf(step).split('\n').map((line, j) => ({ i, j, line: line.trim() })))
+    const answers = lines.find(({ line }) => /^bd (?:--version|version)\b/.test(line))
+    const bootstrap = lines.find(({ line }) => /\bbd bootstrap\b/.test(line))
+    const before = (a, b) => a.i < b.i || (a.i === b.i && a.j < b.j)
     if (mise === -1) {
       fail(
         `${WORKFLOW}'s \`${briefId}\` job runs \`brief\`, which reads each cited issue with \`bd\`, but takes no \`bd\` from \`jdx/mise-action\`,` +
@@ -1518,7 +1521,7 @@ export async function runCheck(root) {
         fail(`${WORKFLOW}'s \`${briefId}\` job runs jdx/mise-action with \`install_args\` that leave out the tracker's CLI, so no \`bd\` is installed for \`brief\`.`)
       }
     }
-    if (answers === -1 || answers < mise || (bootstrap !== -1 && answers > bootstrap)) {
+    if (!answers || answers.i < mise || (bootstrap && !before(answers, bootstrap))) {
       fail(
         `${WORKFLOW}'s \`${briefId}\` job does not run \`bd --version\` after installing \`bd\` and before \`bd bootstrap\`: an install with no binary` +
           ' can pass, and on 2026-09-25 the failure surfaced a step later, as "bd binary not found".',
@@ -1908,9 +1911,11 @@ function wiringCases() {
     { name: 'a federation id passed as a variable, which a public log prints', doctor: edit(WORKFLOW, '${{ secrets.ANTHROPIC_ORGANIZATION_ID }}', '${{ vars.ANTHROPIC_ORGANIZATION_ID }}'), expect: /passes `anthropic_organization_id` as .* not as an Actions secret/ },
     { name: 'next is no longer told the event', doctor: edit(WORKFLOW, /^ {10}EVENT_NAME: .*\n/m, ''), expect: /does not pass EVENT_NAME/ },
     { name: 'the review job no longer takes the tracker\'s CLI from mise', doctor: edit(WORKFLOW, "the tracker's CLI among it\n        uses: jdx/mise-action@", "the tracker's CLI among it\n        uses: actions/checkout@"), expect: /runs `brief`, .* but takes no `bd` from `jdx\/mise-action`/ },
-    { name: 'the review job\'s mise installs nothing', doctor: edit(WORKFLOW, /(the tracker's CLI among it\n {8}uses: jdx\/mise-action@\S+\n {8}with:\n)/, '$1          install: false\n'), expect: /runs jdx\/mise-action with `install: false`/ },
-    { name: 'the review job\'s mise installs everything but the tracker\'s CLI', doctor: edit(WORKFLOW, /(the tracker's CLI among it\n {8}uses: jdx\/mise-action@\S+\n {8}with:\n)/, '$1          install_args: node gh\n'), expect: /`install_args` that leave out the tracker's CLI/ },
+    { name: 'the review job\'s mise installs nothing', doctor: edit(WORKFLOW, /(the tracker's CLI among it\n {8}uses: jdx\/mise-action@.*\n {8}with:\n)/, '$1          install: false\n'), expect: /runs jdx\/mise-action with `install: false`/ },
+    { name: 'the review job\'s mise installs everything but the tracker\'s CLI', doctor: edit(WORKFLOW, /(the tracker's CLI among it\n {8}uses: jdx\/mise-action@.*\n {8}with:\n)/, '$1          install_args: node gh\n'), expect: /`install_args` that leave out the tracker's CLI/ },
     { name: 'the review job no longer runs bd --version', doctor: edit(WORKFLOW, /^( {8}run: )bd --version$/m, '$1echo skipped'), expect: /does not run `bd --version` after installing `bd` and before `bd bootstrap`/ },
+    { name: 'the review job runs bd --version only after bd bootstrap', doctor: edit(WORKFLOW, /^( {8}run: )bd --version\n([\s\S]*?^ {10}bd bootstrap .*\n)/m, '$1echo skipped\n$2          bd --version\n'), expect: /does not run `bd --version` after installing `bd` and before `bd bootstrap`/ },
+    { name: 'the review job runs bd --version before mise installs bd', doctor: edit(WORKFLOW, /(^ {6}- name: install the toolchain mise\.toml pins, the tracker's CLI among it\n)/m, '      - run: bd --version\n$1'), expect: /does not run `bd --version` after installing `bd` and before `bd bootstrap`/ },
     { name: 'verify loses its dispatch trigger', doctor: edit(VERIFY, /^  workflow_dispatch:\n/m, ''), expect: /cannot be dispatched/ },
     { name: 'verify\'s job no longer carries the required check\'s name', doctor: edit(VERIFY, /^  verify:$/m, '  gates:'), expect: /has no job whose check is `verify`/ },
   ]
