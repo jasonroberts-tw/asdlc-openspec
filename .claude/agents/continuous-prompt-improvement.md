@@ -36,8 +36,7 @@ Collect every held line too, its analysis pending or not, listed as the analyses
 `promptReviewHeldMarker` as the marker.
 
 An analysis is an input, not a verdict. Check each claim it makes against the run's own evidence,
-its commits, its pull request and its issue, before building on it, and read a file the run worked
-on its own branch where it is, as § How a file is judged says.
+its commits, its pull request and its issue, before building on it.
 
 ## 3. Count each finding, hold what is below the threshold, and group the rest by file
 
@@ -54,8 +53,7 @@ severity is in `promptReviewMajorSeverities`. Hold every finding that does not, 
 `below the threshold`: § 6 writes its held lines, and the next review counts them. A finding an
 earlier review held for any other reason, set aside by its file's agent or not upheld by its
 skeptics, goes to a group again only when a run in this batch shows it that none of its held lines
-names. Such new evidence is what § How a file is judged asks before a point set aside is raised
-again. It must still meet the threshold, because the workflow refuses a finding below it.
+names. It must still meet the threshold, because the workflow refuses a finding below it.
 
 A group is one file, or several when one finding concerns them together, such as two prompts that
 contradict each other; a file is in one group only. Its findings are those that met the threshold,
@@ -155,10 +153,8 @@ files.
 
 Look for what made a run slower or wrong: long-running steps, repeated cycles, incorrect statements
 or assumptions, and contradictions, within a prompt or between it and `CLAUDE.md`. Every finding a
-file's agent is given met the threshold of § 3, which makes it worth reading, not worth an edit. Each
-change states how often the situation arises, what it costs when it does, and the net words the edit
-adds, each figure citing a run, a label count or a pull request, because every later run of the
-prompt reads those words. If nothing should change, change nothing.
+file's agent is given met the threshold of § 3, which makes it worth reading, not worth an edit. If
+nothing should change, change nothing.
 
 Every edit cites only files your own base holds. A file that only a reviewed branch holds, such as a
 change's design, is named in prose by its branch and its path, never as a pointer: in the
