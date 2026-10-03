@@ -91,8 +91,8 @@ subagent; each of those is a workaround.
 Every task is an issue in `bd`, never a markdown checklist or an in-session todo list.
 `bd ready` is the queue; do not add a status table to a document. Every run of tracker writes is
 bracketed: pull before the first write and push after the last, and a rejected push is reported
-with its exact command and error, never forced. Long descriptions and notes go in by file. Every
-open issue carries a label naming where its work lands.
+with its exact command and error, never forced. Every open issue carries a label naming where its
+work lands.
 
 An issue a run files `discovered-from` the issue or epic it ran on also carries, from
 `tools/policy/vocabulary.json`, the `foundAtLabels` label for the stage that found it and one `assetLabels`
@@ -277,9 +277,8 @@ every pull request with the `open-pr` skill, which holds the steps from the push
 ## Prompt reviews
 
 After a prompt is executed from a file, the session that ran it closes the run with the
-`close-prompt-run` skill, after its tracker push: the skill leaves the run's analysis in the tracker
-and, when a review is due, launches one in the background. One review, the
-`continuous-prompt-improvement` agent, reads every analysis no review has read yet, as a batch, and
+`close-prompt-run` skill, after its tracker push. One review, the `continuous-prompt-improvement`
+agent, reads every run's analysis no review has read yet, as a batch, and
 proposes its edits as one pull request, whose description is the review and which a person merges
 or not (`docs/decisions.md` § D-08 and § D-17). The skill is the home of the markers, of what is
 pending and of the launch; the agent's file is the home of what a review leaves. A review is not a
