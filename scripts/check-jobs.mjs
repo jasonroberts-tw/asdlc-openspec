@@ -38,10 +38,15 @@
  * ignores case on macOS, so it would pass `apps/Calculator/serve.js` at a Mac's push, and CI, which
  * runs on Linux, would then fail.
  *
+ * WHICH SCRIPTS. The tree's tasks, read through `scripts/lib/tasks.mjs`: `tasks.toml` where the tree
+ * has one, `package.json`'s `scripts` otherwise. A manifest that loader refuses fails the job with its
+ * reason. Below, "script" means either.
+ *
  * WHAT FAILS THE JOB:
- *   1. an `npm run <name>` or `node --run <name>` token in a `run:` of `git-hooks.yml` or
- *      `.github/workflows/verify.yml` whose <name> is not a `package.json` script (the hook launches
- *      through `node --run`, CI through `npm run`; both name the same script).
+ *   1. an `npm run <name>`, `node --run <name>` or `mise run <name>` token in a `run:` of
+ *      `git-hooks.yml` or `.github/workflows/verify.yml` whose <name> is not a script (the hook
+ *      launches through `node --run`, CI through `npm run`, and both through `mise run` once the tasks
+ *      move to mise; each names the same script).
  *      Comment lines are not read -- both files quote scripts they deliberately do NOT run -- and a
  *      multi-line `run: |` block is.
  *   2. a `package.json` script with no `run:` token in either file that `UNJOBBED_BY_KIND` below
@@ -108,22 +113,25 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { load as yamlLoad } from 'js-yaml'
+import { PACKAGE_JSON, TASKS_TOML, loadTasks, taskFiles } from './lib/tasks.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ROOT = process.env.CHECK_JOBS_ROOT ?? REPO_ROOT
 
-const PACKAGE = 'package.json'
+const PACKAGE = PACKAGE_JSON
 const HOOK_JOBS = 'git-hooks.yml'
 const VERIFY = '.github/workflows/verify.yml'
 const JOB_FILES = [HOOK_JOBS, VERIFY]
 
 /**
- * An invocation token inside a `run:` string: group 1 the launcher, group 2 the script. `npm run` is
- * CI's spelling and `--silent` is how `scripts/hooks/_shared.mjs` spells it; `node --run` is the
- * pre-push hook's (node_modules/.bin on PATH, no npm start-up -- measured at
- * 2.1-3.1s for `npm run` against 0.9-1.2s for `node --run` on one Windows host).
+ * An invocation token inside a `run:` string: group 1 or 2 the launcher, group 3 the script.
+ * `npm run` is CI's spelling and `--silent` is how npm's launcher in `scripts/hooks/_shared.mjs`
+ * spells it; `node --run` is the pre-push hook's (node_modules/.bin on PATH, no npm start-up --
+ * measured at 2.1-3.1s for `npm run` against 0.9-1.2s for `node --run` on one Windows host).
+ * `mise run`, with `-q` or `--quiet` as `runTask` passes it, is the spelling once the tasks move to
+ * mise; never `--silent` there, which in mise silences the task's own output.
  */
-const NPM_RUN_RE = /\b(npm run|node --run) (?:--silent )?([A-Za-z0-9][A-Za-z0-9:._-]*)/g
+const NPM_RUN_RE = /\b(?:(npm run|node --run) (?:--silent )?|(mise run) (?:-q |--quiet )?)([A-Za-z0-9][A-Za-z0-9:._-]*)/g
 /** The spellings this repository gives a gate: `check:<noun>`, and the `:check` / `:selftest` / `:selfcheck` twins. */
 const GATE_SHAPED_RE = /^check:|:(?:check|selftest|selfcheck)$/
 /**
@@ -332,12 +340,19 @@ export function runCheck(root, { pathsRoot = root } = {}) {
   const failures = []
   const fail = (message) => failures.push(message)
 
-  const pkgPath = join(root, PACKAGE)
-  if (!existsSync(pkgPath)) {
-    fail(`${PACKAGE} is missing at ${pkgPath}.`)
+  let manifest
+  try {
+    manifest = loadTasks(root)
+  } catch (error) {
+    fail(error.message)
     return { failures, report: null }
   }
-  const scripts = JSON.parse(readFileSync(pkgPath, 'utf8')).scripts ?? {}
+  if (manifest === null) {
+    fail(`${PACKAGE} is missing at ${join(root, PACKAGE)}, and there is no ${TASKS_TOML} either.`)
+    return { failures, report: null }
+  }
+  const { file, tasks: scripts } = manifest
+  const kindOf = file === TASKS_TOML ? 'task' : 'script'
   const names = new Set(Object.keys(scripts))
 
   /* ------------------------------------------------- 1. every token resolves ------------------- */
@@ -361,8 +376,8 @@ export function runCheck(root, { pathsRoot = root } = {}) {
     let carrying = 0
     for (const block of blocks) {
       const found = [...withoutComments(block.run).matchAll(NPM_RUN_RE)].map((m) => ({
-        launcher: m[1],
-        name: m[2],
+        launcher: m[1] ?? m[2],
+        name: m[3],
       }))
       if (found.length > 0) carrying++
       for (const { launcher, name } of found) tokens.push({ launcher, name, where: block.where })
@@ -374,7 +389,7 @@ export function runCheck(root, { pathsRoot = root } = {}) {
     if (names.has(name)) continue
     unresolved++
     fail(
-      `${where} invokes \`${launcher} ${name}\`, which is not a ${PACKAGE} script. A job over a` +
+      `${where} invokes \`${launcher} ${name}\`, which is not a ${file} ${kindOf}. A job over a` +
         ` script that does not exist fails on the next push for a reason unrelated to the push;` +
         ` rename the token or restore the script.`,
     )
@@ -397,7 +412,7 @@ export function runCheck(root, { pathsRoot = root } = {}) {
       declared.set(name, kind.kind)
       if (!names.has(name)) {
         fail(
-          `UNJOBBED_BY_KIND lists \`${name}\` (${kind.kind}) but ${PACKAGE} has no such script. If` +
+          `UNJOBBED_BY_KIND lists \`${name}\` (${kind.kind}) but ${file} has no such ${kindOf}. If` +
             ` it was retired, remove the entry; the list must describe the tree.`,
         )
       } else if (jobbed.has(name)) {
@@ -487,6 +502,7 @@ export function runCheck(root, { pathsRoot = root } = {}) {
     count: kind.names.map(entryName).filter((name) => unjobbed.includes(name)).length,
   }))
   const report = {
+    file,
     scripts: names.size,
     tokens: tokens.length,
     distinct: new Set(tokens.map((t) => t.name)).size,
@@ -511,7 +527,7 @@ function describe(report) {
   return [
     `jobs: ${files} carry an \`npm run\` token; ${report.tokens} tokens name ${report.distinct}` +
       ` distinct scripts, ${report.unresolved} unresolved.`,
-    `scripts: ${report.scripts} in ${PACKAGE} -- ${report.jobbed} jobbed, ${report.unjobbed}` +
+    `scripts: ${report.scripts} in ${report.file} -- ${report.jobbed} jobbed, ${report.unjobbed}` +
       ` un-jobbed and declared by kind (${kinds}). ${report.pathNaming} name a tools/, scripts/ or` +
       ` apps/ path, each held to its spelling on disk, case included; ${report.appsPaths} of those` +
       ` paths under apps/, and ${report.globs} a glob, held to matching a file rather than to` +
@@ -680,6 +696,12 @@ function editScripts(dir, transform) {
   })
 }
 
+/** The copy's scripts moved to a tasks.toml, as the move to mise moves them; the rest of package.json kept. */
+function toTasksToml(dir) {
+  const { scripts, ...rest } = JSON.parse(readFileSync(join(dir, PACKAGE), 'utf8'))
+  for (const [path, text] of Object.entries(taskFiles(TASKS_TOML, scripts, rest))) writeFileSync(join(dir, path), text)
+}
+
 /** A job appended to the copy's git-hooks.yml, under the last hook's `jobs:` list. */
 const appendJob = (name, run) => (text) => `${text}    - name: ${name}\n      run: ${run}\n`
 
@@ -721,6 +743,37 @@ function cases() {
       name: 'a hook job invokes a script that does not exist through `node --run`',
       doctor: (dir) => edit(dir, HOOK_JOBS, appendJob('doctored', 'node --run no:such:script')),
       expect: /^git-hooks\.yml pre-push\/doctored invokes `node --run no:such:script`, which is not/,
+    },
+    {
+      // mise's spelling, with the flag `runTask` passes; the message names the launcher alone.
+      name: 'a hook job invokes a script that does not exist through `mise run -q`',
+      doctor: (dir) => edit(dir, HOOK_JOBS, appendJob('doctored', 'mise run -q no:such:script')),
+      expect: /^git-hooks\.yml pre-push\/doctored invokes `mise run no:such:script`, which is not a package\.json script/,
+    },
+    {
+      // The manifest's other shape, which the loader reads before package.json: the same scripts.
+      name: "the copy's scripts moved to a tasks.toml pass, with a `mise run --quiet` job among them",
+      doctor: (dir) => {
+        toTasksToml(dir)
+        edit(dir, HOOK_JOBS, appendJob('doctored', 'mise run --quiet check:jobs'))
+      },
+      expect: 'pass',
+    },
+    {
+      name: 'a job invokes a task the tasks.toml copy does not define',
+      doctor: (dir) => {
+        toTasksToml(dir)
+        edit(dir, HOOK_JOBS, appendJob('doctored', 'mise run no:such:task'))
+      },
+      expect: /^git-hooks\.yml pre-push\/doctored invokes `mise run no:such:task`, which is not a tasks\.toml task/,
+    },
+    {
+      name: 'a task in the tasks.toml copy carries a key the loader refuses',
+      doctor: (dir) => {
+        toTasksToml(dir)
+        edit(dir, TASKS_TOML, (t) => t.replace('run = "node scripts/check-jobs.mjs"\n', 'run = "node scripts/check-jobs.mjs"\ndepends = ["counts:check"]\n'))
+      },
+      expect: /^tasks\.toml: the task `check:jobs` has `depends`/,
     },
     {
       // The runner runs a group's jobs as it runs the hook's own, so a token inside one is read too.

@@ -4,7 +4,8 @@
  * These hooks run on EVERY matching tool call, so the budget is a few hundred milliseconds. This file
  * imports Node's built-in `fs`, `path`, `url` and `child_process` and nothing else, and it reads no
  * file and starts no process when it is loaded. Two helpers start a process, and only when called:
- * `npmRun` runs an npm script, and `checkoutOf` runs git. A hook that calls neither starts none.
+ * `runTask` runs a task, after importing `scripts/lib/tasks.mjs` to read the manifest, and
+ * `checkoutOf` runs git. A hook that calls neither starts none.
  *
  * Why this tier exists: most of the work in this
  * repository is done by an agent, and a gate that fires after the agent has spent twenty minutes
@@ -183,27 +184,62 @@ export function generatedFileRedirect(rel) {
 }
 
 /* ============================================================================================= *
- * Running an npm script without a shell.
+ * Running a task without a shell.
  * ============================================================================================= */
 
 const WINDOWS = process.platform === 'win32'
 const NPM = WINDOWS ? 'npm.cmd' : 'npm'
 
 /**
- * Run `npm run <script>` and resolve with its exit code and combined output. Never rejects.
+ * How `runTask` launches the task `name` in the checkout at `cwd`, read from that checkout's own
+ * manifest through `scripts/lib/tasks.mjs`: `{ command, args, label }`, or `{ refused }` with why.
+ * A checkout with a `tasks.toml` runs it with `mise run --quiet`, and one without with
+ * `npm run --silent`, so the primary checkout's copy of a hook runs a worktree's gates on either
+ * side of the move to mise (asdlc-openspec-8juz.6). A task that manifest lacks is refused, never
+ * launched: mise resolves a name a checkout lacks from a checkout above it, so a worktree's gate
+ * would run the primary checkout's definition there, and pass on the wrong tree (asdlc-openspec-8juz.1,
+ * question 1). Exported so `gate-summary.selftest.mjs` holds the choice without starting either.
+ */
+export async function taskLaunch(name, cwd = ROOT) {
+  let manifest
+  try {
+    const { loadTasks } = await import('../lib/tasks.mjs')
+    manifest = loadTasks(cwd)
+  } catch (error) {
+    return { refused: `the task manifest in ${cwd} cannot be read: ${error.message}` }
+  }
+  if (manifest === null) return { refused: `${cwd} has neither tasks.toml nor package.json, so it defines no task \`${name}\`.` }
+  if (!Object.hasOwn(manifest.tasks, name)) {
+    return {
+      refused:
+        `\`${name}\` is not a task in ${cwd}'s own ${manifest.file}, so it was not run: a task runs only from the` +
+        ' checkout that defines it, since mise would take a definition from a checkout above this one.',
+    }
+  }
+  return manifest.file === 'tasks.toml'
+    ? { command: 'mise', args: ['run', '--quiet', name], label: `mise run ${name}` }
+    : { command: NPM, args: ['run', '--silent', name], label: `npm run ${name}` }
+}
+
+/**
+ * Run the task `name` in the checkout at `cwd`, as `taskLaunch` chooses, and resolve with its exit
+ * code, its combined output and `command`, the line it ran (the name alone where it ran none).
+ * Never rejects: a refusal or a launcher that cannot start resolves with code 127 and the reason.
  *
  * Windows needs a shell: since the CVE-2024-27980 fix Node refuses to `spawn` a `.cmd` file without
  * one and throws EINVAL. The whole command therefore goes through as ONE string with no argv array,
- * which is also what keeps Node's DEP0190 warning off the hook's stderr. `script` is always a literal
+ * which is also what keeps Node's DEP0190 warning off the hook's stderr. `name` is always a literal
  * from the caller in this repository, never anything a payload supplied. `cwd` is the checkout to run
  * it in, this one unless the caller names another; `env` is added to this process's environment.
  */
-export function npmRun(script, { timeoutMs = 120_000, cwd = ROOT, env = {} } = {}) {
+export async function runTask(name, { timeoutMs = 120_000, cwd = ROOT, env = {} } = {}) {
+  const launch = await taskLaunch(name, cwd)
+  if (launch.refused) return { code: 127, out: launch.refused, command: name }
   return new Promise((done) => {
     const options = { cwd, env: { ...process.env, ...env } }
     const child = WINDOWS
-      ? spawn(`${NPM} run --silent ${script}`, { ...options, windowsHide: true, shell: true })
-      : spawn(NPM, ['run', '--silent', script], options)
+      ? spawn([launch.command, ...launch.args].join(' '), { ...options, windowsHide: true, shell: true })
+      : spawn(launch.command, launch.args, options)
     let out = ''
     const take = (b) => {
       out += b.toString('utf8')
@@ -214,11 +250,11 @@ export function npmRun(script, { timeoutMs = 120_000, cwd = ROOT, env = {} } = {
     const timer = setTimeout(() => child.kill(), timeoutMs)
     child.on('error', (e) => {
       clearTimeout(timer)
-      done({ code: 127, out: `could not run \`npm run ${script}\`: ${e.message}` })
+      done({ code: 127, out: `could not run \`${launch.label}\`: ${e.message}`, command: launch.label })
     })
     child.on('close', (code) => {
       clearTimeout(timer)
-      done({ code: code ?? 1, out: out.trim() })
+      done({ code: code ?? 1, out: out.trim(), command: launch.label })
     })
   })
 }

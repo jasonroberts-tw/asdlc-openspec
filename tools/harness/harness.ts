@@ -56,9 +56,10 @@
  * `HARNESS_ROOT=<dir>` points it at a doctored copy, the top of a git checkout. It exits 0 with
  * findings, which it reports and never enforces, and 1 when an input cannot be read.
  *
- * NEEDS git, `js-yaml`, Node's `path.matchesGlob`, and the files `tools/harness/harness.config.json`
- * names; the map's sample from `couplingMinSampleUnits` in `tools/policy/tool-settings.json`. No
- * network.
+ * NEEDS git, `js-yaml`, Node's `path.matchesGlob`, `scripts/lib/tasks.mjs`, through which it reads the
+ * tasks (`tasks.toml` where the checkout tracks one, `package.json`'s `scripts` otherwise), and the
+ * files `tools/harness/harness.config.json` names; the map's sample from `couplingMinSampleUnits` in
+ * `tools/policy/tool-settings.json`. No network.
  *
  * KIND: assessment; writes a local report, never a committed artifact.
  * INVARIANTS: reads committed files only; every list sorted by code point; one serialiser; the date
@@ -71,6 +72,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { join, matchesGlob, posix, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { load as yamlLoad } from 'js-yaml'
+import { tasksFrom } from '../../scripts/lib/tasks.mjs'
 import { gitIn, gitOk } from '../lib/git-env.ts'
 import { ROOT as REPO_ROOT } from '../lib/paths.ts'
 
@@ -88,7 +90,7 @@ export type Config = {
   pathRootsFrom: { file: string; constant: string }
   codeExtensions: string[]
   launchHelpers: string[]
-  packageManifest: string
+  dependencyManifest: string
   packageLockfile: string
   hookJobs: string
   prePushEvent: string
@@ -130,7 +132,7 @@ const KEYS: { [K in keyof Config]: { ok: (v: unknown) => boolean; shape: string 
   pathRootsFrom: { ok: (v: any) => v && isString(v.file) && isString(v.constant), shape: 'a { file, constant }' },
   codeExtensions: { ok: isStrings, shape: 'a list of extensions' },
   launchHelpers: { ok: isStrings, shape: 'a list of function names' },
-  packageManifest: { ok: isString, shape: 'a path' },
+  dependencyManifest: { ok: isString, shape: 'a path' },
   packageLockfile: { ok: isString, shape: 'a path' },
   hookJobs: { ok: isString, shape: 'a path' },
   prePushEvent: { ok: isString, shape: 'an event name' },
@@ -336,6 +338,8 @@ class Repo {
   dirs: Set<string>
   read = new Map<string, string>()
   pathRoots: string[]
+  /** The tracked file the tasks were read from, `tasks.toml` or `package.json`; null with neither. */
+  taskManifest: string | null
   scripts: Record<string, string>
   dependencies: Set<string>
   scans = new Map<string, Scan>()
@@ -350,8 +354,10 @@ class Repo {
     this.dirs = new Set()
     for (const file of this.tracked) for (let dir = posix.dirname(file); dir !== '.'; dir = posix.dirname(dir)) this.dirs.add(dir)
     this.pathRoots = this.constantList(cfg.pathRootsFrom)
-    const manifest = JSON.parse(this.text(cfg.packageManifest) ?? '{}')
-    this.scripts = manifest.scripts ?? {}
+    const tasks = tasksFrom((path: string) => this.text(path))
+    this.taskManifest = tasks?.file ?? null
+    this.scripts = tasks?.tasks ?? {}
+    const manifest = JSON.parse(this.text(cfg.dependencyManifest) ?? '{}')
     this.dependencies = new Set([...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.devDependencies ?? {})])
   }
 
@@ -446,8 +452,8 @@ class Repo {
     }
 
     // Launches: `run` or `--run` as the first element of an argv array, then the script, a literal
-    // or a module constant, `--silent` passed over; and in a file that launches, every literal that
-    // is a script's name. The literals in order, from the lexer's spans.
+    // or a module constant, `--silent`, `--quiet` or `-q` passed over; and in a file that launches,
+    // every literal that is a script's name. The literals in order, from the lexer's spans.
     const strings = spans.map(({ start, end }) => ({ value: literalAt(code, start), start, end }))
     const after = (end: number) => /^\s*,\s*(?:(['"])|([A-Za-z_$][\w$]*))/.exec(blank.slice(end, end + 200))
     const argAfter = (k: number): { value: string; how: 'literal' | 'constant'; k: number } | null => {
@@ -462,7 +468,7 @@ class Repo {
       if ((strings[k].value !== 'run' && strings[k].value !== '--run') || !/\[\s*$/.test(blank.slice(Math.max(0, strings[k].start - 40), strings[k].start))) continue
       argv = true
       let next = argAfter(k)
-      if (next?.value === '--silent' && next.how === 'literal') next = argAfter(next.k)
+      if (next !== null && ['--silent', '--quiet', '-q'].includes(next.value) && next.how === 'literal') next = argAfter(next.k)
       if (next && Object.hasOwn(this.scripts, next.value)) how.set(next.value, next.how)
     }
     const helper = this.cfg.launchHelpers.length > 0 && new RegExp(String.raw`\b(?:${this.cfg.launchHelpers.map((h) => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\s*\(`).test(blank)
@@ -491,9 +497,9 @@ class Repo {
     return sorted([...command.matchAll(re)].map((m) => m[1].replace(/[.,;:]+$/, '')).filter((p) => this.trackedSet.has(p)))
   }
 
-  /** The package scripts a command runs. */
+  /** The package scripts a command runs: through `npm run` or `node --run`, or `mise run` once the tasks move to mise. */
   scriptsIn(command: string): string[] {
-    return sorted([...command.matchAll(/\b(?:npm run|node --run) (?:--silent )?([A-Za-z0-9][\w:.-]*)/g)].map((m) => m[1]).filter((s) => Object.hasOwn(this.scripts, s)))
+    return sorted([...command.matchAll(/\b(?:(?:npm run|node --run) (?:--silent )?|mise run (?:-q |--quiet )?)([A-Za-z0-9][\w:.-]*)/g)].map((m) => m[1]).filter((s) => Object.hasOwn(this.scripts, s)))
   }
 
   /** The entry files of a package script, through the scripts it runs in turn. */
@@ -590,7 +596,7 @@ async function redirects(repo: Repo): Promise<RedirectRow[]> {
   const rows: RedirectRow[] = []
   for (const path of repo.tracked.filter((p) => p.startsWith(`${repo.cfg.generatedRoot}/`))) {
     const message = fn(path)
-    const script = typeof message === 'string' ? /\bnpm run ([A-Za-z0-9][\w:.-]*)/.exec(message)?.[1] : undefined
+    const script = typeof message === 'string' ? /\b(?:npm|mise) run ([A-Za-z0-9][\w:.-]*)/.exec(message)?.[1] : undefined
     if (script) rows.push({ path, script })
   }
   return rows
@@ -619,7 +625,7 @@ function checkGlobs(repo: Repo, jobs: Job[], rows: RedirectRow[], findings: Find
     for (const file of sorted(closure)) if (!inGlob(file)) add(job, 'import', file, 'finding', `imported by ${entries.map((e) => `\`${e}\``).join(', ')}, transitively.`)
     const packages = sorted([...closure].flatMap((f) => repo.scan(f).packages))
     if (packages.length > 0) {
-      for (const pin of [repo.cfg.packageManifest, repo.cfg.packageLockfile]) if (!inGlob(pin)) add(job, 'package', pin, 'finding', `its closure imports ${packages.map((p) => `\`${p}\``).join(', ')}, which \`${pin}\` pins.`)
+      for (const pin of [repo.cfg.dependencyManifest, repo.cfg.packageLockfile]) if (!inGlob(pin)) add(job, 'package', pin, 'finding', `its closure imports ${packages.map((p) => `\`${p}\``).join(', ')}, which \`${pin}\` pins.`)
     }
     for (const read of sorted([...closure].flatMap((f) => repo.scan(f).reads))) {
       if (!inGlob(read)) {
@@ -675,7 +681,7 @@ function registrations(repo: Repo, jobs: Job[], rows: RedirectRow[]): { entries:
   const wiring: Wire[] = []
   for (const [script, command] of Object.entries(repo.scripts)) {
     for (const path of repo.pathsIn(command)) {
-      wiring.push({ from: `script:${script}`, to: `file:${path}`, relation: 'invokes', declaredIn: repo.cfg.packageManifest })
+      wiring.push({ from: `script:${script}`, to: `file:${path}`, relation: 'invokes', declaredIn: repo.taskManifest! })
       if (repo.isCode(path)) entries.add(path)
     }
   }
@@ -913,7 +919,7 @@ export function blobId(text: string): string {
 export type Report = {
   _: string[]
   date: string
-  read: { script: string; config: string; cochangeThrough: string | null; sources: { path: string; blob: string }[] }
+  read: { script: string; config: string; tasks: string | null; cochangeThrough: string | null; sources: { path: string; blob: string }[] }
   limits: Record<string, string>
   summary: Record<string, number>
   findings: Finding[]
@@ -924,7 +930,7 @@ export type Report = {
 
 const BANNER = [
   'Written by `npm run harness` (tools/harness/harness.ts): a local assessment, never committed. Each finding has a stable key and a level: finding, lead or note.',
-  'read: what the run read, each file by its git blob id. limits: what each check cannot see. comparison: what changed since the latest earlier report, by key.',
+  'read: what the run read, each file by its git blob id, and the file the tasks came from. limits: what each check cannot see. comparison: what changed since the latest earlier report, by key.',
 ]
 
 /** Assess the checkout under `root` for `date`; `previous` is the latest earlier report, if any. */
@@ -967,6 +973,7 @@ export async function assess(root: string, date: string, previous: Report | null
     read: {
       script: blobId(scriptText),
       config: blobId(configText),
+      tasks: repo.taskManifest,
       cochangeThrough: map?.throughCommit ?? null,
       sources: [...repo.read.entries()].map(([path, text]) => ({ path, blob: blobId(text) })).sort((a, b) => byCodePoint(a.path, b.path)),
     },

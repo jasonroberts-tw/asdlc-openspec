@@ -22,6 +22,7 @@ import { spawnSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { TASKS_TOML, taskFiles } from '../../scripts/lib/tasks.mjs'
 import { SCRATCH_GIT_ENV, gitIn } from '../lib/git-env.ts'
 import { ROOT } from '../lib/paths.ts'
 import { CONFIG, assess, blobId, serialise, type Report } from './harness.ts'
@@ -237,6 +238,7 @@ try {
   check('control: in the map\'s sample, a hub row writes its rate', control.tables.hubs.some((h) => h.firesPerHundredPrs !== null), control.tables.hubs)
   check('control: no file is in enough globs to be listed as never changed', control.tables.neverChanged.length === 0, control.tables.neverChanged)
   check('control: the report names every file it read, by blob id', control.read.sources.some((s) => s.path === 'git-hooks.yml' && s.blob === blobId(FILES['git-hooks.yml'])), control.read.sources)
+  check('control: the report names package.json as the file the tasks came from', control.read.tasks === 'package.json', control.read.tasks)
   check('control: a file only the pairing table reads is among them', control.read.sources.some((s) => s.path === 'scripts/lint-z.mjs'), control.read.sources.map((s) => s.path))
   check('control: the report states each check\'s limits', ['glob/import', 'glob/read', 'reach', 'parity', 'observed', 'hubs'].every((k) => typeof control.limits[k] === 'string'), Object.keys(control.limits))
   check('control: a second run writes the same bytes', serialise(await assess(controlDir, DATE)) === serialise(control), 'the report changed')
@@ -301,9 +303,33 @@ try {
       name: 'a script launched through a configured helper',
       doctor: (w, r) => {
         w('git-hooks.yml', withoutGen(r))
-        w('scripts/check-b.mjs', r('scripts/check-b.mjs').replace("spawnSync('node', ['--run', 'gen'])", "const GATES = ['gen']\nfor (const g of GATES) npmRun(g)"))
+        w('scripts/check-b.mjs', r('scripts/check-b.mjs').replace("spawnSync('node', ['--run', 'gen'])", "const GATES = ['gen']\nfor (const g of GATES) runTask(g)"))
       },
       expect: genLeads(/launches `gen`, by a name it takes from data,/),
+    },
+    {
+      name: 'a script launched through `mise run --quiet`',
+      doctor: (w, r) => {
+        w('git-hooks.yml', withoutGen(r))
+        w('scripts/check-b.mjs', r('scripts/check-b.mjs').replace("spawnSync('node', ['--run', 'gen'])", "spawnSync('mise', ['run', '--quiet', 'gen'])"))
+      },
+      expect: genLeads(/launches `gen`, by name,/),
+    },
+    {
+      // The manifest's other shape: were the job's `mise run` token not read, its script would be a
+      // parity finding, CI's alone.
+      name: 'the tasks moved to a tasks.toml, a job running one through `mise run --quiet`',
+      doctor: (w, r) => {
+        const { scripts, ...rest } = JSON.parse(r('package.json'))
+        for (const [path, body] of Object.entries(taskFiles(TASKS_TOML, scripts, rest))) w(path, body)
+        w('git-hooks.yml', r('git-hooks.yml').replace('run: node --run check:a', 'run: mise run --quiet check:a'))
+      },
+      expect: {},
+      also: (report) => [
+        ['the report names tasks.toml as the file the tasks came from', report.read.tasks === TASKS_TOML, report.read.tasks],
+        ['a script is wired to its file as declared in tasks.toml', report.wiring.some((w) => w.from === 'script:check:a' && w.relation === 'invokes' && w.declaredIn === TASKS_TOML), report.wiring.filter((w) => w.relation === 'invokes')],
+        ['the job running it through mise is wired to it', report.wiring.some((w) => w.from === 'job:pre-push/check-a' && w.to === 'script:check:a' && w.relation === 'runs'), report.wiring.filter((w) => w.relation === 'runs')],
+      ],
     },
     {
       name: 'a file read in a loop over literals, outside the glob',
