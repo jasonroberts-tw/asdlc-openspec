@@ -1,0 +1,31 @@
+{
+  "id": "bead-names-implied-register-entry",
+  "prompt": ".claude/skills/bead/SKILL.md",
+  "lens": "recorded",
+  "source": {
+    "run": "asdlc-openspec-aa0@2026-09-26T17:56:48Z",
+    "point": 3,
+    "commit": "d69527a"
+  },
+  "situation": "You are working one issue with this skill. You are in step 1, before any worktree exists and before any edit. The issue's acceptance criteria add a new procedure to the batched prompt review: before an edit would take a prompt past its word budget, the review first consolidates that prompt. You have checked the trunk and the gap is real, because the review has no such step. The review rests on two register entries in docs/decisions.md, and you have read both in full. D-08 sets up the batched review. D-10's items 3 and 4 send each finding's proposed edits to skeptics, who judge them with two questions. A consolidation does not answer a finding. It rewrites a prompt to make room for edits, so neither question fits it. The register's rules come from CLAUDE.md § Decisions live in the register and docs/decisions.md § How an entry changes. An entry is never rewritten, and no agent re-litigates one. A later decision changes an entry only by being added as a new numbered entry, with a dated amendment under each entry it changes. The acceptance criteria say nothing about the register. What do you do before writing the change?",
+  "options": [
+    {
+      "id": "a",
+      "text": "Write the consolidation step into the review's prompt and workflow as the criteria describe, and name no register entry. The criteria do not mention the register, and the review already runs under D-08."
+    },
+    {
+      "id": "b",
+      "text": "Name D-08, the entry that set up the batched review, as the entry the criterion implies, and open the pull-request body with it. Then write the consolidation step so that it goes through D-10's skeptics like any other edit."
+    },
+    {
+      "id": "c",
+      "text": "Name a new register entry, numbered after the last one, that records the consolidation procedure, with a dated amendment under D-10 saying its items 3 and 4 do not judge a consolidation. Write both into the change and open the pull-request body with them."
+    },
+    {
+      "id": "d",
+      "text": "Treat the criteria as re-litigating D-10, which is a recorded decision, so the premise does not hold. Show the evidence and stop without writing the change."
+    }
+  ],
+  "expected": "c",
+  "settledBy": "The run's action, which the pull-request reviewer passed: pull request #57 recorded a new register entry, D-12, with its amendment under D-10, named before the change was written."
+}

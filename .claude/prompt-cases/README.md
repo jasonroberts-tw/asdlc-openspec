@@ -48,3 +48,10 @@ workflows, and refuses one whose name is not its `id`.
 
 | File | The decision it holds |
 |---|---|
+| `bead-names-implied-register-entry.json` | `bead` § 1: a criterion that a recorded decision does not fit is named as a new register entry, with an amendment under the one it changes, before the change is written. |
+| `bead-works-product-defect-fix.json` | `bead` § 1: a defect fix in the product's code, stating no requirement, is worked through `bead`, not sent to `change-propose`. |
+| `bead-asks-open-decisions-before-claim.json` | `bead` § 1: with a live user, an issue's open decisions and unmeetable criteria go to the user before the claim, and the answers are recorded from the worktree. |
+| `reviewer-leaves-out-edit-past-budget.json` | The prompt reviewer's § How a prompt is consolidated: a file agent whose edit still does not fit after consolidating leaves it out and sets its finding aside with the words it needs. |
+| `fan-out-integrates-without-merge-commits.json` | `fan-out-work` § 5: lanes are brought onto the dispatcher's branch without a merge commit, since the trunk rebase-merges. |
+| `fan-out-remeasures-budgets-after-last-merge.json` | `fan-out-work` § 5: word budgets several lanes moved are re-measured with `check-prompts --counts` on the merged branch, not settled by hand from each lane's figures. |
+| `worktree-git-writes-own-branch.json` | The worktree briefing: git's own writes to the shared git directory for the session's branch, its commits, fetch and rebase, are not writes outside the worktree. |

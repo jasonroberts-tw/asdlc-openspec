@@ -1,0 +1,23 @@
+{
+  "id": "bead-works-product-defect-fix",
+  "prompt": ".claude/skills/bead/SKILL.md",
+  "lens": "recorded",
+  "source": {
+    "run": "asdlc-openspec-aa0@2026-09-26T17:56:48Z",
+    "point": 7,
+    "commit": "d69527a"
+  },
+  "situation": "A session is running the bead skill with no argument, so it took the top of `bd ready --exclude-label spec-change`. The issue it got does not carry the change label and belongs to no open change's epic. It reports a defect in the product: the calculator under `apps/calculator/` gives the wrong result for a chained subtraction. Its acceptance criterion is that the calculator gives the result it is already meant to give, with a regression test. It asks for no new behaviour and adds or alters no scenario; it only asks for the code to be fixed. In step 1 the session read the code as the trunk has it (`git show origin/main:<path>`), found the defect where the issue says, and recorded the premise as still valid, with file and line. No decision-register entry is implied. The fix would change product code under `apps/calculator/`. Before claiming the issue, the session has to decide whether to keep it here or send it to another skill.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Not work it in bead: it changes the product's code, so it is a product change. Hand it to `change-propose` to start an OpenSpec change, which will get its own epic and worktree."
+    },
+    {
+      "id": "b",
+      "text": "Work it through bead. Claim it, make the worktree with `EnterWorktree`, fix the defect and add the test, regenerate, run `npm run gates`, rebase, run the gates again, and open the pull request with `open-pr`."
+    }
+  ],
+  "expected": "b",
+  "settledBy": "The pull-request reviewer's minor finding on 1010f8f, followed by commit 8217d57. The reviewer flagged that the run had shortened bead's routing rule to 'an issue asking for a product change', which would send a product defect fix that states no requirement to change-propose (option a). Commit 8217d57 put back 'stated as requirements' so the rule matches CLAUDE.md § Product work runs as OpenSpec-format changes. Under the restored rule, only an issue asking for a change to what the product does, stated as requirements, goes to change-propose, and a defect fix is worked through bead (option b). The text at d69527a already has the qualifier."
+}

@@ -25,7 +25,9 @@ export const meta = {
  * the session stands, and each author or answer reads its own file there: a model that copied a text
  * through its output would have to retype tens of thousands of characters exactly, and the tools
  * show an agent only part of a line that long (the session review of asdlc-openspec-7c1 measured
- * `CLAUDE.md`'s at 39,891 characters, and a Read that showed 21,247 of them).
+ * `CLAUDE.md`'s at 39,891 characters, and a Read that showed 21,247 of them). One such copy, of
+ * 46,547 characters, did match, in the first run, on the design this replaced; one slip in it would
+ * have failed the run.
  *
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet: this script lands with the bank it fills
  * (asdlc-openspec-7c1). Were it wrong, it would let through: a case stored that the trunk's text does

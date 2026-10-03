@@ -1,0 +1,27 @@
+{
+  "id": "bead-asks-open-decisions-before-claim",
+  "prompt": ".claude/skills/bead/SKILL.md",
+  "lens": "recorded",
+  "source": {
+    "run": "asdlc-openspec-lzr@2026-09-26T04:12:29Z",
+    "point": 1,
+    "commit": "16440e9"
+  },
+  "situation": "You are working one issue with the bead skill, and the user is in the session. You did step 1. You read the issue, then read the code it talks about as origin/main has it, and the gap it describes is there as described, so the premise holds. The issue's description also ends with a \"Still to decide\" list of five open design questions that it leaves unanswered. Two of its acceptance criteria require citing a bd note by its id, but a note added with `bd note` is text appended to the issue and has no id of its own, so those two criteria cannot be met as written. You have not claimed the issue or made a worktree yet. What do you do next?",
+  "options": [
+    {
+      "id": "a",
+      "text": "Before claiming, put the five open questions and the two unmeetable criteria to the user. Then claim, make the worktree, and from there rewrite the issue to record the user's answers before starting any work."
+    },
+    {
+      "id": "b",
+      "text": "Claim the issue and start work in a worktree. Decide the five open questions and how to meet the two note-id criteria yourself, and name those choices in the pull-request body for the reviewer."
+    },
+    {
+      "id": "c",
+      "text": "Write the open questions and the unmeetable criteria into the issue as a note, leave it unclaimed and open, and move to the next ready issue."
+    }
+  ],
+  "expected": "a",
+  "settledBy": "Settled by what the run did. With the user present, it asked eight questions in two AskUserQuestion calls before claiming. It then recorded the answers in the issue from the worktree, the way step 3 says a re-scoping is recorded. The user answered, and the pull-request reviewer passed the result (#55). The review that read this run called it a gap in the text: step 1 covers a live user only when the premise does not hold. So this answer comes from the run's action, which the run took on its own, and not from a sentence in the skill. The old text may not lead an answerer to option a."
+}

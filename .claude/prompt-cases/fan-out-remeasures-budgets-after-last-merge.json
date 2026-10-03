@@ -1,0 +1,27 @@
+{
+  "id": "fan-out-remeasures-budgets-after-last-merge",
+  "prompt": ".claude/agents/fan-out-work.md",
+  "lens": "recorded",
+  "source": {
+    "run": "asdlc-openspec-6q6@2026-09-26T17:05:14Z",
+    "point": 6,
+    "commit": "16440e9"
+  },
+  "situation": "You are the dispatcher of a sweep. The trunk was green at pre-flight, the partition is written down, every issue is claimed and each lane ran in its own worktree. Every lane edited at least one prompt, and that edit moved the prompt's word budget. The budget is the figure the prompt gate, `scripts/check-prompts.mjs`, holds that prompt to. `node scripts/check-prompts.mjs --counts` re-measures the budget of every prompt at once. No emitter writes these budgets. Each lane set its figures on its own branch and measured them against that branch alone. The lanes have reported green and you are merging their branches forward into your own. L11 is the last lane to merge. Each merge brings in the budget figures its lane measured, and the merged branch now holds prompts that more than one lane changed. You have to decide how the budget figures on your branch get settled.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Settle the budgets inside each merge as it happens. Where lanes' figures meet, keep each lane's own figure for the prompts it edited, and carry those figures forward until L11 merges."
+    },
+    {
+      "id": "b",
+      "text": "Don't settle the figures merge by merge. Once L11, the last lane, is merged, re-measure every prompt with `node scripts/check-prompts.mjs --counts`, write the budgets it reports and run `npm run gates`."
+    },
+    {
+      "id": "c",
+      "text": "Because no emitter writes the budgets, treat them as falling outside the generated-file handling. Before merging each lane, send its budget change back to that lane to be re-measured against your branch."
+    }
+  ],
+  "expected": "b",
+  "settledBy": "The run's action. The dispatcher merged L11 last and then re-measured every prompt once with `node scripts/check-prompts.mjs --counts`, which changed 9 of 22 budgets, instead of resolving each lane's figure in a merge. Note that the text at 16440e9 regenerates a generated file after each merge (step 2's 'Same generated file' row and step 5), not once after the last one. This case only separates re-measuring from resolving figures by hand. It does not test how often to re-measure."
+}
