@@ -15,7 +15,14 @@
  * that the verdict said "with untracked files" over a checkout whose gate predates the setting
  * (asdlc-openspec-wdt). Part 3 is what turns red for either.
  *
- * Three parts, each asserting the REASON:
+ * AND A GATE RUN FROM THE WRONG MANIFEST. The hook launches each gate through `runTask`, which reads
+ * the gated checkout's own manifest: were it to pick `npm` or `mise` by anything else, every stop
+ * would report FAIL while the primary checkout and a worktree sit on either side of the move to mise
+ * (asdlc-openspec-8juz.6); and were it to launch a task that manifest lacks, mise would run the
+ * definition of the checkout above it, against the wrong tree (asdlc-openspec-8juz.1, question 1).
+ * Part 4 is what turns red for either.
+ *
+ * Four parts, each asserting the REASON:
  *
  *   1. `checkoutOf` over scratch repositories built under the temporary directory: a directory in a
  *      linked worktree of the repository is gated there; one in another repository, one outside any
@@ -30,6 +37,10 @@
  *      copy's own checkout passes (the control); a `cwd` in a linked worktree, whose committed
  *      citations stub ignores `CITATIONS_UNTRACKED`, passes there with a verdict naming the worktree
  *      and saying tracked files only; and a stub that fails there fails the verdict there.
+ *   4. `taskLaunch` and `runTask` over scratch checkouts: one with a `package.json` alone runs a task
+ *      with `npm run --silent` (the control, run for real), one with a `tasks.toml` with
+ *      `mise run --quiet`; and a task its own manifest lacks is refused before any launcher starts,
+ *      in a worktree whose enclosing checkout defines it and in a `package.json` checkout alike.
  *
  *   npm run gate-summary:selftest
  *
@@ -42,9 +53,10 @@ import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { taskFiles } from '../lib/tasks.mjs'
 
 for (const key of Object.keys(process.env)) if (key.startsWith('GIT_')) delete process.env[key]
-const { checkoutOf } = await import('./_shared.mjs')
+const { checkoutOf, runTask, taskLaunch } = await import('./_shared.mjs')
 
 const HOOK = join(resolve(dirname(fileURLToPath(import.meta.url))), 'gate-summary.mjs')
 const base = realpathSync(mkdtempSync(join(tmpdir(), 'gate-summary-')))
@@ -207,7 +219,8 @@ try {
   const home = repository('hook-home', {
     'scripts/hooks/gate-summary.mjs': readFileSync(HOOK, 'utf8'),
     'scripts/hooks/_shared.mjs': readFileSync(join(dirname(HOOK), '_shared.mjs'), 'utf8'),
-    'package.json': `${JSON.stringify({ private: true, scripts }, null, 2)}\n`,
+    'scripts/lib/tasks.mjs': readFileSync(join(dirname(HOOK), '../lib/tasks.mjs'), 'utf8'),
+    ...taskFiles('package.json', scripts, { private: true }),
     'stub-gate.mjs': stubGate(true),
     'sub/keep.md': 'kept\n',
   })
@@ -247,6 +260,51 @@ try {
   } else {
     console.log('  (the copy\'s control does not pass, so its other cases are not run: none could be trusted)')
   }
+
+  console.log("runTask: the launcher each checkout's own manifest calls for, and a task it lacks refused")
+  const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+  // A string, not a number: console.log colours a number when FORCE_COLOR is set.
+  const probe = `node -e "console.log('ran')"`
+  const npmSide = join(base, 'tasks-npm')
+  writeTree(npmSide, taskFiles('package.json', { 'probe:here': probe }, { private: true }))
+  const miseSide = join(base, 'tasks-mise')
+  writeTree(miseSide, taskFiles('tasks.toml', { 'probe:here': probe }, { private: true }))
+  // A worktree inside a checkout that defines a task its own manifest does not: what mise would borrow.
+  const inner = join(miseSide, '.claude/worktrees/inner')
+  writeTree(inner, taskFiles('tasks.toml', { 'probe:other': probe }, { private: true }))
+
+  const ran = await runTask('probe:here', { cwd: npmSide })
+  check(
+    'control: a checkout with no tasks.toml runs the task with npm, returning its output and the line it ran',
+    ran.code === 0 && ran.out === 'ran' && ran.command === 'npm run probe:here',
+    JSON.stringify(ran),
+  )
+  const viaNpm = await taskLaunch('probe:here', npmSide)
+  check(
+    'a checkout with no tasks.toml launches `npm run --silent <task>`',
+    viaNpm.command === NPM && viaNpm.args.join(' ') === 'run --silent probe:here',
+    JSON.stringify(viaNpm),
+  )
+  const viaMise = await taskLaunch('probe:here', miseSide)
+  check(
+    'a checkout with a tasks.toml launches `mise run --quiet <task>`',
+    viaMise.command === 'mise' && viaMise.args.join(' ') === 'run --quiet probe:here' && viaMise.label === 'mise run probe:here',
+    JSON.stringify(viaMise),
+  )
+  const borrowed = await runTask('probe:here', { cwd: inner })
+  check(
+    "a task the worktree's own tasks.toml lacks is refused unrun, though the checkout around it defines it",
+    borrowed.code === 127 &&
+      borrowed.command === 'probe:here' &&
+      borrowed.out.startsWith(`\`probe:here\` is not a task in ${inner}'s own tasks.toml, so it was not run`),
+    JSON.stringify(borrowed),
+  )
+  const absent = await runTask('probe:absent', { cwd: npmSide })
+  check(
+    "a task a package.json checkout's scripts lack is refused unrun too",
+    absent.code === 127 && absent.out.startsWith(`\`probe:absent\` is not a task in ${npmSide}'s own package.json, so it was not run`),
+    JSON.stringify(absent),
+  )
 } finally {
   rmSync(base, { recursive: true, force: true })
 }

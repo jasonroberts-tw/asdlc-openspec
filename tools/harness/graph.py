@@ -78,7 +78,7 @@ PREAMBLE = ("describes", "whyThisFileExists", "gatedBy", "whatItDoesNOTDo", "pro
 KEYS = ("reportDir", "cochangeMap", "graphOutDirPolicy", "cochangeRelation", "cochangeContext",
         "observedJaccardPolicy", "rulesFile", "pathRootsFrom", "codeExtensions", "hookJobs",
         "graphExtensionsPolicy", "promptPaths", "ciWorkflow", "otherWorkflows",
-        "combinedGraphPolicy", "combinedGraphBlobPolicy", "packageManifest", "wiringContext")
+        "combinedGraphPolicy", "combinedGraphBlobPolicy", "wiringContext")
 OVERLAY = "harness-overlay"
 
 
@@ -231,7 +231,7 @@ def combine(graph: dict, report: dict, cc: dict, cfg: dict, date: str, graph_blo
         if kind == "file":
             ids[ref] = anchor[name]
         elif kind == "script":
-            ids[ref] = new_node(f"package_scripts_{slug(name)}", name, "code", cfg["packageManifest"])
+            ids[ref] = new_node(f"package_scripts_{slug(name)}", name, "code", report["read"]["tasks"])
         else:
             ids[ref] = new_node(f"harness_job_{slug(name)}", f"job {name}", "concept", cfg["hookJobs"])
         return ids[ref]
@@ -629,7 +629,7 @@ def selftest() -> int:
               "clusters": [{"id": "scripts/a.mjs", "files": ["scripts/a.mjs", "scripts/b.mjs"]}]}
         (root / cfg["cochangeMap"]).parent.mkdir(parents=True, exist_ok=True)
         (root / cfg["cochangeMap"]).write_text(json.dumps(cc), encoding="utf-8")
-        core = {"date": "2026-01-02", "findings": [], "wiring": [
+        core = {"date": "2026-01-02", "read": {"tasks": "package.json"}, "findings": [], "wiring": [
             {"from": "script:check", "to": "file:scripts/a.mjs", "relation": "invokes", "declaredIn": "package.json"},
             {"from": "job:pre-push/check", "to": "script:check", "relation": "runs", "declaredIn": cfg["hookJobs"]},
             {"from": "job:pre-push/check", "to": "file:scripts/a.mjs", "relation": "declares_input", "declaredIn": cfg["hookJobs"], "detail": "scripts/**"}]}

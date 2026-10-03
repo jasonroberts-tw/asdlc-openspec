@@ -69,10 +69,12 @@
  * `CITATIONS_ROOT=<dir> node scripts/hooks/gate-summary.mjs`, which is how the selftest runs this
  * checkout's copy; it also runs a copy of the hook from a scratch repository with stub gates.
  *
- * Needs `npm` and `git` on PATH and `npm ci` in the checkout it gates, and nothing outside it.
+ * Needs `git` on PATH, `npm ci` in the checkout it gates, and the launcher that checkout's own task
+ * manifest calls for: `mise` where it has a `tasks.toml`, `npm` where it has not (`runTask` in
+ * `_shared.mjs`, which refuses a gate that manifest does not define). Nothing outside it.
  */
 import { realpathSync } from 'node:fs'
-import { ROOT, checkoutOf, npmRun, readHookInput } from './_shared.mjs'
+import { ROOT, checkoutOf, readHookInput, runTask } from './_shared.mjs'
 
 /**
  * The line `tools/citations/check.ts` adds to its summary when it honours `CITATIONS_UNTRACKED`. A
@@ -104,7 +106,7 @@ const root = checkoutOf(input?.cwd)
 
 const results = await Promise.all(
   GATES.map(async (gate) => {
-    const run = await npmRun(gate.script, { timeoutMs: 180_000, cwd: root, env: gate.env })
+    const run = await runTask(gate.script, { timeoutMs: 180_000, cwd: root, env: gate.env })
     return { gate: gate.script, reads: gate.reads(run.out), ...run }
   }),
 )
@@ -126,7 +128,7 @@ const detail =
     : [
         verdict,
         '',
-        ...failed.flatMap((f) => [`--- npm run ${f.gate} (exit ${f.code}) ---`, f.out, '']),
+        ...failed.flatMap((f) => [`--- ${f.command} (exit ${f.code}) ---`, f.out, '']),
       ].join('\n')
 
 process.stdout.write(`${JSON.stringify({ systemMessage: verdict, additionalContext: detail })}\n`)

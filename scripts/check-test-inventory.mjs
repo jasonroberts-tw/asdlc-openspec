@@ -17,8 +17,12 @@
  * read to its closing parenthesis fails the run rather than passing it.
  *
  * WHICH FILES HOLD TESTS. At each of the two commits, the files that commit's tree holds that a
- * quoted pattern of a `package.json` script running `scripts/run-tests.mjs` matches, by
- * `path.matchesGlob`; the runner expands the same pattern with `fs.globSync`, over the working tree.
+ * quoted pattern of a script running `scripts/run-tests.mjs` matches, by `path.matchesGlob`; the
+ * runner expands the same pattern with `fs.globSync`, over the working tree. The scripts are each
+ * commit's own, read through `scripts/lib/tasks.mjs`: its `tasks.toml`, or its `package.json`'s
+ * `scripts` where it has none. So a branch that moves the tasks from one to the other is read on
+ * each side as that side holds them; read from one file at both, the side without it would hold no
+ * pattern, and a test the move deleted would pass unseen.
  * A `--dir <dir>` of such a script stands for the glob `scripts/lib/test-dirs.mjs` gives, the files
  * the runner runs under it, and a `--dir` with no directory fails the run rather than read as none.
  * So a pattern narrowed until a file drops out removes that file's tests. Both commits are read from
@@ -112,6 +116,7 @@ import { dirname, join, matchesGlob, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gitEnv, gitIn } from '../tools/lib/git-env.ts'
 import { POLICY_DIR, mergeRecords, parseRecord, readPolicy, readPolicyAt } from '../tools/lib/policy.ts'
+import { PACKAGE_JSON, TASKS_TOML, taskFiles, tasksFrom } from './lib/tasks.mjs'
 import { dirGlob, runnerDirs } from './lib/test-dirs.mjs'
 import { PR_REVIEW, VOCABULARY, readTests, tracePolicy } from './test-trace.mjs'
 
@@ -119,7 +124,8 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const SELF = fileURLToPath(import.meta.url)
 
 const TRUNK = 'refs/remotes/origin/main'
-const MANIFEST = 'package.json'
+const MANIFEST = PACKAGE_JSON
+const MANIFESTS = [TASKS_TOML, PACKAGE_JSON]
 const RUNNER = 'scripts/run-tests.mjs'
 const TRAILER_KEY = 'testInventoryTrailer'
 const KINDS = ['remove', 'skip', 'weaken']
@@ -172,20 +178,14 @@ function readBlobs(root, specs) {
 /* --------------------------------------------------------------------------------- the files ---- */
 
 /**
- * The quoted patterns of every script in `manifest` that runs the test runner, and the glob of the
- * files under each `--dir` of one (`scripts/lib/test-dirs.mjs`); a `--dir` with no directory throws.
+ * The quoted patterns of every script in `scripts` (a name-to-command map, or null where the commit
+ * has no manifest) that runs the test runner, and the glob of the files under each `--dir` of one
+ * (`scripts/lib/test-dirs.mjs`); a `--dir` with no directory throws.
  */
-export function testPatterns(manifest) {
-  if (manifest === null) return []
-  let scripts
-  try {
-    scripts = JSON.parse(manifest).scripts ?? {}
-  } catch (error) {
-    throw new Error(`${MANIFEST} cannot be read as JSON (${error.message}).`)
-  }
+export function testPatterns(scripts) {
+  if (scripts === null) return []
   const patterns = []
   for (const name of Object.keys(scripts).sort(byCodePoint)) {
-    if (typeof scripts[name] !== 'string') continue
     const words = [...scripts[name].matchAll(/"([^"]*)"|'([^']*)'|(\S+)/g)].map((m) => m[1] ?? m[2] ?? m[3])
     const at = words.indexOf(RUNNER)
     if (at < 0) continue
@@ -199,11 +199,14 @@ export function testPatterns(manifest) {
   return [...new Set(patterns)]
 }
 
-/** The paths among `paths` that a pattern of `manifest` matches: the files that hold tests. */
-export function testFiles(paths, manifest) {
-  const patterns = testPatterns(manifest)
+/** The paths among `paths` that a pattern of `scripts` matches: the files that hold tests. */
+export function testFiles(paths, scripts) {
+  const patterns = testPatterns(scripts)
   return paths.filter((path) => patterns.some((pattern) => matchesGlob(path, pattern))).sort(byCodePoint)
 }
+
+/** The scripts a commit's manifest defines, from `text(file)`, its text at that commit or null; null with neither. */
+const scriptsAt = (text) => tasksFrom(text)?.tasks ?? null
 
 function listTree(root, commit) {
   return gitText(root, ['ls-tree', '-r', '--name-only', '-z', commit], `the tree of ${commit}`)
@@ -801,7 +804,7 @@ export function checkInventory(root) {
     }
   }
 
-  const meta = readBlobs(root, [`${base}:${MANIFEST}`, `${head}:${MANIFEST}`])
+  const meta = readBlobs(root, [base, head].flatMap((commit) => MANIFESTS.map((file) => `${commit}:${file}`)))
   let policy = null
   try {
     policy = readPolicyAt(gitIn(root), head)
@@ -809,7 +812,7 @@ export function checkInventory(root) {
     throw new Error(`${POLICY_DIR}/ at HEAD cannot be read (${error.message}).`)
   }
   const trailer = trailerKey(policy)
-  const listed = [base, head].map((commit) => ({ commit, paths: testFiles(listTree(root, commit), meta.get(`${commit}:${MANIFEST}`)) }))
+  const listed = [base, head].map((commit) => ({ commit, paths: testFiles(listTree(root, commit), scriptsAt((file) => meta.get(`${commit}:${file}`))) }))
   const blobs = readBlobs(root, listed.flatMap(({ commit, paths }) => paths.map((path) => `${commit}:${path}`)))
   const sides = listed.map(({ commit, paths }) => ({
     commit,
@@ -920,17 +923,14 @@ const HAND = {
 
 function fixtureFiles(trailerKey) {
   return {
-    'package.json': `${JSON.stringify(
+    ...taskFiles(
+      PACKAGE_JSON,
       {
-        type: 'module',
-        scripts: {
-          'unit:test': 'node scripts/run-tests.mjs "test/*.test.js"',
-          'unit:selftest': 'node scripts/run-tests.mjs --selftest',
-        },
+        'unit:test': 'node scripts/run-tests.mjs "test/*.test.js"',
+        'unit:selftest': 'node scripts/run-tests.mjs --selftest',
       },
-      null,
-      2,
-    )}\n`,
+      { type: 'module' },
+    ),
     [VOCABULARY]: recordText({ ...FIXTURE_POLICY[VOCABULARY], [TRAILER_KEY]: trailerKey }),
     [PR_REVIEW]: recordText(FIXTURE_POLICY[PR_REVIEW]),
     'test/a.test.js': A_TEST,
@@ -955,7 +955,7 @@ function writeTree(dir, files) {
 /** A side as `judge` takes it, from a tree of path to text, where a null text is no file. */
 function sideOf(commit, tree) {
   const paths = Object.keys(tree).filter((path) => tree[path] !== null)
-  return { commit, files: testFiles(paths, tree[MANIFEST] ?? null).map((path) => ({ path, source: tree[path] })) }
+  return { commit, files: testFiles(paths, scriptsAt((file) => tree[file] ?? null)).map((path) => ({ path, source: tree[path] })) }
 }
 
 /** Whether `result` is the outcome `expect` names, and what to print for it. */
@@ -1077,6 +1077,11 @@ const swap = (path, from, to) => (tree) => {
   return { [path]: tree[path].replace(from, to) }
 }
 const removeB = () => ({ 'test/b.test.js': null })
+/** The fixture's scripts moved from its package.json to a tasks.toml, as the move to mise moves them. */
+const toToml = (tree) => {
+  const { scripts, ...rest } = JSON.parse(tree[MANIFEST])
+  return taskFiles(TASKS_TOML, scripts, rest)
+}
 const addSquares = (options) => (tree) => ({
   'test/b.test.js': `${tree['test/b.test.js']}\n// trace: FIX-006:happy@aaaaaaaaaaaa\ntest('[FIX-006] squares', ${options}() => {\n  assert.equal(3 ** 2, 9)\n})\n`,
 })
@@ -1137,6 +1142,12 @@ function judgeCases() {
       expect: { pass: /1 renamed with the call unchanged.*-> test\/b\.test\.js "\[FIX-004, FIX-009\] multiplies"/ },
     },
     { name: 'a pattern narrowed until a file drops out', edit: swap('package.json', 'test/*.test.js', 'test/a.test.js'), expect: { refuse: removedB } },
+    {
+      name: 'the scripts moved to a tasks.toml with every test kept pass, each side read from its own manifest',
+      edit: toToml,
+      expect: { pass: /4 test\(s\) in 2 file\(s\) at the merge base ba5e000, 4 test\(s\) in 2 file\(s\) at HEAD 4ead000; 0 renamed/ },
+    },
+    { name: 'the scripts moved to a tasks.toml and a test removed with them', edit: (tree) => ({ ...toToml(tree), ...removeB() }), expect: { refuse: removedB } },
     {
       name: 'a test removed from a directory a script runs with --dir',
       base: withDir({ 'test/independent/contract/d.test.js': D_TEST }),
@@ -1264,6 +1275,16 @@ function gitCases(files, trailer) {
       expect: trailer.toLowerCase() === trailer ? { pass: /this case needs a key with a capital/ } : { refuse: removedB },
     },
     { name: "a pattern narrowed in HEAD's package.json", commits: [{ edits: swap('package.json', 'test/*.test.js', 'test/a.test.js') }], expect: { refuse: removedB } },
+    {
+      name: "control: the base's scripts in package.json and HEAD's in a tasks.toml, every test kept, pass",
+      commits: [{ edits: toToml }],
+      expect: { pass: /^test-inventory: 4 test\(s\) in 2 file\(s\) at the merge base \w{7}, 4 test\(s\) in 2 file\(s\) at HEAD \w{7}; 0 renamed/ },
+    },
+    {
+      name: "the base's scripts in package.json and HEAD's in a tasks.toml with a test removed, which a read of one file at both would pass",
+      commits: [{ edits: (tree) => ({ ...toToml(tree), ...removeB() }) }],
+      expect: { refuse: removedB },
+    },
     {
       name: 'a policy at HEAD with no trailer key',
       commits: [{ edits: () => ({ [VOCABULARY]: recordText(FIXTURE_POLICY[VOCABULARY]) }) }],

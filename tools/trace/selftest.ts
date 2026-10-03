@@ -21,6 +21,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, write
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { PACKAGE_JSON, TASKS_TOML, taskFiles } from '../../scripts/lib/tasks.mjs'
 import { hashRef, readTracePolicy } from '../../scripts/test-trace.mjs'
 import { SCRATCH_GIT_ENV, gitIn } from '../lib/git-env.ts'
 import { ROOT } from '../lib/paths.ts'
@@ -111,7 +112,7 @@ maintainers have asked for the greeting to notice.
 `
 
 const TREE: Record<string, string> = {
-  'package.json': `${JSON.stringify({ type: 'module', scripts: { 'greeter:test': 'node scripts/run-tests.mjs "apps/greeter/test/*.test.js"' } }, null, 2)}\n`,
+  ...taskFiles(PACKAGE_JSON, { 'greeter:test': 'node scripts/run-tests.mjs "apps/greeter/test/*.test.js"' }, { type: 'module' }),
   'openspec/config.yaml': 'schema: spec-driven\n',
   [SPEC]: LIVING,
   [SURFACE]: '# Binding Surface\n\nThe greeter exports `greet(reader)`.\n',
@@ -148,6 +149,12 @@ function writeTests(dir: string, source = TEST_SOURCE) {
 function swap(from: string, to: string, source = TEST_SOURCE) {
   if (!source.includes(from)) throw new Error(`the fixture lacks ${JSON.stringify(from)}`)
   return source.replace(from, to)
+}
+
+/** The fixture's scripts moved from its package.json to a tasks.toml, as the move to mise moves them. */
+function toTasksToml(dir: string) {
+  const { scripts, ...rest } = JSON.parse(readFileSync(join(dir, PACKAGE_JSON), 'utf8'))
+  for (const [path, text] of Object.entries(taskFiles(TASKS_TOML, scripts, rest))) put(dir, path, text)
 }
 
 function commitAll(dir: string, subject: string) {
@@ -544,6 +551,19 @@ function cases(): Case[] {
       name: 'reader: no package script runs the test runner, so no test is read',
       doctor: (dir) => edit(dir, 'package.json', (text) => text.replace('node scripts/run-tests.mjs', 'node --test')),
       expect: /^reader: no script in package\.json runs `node scripts\/run-tests\.mjs` over a quoted pattern/,
+    },
+    {
+      name: 'reader: the scripts moved to a tasks.toml are read from it, and the fixture still passes',
+      doctor: toTasksToml,
+      expect: 'pass',
+    },
+    {
+      name: 'reader: no task in a tasks.toml runs the test runner, so no test is read',
+      doctor: (dir) => {
+        toTasksToml(dir)
+        edit(dir, TASKS_TOML, (text) => text.replace('node scripts/run-tests.mjs', 'node --test'))
+      },
+      expect: /^reader: no script in tasks\.toml runs `node scripts\/run-tests\.mjs` over a quoted pattern/,
     },
     {
       name: 'reader: metadata the reader refuses is refused here in its words',

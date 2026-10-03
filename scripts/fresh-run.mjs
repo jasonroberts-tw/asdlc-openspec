@@ -28,13 +28,13 @@
  *   2. `git clone --local --no-checkout` of the root's common git directory, `checkout --detach` of
  *      HEAD, `git remote remove origin`, and `refs/remotes/origin/main` set to the root's
  *      `origin/main`; then `npm ci --no-audit --no-fund`.
- *   3. Every package script that runs `scripts/run-tests.mjs` and neither `--selftest` nor `--name`,
- *      in code-point order, each with `--results`, read from the clone's `package.json` rather than
- *      named here: today `calculator:test`, the test-builder's `build/` stage
+ *   3. Every script that runs `scripts/run-tests.mjs` and neither `--selftest` nor `--name`, in
+ *      code-point order, each with `--results`, read from the clone's own tasks through
+ *      `scripts/lib/tasks.mjs` rather than named here: today `calculator:test`, the test-builder's `build/` stage
  *      (`calculator:test:independent`) and its `verify/` stage (`calculator:test:verify`), which no
  *      job runs and which holds the E2E tests and the fitness functions deferred to Verify, so this
  *      run is where they run. Then `check()` of `tools/trace/trace.ts` in a child, and
- *      `thresholds:commands:check` where `package.json` has it, its output kept as the gate prints it.
+ *      `thresholds:commands:check` where the tasks have it, its output kept as the gate prints it.
  *   4. Reads the clone's committed record, `artifacts/trace/record.json`, and its baseline, and the
  *      fitness records under `apps/<app>/fitness/`; joins each result to the record's test of the
  *      same file and name; and gives each test the record's partition, moved to `change` when it
@@ -83,6 +83,7 @@ import { cpSync, existsSync, globSync, mkdirSync, mkdtempSync, readdirSync, read
 import { arch, platform, release, tmpdir } from 'node:os'
 import { delimiter, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { PACKAGE_JSON, loadTasks, taskFiles } from './lib/tasks.mjs'
 import { words } from './lib/test-dirs.mjs'
 import { POLICY_DIR, copyPolicy, readPolicy } from '../tools/lib/policy.ts'
 
@@ -309,7 +310,7 @@ export async function npmCi(clone) {
 
 /* ------------------------------------------------------------------------------- the run ------- */
 
-/** The package scripts that run the test runner over tests: neither its selftest nor a re-run by name. */
+/** The scripts that run the test runner over tests: neither its selftest nor a re-run by name. */
 export function testScripts(scripts) {
   return Object.keys(scripts ?? {})
     .filter((name) => {
@@ -347,9 +348,9 @@ async function traceCheck(clone) {
   }
 }
 
-/** The Commands' mutation run, as the gate prints it, or why it did not run. */
-async function commandsCheck(clone, scripts) {
-  if (!scripts[COMMANDS_CHECK]) return { script: COMMANDS_CHECK, skipped: `package.json at this commit has no \`${COMMANDS_CHECK}\`` }
+/** The Commands' mutation run, as the gate prints it, or why it did not run; `manifest` is the clone's, as `loadTasks` reads it. */
+async function commandsCheck(clone, { file, tasks }) {
+  if (!tasks[COMMANDS_CHECK]) return { script: COMMANDS_CHECK, skipped: `${file} at this commit has no \`${COMMANDS_CHECK}\`` }
   const run = withinDeadline(await runChild('npm', ['run', '--silent', COMMANDS_CHECK], clone), `npm run --silent ${COMMANDS_CHECK}`)
   return { script: COMMANDS_CHECK, status: run.status, ms: run.ms, output: `${run.stdout}${run.stderr}`.replace(/\s+$/, '') }
 }
@@ -438,10 +439,10 @@ export async function freshRun(root, change, { tasks = [], tmp = tmpdir(), insta
   const src = source(root)
   const temporary = temporaryRoot(tmp)
   const run = await guarded(root, deadlineMs, () => withClone({ ...src, commit: src.head, tmp: temporary, install }, async (clone, out, installed) => {
-    const pkg = readJson(join(clone, 'package.json'))
-    const scripts = await runScripts(clone, out, pkg.scripts ?? {})
+    const manifest = loadTasks(clone) ?? { file: PACKAGE_JSON, tasks: {} }
+    const scripts = await runScripts(clone, out, manifest.tasks)
     const trace = await traceCheck(clone)
-    const thresholds = await commandsCheck(clone, pkg.scripts ?? {})
+    const thresholds = await commandsCheck(clone, manifest)
     if (!existsSync(join(clone, RECORD))) refuse(`the commit has no ${RECORD}, so no test can be sorted: run \`npm run trace\` and commit it.`)
     const record = readJson(join(clone, RECORD))
     const baseline = existsSync(join(clone, BASELINE)) ? readJson(join(clone, BASELINE)).unmet ?? [] : []
@@ -537,6 +538,7 @@ const COPIED = [
   'scripts/run-tests.mjs',
   'scripts/test-trace.mjs',
   'scripts/lib/test-dirs.mjs',
+  'scripts/lib/tasks.mjs',
   'scripts/lib/bin-path.mjs',
   'tools/trace/trace.ts',
   'tools/lib/committed.ts',
@@ -618,7 +620,7 @@ async function buildFixture(base) {
     'calculator:test:verify': `node ${RUNNER} --dir ${VERIFY_DIR}`,
     [COMMANDS_CHECK]: 'node stub/commands.mjs',
   }
-  write(dir, 'package.json', `${JSON.stringify({ type: 'module', scripts }, null, 2)}\n`)
+  for (const [path, text] of Object.entries(taskFiles(PACKAGE_JSON, scripts, { type: 'module' }))) write(dir, path, text)
   write(
     dir,
     'stub/commands.mjs',

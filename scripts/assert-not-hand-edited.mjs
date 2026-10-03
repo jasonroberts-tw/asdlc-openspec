@@ -19,7 +19,6 @@
  * by a check that had never looked at it. Verifiers are now selected by the path that made the file
  * suspect, and a suspect nothing can verify is REPORTED as unverified rather than waved through.
  */
-import { spawnSync } from 'node:child_process'
 import { resolve } from 'node:path'
 import {
   ROOT,
@@ -27,6 +26,7 @@ import {
   generatedFileRedirect,
   hasGeneratedBanner,
   header,
+  runTask,
   toRepoRel,
 } from './hooks/_shared.mjs'
 
@@ -47,7 +47,7 @@ for (const arg of staged) {
 if (suspect.length === 0) process.exit(0)
 
 /**
- * Which npm script actually re-derives which build product.
+ * Which task actually re-derives which build product.
  *
  * `names` pulls the offending paths out of a failing check's output when it prints them, so the
  * message can point at the file rather than at the whole corpus. It is optional: a verifier that
@@ -71,22 +71,10 @@ const VERIFIERS = [
 /**
  * Only NOW pay for a generator, and only for the ones whose output is actually staged. About two
  * seconds each, which is fine once a commit touches a build product and would not be fine on every
- * commit.
+ * commit. Each runs through `runTask` (`scripts/hooks/_shared.mjs`), which picks the launcher this
+ * checkout's task manifest calls for; `verifier.script` is always a literal from VERIFIERS above,
+ * never anything a staged path supplied.
  */
-const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
-function run(script) {
-  // Windows needs a shell: since the CVE-2024-27980 fix Node refuses to spawn a .cmd without one.
-  // `script` is always a literal from VERIFIERS above, never anything a staged path supplied.
-  return process.platform === 'win32'
-    ? spawnSync(`${npm} run --silent ${script}`, {
-        cwd: ROOT,
-        encoding: 'utf8',
-        shell: true,
-        windowsHide: true,
-      })
-    : spawnSync(npm, ['run', '--silent', script], { cwd: ROOT, encoding: 'utf8' })
-}
-
 const failures = []
 const claimed = new Set()
 
@@ -95,11 +83,10 @@ for (const verifier of VERIFIERS) {
   if (mine.length === 0) continue
   for (const rel of mine) claimed.add(rel)
 
-  const check = run(verifier.script)
-  if (check.status === 0) continue
-  const out = `${check.stdout ?? ''}${check.stderr ?? ''}`
-  const named = verifier.names?.(out) ?? []
-  failures.push({ script: verifier.script, out, paths: named.length > 0 ? named : mine })
+  const check = await runTask(verifier.script, { cwd: ROOT })
+  if (check.code === 0) continue
+  const named = verifier.names?.(check.out) ?? []
+  failures.push({ command: check.command, out: check.out, paths: named.length > 0 ? named : mine })
 }
 
 /**
@@ -130,9 +117,9 @@ for (const { paths } of failures) {
     console.error('')
   }
 }
-for (const { script, out, paths } of failures) {
+for (const { command, out, paths } of failures) {
   if (paths.some((rel) => generatedFileRedirect(rel) !== null)) continue
-  console.error(`\`npm run ${script}\` failed. Its full output:\n`)
+  console.error(`\`${command}\` failed. Its full output:\n`)
   console.error(out)
 }
 console.error('To commit anyway (you almost never want to): GIT_HOOKS_SKIP=1 git commit')

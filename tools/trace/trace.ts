@@ -131,6 +131,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { findBin } from '../../scripts/lib/bin-path.mjs'
+import { PACKAGE_JSON, loadTasks } from '../../scripts/lib/tasks.mjs'
 import { dirGlob, scriptDirs } from '../../scripts/lib/test-dirs.mjs'
 import { VOCABULARY, hashRef, readTests, readTracePolicy, specIndex } from '../../scripts/test-trace.mjs'
 import { firstDifference, readText } from '../lib/committed.ts'
@@ -334,15 +335,18 @@ function tracePolicyExtras(root: string): { layers: string[]; task: string } {
 }
 
 /**
- * The test files: every file the quoted patterns of a package script running the runner match, and
- * every file under a `--dir` of one, as `scripts/lib/test-dirs.mjs` expands it.
+ * The test files: every file the quoted patterns of a script running the runner match, and every
+ * file under a `--dir` of one, as `scripts/lib/test-dirs.mjs` expands it. The scripts are the tree's
+ * tasks, read through `scripts/lib/tasks.mjs`.
  */
 function testFiles(root: string, findings: string[]): string[] {
-  const scripts = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).scripts ?? {}
+  const manifest = loadTasks(root)
+  const file = manifest?.file ?? PACKAGE_JSON
+  const scripts: Record<string, string> = manifest?.tasks ?? {}
   const patterns: string[] = []
   const invocation = new RegExp(`node ${RUNNER.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}((?:\\s+"[^"]+")+)`, 'g')
-  for (const command of Object.values(scripts) as string[]) {
-    for (const call of String(command).matchAll(invocation)) {
+  for (const command of Object.values(scripts)) {
+    for (const call of command.matchAll(invocation)) {
       for (const quoted of call[1].matchAll(/"([^"]+)"/g)) patterns.push(quoted[1])
     }
   }
@@ -352,7 +356,7 @@ function testFiles(root: string, findings: string[]): string[] {
     findings.push(`reader: ${(error as Error).message}`)
   }
   if (patterns.length === 0) {
-    findings.push(`reader: no script in package.json runs \`node ${RUNNER}\` over a quoted pattern, so no test file can be read.`)
+    findings.push(`reader: no script in ${file} runs \`node ${RUNNER}\` over a quoted pattern, so no test file can be read.`)
     return []
   }
   return sorted(patterns.flatMap((pattern) => globSync(pattern, { cwd: root })).filter((file) => statSync(join(root, file)).isFile()))

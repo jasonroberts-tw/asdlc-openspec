@@ -177,6 +177,7 @@ import { fileURLToPath } from 'node:url'
 import { gitEnv } from '../tools/lib/git-env.ts'
 import { POLICY_DIR, copyPolicy, readPolicy as readConstants } from '../tools/lib/policy.ts'
 import { runTests } from './run-tests.mjs'
+import { PACKAGE_JSON, TASKS_TOML, loadTasks, taskFiles } from './lib/tasks.mjs'
 import { dirGlob, scriptDirs } from './lib/test-dirs.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -185,7 +186,7 @@ const TOOL_SETTINGS = `${POLICY_DIR}/tool-settings.json`
 export const BASELINE = 'artifacts/thresholds/baseline.json'
 /** The trunk a branch is measured from (`CLAUDE.md` § Git workflow). */
 const TRUNK = 'origin/main'
-/** The runner whose quoted patterns in `package.json` name the test files (the header of scripts/run-tests.mjs). */
+/** The runner whose quoted patterns in the tasks name the test files (the header of scripts/run-tests.mjs). */
 const RUNNER = 'scripts/run-tests.mjs'
 const KEYS = {
   percents: 'thresholdPercents',
@@ -517,19 +518,21 @@ const STRYKER_DIRECTIVE = /^\s?Stryker (disable|restore)(?: (next-line))? ([a-zA
 
 /* --------------------------------------------------------------------------------- scope -------- */
 
-/** The quoted patterns of every package script that runs the runner, as `tools/trace/trace.ts` reads them. */
+/** The tree's tasks, read through `scripts/lib/tasks.mjs`; none where it has no manifest. */
+const tasksOf = (root) => loadTasks(root)?.tasks ?? {}
+
+/** The quoted patterns of every task that runs the runner, as `tools/trace/trace.ts` reads them. */
 function testPatterns(root) {
-  const scripts = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).scripts ?? {}
   const invocation = new RegExp(`node ${RUNNER.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}((?:\\s+"[^"]+")+)`, 'g')
   const patterns = []
-  for (const command of Object.values(scripts)) {
-    for (const call of String(command).matchAll(invocation)) for (const quoted of call[1].matchAll(/"([^"]+)"/g)) patterns.push(quoted[1])
+  for (const command of Object.values(tasksOf(root))) {
+    for (const call of command.matchAll(invocation)) for (const quoted of call[1].matchAll(/"([^"]+)"/g)) patterns.push(quoted[1])
   }
   return [...new Set(patterns)].sort(byCodePoint)
 }
 
-/** The `--dir` directories of every package script that runs the runner (`scripts/lib/test-dirs.mjs`). */
-const testDirs = (root) => scriptDirs(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).scripts)
+/** The `--dir` directories of every task that runs the runner (`scripts/lib/test-dirs.mjs`). */
+const testDirs = (root) => scriptDirs(tasksOf(root))
 
 /** Every file under `root` that the scope's `code` globs match and its `tests` globs do not. */
 function scopeFiles(root, scope) {
@@ -1183,7 +1186,7 @@ function fixture(policy, hashLength) {
   }
   const legacyEntry = { file: 'apps/calculator/public/calc.js', mutator: 'EqualityOperator', replacement: 'x >= 5', code: 'x > 5', occurrence: 2 }
   const base = {
-    'package.json': `${JSON.stringify({ type: 'module', scripts: { 'calculator:test': 'node scripts/run-tests.mjs "apps/calculator/test/*.test.js"' } }, null, 2)}\n`,
+    ...taskFiles(PACKAGE_JSON, { 'calculator:test': 'node scripts/run-tests.mjs "apps/calculator/test/*.test.js"' }, { type: 'module' }),
     'apps/calculator/public/calc.js': calc(olds),
     'apps/calculator/serve.js': serve(3),
     'apps/calculator/test/calc.test.js': calcTest(olds),
@@ -1282,16 +1285,16 @@ function cases(f, policy) {
       expect: lineSample,
       printed: /uncovered: apps\/calculator\/public\/unloaded\.js:1, in a file no test loads/,
     },
-    {
-      name: 'a changed Routine that only a test under a --dir directory runs counts as covered',
+    ...[PACKAGE_JSON, TASKS_TOML].map((file) => ({
+      name: `a changed Routine that only a test under a --dir directory runs counts as covered, the tasks in ${file}`,
       files: {
         ...withNew(g),
-        'package.json': `${JSON.stringify({ type: 'module', scripts: { 'calculator:test': 'node scripts/run-tests.mjs "apps/calculator/test/*.test.js"', 'calculator:test:independent': 'node scripts/run-tests.mjs --dir apps/calculator/test/independent' } }, null, 2)}\n`,
+        ...taskFiles(file, { 'calculator:test': 'node scripts/run-tests.mjs "apps/calculator/test/*.test.js"', 'calculator:test:independent': 'node scripts/run-tests.mjs --dir apps/calculator/test/independent' }, { type: 'module' }),
         'apps/calculator/test/independent/contract/g1.test.js': `import assert from 'node:assert/strict'\nimport { test } from 'node:test'\n// trace-defaults: layer=contract level=1\n${gTest({}).replace("'../public/calc.js'", "'../../../public/calc.js'")}`,
       },
       stages: only.coverage,
       expect: 'pass',
-    },
+    })),
     { name: 'a change of comments only has no code line, and passes with its counts', files: withNew('// a note on the Routines above\n'), stages: only.coverage, expect: 'pass', printed: /^coverage: lines: 0 of 0 changed code lines covered; below the minimum sample/ },
     { name: 'a failing test fails the gate before any coverage is judged', files: withNew(g, `\n// trace: GRT-801:happy@${f.hash}\ntest('[GRT-801] wrong', () => { assert.equal(1, 2) })\n`), stages: only.coverage, expect: /^suite: it does not pass, so its coverage is not judged: 1 test\(s\) failed/ },
     {
