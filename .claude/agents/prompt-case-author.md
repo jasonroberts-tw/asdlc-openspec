@@ -21,9 +21,10 @@ alone.
   test, so the answer is reasoned from the text and not looked up.
 - **The answerer has only the prompt's text and `CLAUDE.md`.** Where the decision turns on a file the
   prompt points at, state that file's rule in the situation.
-- **Two to four options,** each one thing a session could do there, no two that overlap. A wrong one
-  is what a run did or nearly did, never a straw man.
-- **`expected`** is the option the source settles, and `settledBy` names that source: the run's
+- **Two to four options,** each one thing a session could do there, no two that overlap, given as
+  their texts alone. A wrong one is what a run did or nearly did, never a straw man.
+- **`expected`** is the place in that list of the option the source settles, counting from 1, and
+  `settledBy` names that source: the run's
   action, the pull-request reviewer's finding, a later commit, or the section's own sentence. A lens
   that asks for an answer no source settles is still written; say so in `settledBy`, and the session
   drops the case.
