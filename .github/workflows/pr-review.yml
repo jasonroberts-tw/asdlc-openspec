@@ -11,7 +11,7 @@
 # requests the floor sent to a person anyway. Until then the review job held an Anthropic workload
 # identity, four Actions secrets, an OIDC token and the tracker's CLI, each with an incident of its own
 # (`git log -- .github/workflows/pr-review.yml` before D-37); none of them is needed now. The job that
-# merges was always kept from the model; now it is kept from every package too.
+# merges was always kept from the model; now it is kept from every npm package too.
 #
 # WHAT ELSE IT WOULD LET THROUGH IF IT WERE WRONG. Two runs merging at once would each judge a base the
 # other was about to move; a pending run cancelled by a newer one would leave its pull request
@@ -21,7 +21,9 @@
 # concurrency group whose pending runs queue rather than cancel; a run takes one action and
 # re-dispatches itself while more are waiting; every job checks out the trunk and reads a pull request
 # only as git objects; the job that computes the evidence holds a token that reads only; and the job
-# that merges installs no package and imports only files on the floor. `pr-review:check` holds each.
+# that merges installs Node and gh and no npm package, and imports only files on the floor. Each job
+# runs one subcommand of `scripts/pr-review.mjs` and nothing its allowlist leaves out, no model, no
+# other action and no command of a step's own. `pr-review:check` holds each.
 #
 # INVOCATION. It runs on its triggers. By hand, `gh workflow run pr-review.yml` wakes the queue, and
 # `gh workflow run pr-review.yml -f pr=<number>` reviews that pull request again at its head.
@@ -34,8 +36,9 @@
 # The queue reviews a head that passed `verify` whether or not it was marked. The `mark` job that did
 # it on every new head was retired on 2026-09-28 (asdlc-openspec-08a).
 #
-# NEEDS. Only the run's own `github.token`, the network to GitHub, and the toolchain `mise.toml` pins;
-# the evidence job also installs the packages `package-lock.json` pins, with their install scripts off.
+# NEEDS. Only the run's own `github.token`, the network to GitHub, and Node and gh at the versions
+# `mise.toml` pins, Node alone in the evidence job, which also installs the packages
+# `package-lock.json` pins, with their install scripts off. No job installs `bd`.
 # It reads a token and the network, so it is neither a pre-push job nor a `verify.yml` step
 # (`CLAUDE.md` § The gate ladder): `pr-review:check` holds its wiring to the policy, and
 # `pr-review:selftest` holds every decision, from those tiers.
@@ -92,13 +95,15 @@ jobs:
       more: ${{ steps.next.outputs.more }}
     steps:
       - uses: actions/checkout@v4
-      # The toolchain `mise.toml` pins, installed from `mise.lock`, of which this job runs Node and
-      # gh; mise itself, the action's commit and its `sha256` are pinned as `verify.yml` says, which
+      # Node and gh, the two tools of `mise.toml` this job runs, installed from `mise.lock` and no
+      # other: without `install_args` the action installs every pin, `bd` among them. mise itself,
+      # the action's commit and its `sha256` are pinned as `verify.yml` says, which
       # `mise run check:toolchain` holds.
       - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.10.0
           sha256: 57ced973f968b8fbab07aa8e32bd7077d4a357e200a22356d98963c723c6de0a
+          install_args: node gh
       - id: next
         name: choose this run's one action
         run: node scripts/pr-review.mjs next
@@ -123,10 +128,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # Node alone: this job calls no `gh`.
       - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.10.0
           sha256: 57ced973f968b8fbab07aa8e32bd7077d4a357e200a22356d98963c723c6de0a
+          install_args: node
       # The harness reads its hook file with js-yaml and its tasks with smol-toml, which
       # `package-lock.json` pins; no install script runs.
       - name: install the packages the harness imports, with no install script
@@ -147,8 +154,8 @@ jobs:
       && needs.select.outputs.action != 'none'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # No package installed here: this job imports only files on the floor, so nothing a pull request
-    # could change without a person runs with this token.
+    # Node and gh, and no npm package: this job imports only files on the floor, so nothing a pull
+    # request could change without a person runs with this token.
     permissions:
       contents: write
       pull-requests: write
@@ -162,11 +169,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      # The toolchain `mise.toml` pins, as in the `select` job.
+      # Node and gh, as in the `select` job.
       - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.10.0
           sha256: 57ced973f968b8fbab07aa8e32bd7077d4a357e200a22356d98963c723c6de0a
+          install_args: node gh
       - name: decide the head from the floor, post the verdict, set the labels and the status, and merge
         run: node scripts/pr-review.mjs act
         env:
