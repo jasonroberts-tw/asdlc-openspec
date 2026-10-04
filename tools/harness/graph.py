@@ -42,8 +42,8 @@ A table, not findings: each cluster of the map against the graph's communities i
 INVOCATION.
 
   npm run harness:graph               after `npm run harness`, for the same date
-  node scripts/python.mjs tools/harness/graph.py [--date YYYY-MM-DD] [--graph PATH]
-  node scripts/python.mjs tools/harness/graph.py --selftest
+  python tools/harness/graph.py [--date YYYY-MM-DD] [--graph PATH]
+  python tools/harness/graph.py --selftest
 
 `HARNESS_ROOT=<dir>` points it at a doctored copy. With no graph it says so and exits 0; with no
 core report for the date it exits 1. Run it under graphify's own interpreter to have the loader

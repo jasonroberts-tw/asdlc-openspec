@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-32 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31 and D-32 added 2026-10-03).**
+**Status: every decision from D-01 to D-33 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-32` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-33` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -88,6 +88,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-30** | The explore skill is OpenSpec's explore stance, adapted: it draws, cites, writes only a brief, and hands a change to `change-propose` | `.claude/skills/explore/SKILL.md` and the `LICENSE` beside it; its budget in `tools/policy/prompt-budgets.json`; the skills row of `.claude/README.md`; `README.md` § Working here; D-13's amendment |
 | **D-31** | mise is the toolchain: `mise.toml` is the one home of every tool version, and CI, the dev container and the setup steps install from it | `mise.toml` and `mise.lock`; `check:toolchain` and its selftest at pre-push and in CI; `jdx/mise-action` in both workflows, with `bd` from it held by `pr-review:check`; the dev container's mise layer; `README.md` § Setup; `toolchainLockPlatforms` in `tools/policy/tool-settings.json`; D-26's amendment |
 | **D-32** | A prompt review answers each changed prompt's stored decision cases with its old text and its new, and a case that flips from right to wrong keeps the edit out | `.claude/workflows/author-prompt-cases.js` and the Regress phase of `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; the agents `prompt-case-author` and `prompt-case-answerer`; `.claude/prompt-cases/` and its first cases; `promptReviewCaseLenses` and `promptReviewCaseRepetitions` in `tools/policy/agent-workflows.json`; the reviewer and the workflow, consolidated first; D-10's, D-12's and D-17's amendments |
+| **D-33** | `utils/install-dolt.sh` and `scripts/python.mjs` retire, made redundant by mise | Both files deleted, and `utils/` with them; `harness:graph` and `harness:selftest` run `python` through mise's shims; their rows in `README.md`, `scripts/README.md` and `tools/README.md`; D-26's and D-31's amendments |
 
 ## Risks
 
@@ -1324,6 +1325,8 @@ Where it loses:
 
 > **Amended 2026-10-03 by D-31.** The Python 3 the selftest's job needs is the one `mise.toml` pins, which every machine set up from `README.md` § Setup, CI and the dev container install through mise. The loss "CI pays a `setup-python` step, and the dev container image installs one" now reads: mise installs it beside the rest of the toolchain, and `check:toolchain` refuses a second install of it.
 
+> **Amended 2026-10-03 by D-33.** Items 2 and 3 run the graph half with `python`, the Python 3 `mise.toml` pins, through mise's shims, and `scripts/python.mjs` is deleted. The loss "The repository tracks its first Python file" now reads: where no `python` runs, the selftest's job fails and names mise's shims.
+
 ### D-27 · The policy is split under `tools/policy/` by who may change each key and who reads it, read through one loader and held by a gate of its own
 
 **Recorded 2026-10-02**, carried by `asdlc-openspec-umg3`. On 2026-10-02 the maintainer asked whether the name "policy" fits `tools/policy.json`'s reason for being, and then which logical splits its contents support. Shown the seams with the case where each loses, they approved a plan for five records and asked for it to be built. Asked, they named the first two records `vocabulary.json` and `agent-workflows.json`, kept the single-tool settings in one record rather than one beside each tool, and made the word budgets a table in this change.
@@ -1566,6 +1569,8 @@ Where it loses:
 - 0.41 s wall for the gate and 2.02 s for its selftest: the jobs' comments in `git-hooks.yml`, which name the host.
 - The spike's figures, each in `asdlc-openspec-8juz.1`'s notes with its command: medians of 95 ms through `node --run` and 91 to 98 ms through `mise run` over 20 runs, 39 of 39 pre-push gates with the same exit status both ways, and 7 tools installed in 6.0 s.
 
+> **Amended 2026-10-03 by D-33.** `scripts/python.mjs`, one of the headers What changed lists, is deleted, and its readers run the `python` that this entry's `mise.toml` pins.
+
 ### D-32 · A prompt review answers each changed prompt's stored decision cases with its old text and its new, and a case that flips from right to wrong keeps the edit out
 
 **Recorded 2026-10-03**, carried by `asdlc-openspec-7c1`. The maintainer chose items 1 to 3 on 2026-09-26, item 3 their own proposal. On 2026-10-03 they confirmed item 3's shape, one author per lens in a workflow of its own, and chose items 4, 5 and 7, each the recommendation, from options put with the case where it loses. The session that built it chose items 6, 8 and 9.
@@ -1612,6 +1617,41 @@ Where it loses:
 - The probabilities in item 4 and in the alternatives are binomial: with n answers each right with probability p, a text is right when at least floor(n/2)+1 are, a case is stored with probability p^n, and a stored case flips by noise with probability P(right)·(1 − P(right)). At n = 3: p = 0.7 gives 0.784 right, 0.343 stored and 0.169 flipped; p = 0.8 gives 0.512 stored; p = 0.95 gives 0.857 stored and 0.007 flipped.
 - The reader's printed line, each the command cut from its workflow's source and run by a script that is not tracked: 1,517 characters for the six texts of the first cases' run, where the texts total 55,204 bytes; and 1,288 for `CLAUDE.md` and `review-prompts.js` at a merge base and a head, 131,772 bytes.
 - Word counts, each `node scripts/check-prompts.mjs --counts`: the literals of `review-prompts.js` 1,720 at `e8919c3`, 1,683 after its consolidation, and 2,058 with the cases' step; `continuous-prompt-improvement.md` 2,161, 2,076 and 2,262.
+
+### D-33 · `utils/install-dolt.sh` and `scripts/python.mjs` retire, made redundant by mise
+
+**Recorded 2026-10-03**, carried by `asdlc-openspec-8juz.4`, a child of `asdlc-openspec-8juz`. The epic, as the maintainer agreed it on 2026-10-03, retires both: Dolt is not pinned in `mise.toml` because the tracker runs it embedded, and mise's shim gives every platform a `python`.
+
+**Builds on / amends:** amends D-26, whose items 2 and 3 run the graph half through `scripts/python.mjs` and whose loss "The repository tracks its first Python file" names that helper's refusal; and D-31, whose What changed lists `scripts/python.mjs` among the headers it changed. Builds on D-31, whose `mise.toml` pins the Python every machine runs, and on D-07, which leaves a change to this register to a person.
+
+**Decision.**
+
+1. **`utils/install-dolt.sh` is deleted outright, and `utils/` with it**, the disposition `docs/retired/README.md` § The three dispositions gives a file nothing live reads. No tracked file named it, and the tracker runs Dolt embedded (`dolt_mode` in `.beads/metadata.json`), so no machine here installs Dolt. `git show 1ec50f8:utils/install-dolt.sh` is the recovery.
+2. **`scripts/python.mjs` is deleted outright.** Each of its readers runs `python`, the Python 3 `mise.toml` pins, which mise's shims put on `PATH` on every platform. `harness:graph` is `python tools/harness/graph.py`, and `tools/harness/selftest.ts` spawns `python` for the graph half's selftest; where none runs, it fails and names mise's shims. `git show 1ec50f8:scripts/python.mjs` is the recovery.
+
+**Why.** The helper probed `python3`, `python` and `py -3` in an order of its own on each platform, because no one name ran a Python 3 everywhere. On native Windows `python3` is the Microsoft Store's App Execution Alias, a stub that fails with an install prompt, slowly; a stock WSL2 Ubuntu has no `python`. mise's shim is named `python` on every platform, so the probe has nothing left to choose between. The Dolt script installed a Dolt nothing here runs. Two alternatives lost:
+
+- **Moving either file under `docs/retired/`.** No live gate or citation needs its lineage.
+- **Keeping the helper as a fallback.** It would run whichever Python 3 the machine has where mise's is missing: the silent substitution D-31 item 5 turns off for every pinned tool.
+
+Where it loses:
+
+- **A `python` started outside mise's `PATH` meets the Store alias again** on native Windows, and on a machine whose profile does not put the shims first, such as the one `asdlc-openspec-jvpe` describes, it finds none or another. `harness:selftest` then fails, naming mise's shims, where the helper ran whatever Python 3 the machine had.
+- **The `harness-selftest` job fails on a machine set up before mise's shims step.** On 2026-10-03 the maintainer's laptop had no `python` on the `PATH` this session's shell inherited, and `python3` was `/usr/local/bin/python3`. A push there that changes `tools/harness/` runs that job.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound; amendments under D-26 and D-31.
+- **Deleted:** `utils/install-dolt.sh`; `scripts/python.mjs`, with its row in `scripts/README.md`.
+- **`package.json`:** `harness:graph` runs `python tools/harness/graph.py`.
+- **`tools/harness/selftest.ts`:** spawns `python`, says why it failed where none runs, and its header says so. **`tools/harness/graph.py`:** its invocation lines.
+- **`git-hooks.yml`:** `scripts/python.mjs` out of the `harness-selftest` job's glob, and its comment.
+- **`README.md`:** the `harness:selftest` row of § The npm scripts, and its row of § What runs automatically. The seven other rows there whose jobs' globs gained `scripts/lib/tasks.mjs` with `asdlc-openspec-8juz.5`, which that change left as they were, name it now. **`tools/README.md`:** the `harness/` row.
+
+**Figures.**
+
+- 90 checks in the core's selftest and 48 in the graph half's, under mise's Python 3.12.15 and Node 24.21.0: `npm run harness:selftest` with mise's shims first on `PATH`. Under the session shell's own `PATH`, which has no `python`, the core's 90 pass and the graph half's run fails, naming mise's shims.
+- The Store alias's cost, 1.9 to 2.2 s to fail on one Windows machine, measured 2026-09-09: the deleted helper's header (`git show 1ec50f8:scripts/python.mjs`).
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

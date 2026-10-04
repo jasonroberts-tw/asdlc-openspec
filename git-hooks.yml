@@ -702,9 +702,9 @@ pre-push:
     # graph or write a local report and run in no job: the core over fixture repositories it builds
     # under the temporary directory, one planted gap per case asserting the keys it adds and their
     # reasons beside an undoctored control, the live config copied into each; then the graph half's
-    # own selftest through `scripts/python.mjs`, which fails where no Python 3 is found. The glob is
-    # both halves and their config, the helpers the core imports, the launcher, and the manifest and
-    # lockfile that pin its js-yaml. 5.67-6.33 s wall through `node --run` (`/usr/bin/time -p`, two
+    # own selftest through `python`, the Python 3 `mise.toml` pins on PATH through mise's shims, which
+    # fails, saying so, where none runs (`docs/decisions.md` § D-33). The glob is both halves and
+    # their config, the helpers the core imports, and the manifest and lockfile that pin its js-yaml. 5.67-6.33 s wall through `node --run` (`/usr/bin/time -p`, two
     # runs) on a macOS 26.7.1 laptop with Node 26.8.1 and Python 3.12.8, 2026-10-02, most of it the
     # git repositories of the core's 31 fixtures and the graph half's one. 5.87-6.19 s (two runs,
     # 2026-10-03) with 33, a `mise run` launch and the tasks in a `tasks.toml` among them; the core
@@ -714,7 +714,6 @@ pre-push:
         - 'tools/harness/**'
         - 'tools/lib/**'
         - 'scripts/lib/tasks.mjs'
-        - 'scripts/python.mjs'
         - 'package.json'
         - 'package-lock.json'
       run: node --run harness:selftest
