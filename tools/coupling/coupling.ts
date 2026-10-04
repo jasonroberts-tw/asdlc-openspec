@@ -5,7 +5,10 @@
  * file to what it re-derives. A later change has `.claude/agents/fan-out-work.md` read it to keep
  * coupled issues out of parallel lanes (asdlc-openspec-gtjp); a person reads its clusters and hubs
  * for where a decomposition would cut. Why it is committed and pinned, where the code graph of
- * `docs/decisions.md` § D-20 is not, is `docs/decisions.md` § D-24.
+ * `docs/decisions.md` § D-20 is not, is `docs/decisions.md` § D-24. `partnersOf` names, for the
+ * files a pull request changes, the partners it leaves alone: the pull-request reviewer derives a
+ * map at the pull request's merge base and prints them in its verdict as evidence for a person,
+ * deciding nothing by them (`docs/decisions.md` § D-37).
  *
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet; this is what it would let through if it were
  * wrong or absent. A map that splits one pull request in two, drops one, or credits a deleted file's
@@ -424,6 +427,26 @@ function clustersOf(edges: CoChange['edges'], hubs: Set<string>, min: number): {
     .map((members) => sorted(members))
     .map((members) => ({ id: members[0], files: members }))
     .sort((p, q) => byCodePoint(p.id, q.id))
+}
+
+/** A file a change leaves alone that the map says changes with one it changes. */
+export type Partner = { path: string; partner: string; together: number; jaccardPermille: number }
+
+/**
+ * For each of `changed`, each file the map says changes with it at or above `minJaccardPermille`
+ * that `changed` leaves out: an index under its sample (null) never counts, and neither end may be
+ * a hub, since a hub changes with everything. Sorted by the changed file, then the partner.
+ */
+export function partnersOf(map: Pick<CoChange, 'files' | 'edges'>, changed: string[], minJaccardPermille: number): Partner[] {
+  const touched = new Set(changed)
+  const hubs = new Set(map.files.filter((file) => file.hub).map((file) => file.path))
+  const out: Partner[] = []
+  for (const { a, b, together, jaccardPermille: j } of map.edges) {
+    if (j === null || j < minJaccardPermille || hubs.has(a) || hubs.has(b)) continue
+    if (touched.has(a) && !touched.has(b)) out.push({ path: a, partner: b, together, jaccardPermille: j })
+    if (touched.has(b) && !touched.has(a)) out.push({ path: b, partner: a, together, jaccardPermille: j })
+  }
+  return out.sort((p, q) => byCodePoint(p.path, q.path) || byCodePoint(p.partner, q.partner))
 }
 
 /**
