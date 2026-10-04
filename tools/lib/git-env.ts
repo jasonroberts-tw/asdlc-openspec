@@ -17,9 +17,10 @@
  *     `<other>` both answered for the worktree, not for `<other>`;
  *   - from the primary checkout, top level, subdirectory or `git -C`, none gets `GIT_DIR`,
  *     pre-commit and prepare-commit-msg get the relative `GIT_INDEX_FILE=.git/index`, and git run
- *     elsewhere answered for where it ran; so did the post-checkout `git worktree add` runs in the
- *     new worktree;
+ *     elsewhere answered for where it ran; and the post-checkout hook `git worktree add` runs in the
+ *     new worktree got no `GIT_DIR` either;
  *   - no hook from either got `GIT_WORK_TREE`.
+ * The steps of those runs and every value they printed are in asdlc-openspec-y1f's notes.
  * Every `GIT_*` key is dropped all the same, because an index named by an absolute path is as
  * wrong for a scratch repository as a git directory is, and a caller may set any of them. The
  * incident: on 2026-10-01 `code-graph:selftest`, run by the pre-push hook from a linked worktree,
