@@ -94,9 +94,8 @@ Run `bd close <id> --reason "<the subject of the commit that built it>"`. The su
   committed, and never hold it for the report in step 6. Every task built on the value before the
   user reverses it is rework. Record the answer on the task with `bd note`, where a later session's
   `settled` finds it.
-- **A test whose assertions depend on the environment**, such as whether a port is free, fails or
-  skips visibly where the environment is not the one it needs, and never passes on a weaker branch
-  that asserts less.
+- **A test whose assertions depend on the environment** fails or skips visibly where the
+  environment is not the one it needs, and never passes on a weaker branch that asserts less.
 - **Out of scope**, such as a defect nearby or a gap somewhere else: file it with
   `foundIssueCommand` in `tools/policy/vocabulary.json`, discovered from the epic, with the labels `CLAUDE.md`
   § The task store names; here the found-at label is build's. Give it no `spec-change` label, so
@@ -110,8 +109,8 @@ Run `bd close <id> --reason "<the subject of the commit that built it>"`. The su
 - **A re-design pass**, when the design cannot hold as written: with the user, write a new version
   of `design.md` and of each contract artifact it affects, under
   `.claude/skills/change-design/SKILL.md` § 3. Write it. Commit it alone, named as step 3 says,
-  before the code it allows, and label the epic for design. It changes no delta spec: a scenario or
-  NFR that must change is a spec that is wrong.
+  before the code it allows. It changes no delta spec: a scenario or NFR that must change is a spec
+  that is wrong.
 - **After either**, reopen (`bd reopen`) each task that `artifacts/trace/record.json` links to a
   changed NFR, contract element or Binding Surface element, so step 2 builds it and its tests again;
   `trace:check` refuses each test on one as `stale` until then.
