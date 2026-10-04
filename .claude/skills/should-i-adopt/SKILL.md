@@ -91,19 +91,21 @@ documentation, release notes, source, and calls to a service that change nothing
 
 - **Docker must answer** `docker info`; Rancher Desktop puts the binary in `~/.rd/bin`. If it does
   not, ask the user to start Rancher Desktop and wait. Never fall back to the host.
-- **Note what is there first:** `docker image ls` and `docker ps -a`, before the first trial.
+- **Note what is there first:** `docker image ls`, `docker ps -a`, `docker network ls` and
+  `docker volume ls`, before the first trial.
 - **Give the container the trunk, never a mount of a checkout or a home directory:**
   `git bundle create <dir>/trunk.bundle origin/main` in a directory `mktemp -d` made, mounted
   read-only. Inside, `git init`, then
   `git fetch <bundle> refs/remotes/origin/main:refs/heads/trunk` and `git switch trunk`.
-- **Use the image** `.devcontainer/Dockerfile` builds, and pin the candidate's version. A slim one
-  lacks a compiler and the Git the hooks need, and npm exits 0 on a failed optional build.
+- **Use the image** `.devcontainer/Dockerfile` builds for what installs into the harness, and the
+  candidate's own images for a server it runs; pin the candidate's version. A slim one lacks a
+  compiler and the Git the hooks need, and npm exits 0 on a failed optional build.
 - **Number each trial** E1, E2 and on, keeping its commands and the output it rests on. A trial
   outranks a document where they disagree.
 - **A candidate no container can hold**, because it needs Claude Code's own settings, a GUI or a
   paid account, is assessed from sources, and the brief names the claims no trial checked.
-- **Remove only what the run made:** containers and images absent from the first listing. Pulling
-  an image already there makes nothing new, and removing it takes someone else's.
+- **Remove only what the run made:** containers, images, networks and volumes absent from the first
+  listing. Pulling an image already there makes nothing new, and removing it takes someone else's.
 
 ## 6. Weigh the options
 
