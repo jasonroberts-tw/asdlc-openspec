@@ -257,9 +257,9 @@ its major line that every package in `package-lock.json` accepts, or a dependenc
 the floor calls enough. `npm run check:node-floor` prints that version beside the floor, from the
 clone, and refuses a floor below it; raise `engines` when it does (the floor may sit above). It
 refuses a range form it cannot read rather than skip it, and the header of
-`scripts/check-node-floor.mjs` lists the forms it reads. It runs at push and in CI whenever
-`package.json`, the lockfile or the gate changes, so a lockfile change that lifts that version
-above the floor is refused on the push that makes it.
+`scripts/check-node-floor.mjs` lists the forms it reads. It runs at push whenever `package.json`,
+the lockfile or the gate changes, and in CI on every pull request and push to `main`, so a
+lockfile change that lifts that version above the floor is refused on the push that makes it.
 
 ## Working here
 

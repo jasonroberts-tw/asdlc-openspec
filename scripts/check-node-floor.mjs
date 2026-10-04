@@ -39,7 +39,7 @@
  *   NODE_FLOOR_ROOT=<dir> npm run check:node-floor  the same gate over a doctored copy
  *
  * NEEDS only committed files: `package.json` and `package-lock.json`. No tool, no network.
- * 0.20-0.45 s wall for the gate and 0.74-0.80 s for its 28 cases through `node --run`
+ * 0.20-0.45 s wall for the gate and 0.74-0.80 s for its 28 cases (29 since a case for a `package.json` that does not parse) through `node --run`
  * (`/usr/bin/time -p`, two runs each, while sibling worktrees ran their gates) on a macOS 26.7.1
  * laptop (Apple M3 Max) with Node 24.21.0, 2026-10-03.
  */
@@ -233,6 +233,14 @@ function cases() {
         writeFileSync(join(dir, 'package-lock.json'), '{\n')
       },
       expect: /^package-lock\.json cannot be read as JSON under /,
+    },
+    {
+      name: 'a package.json that does not parse',
+      doctor: (dir) => {
+        live(dir)
+        writeFileSync(join(dir, 'package.json'), '{\n')
+      },
+      expect: /^package\.json cannot be read as JSON under /,
     },
     {
       name: 'a lockfile with no packages object, as npm wrote before lockfile version 2',
