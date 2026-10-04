@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-33 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03).**
+**Status: every decision from D-01 to D-34 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34 added 2026-10-04).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-33` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-34` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -89,6 +89,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-31** | mise is the toolchain: `mise.toml` is the one home of every tool version, and CI, the dev container and the setup steps install from it | `mise.toml` and `mise.lock`; `check:toolchain` and its selftest at pre-push and in CI; `jdx/mise-action` in both workflows, with `bd` from it held by `pr-review:check`; the dev container's mise layer; `README.md` § Setup; `toolchainLockPlatforms` in `tools/policy/tool-settings.json`; D-26's amendment |
 | **D-32** | A prompt review answers each changed prompt's stored decision cases with its old text and its new, and a case that flips from right to wrong keeps the edit out | `.claude/workflows/author-prompt-cases.js` and the Regress phase of `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; the agents `prompt-case-author` and `prompt-case-answerer`; `.claude/prompt-cases/` and its first cases; `promptReviewCaseLenses` and `promptReviewCaseRepetitions` in `tools/policy/agent-workflows.json`; the reviewer and the workflow, consolidated first; D-10's, D-12's and D-17's amendments |
 | **D-33** | `utils/install-dolt.sh` and `scripts/python.mjs` retire, made redundant by mise | Both files deleted, and `utils/` with them; `harness:graph` and `harness:selftest` run `python` through mise's shims; their rows in `README.md`, `scripts/README.md` and `tools/README.md`; D-26's and D-31's amendments |
+| **D-34** | The `engines` floor rises to Node 24.21.0, the version `mise.toml` pins, so every gate runs it | `engines` in `package.json` and in `package-lock.json`'s root entry; the comment above the `node` pin in `mise.toml`; `README.md` § The Node floor, on every platform; the headers of `scripts/run-tests.mjs` and `scripts/check-thresholds.mjs`; D-31's amendment |
 
 ## Risks
 
@@ -1571,6 +1572,8 @@ Where it loses:
 
 > **Amended 2026-10-03 by D-33.** `scripts/python.mjs`, one of the headers What changed lists, is deleted, and its readers run the `python` that this entry's `mise.toml` pins.
 
+> **Amended 2026-10-04 by D-34.** `engines` is `>=24.21.0`, starting at the `node` this entry's `mise.toml` pins, so the loss "The `engines` floor goes unexercised" holds no longer, until a bump of the pin leaves the floor below it, which D-34's loss describes. Why's `engines` at 22.22.2 stays true of its date.
+
 ### D-32 · A prompt review answers each changed prompt's stored decision cases with its old text and its new, and a case that flips from right to wrong keeps the edit out
 
 **Recorded 2026-10-03**, carried by `asdlc-openspec-7c1`. The maintainer chose items 1 to 3 on 2026-09-26, item 3 their own proposal. On 2026-10-03 they confirmed item 3's shape, one author per lens in a workflow of its own, and chose items 4, 5 and 7, each the recommendation, from options put with the case where it loses. The session that built it chose items 6, 8 and 9.
@@ -1653,6 +1656,39 @@ Where it loses:
 - 90 checks in the core's selftest and 48 in the graph half's, under mise's Python 3.12.15 and Node 24.21.0: `npm run harness:selftest` with mise's shims first on `PATH`. Under the session shell's own `PATH`, which has no `python`, the core's 90 pass and the graph half's run fails, naming mise's shims.
 - `npm run harness:graph` under the same Python exits 0 and writes a combined graph of 2,149 nodes and 6,823 links beside its report, from a worktree of this change after `npm run harness` there: each command with mise's shims first on `PATH`, on 2026-10-03, over the maintainer's local graph, which no commit holds.
 - The Store alias's cost, 1.9 to 2.2 s to fail on one Windows machine, measured 2026-09-09: the deleted helper's header (`git show 1ec50f8:scripts/python.mjs`).
+
+### D-34 · The `engines` floor rises to Node 24.21.0, the version `mise.toml` pins, so every gate runs it
+
+**Recorded 2026-10-04**, carried by `asdlc-openspec-8juz.8`, a child of `asdlc-openspec-8juz`. On 2026-10-04 the maintainer decided, in the session working the epic: "package.json engines can move to node 24." The exact floor was left to the session that worked the issue, within two limits: `README.md` § The Node floor, on every platform, and the pin. That session chose 24.21.0, the recommendation its brief gave, with the cases below where it loses.
+
+**Builds on / amends:** amends D-31, whose loss "The `engines` floor goes unexercised" named `asdlc-openspec-8juz.8` as the carrier of this decision. Builds on D-31's `mise.toml`, whose `node` pin the floor starts at, and on D-07, whose floor, as D-31 widened it, leaves a change to `engines`, `package-lock.json`, `mise.toml` or this register to a person.
+
+**Decision.** `engines.node` is `>=24.21.0`, in `package.json` and in `package-lock.json`'s root entry. The oldest Node the repository supports is then the one `mise.toml` installs on every machine and in CI, so every gate, hook and CI job runs the floor itself. This entry sets the floor once. It makes no rule that a later bump of the pin moves it; its third loss says what such a bump leaves.
+
+**Why.** With `engines` at 22.22.2 and every machine on 24 (D-31), code that needs Node 24 passed every gate and failed for someone on 22, since nothing ran the floor. The maintainer chose to raise the floor rather than exercise 22.22.2 some other way. On the 24 line it could sit anywhere from 24.11.0, the lowest 24.x every locked package accepts and so the lowest `README.md` § The Node floor, on every platform allows, up to the pin; a bare `>=24` would sit below that. Two alternatives lost:
+
+- **Keeping 22.22.2 and running a CI leg on it**, the issue's other option. Every pull request's CI would install a second Node and run the suite twice, and the pre-push gates, which run on the pin, would still pass code that the leg then refuses.
+- **`>=24.11.0`, the locked minimum.** It admits every 24.x from 24.11.0 up to the pin, and no gate runs any of them, so code that needs an API added to 24 after 24.11.0 passes every gate and fails there: the failure the issue names, narrowed and not gone.
+
+Where it loses:
+
+- **A machine on Node 22, which the old floor admitted, is outside the floor now**, though the code may still run there: nothing says it does, and nothing would notice when it stops. This is the case where the maintainer's choice gives the worse result.
+- **A machine on 24.x below 24.21.0**, such as one whose Node is a distribution's package, is told it is below the floor, though every locked package accepts 24.11.0 and up and the code may run there. `>=24.11.0` would have admitted it, unexercised.
+- **A bump of the pin leaves the floor below it again.** A `node` pin above 24.21.0, moved without raising `engines` in the same change, puts every gate back on a version above the floor, and nothing holds the two equal. The comment above the pin in `mise.toml` says so to whoever moves it.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound; the amendment under D-31.
+- **`package.json` and `package-lock.json`:** `engines.node`, `>=24.21.0`, edited by hand in the lockfile's root entry; `npm ci` accepts it, and the lockfile's diff is that one line.
+- **`mise.toml`:** the comment above the `node` pin, which said `engines` stayed at 22.22.2. No pin moved, so `mise.lock` is unchanged.
+- **`README.md`:** § The Node floor, on every platform, which said nothing here runs the floor.
+- **Headers:** `scripts/run-tests.mjs` and `scripts/check-thresholds.mjs`, where they said what `run()` does "at the floor": it has no `cwd` option, and its lcov export is an instance. Each was true of 22.22.2 and is not of 24.21.0. No line of code changed.
+
+**Figures.**
+
+- 24.11.0, the lowest 24.x every package in `package-lock.json` accepts, set by the 37 `@babel/*` packages whose range is `^22.18.0 || >=24.11.0`. 217 locked packages carry an `engines.node`, in 50 distinct ranges, each read by `semver` 7.8.5, the version the lockfile installs. Every one of them accepts every version `>=24.21.0` admits (`semver.subset`), where 61 did not accept every version `>=22.22.2` admitted. A script that is not tracked computed each, testing every 24.m.p with m and p below 100 against every range; on the 22 line it gives 22.22.0, as `asdlc-openspec-xn4`'s note of 2026-10-01 read it. `README.md`'s one-line program cannot derive these, since it refuses `node_modules/tunnel`'s `>=0.6.11 <=0.7.0 || >=0.7.3` (`asdlc-openspec-xn4`).
+- 24.21.0, the `node` pin in `mise.toml`, and `node -v` under mise's shims.
+- At 24.21.0, by two scripts that are not tracked, on 2026-10-04: `run()` given `cwd` found the test file a relative glob named under it, and the same call without `cwd` found none; the `lcov` export of `node:test/reporters` is a function; a module the coverage include glob named, which no test imported, got no coverage record; and `--experimental-test-coverage` given to the process did not reach a `run()` given no `coverage` option. The last two keep the headers' other claims about the floor true.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

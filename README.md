@@ -241,13 +241,13 @@ holds platform-native binaries. Use one clone per platform.
 
 ### The Node floor, on every platform
 
-`package.json` `engines` is the oldest Node the repository supports, and
-`mise.toml` pins a newer one for every machine, so nothing here runs the floor
-(`docs/decisions.md` § D-31). The floor is never below the lowest version on its major line that
-every package in `package-lock.json` accepts, or a dependency refuses a Node the floor calls
-enough. After a change to the lockfile, this prints that version beside the floor, from the clone;
-raise `engines` if the floor is lower (it may sit above). It refuses a range form it cannot read
-rather than skip it, and it has not been run in PowerShell (`asdlc-openspec-xn4`):
+`package.json` `engines` is the oldest Node the repository supports. It starts at the version
+`mise.toml` pins for every machine, so every gate runs the floor (`docs/decisions.md` § D-34),
+until a bump of the pin leaves the floor below it. The floor is never below the lowest version on
+its major line that every package in `package-lock.json` accepts, or a dependency refuses a Node
+the floor calls enough. After a change to the lockfile, this prints that version beside the floor,
+from the clone; raise `engines` if the floor is lower (it may sit above). It refuses a range form
+it cannot read rather than skip it, and it has not been run in PowerShell (`asdlc-openspec-xn4`):
 
 ```sh
 node -e "const L=require('./package-lock.json').packages,F=require('./package.json').engines.node,M=+F.match(/[0-9]+/)[0],n=s=>{const p=s.replace(/^v/,'').split('.').map(Number);return[p.length,(p[0]*1e3+(p[1]||0))*1e3+(p[2]||0)]},iv=c=>{const m=c.match(/^(>=|\^)?(v?[0-9]+(\.[0-9]+){0,2})$/);if(m===null)throw Error('cannot read '+c);const[k,lo]=n(m[2]);return[lo,m[1]=='>='?Infinity:m[1]?((lo/1e6|0)+1)*1e6:lo+[1e6,1e3,1][k-1]]},R=Object.entries(L).filter(([p,x])=>p&&x.engines&&x.engines.node).map(([p,x])=>x.engines.node.replace(/>=\s+/g,'>=').split('||').map(a=>a.trim().split(/\s+/).map(iv).reduce((a,b)=>[Math.max(a[0],b[0]),Math.min(a[1],b[1])]))),C=R.flat().map(i=>i[0]).concat(M*1e6).filter(c=>(c/1e6|0)==M&&R.every(r=>r.some(i=>i[0]<=c&&c<i[1]))).sort((a,b)=>a-b),f=c=>[c/1e6|0,(c/1e3|0)-(c/1e6|0)*1e3,c-(c/1e3|0)*1e3].join('.');console.log(C.length?'lowest '+M+'.x every locked package accepts: '+f(C[0])+'; package.json engines: '+F:'no '+M+'.x version satisfies every locked package; package.json engines: '+F)"

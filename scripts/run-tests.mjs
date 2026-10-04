@@ -110,10 +110,12 @@ const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
  * `coverage`, when given as `{ include, exclude }` (globs relative to `root`), turns on Node's own
  * coverage and returns the runner's `test:coverage` summary as `coverage`, or null when it sent
  * none. It is judged by `scripts/check-thresholds.mjs`, never by `run()`'s own thresholds, which
- * this file's `process.exit(0)` would swallow. At the engines floor `run()` has no `cwd` option and
- * resolves the globs and the reported paths against `process.cwd()`, so the run changes to `root`
- * and back; a flag such as `--experimental-test-coverage` given to this process does not reach
- * `run()` at the floor either, since its own `coverage` option, false unless set, overrides it.
+ * this file's `process.exit(0)` would swallow. At 22.22.2, the engines floor before
+ * `docs/decisions.md` § D-34, `run()` had no `cwd` option and resolved the globs and the reported
+ * paths against `process.cwd()`, so the run changes to `root` and back; 24.21.0, the floor since,
+ * has the option, which this does not use. A flag such as `--experimental-test-coverage` given to
+ * this process reaches `run()` at neither, since its own `coverage` option, false unless set,
+ * overrides it.
  */
 export async function runTests(root, patterns, { report = null, coverage = null, dirs = [], name = null } = {}) {
   const failures = []
