@@ -35,7 +35,7 @@
     "coupling:update": "node tools/coupling/coupling.ts --update",
     "gate-summary:selftest": "node scripts/hooks/gate-summary.selftest.mjs",
     "harness": "node tools/harness/harness.ts",
-    "harness:graph": "node scripts/python.mjs tools/harness/graph.py",
+    "harness:graph": "python tools/harness/graph.py",
     "harness:selftest": "node tools/harness/selftest.ts",
     "hooks:install": "node scripts/git-hooks.mjs --install",
     "hooks:selftest": "node scripts/git-hooks.mjs --selftest",

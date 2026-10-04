@@ -1,7 +1,7 @@
 /**
  * Selftest of the harness assessment: the core, `tools/harness/harness.ts`, over fixture
  * repositories it builds under the temporary directory, then the graph half,
- * `tools/harness/graph.py --selftest`, through `scripts/python.mjs`.
+ * `tools/harness/graph.py --selftest`, through `python`.
  *
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet; this is what it would let through if it were
  * wrong. A core that stopped reading an input kind would report a clean harness, and a clean report
@@ -14,9 +14,10 @@
  *
  *   npm run harness:selftest
  *
- * NEEDS git, Node's `path.matchesGlob`, `js-yaml`, and a Python 3 for the graph half, which
- * `scripts/python.mjs` finds or fails on, as its header says it does. Copies the live config into
- * every fixture, so each case runs with its values. No network.
+ * NEEDS git, Node's `path.matchesGlob`, `js-yaml`, and for the graph half the Python 3 `mise.toml`
+ * pins, run as `python` through mise's shims (README.md § Setup); where no `python` runs, the
+ * selftest fails and says so (`docs/decisions.md` § D-33). Copies the live config into every
+ * fixture, so each case runs with its values. No network.
  */
 import { spawnSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -485,5 +486,8 @@ console.log(`harness core selftest: ${passed} passed, ${failures.length} failed.
 for (const failure of failures) console.error(`  FAIL ${failure}`)
 
 /* ------------------------------------------------------------------------------ the graph half --- */
-const graph = spawnSync(process.execPath, [join(ROOT, 'scripts/python.mjs'), join(ROOT, 'tools/harness/graph.py'), '--selftest'], { cwd: ROOT, stdio: 'inherit' })
+const graph = spawnSync('python', [join(ROOT, 'tools/harness/graph.py'), '--selftest'], { cwd: ROOT, stdio: 'inherit' })
+if (graph.error) {
+  console.error(`harness graph selftest: \`python\` could not be run (${graph.error.message}). It is the Python 3 mise.toml pins, on PATH through mise's shims (README.md § Setup).`)
+}
 process.exit(failures.length > 0 || graph.status !== 0 ? 1 : 0)
