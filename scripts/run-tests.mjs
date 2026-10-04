@@ -9,7 +9,7 @@
  * refuses one. On 2026-09-23 a quoted pattern that matched no file printed `tests 0` and exited 0
  * (asdlc-openspec-frm). On 2026-09-25, with Node 26.8.1, a file that matched the pattern and declared
  * no test was reported as ONE PASSING TEST, named for the file's own path (`tests 1`, `pass 1`, exit
- * 0), so a guard on the reported total would not see it either. `mise run calculator:test`, its
+ * 0), so a guard on the reported total would not see it either. `npm run calculator:test`, its
  * pre-push job and its CI step ran `node --test` directly, and could read green over a suite that ran
  * nothing. `check:jobs` has refused a package script's quoted pattern that matches no file since
  * asdlc-openspec-zgh.5; nothing refused the file that matches and holds no test.

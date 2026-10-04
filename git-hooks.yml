@@ -652,8 +652,9 @@ pre-push:
     # trace gate, `npm ci` stubbed, asserting the clone is of HEAD with the checkout's origin/main and
     # no remote and is removed, each refusal by its reason, the join to the record, the tasks'
     # partition and the one re-run by name. Reads the script and the files it copies into the fixture,
-    # whose tasks it runs through `mise run`, and through npm in a commit from before the move; the
-    # manifest and lockfile pin the `smol-toml` the task loader requires for the fixture's `tasks.toml`.
+    # whose tasks it runs through `mise run` under `mise.toml`'s own task settings and `[task_config]`,
+    # and through npm in a commit from before the move; the manifest and lockfile pin the `smol-toml`
+    # the task loader requires for the fixture's `tasks.toml` and `mise.toml`.
     # 8.82-8.87 s wall through `node --run` (`/usr/bin/time -p`, two runs) on a macOS laptop (Apple M3
     # Max) with Node 26.8.1, 2026-09-29, most of it a clone, a test run and a trace check per case;
     # 15.7-15.8 s with the deadline, SIGTERM and `--tasks` cases, which wait on a sleeping child.
@@ -672,6 +673,7 @@ pre-push:
         - 'tools/lib/**'
         - 'tools/policy/**'
         - 'tasks.toml'
+        - 'mise.toml'
         - 'package.json'
         - 'package-lock.json'
       run: mise run tests:fresh:selftest
