@@ -361,7 +361,8 @@ run = "node scripts/check-openspec.mjs --selftest"
 
 ["pr-review:check"]
 description = '''
-Holds the pull-request reviewer's four files to each other. The policy's `prReview*` keys must be
+Holds the pull-request reviewer's four files to each other, and its floor to this file and the
+files of the gates `prReviewFloorTasks` lists. The policy's `prReview*` keys must be
 whole, with a floor that covers the reviewer itself, the branch reviewer and the `open-pr` skill
 that runs it, this file, the approval-label guard with the helper it imports, and what the merging
 job imports. The floor must also cover every file a task `prReviewFloorTasks` lists runs or imports,
