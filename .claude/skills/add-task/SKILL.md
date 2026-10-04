@@ -92,13 +92,12 @@ green.
    `UNJOBBED_BY_KIND` in `scripts/check-jobs.mjs`, which `check:jobs` refuses once the task is
    gone.
 4. Search tracked files of every type for the bare name, one call per name:
-   `git grep -n -w -F <old-name>`. Fix every live hit. Most citations carry no `mise run`:
-   the READMEs cite the name in backticks,
-   `tools/policy/*.json` in a `gatedBy` string, and a gate keeps it as a quoted string in a list. A
-   recursive `grep` also walks `node_modules/` and, from the primary checkout, every worktree under
-   `.claude/worktrees/`. Two files keep their hits: `docs/decisions.md`, whose entries are never
-   rewritten (`CLAUDE.md` § Decisions live in the register), and `KIT-CHECKLIST.md`, left as
-   `docs/decisions.md` § D-05 left it.
+   `git grep -n -w -F <old-name>`. Fix every live hit. Most citations carry no `mise run`: the
+   READMEs cite the name in backticks, `tools/policy/*.json` in a `gatedBy` string, and a gate keeps
+   it as a quoted string in a list. A recursive `grep` also walks `node_modules/` and, from the
+   primary checkout, every worktree under `.claude/worktrees/`. Two files keep their hits:
+   `docs/decisions.md`, whose entries are never rewritten (`CLAUDE.md` § Decisions live in the
+   register), and `KIT-CHECKLIST.md`, left as `docs/decisions.md` § D-05 left it.
 
 A retired task's references are worth leaving *only* as an explicit comment saying it is retired
 and why; the CI workflow is where such a comment belongs.
