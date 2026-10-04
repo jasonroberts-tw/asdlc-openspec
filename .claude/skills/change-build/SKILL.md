@@ -110,8 +110,8 @@ commit that built it (`CLAUDE.md` § Bash command style). The subject, never the
 - **A re-design pass**, when the design cannot hold as written: with the user, write a new version
   of `design.md` and of each contract artifact it affects, under
   `.claude/skills/change-design/SKILL.md` § 3. Write it. Commit it alone, named as step 3 says,
-  before the code it allows. It changes no delta spec: a scenario or NFR that must change is a spec
-  that is wrong.
+  before the code it allows, and label the epic for design. It changes no delta spec: a scenario or
+  NFR that must change is a spec that is wrong.
 - **After either**, reopen (`bd reopen`) each task that `artifacts/trace/record.json` links to a
   changed NFR, contract element or Binding Surface element, so step 2 builds it and its tests again;
   `trace:check` refuses each test on one as `stale` until then.
@@ -138,5 +138,5 @@ holds, as shown by:
   of its `independentTestDir`, such as `calculator:test:independent`, among the gates.
 
 Report each task closed with its commit, every issue filed along the way, and the gates as
-measured. The next stage is `change-verify`, given the change's name (`CLAUDE.md` § Product work
-runs as OpenSpec-format changes).
+measured. The next stage is `change-verify` (`CLAUDE.md` § Product work runs as OpenSpec-format
+changes).
