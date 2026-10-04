@@ -158,11 +158,11 @@ export const meta = {
  * script re-derives; a copy that is not verbatim, or a path other than where the command writes, is
  * refused. Until 2026-10-04 the command was an inline script that ran git, which Claude Code refuses a
  * session isolated in a worktree, so every case went unanswered (asdlc-openspec-jtrt). Each answer is
- * an agent by the agentType `prompt-case-answerer`, whose only tools are
- * Read and its structured output, sent to one of those files and shown the options in an order
- * turned by one place at each repetition. No model copies a text: one that did would retype tens of
- * thousands of characters, more than the tools show an agent of a single line. A text is right when floor(n/2)+1 of its n answers chose the case's expected
- * option. A case's outcome is `held` when both texts are right, `flipped` when the old is and the new
+ * an agent by the agentType `prompt-case-answerer`, whose only tools are Read and its structured
+ * output, sent to one of those files and shown the options in an order turned by one place at each
+ * repetition. No model copies a text: one that did would retype tens of thousands of characters, more
+ * than the tools show an agent of a single line. A text is right when floor(n/2)+1 of its n answers
+ * chose the case's expected option. A case's outcome is `held` when both texts are right, `flipped` when the old is and the new
  * is not, `fixed` when only the new is, `failing` when neither is, and `unanswered` when an answer is
  * missing or out of range, or a text could not be read. A `flipped` or `unanswered` case makes its
  * group `regressed`; a `failing` one blocks nothing, since the trunk already answers it wrong, and is
@@ -191,9 +191,9 @@ export const meta = {
  * or not; `mise run worktree:gc` removes each once its branch is contained in `origin/main`. The
  * skeptics and the readers run where the session does, in the review worktree, and read each branch
  * there; the readers run that worktree's `scripts/prompt-case-texts.mjs`. The answers need the agent
- * `prompt-case-answerer` in the checkout the session started in, the
- * primary checkout for a review `close-prompt-run` launched (`.claude/README.md`): where it is absent,
- * every answer returns nothing, and every branch whose files have a stored case is `regressed`. An
+ * `prompt-case-answerer` in the checkout the session started in, the primary checkout for a review
+ * `close-prompt-run` launched (`.claude/README.md`): where it is absent, every answer returns
+ * nothing, and every branch whose files have a stored case is `regressed`. An
  * answer could read a file other than the one it is sent to if it guessed its path, and nothing here
  * records that it did not. The script reads no file: the session passes the policy as `args.policy`.
  * `mise run workflows:selftest` runs this script against stubbed agents.

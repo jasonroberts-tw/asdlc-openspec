@@ -38,10 +38,9 @@
  * `mise run workflows:selftest` runs it in a fixture repository through both workflows, and holds the
  * command each workflow gives its reader to one plain run of it.
  */
-import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { gitEnv } from '../tools/lib/git-env.ts'
+import { gitIn } from '../tools/lib/git-env.ts'
 
 const TRUNK = 'origin/main'
 /** Where the texts go, under the directory this is run from. Each workflow refuses a root that does not end so. */
@@ -74,19 +73,24 @@ function parse(argv) {
   return { head: null, want, files: want.map(([, file]) => file) }
 }
 
-const git = (args) => execFileSync('git', args, { env: gitEnv(), encoding: 'utf8', maxBuffer: 1e8, stdio: ['ignore', 'pipe', 'ignore'] })
+/** Git where this is run, with no `GIT_*` key, so an inherited `GIT_DIR` cannot point it at another repository. */
+const git = gitIn(process.cwd())
 
-/** One text written to its path, or a null path where git could not show it. */
+/**
+ * One text written to its path, or a null path where git could not show it. Only git's failure is
+ * caught: a text git showed and that could not be written fails the run, rather than read as absent.
+ */
 function write(ref, file) {
-  const path = join(ROOT, ref, file)
+  let text
   try {
-    const text = git(['show', `${ref}:${file}`])
-    mkdirSync(dirname(path), { recursive: true })
-    writeFileSync(path, text)
-    return { ref, file, path, bytes: Buffer.byteLength(text) }
+    text = git(['show', `${ref}:${file}`])
   } catch {
     return { ref, file, path: null, bytes: 0 }
   }
+  const path = join(ROOT, ref, file)
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, text)
+  return { ref, file, path, bytes: Buffer.byteLength(text) }
 }
 
 /** FNV-1a over the UTF-16 code units of `s`, as each workflow re-derives it. */

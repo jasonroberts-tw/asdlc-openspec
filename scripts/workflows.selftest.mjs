@@ -68,8 +68,9 @@
  * worktree, and three prompt reviews stopped with no case authored or answered (asdlc-openspec-jtrt).
  * Since then a reader's command that is not one plain run of the reader script, or that names git, is
  * refused, its case seen failing before its fix, and the readers run for real in a fixture
- * repository, the script's refusal of a climbing argument seen failing with its check removed. For the trace (since
- * asdlc-openspec-as9): a scenario left out of every group, a group a tracer returned short or read at
+ * repository, the script's refusal of a climbing argument seen failing with its check removed. For
+ * the trace (since asdlc-openspec-as9): a scenario left out of every group, a group a tracer returned
+ * short or read at
  * another commit counted as traced, a row's gap taken from the tracer's words rather than its
  * reading, a gap nobody could verify counted refuted, a failed proof cleared by a skeptic's vote, a
  * dead lens's reading kept on a run again, and a trace or a pull-request body written with a
