@@ -3,8 +3,10 @@
 # checkout -- node_modules, .git, the worktrees under .claude/worktrees/ -- stays out of the context,
 # which keeps the build fast and keeps the image from depending on anything the Dockerfile does not
 # name. Docker reads this file, not a root .dockerignore, because its name is the Dockerfile's plus
-# `.dockerignore`.
+# `.dockerignore`. `.mise/locks/` holds the uv lock of each `pypi:` tool `mise.toml` pins, which
+# `mise install --locked` reads beside the two files and fails without (docs/decisions.md § D-35).
 *
 !mise.toml
 !mise.lock
+!.mise/locks/**
 !.devcontainer/entrypoint.sh

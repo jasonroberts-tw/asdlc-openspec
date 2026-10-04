@@ -193,8 +193,9 @@ pre-push:
     # that reason. Reads those, the tracked file list, the policy through its loader, the TOML and
     # YAML parsers the manifest and lockfile pin, and what the `mise` on PATH reads from `mise.toml`:
     # 0.41 s wall through `node --run` (`/usr/bin/time -p`, the second of two runs; the first took
-    # 1.17 s) on a macOS 26.7.1 laptop with Node 26.8.1 and mise 2026.10.0, 2026-10-03; 0.81 s (the
-    # first took 1.12 s) on 2026-10-04, with a `pypi:` tool whose uv lock under `.mise/locks/` it hashes.
+    # 1.17 s) on a macOS 26.7.1 laptop with Node 26.8.1 and mise 2026.10.0, 2026-10-03; 1.45-1.86 s
+    # (two runs, 2026-10-04) with a `pypi:` tool whose uv lock under `.mise/locks/` it hashes and
+    # parses, most of it mise's three answers. The dev container's ignore file is read for that lock.
     - name: check-toolchain
       glob:
         - 'mise.lock'
@@ -209,6 +210,7 @@ pre-push:
         - '**/.tool-versions'
         - '.github/workflows/*.yml'
         - '.devcontainer/Dockerfile'
+        - '.devcontainer/Dockerfile.dockerignore'
         - '.node-version'
         - '.nvmrc'
         - '.python-version'
@@ -221,8 +223,8 @@ pre-push:
       run: node --run check:toolchain
     # Its refusals over copies of those files under the temporary directory, one doctored per case and
     # each asserting its reason, beside its controls, and rule 7's through a stub `mise`: 2.02 s wall
-    # for its 61 cases, the second of two runs, the same host and day; 1.76 s (the first took 3.20 s)
-    # for 70 with four controls, 2026-10-04, ten of them a `pypi:` tool's, over its copied uv lock.
+    # for its 61 cases, the second of two runs, the same host and day; 4.51 s (the first took 12.37 s)
+    # for 78 with five controls, 2026-10-04, eighteen of them a `pypi:` tool's, over its copied uv lock.
     - name: check-toolchain-selftest
       glob:
         - 'mise.toml'
@@ -230,6 +232,7 @@ pre-push:
         - '.mise/locks/**'
         - '.github/workflows/*.yml'
         - '.devcontainer/Dockerfile'
+        - '.devcontainer/Dockerfile.dockerignore'
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
         - 'tools/lib/git-env.ts'

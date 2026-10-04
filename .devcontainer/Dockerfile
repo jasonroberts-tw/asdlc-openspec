@@ -99,10 +99,12 @@ USER vscode
 # the clone, and a shim hands the real tool directories to what it starts, so no gate meets that; a
 # global default would be a second home for the pin.
 ENV PATH="/home/vscode/.local/share/mise/shims:/home/vscode/.local/bin:${PATH}"
+# `.mise/locks/` beside them: a `pypi:` tool's locked install reads its uv lock there (D-35).
 COPY --chown=vscode:vscode mise.toml mise.lock /tmp/toolchain/
+COPY --chown=vscode:vscode .mise/locks /tmp/toolchain/.mise/locks
 RUN MISE_TRUSTED_CONFIG_PATHS=/tmp/toolchain mise -C /tmp/toolchain install --locked \
     && MISE_TRUSTED_CONFIG_PATHS=/tmp/toolchain mise -C /tmp/toolchain exec -- \
-        sh -c 'node -v && npm -v && python --version && vale --version && bd --version && gh --version' \
+        sh -c 'node -v && npm -v && python --version && vale --version && bd --version && gh --version && uv --version && GRAPHIFY_NO_AUTO_REFRESH=1 graphify --version' \
     && rm -rf /tmp/toolchain
 
 # --- Claude Code ---------------------------------------------------------------------------------
