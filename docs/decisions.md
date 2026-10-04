@@ -1636,7 +1636,7 @@ Where it loses:
 
 Where it loses:
 
-- **A `python` started outside mise's `PATH` meets the Store alias again** on native Windows, and on a machine whose profile does not put the shims first, such as the one `asdlc-openspec-jvpe` describes, it finds none or another. `harness:selftest` then fails, naming mise's shims, where the helper ran whatever Python 3 the machine had.
+- **A `python` started outside mise's `PATH` is whatever that `PATH` holds**, on a machine whose profile does not put the shims first, such as the one `asdlc-openspec-jvpe` describes. Where it holds none, `harness:selftest` fails and names mise's shims. On native Windows it can hold the Store alias, which starts and fails with an install prompt of its own, so the selftest fails without naming the shims. Where it holds another Python 3, the graph half runs on that, unchecked. The helper ran a Python 3 in all three cases.
 - **The `harness-selftest` job fails on a machine set up before mise's shims step.** On 2026-10-03 the maintainer's laptop had no `python` on the `PATH` this session's shell inherited, and `python3` was `/usr/local/bin/python3`. A push there that changes `tools/harness/` runs that job.
 
 **What changed.**
@@ -1651,6 +1651,7 @@ Where it loses:
 **Figures.**
 
 - 90 checks in the core's selftest and 48 in the graph half's, under mise's Python 3.12.15 and Node 24.21.0: `npm run harness:selftest` with mise's shims first on `PATH`. Under the session shell's own `PATH`, which has no `python`, the core's 90 pass and the graph half's run fails, naming mise's shims.
+- `npm run harness:graph` under the same Python exits 0 and writes a combined graph of 2,149 nodes and 6,823 links beside its report, from a worktree of this change after `npm run harness` there: each command with mise's shims first on `PATH`, on 2026-10-03, over the maintainer's local graph, which no commit holds.
 - The Store alias's cost, 1.9 to 2.2 s to fail on one Windows machine, measured 2026-09-09: the deleted helper's header (`git show 1ec50f8:scripts/python.mjs`).
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
