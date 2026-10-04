@@ -233,7 +233,7 @@ export interface LineCitation {
   context: string
 }
 
-/** A `` `<file>.md` § <Name> `` pointer, as written. */
+/** A `<file>.md § <Name>` pointer, its file name backticked or not, as written. */
 export interface SectionCitation {
   kind: 'section'
   from: string
@@ -257,7 +257,23 @@ export type Citation = LineCitation | SectionCitation
 const LINE_RE = /([A-Za-z0-9._][A-Za-z0-9._/-]*\.md):(\d+)(?:-(\d+))?/g
 
 /**
- * `` `foo.md` § Name ``, with an optional `"`, `*` or `` ` `` wrapper around the name.
+ * `` `foo.md` § Name `` or `foo.md § Name`, with an optional `"`, `*` or `` ` `` wrapper around the
+ * name.
+ *
+ * THE FILE NAME NEED NOT BE BACKTICKED. Until 2026-10-03 the pattern required the backticks, so a
+ * pointer written without them -- `(docs/decisions.md § D-04)` in `scripts/new-worktree.sh`, found
+ * on 2026-09-26 working `asdlc-openspec-5sc` -- was read by no gate, whether it resolved or not, and
+ * such pointers multiplied: the issue's `git grep -P` for them counts 25 lines at d69527a
+ * (2026-09-26), 55 at f862fe0 (2026-10-01) and 88, in 37 tracked files, at 6f0533e (2026-10-03)
+ * (`asdlc-openspec-tl0`). Backticking each was the other fix, passed over because it would edit
+ * files a person must merge and leave the next unbackticked pointer unread. Measured before it was
+ * adopted, as `CLAUDE.md` § Citations asks: at 6f0533e the widened gate read 90 section pointers in
+ * 32 files that it had not read before, stopped reading none, and every one resolved once a pointer
+ * that ends a string literal was read without its closing quote (`stripWrapper`).
+ *
+ * An unbackticked name starts at a path boundary, so a home or absolute path (`~/.claude/x.md`,
+ * `/etc/x.md`) is not read from its middle, as the backticked form, whose first character cannot be
+ * `~` or `/`, never reads one. A name in one code span with its section, `` `x.md § Name` ``, is read.
  *
  * The name is taken up to the first delimiter that cannot appear in a heading being NAMED inline
  * (comma, semicolon, closing bracket, backtick, newline). Prose regularly runs straight on past the
@@ -274,16 +290,20 @@ const LINE_RE = /([A-Za-z0-9._][A-Za-z0-9._/-]*\.md):(\d+)(?:-(\d+))?/g
  * scan of the tree then found one live split pointer, in a test's comment, and it resolved
  * (`asdlc-openspec-qsq`). Reflowing a paragraph is how splits appear.
  *
- * WHERE THIS LOSES, accepted when it was adopted: a line that ends with a backticked `.md` name,
- * followed by an unrelated list item that begins `- §`, is read as one pointer, and refused when that
- * file has no such section. Two breaks, or any other text after the break, are never joined: a
+ * WHERE THIS LOSES, accepted when it was adopted: a line that ends with a `.md` name, backticked or
+ * not, followed by an unrelated list item that begins `- §`, is read as one pointer, and refused when
+ * that file has no such section. Two breaks, or any other text after the break, are never joined: a
  * paragraph break ends a pointer, and a name that a break splits is read up to the break and
- * resolved by prefix, as a name that runs on into prose is.
+ * resolved by prefix, as a name that runs on into prose is. And since 2026-10-03 a comment naming
+ * another repository's `README.md § Install` is held to this repository's file of that name whether
+ * or not its name is backticked, where until then only the backticked spelling was.
  */
 const GAP = String.raw`[^\S\n]*`
 const BREAK = String.raw`[^\S\n]*\n[^\S\n]*(?:\/\/|[*>#-])?[^\S\n]*`
+const NAME = String.raw`[A-Za-z0-9._][A-Za-z0-9._/-]*\.md`
+// Group 1 is a backticked name, group 2 an unbackticked one, group 3 the section.
 const SECTION_RE = new RegExp(
-  String.raw`\`([A-Za-z0-9._][A-Za-z0-9._/-]*\.md)\`` +
+  String.raw`(?:\`(${NAME})\`|(?<![A-Za-z0-9._/-])(${NAME}))` +
     `(?:${BREAK}§${GAP}|${GAP}§(?:${BREAK}|${GAP}))` +
     String.raw`([^\`\n,;)|]{2,80})`,
   'g',
@@ -468,7 +488,7 @@ export function citationsIn(from: string, text: string): Citation[] {
   })
   const lineOf = lineIndexer(text)
   for (const m of text.matchAll(SECTION_RE)) {
-    const section = stripWrapper((m[2] as string).trim())
+    const section = stripWrapper((m[3] as string).trim())
     if (section && looksLikeSectionName(section)) {
       const first = lineOf(m.index)
       const last = lineOf(m.index + m[0].length - 1)
@@ -476,7 +496,7 @@ export function citationsIn(from: string, text: string): Citation[] {
         kind: 'section',
         from,
         at: first + 1,
-        target: m[1] as string,
+        target: (m[1] ?? m[2]) as string,
         section,
         context: lines
           .slice(first, last + 1)
@@ -518,7 +538,12 @@ function stripWrapper(s: string): string {
   const quoted = /^(["'])(.+?)\1/.exec(s) ?? /^\*+([^*]+)\*+/.exec(s)
   if (quoted) return (quoted[2] ?? quoted[1] ?? '').trim()
 
-  const withoutLine = s.replace(/\s*\((?:line|lines)\s+\d+(?:[-–]\d+)?\)?\s*$/i, '').trim()
+  // AN UNQUOTED NAME ENDS AT A QUOTE NO LETTER FOLLOWS: the quote closing a string literal the whole
+  // pointer sits in, as in `includes('docs/decisions.md § D-20')`, which the gate read as a section
+  // called "D-20'" once it read unbackticked names (2026-10-03, asdlc-openspec-tl0). An apostrophe
+  // inside a name, `Reviewer's`, has a letter after it and is kept.
+  const unclosed = s.replace(/["'](?![A-Za-z]).*$/, '')
+  const withoutLine = unclosed.replace(/\s*\((?:line|lines)\s+\d+(?:[-–]\d+)?\)?\s*$/i, '').trim()
   const m = /^["'*_]+(.+?)["'*_]+$/.exec(withoutLine)
   return (m ? (m[1] as string) : withoutLine).replace(/^["'*_]+/, '').trim()
 }

@@ -1,6 +1,6 @@
 /**
- * `npm run citations:check` -- does every `<file>.md:NN` and `` `<file>.md` § <Name> `` citation in
- * this repository resolve to what it names?
+ * `npm run citations:check` -- does every `<file>.md:NN` and `<file>.md § <Name>` citation in this
+ * repository, its file name backticked or not, resolve to what it names?
  *
  * `tools/citations/scan.ts` carries the reasoning: why this scans everything rather than an
  * allowlist, why quotations are exempt, and why it checks that a pointer resolves and leaves what the

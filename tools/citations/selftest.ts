@@ -204,6 +204,57 @@ console.log('citation scanner selftest\n')
     third.length === 1 && third[0]?.at === 3,
     JSON.stringify(third),
   )
+
+  // NO BACKTICKS ROUND THE FILE NAME. Until 2026-10-03 the pattern required them, so a pointer
+  // written `(docs/decisions.md § D-04)` in a shell comment, a JSON string or a refusal message was
+  // read by no gate (asdlc-openspec-tl0). `sections(...)` rather than `only(...)`, as above, so a
+  // scanner that stops reading them reports every case here instead of throwing at the first.
+  const plain = sections('decided in (docs/foo.md § INVARIANTS says so)')
+  ok(
+    'a pointer whose file name is not backticked is read, its path whole',
+    plain.length === 1 &&
+      plain[0]?.target === 'docs/foo.md' &&
+      plain[0].section.startsWith('INVARIANTS'),
+    JSON.stringify(plain),
+  )
+  const spanned = sections('the refusal reads `see docs/foo.md § INVARIANTS` to its reader')
+  ok(
+    'a pointer inside one code span, its name and section together, is read',
+    spanned.length === 1 && spanned[0]?.target === 'docs/foo.md',
+    JSON.stringify(spanned),
+  )
+  ok(
+    'a pointer whose file name is not backticked is read when one line break splits it',
+    sections('as docs/foo.md\n * § INVARIANTS says so').length === 1,
+  )
+  ok(
+    'a lowercase word after § is prose with or without backticks',
+    sections('docs/foo.md § header, "Runtime" line').length === 0,
+  )
+  // A path that starts outside this checkout is not read from its middle: `foo.md` here names a
+  // file under the home directory or the filesystem root, and the backticked form skips both too.
+  ok(
+    'a home or absolute path is not read from its middle',
+    sections('see ~/.claude/foo.md § INVARIANTS and /etc/foo.md § INVARIANTS').length === 0,
+  )
+  ok(
+    'a backticked name keeps its one reading, not a second without the backticks',
+    sections('`foo.md` § INVARIANTS says so').length === 1,
+  )
+  // A POINTER THAT ENDS A STRING LITERAL. The widened read found one in a test that asserts what a
+  // refusal says, `includes('docs/decisions.md § D-20')`, and took the closing quote into the name.
+  const literal = sections("assert(err.includes('docs/foo.md § D-20'))")
+  ok(
+    'a name ends at the quote that closes the string around the pointer',
+    literal.length === 1 && literal[0]?.section === 'D-20',
+    JSON.stringify(literal),
+  )
+  const apostrophe = only(sections("`foo.md` § Reviewer's rubric says so"), 'section citation')
+  ok(
+    'an apostrophe inside a name does not end it',
+    apostrophe.section.startsWith("Reviewer's rubric"),
+    JSON.stringify(apostrophe.section),
+  )
 }
 
 /* --------------------------------------------------------------------------------------------- *
@@ -445,10 +496,10 @@ console.log('citation scanner selftest\n')
   claude.push('## After the regions', 'prose', '')
   const liveSection = claudeRegions.find((r) => 'section' in r)
 
-  // Three line citations (two in a markdown file, one in a source comment); six section citations
-  // (two in a markdown file; two in a source comment, one of them split by a line break; one in a
-  // shell script; one in a template); one dead citation inside a history directory, one inside an
-  // extension the gate does not scan.
+  // Three line citations (two in a markdown file, one in a source comment); seven section citations
+  // (two in a markdown file; two in a source comment, one of them split by a line break; two in a
+  // shell script, one of them with its file name not backticked; one in a template); one dead
+  // citation inside a history directory, one inside an extension the gate does not scan.
   const TREE: Readonly<Record<string, string>> = {
     'docs/target.md': [
       '# Target',
@@ -473,9 +524,13 @@ console.log('citation scanner selftest\n')
       'export {}',
       '',
     ].join('\n'),
-    'scripts/fixture.sh': ['#!/bin/sh', '# The rule is `docs/target.md` § Alpha section.', 'exit 0', ''].join(
-      '\n',
-    ),
+    'scripts/fixture.sh': [
+      '#!/bin/sh',
+      '# The rule is `docs/target.md` § Alpha section.',
+      '# Decided there too (docs/target.md § Beta), its file name not backticked.',
+      'exit 0',
+      '',
+    ].join('\n'),
     'templates/fixture.md.tmpl': ['# {{TITLE}}', 'Read `docs/target.md` § Beta first.', ''].join('\n'),
     'docs/retired/old.md': [
       '# Old',
@@ -527,7 +582,7 @@ console.log('citation scanner selftest\n')
   )
   const n = (i: number): number => Number(m?.[i] ?? Number.NaN)
   ok('the scan finds line citations to resolve -- exactly the three the tree holds', n(1) === 3, `${n(1)} found`)
-  ok('the scan finds section citations to resolve -- exactly the six the tree holds', n(2) === 6, `${n(2)} found`)
+  ok('the scan finds section citations to resolve -- exactly the seven the tree holds', n(2) === 7, `${n(2)} found`)
   ok(
     'the gate reads the tracked text files, seven with the script and the template, and skips the extension it does not scan',
     n(3) === 7,
@@ -598,6 +653,13 @@ console.log('citation scanner selftest\n')
       what: 'a section citation in a shell script, to a heading that is not there',
       doctor: edit('scripts/fixture.sh', '§ Alpha section', '§ Gamma'),
       where: 'scripts/fixture.sh:2',
+      reason: 'but no section of docs/target.md is named that',
+      problems: 1,
+    },
+    {
+      what: 'a section citation whose file name is not backticked, to a heading that is not there',
+      doctor: edit('scripts/fixture.sh', '(docs/target.md § Beta)', '(docs/target.md § Gamma)'),
+      where: 'scripts/fixture.sh:3',
       reason: 'but no section of docs/target.md is named that',
       problems: 1,
     },
