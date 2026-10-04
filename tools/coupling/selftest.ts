@@ -4,8 +4,9 @@
  * temporary directory, beside an undoctored control that must pass. Each of `check`, `emit` and
  * `update` is given a walk that disagrees with the ratified fixture, and must refuse and write
  * nothing; the walk's refusals of git output it cannot read are fed that output. It also holds the
- * walk to its ratified fixture, the rounding of the index, and the command line run end to end
- * through `COUPLING_ROOT`, under a hook's exported `GIT_DIR` and a hostile git configuration.
+ * walk to its ratified fixture, the rounding of the index, `partnersOf` over the ratified map, and
+ * the command line run end to end through `COUPLING_ROOT`, under a hook's exported `GIT_DIR` and a
+ * hostile git configuration.
  *
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet; this is what the gate would let through if a
  * rule of it broke and this file were absent. The live map passes the check whatever the rules
@@ -30,7 +31,7 @@ import { generatedFileRedirect } from '../../scripts/hooks/_shared.mjs'
 import { SCRATCH_GIT_ENV, gitIn } from '../lib/git-env.ts'
 import { ROOT } from '../lib/paths.ts'
 import { copyPolicy, editPolicy } from '../lib/policy.ts'
-import { FIXTURE_OPTIONS, KEYS, MAP, RATIFIED, check, emit, jaccardPermille, parseDiffs, ratifiedStream, ratify, readPolicy, update, walk } from './coupling.ts'
+import { FIXTURE_OPTIONS, KEYS, MAP, RATIFIED, check, emit, jaccardPermille, parseDiffs, partnersOf, ratifiedStream, ratify, readPolicy, update, walk } from './coupling.ts'
 
 const COUPLING = fileURLToPath(new URL('./coupling.ts', import.meta.url))
 /** The record that holds the `coupling*` keys, which one case breaks. */
@@ -345,6 +346,32 @@ function others(base: string, control: string): Result[] {
   attempt('the index is in thousandths, rounded half up', () => {
     const got = [jaccardPermille(1, 16), jaccardPermille(1, 3), jaccardPermille(2, 3), jaccardPermille(3, 8), jaccardPermille(5, 5)]
     return [JSON.stringify(got) === JSON.stringify([63, 333, 667, 375, 1000]), `read ${JSON.stringify(got)}`]
+  })
+  // The partners a change leaves alone, over the ratified map at its cluster threshold, 500: each case
+  // isolates one reason an edge is dropped, beside the one partner that is found.
+  const partners = (changed: string[], min = FIXTURE_OPTIONS.clusterMinJaccardPermille, map: Parameters<typeof partnersOf>[0] = RATIFIED) =>
+    JSON.stringify(partnersOf(map, changed, min))
+  const pair = (j: number | null) => ({ files: [{ path: 'x.js', changes: 9, hub: false }, { path: 'y.js', changes: 9, hub: false }], edges: [{ a: 'x.js', b: 'y.js', together: 5, jaccardPermille: j }] })
+  attempt('partners, control: lib/core/b.js changed alone leaves src/c.js, and its hub partner is not named', () => {
+    const got = partners(['lib/core/b.js'])
+    return [got === JSON.stringify([{ path: 'lib/core/b.js', partner: 'src/c.js', together: 6, jaccardPermille: 1000 }]), got]
+  })
+  attempt('partners: a partner the change also changes is not named', () => {
+    const got = partners(['lib/core/b.js', 'src/c.js'])
+    return [got === '[]', got]
+  })
+  attempt('partners: a hub changed names none of its edges', () => {
+    const got = partners(['package.json'])
+    return [got === '[]', got]
+  })
+  attempt('partners: an index under its sample is never counted, at any threshold', () => {
+    const got = partners(['x.js'], 1, pair(null))
+    return [got === '[]', got]
+  })
+  attempt('partners: an edge below the threshold is not named, and one at it is', () => {
+    const below = partners(['x.js'], 500, pair(499))
+    const at = partners(['y.js'], 499, pair(499))
+    return [below === '[]' && at === JSON.stringify([{ path: 'y.js', partner: 'x.js', together: 5, jaccardPermille: 499 }]), `below ${below}, at ${at}`]
   })
   attempt('the live policy has every coupling key, its Means and the shape the check reads', () => {
     const options = readPolicy(ROOT)
