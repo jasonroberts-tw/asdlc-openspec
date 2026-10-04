@@ -104,7 +104,7 @@ export const SCAN_ROOT = process.env.CITATIONS_ROOT ? resolve(process.env.CITATI
  * `citationsIn`: the three tracked files of that type held 14 pointers in the forms this gate reads,
  * 9 in `mise.toml`, 5 in `tasks.toml` and none in the uv lock's `pyproject.toml`, and all 14 resolved.
  * It reads a `.toml` file as written, not as TOML: a pointer in a comment or a `'''` string is read,
- * and one spelled through a basic string's escapes (`§` for the section sign, `\n`, a
+ * and one spelled through a basic string's escapes (a `\u` escape for the section sign, `\n`, a
  * line-ending backslash) is not, though mise prints it as a pointer. `tasks.toml` writes every
  * description as `'''` for that reason, as the `add-task` skill's step 5 asks; nothing refuses
  * another form.
