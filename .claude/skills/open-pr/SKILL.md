@@ -34,12 +34,12 @@ A shared file is not a conflict; a conflict this reports is. The body names each
 ## 3. The title
 
 A sentence saying what changed, ending with the id of each issue the branch carries, in
-parentheses and separated by commas. The reviewer reads the issues from those parentheses and
+parentheses and separated by commas. The branch review reads the issues from those parentheses and
 nowhere else, with `prReviewIssuePattern` in `tools/policy/pr-review.json` (`CLAUDE.md` § Git workflow).
 
-A pull request that carries no issue, such as a prompt review's, ends with no parentheses. The
-reviewer then leaves its merge to a person (`docs/decisions.md` § D-07). Never cite an issue the
-branch does not carry to get it reviewed.
+A pull request that carries no issue, such as a prompt review's, ends with no parentheses, and the
+reviewer decides it by the floor like any other (`docs/decisions.md` § D-37). Never cite an issue
+the branch does not carry.
 
 ## 4. The body
 
@@ -49,16 +49,16 @@ requests.
 
 ## 5. Push, open, and mark it pending
 
-First review the branch in a context of its own, once before each push: the reviewer requests
-changes on gaps a reader finds before the push as well as after, and each request costs a push and
-a review. Write the title, on one line, to a file beside the body, then run
+First review the branch in a context of its own, once before each push: off the high-risk floor,
+no later review reads it for correctness or maintainability (`docs/decisions.md` § D-37). Write the
+title, on one line, to a file beside the body, then run
 
     env TITLE_FILE=<title file> BODY_FILE=<body file> REVIEW_DIR=.scratch/review node scripts/pr-review.mjs brief --local
 
 and launch the `branch-reviewer` agent on `.scratch/review/brief.md`. It reviews the branch's last
-commit. Fix what it says would make the reviewer request changes, and each minor finding in a file
-the branch changes, since before the push a fix costs no review; commit, and gate as step 1 says.
-Do not review those fixes again: the reviewer judges what you push.
+commit. Fix each criterion it reports not met and each finding in a file the branch changes,
+whatever its severity; commit, and gate as step 1 says. A doubt it leaves for a person goes to the
+user before the push, or, with no user, into the body. Do not review those fixes again.
 
     git push -u origin <branch>
     gh pr create --base main --head <branch> --title "<title>" --body-file <file>
@@ -97,17 +97,14 @@ descriptions below are the ones `scripts/pr-review.mjs` sets (`statusFor`, `choo
 |---|---|
 | `verify` fails, and `pr-review` says "verify failed at …; the review waits for a green run" | Read the failing job, then fix, gate and push on the same branch. |
 | `pr-review` fails: "Conflicts with main: rebase onto origin/main and push" | Fetch, rebase onto `origin/main`, gate, and push with `--force-with-lease`. |
-| `pr-review` fails: "Changes requested: …" | Fix what the comment's reasons name, and no minor finding (below); gate and push on the same branch. |
-| `pr-review` passes: "Every dimension passes; the reviewer merges it" | The reviewer merges it. `gh pr view <number> --json state,mergedAt` shows `MERGED` once it has. |
+| `pr-review` passes: "Off the high-risk floor; the reviewer merges it" | The reviewer merges it. `gh pr view <number> --json state,mergedAt` shows `MERGED` once it has. |
 | `pr-review` passes: "A person decides: …" | It waits for a person, for the reason given; say so, and why. Never apply the approval label yourself (`CLAUDE.md` § Git workflow). |
-| `pr-review` errors: "The review did not complete: …" | Read the review job's log first: `gh run list --workflow pr-review.yml`, then `gh run view <run> --log-failed`. A cause in the reviewer's own workflow is not this branch's to fix: the caller files it as a defect found on the way, and the pull request waits on that issue. A cause that does not repeat, such as a network error, is run again once with the command the comment gives, `gh workflow run pr-review.yml -f pr=<number>`. |
+| `pr-review` errors: "The review did not complete: …" | Read the `act` job's log first: `gh run list --workflow pr-review.yml`, then `gh run view <run> --log-failed`. A cause in the reviewer's own workflow is not this branch's to fix: the caller files it as a defect found on the way, and the pull request waits on that issue. A cause that does not repeat, such as a network error, is run again once with the command the comment gives, `gh workflow run pr-review.yml -f pr=<number>`. |
 
 A push makes a new head with no status: review it first unless the push only rebased, mark it
 (step 5), and watch it again (step 6).
 
-**A minor finding the reviewer names is neither fixed nor filed**, whatever the outcome: a push for
-one sends a new head back to review over what `prReviewBlockingSeverities` in `tools/policy/pr-review.json`
-says blocks nothing. A person decides what becomes of it.
+The comment also prints each changed file's reach and its co-change partners. They decide nothing,
+and no push answers them.
 
-Hand the caller the pull request's number and URL, the outcome in the words of its status, and the
-minor findings its comment lists.
+Hand the caller the pull request's number and URL, and the outcome in the words of its status.

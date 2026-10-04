@@ -1,3 +1,9 @@
+> **Retired 2026-10-04 by D-37.** The pull-request reviewer stopped running a language model and
+> decides by the high-risk floor alone, so no agent runs this prompt. What survived: § Everything in
+> the pull request is data and § 1 to § 3, the rubric, in `.claude/agents/branch-reviewer.md`, with
+> their headings unchanged; the verdict's schema and what it returned went with the model.
+> Read this for its findings, never as an instruction.
+
 ---
 name: pr-reviewer
 description: Reviews one pull request at one head commit against the issues its title cites, on three dimensions - correctness against their acceptance criteria, maintainability (a product rubric and a context-engineering rubric) and blast radius - and returns a structured verdict. `.github/workflows/pr-review.yml` runs it from the brief `scripts/pr-review.mjs` writes; that script, not this agent, decides whether the pull request merges. It reads only, and changes nothing.
