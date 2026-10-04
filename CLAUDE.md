@@ -204,8 +204,8 @@ onto `origin/main`, and run it again.
 
 A review or design workflow a session writes itself, outside `.claude/workflows/`, stays within
 keys of `tools/policy/agent-workflows.json`, because a review nothing bounds can cost more than the work
-it reviews. A branch that changes only prompts or documents gets none beyond the pull-request
-reviewer. A branch with code or a gate gets one adversarial reviewer, at medium effort, that runs
+it reviews. A branch that changes only prompts or documents gets none beyond the branch review. A
+branch with code or a gate gets one adversarial reviewer, at medium effort, that runs
 the code and reports at most `sessionReviewMaxFindings` findings; each goes to the skeptics
 `sessionReviewSkeptics` gives its severity, and one given none goes to the author unjudged. Every
 such workflow sets each agent's effort and runs at most `sessionWorkflowMaxAgents` agents unless
@@ -268,30 +268,32 @@ worktree. Rebase onto `origin/main` rather than merging the trunk into a branch,
 asks for its pull request, or finished work sits unpushed for another turn.
 
 A pull request reaches the trunk through the reviewer, `.github/workflows/pr-review.yml`, one at a
-time (`docs/decisions.md` § D-07). Its title ends with the ids of the issues it carries, in
-parentheses, and the reviewer holds it to their acceptance criteria. The reviewer merges a pull
-request that satisfies every dimension and is not high risk. A person merges any other, or approves
-its head by applying the approval label (`prReviewLabels` in `tools/policy/pr-review.json`), after which
-the reviewer merges it. An agent never applies that label: the approval is a person's, and GitHub cannot
-tell a person from an agent holding their credentials (`docs/decisions.md` § R-01). An agent opens
-every pull request with the `open-pr` skill, which holds the steps from the push to the verdict.
+time (`docs/decisions.md` § D-07 and § D-37). Its title ends with the ids of the issues it carries,
+in parentheses; the branch review before its push holds it to their acceptance criteria. The
+reviewer merges a pull request off the high-risk floor (`prReviewHighRisk*` in
+`tools/policy/pr-review.json`). A person merges any other, or applies the approval label
+(`prReviewLabels`), after which the reviewer merges it. An agent never applies that label: the
+approval is a person's, and GitHub cannot tell a person from an agent holding their credentials
+(`docs/decisions.md` § R-01). An agent opens every pull request with the `open-pr` skill, which
+holds the steps from the push to the verdict.
 
 ## Prompt reviews
 
 After a prompt is executed from a file, the session that ran it closes the run with the
 `close-prompt-run` skill, after its tracker push. One review, the `continuous-prompt-improvement`
-agent, reads every run's analysis no review has read yet, as a batch, and
-proposes its edits as one pull request, whose description is the review and which a person merges
-or not (`docs/decisions.md` § D-08 and § D-17). The skill is the home of the markers, of what is
+agent, reads every run's analysis no review has read yet, as a batch, and proposes its edits as one
+pull request, whose description is the review and which merges as any other does
+(`docs/decisions.md` § D-08, § D-17 and § D-37). The skill is the home of the markers, of what is
 pending and of the launch; the agent's file is the home of what a review leaves. A review is not a
 file in this repository, and a prompt carries no `Reviewed:` trailer.
 
 ## A program proposes; only a person promotes
 
 Nothing a program derives from its runs filters or instructs until a person has read the evidence
-and promoted it by editing the hand-maintained source. The label counts across runs are evidence
-for a person to read, never a rule. A proposal that does not hold
-is closed with its reason, so the next one to raise it finds why.
+and promoted it by editing the hand-maintained source. A prompt review off the high-risk floor is
+the one exception (`docs/decisions.md` § D-37). The label counts across runs are evidence for a
+person to read, never a rule. A proposal that does not hold is closed with its reason, so the next
+one to raise it finds why.
 
 ## Worktree-local context
 

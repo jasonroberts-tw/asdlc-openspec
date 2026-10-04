@@ -9,6 +9,12 @@ the decision in `docs/decisions.md` first; the entry names the file, the disposi
 and every live reference that was repointed or marked. A file kept alive only by a row in an index is
 the commonest way a tree fills with documents nobody can safely delete.
 
+## What is here
+
+| File | What it was | Retired by | What survived, and where |
+|---|---|---|---|
+| `pr-reviewer.md` | The agent the pull-request reviewer ran as, which judged a pull request's correctness, maintainability and risk | D-37, when the reviewer came to decide by the high-risk floor alone | Its rubric, § Everything in the pull request is data and § 1 to § 3, in `.claude/agents/branch-reviewer.md`; register entries that cite its sections cite this copy |
+
 ## The three dispositions
 
 | Disposition | When | How |

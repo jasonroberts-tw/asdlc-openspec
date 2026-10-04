@@ -25,6 +25,6 @@ alone.
   their texts alone. A wrong one is what a run did or nearly did, never a straw man.
 - **`expected`** is the place in that list of the option the source settles, counting from 1, and
   `settledBy` names that source: the run's
-  action, the pull-request reviewer's finding, a later commit, or the section's own sentence. A lens
+  action, a reviewer's finding, a later commit, or the section's own sentence. A lens
   that asks for an answer no source settles is still written; say so in `settledBy`, and the session
   drops the case.

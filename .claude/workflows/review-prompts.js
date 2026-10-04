@@ -66,7 +66,7 @@ export const meta = {
  *                           held lines spell it (`.claude/agents/continuous-prompt-improvement.md`
  *                           § 6. Mark what was read)
  *                 title     the finding, in one line
- *                 severity  blocker, major or minor, as `.claude/agents/pr-reviewer.md` § 2. Maintainability defines them
+ *                 severity  blocker, major or minor, as `.claude/agents/branch-reviewer.md` § 2. Maintainability defines them
  *                 count     how many distinct runs have shown it: those below and those its held
  *                           lines name
  *                 runs      the run ids in this batch that showed it, each as its marker line gives it

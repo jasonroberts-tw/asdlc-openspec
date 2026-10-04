@@ -119,8 +119,8 @@ Fetch, rebase onto `origin/main`, and run `mise run gates` again (`CLAUDE.md` §
 
 ## 6. Open the pull request and watch its checks
 
-Before writing the body, hold the branch to each criterion as worded and to itself: the reviewer
-requests changes on a gap whatever the body admits. Fix one the body would disclose, or make the
+Before writing the body, hold the branch to each criterion as worded and to itself: a gap the body
+admits merges anyway off the high-risk floor. Fix one the body would disclose, or make the
 tree say what is true and file its follow-up (step 4). A criterion the work will not meet as worded
 is changed by the user before the push, as step 1 says.
 

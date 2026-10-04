@@ -90,20 +90,16 @@ or discard it. The session is back in the primary checkout.
 
 ## 7. Merge, through the reviewer
 
-The pull-request reviewer merges it (`docs/decisions.md` § D-07).
+The pull-request reviewer merges it off the high-risk floor (`docs/decisions.md` § D-07 and § D-37).
 
 Step 5's `open-pr` skill watched the checks to the reviewer's verdict. Read
 `gh pr view <number> --json state,mergedAt,labels`:
 
 - **`MERGED`.** Carry on from the remote branch below, and then step 8.
-- **The review asks for a person.** Its comment says why: a criterion nobody can verify from the
-  pull request, such as one about the merge itself, or high risk. Tell the user. The user merges it,
-  or applies the approval label for the reviewer to merge it. Never apply the label yourself
-  (`CLAUDE.md` § Git workflow). Wait for `MERGED` as above.
-- **The review requests changes.** Read its comment, go back into the worktree with `EnterWorktree`,
-  and fix what `.claude/skills/open-pr/SKILL.md` § 7. Act on the outcome says a request for changes
-  asks, and no minor finding; gate, commit and push as the earlier steps do. Then mark and watch the
-  new head as the `open-pr` skill's steps 5 and 6 say.
+- **The review asks for a person.** Its comment names the changed path or key that puts it on the
+  high-risk floor. Tell the user. The user merges it, or applies the approval label for the reviewer
+  to merge it. Never apply the label yourself (`CLAUDE.md` § Git workflow). Wait for `MERGED` as
+  above.
 
 `scripts/hooks/guard-git.mjs` refuses a merge from a worktree.
 

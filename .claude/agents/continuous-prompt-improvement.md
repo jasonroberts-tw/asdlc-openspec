@@ -45,8 +45,8 @@ script. Two findings are one when they concern the same prompt file and describe
 the same step done wrong or missing at the same place in the prompt, however each analysis words
 it. A finding that is one with an earlier held line takes that line's key; a new one gets
 `<file>#<name>`: its file's path, `#`, and a short name in lower case letters, digits and dashes.
-Give each a severity, as `.claude/agents/pr-reviewer.md` § 2. Maintainability defines blocker, major
-and minor, and a count: the distinct runs that have shown it, in this batch and in its held lines.
+Give each a severity, as `.claude/agents/branch-reviewer.md` § 2. Maintainability defines blocker,
+major and minor, and a count: the distinct runs that have shown it, in this batch and in its held lines.
 
 A finding meets the threshold when its count is `promptReviewRecurrenceCount` or more, or its
 severity is in `promptReviewMajorSeverities`. Hold every finding that does not, with the reason
@@ -61,8 +61,8 @@ header gives `args.groups`. Add to that evidence the counts across runs, the sam
 what the commands an analysis ends with (`.claude/skills/close-prompt-run/SKILL.md` § 1) print when
 you run them now, each with its command, since an analysis's own were measured when it was written.
 
-A finding whose right answer a source settles, the run's action, the pull-request reviewer's finding
-or a later commit, is also a seed for a stored decision case, held or not, unless a case under
+A finding whose right answer a source settles, the run's action, a reviewer's finding or a later
+commit, is also a seed for a stored decision case, held or not, unless a case under
 `.claude/prompt-cases/` already holds that decision. A seed is the fields
 `.claude/workflows/author-prompt-cases.js`'s header gives `args.seeds`.
 
@@ -104,7 +104,7 @@ fails elsewhere is reported.
 If the permission classifier refuses `mise run gates`, run `mise run citations:check` before you
 push, and push only once it passes: a prompt edit can carry a pointer that does not resolve. End
 the description with a `RUN THESE YOURSELF` block holding the refused command
-(`CLAUDE.md` § Guards), so the person deciding the merge runs the full suite first.
+(`CLAUDE.md` § Guards), so a person deciding the merge runs the full suite first.
 
 ## 6. Mark what was read
 
