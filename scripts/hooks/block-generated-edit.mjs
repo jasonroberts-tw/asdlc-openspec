@@ -6,31 +6,46 @@
  * survives until the next run of the emitter, which silently reverts it -- or until the gate that
  * diffs the two, which turns it into a build failure with no memory of what the edit was for.
  *
+ * AND A WORKTREE IT DID NOT SEE. Until 2026-10-03 (asdlc-openspec-d2qv) the hook judged every path
+ * against its own checkout, which for a session that has entered a worktree is the primary checkout
+ * (`.claude/README.md` § The hooks). An edit to a generated file in a linked worktree, where most
+ * agent work happens, became `.claude/worktrees/<name>/artifacts/...`, which no redirect matched, and
+ * passed; the catch-all skips Markdown, so nothing at all held the trace record's README there. The
+ * checkout is now placed by the edited file's own path (`editedCheckout`), never by the payload's
+ * `cwd`, which would let a worktree session edit the primary checkout's generated files unrefused.
+ *
  * Exit 2 is the documented way for a PreToolUse hook to block; stderr becomes the reason shown to the
  * agent. The reason is not "don't do that" -- it is the list of files the change could legitimately
  * belong to, so the next move is a redirect rather than a guess.
  *
  * Deliberately NOT blocked: the emitters themselves, under `tools/`, which is where fixes go.
+ *
+ *   node scripts/hooks/block-generated-edit.mjs < payload.json
+ *
+ * Needs `git`, which places the path: four calls inside a checkout and two outside any. With none on
+ * PATH, every path is judged against this hook's own checkout, as before the fix.
+ * `gate-summary.selftest.mjs` runs a copy over a scratch repository and its worktrees and prints the
+ * hook's wall time.
  */
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import {
-  ROOT,
   bannerCheckApplies,
   editTarget,
+  editedCheckout,
   generatedFileRedirect,
   hasGeneratedBanner,
   header,
   readHookInput,
-  toRepoRel,
 } from './_shared.mjs'
 
 const input = await readHookInput()
 if (input === null) process.exit(0)
 
 const { filePath, text } = editTarget(input)
-const rel = toRepoRel(filePath)
-if (rel === null) process.exit(0)
+const target = editedCheckout(filePath)
+if (target === null) process.exit(0)
+const { root, rel } = target
 
 const specific = generatedFileRedirect(rel)
 if (specific !== null) {
@@ -46,7 +61,7 @@ if (specific !== null) {
 // is a real thing to want to write in a repository whose gates are about build products. For a path
 // that does not exist yet, the incoming text is the only evidence there is, and an agent writing a
 // new file that CLAIMS to be generated is making the same mistake from the other direction.
-const abs = resolve(ROOT, rel)
+const abs = resolve(root, rel)
 const banner =
   bannerCheckApplies(rel) &&
   (existsSync(abs) ? hasGeneratedBanner(header(abs)) : hasGeneratedBanner(text))
