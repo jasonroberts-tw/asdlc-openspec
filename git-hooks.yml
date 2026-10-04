@@ -85,8 +85,10 @@ pre-push:
   # through `node --run`, 20 runs each of `counts:check` on a macOS laptop with mise 2026.10.0, and
   # all 39 pre-push gates gave the same exit status both ways (asdlc-openspec-8juz.1, question 5). A
   # failing task adds one line, `[<task>] ERROR task failed`, after its own output. Unlike
-  # `node --run`, it puts no `node_modules/.bin` on PATH, which no gate needs. Each cost note below
-  # that says `node --run` was measured through it.
+  # `node --run`, it puts no `node_modules/.bin` on PATH, which no gate needs, and it first installs
+  # every pin that is missing, failing the task when one cannot install. Each cost note below that
+  # says `node --run` was measured through it. Every job here with a glob carries `tasks.toml`,
+  # which holds the command it runs.
   #
   # DELIBERATELY ABSENT: any check that reads something outside the repository (another checkout, a
   # token, a network, a language model). It runs in neither this file nor `.github/workflows/verify.yml`, and its selftest
@@ -145,6 +147,7 @@ pre-push:
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
         - 'tools/lib/git-env.ts'
+        - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'
       run: mise run hooks:selftest
@@ -166,6 +169,7 @@ pre-push:
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
         - 'scripts/check-prompts.mjs'
+        - 'tasks.toml'
       run: mise run check:prompts
     # Its refusals against a fixture tree it builds under the temporary directory, with one
     # undoctored control. Reads nothing but the gate itself and the policy loader it imports.
@@ -173,6 +177,7 @@ pre-push:
       glob:
         - 'scripts/check-prompts.mjs'
         - 'tools/lib/policy.ts'
+        - 'tasks.toml'
       run: mise run check:prompts:selftest
     # Every record under `tools/policy/` carries its five header fields, a `Means` beside every
     # constant and no `Means` without one; no key is defined in two records; the directory's README
@@ -186,6 +191,7 @@ pre-push:
         - 'tools/policy.json'
         - 'tools/lib/policy.ts'
         - 'scripts/check-policy.mjs'
+        - 'tasks.toml'
       run: mise run check:policy
     # Its refusals over copies of the live records under the temporary directory, one doctored per
     # case and each asserting its reason, beside the undoctored copy: 0.12 s wall, one run, the same
@@ -195,6 +201,7 @@ pre-push:
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
         - 'scripts/check-policy.mjs'
+        - 'tasks.toml'
       run: mise run check:policy:selftest
     # `mise.toml` is the one home of every tool version (docs/decisions.md § D-31): each pin exact
     # and in `mise.lock` for every platform the policy names, one mise for every workflow's
@@ -228,6 +235,7 @@ pre-push:
         - 'tools/lib/policy.ts'
         - 'tools/lib/git-env.ts'
         - 'scripts/check-toolchain.mjs'
+        - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'
       run: mise run check:toolchain
@@ -248,6 +256,7 @@ pre-push:
         - 'tools/lib/policy.ts'
         - 'tools/lib/git-env.ts'
         - 'scripts/check-toolchain.mjs'
+        - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'
       run: mise run check:toolchain:selftest
@@ -290,6 +299,7 @@ pre-push:
         - '.claude/**'
         - '.beads/formulas/**'
         - '.beads/PRIME.md'
+        - 'tasks.toml'
       run: mise run citations:selftest
     # The advisory `citations:support`, held to a fixture tree through `CITATIONS_ROOT` with a stubbed
     # judge, and once through the real SDK to a refused loopback connection: no key, no network beyond
@@ -301,6 +311,7 @@ pre-push:
         - 'tools/citations/**'
         - 'tools/lib/**'
         - 'tools/policy/**'
+        - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'
       run: mise run citations:support:selftest
@@ -339,6 +350,7 @@ pre-push:
         - 'tools/lib/policy.ts'
         - '.vale.ini'
         - '.gitignore'
+        - 'tasks.toml'
       run: mise run worktree:selftest
     # This repository's own Vale style, `.vale-styles/Layout/`: each rule over a control and one
     # doctored fixture per fault under the temporary directory, each asserting its rule and its line,
@@ -351,6 +363,7 @@ pre-push:
         - '.vale.ini'
         - '.vale-styles/Layout/**'
         - 'scripts/vale.selftest.mjs'
+        - 'tasks.toml'
       run: mise run vale:selftest
     # The Stop and SubagentStop hook, run as the harness runs it over scratch citation trees: an
     # untracked file with a broken pointer turns its verdict to FAIL for that reason, an ignored one
@@ -394,12 +407,14 @@ pre-push:
         - 'docs/decisions.md'
         - 'CLAUDE.md'
         - 'scripts/check-register-status.mjs'
+        - 'tasks.toml'
       run: mise run check:register
     - name: register-status-selftest
       glob:
         - 'docs/decisions.md'
         - 'CLAUDE.md'
         - 'scripts/check-register-status.mjs'
+        - 'tasks.toml'
       run: mise run check:register:selftest
     # Every living spec and active change under `openspec/` validated strictly by the pinned CLI,
     # every active change trial-archived into a scratch copy, every scenario and NFR requirement held
@@ -418,6 +433,7 @@ pre-push:
         - 'tools/lib/policy.ts'
         - 'scripts/check-openspec.mjs'
         - 'scripts/lib/bin-path.mjs'
+        - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'
       run: mise run openspec:check
@@ -430,6 +446,7 @@ pre-push:
         - 'scripts/check-openspec.mjs'
         - 'scripts/lib/bin-path.mjs'
         - 'tools/lib/policy.ts'
+        - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'
       run: mise run openspec:selftest
@@ -468,6 +485,7 @@ pre-push:
         - 'scripts/lib/verify-report.mjs'
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
+        - 'tasks.toml'
       run: mise run workflows:selftest
     # The pull-request reviewer's wiring: the policy's `prReview*` keys whole, and `pr-review.yml`,
     # `verify.yml` and the reviewer's agent spelling the same labels, check and agent. The reviewer
@@ -484,6 +502,7 @@ pre-push:
         - 'tools/lib/policy.ts'
         - '.github/workflows/*.yml'
         - '.claude/agents/pr-reviewer.md'
+        - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'
       run: mise run pr-review:check
@@ -503,6 +522,7 @@ pre-push:
         - 'tools/lib/policy.ts'
         - '.github/workflows/*.yml'
         - '.claude/agents/pr-reviewer.md'
+        - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'
       run: mise run pr-review:selftest
@@ -625,6 +645,7 @@ pre-push:
         - 'scripts/lib/test-dirs.mjs'
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
+        - 'tasks.toml'
       run: mise run tests:selftest
     # The stand-in for `tests:fresh`, which runs `npm ci` and so reads the network (docs/decisions.md
     # § D-15, item 3): the verifier's fresh run over a fixture repository it builds with git and the
@@ -650,6 +671,7 @@ pre-push:
         - 'tools/trace/**'
         - 'tools/lib/**'
         - 'tools/policy/**'
+        - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'
       run: mise run tests:fresh:selftest
@@ -672,6 +694,7 @@ pre-push:
         - 'tools/lib/**'
         - 'tools/policy/**'
         - 'mise.toml'
+        - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'
       run: mise run code-graph:selftest
@@ -687,6 +710,7 @@ pre-push:
         - 'scripts/lib/bin-path.mjs'
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
+        - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'
       run: mise run tests:trace:selftest
@@ -739,6 +763,7 @@ pre-push:
         - 'scripts/lib/tasks.mjs'
         - 'scripts/lib/test-dirs.mjs'
         - 'tools/policy/**'
+        - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'
       run: mise run trace:selftest
@@ -772,6 +797,7 @@ pre-push:
         - 'scripts/hooks/_shared.mjs'
         - 'scripts/lib/tasks.mjs'
         - 'tools/policy/**'
+        - 'tasks.toml'
         - 'package.json'
       run: mise run coupling:selftest
     # The harness assessment (`docs/decisions.md` § D-26), whose two commands read the local code
@@ -791,6 +817,7 @@ pre-push:
         - 'tools/harness/**'
         - 'tools/lib/**'
         - 'scripts/lib/tasks.mjs'
+        - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'
       run: mise run harness:selftest
@@ -823,6 +850,7 @@ pre-push:
         - 'tools/lib/git-env.ts'
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
+        - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'
       run: mise run tests:inventory:selftest
@@ -855,6 +883,7 @@ pre-push:
         - 'tools/lib/git-env.ts'
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
+        - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'
       run: mise run thresholds:selftest
@@ -870,6 +899,7 @@ pre-push:
       glob:
         - 'scripts/check-count-index.mjs'
         - 'tools/lib/git-env.ts'
+        - 'tasks.toml'
       run: mise run counts:selftest
     # The tracker's own pre-push hook, and the label, type and foreign-id rules over its open
     # issues: a `repo:` label on every one, a label `assetLabels` in `tools/policy/vocabulary.json` lists on
@@ -894,4 +924,5 @@ pre-push:
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
         - 'tools/lib/bd-launcher.ts'
+        - 'tasks.toml'
       run: mise run beads:selftest

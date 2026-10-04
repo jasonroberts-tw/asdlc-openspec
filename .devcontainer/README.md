@@ -29,7 +29,7 @@ every rebuild. A layer is built once and is identical for everyone. If you add a
 image's mise layer installs it. `entrypoint.sh` never installs a tool
 itself; it warns while the image lags `mise.toml`, because a rebuild is how the container catches up.
 Until then a shim installs the moved pin over the network at its first use, the entrypoint's
-`npm ci` among them.
+`npm ci` among them, and `mise run` installs every missing pin before any task, whatever it runs.
 
 `entrypoint.sh` holds only what cannot be an image layer — `npm ci` (whose `node_modules` carries
 native binaries and so belongs to the container's platform), installing the git
