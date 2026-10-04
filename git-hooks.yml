@@ -781,11 +781,13 @@ pre-push:
     # 17.05-20.80 s for 33 before a Command's case over the mutant sample took one of them;
     # 23.33-25.16 s (two runs, the same day) for 36, with a `--dir` case; 24.52-24.91 s (two runs,
     # 2026-10-03) for 37, that case again with its tasks in a `tasks.toml`, which the task loader reads
-    # through `smol-toml`; and
+    # through `smol-toml`;
     # 96.36-164.96 s (two runs, later on 2026-10-03) for 40, with a case whose Verify-stage test fails
-    # were it run, one StrykerJS run more, and two refused before any run. The runs for 40 were taken
-    # while other worktrees ran their gates on the same host, at load averages of 51 to 84, so their
-    # wall time is the contention's: 32.90-34.01 s user and 13.08-14.31 s sys.
+    # were it run, one StrykerJS run more, and two refused before any run; and 157.06 s (one run, the
+    # same day) for 41, with a policy without `independentBuildStage` refused before any run. The runs
+    # for 40 and 41 were taken while other worktrees ran their gates on the same host, at load
+    # averages of 51 to 84 and of 194 to 245, so their wall time is the contention's: 32.90-34.01 s
+    # user and 13.08-14.31 s sys for 40, and 36.59 s user and 18.02 s sys for 41.
     - name: thresholds-selftest
       glob:
         - 'scripts/check-thresholds.mjs'
