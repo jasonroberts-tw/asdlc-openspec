@@ -74,9 +74,11 @@
  * the Commands' run is minutes when a Command's lines change (the header of
  * `scripts/check-thresholds.mjs`), and a `--rerun` is a clone and an install again, about 3 s. The
  * selftest took 8.82-8.87 s alone and 15-29 s inside `npm run gates` before its deadline, signal and
- * `--tasks` cases, and 15.7 s alone after. The clone gets no probed port pair, so a future test that
- * binds a fixed port collides with one serving in the worktree (the maintainer's choice 1, where it
- * loses).
+ * `--tasks` cases, and 15.7 s alone after. On 2026-10-03, once the deadline case ran only its
+ * sleeping child, it held every case inside two forced `npm run gates` runs, in 113.60 s and
+ * 73.91 s, and took 87.1 s alone, while sibling worktrees' gate runs held the 14-core laptop at load
+ * averages of 22 to 79 (`uptime`). The clone gets no probed port pair, so a future test that binds a
+ * fixed port collides with one serving in the worktree (the maintainer's choice 1, where it loses).
  */
 import { spawn as childSpawn, spawnSync } from 'node:child_process'
 import { cpSync, existsSync, globSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
