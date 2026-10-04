@@ -3,7 +3,8 @@
 # through `mise.lock`, and nothing else states a version it pins. `npm run check:toolchain` holds
 # that: each pin exact, each in the lockfile for every platform `toolchainLockPlatforms` in
 # tools/policy/tool-settings.json names, and no second install of any of them. After a change here,
-# run `mise lock --platform` with that list, comma-separated, and commit both files.
+# run `mise install`, which records a new or moved pin in the lock, then `mise lock --platform` with
+# that list, comma-separated, and commit both files and `.mise/locks/`.
 #
 # Not here, each on purpose: Git, a system prerequisite whose floor scripts/git-hooks.mjs holds;
 # Claude Code, which updates itself; and the npm packages, which package.json and its lockfile pin.
@@ -42,9 +43,11 @@ uv = "0.12.22"
 # this pin. It is pinned because the script relies on this release's behaviour, read from its source
 # on 2026-10-01: the `claude-cli` backend and `GRAPHIFY_CLAUDE_CLI_MODEL`, the text of its
 # partial-extraction warnings, and the file types in `graphifySemanticExtensions` in
-# tools/policy/tool-settings.json. Moving it means checking those, and the command positions
-# scripts/hooks/guard-git.mjs reads, against the new release and the script's header first; moved
-# without that check, a reworded warning or a new file type gets through unseen. Where it loses: a
+# tools/policy/tool-settings.json. Moving it means checking those against the new release and the
+# script's header first, and, for `GRAPHIFY_ERODING` and `GRAPHIFY_HELP` in
+# scripts/hooks/guard-git.mjs, how graphify reads its command, which commands rebuild through
+# `update`'s path, and its help guard. Moved without that check, a reworded warning, a new file type
+# or a new eroding command gets through unseen. Where it loses: a
 # graphify fix, such as one to the `graphify update` erosion D-20 records, reaches nobody here until
 # someone moves this. `mise lock` locks its dependencies in a uv lock under `.mise/locks/`, resolved
 # for every Python from 3.10, so a dependency can sit at an older release than an unlocked install

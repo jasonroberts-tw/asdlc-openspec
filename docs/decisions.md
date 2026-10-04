@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `npm run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-34 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34 added 2026-10-04).**
+**Status: every decision from D-01 to D-35 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34 and D-35 added 2026-10-04).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-34` is checked by `npm run check:register`, which reads those headings, the table and each
+> `D-01 … D-35` is checked by `npm run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -90,6 +90,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-32** | A prompt review answers each changed prompt's stored decision cases with its old text and its new, and a case that flips from right to wrong keeps the edit out | `.claude/workflows/author-prompt-cases.js` and the Regress phase of `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; the agents `prompt-case-author` and `prompt-case-answerer`; `.claude/prompt-cases/` and its first cases; `promptReviewCaseLenses` and `promptReviewCaseRepetitions` in `tools/policy/agent-workflows.json`; the reviewer and the workflow, consolidated first; D-10's, D-12's and D-17's amendments |
 | **D-33** | `utils/install-dolt.sh` and `scripts/python.mjs` retire, made redundant by mise | Both files deleted, and `utils/` with them; `harness:graph` and `harness:selftest` run `python` through mise's shims; their rows in `README.md`, `scripts/README.md` and `tools/README.md`; D-26's and D-31's amendments |
 | **D-34** | The `engines` floor rises to Node 24.21.0, the version `mise.toml` pins, so every gate runs it | `engines` in `package.json` and in `package-lock.json`'s root entry; the comment above the `node` pin in `mise.toml`; `README.md` § The Node floor, on every platform; the headers of `scripts/run-tests.mjs` and `scripts/check-thresholds.mjs`; D-31's amendment |
+| **D-35** | graphify and uv are pinned in `mise.toml`, and the `graphifyVersion` key retires | The two pins, their lock entries and graphify's uv lock under `.mise/locks/`; `check:toolchain` admitting a `pypi:` tool's `version` and `extras` and holding its uv lock; `scripts/code-graph.mjs` reading the pin and registering `mise which`'s `graphify-mcp`; the key gone from `tools/policy/tool-settings.json`; D-20's, D-23's, D-26's and D-31's amendments |
 
 ## Risks
 
@@ -1068,6 +1069,8 @@ Where it loses:
 
 > **Amended 2026-10-02 by D-28.** Item 5's server is registered on the harness assessment's combined graph, the file `graphifyCombinedGraphFile` names beside `graph.json`, while that file records the git blob id of the `graph.json` beside it, and on `graph.json` otherwise. Item 6's skill tells a session what the combined graph's added edges are.
 
+> **Amended 2026-10-04 by D-35.** graphify's release is the `pypi:graphifyy` pin in `mise.toml`, which `mise install` installs with its MCP extra, and no longer `graphifyVersion`, which is retired. The script names `mise install` where it named `uv tool install`, and item 5's server is the `graphify-mcp` that `mise which` names. The loss "The script relies on graphify 0.9.73's internals" now reads: a new release is checked against the script's header, and the guard's reading of its command line, before the pin moves, as the comment above the pin says.
+
 ### D-21 · `open-pr` reviews each branch before its push, in an agent's own context, and the reviewer's brief carries the facts its job can compute
 
 **Recorded 2026-10-01**, carried by `asdlc-openspec-ivn` and `asdlc-openspec-744`. On 2026-10-01 the maintainer adopted both from a meta-analysis of the pull-request reviewer's verdicts: the local review mandated by `open-pr` itself, done by a custom agent for its context, and the facts put in the brief or the prompt gate tightened. The session chose the brief, for the reasons below.
@@ -1179,6 +1182,8 @@ Where it loses:
 - graphify reading its command from its first argument and a second word from its second, its help guard, and what `install` and `install --project` write: graphify 0.9.73's `__main__.py`, `cli.py` and `install.py`, read on 2026-10-01, outside this repository. Not re-derived here.
 
 > **Amended 2026-10-02 by D-27.** Item 4's reason no longer holds as written: the policy now holds the settings of single tools too, in `tools/policy/tool-settings.json`. The list stays in the guard. D-27 moves no constant an earlier decision kept out of the policy, and moving this one is a decision of its own.
+
+> **Amended 2026-10-04 by D-35.** The loss "It reads graphify 0.9.73's command line by position, and that release's help guard" no longer stands as written: `graphifyVersionMeans` is retired with its key, and the comment above the `pypi:graphifyy` pin in `mise.toml` names `GRAPHIFY_ERODING` and `GRAPHIFY_HELP`, and what of graphify to re-read for them, among what is checked before the pin moves.
 
 ### D-24 · The co-change map of merged pull requests is committed, pinned to a trunk commit that only its `:update` moves
 
@@ -1327,6 +1332,8 @@ Where it loses:
 > **Amended 2026-10-03 by D-31.** The Python 3 the selftest's job needs is the one `mise.toml` pins, which every machine set up from `README.md` § Setup, CI and the dev container install through mise. The loss "CI pays a `setup-python` step, and the dev container image installs one" now reads: mise installs it beside the rest of the toolchain, and `check:toolchain` refuses a second install of it.
 
 > **Amended 2026-10-03 by D-33.** Items 2 and 3 run the graph half with `python`, the Python 3 `mise.toml` pins, through mise's shims, and `scripts/python.mjs` is deleted. The loss "The repository tracks its first Python file" now reads: where no `python` runs, the selftest's job fails and names mise's shims.
+
+> **Amended 2026-10-04 by D-35.** The loss "The loader check leans on graphify's private `graphify.serve._load_graph`" names `graphifyVersion` moving as the moment to look. That key is retired, and the moment is the `pypi:graphifyy` pin in `mise.toml` moving.
 
 ### D-27 · The policy is split under `tools/policy/` by who may change each key and who reads it, read through one loader and held by a gate of its own
 
@@ -1574,6 +1581,8 @@ Where it loses:
 
 > **Amended 2026-10-04 by D-34.** `engines` is `>=24.21.0`, starting at the `node` this entry's `mise.toml` pins, so the loss "The `engines` floor goes unexercised" holds no longer, until a bump of the pin leaves the floor below it, which D-34's loss describes. Why's `engines` at 22.22.2 stays true of its date.
 
+> **Amended 2026-10-04 by D-35.** Item 1's graphify and uv have joined `mise.toml`: uv 0.12.22, and graphify 0.9.73 with its MCP extra. Item 6 admits one option table, a `pypi:` tool's `version` and list of `extras`, and holds such a tool's lock to the uv lock under `.mise/locks/` that `mise.lock` names, in place of a URL and checksum per platform. The comment at the head of `mise.toml` now says to run `mise install` before `mise lock`.
+
 ### D-32 · A prompt review answers each changed prompt's stored decision cases with its old text and its new, and a case that flips from right to wrong keeps the edit out
 
 **Recorded 2026-10-03**, carried by `asdlc-openspec-7c1`. The maintainer chose items 1 to 3 on 2026-09-26, item 3 their own proposal. On 2026-10-03 they confirmed item 3's shape, one author per lens in a workflow of its own, and chose items 4, 5 and 7, each the recommendation, from options put with the case where it loses. The session that built it chose items 6, 8 and 9.
@@ -1689,6 +1698,51 @@ Where it loses:
 - 24.11.0, the lowest 24.x every package in `package-lock.json` accepts, set by the 37 `@babel/*` packages whose range is `^22.18.0 || >=24.11.0`. 217 locked packages carry an `engines.node`, in 50 distinct ranges, each read by `semver` 7.8.5, the version the lockfile installs. Every one of them accepts every version `>=24.21.0` admits (`semver.subset`), where 61 did not accept every version `>=22.22.2` admitted. A script that is not tracked computed each, testing every 24.m.p with m and p below 100 against every range; on the 22 line it gives 22.22.0, as `asdlc-openspec-xn4`'s note of 2026-10-01 read it. `README.md`'s one-line program cannot derive these, since it refuses `node_modules/tunnel`'s `>=0.6.11 <=0.7.0 || >=0.7.3` (`asdlc-openspec-xn4`).
 - 24.21.0, the `node` pin in `mise.toml`, and `node -v` under mise's shims.
 - At 24.21.0, by two scripts that are not tracked, on 2026-10-04: `run()` given `cwd` found the test file a relative glob named under it, and the same call without `cwd` found none; the `lcov` export of `node:test/reporters` is a function; a module the coverage include glob named, which no test imported, got no coverage record; and `--experimental-test-coverage` given to the process did not reach a `run()` given no `coverage` option. The last two keep the headers' other claims about the floor true.
+
+### D-35 · graphify and uv are pinned in `mise.toml`, and the `graphifyVersion` key retires
+
+**Recorded 2026-10-04**, carried by `asdlc-openspec-8juz.3`, a child of `asdlc-openspec-8juz`. D-31 item 1 said graphify and uv would join `mise.toml` in this issue. On 2026-10-04 the maintainer ran its lock in the branch's worktree, after Claude Code's permission classifier refused a session's run of that step as untrusted code integration (the issue's notes).
+
+**Builds on / amends:** amends D-20, whose script read graphify's release from `graphifyVersion` and named `uv tool install` as its install; D-23 and D-26, whose losses send whoever moves the release to that key or its `Means`; and D-31, whose item 6 admits no tool option table and each later option by name in the change that needs it. Builds on D-31, whose `mise.toml` and `mise.lock` this extends; on D-27, whose `tools/policy/tool-settings.json` held the retired key; and on D-07, which leaves a change to `mise.toml`, `mise.lock`, `.mise/**` or this register to a person.
+
+**Decision.**
+
+1. **`mise.toml` pins uv 0.12.22 and graphify 0.9.73, as `"pypi:graphifyy" = { version = "0.9.73", extras = ["mcp"] }`.** `mise install` installs both on every machine, CI and the dev container among them. uv is locked as every other tool is, with a URL and a checksum per platform. graphify is locked by a uv lock of its dependencies under `.mise/locks/pypi-graphifyy/0.9.73~0d7b0bde/`, committed, which `mise.lock` names by its path and the sha256 of its `uv.lock`. Why graphify is pinned, and what to check before moving it, is the comment above the pin.
+2. **`graphifyVersion` and its `Means` retire from `tools/policy/tool-settings.json`.** `scripts/code-graph.mjs` reads the release from `mise.toml`, refuses a graphify first on `PATH` that reports another, and names `mise install` in each refusal of a missing or wrong graphify.
+3. **The script registers the `graphify-mcp` that `mise which graphify-mcp` names**: the installed file, not a shim, which resolves by the directory Claude Code starts it from and that directory's trust. A registration at another `graphify-mcp`, such as one `uv tool install` put on `PATH`, moves to it at the next run.
+4. **`check:toolchain` admits one option table, a `pypi:` tool's, holding `version` and a list of `extras` alone.** Every other key still refuses, as D-31 item 6 asks. Such a tool's lock is held to the uv lock `mise.lock` names: under `.mise/locks/`, hashing to the recorded digest, its `pyproject.toml` asking for exactly the pin with its extras, and the lock's extras the pin's. A uv lock there that no entry of `mise.lock` names is refused.
+
+**Why.** graphify's release had a home of its own, a policy key, and an install of its own, a `uv tool install` line each person ran by hand, while every other tool's version lived in `mise.toml` (D-31). That install also left graphify's dependencies floating: the spike's unlocked install chose `mcp` 2.3.0 where its locked one chose 2.2.0 (`asdlc-openspec-8juz.1`, question 7). Three alternatives lost:
+
+- **Keeping the key beside the pin.** Two homes for one version, which D-31 rules out.
+- **The `pipx:` backend.** mise 2026.10.0 no longer lists it (`mise backends ls`, the spike).
+- **Admitting any option for a `pypi:` tool, or `extras` for any tool.** An option such as `postinstall` runs a command at install, and the other backends lock per platform, with no uv lock to hold extras to.
+
+Where it loses:
+
+- **Every machine installs graphify, used or not.** CI's `jdx/mise-action` steps and the dev container's image install the whole toolset, so they install it too: 58 packages on the maintainer's macOS arm64 laptop.
+- **The uv lock is resolved for every Python from 3.10**, so a dependency can sit at an older release than an install under the pinned 3.12 would choose. uv resolved it under CPython 3.13.15 on that laptop, and installed it under 3.12.15.
+- **`mise install --locked` refused the two new pins until an unlocked `mise install` had recorded them in `mise.lock`**, which `mise lock` then filled in. The comment at the head of `mise.toml`, and the gate's refusals, now say to run `mise install` before `mise lock`.
+- **Rule 7 compares a `pypi:` pin's version, not its extras.** mise's `ls --current --json` gives a requested version and no extras, so an `extras` that mise and the gate read differently passes rule 7; the lock check holds the extras to `mise.lock`'s and the uv lock's.
+- **The first criterion is a person's run.** `npm run code-graph` sends changed documents to a model on that person's plan and writes `~/.claude.json`, so no session ran it; `asdlc-openspec-xh2a` carries it.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound; amendments under D-20, D-23, D-26 and D-31.
+- **`mise.toml`, `mise.lock` and `.mise/locks/pypi-graphifyy/0.9.73~0d7b0bde/`:** the two pins with their comments, their lock entries, and graphify's uv lock, new; the head comment's order of `mise install` and `mise lock`.
+- **`scripts/check-toolchain.mjs`:** rules 2 and 5 for a `pypi:` tool, the stale-lock refusal, the relock text, its summary line and header; ten selftest cases, its copies carrying `.mise/locks/`, and its placeholder control for a `pypi:` lock dropped for the live one.
+- **`scripts/code-graph.mjs`:** the pin read from `mise.toml`, `mise install` in its refusals, `graphify-mcp` from `mise which`, and its header; a stub `mise` in its selftest and three checks.
+- **`tools/policy/tool-settings.json`:** `graphifyVersion` and `graphifyVersionMeans` removed; `graphifySemanticExtensionsMeans`, `gatedBy` and `provenance` repointed.
+- **Comments:** `scripts/hooks/guard-git.mjs` and `tools/harness/graph.py`, each where it named the key.
+- **`git-hooks.yml`:** `.mise/locks/**` in `check-toolchain-selftest`'s glob; `mise.toml`, `package.json` and `package-lock.json` in `code-graph-selftest`'s, and each comment.
+- **`README.md` and `scripts/README.md`:** the code graph's row in § Working here, and the rows of `check:toolchain` and `scripts/code-graph.mjs`.
+
+**Figures.**
+
+- 7 tools pinned: 6 locked for 5 platforms, 30 platform entries, and graphify by a uv lock of 69 packages. The maintainer's `mise lock --platform linux-x64,linux-arm64,macos-arm64,macos-x64,windows-x64` on 2026-10-04 printed "Updated 30 platform entries (5 skipped)" and "Resolved 69 packages"; `grep -c '^\[\[package\]\]'` on the `uv.lock` gives 69; `npm run check:toolchain` passes.
+- 58 packages installed under CPython 3.12.15 in 1.3 s: the maintainer's `mise install --locked` on macOS arm64, 2026-10-04, with uv's cache warm from the spike.
+- The `uv.lock`'s sha256, `2233fdc8…`, which `mise.lock` records: `shasum -a 256` on it.
+- 70 cases in `check:toolchain:selftest`, 4 of them controls, and 45 checks in `code-graph:selftest`: each selftest; their costs are on their jobs in `git-hooks.yml`.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

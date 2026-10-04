@@ -35,7 +35,7 @@ WHAT IT REPORTS, each item with a stable key and a level, as the core's are:
   - loader (finding): where graphify can be imported, the combined graph loaded through its own
     MCP loader with fewer edges than were written. That loader is graphify's private
     `graphify.serve._load_graph`: a release that renames it turns the check into a skip, which says
-    so, and moving `graphifyVersion` is the moment to check it.
+    so, and moving the `pypi:graphifyy` pin in `mise.toml` is the moment to check it.
 
 A table, not findings: each cluster of the map against the graph's communities its files fall in.
 
