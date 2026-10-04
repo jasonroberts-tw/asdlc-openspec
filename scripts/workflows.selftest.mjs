@@ -15,7 +15,12 @@
  * case of a changed file with the old text and the new and which outcome keeps a branch out.
  * `author-prompt-cases.js` runs with seeds and cases built here and the policy's `promptReviewCase*`
  * keys, and its cases assert how many authors it sends each seed, what each is shown, which reader's
- * copy or path it refuses, and which case it stores. Every stored case under `.claude/prompt-cases/`
+ * copy or path it refuses, and which case it stores. Each of the two runs once more with its reader
+ * answered by running the command it gives, `scripts/prompt-case-texts.mjs`, in a fixture git
+ * repository built under the temporary directory: the command must be one plain run of that script
+ * naming no git, each author and answer must be sent to the file holding the text git holds at its
+ * ref, and a text git cannot show, a head with no merge base and an argument that climbs out of the
+ * script's root must each be refused by its reason. Every stored case under `.claude/prompt-cases/`
  * goes through both, and the two must give one case and one file the same answer prompt; the two
  * agents they run by agentType are held the same way to a `tools:` line of Read and StructuredOutput
  * alone. `verify-change-trace.js` runs with a
@@ -58,7 +63,12 @@
  * store, the unlisted file and the authoring reader's path was seen failing with its guard removed;
  * the review reader's path check was not, since the session's classifier refused that edit. A
  * reader stub never meets the tools' limit on a line's length, so the session's review measured the
- * real commands instead (`docs/decisions.md` § D-32). For the trace (since
+ * real commands instead (`docs/decisions.md` § D-32). Nor does a stub meet Claude Code: on 2026-10-04
+ * it refused each reader its command, an inline script that ran git, inside the review's own
+ * worktree, and three prompt reviews stopped with no case authored or answered (asdlc-openspec-jtrt).
+ * Since then a reader's command that is not one plain run of the reader script, or that names git, is
+ * refused, its case seen failing before its fix, and the readers run for real in a fixture
+ * repository, the script's refusal of a climbing argument seen failing with its check removed. For the trace (since
  * asdlc-openspec-as9): a scenario left out of every group, a group a tracer returned short or read at
  * another commit counted as traced, a row's gap taken from the tracer's words rather than its
  * reading, a gap nobody could verify counted refuted, a failed proof cleared by a skeptic's vote, a
@@ -95,18 +105,24 @@
  * NEEDS only committed files: the workflows, the records under `tools/policy/` read through
  * `tools/lib/policy.ts`, the three tool-less agents under `.claude/agents/`, the stored cases under
  * `.claude/prompt-cases/`, and the trace renderers with `scripts/lib/trace.mjs`; each renderer runs
- * twice as a child process. It
+ * twice as a child process. It needs git too, for the readers' fixture repository, which it builds
+ * and runs `scripts/prompt-case-texts.mjs` in with no `GIT_*` key, so a hook's `GIT_DIR` cannot
+ * point either at this repository. It
  * writes only under the temporary directory. No agent, no network. 0.27 s wall, both of two runs,
  * through `node --run` (`/usr/bin/time -p`) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-29, with
  * the test-builder and architect cases, much of it those four child processes; 0.63 s and 0.62 s on
  * 2026-10-03, with the stored prompt cases' suites, timed by a script around `node --run` on the same
- * laptop (asdlc-openspec-7c1).
+ * laptop (asdlc-openspec-7c1). 1.62 s and 1.55 s on 2026-10-04 with the readers' fixture repository,
+ * where the trunk's selftest took 0.64 s and 0.66 s, each run as `node` under `/usr/bin/time -p` on the
+ * same laptop with Git 2.54.0. The difference, about 0.9 s, is the reader cases', its fixture
+ * repository and the script's five runs, since nothing else here changed (asdlc-openspec-jtrt).
  */
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { gitEnv, gitIn, SCRATCH_GIT_ENV } from '../tools/lib/git-env.ts'
 import { POLICY_DIR, readPolicy } from '../tools/lib/policy.ts'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -119,6 +135,8 @@ const VERIFY = `${WORKFLOWS}/verify-change-trace.js`
 const AUTHOR = `${WORKFLOWS}/author-prompt-cases.js`
 /** The bank of stored decision cases, one JSON file per case (`.claude/prompt-cases/README.md`). */
 const CASES_DIR = '.claude/prompt-cases'
+/** The script each prompt workflow's reader agent runs to write the texts its cases are answered from. */
+const READER = 'scripts/prompt-case-texts.mjs'
 /** The keys Setup's command prints, as `POLICY_KEYS` in `build-change-task.js` lists them: keep the two in agreement. */
 const POLICY_KEYS = [
   'buildReviewLenses', 'buildReviewSkeptics', 'buildReviewMaxRounds', 'buildReviewMajorSeverities', 'buildRedFirstKinds', 'assetLabels',
@@ -1387,10 +1405,14 @@ function choiceOf(prompt, c, optionId) {
   return { choice: shown.indexOf(c.options.find((o) => o.id === optionId).text) + 1, why: `the text leads to ${optionId}` }
 }
 
+/** The command a reader agent is given: the last paragraph of its prompt, as each workflow's reader prompt ends. */
+const commandOf = (prompt) => prompt.split('\n\n').at(-1)
+/** The arguments that command passes the reader script, after `node` and the script's path. */
+const readerArgs = (prompt) => commandOf(prompt).split(' ').slice(2)
+
 /** The review reader stub's reply: the path of each file its command names at the merge base and at the head, with the checksum, unless `doctor` changes it. */
 function reviewReader(prompt, doctor) {
-  const head = /const head='([^']*)'/.exec(prompt)[1]
-  const files = JSON.parse(/const files=(\[[^\]]*\])/.exec(prompt)[1].replace(/'/g, '"'))
+  const [, head, ...files] = readerArgs(prompt)
   const texts = [BASE_SHA, head].flatMap((ref) => files.map((file) => ({ ref, file, path: pathAt(ref, file), bytes: textAt(ref, file).length })))
   const out = { base: BASE_SHA, root: TEXTS_ROOT, texts, fnv: fnv(JSON.stringify({ base: BASE_SHA, root: TEXTS_ROOT, texts })) }
   return { output: JSON.stringify(doctor ? doctor(out) : out) }
@@ -1876,7 +1898,7 @@ function storedCaseCases(policy) {
         if (answers.some((o) => o.agentType !== 'prompt-case-answerer')) return 'an answer ran without the agentType prompt-case-answerer'
         if (answers.some((o) => !o.label.endsWith(`bead: ${CASE}`))) return 'a case of a file no branch changes was answered'
         const read = labelled(options, 'read ')
-        if (read.map((o) => o.label).join() !== 'read bead' || !read[0].prompt.includes(`const head='${HEAD_SHA}'`) || !read[0].prompt.includes(BEAD)) return "the reader was not asked for bead's file at its head"
+        if (read.map((o) => o.label).join() !== 'read bead' || commandOf(read[0].prompt) !== `node ${READER} --head ${HEAD_SHA} ${BEAD}`) return "the reader was not asked for bead's file at its head"
         const old = answers.find((o) => o.label === `answer 1/${reps} old bead: ${CASE}`)
         const neu = answers.find((o) => o.label === `answer 1/${reps} new bead: ${CASE}`)
         if (!old?.prompt.includes(pathAt(BASE_SHA, BEAD)) || old.prompt.includes(pathAt(HEAD_SHA, BEAD))) return "the old answer was not sent to the merge base's text alone"
@@ -2049,7 +2071,7 @@ const authorArgs = (policy, extra = {}) => ({ policy: promptPolicy(policy), seed
 
 /** The authoring reader stub's reply: the path of each `[ref, file]` its command names, null where `texts` has none, with the checksum, unless `doctor` changes it. */
 function authorReader(prompt, texts = textAt, doctor) {
-  const want = JSON.parse(/const want=(\[\[.*?\]\]);/.exec(prompt)[1].replace(/'/g, '"'))
+  const want = readerArgs(prompt).map((arg) => [arg.slice(0, arg.indexOf(':')), arg.slice(arg.indexOf(':') + 1)])
   const list = want.map(([ref, file]) => {
     const text = texts(ref, file)
     return { ref, file, path: text === null ? null : pathAt(ref, file), bytes: text === null ? 0 : text.length }
@@ -2102,8 +2124,8 @@ function authorCases(policy) {
       expect: ['done', new RegExp(`^${authors} author\\(s\\) wrote ${authors} candidate\\(s\\) for 2 seed\\(s\\), 0 dropped; 1 of 1 case\\(s\\) validated by ${reps} answer\\(s\\), 0 turned away$`)],
       check: ({ result, options }) => {
         const read = labelled(options, 'read')
-        const want = [`'${CASE_COMMIT}','${BEAD}'`, `'${TRUNK}','${OPEN_PR}'`, `'${TRUNK}','${BEAD}'`]
-        if (read.length !== 1 || want.some((w) => !read[0].prompt.includes(w))) return 'the reader was not asked for each seed\'s text at its ref and the case\'s at the trunk'
+        const want = [`${CASE_COMMIT}:${BEAD}`, `${TRUNK}:${OPEN_PR}`, `${TRUNK}:${BEAD}`]
+        if (read.length !== 1 || readerArgs(read[0].prompt).join() !== want.join()) return 'the reader was not asked for each seed\'s text at its ref and the case\'s at the trunk'
         const written = labelled(options, 'author ')
         if (written.some((o) => o.agentType !== 'prompt-case-author')) return 'an author ran without the agentType prompt-case-author'
         const runLabels = written.filter((o) => o.label.endsWith(SEED_RUN.key)).map((o) => o.label.split(' ')[1])
@@ -3358,6 +3380,150 @@ async function parityResults(authorBody, reviewBody, policy) {
   ]
 }
 
+/* -------------------------------------------------------------------------- the case readers ----- */
+
+/**
+ * Why a reader's command is not one plain run of the reader script, or null. Claude Code refuses a
+ * session isolated in a worktree a command that names git in a form it cannot verify stays inside
+ * that worktree, and each workflow's reader runs in the review's worktree (asdlc-openspec-jtrt).
+ */
+function plainProblem(command) {
+  if (/\bgit\b/.test(command)) return `the reader's command names git: ${command.slice(0, 160)}`
+  const [node, script, ...rest] = command.split(' ')
+  if (node !== 'node' || script !== READER || !rest.length || rest.some((t) => !/^[A-Za-z0-9._/:-]+$/.test(t))) return `the reader's command is not one plain run of ${READER}: ${command.slice(0, 160)}`
+  return null
+}
+
+/**
+ * A repository under `dir` holding bead's and open-pr's prompts at four commits: `before`, which has
+ * no bead; `seed`, a run's commit; `trunk`, which `origin/main` names; and `head`, a branch's. Each
+ * text is `textAt(<label>, <file>)`. Git runs with no `GIT_*` key and no configuration of this
+ * machine's, so a hook's `GIT_DIR` cannot point it at this repository.
+ */
+function readerRepo(dir) {
+  const git = gitIn(dir, SCRATCH_GIT_ENV)
+  git(['init', '-q', '-b', 'main'])
+  const commit = (label, files) => {
+    for (const file of files) {
+      mkdirSync(dirname(join(dir, file)), { recursive: true })
+      writeFileSync(join(dir, file), textAt(label, file))
+    }
+    git(['add', '-A'])
+    git(['-c', 'user.name=workflows selftest', '-c', 'user.email=selftest@example.invalid', '-c', 'commit.gpgsign=false', 'commit', '-q', '-m', label])
+    return git(['rev-parse', 'HEAD']).trim()
+  }
+  const before = commit('before', [OPEN_PR])
+  const seed = commit('seed', [BEAD, OPEN_PR])
+  const trunk = commit('trunk', [BEAD, OPEN_PR])
+  git(['update-ref', 'refs/remotes/origin/main', trunk])
+  return { before, seed, trunk, head: commit('head', [BEAD, OPEN_PR]) }
+}
+
+/**
+ * A reader agent that runs the command its prompt gives, as a session would, in `dir`, and returns
+ * what it printed. Only the program is made absolute: `node` as this process's, and the reader
+ * script as this checkout's, which the fixture does not hold.
+ */
+const realReader = (dir) => (prompt) => {
+  const command = commandOf(prompt).replace(/^node /, `'${process.execPath}' `).replace(` ${READER} `, ` '${resolve(ROOT, READER)}' `)
+  const ran = spawnSync('/bin/sh', ['-c', command], { cwd: dir, env: gitEnv(), encoding: 'utf8' })
+  return { output: `${ran.stdout ?? ''}${ran.stderr ?? ''}`.trim() }
+}
+
+/** The text of the file a prompt sends its agent to read, or null. */
+function sentTo(prompt) {
+  const path = /from `([^`]+)`/.exec(prompt)?.[1]
+  try {
+    return path ? readFileSync(path, 'utf8') : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Each workflow with its reader answered by running the command it was given, in a fixture
+ * repository: the readers' output reaching the workflows is what the real command printed, where
+ * every other case's is a stub's. The control must accept both and send each author and answer to the
+ * file holding the text git holds at its ref; then the command must be a plain one, and a text git
+ * cannot show, a head with no merge base, and an argument that climbs out of the script's root, given
+ * to the script directly, must each be refused by its reason.
+ */
+async function readerResults(authorBody, reviewBody, policy) {
+  const dir = mkdtempSync(join(tmpdir(), 'workflows-reader-'))
+  try {
+    const commits = readerRepo(dir)
+    // First, while nothing has written under the fixture's `.scratch/`: a good argument, then one that climbs.
+    const climbed = spawnSync(process.execPath, [resolve(ROOT, READER), `${commits.trunk}:${BEAD}`,`${commits.trunk}:../${BEAD}`], { cwd: dir, env: gitEnv(), encoding: 'utf8' })
+    const climbProblem = (() => {
+      if (climbed.status !== 2 || !/the file "\.\.\/\.claude\/skills\/bead\/SKILL\.md" has an empty, `\.` or `\.\.` segment/.test(climbed.stderr)) return `exited ${climbed.status}: ${(climbed.stdout + climbed.stderr).trim().slice(0, 200)}`
+      return readdirSync(dir).includes('.scratch') ? 'it wrote a text before refusing' : null
+    })()
+    const reader = realReader(dir)
+    const authorRun = (commit) => {
+      const a = authorArgs(policy, { seeds: [{ ...SEED_RUN, source: { ...SEED_RUN.source, commit } }, SEED_SECTION] })
+      return run(authorBody, a, authorAnswer(a, { reader }))
+    }
+    const reviewRun = (head) => {
+      const a = reviewArgs(policy, undefined, { cases: [storedCase(policy, BEAD, 'bead-stages-first')] })
+      return run(reviewBody, a, reviewAnswer(a, { bead: (g) => changed(g, { head }) }, undefined, undefined, reader))
+    }
+    const labelled = (out, pattern) => out.options.filter((o) => pattern.test(o.label))
+
+    const authored = await authorRun(commits.seed)
+    const reviewed = await reviewRun(commits.head)
+    const control = (() => {
+      for (const [name, out] of [['the authoring workflow', authored], ['the review', reviewed]]) if (out.problems.length) return `${name}: ${out.problems.join(' | ')}`
+      const a = authored.result
+      if (a.stopped !== 'done' || a.counts.dropped || a.counts.validated !== 1) return `the authoring workflow stopped ${a.stopped}: ${a.why}`
+      const c = reviewed.result.cases?.[0]
+      if (reviewed.result.stopped !== 'done' || c?.outcome !== 'held') return `the review's case came back ${JSON.stringify(c)}: ${reviewed.result.why}`
+      const sends = [
+        ["the run seed's authors", labelled(authored, new RegExp(`^author \\S+ ${escape(SEED_RUN.key)}$`)), textAt('seed', BEAD)],
+        ["the section seed's authors", labelled(authored, new RegExp(`^author \\S+ ${escape(SEED_SECTION.key)}$`)), textAt('trunk', OPEN_PR)],
+        ["the case's answers", labelled(authored, /^answer /), textAt('trunk', BEAD)],
+        ["the review's old answers", labelled(reviewed, /^answer \S+ old bead: /), textAt('trunk', BEAD)],
+        ["the review's new answers", labelled(reviewed, /^answer \S+ new bead: /), textAt('head', BEAD)],
+      ]
+      const none = sends.find(([, agents]) => !agents.length)
+      if (none) return `none of ${none[0]} ran`
+      for (const [, agents, text] of sends) {
+        const wrong = agents.find((o) => sentTo(o.prompt) !== text)
+        if (wrong) return `${wrong.label} was sent to ${JSON.stringify(sentTo(wrong.prompt))}, not ${JSON.stringify(text)}`
+      }
+      return null
+    })()
+
+    const commands = [...labelled(authored, /^read$/), ...labelled(reviewed, /^read \S+$/)].map((o) => commandOf(o.prompt))
+    const plain = commands.length === 2 ? (commands.map(plainProblem).find(Boolean) ?? null) : `${commands.length} reader(s) ran, not 2`
+
+    const absent = await authorRun(commits.before)
+    const absentProblem = (() => {
+      if (absent.problems.length) return absent.problems.join(' | ')
+      const c = absent.result.candidates?.find((x) => x.key === SEED_RUN.key)
+      if (c?.problem !== `git could not show ${BEAD} at ${commits.before}`) return `the seed's candidate came back ${JSON.stringify(c)}`
+      return labelled(absent, new RegExp(`^author \\S+ ${escape(SEED_RUN.key)}$`)).length ? 'an author ran on a text git could not show' : null
+    })()
+
+    const orphan = await reviewRun('f'.repeat(40))
+    const orphanProblem = (() => {
+      if (orphan.problems.length) return orphan.problems.join(' | ')
+      const c = orphan.result.cases?.[0]
+      if (c?.outcome !== 'unanswered' || !/^the reader's output is not the JSON its command prints/.test(c.why ?? '')) return `the case came back ${JSON.stringify(c)}`
+      return labelled(orphan, /^answer /).length ? 'an answer ran with no text read' : null
+    })()
+
+    return [
+      { file: READER, name: 'control: run in a fixture repository, the command each workflow gives its reader writes texts both workflows accept, and each author and answer is sent to the file holding the text git holds at its ref', control: true, ok: control === null, detail: control ?? 'holds' },
+      { file: READER, name: "each workflow gives its reader one plain run of the reader script, naming no git, so Claude Code does not refuse it to a session isolated in a worktree (asdlc-openspec-jtrt)", control: false, ok: plain === null, detail: plain ?? 'holds' },
+      { file: READER, name: 'a seed whose prompt git cannot show at its commit gets no path, so no author, by that reason', control: false, ok: absentProblem === null, detail: absentProblem ?? 'holds' },
+      { file: READER, name: "a head with no merge base with origin/main leaves the review's cases unanswered: the reader prints no JSON, and no answer runs", control: false, ok: orphanProblem === null, detail: orphanProblem ?? 'holds' },
+      { file: READER, name: 'the script refuses a file with a `..` segment, by that reason, before it writes any text', control: false, ok: climbProblem === null, detail: climbProblem ?? 'holds' },
+    ]
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
 /* ------------------------------------------------------------------------------- selftest ----- */
 
 /** Why a case's outcome is wrong, or null. */
@@ -3424,7 +3590,7 @@ async function main() {
     process.exit(1)
   }
   results.push(...rendered)
-  for (const extra of [await bankResults(suites[3].body, suites[1].body, policy), await parityResults(suites[3].body, suites[1].body, policy)]) {
+  for (const extra of [await bankResults(suites[3].body, suites[1].body, policy), await parityResults(suites[3].body, suites[1].body, policy), await readerResults(suites[3].body, suites[1].body, policy)]) {
     if (!extra[0].ok) {
       console.error(`workflows selftest: ${extra[0].name} fails, so its refusal cannot be trusted: ${extra[0].detail}`)
       process.exit(1)
@@ -3435,7 +3601,7 @@ async function main() {
   const failed = results.filter((r) => !r.ok)
   for (const { file, name, ok, detail } of results) console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${file.split('/').pop()}: ${name} -- ${detail}`)
   const renderers = [...new Set(rendered.map((r) => r.file))]
-  const tally = [...suites.map((s) => s.file), ...renderers, ...TOOLLESS_AGENTS, CASES_DIR, WORKFLOWS].map((file) => {
+  const tally = [...suites.map((s) => s.file), ...renderers, ...TOOLLESS_AGENTS, CASES_DIR, READER, WORKFLOWS].map((file) => {
     const mine = results.filter((r) => r.file === file)
     const controls = mine.filter((r) => r.control).length
     return `${file === WORKFLOWS ? 'the unheld-file check' : file}: ${controls} control(s) and ${mine.length - controls} scenario(s)`

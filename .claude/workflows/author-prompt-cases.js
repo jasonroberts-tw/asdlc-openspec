@@ -21,9 +21,10 @@ export const meta = {
  * them chose its expected option. A case is the format `.claude/prompt-cases/README.md` gives; the
  * session writes each validated case there, and `.claude/workflows/review-prompts.js` answers the
  * bank with the old text and the new of every prompt a review changes (`docs/decisions.md` § D-32).
- * It commits nothing. Its reader writes each text it needs under `.scratch/prompt-case-texts/` where
- * the session stands, and each author or answer reads its own file there: a model that copied a text
- * through its output would have to retype tens of thousands of characters exactly, and the tools
+ * It commits nothing. Its reader runs `scripts/prompt-case-texts.mjs`, which writes each text it needs
+ * under `.scratch/prompt-case-texts/` where the session stands, and each author or answer reads its own
+ * file there: a model that copied a text through its output would have to retype tens of thousands of
+ * characters exactly, and the tools
  * show an agent only part of a line that long (the session review of asdlc-openspec-7c1 measured
  * `CLAUDE.md`'s at 39,891 characters, and a Read that showed 21,247 of them). One such copy, of
  * 46,547 characters, did match, in the first run, on the design this replaced; one slip in it would
@@ -33,7 +34,10 @@ export const meta = {
  * asdlc-openspec-7c1, dropped 23 of its 27 candidates, their content whole, for a case id or option
  * ids whose form no author had been told (workflow run wf_da18974f-de7, whose record is outside this
  * repository); authors now give option texts and the expected one's place, and every id is assigned
- * here. Were it wrong otherwise, it would let through: a case stored that the trunk's text does
+ * here. On 2026-10-04 its run wf_37cd9b9e-724 stopped unread before any author ran, because Claude
+ * Code refused its reader the command, then an inline script that ran git, inside the review's own
+ * worktree; the reader now runs a script whose header carries that incident (asdlc-openspec-jtrt).
+ * Were it wrong otherwise, it would let through: a case stored that the trunk's text does
  * not answer as expected, which could never flip and so guards nothing, or which flips by noise and
  * keeps a sound edit out; a case answered by an agent that could run a command or search the
  * repository for its expected answer; an author shown another finding or an edit, so that the case is
@@ -72,7 +76,8 @@ export const meta = {
  * `.claude/workflows/review-prompts.js`, and the selftest holds the two to one answer prompt for one
  * case and file.
  *
- * NEEDS the Workflow tool, a checkout whose `origin/main` and commits hold each prompt, and the agents
+ * NEEDS the Workflow tool, a checkout whose `origin/main` and commits hold each prompt and which holds
+ * `scripts/prompt-case-texts.mjs`, run by its reader where the session stands, and the agents
  * `prompt-case-author` and `prompt-case-answerer`, whose only tools are Read and their structured
  * output: an agentType is resolved from the checkout the calling session started in
  * (`.claude/README.md`), so in a session started where those files are absent every candidate is
@@ -116,7 +121,7 @@ const isText = (v) => typeof v === 'string' && v.trim() !== ''
 const isWhole = (v) => Number.isInteger(v) && v >= 1
 const isPlainObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
 const NAME = /^[a-z0-9][a-z0-9-]*$/
-/** A path or ref the reader's command embeds in single quotes, so it may hold none. */
+/** A path or ref the reader's command passes as a bare argument, so it holds nothing a shell reads, and no `:`, which joins the two. */
 const SAFE = /^[A-Za-z0-9._/-]+$/
 const COMMIT = /^[0-9a-f]{7,40}$/
 
@@ -221,20 +226,13 @@ function fnv(s) {
 }
 
 /**
- * The reader's command: git shows each `[ref, file]` into `<root>/<ref>/<file>`, root
- * `.scratch/prompt-case-texts` where the session stands, and it prints each path with a checksum.
- * No model copies a text: an author or an answer reads its file.
+ * The reader's command: `scripts/prompt-case-texts.mjs` writes each `[ref, file]` into
+ * `<root>/<ref>/<file>`, root `.scratch/prompt-case-texts` where the session stands, and prints each
+ * path with a checksum. It is one plain command naming no git, since Claude Code refuses a session
+ * isolated in a worktree the git an inline script runs (asdlc-openspec-jtrt). No model copies a text:
+ * an author or an answer reads its file.
  */
-function readCommand(want) {
-  const js = [
-    "const cp=require('child_process'),fs=require('fs'),p=require('path');const root=p.resolve('.scratch/prompt-case-texts');",
-    `const want=${JSON.stringify(want).replace(/"/g, "'")};`,
-    "const texts=want.map(([ref,file])=>{const path=p.join(root,ref,file);try{const t=cp.execFileSync('git',['show',ref+':'+file],{encoding:'utf8',maxBuffer:1e8,stdio:['ignore','pipe','ignore']});fs.mkdirSync(p.dirname(path),{recursive:true});fs.writeFileSync(path,t);return {ref,file,path,bytes:Buffer.byteLength(t)}}catch(e){return {ref,file,path:null,bytes:0}}});",
-    'const s=JSON.stringify({root,texts});let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0}',
-    'console.log(JSON.stringify({root,texts,fnv:h}))',
-  ].join('')
-  return `node --no-warnings -e "${js}"`
-}
+const readCommand = (want) => `node scripts/prompt-case-texts.mjs ${want.map(([ref, file]) => `${ref}:${file}`).join(' ')}`
 
 const readPrompt = (want) => `Run this one command where you stand, and return in output the one line it prints, verbatim, even where it looks wrong. Change nothing else.\n\n${readCommand(want)}`
 
