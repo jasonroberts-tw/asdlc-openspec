@@ -125,10 +125,15 @@ const TREE: Record<string, string> = {
   'apps/greeter/greet.js': "export const greet = (reader) => `Hello, ${reader}`\n",
 }
 
-/** A git command in a fixture repository, with no configuration of this machine's, committing as a fixed identity. */
+/**
+ * A git command in a fixture repository, with no configuration of this machine's, committing as a
+ * fixed identity and starting no `git maintenance run --auto`: commit starts it detached, and the
+ * `.git/objects/maintenance.lock` it holds vanished while a case copied the control, which threw
+ * ENOENT before any case ran (asdlc-openspec-065n).
+ */
 function scratchGit(dir: string) {
   const git = gitIn(dir, SCRATCH_GIT_ENV)
-  const as = ['-c', 'user.name=trace', '-c', 'user.email=trace@example.invalid', '-c', 'commit.gpgsign=false']
+  const as = ['-c', 'user.name=trace', '-c', 'user.email=trace@example.invalid', '-c', 'commit.gpgsign=false', '-c', 'maintenance.auto=false']
   return (args: string[]) => git(args[0] === 'commit' ? [...as, ...args] : args)
 }
 
