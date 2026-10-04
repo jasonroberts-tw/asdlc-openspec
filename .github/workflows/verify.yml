@@ -90,6 +90,12 @@ jobs:
         run: npm run check:toolchain
       - name: the toolchain gate, negative-tested
         run: npm run check:toolchain:selftest
+      # Under a second (git-hooks.yml's `check-node-floor` and `check-node-floor-selftest` jobs have
+      # the measurement): `package.json` `engines` held to the ranges `package-lock.json` locks.
+      - name: the Node floor is not below what every locked package accepts
+        run: npm run check:node-floor
+      - name: the Node-floor gate, negative-tested
+        run: npm run check:node-floor:selftest
       # Under a second (git-hooks.yml's `vale-selftest` job has the measurement): this repository's own
       # Vale style over fixtures, with the `vale` mise installed above. Until mise, this runner had no
       # Vale and the step was left out, since it would only ever have skipped. The selftest skips clean

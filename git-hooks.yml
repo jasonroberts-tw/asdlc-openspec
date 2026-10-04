@@ -234,6 +234,26 @@ pre-push:
         - 'package.json'
         - 'package-lock.json'
       run: node --run check:toolchain:selftest
+    # The floor in `package.json` `engines` is not below the lowest version on its major line that
+    # every package `package-lock.json` locks accepts, and every locked range is one the gate can read
+    # (`README.md` § The Node floor, on every platform). Reads those two files and nothing else:
+    # 0.20-0.45 s wall through `node --run` (`/usr/bin/time -p`, two runs, while sibling worktrees ran
+    # their gates) on a macOS 26.7.1 laptop (Apple M3 Max) with Node 24.21.0, 2026-10-03.
+    - name: check-node-floor
+      glob:
+        - 'package.json'
+        - 'package-lock.json'
+        - 'scripts/check-node-floor.mjs'
+      run: node --run check:node-floor
+    # Each range form it reads, and each refusal, over fixtures it writes under the temporary
+    # directory, beside a control that copies the live two files, so they are in the glob too: 28
+    # cases, 0.74-0.80 s wall, two runs, the same host and day.
+    - name: check-node-floor-selftest
+      glob:
+        - 'package.json'
+        - 'package-lock.json'
+        - 'scripts/check-node-floor.mjs'
+      run: node --run check:node-floor:selftest
     # No glob: the citations gate reads every tracked text file, so any push can change its verdict.
     - name: citations
       run: node --run citations:check
