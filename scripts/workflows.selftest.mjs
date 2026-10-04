@@ -42,7 +42,9 @@
  * environment, or a test-builder handed the architect's words (since asdlc-openspec-j09.11; the last
  * three were found by the session's review of 2026-09-29, each case seen failing before its fix); or a
  * task naming no ID that, having no test-builder, leaves every earlier task's build-stage file
- * unrun (since asdlc-openspec-ao0, its case seen failing before its fix). For the
+ * unrun (since asdlc-openspec-ao0, its case seen failing before its fix); or an earlier task's file,
+ * rewritten by the test-builder, sent back unrun for naming earlier tasks' IDs (since
+ * asdlc-openspec-wkgb, its case seen failing before its fix). For the
  * prompt review: a branch merged that changed another group's file, failed its gates, was never
  * provisioned by the WorktreeCreate hook, or carried an edit a majority of its skeptics did not
  * uphold; a finding below the threshold passed to an agent; an analysis marked read whose file's
@@ -888,6 +890,9 @@ function independentCases(policy) {
   const withEarlier = inputsJson([...INPUT_FILES, { path: EARLIER, text: testFile().content.replace('The display shows 1', 'The display shows 1 again') }])
   const failEarlier = (round, prompt) => ranWith(prompt, (path) => (path === EARLIER && round === 1 ? [attempt(false), attempt(false)] : [attempt(true)]))
   const passedTwo = /; the 2 test-builder file\(s\) run here passed$/
+  /** An earlier file whose tests name an ID this task does not, and the test-builder's rewrite of it, which still names it. */
+  const STRAY_EARLIER = testFile({}, 'EXA-009').content
+  const REWRITTEN = testFile({ path: EARLIER, content: STRAY_EARLIER.replace('The display shows 1', 'The display shows 1 once') })
   /** A scenario named without an ID token, so the task gets no test-builder of its own. */
   const NO_ID = 'example: A scenario named without an ID'
   return [
@@ -911,6 +916,24 @@ function independentCases(policy) {
         const again = options.filter((o) => o.label === 'test-builder a1')
         if (again.length !== 1 || !again[0].prompt.includes(`### ${EARLIER}`) || !again[0].prompt.includes(`EXA-001 is violated here: "${QUOTED}"`)) return `the test-builder was not asked to rewrite ${EARLIER}`
         return result.independent.files.some((f) => f.path === EARLIER) ? null : `independent.files lacks the rewritten ${EARLIER}`
+      },
+    },
+    {
+      name: "rewrite-test: an earlier task's committed file whose tests name an ID the task does not keeps its exemption once rewritten: the next run writes the rewrite and runs it, and it comes back for the parent to write",
+      args: args(kind),
+      scenario: {
+        inputsJson: inputsJson([...INPUT_FILES, { path: EARLIER, text: STRAY_EARLIER }]),
+        run: failEarlier,
+        architect: () => routed('rewrite-test', { id: 'EXA-009' }),
+        rewrite: tests([REWRITTEN]),
+      },
+      expect: ['nothing-major', passedTwo],
+      check: ({ result, options }) => {
+        const run = options.find((o) => o.label === 'run a2')
+        if (!run || !run.prompt.includes(`- node scripts/run-tests.mjs "${EARLIER}"`)) return `the runner of architect round 2 was not given the rewritten ${EARLIER} to run`
+        if (!run.prompt.slice(run.prompt.indexOf('## The files')).includes(REWRITTEN.content)) return `the runner of architect round 2 was not given the rewritten ${EARLIER} to write`
+        const back = result.independent.files.find((f) => f.path === EARLIER)
+        return back && back.content === REWRITTEN.content ? null : `independent.files lacks the rewritten ${EARLIER}`
       },
     },
     {
@@ -1088,6 +1111,16 @@ function independentCases(policy) {
         const [first] = result.independent.rounds
         if (first.routes[0]?.by !== 'code' || !/its tests name EXA-009, which task example-1\.2 does not/.test(first.routes[0].reason)) return `round 1 is ${JSON.stringify(first)}`
         return calls.includes('test-builder a1') && calls.includes('run a2') ? null : `ran ${calls.join(', ')}`
+      },
+    },
+    {
+      name: "rewrite-test in code: a file of this task's whose rewrite still names an ID the task does not is sent back unrun again, to no runner, and the run stops architect-failing",
+      args: args(kind),
+      scenario: { tests: tests([testFile({}, 'EXA-009')]), rewrite: tests([testFile({}, 'EXA-009')]) },
+      expect: ['architect-failing', new RegExp(`^at architect round ${maxA} of at most ${maxA}, 0 test-builder file\\(s\\) still fail and 1 were sent back unrun: ${escape(CONTRACT)} \\(rewrite-test\\)$`)],
+      check: ({ calls }) => {
+        if (!calls.includes('test-builder a1')) return `cannot be exercised: \`buildArchitectMaxRounds\` is ${maxA}, so no rewrite was asked for: ran ${calls.join(', ')}`
+        return count(calls, /^(run|architect) a/) ? `ran ${calls.join(', ')}` : null
       },
     },
     {
