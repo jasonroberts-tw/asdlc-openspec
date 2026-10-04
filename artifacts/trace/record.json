@@ -3055,6 +3055,14 @@
       "tests": []
     },
     {
+      "id": "asdlc-openspec-au5",
+      "paths": [
+        "apps/calculator/test/README.md",
+        "apps/calculator/test/serve.test.js"
+      ],
+      "tests": []
+    },
+    {
       "id": "asdlc-openspec-frm",
       "paths": [
         "apps/calculator/test/README.md"
@@ -3125,7 +3133,10 @@
     },
     {
       "id": "asdlc-openspec-lgh",
-      "paths": [],
+      "paths": [
+        "apps/calculator/test/README.md",
+        "apps/calculator/test/serve.test.js"
+      ],
       "tests": [
         {
           "file": "apps/calculator/test/serve.test.js",
@@ -3150,6 +3161,14 @@
       "paths": [
         "apps/calculator/test/README.md",
         "apps/calculator/test/independent/verify/README.md"
+      ],
+      "tests": []
+    },
+    {
+      "id": "asdlc-openspec-n71",
+      "paths": [
+        "apps/calculator/test/README.md",
+        "apps/calculator/test/serve.test.js"
       ],
       "tests": []
     },
