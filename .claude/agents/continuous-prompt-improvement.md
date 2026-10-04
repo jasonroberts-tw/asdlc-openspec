@@ -35,8 +35,8 @@ early: stop, editing nothing and writing nothing.
 Collect every held line too, its analysis pending or not, listed as the analyses are, with
 `promptReviewHeldMarker` as the marker.
 
-An analysis is an input, not a verdict. Check each claim it makes against the run's own evidence,
-its commits, its pull request and its issue, before building on it.
+Check each claim an analysis makes against the run's own evidence, its commits, its pull request
+and its issue, before building on it.
 
 ## 3. Count each finding, hold what is below the threshold, and group the rest by file
 
@@ -55,10 +55,9 @@ earlier review held for any other reason, set aside by its file's agent or not u
 skeptics, goes to a group again only when a run in this batch shows it that none of its held lines
 names. It must still meet the threshold, because the workflow refuses a finding below it.
 
-A group is one file, or several when one finding concerns them together, such as two prompts that
-contradict each other; a file is in one group only. Its findings are those that met the threshold,
-in the fields the script's header gives `args.groups`. Add to that evidence the counts across runs
-the analyses end with.
+A group is one file, or several when one finding concerns them together. Its findings are those
+that met the threshold, in the fields the script's header gives `args.groups`. Add to that evidence
+the counts across runs the analyses end with.
 
 A finding whose right answer a source settles, the run's action, the pull-request reviewer's finding
 or a later commit, is also a seed for a stored decision case, held or not, unless a case under
@@ -88,22 +87,21 @@ those just validated.
 
 If `merge` is empty and § 4 validated no case, open no pull request and go to § 6.
 
-Otherwise write each validated case to `.claude/prompt-cases/<id>.json`, with its row in that
-directory's README, and commit them. Merge each branch in `merge` into yours, in its order, with
-`git merge --no-ff <branch>`.
+Otherwise write each validated case to `.claude/prompt-cases/<id>.json`, and commit them. Merge
+each branch in `merge` into yours, in its order, with `git merge --no-ff <branch>`.
 Before each merge, check what the agent reported against git: `git diff --name-only
 origin/main...<branch>` must list only the files its report's `filesChanged` lists, whose stored
 cases were answered. A branch that lists another file is not merged: its group's runs are held as
 the workflow's `runsHeld` are. A conflict stops the
 merge: report it. For each consolidation a merged branch carries, set its file's budget in
 `tools/policy/prompt-budgets.json` as § How a prompt is consolidated says. Then gate as
-`.claude/skills/bead/SKILL.md` § 4 says, and open the pull request with the `open-pr` skill. Never
+`.claude/skills/bead/SKILL.md` § 4 says, and open the pull request. Never
 merge it yourself. A gate that fails in a file a group changed is fixed on your branch; one that
 fails elsewhere is reported.
 
-If the permission classifier refuses `npm run gates`, run `npm run citations:check` as its own call
-before you push, and push only once it passes: a prompt edit can carry a pointer that does not
-resolve. End the description with a `RUN THESE YOURSELF` block holding the refused command
+If the permission classifier refuses `npm run gates`, run `npm run citations:check` before you
+push, and push only once it passes: a prompt edit can carry a pointer that does not resolve. End
+the description with a `RUN THESE YOURSELF` block holding the refused command
 (`CLAUDE.md` § Guards), so the person deciding the merge runs the full suite first.
 
 ## 6. Mark what was read
@@ -151,8 +149,7 @@ sections are the value.
    with its count and reason, from § 3 and the workflow's `findingsHeld`.
 6. ***Deliberately not changed.*** What was considered and left alone, with the reason. This is the
    section that stops the same suggestion arriving three times. Include each entry of every group's
-   asides in the workflow's result, with its reason: a point an agent considered and left alone that
-   is none of its findings.
+   asides in the workflow's result, with its reason.
 7. ***What this review could not verify.*** Every claim above that rests on something no agent could
    check, named.
 
@@ -164,7 +161,7 @@ rules for prompts and gates finds them. A point an earlier review set aside unde
 changed* is not raised again unless these runs show something that review did not have. Reviews
 written before `docs/decisions.md` § D-05 were files, and that entry says how to recover them.
 
-A run often worked on a branch of its own, such as a change's, whose files are not on `origin/main`.
+A run often worked on a branch of its own, whose files are not on `origin/main`.
 Read them where they are, with `git show origin/<branch>:<path>`. Never stage or copy them into your
 own tree, not even so that a gate reads them: the pull request would then carry another branch's
 files.
@@ -174,10 +171,9 @@ or assumptions, and contradictions, within a prompt or between it and `CLAUDE.md
 file's agent is given met the threshold of § 3, which makes it worth reading, not worth an edit. If
 nothing should change, change nothing.
 
-Every edit cites only files your own base holds. A file that only a reviewed branch holds, such as a
-change's design, is named in prose by its branch and its path, never as a pointer: in the
-description it sends a reader to a file the trunk lacks, and in a tracked file the citations gate
-refuses it.
+Every edit cites only files your own base holds. A file that only a reviewed branch holds is named
+in prose by its branch and its path, never as a pointer: in the description it sends a reader to a
+file the trunk lacks.
 
 ## How a prompt is consolidated
 
