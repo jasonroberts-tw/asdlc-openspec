@@ -258,7 +258,7 @@ holds platform-native binaries. Use one clone per platform.
 `mise.toml` pins for every machine, so every gate runs the floor (`docs/decisions.md` § D-34),
 until a bump of the pin leaves the floor below it. The floor is never below the lowest version on
 its major line that every package in `package-lock.json` accepts, or a dependency refuses a Node
-the floor calls enough. `npm run check:node-floor` prints that version beside the floor, from the
+the floor calls enough. `mise run check:node-floor` prints that version beside the floor, from the
 clone, and refuses a floor below it; raise `engines` when it does (the floor may sit above). It
 refuses a range form it cannot read rather than skip it, and the header of
 `scripts/check-node-floor.mjs` lists the forms it reads. It runs at push whenever `package.json`,

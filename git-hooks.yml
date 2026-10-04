@@ -274,6 +274,7 @@ pre-push:
         - 'package.json'
         - 'package-lock.json'
         - 'scripts/check-node-floor.mjs'
+        - 'tasks.toml'
       run: mise run check:node-floor
     # Each range form it reads, and each refusal, over fixtures it writes under the temporary
     # directory, beside a control that copies the live two files, so they are in the glob too: 28
@@ -284,6 +285,7 @@ pre-push:
         - 'package.json'
         - 'package-lock.json'
         - 'scripts/check-node-floor.mjs'
+        - 'tasks.toml'
       run: mise run check:node-floor:selftest
     # No glob: the citations gate reads every tracked text file, so any push can change its verdict.
     - name: citations

@@ -33,10 +33,10 @@
  *
  * INVOCATION.
  *
- *   npm run check:node-floor                        the gate
- *   npm run check:node-floor:selftest               its fixtures -- every form it reads, and every
+ *   mise run check:node-floor                       the gate
+ *   mise run check:node-floor:selftest              its fixtures -- every form it reads, and every
  *                                                   refusal on a doctored copy
- *   NODE_FLOOR_ROOT=<dir> npm run check:node-floor  the same gate over a doctored copy
+ *   NODE_FLOOR_ROOT=<dir> mise run check:node-floor the same gate over a doctored copy
  *
  * NEEDS only committed files: `package.json` and `package-lock.json`. No tool, no network.
  * 0.20-0.45 s wall for the gate and 0.74-0.80 s for its 28 cases (29 since a case for a `package.json` that does not parse) through `node --run`
