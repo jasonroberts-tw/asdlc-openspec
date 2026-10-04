@@ -782,13 +782,17 @@ function baseBaseline(git: Git, base: string): Set<string> | null {
 export type Checked = { failures: string[]; advisories: string[]; notes: string[]; summary: string }
 
 /**
- * Every refusal of `trace:check` under `root`. Writes nothing. `ratified` says the caller has
- * already held the walk to the ratified fixture, as the selftest does once for all its cases.
+ * What `check`, `emit` and `update` take: `ratified` says the caller has already held the walk to
+ * the ratified fixture, as the selftest does once for its cases, and `walker` is the walk held to
+ * it, which only the selftest replaces, with one that disagrees.
  */
-export function check(root: string, { ratified: already = false } = {}): Checked {
+type Guarded = { ratified?: boolean; walker?: typeof walk }
+
+/** Every refusal of `trace:check` under `root`. Writes nothing. */
+export function check(root: string, { ratified: already = false, walker = walk }: Guarded = {}): Checked {
   const failures: string[] = []
   const notes: string[] = []
-  const ratified = already ? null : ratify()
+  const ratified = already ? null : ratify(walker)
   if (ratified !== null) return { failures: [`record: ${ratified}; nothing is checked until it agrees.`], advisories: [], notes, summary: '' }
   let derived: Derived
   try {
@@ -880,8 +884,8 @@ export function check(root: string, { ratified: already = false } = {}): Checked
 }
 
 /** `npm run trace`: write the record. Refuses to write what it cannot derive, or when the walk is wrong. */
-export function emit(root: string, { ratified: already = false } = {}): { wrote: boolean; message: string; findings: number } {
-  const ratified = already ? null : ratify()
+export function emit(root: string, { ratified: already = false, walker = walk }: Guarded = {}): { wrote: boolean; message: string; findings: number } {
+  const ratified = already ? null : ratify(walker)
   if (ratified !== null) return { wrote: false, message: `${ratified}; refusing to write ${RECORD}.`, findings: 0 }
   const derived = derive(root)
   mkdirSync(dirname(join(root, RECORD)), { recursive: true })
@@ -895,8 +899,8 @@ export function emit(root: string, { ratified: already = false } = {}): { wrote:
 }
 
 /** `npm run trace:update`: move the baseline down to the obligations still unmet that it may keep. */
-export function update(root: string, { ratified: already = false } = {}): { kept: string[]; dropped: string[]; refused: string[] } {
-  const ratified = already ? null : ratify()
+export function update(root: string, { ratified: already = false, walker = walk }: Guarded = {}): { kept: string[]; dropped: string[]; refused: string[] } {
+  const ratified = already ? null : ratify(walker)
   if (ratified !== null) throw new Error(`${ratified}; refusing to write ${BASELINE}.`)
   const derived = derive(root)
   const git = gitIn(root)
