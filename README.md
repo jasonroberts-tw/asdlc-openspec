@@ -31,8 +31,9 @@ failure it prevents.
 ## Principles
 
 **A person decides; agents propose and build.** A person reviews each change's proposal before its
-build starts, and approves every pull request on the high-risk floor: a change to CI, the rules,
-the toolchain, a dependency, a recorded decision or the reviewer itself. Nothing a program proposes
+build starts. A person also approves every pull request on the high-risk floor: a change to CI, the
+rules, the toolchain, a dependency, a recorded decision, the reviewer itself, the command a gate
+runs or a gate that holds the product. Nothing a program proposes
 instructs an agent until then, but for a prompt review off the floor (`CLAUDE.md` § A program
 proposes; only a person promotes). The rest merge through the pull-request reviewer, one at a time,
 once `verify` passes; whether each does what its issues ask is the branch review's, before its push

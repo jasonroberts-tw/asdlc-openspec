@@ -501,21 +501,20 @@ pre-push:
       run: mise run workflows:selftest
     # The pull-request reviewer's wiring: the policy's `prReview*` keys whole, and `pr-review.yml`,
     # `verify.yml` and the branch reviewer agreeing on labels, check and agent, each job of the
-    # workflow held to what its allowlist lets it run, and no secret or OIDC token. The reviewer itself
-    # reads a token and runs only as `pr-review.yml`. 0.07 s wall
+    # workflow held to what its allowlist lets it run, and no secret or OIDC token; and the floor
+    # holding every file the gates `prReviewFloorTasks` names run and import, derived from `tasks.toml`
+    # and their imports, and the policy keys those files name. The reviewer itself reads a token and
+    # runs only as `pr-review.yml`. 0.13 s wall
     # (`/usr/bin/time -p node scripts/pr-review.mjs --check`, one run) on a macOS 26.7.1 laptop with
     # Node 26.8.1, 2026-10-04. Its glob's `*.yml` reaches only the files
     # directly in `.github/workflows/`, which holds no subdirectory. The manifest and lockfile pin the
-    # js-yaml the script imports; the harness, the co-change map and the helpers under `tools/lib/` and
-    # `scripts/lib/` are in the glob because the script imports them for its evidence.
+    # js-yaml and smol-toml it reads through; `scripts/**` and `tools/**` hold the script, its helpers,
+    # the harness and the co-change map it imports for its evidence, and every file a listed gate can
+    # import, which it derives, so no narrower glob holds what it reads.
     - name: pr-review-check
       glob:
-        - 'scripts/pr-review.mjs'
-        - 'tools/lib/**'
-        - 'tools/policy/**'
-        - 'tools/harness/harness.ts'
-        - 'tools/coupling/coupling.ts'
-        - 'scripts/lib/tasks.mjs'
+        - 'scripts/**'
+        - 'tools/**'
         - '.github/workflows/*.yml'
         - '.claude/agents/branch-reviewer.md'
         - 'tasks.toml'
@@ -523,21 +522,18 @@ pre-push:
         - 'package-lock.json'
       run: mise run pr-review:check
     # Every decision over fixtures built from the live policy, each asserting its reason, and the
-    # wiring gate over doctored copies of the four files it reads, with an undoctored control. The
-    # same files decide its verdict, and the brief's prompt counts are taken over a scratch
-    # repository by `scripts/check-prompts.mjs`, so it is in the glob too, beside what the script
-    # imports, and the manifest and lockfile that pin its js-yaml. 1.62 s wall
+    # wiring gate over doctored copies of the files it reads, `tasks.toml` and the listed gates' files
+    # among them, with an undoctored control. The same files decide its verdict, and the brief's
+    # prompt counts are taken over a scratch repository by `scripts/check-prompts.mjs`, so the glob
+    # takes `scripts/**` and `tools/**` whole, as the wiring gate's does, beside the manifest and
+    # lockfile that pin its js-yaml and smol-toml. 3.81 s wall
     # (`/usr/bin/time -p node scripts/pr-review.mjs --selftest`, one run) on a macOS 26.7.1 laptop
-    # with Node 26.8.1, 2026-10-04, over its 129 cases.
+    # with Node 26.8.1, 2026-10-04, over its 157 cases; copying the listed gates' files into each
+    # case's copy took it from 1.62 s.
     - name: pr-review-selftest
       glob:
-        - 'scripts/pr-review.mjs'
-        - 'scripts/check-prompts.mjs'
-        - 'tools/lib/**'
-        - 'tools/policy/**'
-        - 'tools/harness/harness.ts'
-        - 'tools/coupling/coupling.ts'
-        - 'scripts/lib/tasks.mjs'
+        - 'scripts/**'
+        - 'tools/**'
         - '.github/workflows/*.yml'
         - '.claude/agents/branch-reviewer.md'
         - 'tasks.toml'
