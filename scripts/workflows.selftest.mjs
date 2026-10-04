@@ -40,7 +40,9 @@
  * app-builder's work, an app-builder that writes the test-builder's tests, a flaky test counted as
  * passing, a fixer handed a test's source, even with its spaces moved, or the runner's words as its
  * environment, or a test-builder handed the architect's words (since asdlc-openspec-j09.11; the last
- * three were found by the session's review of 2026-09-29, each case seen failing before its fix). For the
+ * three were found by the session's review of 2026-09-29, each case seen failing before its fix); or a
+ * task naming no ID that, having no test-builder, leaves every earlier task's build-stage file
+ * unrun (since asdlc-openspec-ao0, its case seen failing before its fix). For the
  * prompt review: a branch merged that changed another group's file, failed its gates, was never
  * provisioned by the WorktreeCreate hook, or carried an edit a majority of its skeptics did not
  * uphold; a finding below the threshold passed to an agent; an analysis marked read whose file's
@@ -886,6 +888,8 @@ function independentCases(policy) {
   const withEarlier = inputsJson([...INPUT_FILES, { path: EARLIER, text: testFile().content.replace('The display shows 1', 'The display shows 1 again') }])
   const failEarlier = (round, prompt) => ranWith(prompt, (path) => (path === EARLIER && round === 1 ? [attempt(false), attempt(false)] : [attempt(true)]))
   const passedTwo = /; the 2 test-builder file\(s\) run here passed$/
+  /** A scenario named without an ID token, so the task gets no test-builder of its own. */
+  const NO_ID = 'example: A scenario named without an ID'
   return [
     {
       name: "fix-app: an earlier task's committed build-stage file, failing after this task, is run and triaged, and its route goes to the fixer",
@@ -1158,11 +1162,28 @@ function independentCases(policy) {
       check: ({ calls }) => (count(calls, /^review /) ? 'a reviewer ran' : null),
     },
     {
-      name: 'a task that names no ID gets no test-builder, and says so',
-      args: args(kind, { scenarios: ['example: A scenario named without an ID'] }),
-      scenario: { build: built({ red: [red('example: A scenario named without an ID')] }) },
-      expect: ['nothing-major', /^round 1 confirmed no /],
-      check: ({ result, calls }) => (!calls.includes('test-builder') && /names no scenario or NFR by its ID/.test(result.independent.skipped) ? null : `ran ${calls.join(', ')}`),
+      name: 'a task that names no ID gets no test-builder, and says so; with no earlier build-stage file there is nothing to run, so no runner runs and the review ends the run',
+      args: args(kind, { scenarios: [NO_ID] }),
+      scenario: { build: built({ red: [red(NO_ID)] }) },
+      expect: ['nothing-major', /^round 1 confirmed no [^;]*$/],
+      check: ({ result, calls }) =>
+        !calls.includes('test-builder') && !count(calls, /^(run|architect) a/) && /names no scenario or NFR by its ID/.test(result.independent.skipped) ? null : `ran ${calls.join(', ')}`,
+    },
+    {
+      name: "a task that names no ID still runs an earlier task's committed build-stage file where it stands, and one failing at every run is triaged, sent to the fixer, and stops the run architect-failing, naming it",
+      args: args(kind, { scenarios: [NO_ID] }),
+      scenario: { build: built({ red: [red(NO_ID)] }), inputsJson: withEarlier, run: failFirst(maxA) },
+      expect: ['architect-failing', new RegExp(`^at architect round ${maxA} of at most ${maxA}, 1 test-builder file\\(s\\) still fail and 0 were sent back unrun: ${escape(EARLIER)} \\(fix-app\\)$`)],
+      check: ({ result, calls, options }) => {
+        if (calls.includes('test-builder') || calls.includes('cite')) return `a task naming no ID got a test-builder of its own: ${calls.join(', ')}`
+        if (!/names no scenario or NFR by its ID/.test(result.independent.skipped)) return `independent.skipped is ${result.independent.skipped}`
+        const run = options.find((o) => o.label === 'run a1')
+        if (!run || !run.prompt.includes(`- node scripts/run-tests.mjs "${EARLIER}"`)) return `the runner was not given ${EARLIER} to run`
+        if (run.prompt.slice(run.prompt.indexOf('## The files')).includes(EARLIER)) return `the runner was given ${EARLIER} to write`
+        if (count(calls, /^architect a\d+: /) !== maxA || !calls.includes(`architect a1: ${EARLIER}`)) return `triaged as ${calls.join(', ')}`
+        if (count(calls, /^fix a\d+$/) !== maxA - 1) return `the architect's fixer ran ${count(calls, /^fix a\d+$/)} time(s), not ${maxA - 1}`
+        return result.independent.files.length ? `independent.files holds ${result.independent.files.map((f) => f.path).join(', ')}` : null
+      },
     },
     {
       name: "refused: Setup's copy of the inputs does not match its checksum",

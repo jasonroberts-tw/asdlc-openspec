@@ -169,7 +169,11 @@ export const meta = {
  *   layer `architectRunLayers` lists that declares `runAt` build, and `verify` for every other, so
  *   the package script that runs the build stage at push and in CI runs no E2E test or
  *   Verify-deferred fitness function (`docs/test-strategy.md` § Build exit criteria). A task naming
- *   no ID gets no test-builder, and says so.
+ *   no ID gets no test-builder, and says so. Its code can still break what an earlier task's tests
+ *   cover, so the architect still runs every build-stage file an earlier task committed, below, and
+ *   triages each failure as for any task: a regression surfaces at the task that caused it, not
+ *   first among the gates of `.claude/skills/change-build/SKILL.md` § 6. Repeat, then hand over.
+ *   With no earlier file either, nothing runs, and the review's end is the run's stop.
  *
  *   Running (architect). After the review, a runner agent in the worktree runs every build-stage file:
  *   this task's, which it writes, and every one an earlier task committed under the app's
@@ -1396,18 +1400,22 @@ for (let round = 1; round <= maxRounds; round++) {
   }
 }
 
-if (!tests) return finish(...reviewEnd)
+if (!I) return finish(...reviewEnd)
 
 /*
  * The architect: run the test-builder's tests, route each failure, act on the routes. Every
  * build-stage file an earlier task committed, as Setup read it, runs beside this task's: `earlier`
  * files are run where they stand, never written or removed, and come back to the parent only rewritten.
+ * A task naming no ID has no test-builder files of its own, so the earlier ones run alone; with no
+ * earlier one either, nothing is left to run and the review's end is the run's.
  */
+const taskFiles = tests ? tests.files : []
 const buildDir = `${I.dir}/build/`
 const earlier = I.files
-  .filter((x) => x.path.startsWith(buildDir) && /\.test\.js$/.test(x.path) && !tests.files.some((f) => f.path === x.path))
+  .filter((x) => x.path.startsWith(buildDir) && /\.test\.js$/.test(x.path) && !taskFiles.some((f) => f.path === x.path))
   .map((x) => ({ path: x.path, layer: x.path.slice(buildDir.length).split(/\//)[0], runAt: 'build', content: x.text, earlier: true }))
-const files = new Map([...earlier, ...tests.files].map((f) => [f.path, f]))
+if (!tests && !earlier.length) return finish(...reviewEnd)
+const files = new Map([...earlier, ...taskFiles].map((f) => [f.path, f]))
 const allowed = new Set([...I.ids, A.task.id])
 const env = { platform: '', node: '' }
 const levelOf = (f) => (/trace-defaults:[^\n]*\blevel=(\d)/.exec(f.content) || [])[1] || policy.testTraceLayers[f.layer] || 1
