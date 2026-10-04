@@ -247,7 +247,8 @@ pre-push:
       run: node --run check:node-floor
     # Each range form it reads, and each refusal, over fixtures it writes under the temporary
     # directory, beside a control that copies the live two files, so they are in the glob too: 28
-    # cases, 0.74-0.80 s wall, two runs, the same host and day.
+    # cases, 0.74-0.80 s wall, two runs, the same host and day; 29 since a case for a package.json
+    # that does not parse.
     - name: check-node-floor-selftest
       glob:
         - 'package.json'
