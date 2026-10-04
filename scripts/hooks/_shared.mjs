@@ -266,11 +266,27 @@ export async function runTask(name, { timeoutMs = 120_000, cwd = ROOT, env = {} 
  * Which checkout a stopping agent worked in, and which checkout an edit lands in.
  * ============================================================================================= */
 
+/**
+ * This process's environment without any `GIT_*` key, so git answers for the directory it runs in.
+ * A hook inherits its session's environment, and an inherited `GIT_DIR` outranks `cwd`: with no
+ * `GIT_WORK_TREE` git takes `cwd` for the top of the work tree, so `editedCheckout` would place an
+ * edit to `artifacts/trace/record.json` in that file's own directory, where no redirect matches, and
+ * pass it (a branch review of asdlc-openspec-d2qv found this before it merged). The same function is
+ * `gitEnv` in `tools/lib/git-env.ts`; it is not imported, because this file imports Node's built-ins
+ * only and the selftests run a copy of it alone.
+ */
+function gitEnv() {
+  const env = {}
+  for (const [key, value] of Object.entries(process.env)) if (!key.startsWith('GIT_')) env[key] = value
+  return env
+}
+
 /** An absolute path `git rev-parse` gives for `flag` in `dir`, resolved, or null outside a checkout. */
 function gitPath(dir, flag) {
   try {
     const out = execFileSync('git', ['rev-parse', '--path-format=absolute', flag], {
       cwd: dir,
+      env: gitEnv(),
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     })

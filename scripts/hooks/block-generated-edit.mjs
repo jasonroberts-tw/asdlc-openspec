@@ -22,8 +22,9 @@
  *
  *   node scripts/hooks/block-generated-edit.mjs < payload.json
  *
- * Needs `git`, which places the path: four calls inside a checkout and two outside any. With none on
- * PATH, every path is judged against this hook's own checkout, as before the fix.
+ * Needs `git`, which places the path: four calls inside a checkout and two outside any, each with no
+ * `GIT_*` variable, since an inherited `GIT_DIR` would make git place the path in its own directory.
+ * With no git on PATH, every path is judged against this hook's own checkout, as before the fix.
  * `gate-summary.selftest.mjs` runs a copy over a scratch repository and its worktrees and prints the
  * hook's wall time.
  */
