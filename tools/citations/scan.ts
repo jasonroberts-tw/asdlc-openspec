@@ -96,8 +96,15 @@ export const SCAN_ROOT = process.env.CITATIONS_ROOT ? resolve(process.env.CITATI
  * briefing's template cited `docs/decisions.md` § D-04, and a shell script's comment could cite any
  * section, with no gate reading either. Measured before they were added: the three tracked files of
  * those types held one pointer in the form this gate reads, and it resolved.
+ *
+ * `toml` was added on 2026-10-04 (`asdlc-openspec-8juz.11`), when each task's description moved from
+ * `README.md` § The tasks, which this gate reads, into `tasks.toml`, which it did not: the move would
+ * have left the three section pointers those descriptions carry unread. Until then `mise.toml`'s
+ * comments and `tasks.toml`'s header went unread too. Measured before it was added, through
+ * `citationsIn`: the three tracked files of that type held 14 pointers in the forms this gate reads,
+ * 9 in `mise.toml`, 5 in `tasks.toml` and none in the uv lock's `pyproject.toml`, and all 14 resolved.
  */
-const SCANNED_EXTENSIONS = /\.(ts|tsx|js|mjs|cjs|md|json|ya?ml|cs|sql|tmpl|sh)$/
+const SCANNED_EXTENSIONS = /\.(ts|tsx|js|mjs|cjs|md|json|ya?ml|cs|sql|tmpl|sh|toml)$/
 
 /**
  * Where a RETIRED document lives once it stops being the live one.

@@ -38,7 +38,9 @@ status pending, and the crib sheet's line for it, run the command through `env`,
 `.claude/skills/open-pr/SKILL.md` § 5 now says. Amended 2026-10-04 by `asdlc-openspec-8juz.6`:
 every task runs as `mise run <task>`, since the tasks moved from `package.json` to `tasks.toml`
 (`docs/decisions.md` § D-36), and the glossary and the "where to look" table name `README.md`
-§ The tasks; the notes above keep the commands of their dates.
+§ The tasks; the notes above keep the commands of their dates. Amended 2026-10-04 by
+`asdlc-openspec-8juz.11`: what a task does is its `description` in `tasks.toml`, where the glossary
+and the "where to look" table now send a reader, and `README.md` § The tasks gives its tier alone.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -93,7 +95,7 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 | register | `docs/decisions.md`: the decisions (`D-NN`) and risks (`R-NN`) no agent re-argues, amended and never rewritten (`CLAUDE.md` § Decisions live in the register). |
 | policy file | `tools/policy.json`: every constant a prompt or a tool reads, each beside a `Means` sibling saying what it decides (`docs/decisions.md` § D-03). |
 | count key | A `CNT-*` key in `count-index.md`, written where the numeral would go (`count-index.md` § How to use it). |
-| prompt | `CLAUDE.md`, `AGENTS.md`, a skill, an agent, a workflow script's literals or the worktree briefing template, each held to a word budget in the policy file (`README.md` § The tasks, the `check:prompts` row). |
+| prompt | `CLAUDE.md`, `AGENTS.md`, a skill, an agent, a workflow script's literals or the worktree briefing template, each held to a word budget in the policy file (the `check:prompts` task's `description` in `tasks.toml`). |
 | pull-request reviewer | `.github/workflows/pr-review.yml`: it judges one pull request at a time against the issues its title cites, then merges it or leaves it to a person (`docs/decisions.md` § D-07). |
 | approval label | What a person applies to approve a head the reviewer left to a person, `prReviewLabels` in `tools/policy.json`. An agent never applies it (`CLAUDE.md` § Git workflow). |
 | analysis | A run's account of itself, left as a note on the issue it worked, which a prompt review later reads (`.claude/skills/close-prompt-run/SKILL.md` § 1. Write the analysis, or none). |
@@ -115,7 +117,8 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 | what a constant decides | `tools/policy.json`, the key's `Means` sibling |
 | how many of anything | `count-index.md`, by key |
 | what runs automatically, and on what trigger | `README.md` § What runs automatically |
-| what a task does, and which tier runs it | `README.md` § The tasks |
+| what a task does | its `description` in `tasks.toml`, which `mise tasks info <name>` prints |
+| which tier runs a task | `README.md` § The tasks |
 | what a gate refuses, and why it exists | the gate's own header; `scripts/README.md` and `tools/README.md` list them |
 | what to regenerate after an input moves | the emitter's `:check` twin, which `mise run gates` runs |
 | what a worktree is for, and how to finish in it | `.worktree/CONTEXT.md` inside it, rendered from `.claude/worktree-CONTEXT.md.tmpl` |

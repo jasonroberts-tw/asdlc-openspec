@@ -185,7 +185,7 @@ for (const file of tracked) {
  *
  * A second pass rather than a fifth branch of the loop above, because that loop is filtered by
  * `SCANNED_EXTENSIONS` and this rule covers every tracked file in its roster whatever the
- * extension: the formulas are `.toml` and the plugin's tools carry their prompts in `.ps1` headers.
+ * extension: the plugin's tools carry their prompts in `.ps1` headers, which that loop never reads.
  * `tools/citations/memory.ts` is the whole rule -- roster, the registered CLAUDE.md regions and the
  * two shapes -- and `memoryProblemsIn` is the one function the selftest holds to fixtures, so what
  * fails there fails here and nothing in between can drift.

@@ -32,8 +32,9 @@
  * whenever the tracker's plugin runs it at a session's start or before a compaction; on 2026-10-03
  * that built-in text, which this repository had no file to replace, told every session "Use
  * `bd remember` for persistent knowledge across sessions" (asdlc-openspec-z5gy). Every tracked
- * file under them regardless of extension, because the formulas are `.toml` and the plugin's tools
- * carry their prompts in `.ps1` headers, neither of which `scan.ts`'s `SCANNED_EXTENSIONS` covers.
+ * file under them regardless of extension, because the plugin's tools carry their prompts in `.ps1`
+ * headers, which `scan.ts`'s `SCANNED_EXTENSIONS` does not cover; it covered no `.toml` formula
+ * either until 2026-10-04 (asdlc-openspec-8juz.11).
  * A roster rather than the whole tree, unlike `scan.ts`, on purpose: the word `memory` before a
  * code span is ordinary prose in a tool's comment and a defect only where an agent reads it as an
  * instruction, and a whole-tree scan would begin by exempting this file.

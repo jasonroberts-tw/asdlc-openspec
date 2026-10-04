@@ -543,10 +543,11 @@ console.log('citation scanner selftest\n')
   claude.push('## After the regions', 'prose', '')
   const liveSection = claudeRegions.find((r) => 'section' in r)
 
-  // Three line citations (two in a markdown file, one in a source comment); seven section citations
+  // Three line citations (two in a markdown file, one in a source comment); eight section citations
   // (two in a markdown file; two in a source comment, one of them split by a line break; two in a
-  // shell script, one of them with its file name not backticked; one in a template); one dead
-  // citation inside a history directory, one inside an extension the gate does not scan.
+  // shell script, one of them with its file name not backticked; one in a template; one in a task's
+  // description in `tasks.toml`, split by a line break); one dead citation inside a history
+  // directory, one inside an extension the gate does not scan.
   const TREE: Readonly<Record<string, string>> = {
     'docs/target.md': [
       '# Target',
@@ -579,6 +580,14 @@ console.log('citation scanner selftest\n')
       '',
     ].join('\n'),
     'templates/fixture.md.tmpl': ['# {{TITLE}}', 'Read `docs/target.md` § Beta first.', ''].join('\n'),
+    'tasks.toml': [
+      '["fixture:check"]',
+      "description = '''",
+      'Refuses what the last line of `docs/target.md`',
+      "§ Beta says, wrapped as a description is.'''",
+      'run = "node scripts/fixture.mjs"',
+      '',
+    ].join('\n'),
     'docs/retired/old.md': [
       '# Old',
       'It once cited docs/target.md:999, which this record keeps as written.',
@@ -629,10 +638,10 @@ console.log('citation scanner selftest\n')
   )
   const n = (i: number): number => Number(m?.[i] ?? Number.NaN)
   ok('the scan finds line citations to resolve -- exactly the three the tree holds', n(1) === 3, `${n(1)} found`)
-  ok('the scan finds section citations to resolve -- exactly the seven the tree holds', n(2) === 7, `${n(2)} found`)
+  ok('the scan finds section citations to resolve -- exactly the eight the tree holds', n(2) === 8, `${n(2)} found`)
   ok(
-    'the gate reads the tracked text files, seven with the script and the template, and skips the extension it does not scan',
-    n(3) === 7,
+    'the gate reads the tracked text files, eight with the script, the template and the task file, and skips the extension it does not scan',
+    n(3) === 8,
     `${n(3)} files`,
   )
   ok('the dead citation inside a history directory is exempt, and counted', n(4) === 1, `${n(4)} files`)
@@ -714,6 +723,13 @@ console.log('citation scanner selftest\n')
       what: 'a section citation in a template, to a heading that is not there',
       doctor: edit('templates/fixture.md.tmpl', '§ Beta', '§ Gamma'),
       where: 'templates/fixture.md.tmpl:2',
+      reason: 'but no section of docs/target.md is named that',
+      problems: 1,
+    },
+    {
+      what: "a section citation in a task's description, split by a line break, to a heading that is not there",
+      doctor: edit('tasks.toml', '§ Beta says', '§ Gamma says'),
+      where: 'tasks.toml:3',
       reason: 'but no section of docs/target.md is named that',
       problems: 1,
     },
