@@ -1941,6 +1941,15 @@ function wiringCases() {
       },
       expect: /filters on the label \[\], not on `prReviewLabels\.approved`/,
     },
+    {
+      name: 'comments carry another label, another agent, too few denied tools and no event, and trip nothing',
+      doctor: edit(
+        WORKFLOW,
+        /^name: pr-review$/m,
+        "#   github.event.label.name == 'lgtm'\n#   --agent some-other-agent\n#   --disallowedTools Bash\n#   EVENT_NAME: ''\nname: pr-review",
+      ),
+      expect: 'pass',
+    },
     { name: 'the queue cancels a pending run', doctor: edit(WORKFLOW, /^  queue: max\n/m, ''), expect: /must set `queue: max`/ },
     { name: 'the workflow wakes on another workflow\'s runs', doctor: edit(WORKFLOW, "workflows: ['verify']", "workflows: ['build']"), expect: /wakes on the runs of \["build"\]/ },
     { name: 'the workflow runs a subcommand that does not exist', doctor: edit(WORKFLOW, 'node scripts/pr-review.mjs act', 'node scripts/pr-review.mjs merge'), expect: /runs `node scripts\/pr-review\.mjs merge`, which is not one of/ },
