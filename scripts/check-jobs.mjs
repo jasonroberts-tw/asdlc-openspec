@@ -867,6 +867,20 @@ function toPackageJson(dir) {
 /** A job appended to the copy's git-hooks.yml, under the last hook's `jobs:` list. */
 const appendJob = (name, run) => (text) => `${text}    - name: ${name}\n      run: ${run}\n`
 
+/**
+ * The copy's tasks.toml with the task `name`'s `description` set to `value`, a TOML value as written,
+ * in place of the `'''` one it has before its `run`: a second `description` key would fail the parse,
+ * not the rule a case doctors for.
+ */
+const setDescription = (name, value) => (text) => {
+  const header = `["${name}"]\n`
+  const at = text.indexOf(header)
+  if (at < 0) throw new Error(`selftest fixture: tasks.toml has no task ${name}`)
+  const body = at + header.length
+  const rest = text.slice(body).replace(/^description = '''[\s\S]*?'''\n/, '')
+  return `${text.slice(0, body)}description = ${value}\n${rest}`
+}
+
 /** A directory in a copy of the roots whose one file is a dotfile, which the real tree lacks. */
 function writeHidden(tree) {
   const dir = join(tree, 'apps', 'calculator', 'hidden')
@@ -926,7 +940,7 @@ function cases() {
       name: 'a `mise run --quiet` job and a task with a description pass',
       doctor: (dir) => {
         edit(dir, HOOK_JOBS, appendJob('doctored', 'mise run --quiet check:jobs'))
-        edit(dir, TASKS_TOML, (t) => t.replace('run = "node scripts/check-jobs.mjs"\n', 'run = "node scripts/check-jobs.mjs"\ndescription = "the job cross-check"\n'))
+        edit(dir, TASKS_TOML, setDescription('check:jobs', '"the job cross-check"'))
       },
       expect: 'pass',
     },
@@ -962,12 +976,12 @@ function cases() {
       ['a tasks.toml that does not parse', (t) => `${t}[unclosed\n`, /^tasks\.toml cannot be read as TOML/],
       ['a value in the tasks.toml that is not a table', (t) => `stray = "node scripts/check-jobs.mjs"\n${t}`, /^tasks\.toml: `stray` is not a table, so it is no task\./],
       ['a task in the tasks.toml whose `run` is not a string', (t) => t.replace('run = "node scripts/check-jobs.mjs"\n', 'run = ["node", "scripts/check-jobs.mjs"]\n'), /^tasks\.toml: the task `check:jobs` has no `run` string\./],
-      ['a task in the tasks.toml whose description is not a string', (t) => t.replace('run = "node scripts/check-jobs.mjs"\n', 'run = "node scripts/check-jobs.mjs"\ndescription = 1\n'), /^tasks\.toml: the task `check:jobs` has a `description` that is not a string\./],
+      ['a task in the tasks.toml whose description is not a string', setDescription('check:jobs', '1'), /^tasks\.toml: the task `check:jobs` has a `description` that is not a string\./],
       ['a task in the tasks.toml carries a key the loader refuses', (t) => t.replace('run = "node scripts/check-jobs.mjs"\n', 'run = "node scripts/check-jobs.mjs"\ndepends = ["counts:check"]\n'), /^tasks\.toml: the task `check:jobs` has `depends`/],
       // mise renders a template before it runs a task, so each of Tera's three openers is refused.
       ['a task in the tasks.toml whose `run` holds a template statement', (t) => t.replace('run = "node scripts/check-count-index.mjs"\n', 'run = "node scripts/check-count-index.mjs {% if true %}--selftest{% endif %}"\n'), /^tasks\.toml: the task `counts:check` has a template in its `run` \(`\{%`\)\. mise renders it/],
       ['a task in the tasks.toml whose `run` holds a template comment', (t) => t.replace('run = "node scripts/check-count-index.mjs"\n', 'run = "node scripts/check-count-index.mjs {# a note #}"\n'), /^tasks\.toml: the task `counts:check` has a template in its `run` \(`\{#`\)\. mise renders it/],
-      ['a task in the tasks.toml whose description holds a template expression', (t) => t.replace('run = "node scripts/check-jobs.mjs"\n', 'run = "node scripts/check-jobs.mjs"\ndescription = "{{ exec(command=\'date\') }}"\n'), /^tasks\.toml: the task `check:jobs` has a template in its `description` \(`\{\{`\)\. mise renders it/],
+      ['a task in the tasks.toml whose description holds a template expression', setDescription('check:jobs', '"{{ exec(command=\'date\') }}"'), /^tasks\.toml: the task `check:jobs` has a template in its `description` \(`\{\{`\)\. mise renders it/],
     ].map(([name, change, expect]) => ({ name, doctor: (dir) => edit(dir, TASKS_TOML, change), expect })),
     // The same loader's refusals of a package.json, in a tree from before the move and beside a tasks.toml.
     ...[

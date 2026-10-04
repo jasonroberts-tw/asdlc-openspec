@@ -13,9 +13,9 @@ name and the documentation as part of the change, not as follow-up.
 
 ## 1. Name it
 
-`<group>:<verb>`. Reuse an existing prefix wherever one fits; a new prefix means a new README
-sub-section, which is a decision, not a side effect. A person makes it when they merge the pull
-request, so its description names the new prefix and says why no existing one fits.
+`<group>:<verb>`. Reuse an existing prefix wherever one fits; a new prefix is a decision, not a
+side effect. A person makes it when they merge the pull request, so its description names the new
+prefix and says why no existing one fits.
 
 The suffixes are the bare name, `:check`, `:selftest` and `:update`, and what each one must do is
 `CLAUDE.md` § The script suffix contract. An emitter's `:check` twin in particular is how a
@@ -60,20 +60,17 @@ running on a real push, and `mise run gates` runs every job regardless. A task t
 such as a bare emitter or an operator command, gets an entry in `UNJOBBED_BY_KIND` in
 `scripts/check-jobs.mjs`, under its kind, in the same change; `check:jobs` refuses it otherwise.
 
-## 5. Update `README.md` § The tasks — this is not optional
+## 5. Write its description, and its row in `README.md` § The tasks — this is not optional
 
-The section lists **every** task in `tasks.toml`, by these rules:
-
-- One `###` sub-section per prefix, sub-sections alphabetical. A new prefix gets a new sub-section
-  in its alphabetical position; a prefix that loses its last task loses its sub-section.
-- Rows alphabetical within the sub-section. Each row is `` | `task` | what it does | Gate | ``.
-- The **Gate** cell is `pre-push`, `CI`, `pre-push + CI`, or empty — read off `git-hooks.yml` and
-  `.github/workflows/verify.yml` as they now stand, not off what you intended.
-- The description says what the task does and what breaks without it. It does not restate the
-  command line; `tasks.toml` holds that, and two copies means one goes stale.
+- Its `description` in `tasks.toml`, a `'''` string wrapped as its neighbours' are, says what the
+  task does and what breaks without it. It does not restate the `run` line beside it: two copies
+  means one goes stale.
 - Any figure in it must be re-derived at the time of writing, with no exceptions for numbers copied
   out of a source comment. Those drift silently, because a numeral in a comment is not an input to
   anything.
+- § The tasks has one row per task, in `tasks.toml`'s order: `` | `task` | Gate | ``. The **Gate**
+  cell is `pre-push`, `CI`, `pre-push + CI`, or empty — read off `git-hooks.yml` and
+  `.github/workflows/verify.yml` as they now stand, not off what you intended.
 
 Also update `README.md` § What runs automatically when you add, change or remove a hook, a job or
 a CI step. In `README.md` § The guardrails, update any row that names the task, and the row of any
@@ -86,8 +83,8 @@ Do all four, in any order. Step 3 is held by a gate, `check:jobs`; a miss anywhe
 green.
 
 1. Delete or rewrite the `tasks.toml` entry.
-2. Delete or rewrite its rows in `README.md`: § The tasks, and the sub-section if it is now
-   empty, and § The guardrails and § What runs automatically wherever they name it.
+2. Delete or rewrite its rows in `README.md`: § The tasks, and § The guardrails and § What runs
+   automatically wherever they name it.
 3. Remove the `git-hooks.yml` job and the `verify.yml` step. If no job ran it, remove its entry from
    `UNJOBBED_BY_KIND` in `scripts/check-jobs.mjs`, which `check:jobs` refuses once the task is
    gone.
