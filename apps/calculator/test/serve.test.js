@@ -10,16 +10,26 @@
  * the convention is the header of `scripts/test-trace.mjs`. A scenario's expected values are
  * literals copied from the spec. The last `describe` is named so that it cannot be taken for a
  * requirement: its tests hold what the change's design says of the command beyond the scenarios,
- * and each names the task it served, asdlc-openspec-zgh.4, and the version of the app's Binding
- * Surface it was written against.
+ * and what a later task found that no test held, and each names the task it served and the version
+ * of the app's Binding Surface it was written against.
  *
  * The npm script is proved in two parts, as the design has it: an assertion that `package.json` runs
  * exactly `node apps/calculator/serve.js`, and the spawned file. Spawning `npm` itself would add a
  * package manager's start-up and its platform differences to every run.
  *
  * Each spawned process gets a free port, found by binding port 0 of `127.0.0.1` and closing it,
- * unless its scenario names the port. A port taken in the moment between the two binds fails a
- * test rather than passing one. Every wait has a bound of its own, each test that starts a process
+ * unless its scenario names the port. A free port taken in the moment between the two binds fails a
+ * test rather than passing one. A port a scenario names can be held by anything on the host, another
+ * run of this suite among them, up to the moment the command listens, so no check before the spawn
+ * settles it: the command is started on that port, and only its own refusal of it as in use puts
+ * something in its place, with a diagnostic.
+ *
+ * Some tests start the command with a probe: a module Node runs in the process before `serve.js`
+ * (`--import`), which reports on file descriptor 3 each `listen` call the process makes and each
+ * listener that starts, and can steer a call to port 0 or to a refusal. It reads the command from
+ * inside and changes no file of the app; `listenProbe` below is what it does.
+ *
+ * Every wait has a bound of its own, each test that starts a process
  * has a bound over all of them, and each test kills and awaits its process in an `after` hook,
  * which the runner runs when a test times out too, so no test can hang the suite or leave a
  * listener behind. No hook runs when this file's own process is ended by a signal, so a `SIGINT` or
@@ -61,8 +71,12 @@ const KEYS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '+', '-', '
  */
 const URL_RE = /(?<!\S)http:\/\/127\.0\.0\.1:(\d+)\/(?!\S)/
 
-/** A line of a stack trace, as Node prints one: indented, then `at`. */
-const STACK_FRAME_RE = /^\s+at\s/m
+/**
+ * A frame of a stack trace: a line indented and then `at`, as Node prints one, or anywhere on a
+ * line, `at` after a space and then a place ending `:<line>:<column>`, as a stack flattened onto one
+ * line, or quoted with its line breaks escaped, still carries it.
+ */
+const STACK_FRAME_RE = /^\s+at\s|(?:^|\s)at\s.*?:\d+:\d+/m
 
 /**
  * How long a started process may take to print its first line or exit. Node starts in well under a
@@ -86,11 +100,12 @@ const CONNECT_BOUND_MS = 500
 
 /**
  * How long a test that starts a process may run in all. It is above the sum of the bounds above
- * that any one test waits through, so a named bound fails first, with its own message; this one
- * catches a wait that has no bound, which would otherwise hang the suite and the pre-push hook with
- * it, since `calculator:test` sets no timeout of its own. Raise it with the bounds above.
+ * that any one test waits through, three `START_BOUND_MS` where `[CLS-003]` starts the command a
+ * second time and then asks for the page, so a named bound fails first, with its own message; this
+ * one catches a wait that has no bound, which would otherwise hang the suite and the pre-push hook
+ * with it, since `calculator:test` sets no timeout of its own. Raise it with the bounds above.
  */
-const TEST_BOUND_MS = 30000
+const TEST_BOUND_MS = 40000
 
 /**
  * Why the signal tests do not run on Windows. The reason is printed with the skip, as `CLAUDE.md`
@@ -139,32 +154,75 @@ async function freePort() {
   return port
 }
 
-/** Whether `port` of `127.0.0.1` can be bound now. */
-async function isFree(port) {
-  try {
-    await release(await bind(port))
-    return true
-  } catch (error) {
-    if (error.code === 'EADDRINUSE') return false
-    throw error
+/**
+ * The probe, as the `data:` URL `--import` takes, so that it is no file of its own. In the process
+ * it wraps `listen` of every `net.Server`, which Node's HTTP server inherits, and writes one JSON line
+ * to file descriptor 3 for each call, `{ asked: { port, host } }` with what the call named, and one
+ * for each listener that starts, `{ listening: { address, family, port } }` with what the server
+ * reports. With `steer` it changes the call as well: `'any-port'` listens on port 0, so that the host
+ * picks a port, wherever the call asked, and `'EACCES'` binds nothing and fails the call on the next
+ * tick through the server's `error` event, with the error Node's own `listen` gives for a port the
+ * host reserves. It adds no `error` listener, so an error the command leaves unhandled still ends it.
+ */
+function listenProbe(steer) {
+  const source = `
+import { writeSync } from 'node:fs'
+import { Server } from 'node:net'
+const steer = ${JSON.stringify(steer ?? null)}
+const report = (entry) => writeSync(3, JSON.stringify(entry) + '\\n')
+const listen = Server.prototype.listen
+Server.prototype.listen = function (...args) {
+  const named = args[0] !== null && typeof args[0] === 'object'
+  const asked = named
+    ? { port: args[0].port, host: args[0].host }
+    : { port: args[0], host: typeof args[1] === 'string' ? args[1] : undefined }
+  report({ asked })
+  if (steer === 'EACCES') {
+    const error = Object.assign(new Error('listen EACCES: permission denied ' + asked.host + ':' + asked.port), {
+      code: 'EACCES', errno: -13, syscall: 'listen', address: asked.host, port: asked.port,
+    })
+    process.nextTick(() => this.emit('error', error))
+    return this
   }
+  if (steer === 'any-port') args[0] = named ? { ...args[0], port: 0 } : 0
+  this.once('listening', () => {
+    const { address, family, port } = this.address()
+    report({ listening: { address, family, port } })
+  })
+  return listen.apply(this, args)
+}
+`
+  return `data:text/javascript,${encodeURIComponent(source)}`
+}
+
+/** What the probe reported, in order, read from an exit, by when its every pipe has been read. */
+function probed(exit) {
+  return exit.probe
+    .split('\n')
+    .filter((line) => line !== '')
+    .map((line) => JSON.parse(line))
 }
 
 /**
  * `serve.js` started as its own process, from the repository root as npm would start it, with
- * `PORT` set to `value`, or removed from its environment when `value` is undefined. Its output is
- * collected as it arrives, and it is killed, if still running, and awaited when the test ends.
+ * `PORT` set to `value`, or removed from its environment when `value` is undefined, and with `env`
+ * added to the environment it inherits. With `probe`, a URL `listenProbe` gives, Node runs that
+ * module first. Its output is collected as it arrives, the probe's too, and it is killed, if still
+ * running, and awaited when the test ends.
  */
-function serve(t, value, { cwd = REPO_ROOT } = {}) {
-  const env = { ...process.env }
+function serve(t, value, { cwd = REPO_ROOT, env: added = {}, probe } = {}) {
+  const env = { ...process.env, ...added }
   delete env.PORT
   if (value !== undefined) env.PORT = String(value)
-  const child = spawn(process.execPath, [SERVE], { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] })
+  const args = probe === undefined ? [SERVE] : ['--import', probe, SERVE]
+  const stdio = probe === undefined ? ['ignore', 'pipe', 'pipe'] : ['ignore', 'pipe', 'pipe', 'pipe']
+  const child = spawn(process.execPath, args, { cwd, env, stdio })
   live.add(child)
   child.once('exit', () => live.delete(child))
-  const output = { stdout: '', stderr: '' }
+  const output = { stdout: '', stderr: '', probe: '' }
   child.stdout.setEncoding('utf8').on('data', (chunk) => (output.stdout += chunk))
   child.stderr.setEncoding('utf8').on('data', (chunk) => (output.stderr += chunk))
+  if (probe !== undefined) child.stdio[3].setEncoding('utf8').on('data', (chunk) => (output.probe += chunk))
   const exited = new Promise((resolve, reject) => {
     child.once('error', reject)
     // 'close', not 'exit': by then both pipes have been read to the end.
@@ -393,11 +451,17 @@ describe('The server listens on the loopback interface only', () => {
 describe('The port is configurable', () => {
   // trace: CLS-003:happy@bbf90d26abe5
   test('[CLS-003] PORT chooses the port', { timeout: TEST_BOUND_MS }, async (t) => {
-    const port = (await isFree(26680)) ? 26680 : await freePort()
-    if (port !== 26680) {
-      t.diagnostic(`port 26680, the spec's example, is in use here, so port ${port} stands in`)
+    // The spec's example first. Only the command's own refusal of it as in use, the line it prints
+    // for EADDRINUSE and nothing else, lets a free port stand in.
+    let port = 26680
+    let first = await firstLine(serve(t, port))
+    if (first.exit?.stderr.trim() === listenRefusal({ code: 'EADDRINUSE' }, port)) {
+      port = await freePort()
+      t.diagnostic(`port 26680, the spec's example, was in use when the command tried it, so port ${port} stands in`)
+      first = await firstLine(serve(t, port))
     }
-    const url = await printedUrl(serve(t, port))
+    assert.notEqual(first.line, undefined, `it exited before printing a URL: ${JSON.stringify(first.exit)}`)
+    const url = urlOn(first.line)
     assert.equal(url, `http://127.0.0.1:${port}/`)
     const answer = await ask(url)
     assert.equal(answer.status, 200)
@@ -411,9 +475,17 @@ describe('The port is configurable', () => {
       assert.equal(urlOn(first.line), 'http://127.0.0.1:8080/')
       return
     }
-    // Something on this host already holds 8080. A refusal naming it proves the default as well.
-    t.diagnostic('port 8080 is in use on this host, so the refusal naming it is the proof')
-    assertRefused(first.exit, '8080')
+    // Something on this host held the port when the command tried it: another program, or another
+    // run of this suite. The command runs again with the probe steering its listen to port 0. The
+    // port it asked for, and the URL it prints for the port it got, are the URL above had the port
+    // been free; a refusal naming 8080 would prove only the first.
+    t.diagnostic(`the command exited before printing a URL, so the probe reads the port it asks for: ${first.exit.stderr.trim()}`)
+    const served = serve(t, undefined, { probe: listenProbe('any-port') })
+    const url = await printedUrl(served)
+    served.child.kill('SIGKILL')
+    const [call, listener] = probed(await served.exited)
+    assert.equal(call.asked.port, 8080, 'with PORT unset it asks for port 8080')
+    assert.equal(url, `http://127.0.0.1:${listener.listening.port}/`, 'and prints the port it listens on')
   })
 
   // trace: CLS-005:happy@2d05ee941fa0
@@ -511,4 +583,72 @@ describe('The command (not a spec scenario)', () => {
       assert.equal(answer.body, PAGE_TEXT)
     },
   )
+
+  // trace: asdlc-openspec-lgh surface:apps/calculator/binding-surface.md@e52392e73c00
+  test(
+    '[asdlc-openspec-lgh] The command refuses a listen error other than a port in use in one line naming its code',
+    { timeout: TEST_BOUND_MS },
+    async (t) => {
+      // The probe gives the error, since no port gives it on every host: port 80 of 127.0.0.1 is
+      // refused to an ordinary user where ports below 1024 are reserved, as on macOS, but not to
+      // root, nor where the host lowers that range, as a container may.
+      const port = await freePort()
+      const exit = await exitWithin(serve(t, port, { probe: listenProbe('EACCES') }), START_BOUND_MS)
+      assertRefused(exit, 'EACCES')
+      assert.ok(exit.stderr.includes(`127.0.0.1:${port}`), `the line names the address: ${exit.stderr}`)
+    },
+  )
+
+  // trace: asdlc-openspec-lgh surface:apps/calculator/binding-surface.md@e52392e73c00
+  test(
+    '[asdlc-openspec-lgh] The command refuses PORT=0 and an empty PORT rather than serving',
+    { timeout: TEST_BOUND_MS },
+    async (t) => {
+      // Port 0 would serve on whatever port the host picks, and an empty PORT could pass for unset.
+      const [zero, empty] = await Promise.all(
+        ['0', ''].map((value) => exitWithin(serve(t, value), START_BOUND_MS)),
+      )
+      assertRefused(zero, '"0"')
+      assertRefused(empty, '""')
+    },
+  )
+
+  // trace: asdlc-openspec-lgh surface:apps/calculator/binding-surface.md@e52392e73c00
+  test(
+    '[asdlc-openspec-lgh] The command listens once, on 127.0.0.1 alone, whatever HOST, BIND and HOSTNAME say',
+    { timeout: TEST_BOUND_MS },
+    async (t) => {
+      // Each names every interface. The probe reports every listen call and every listener, so a
+      // second listener, an IPv6 wildcard among them, fails here on any host, where the connection
+      // [CLS-002] tries needs an IPv4 address outside loopback to try anything.
+      const env = { HOST: '0.0.0.0', BIND: '::', HOSTNAME: '0.0.0.0' }
+      const port = await freePort()
+      const served = serve(t, port, { env, probe: listenProbe() })
+      const url = await printedUrl(served)
+      served.child.kill('SIGKILL')
+      assert.equal(url, `http://127.0.0.1:${port}/`)
+      assert.deepEqual(probed(await served.exited), [
+        { asked: { port, host: '127.0.0.1' } },
+        { listening: { address: '127.0.0.1', family: 'IPv4', port } },
+      ])
+    },
+  )
+
+  // trace: asdlc-openspec-lgh surface:apps/calculator/binding-surface.md@e52392e73c00
+  test('[asdlc-openspec-lgh] The no-stack-trace check finds a frame anywhere on a line, and none in a refusal', () => {
+    const { stack } = new Error('a fault')
+    assert.match(stack, STACK_FRAME_RE, 'a stack as Node prints it')
+    assert.match(stack.replaceAll('\n', ' '), STACK_FRAME_RE, 'the same stack flattened onto one line')
+    assert.match(JSON.stringify(stack), STACK_FRAME_RE, 'the same stack quoted, its line breaks escaped')
+    let invalid
+    try {
+      parsePort('abc')
+    } catch (error) {
+      invalid = error.message
+    }
+    const denied = { code: 'EACCES', name: 'Error' }
+    for (const line of [invalid, listenRefusal({ code: 'EADDRINUSE' }, 8080), listenRefusal(denied, 80)]) {
+      assert.doesNotMatch(line, STACK_FRAME_RE, line)
+    }
+  })
 })
