@@ -47,25 +47,47 @@
  * latest earlier report by key: every item, notes included, that appeared and went, and whether this
  * file or the config changed between the two, so a moved count is not taken for a moved harness.
  *
+ * REACH, FOR THE REVIEWER. The export `reach(root, rev, paths)` gives each path's row: the pre-push
+ * jobs whose globs match it and those whose imports reach it, the workflow lines whose task or named
+ * entry imports it, and the session hooks whose entry does, all as the commit `rev` declares them.
+ * Its one consumer is `scripts/pr-review.mjs`, whose verdict comment prints the rows as evidence for
+ * a person and decides nothing on them; `docs/decisions.md` § D-26 still holds: this reports and
+ * enforces nothing. Were it wrong, it would describe the wrong tree: read from the working tree, the
+ * branch under review rather than its base; and were it to import a file of the commit, as the
+ * report imports the redirect table, the reviewer would run code it was asked only to read. So it
+ * reads that commit's tree and blobs through git alone, and writes nothing. Its limits: a file read
+ * rather than imported, or of an extension `codeExtensions` does not name, is reached by globs
+ * alone, and so is a path the commit does not track, such as one the pull request adds. Its cost,
+ * measured 2026-10-04 at `67f954f` through Apple's `/usr/bin/git`: three paths in a median of
+ * 167 ms over five runs in one process, every blob read by one `git cat-file --batch`; a spawn per
+ * blob took 1173 ms for the same call, 57 of its 59 spawns reading blobs.
+ *
  * INVOCATION.
  *
  *   mise run harness                      the report for today, compared with the last one
  *   node tools/harness/harness.ts --date 2026-10-02 [--out <dir>]
  *   mise run harness:selftest             the core over fixture repositories, then the graph half
+ *   reach(root, rev, paths), imported     each path's row, as the commit `rev` declares it
  *
  * `HARNESS_ROOT=<dir>` points it at a doctored copy, the top of a git checkout. It exits 0 with
- * findings, which it reports and never enforces, and 1 when an input cannot be read.
+ * findings, which it reports and never enforces, and 1 when an input cannot be read. `reach` throws
+ * an error opening `input: ` for a rev that names no commit.
  *
  * NEEDS git, `js-yaml`, Node's `path.matchesGlob`, `scripts/lib/tasks.mjs`, through which it reads the
  * tasks (`tasks.toml` where the checkout tracks one, `package.json`'s `scripts` otherwise), and the
  * files `tools/harness/harness.config.json` names; the map's sample from `couplingMinSampleUnits` in
- * `tools/policy/tool-settings.json`. No network.
+ * `tools/policy/tool-settings.json`. `reach` needs the commit's objects under `root` and the config
+ * as that commit holds it. No network.
  *
- * KIND: assessment; writes a local report, never a committed artifact.
- * INVARIANTS: reads committed files only; every list sorted by code point; one serialiser; the date
- *   is the run's argument and appears nowhere else; no randomness.
- * RE-ENTRY: a second run with the same date and inputs writes the same bytes.
- * STALE WHEN: any file it read, as its blob ids say; this file or the config.
+ * KIND: assessment; writes a local report, never a committed artifact. `reach` returns its rows and
+ *   writes nothing.
+ * INVARIANTS: reads committed files only, and `reach` the objects of its commit only, importing and
+ *   running none of them; every list sorted by code point; one serialiser; the date is the run's
+ *   argument and appears nowhere else; no randomness.
+ * RE-ENTRY: a second run with the same date and inputs writes the same bytes; `reach` with the same
+ *   commit and paths returns the same rows.
+ * STALE WHEN: any file it read, as its blob ids say; this file or the config. A `reach` row, when its
+ *   commit changes.
  */
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
@@ -162,11 +184,22 @@ const KEYS: { [K in keyof Config]: { ok: (v: unknown) => boolean; shape: string 
 /** What a self-describing record states before its data (`CLAUDE.md` § Three kinds of file). */
 const PREAMBLE = ['describes', 'whyThisFileExists', 'gatedBy', 'whatItDoesNOTDo', 'provenance']
 
-/** The config under `root`, refusing a preamble key, a constant, its `Means` or its shape missing. */
+/** The config under `root`, as `parseConfig` checks it. */
 export function readConfig(root: string): Config {
+  let text: string
+  try {
+    text = readFileSync(join(root, CONFIG), 'utf8')
+  } catch (error) {
+    throw new Error(`config: ${CONFIG} cannot be read: ${(error as Error).message}`)
+  }
+  return parseConfig(text)
+}
+
+/** The config's text, refusing a preamble key, a constant, its `Means` or its shape missing. */
+export function parseConfig(text: string): Config {
   let raw: any
   try {
-    raw = JSON.parse(readFileSync(join(root, CONFIG), 'utf8'))
+    raw = JSON.parse(text)
   } catch (error) {
     throw new Error(`config: ${CONFIG} cannot be read: ${(error as Error).message}`)
   }
@@ -329,6 +362,51 @@ type Scan = { imports: string[]; packages: string[]; reads: string[]; launches: 
 
 /* --------------------------------------------------------------------------------- the repo ------ */
 
+/** Where a run reads the tracked files: their paths, and one path's text. */
+type Source = { tracked: string[]; read: (path: string) => string }
+
+/** The files the index tracks under `root`, read from the working tree. */
+function worktreeSource(root: string): Source {
+  const tracked = gitIn(root)(['ls-files', '-z']).split('\u0000').filter((path) => path !== '')
+  return { tracked, read: (path) => readFileSync(join(root, path), 'utf8') }
+}
+
+/**
+ * The files of the commit `commit`, read from its blobs and never from the working tree: every blob
+ * by one `git cat-file --batch`, since a spawn per file was most of a run's time. Each text runs from
+ * its header to the next blob's, found by the id that header opens with, so no byte count is taken
+ * from decoded text; a text that does not hash back to its id, such as one that is not UTF-8, is read
+ * again on its own.
+ */
+function commitSource(root: string, commit: string): Source {
+  const git = gitIn(root)
+  const entries = git(['ls-tree', '-r', '-z', '--full-tree', commit])
+    .split('\u0000')
+    .filter((line) => line !== '')
+    .map((line) => {
+      const tab = line.indexOf('\t')
+      const [, type, oid] = line.slice(0, tab).split(' ')
+      return { path: line.slice(tab + 1), type, oid }
+    })
+  const blobs = entries.filter((e) => e.type === 'blob')
+  const out = blobs.length === 0 ? '' : git(['cat-file', '--batch'], blobs.map((b) => `${b.oid}\n`).join(''))
+  const texts = new Map<string, { oid: string; text: string }>()
+  for (let n = 0, at = 0; n < blobs.length && out.startsWith(`${blobs[n].oid} blob `, at); n++) {
+    const start = out.indexOf('\n', at) + 1
+    const end = n + 1 < blobs.length ? out.indexOf(`\n${blobs[n + 1].oid} blob `, start) : out.length - 1
+    if (start === 0 || end < start) break
+    texts.set(blobs[n].path, { oid: blobs[n].oid, text: out.slice(start, end) })
+    at = end + 1
+  }
+  return {
+    tracked: entries.map((e) => e.path),
+    read: (path) => {
+      const blob = texts.get(path)
+      return blob !== undefined && blobId(blob.text) === blob.oid ? blob.text : git(['cat-file', 'blob', `${commit}:${path}`])
+    },
+  }
+}
+
 /** Everything the run reads, each file once, with the blob id of what it read. */
 class Repo {
   root: string
@@ -344,12 +422,13 @@ class Repo {
   dependencies: Set<string>
   scans = new Map<string, Scan>()
   closures = new Map<string, Set<string>>()
+  source: Source
 
-  constructor(root: string, cfg: Config) {
+  constructor(root: string, cfg: Config, source: Source = worktreeSource(root)) {
     this.root = root
     this.cfg = cfg
-    const git = gitIn(root)
-    this.tracked = git(['ls-files', '-z']).split('\u0000').filter((path) => path !== '').sort(byCodePoint)
+    this.source = source
+    this.tracked = [...source.tracked].sort(byCodePoint)
     this.trackedSet = new Set(this.tracked)
     this.dirs = new Set()
     for (const file of this.tracked) for (let dir = posix.dirname(file); dir !== '.'; dir = posix.dirname(dir)) this.dirs.add(dir)
@@ -365,7 +444,7 @@ class Repo {
   text(path: string): string | null {
     if (this.read.has(path)) return this.read.get(path)!
     if (!this.trackedSet.has(path)) return null
-    const body = readFileSync(join(this.root, path), 'utf8')
+    const body = this.source.read(path)
     this.read.set(path, body)
     return body
   }
@@ -906,6 +985,72 @@ function pairing(repo: Repo): { section: string; citedBy: string[] }[] {
     const cite = new RegExp(`§\\s*${plain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i')
     return { section: plain, citedBy: sorted(bodies.filter(([, body]) => cite.test(body)).map(([f]) => f)) }
   })
+}
+
+/* --------------------------------------------------------------------------------- reach -------- */
+
+/** What runs one path at a commit: jobs by `<event>/<name>`, steps and hooks by where each is declared. */
+export type ReachRow = { path: string; globJobs: string[]; importJobs: string[]; steps: string[]; hooks: string[] }
+
+/** The full id of the commit `rev` names in `root`; refuses a rev that names none. */
+function commitOf(root: string, rev: string): string {
+  if (rev === '' || rev.startsWith('-')) throw new Error(`input: \`${rev}\` names no commit in ${root}.`)
+  try {
+    return gitIn(root)(['rev-parse', '--verify', `${rev}^{commit}`]).trim()
+  } catch (error) {
+    const message = (error as Error).message
+    if (message.startsWith('git could not start')) throw error
+    throw new Error(`input: \`${rev}\` names no commit in ${root}: ${message}`)
+  }
+}
+
+/**
+ * For each of `paths`, the pre-push jobs whose globs match it and whose imports reach it, the
+ * workflow steps and the session hooks whose entries import it, all as the commit `rev` declares
+ * them: its tree and blobs alone, through git, so neither the working tree nor a file of the
+ * repository is read, imported or run. A path the commit does not track is matched by globs alone.
+ */
+export function reach(root: string, rev: string, paths: string[]): { rev: string; rows: ReachRow[] } {
+  const commit = commitOf(root, rev)
+  const source = commitSource(root, commit)
+  if (!source.tracked.includes(CONFIG)) throw new Error(`config: ${CONFIG} cannot be read: it is not tracked at ${commit}.`)
+  const cfg = parseConfig(source.read(CONFIG))
+  const repo = new Repo(root, cfg, source)
+  const importsOf = (entries: string[]) => new Set(entries.flatMap((entry) => [...repo.closure(entry)]))
+  const jobs = readJobs(repo)
+    .filter((job) => job.event === cfg.prePushEvent)
+    .map((job) => ({ name: `${job.event}/${job.name}`, globs: job.globs, imports: importsOf(jobEntries(repo, job)) }))
+  // Each workflow line and session hook that runs code, as a row names it, with what its entries import.
+  const runners: { kind: 'steps' | 'hooks'; label: string; imports: Set<string> }[] = []
+  for (const workflow of [cfg.ciWorkflow, ...cfg.otherWorkflows]) {
+    for (const line of (repo.text(workflow) ?? '').split('\n').filter((l) => !/^\s*#/.test(l))) {
+      for (const task of repo.scriptsIn(line)) runners.push({ kind: 'steps', label: `${workflow}: mise run ${task}`, imports: importsOf(repo.entriesOf(task)) })
+      for (const entry of repo.pathsIn(line).filter((p) => repo.isCode(p))) runners.push({ kind: 'steps', label: `${workflow}: ${entry}`, imports: repo.closure(entry) })
+    }
+  }
+  const settings = repo.text(cfg.sessionSettings)
+  for (const [event, blocks] of Object.entries(settings === null ? {} : (JSON.parse(settings).hooks ?? {})) as [string, any[]][]) {
+    for (const block of blocks) {
+      for (const hook of block.hooks ?? []) {
+        for (const entry of repo.pathsIn(String(hook.command ?? '')).filter((p) => repo.isCode(p))) {
+          runners.push({ kind: 'hooks', label: `${event}${block.matcher ? ` ${block.matcher}` : ''}: ${entry}`, imports: repo.closure(entry) })
+        }
+      }
+    }
+  }
+  const rows = sorted(paths).map((path) => {
+    // A path new at the head is in no closure at the base; said here rather than left to follow.
+    const tracked = repo.trackedSet.has(path)
+    const by = (kind: 'steps' | 'hooks') => sorted(tracked ? runners.filter((r) => r.kind === kind && r.imports.has(path)).map((r) => r.label) : [])
+    return {
+      path,
+      globJobs: sorted(jobs.filter((job) => job.globs !== null && job.globs.some((g) => matchesGlob(path, g))).map((job) => job.name)),
+      importJobs: sorted(tracked ? jobs.filter((job) => job.imports.has(path)).map((job) => job.name) : []),
+      steps: by('steps'),
+      hooks: by('hooks'),
+    }
+  })
+  return { rev: commit, rows }
 }
 
 /* --------------------------------------------------------------------------------- report ------- */
