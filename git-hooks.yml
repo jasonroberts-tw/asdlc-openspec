@@ -577,7 +577,7 @@ pre-push:
     # 8.82-8.87 s wall through `node --run` (`/usr/bin/time -p`, two runs) on a macOS laptop (Apple M3
     # Max) with Node 26.8.1, 2026-09-29, most of it a clone, a test run and a trace check per case;
     # 15.7-15.8 s with the deadline, SIGTERM and `--tasks` cases, which wait on a sleeping child.
-    # 32.35-113.60 s inside seven forced `npm run gates` runs on 2026-10-03, once the deadline case
+    # 22.89-113.60 s inside nine forced `npm run gates` runs on 2026-10-03, once the deadline case
     # ran only its sleeping child, while sibling worktrees gated on the same machine (load averages
     # of 21 to 79).
     - name: tests-fresh-selftest
