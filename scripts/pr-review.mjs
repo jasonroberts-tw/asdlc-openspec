@@ -1381,14 +1381,15 @@ function frontmatter(text) {
 
 /**
  * The reviewer's four files held to each other: the policy is whole; `pr-review.yml` queues rather
- * than cancels, wakes on `verify.yml`'s runs, filters on the policy's approval label, runs `next`,
- * `brief` and `act` in its jobs' `run:` steps and no subcommand this file lacks, a comment counting
- * for neither, and names an agent that exists; the agent allows exactly its four
- * tools and the run denies every one that runs, writes or reaches out; the review job alone may
- * mint an OIDC token, and authenticates by workload identity federation, its ids Actions secrets and
- * no stored credential beside them to win over them; `next` is told the event, so a run whose token
- * the federation rule refuses takes no review; the job that runs `brief` installs a `bd` that runs;
- * and `verify.yml` has the check the policy requires and can be dispatched.
+ * than cancels, wakes on `verify.yml`'s runs, runs `next`, `brief` and `act` in its jobs' `run:`
+ * steps and no subcommand this file lacks, lets the policy's approval label through the `if:` of the
+ * job that runs `next`, and names in the review step's `claude_args` an agent that exists; the agent
+ * allows exactly its four tools and those `claude_args` deny every one that runs, writes or reaches
+ * out; the review job alone may mint an OIDC token, and authenticates by workload identity
+ * federation, its ids Actions secrets and no stored credential beside them to win over them; `next`
+ * is told the event in its env, so a run whose token the federation rule refuses takes no review;
+ * the job that runs `brief` installs a `bd` that runs; and `verify.yml` has the check the policy
+ * requires and can be dispatched. Each value is read where it takes effect, so a comment counts for none.
  */
 export async function runCheck(root) {
   const failures = []
@@ -1429,21 +1430,18 @@ export async function runCheck(root) {
   if (!String(concurrency.group ?? '').includes('pr-review-queue')) {
     fail(`${WORKFLOW}'s concurrency group does not put the queue's runs in \`pr-review-queue\`, one group for every run that reviews or merges.`)
   }
-  const text = readFileSync(join(root, WORKFLOW), 'utf8')
-  const filtered = [...text.matchAll(/github\.event\.label\.name\s*==\s*'([^']*)'/g)].map((m) => m[1])
-  if (filtered.length === 0 || filtered.some((label) => label !== policy.prReviewLabels.approved)) {
-    fail(
-      `${WORKFLOW} filters on the label ${JSON.stringify(filtered)}, not on \`prReviewLabels.approved\` (\`${policy.prReviewLabels.approved}\`): an approval would wait for the schedule.`,
-    )
-  }
-  // The subcommands are read from the jobs' `run:` steps, each shell comment cut, and never from the
-  // file's text: on 2026-09-28 (asdlc-openspec-08a) a header comment naming `mark` passed this check
-  // for a workflow with no `mark` job, and the same comment written inline was refused (asdlc-openspec-whh).
+  // Every value below is read from the parsed workflow, where it takes effect, and never from the file's
+  // text: on 2026-09-28 (asdlc-openspec-08a) a header comment naming `mark` passed this check for a
+  // workflow with no `mark` job, and the same comment written inline was refused (asdlc-openspec-whh);
+  // on 2026-10-04 a comment carrying the approval label, the agent, a denied tool or EVENT_NAME passed
+  // a workflow that had lost it (asdlc-openspec-k6pd). A step's commands are its `run:` lines, each
+  // shell comment cut, so a comment there counts for nothing either.
   const jobs = workflow?.jobs ?? {}
-  const runOf = (step) => String(step?.run ?? '')
-  const subcommands = Object.values(jobs)
-    .flatMap((job) => (job?.steps ?? []).flatMap((step) => runOf(step).split('\n')))
-    .flatMap((line) => [...line.replace(/(^|\s)#.*$/, '').matchAll(/node scripts\/pr-review\.mjs (\S+)/g)].map((m) => m[1]))
+  const commandsOf = (step) => String(step?.run ?? '').split('\n').map((line) => line.replace(/(^|\s)#.*$/, ''))
+  const subcommandsOf = (step) => commandsOf(step).flatMap((line) => [...line.matchAll(/node scripts\/pr-review\.mjs (\S+)/g)].map((m) => m[1]))
+  const runsSub = (sub) => (step) => subcommandsOf(step).includes(sub)
+  const jobRunning = (sub) => Object.keys(jobs).find((id) => (jobs[id]?.steps ?? []).some(runsSub(sub)))
+  const subcommands = Object.values(jobs).flatMap((job) => (job?.steps ?? []).flatMap(subcommandsOf))
   for (const sub of subcommands) {
     if (!SUBCOMMANDS.includes(sub)) fail(`${WORKFLOW} runs \`node scripts/pr-review.mjs ${sub}\`, which is not one of ${SUBCOMMANDS.join(', ')}.`)
   }
@@ -1451,7 +1449,26 @@ export async function runCheck(root) {
     if (!subcommands.includes(sub)) fail(`${WORKFLOW} never runs \`node scripts/pr-review.mjs ${sub}\`; the queue needs every step.`)
   }
 
-  const agentName = /--agent\s+(\S+)/.exec(text)?.[1]
+  // The job that runs `next` is the queue's door: its `if:` decides which labels wake a run.
+  const selectId = jobRunning('next')
+  const selectIf = String(jobs[selectId]?.if ?? '')
+  const filtered = [...selectIf.matchAll(/github\.event\.label\.name\s*==\s*'([^']*)'/g)].map((m) => m[1])
+  if (filtered.length === 0 || filtered.some((label) => label !== policy.prReviewLabels.approved)) {
+    fail(
+      `${WORKFLOW} filters on the label ${JSON.stringify(filtered)}, not on \`prReviewLabels.approved\` (\`${policy.prReviewLabels.approved}\`): an approval would wait for the schedule.`,
+    )
+  }
+
+  // The agent and the denied tools are read from the review step's `claude_args` as the action reads
+  // them: it drops each line whose first non-blank character is `#` before it parses the rest.
+  const usesAction = (step) => String(step?.uses ?? '').startsWith(ACTION)
+  const reviewId = Object.keys(jobs).find((id) => (jobs[id]?.steps ?? []).some(usesAction))
+  const reviewStep = reviewId ? jobs[reviewId].steps.find(usesAction) : undefined
+  const claudeArgs = String(reviewStep?.with?.claude_args ?? '')
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('#'))
+    .join('\n')
+  const agentName = /--agent\s+(\S+)/.exec(claudeArgs)?.[1]
   const agent = frontmatter(readFileSync(join(root, AGENT), 'utf8'))
   const listed = (value) => String(value ?? '').split(',').map((t) => t.trim()).filter(Boolean)
   if (!agent || agent.name !== agentName) {
@@ -1473,21 +1490,18 @@ export async function runCheck(root) {
       )
     }
   }
-  const usesAction = (step) => String(step?.uses ?? '').startsWith(ACTION)
-  const reviewId = Object.keys(jobs).find((id) => (jobs[id]?.steps ?? []).some(usesAction))
   if (!reviewId) {
     fail(`${WORKFLOW} has no step that uses ${ACTION}.`)
   } else {
     if (jobs[reviewId].permissions?.['id-token'] !== 'write') {
       fail(`${WORKFLOW}'s \`${reviewId}\` job does not request \`id-token: write\`: without GitHub's OIDC token the action has nothing to exchange for an Anthropic token.`)
     }
-    const step = jobs[reviewId].steps.find(usesAction)
-    const inputs = step.with ?? {}
+    const inputs = reviewStep.with ?? {}
     for (const key of SHADOWING_INPUTS.filter((k) => k in inputs)) {
       fail(`${WORKFLOW} passes \`${key}\` to ${ACTION}: a stored credential silently wins over workload identity federation.`)
     }
     // The action falls back to the same credentials from its environment (`inputs.x || env.X`).
-    const envs = [['the workflow', workflow?.env], [`the \`${reviewId}\` job`, jobs[reviewId].env], ['the action step', step.env]]
+    const envs = [['the workflow', workflow?.env], [`the \`${reviewId}\` job`, jobs[reviewId].env], ['the action step', reviewStep.env]]
     for (const [where, env] of envs) {
       for (const name of SHADOWING_INPUTS.map((k) => k.toUpperCase()).filter((n) => n in (env ?? {}))) {
         fail(`${WORKFLOW} sets \`${name}\` in ${where}'s env, which the action falls back to and which silently wins over workload identity federation.`)
@@ -1506,18 +1520,25 @@ export async function runCheck(root) {
       fail(`${WORKFLOW}'s \`${id}\` job requests \`id-token\`; only the job that runs Claude Code may reach Anthropic.`)
     }
   }
-  if (!/EVENT_NAME:\s*\$\{\{\s*github\.event_name\s*\}\}/.test(text)) {
-    fail(`${WORKFLOW} does not pass EVENT_NAME to \`next\`, so a \`pull_request_target\` run could take a review whose OIDC token the federation rule refuses.`)
+  // Each step that runs `next` takes EVENT_NAME from its own env, else its job's, else the workflow's,
+  // as Actions resolves it.
+  const nextSteps = selectId ? jobs[selectId].steps.filter(runsSub('next')) : []
+  const envValue = (name, ...envs) => envs.find((env) => env && Object.hasOwn(env, name))?.[name]
+  for (const step of nextSteps) {
+    const eventName = String(envValue('EVENT_NAME', step.env, jobs[selectId].env, workflow?.env) ?? '')
+    if (!/^\$\{\{\s*github\.event_name\s*\}\}$/.test(eventName)) {
+      fail(`${WORKFLOW} does not pass EVENT_NAME to \`next\`, so a \`pull_request_target\` run could take a review whose OIDC token the federation rule refuses.`)
+    }
   }
 
   // `brief` reads each cited issue with `bd`, which comes from `mise.toml`'s pin through
   // jdx/mise-action (docs/decisions.md § D-31), and an install can leave no binary.
-  const briefId = Object.keys(jobs).find((id) => (jobs[id]?.steps ?? []).some((step) => /node scripts\/pr-review\.mjs brief\b/.test(runOf(step))))
+  const briefId = jobRunning('brief')
   if (briefId) {
     const steps = jobs[briefId].steps ?? []
     const mise = steps.findIndex((step) => /^jdx\/mise-action@/.test(String(step?.uses ?? '')))
-    // Every line of every step's `run`, by step and line, so an order within one step counts too.
-    const lines = steps.flatMap((step, i) => runOf(step).split('\n').map((line, j) => ({ i, j, line: line.trim() })))
+    // Every command of every step, by step and line, so an order within one step counts too.
+    const lines = steps.flatMap((step, i) => commandsOf(step).map((line, j) => ({ i, j, line: line.trim() })))
     const answers = lines.find(({ line }) => /^bd (?:--version|version)\b/.test(line))
     const bootstrap = lines.find(({ line }) => /\bbd bootstrap\b/.test(line))
     const before = (a, b) => a.i < b.i || (a.i === b.i && a.j < b.j)
@@ -1543,7 +1564,7 @@ export async function runCheck(root) {
     }
   }
 
-  const deniedInRun = listed(/--disallowedTools\s+(\S+)/.exec(text)?.[1])
+  const deniedInRun = listed(/--disallowedTools\s+(\S+)/.exec(claudeArgs)?.[1])
   const missingInRun = DENIED_TOOLS.filter((tool) => !deniedInRun.includes(tool))
   if (missingInRun.length > 0) {
     fail(`${WORKFLOW}'s \`--disallowedTools\` does not deny ${missingInRun.join(', ')}, which the agent's own file must not be the only thing denying.`)
@@ -1912,6 +1933,14 @@ function wiringCases() {
     { name: 'a key the reviewer reads is defined in two records', doctor: (dir) => writeFileSync(join(dir, 'tools/policy/other.json'), JSON.stringify({ prReviewMergeMethod: 'merge' })), expect: /cannot be read: `prReviewMergeMethod` is defined in both tools\/policy\/other\.json and tools\/policy\/pr-review\.json/ },
     { name: 'a blocking severity the schema does not have', doctor: editPolicy((p) => { p.prReviewBlockingSeverities.push('nit') }), expect: /names `nit`, which the verdict schema does not have/ },
     { name: 'the approval label renamed in the policy only', doctor: editPolicy((p) => { p.prReviewLabels.approved = 'lgtm' }), expect: /filters on the label .* not on `prReviewLabels\.approved` \(`lgtm`\)/ },
+    {
+      name: 'the select job no longer filters on the approval label, and a comment carries it',
+      doctor: (dir) => {
+        edit(WORKFLOW, "\n      || github.event.label.name == 'review:approved'", '')(dir)
+        edit(WORKFLOW, /^name: pr-review$/m, "#   github.event.label.name == 'review:approved'\nname: pr-review")(dir)
+      },
+      expect: /filters on the label \[\], not on `prReviewLabels\.approved`/,
+    },
     { name: 'the queue cancels a pending run', doctor: edit(WORKFLOW, /^  queue: max\n/m, ''), expect: /must set `queue: max`/ },
     { name: 'the workflow wakes on another workflow\'s runs', doctor: edit(WORKFLOW, "workflows: ['verify']", "workflows: ['build']"), expect: /wakes on the runs of \["build"\]/ },
     { name: 'the workflow runs a subcommand that does not exist', doctor: edit(WORKFLOW, 'node scripts/pr-review.mjs act', 'node scripts/pr-review.mjs merge'), expect: /runs `node scripts\/pr-review\.mjs merge`, which is not one of/ },
@@ -1932,22 +1961,61 @@ function wiringCases() {
     { name: 'a comment names a subcommand that does not exist, and no job runs it', doctor: edit(WORKFLOW, /^name: pr-review$/m, '#   node scripts/pr-review.mjs merge\nname: pr-review'), expect: 'pass' },
     { name: 'no step and no comment names mark, which no job runs', doctor: edit(WORKFLOW, /^#.*node scripts\/pr-review\.mjs mark\n/m, ''), expect: 'pass' },
     { name: 'the agent is renamed without the workflow', doctor: edit(AGENT, /^name: pr-reviewer$/m, 'name: reviewer'), expect: /runs the agent `pr-reviewer`, but .* is named `reviewer`/ },
+    {
+      name: 'the review step runs another agent, and a comment names the reviewer',
+      doctor: (dir) => {
+        edit(WORKFLOW, '--agent pr-reviewer', '--agent some-other-agent')(dir)
+        edit(WORKFLOW, /^name: pr-review$/m, '#   --agent pr-reviewer\nname: pr-review')(dir)
+      },
+      expect: /runs the agent `some-other-agent`, but .* is named `pr-reviewer`/,
+    },
+    {
+      name: 'the review step runs another agent, and a comment line in its claude_args names the reviewer',
+      doctor: edit(WORKFLOW, /^( {10})claude_args: >-\n( {12})--agent pr-reviewer$/m, '$1claude_args: |\n$2# --agent pr-reviewer\n$2--agent some-other-agent'),
+      expect: /runs the agent `some-other-agent`, but .* is named `pr-reviewer`/,
+    },
     { name: 'the agent is given Bash', doctor: edit(AGENT, /^tools: Read, /m, 'tools: Bash, Read, '), expect: /pr-reviewer\.md gives Bash/ },
     { name: 'the agent loses its allowlist, and a denylist leaks', doctor: edit(AGENT, /^tools: .*\n/m, ''), expect: /lists no `tools:`/ },
     { name: 'the agent\'s allowlist leaves out StructuredOutput', doctor: edit(AGENT, ', StructuredOutput', ''), expect: /leaves out StructuredOutput/ },
     { name: 'the workflow stops denying Write', doctor: edit(WORKFLOW, 'Bash,Edit,Write,', 'Bash,Edit,'), expect: /`--disallowedTools` does not deny Write/ },
+    {
+      name: 'the workflow stops denying Write, and a comment denies it',
+      doctor: (dir) => {
+        edit(WORKFLOW, 'Bash,Edit,Write,', 'Bash,Edit,')(dir)
+        edit(WORKFLOW, /^name: pr-review$/m, '#   --disallowedTools Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,Agent,mcp__*\nname: pr-review')(dir)
+      },
+      expect: /`--disallowedTools` does not deny Write/,
+    },
     { name: 'the review job loses id-token: write', doctor: edit(WORKFLOW, /^      id-token: write\n/m, ''), expect: /`review` job does not request `id-token: write`/ },
     { name: 'the merging job gains id-token', doctor: edit(WORKFLOW, '      contents: write\n', '      contents: write\n      id-token: write\n'), expect: /`act` job requests `id-token`/ },
     { name: 'an API key comes back beside the federation ids', doctor: edit(WORKFLOW, '          anthropic_federation_rule_id:', '          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}\n          anthropic_federation_rule_id:'), expect: /passes `anthropic_api_key`/ },
     { name: 'an API key comes back through the review job\'s env', doctor: edit(WORKFLOW, '    env:\n      PR: ${{ needs.select.outputs.pr }}', '    env:\n      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}\n      PR: ${{ needs.select.outputs.pr }}'), expect: /sets `ANTHROPIC_API_KEY` in the `review` job's env/ },
     { name: 'a federation id passed as a variable, which a public log prints', doctor: edit(WORKFLOW, '${{ secrets.ANTHROPIC_ORGANIZATION_ID }}', '${{ vars.ANTHROPIC_ORGANIZATION_ID }}'), expect: /passes `anthropic_organization_id` as .* not as an Actions secret/ },
     { name: 'next is no longer told the event', doctor: edit(WORKFLOW, /^ {10}EVENT_NAME: .*\n/m, ''), expect: /does not pass EVENT_NAME/ },
+    {
+      name: 'next is no longer told the event, and a comment tells it',
+      doctor: (dir) => {
+        edit(WORKFLOW, /^ {10}EVENT_NAME: .*\n/m, '')(dir)
+        edit(WORKFLOW, /^name: pr-review$/m, '#   EVENT_NAME: ${{ github.event_name }}\nname: pr-review')(dir)
+      },
+      expect: /does not pass EVENT_NAME/,
+    },
     { name: 'the review job no longer takes the tracker\'s CLI from mise', doctor: edit(WORKFLOW, "the tracker's CLI among it\n        uses: jdx/mise-action@", "the tracker's CLI among it\n        uses: actions/checkout@"), expect: /runs `brief`, .* but takes no `bd` from `jdx\/mise-action`/ },
     { name: 'the review job\'s mise installs nothing', doctor: edit(WORKFLOW, /(the tracker's CLI among it\n {8}uses: jdx\/mise-action@.*\n {8}with:\n)/, '$1          install: false\n'), expect: /runs jdx\/mise-action with `install: false`/ },
     { name: 'the review job\'s mise installs everything but the tracker\'s CLI', doctor: edit(WORKFLOW, /(the tracker's CLI among it\n {8}uses: jdx\/mise-action@.*\n {8}with:\n)/, '$1          install_args: node gh\n'), expect: /`install_args` that leave out the tracker's CLI/ },
     { name: 'the review job no longer runs bd --version', doctor: edit(WORKFLOW, /^( {8}run: )bd --version$/m, '$1echo skipped'), expect: /does not run `bd --version` after installing `bd` and before `bd bootstrap`/ },
     { name: 'the review job runs bd --version only after bd bootstrap', doctor: edit(WORKFLOW, /^( {8}run: )bd --version\n([\s\S]*?^ {10}bd bootstrap .*\n)/m, '$1echo skipped\n$2          bd --version\n'), expect: /does not run `bd --version` after installing `bd` and before `bd bootstrap`/ },
     { name: 'the review job runs bd --version before mise installs bd', doctor: edit(WORKFLOW, /(^ {6}- name: install the toolchain mise\.toml pins, the tracker's CLI among it\n)/m, '      - run: bd --version\n$1'), expect: /does not run `bd --version` after installing `bd` and before `bd bootstrap`/ },
+    {
+      name: 'a shell comment in another job\'s run names brief',
+      doctor: edit(WORKFLOW, /^( {8})run: node scripts\/pr-review\.mjs next$/m, '$1run: |\n$1  # node scripts/pr-review.mjs brief\n$1  node scripts/pr-review.mjs next'),
+      expect: 'pass',
+    },
+    {
+      name: 'a shell comment names bd bootstrap before bd --version runs',
+      doctor: edit(WORKFLOW, /^( {8})run: bd --version$/m, '$1run: |\n$1  # bd --version answers before bd bootstrap\n$1  bd --version'),
+      expect: 'pass',
+    },
     { name: 'verify loses its dispatch trigger', doctor: edit(VERIFY, /^  workflow_dispatch:\n/m, ''), expect: /cannot be dispatched/ },
     { name: 'verify\'s job no longer carries the required check\'s name', doctor: edit(VERIFY, /^  verify:$/m, '  gates:'), expect: /has no job whose check is `verify`/ },
   ]
