@@ -73,9 +73,10 @@
  * holds those.
  *
  * THE DECISION is a trailer in the last paragraph of a commit message on the branch, where git reads
- * trailers, its key `testInventoryTrailer` in `tools/policy/vocabulary.json`, today:
+ * trailers, its key the value of `testInventoryTrailer` in `tools/policy/vocabulary.json`, written
+ * here as that policy key's name in angle brackets:
  *
- *   Architect-Decision: remove apps/calculator/test/calculator.test.js "[CALC-003] Digits build a number" <reason>
+ *   <testInventoryTrailer>: remove apps/calculator/test/calculator.test.js "[CALC-003] Digits build a number" <reason>
  *
  * The kind is `remove` for a test removed, `skip` for a skip, todo or only added, and `weaken` for
  * fewer assertions; then the test's file, its name in double quotes as the refusal prints it, and a
