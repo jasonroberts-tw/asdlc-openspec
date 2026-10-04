@@ -80,10 +80,11 @@ pre-push:
   # under it. `dir/**/*.ext` reaches a file directly in `dir` too.
   #
   # `run: mise run <task>`: the task from `tasks.toml`, run with the tools `mise.toml` pins first on
-  # PATH and printing only what its command prints (`docs/decisions.md` § D-35). It costs what
-  # `node --run`, the launcher before it, cost: medians of 91-98 ms through `mise run` against 95 ms
-  # through `node --run`, 20 runs each of `counts:check` on a macOS laptop with mise 2026.10.0, and
-  # all 39 pre-push gates gave the same exit status both ways (asdlc-openspec-8juz.1, question 5). A
+  # PATH and printing only what its command prints (`docs/decisions.md` § D-35). It costs a few
+  # milliseconds more than `node --run`, the launcher before it: the spike measured medians of
+  # 91-98 ms through `mise run` against 95 ms through `node --run`, 20 runs each of `counts:check` on
+  # a macOS laptop with mise 2026.10.0, and all 39 pre-push gates gave the same exit status both ways
+  # (asdlc-openspec-8juz.1, question 5); D-35's Figures give each job's gap since the move. A
   # failing task adds one line, `[<task>] ERROR task failed`, after its own output. Unlike
   # `node --run`, it puts no `node_modules/.bin` on PATH, which no gate needs, and it first installs
   # every pin that is missing, failing the task when one cannot install. Each cost note below that
@@ -207,8 +208,9 @@ pre-push:
     # and in `mise.lock` for every platform the policy names, one mise for every workflow's
     # `jdx/mise-action` and the dev container, no second home in a workflow, the Dockerfile or a
     # version file at the root, and no other mise config at any depth, whose names are in the glob for
-    # that reason. Reads those, the tracked file list, the policy through its loader, the TOML and
-    # YAML parsers the manifest and lockfile pin, and what the `mise` on PATH reads from `mise.toml`:
+    # that reason. Reads those, the tracked file list, the policy through its loader, the task loader's
+    # `[task_config]` values, the TOML and YAML parsers the manifest and lockfile pin, and what the
+    # `mise` on PATH reads from `mise.toml`:
     # 0.41 s wall through `node --run` (`/usr/bin/time -p`, the second of two runs; the first took
     # 1.17 s) on a macOS 26.7.1 laptop with Node 26.8.1 and mise 2026.10.0, 2026-10-03; 1.45-1.86 s
     # (two runs, 2026-10-04) with a `pypi:` tool whose uv lock under `.mise/locks/` it hashes and
@@ -235,6 +237,7 @@ pre-push:
         - 'tools/lib/policy.ts'
         - 'tools/lib/git-env.ts'
         - 'scripts/check-toolchain.mjs'
+        - 'scripts/lib/tasks.mjs'
         - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'
@@ -256,6 +259,7 @@ pre-push:
         - 'tools/lib/policy.ts'
         - 'tools/lib/git-env.ts'
         - 'scripts/check-toolchain.mjs'
+        - 'scripts/lib/tasks.mjs'
         - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'

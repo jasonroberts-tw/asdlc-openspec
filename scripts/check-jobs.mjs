@@ -127,7 +127,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { load as yamlLoad } from 'js-yaml'
 import { parse as parseToml } from 'smol-toml'
-import { PACKAGE_JSON, TASKS_TOML, loadTasks, parseTasks, taskFiles } from './lib/tasks.mjs'
+import { PACKAGE_JSON, TASKS_TOML, TASK_CONFIG as TASK_CONFIG_VALUES, loadTasks, parseTasks, taskFiles } from './lib/tasks.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ROOT = process.env.CHECK_JOBS_ROOT ?? REPO_ROOT
@@ -140,13 +140,13 @@ const JOB_FILES = [HOOK_JOBS, VERIFY]
 /** What `mise.toml`'s `[task_config]` must hold beside a `tasks.toml` (assertion 6), each with what goes wrong without it. */
 const TASK_CONFIG = {
   dir: {
-    value: '{{cwd}}',
+    value: TASK_CONFIG_VALUES.dir,
     why:
       'a task a worktree lacks resolves to the primary checkout\'s, and then runs on the primary\'s files, so a gate' +
       ' passes on the wrong tree (asdlc-openspec-8juz.1, question 1).',
   },
   includes: {
-    value: [TASKS_TOML],
+    value: TASK_CONFIG_VALUES.includes,
     why: `mise then reads none of ${TASKS_TOML}'s tasks, so every job, CI step and \`runTask\` launch fails.`,
   },
 }
@@ -154,9 +154,10 @@ const TASK_CONFIG = {
 /**
  * An invocation token inside a `run:` string: group 1 or 2 the launcher, group 3 the script.
  * `mise run` is the hooks' and CI's spelling, with `-q` or `--quiet` as `runTask` passes it; never
- * `--silent` there, which in mise silences the task's own output. It costs what `node --run`, the
- * hooks' launcher before it, cost: medians of 91-98 ms through `mise run` against 95 ms through
- * `node --run`, over 20 runs of `counts:check` (asdlc-openspec-8juz.1, question 5). `npm run`, with
+ * `--silent` there, which in mise silences the task's own output. It costs a few milliseconds more
+ * than `node --run`, the hooks' launcher before it: the spike measured medians of 91-98 ms through
+ * `mise run` against 95 ms through `node --run`, over 20 runs of `counts:check`
+ * (asdlc-openspec-8juz.1, question 5), and `docs/decisions.md` § D-35 each job's gap. `npm run`, with
  * the `--silent` npm's launcher took, and `node --run` read `package.json` alone, and resolve there.
  */
 const RUN_TOKEN_RE = /\b(?:(npm run|node --run) (?:--silent )?|(mise run) (?:-q |--quiet )?)([A-Za-z0-9][A-Za-z0-9:._-]*)/g
