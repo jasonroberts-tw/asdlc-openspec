@@ -1380,6 +1380,30 @@ function frontmatter(text) {
 }
 
 /**
+ * A `claude_args` value as claude-code-action reads it (`base-action/src/parse-sdk-options.ts`): each
+ * line whose first non-blank character is `#` dropped, then the rest cut at the first `#` outside
+ * quotes and not escaped, after which shell-quote's `parse` keeps nothing. A folded `>-` value is one
+ * line, so a comment line inside it ends the arguments rather than being dropped.
+ */
+function claudeArgsAsRead(value) {
+  const text = String(value ?? '')
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('#'))
+    .join('\n')
+  let quote = null
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (quote) {
+      if (c === quote) quote = null
+      else if (quote === '"' && c === '\\') i++
+    } else if (c === '"' || c === "'") quote = c
+    else if (c === '\\') i++
+    else if (c === '#') return text.slice(0, i)
+  }
+  return text
+}
+
+/**
  * The reviewer's four files held to each other: the policy is whole; `pr-review.yml` queues rather
  * than cancels, wakes on `verify.yml`'s runs, runs `next`, `brief` and `act` in its jobs' `run:`
  * steps and no subcommand this file lacks, lets the policy's approval label through the `if:` of the
@@ -1460,15 +1484,11 @@ export async function runCheck(root) {
   }
 
   // The agent and the denied tools are read from the review step's `claude_args` as the action reads
-  // them: it drops each line whose first non-blank character is `#` before it parses the rest, and of
-  // two `--agent` flags the last wins.
+  // them, a comment cut, and of two `--agent` flags the last wins, as it does in the action.
   const usesAction = (step) => String(step?.uses ?? '').startsWith(ACTION)
   const reviewId = Object.keys(jobs).find((id) => (jobs[id]?.steps ?? []).some(usesAction))
   const reviewStep = reviewId ? jobs[reviewId].steps.find(usesAction) : undefined
-  const claudeArgs = String(reviewStep?.with?.claude_args ?? '')
-    .split('\n')
-    .filter((line) => !line.trim().startsWith('#'))
-    .join('\n')
+  const claudeArgs = claudeArgsAsRead(reviewStep?.with?.claude_args)
   const agentName = [...claudeArgs.matchAll(/--agent\s+(\S+)/g)].at(-1)?.[1]
   const agent = frontmatter(readFileSync(join(root, AGENT), 'utf8'))
   const listed = (value) => String(value ?? '').split(',').map((t) => t.trim()).filter(Boolean)
@@ -1989,6 +2009,11 @@ function wiringCases() {
       doctor: edit(WORKFLOW, /^( {12})--agent pr-reviewer$/m, '$1--agent pr-reviewer\n$1--agent some-other-agent'),
       expect: /runs the agent `some-other-agent`, but .* is named `pr-reviewer`/,
     },
+    {
+      name: 'the review step runs another agent, and a comment folded into its claude_args names the reviewer',
+      doctor: edit(WORKFLOW, /^( {12})--agent pr-reviewer$/m, '$1--agent some-other-agent\n$1# --agent pr-reviewer'),
+      expect: /runs the agent `some-other-agent`, but .* is named `pr-reviewer`/,
+    },
     { name: 'the agent is given Bash', doctor: edit(AGENT, /^tools: Read, /m, 'tools: Bash, Read, '), expect: /pr-reviewer\.md gives Bash/ },
     { name: 'the agent loses its allowlist, and a denylist leaks', doctor: edit(AGENT, /^tools: .*\n/m, ''), expect: /lists no `tools:`/ },
     { name: 'the agent\'s allowlist leaves out StructuredOutput', doctor: edit(AGENT, ', StructuredOutput', ''), expect: /leaves out StructuredOutput/ },
@@ -2012,6 +2037,22 @@ function wiringCases() {
       doctor: (dir) => {
         edit(WORKFLOW, /^ {10}EVENT_NAME: .*\n/m, '')(dir)
         edit(WORKFLOW, /^name: pr-review$/m, '#   EVENT_NAME: ${{ github.event_name }}\nname: pr-review')(dir)
+      },
+      expect: /does not pass EVENT_NAME/,
+    },
+    {
+      name: 'next is told the event by its job\'s env',
+      doctor: (dir) => {
+        edit(WORKFLOW, /^ {10}EVENT_NAME: .*\n/m, '')(dir)
+        edit(WORKFLOW, '    outputs:\n      action:', '    env:\n      EVENT_NAME: ${{ github.event_name }}\n    outputs:\n      action:')(dir)
+      },
+      expect: 'pass',
+    },
+    {
+      name: 'next\'s own env overrides its job\'s event with another value',
+      doctor: (dir) => {
+        edit(WORKFLOW, /^( {10})EVENT_NAME: .*$/m, '$1EVENT_NAME: push')(dir)
+        edit(WORKFLOW, '    outputs:\n      action:', '    env:\n      EVENT_NAME: ${{ github.event_name }}\n    outputs:\n      action:')(dir)
       },
       expect: /does not pass EVENT_NAME/,
     },
