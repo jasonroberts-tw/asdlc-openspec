@@ -172,14 +172,19 @@ const primary = join(repo, 'primary')
 /**
  * The environment for the scratch repository, with every `GIT_*` variable removed.
  *
- * THIS IS NOT HYGIENE, IT IS THE DIFFERENCE BETWEEN A TEST AND AN INCIDENT. `git push` exports
- * `GIT_DIR` into its hooks, so a `git` call made from a pre-push hook inherits it and operates on
- * THE REAL REPOSITORY no matter what `cwd` it is given. Run without this scrub, these cases
- * registered both scratch worktrees against the actual repo, created their branches in it, wrote
- * `user.email=selftest@example.invalid` into `.git/config` -- which would have misattributed every
- * later commit -- and flipped `core.bare` to `true` on the primary checkout. It passed under
- * `lefthook run pre-push`, where those variables are absent, and failed only under a real push: the
- * worst possible split, because the failing run is the one that also does the damage.
+ * THIS IS NOT HYGIENE, IT IS THE DIFFERENCE BETWEEN A TEST AND AN INCIDENT. Run from a linked
+ * worktree, which is where agents push here, `git push` exports `GIT_DIR` (that worktree's absolute
+ * git directory) into its pre-push hook, and `git commit` exports it into pre-commit with an
+ * absolute `GIT_INDEX_FILE`, so a `git` call made from either hook inherits them and operates on
+ * THE REAL REPOSITORY no matter what `cwd` it is given. From the primary checkout neither hook gets
+ * `GIT_DIR`, pre-commit gets the relative `GIT_INDEX_FILE=.git/index`, and no hook from either
+ * kind of checkout gets `GIT_WORK_TREE`. Measured on Git 2.54.0 (Apple Git-157) on 2026-10-03,
+ * in scratch repositories, with the other hooks in `tools/lib/git-env.ts`. Run without this scrub,
+ * these cases registered both scratch worktrees against the actual repo, created their branches in
+ * it, wrote `user.email=selftest@example.invalid` into `.git/config` -- which would have
+ * misattributed every later commit -- and flipped `core.bare` to `true` on the primary checkout. It
+ * passed under `lefthook run pre-push`, where those variables are absent, and failed only under a
+ * real push: the worst possible split, because the failing run is the one that also does the damage.
  *
  * `GIT_CONFIG_GLOBAL` and `GIT_CONFIG_SYSTEM` are pinned to /dev/null for the same reason in the
  * other direction: the scratch repo must not read or write the developer's own git configuration.

@@ -3,12 +3,29 @@
  * against a tree other than this checkout; `gitIn`, which runs git in one tree with it; and
  * `SCRATCH_GIT_ENV`, the environment of a scratch repository a tool builds for itself.
  *
- * THE FAILURE IT EXISTS TO PREVENT. Git exports `GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` to
- * every hook, and `GIT_DIR` outranks both `cwd` and `-C <dir>`. A tool that builds a scratch
- * repository and runs git in it from inside a pre-push hook then reads or writes THIS repository
- * while claiming to read the scratch one. No incident yet here: if this were wrong,
- * `citations:selftest` would pass at the prompt and at the hook for different reasons, and it
- * asserts that `gitEnv()` leaks no `GIT_*` key.
+ * THE FAILURE IT EXISTS TO PREVENT. A hook git runs from a linked worktree inherits `GIT_DIR`, that
+ * worktree's absolute git directory, and `GIT_DIR` outranks both `cwd` and `-C <dir>`. A tool that
+ * builds a scratch repository and runs git in it from inside such a hook then reads or writes THIS
+ * repository while claiming to read the scratch one. Agents push here from linked worktrees, and
+ * `npm run gates` runs the pre-push hook there through `git hook run`, which exports the same.
+ * Measured on Git 2.54.0 (Apple Git-157) on 2026-10-03, in scratch repositories, through classic
+ * `.git/hooks` scripts and config-based `hook.<name>.command` entries alike, for pre-commit,
+ * prepare-commit-msg, post-checkout, post-merge and pre-push:
+ *   - from a linked worktree, top level or subdirectory, every one of them gets `GIT_DIR`
+ *     (`<common>/.git/worktrees/<name>`), pre-commit and prepare-commit-msg also get an absolute
+ *     `GIT_INDEX_FILE` (that directory's `index`), and in each hook `git -C <other>` and git run in
+ *     `<other>` both answered for the worktree, not for `<other>`;
+ *   - from the primary checkout, top level, subdirectory or `git -C`, none gets `GIT_DIR`,
+ *     pre-commit and prepare-commit-msg get the relative `GIT_INDEX_FILE=.git/index`, and git run
+ *     elsewhere answered for where it ran; so did the post-checkout `git worktree add` runs in the
+ *     new worktree;
+ *   - no hook from either got `GIT_WORK_TREE`.
+ * Every `GIT_*` key is dropped all the same, because an index named by an absolute path is as
+ * wrong for a scratch repository as a git directory is, and a caller may set any of them. The
+ * incident: on 2026-10-01 `code-graph:selftest`, run by the pre-push hook from a linked worktree,
+ * committed its fixture onto the branch being pushed, because its git calls kept the hook's
+ * `GIT_DIR`; commit 21e4a95 moved them onto `gitEnv()`. `citations:selftest` asserts that
+ * `gitEnv()` leaks no `GIT_*` key.
  *
  * WHAT A RETIREMENT TOOK OUT. This function came from `tools/lib/sibling-root.ts`, which
  * `docs/decisions.md` § D-15 deleted with the pipeline graph: `resolveSiblingRoot` and
