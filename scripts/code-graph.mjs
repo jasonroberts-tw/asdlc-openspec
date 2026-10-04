@@ -73,14 +73,15 @@
  * or a flag is wrong.
  *
  * `--selftest` runs the script, through `CODE_GRAPH_ROOT`, against a fixture git repository under the
- * temporary directory, with stub graphify, graphify-mcp and claude first on a PATH from which the real
- * ones are removed. Each case changes one thing and asserts the exit code and the reason: each
+ * temporary directory, with stub graphify, graphify-mcp, claude and mise first on a PATH from which the
+ * real ones are removed, the stub mise naming a graphify-mcp of its own outside that PATH. Each case
+ * changes one thing and asserts the exit code and the reason: each
  * partial-extraction text, a failing extract, a matching, a stale and a prefix-matching registration,
  * the graph's blob id against git's, a combined graph that is current, of another build, of no
  * recorded build, unreadable, with no graph.json beside it and made stale by a build, a build with
  * `--no-mcp` and a failing one that each warn the server may still be on a combined graph, an empty
- * lock, one whose holder has exited and a live one, a missing or wrong-version graphify, an MCP server
- * without its tools, saved answers,
+ * lock, one whose holder has exited and a live one, a missing or wrong-version graphify, a mise that
+ * cannot say where graphify-mcp is, an MCP server without its tools, saved answers,
  * graphify's own git hook, `--code-only --no-mcp` with no claude, two bad flag sets, and a run under
  * a hook's exported `GIT_DIR`. That last case is the selftest's own incident: on 2026-10-01, run by
  * the pre-push hook, it committed its fixture onto the branch being pushed, because git exports
@@ -92,9 +93,12 @@
  * stand-in a job can run for a script that reads a language model (asdlc-openspec-i3c, carried with
  * D-20), a pre-push job and a CI step; it is skipped on Windows, whose shell runs no POSIX stub.
  *
- * WHAT IT NEEDS. graphify with its MCP extra at the version `graphifyVersion` in
- * `tools/policy/tool-settings.json` pins (`uv tool install "graphifyy[mcp]==<version>"`), read from
- * the records beside this script through `tools/lib/policy.ts`; the `claude` CLI, logged in to a
+ * WHAT IT NEEDS. graphify with its MCP extra at the release `mise.toml` pins as `pypi:graphifyy`,
+ * which `mise install` installs (`docs/decisions.md` § D-35), read from the `mise.toml` beside this
+ * script with the pinned `smol-toml`; `mise`, which says where that release's `graphify-mcp` is, so
+ * the server is registered at the installed file and not at a shim, which resolves by the directory
+ * Claude Code starts it from and that directory's trust; the other graphify keys, from the records
+ * beside this script through `tools/lib/policy.ts`; the `claude` CLI, logged in to a
  * plan, unless `--code-only --no-mcp`; the network, for the document layer. It writes the graph
  * into the primary checkout whichever checkout runs it, and a `graphify` entry into `~/.claude.json`
  * under the primary checkout's path, which Claude Code also reads for that repository's linked
@@ -125,6 +129,7 @@ import {
 import { tmpdir } from 'node:os'
 import { delimiter, dirname, extname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parse as parseToml } from 'smol-toml'
 import { gitEnv } from '../tools/lib/git-env.ts'
 import { readPolicy } from '../tools/lib/policy.ts'
 
@@ -132,7 +137,12 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const POLICY_ROOT = resolve(HERE, '..')
 /** The record that holds the graphify keys, named in a refusal. */
 const POLICY_RECORD = 'tools/policy/tool-settings.json'
-const POLICY_KEYS = ['graphifyVersion', 'graphifyClaudeCliModel', 'graphifySemanticExtensions', 'graphifyOutDir', 'graphifyMcpServerName', 'graphifyCombinedGraphFile', 'graphifyCombinedGraphBlobField']
+const POLICY_KEYS = ['graphifyClaudeCliModel', 'graphifySemanticExtensions', 'graphifyOutDir', 'graphifyMcpServerName', 'graphifyCombinedGraphFile', 'graphifyCombinedGraphBlobField']
+/** The one home of graphify's release (`docs/decisions.md` § D-35), and the tool it pins it under. */
+const MISE_TOML = 'mise.toml'
+const GRAPHIFY_TOOL = 'pypi:graphifyy'
+/** How a refusal says to install the pinned graphify. */
+const INSTALL = '`mise install`, in a checkout of this repository'
 /** graphify's partial-extraction texts (its cli.py lines 4053, 4116-4123 and the chunk and coverage warnings of its llm.py). */
 const INCOMPLETE = [
   /semantic chunk\(s\) failed/,
@@ -211,8 +221,33 @@ function onPath(name) {
   return null
 }
 
-function installLine(policy) {
-  return `uv tool install "graphifyy[mcp]==${policy.graphifyVersion}" --force`
+/** The graphify release the `mise.toml` beside this script pins. */
+function graphifyPin() {
+  let tools
+  try {
+    tools = parseToml(readFileSync(join(POLICY_ROOT, MISE_TOML), 'utf8')).tools ?? {}
+  } catch (error) {
+    throw new Stop(2, `${MISE_TOML} cannot be read: ${String(error.message).split('\n')[0]}`)
+  }
+  const pin = tools[GRAPHIFY_TOOL]
+  const version = typeof pin === 'string' ? pin : pin?.version
+  if (typeof version !== 'string') throw new Stop(2, `${MISE_TOML} pins no \`${GRAPHIFY_TOOL}\`, the graphify this script builds with`)
+  return version
+}
+
+/**
+ * The installed file `mise which` gives for `name`, resolved from the `mise.toml` beside this script.
+ * Not the shim, which resolves by the directory it is started from and that directory's trust, and
+ * which Claude Code starts the server from wherever it runs.
+ */
+function miseWhich(name) {
+  const r = spawnSync('mise', ['which', name], { cwd: POLICY_ROOT, encoding: 'utf8' })
+  const path = (r.stdout || '').trim()
+  if (r.error || r.status !== 0 || !path) {
+    const why = r.error ? r.error.message : (r.stderr || '').trim().split('\n').pop() || `exit ${r.status}`
+    throw new Stop(2, `mise cannot say where ${name} is installed (${why}). Install it: ${INSTALL}`)
+  }
+  return path
 }
 
 /** Start the server, ask for its tools over JSON-RPC, and expect `query_graph`: being on PATH proves nothing, the `mcp` package may be missing. */
@@ -263,22 +298,22 @@ function probeMcp(mcpBin, graphPath) {
   })
 }
 
-async function preflight(policy, flags, graphPath) {
+async function preflight(pin, flags, graphPath) {
   const tools = {}
   const needClaude = !flags.noMcp || (!flags.mcpOnly && !flags.codeOnly)
   tools.graphify = onPath('graphify')
-  tools.mcp = onPath('graphify-mcp')
   tools.claude = needClaude ? onPath('claude') : null
-  if (!tools.graphify || !tools.mcp) throw new Stop(2, `graphify is not on PATH. Install it: ${installLine(policy)}`)
+  if (!tools.graphify) throw new Stop(2, `graphify is not on PATH. Install it: ${INSTALL}`)
   if (needClaude && !tools.claude) throw new Stop(2, 'the `claude` CLI is not on PATH; it extracts the documents and registers the server')
   const version = spawnSync(tools.graphify, ['--version'], { encoding: 'utf8', env: { ...process.env, GRAPHIFY_NO_AUTO_REFRESH: '1' } })
   const found = (version.stdout || '').trim().split(/\s+/).pop()
-  if (found !== policy.graphifyVersion) {
-    throw new Stop(2, `graphify ${found || '(unreadable)'} is installed; ${POLICY_RECORD} pins ${policy.graphifyVersion}. Install it: ${installLine(policy)}`)
+  if (found !== pin) {
+    throw new Stop(2, `graphify ${found || '(unreadable)'} is the first on PATH; ${MISE_TOML} pins ${pin}. Install it: ${INSTALL}`)
   }
   if (!flags.noMcp) {
+    tools.mcp = miseWhich('graphify-mcp')
     const probe = await probeMcp(tools.mcp, graphPath)
-    if (!probe.ok) throw new Stop(2, `graphify-mcp does not serve the graph tools (${probe.why}). Install the MCP extra: ${installLine(policy)}`)
+    if (!probe.ok) throw new Stop(2, `graphify-mcp does not serve the graph tools (${probe.why}). Install it with its MCP extra: ${INSTALL}`)
   }
   return tools
 }
@@ -547,6 +582,13 @@ appendFileSync(process.env.STUB_LOG, JSON.stringify({ tool: 'claude', args, cwd:
 process.exit(0)
 `
 
+/** `mise which <name>`: the file of that name in the directory the case gives, outside the stubs' PATH, or a failure. */
+const STUB_MISE = `const [cmd, name] = process.argv.slice(2)
+if (cmd !== 'which') { console.error('stub mise: only which'); process.exit(2) }
+if (process.env.STUB_MISE_WHICH_FAIL === '1') { console.error('mise ERROR ' + name + ' is not a mise bin. Perhaps you need to install it?'); process.exit(1) }
+console.log(process.env.STUB_MISE_WHICH_DIR + '/' + name)
+`
+
 /** The graph the stub's `extract` writes: parser items, LLM items, and an LLM edge graphify filled with a code file. */
 function fixtureGraph() {
   return {
@@ -580,7 +622,9 @@ function makeCase(base, name, policy) {
   const repo = join(dir, 'repo')
   const bin = join(dir, 'bin')
   const stubs = join(dir, 'stubs')
-  for (const path of [repo, bin, stubs]) mkdirSync(path, { recursive: true })
+  // Where the stub mise says graphify's release is installed: off PATH, as mise's install directory is.
+  const installs = join(dir, 'mise-installs')
+  for (const path of [repo, bin, stubs, installs]) mkdirSync(path, { recursive: true })
   writeFileSync(join(repo, 'notes.md'), '# Notes\n\nThe `adder` function in add.js sums two numbers.\n')
   writeFileSync(join(repo, 'add.js'), 'export function adder(a, b) {\n  return a + b\n}\n')
   const git = (args) => {
@@ -590,10 +634,11 @@ function makeCase(base, name, policy) {
   git(['init', '-q'])
   git(['add', 'notes.md', 'add.js'])
   git(['-c', 'user.name=code-graph selftest', '-c', 'user.email=selftest@example.invalid', 'commit', '-q', '-m', 'fixture'])
-  for (const [tool, source] of [['graphify', STUB_GRAPHIFY], ['graphify-mcp', STUB_MCP], ['claude', STUB_CLAUDE]]) {
+  for (const [tool, source] of [['graphify', STUB_GRAPHIFY], ['graphify-mcp', STUB_MCP], ['claude', STUB_CLAUDE], ['mise', STUB_MISE]]) {
     writeFileSync(join(stubs, `${tool}.mjs`), source)
     writeFileSync(join(bin, tool), `#!/bin/sh\nexec "${process.execPath}" "${join(stubs, `${tool}.mjs`)}" "$@"\n`, { mode: 0o755 })
   }
+  writeFileSync(join(installs, 'graphify-mcp'), `#!/bin/sh\nexec "${process.execPath}" "${join(stubs, 'graphify-mcp.mjs')}" "$@"\n`, { mode: 0o755 })
   const graphFile = join(dir, 'fixture-graph.json')
   writeFileSync(graphFile, JSON.stringify(fixtureGraph(), null, 2))
   const log = join(dir, 'calls.log')
@@ -604,6 +649,8 @@ function makeCase(base, name, policy) {
     bin,
     log,
     outDir,
+    /** The graphify-mcp the stub mise names, which the server must be registered at. */
+    mcp: join(installs, 'graphify-mcp'),
     graphPath: join(outDir, 'graph.json'),
     run(flags, extraEnv = {}) {
       const env = { ...gitEnv(), ...extraEnv }
@@ -613,7 +660,8 @@ function makeCase(base, name, policy) {
         CODE_GRAPH_ROOT: repo,
         STUB_LOG: log,
         STUB_GRAPH_FILE: graphFile,
-        STUB_GRAPHIFY_VERSION: extraEnv.STUB_GRAPHIFY_VERSION || policy.graphifyVersion,
+        STUB_GRAPHIFY_VERSION: extraEnv.STUB_GRAPHIFY_VERSION || graphifyPin(),
+        STUB_MISE_WHICH_DIR: installs,
       })
       const r = spawnSync(process.execPath, [SCRIPT, ...flags], { env, encoding: 'utf8', timeout: 60000 })
       return { status: r.status, out: `${r.stdout}${r.stderr}` }
@@ -653,7 +701,8 @@ async function selftest() {
       check('control: graphify runs with safe mode, the policy model and folder, from outside the repository', extract && extract.safe === '1' && extract.model === policy.graphifyClaudeCliModel && extract.out === policy.graphifyOutDir && ![c.repo, realpathSync(c.repo)].some((p) => extract.cwd.startsWith(p)), JSON.stringify(extract))
       check('control: an exported ANTHROPIC_API_KEY is withheld from graphify, and the run says so', extract && extract.apiKey === false && /not passing ANTHROPIC_API_KEY/.test(r.out), r.out)
       check('control: cluster-only names communities with the policy model', cluster && cluster.rest.join(' ').includes(`--model ${policy.graphifyClaudeCliModel}`), JSON.stringify(cluster))
-      check('control: the server is added at local scope, from the checkout, under the policy name, pointing at the graph', add && add.args.join(' ') === `mcp add --scope local ${policy.graphifyMcpServerName} -- ${join(c.bin, 'graphify-mcp')} ${c.graphPath}` && realpathSync(add.cwd) === realpathSync(c.repo), JSON.stringify(add))
+      check('control: the server is added at local scope, from the checkout, under the policy name, pointing at the graph', add && add.args.join(' ') === `mcp add --scope local ${policy.graphifyMcpServerName} -- ${c.mcp} ${c.graphPath}` && realpathSync(add.cwd) === realpathSync(c.repo), JSON.stringify(add))
+      check('control: the server is the graphify-mcp mise names, not the one first on PATH', add && add.args.at(-2) === c.mcp && c.mcp !== join(c.bin, 'graphify-mcp'), JSON.stringify(add))
       check('control: with no combined graph, the run says the server is on graph.json for that reason', /on .*graph\.json: no combined graph at /.test(r.out), r.out)
       check('control: the lock is released', !existsSync(join(c.outDir, '.code-graph.lock')), '')
     }
@@ -697,16 +746,25 @@ async function selftest() {
     }
     {
       const c = makeCase(base, 'registered', policy)
-      const get = `${policy.graphifyMcpServerName}:\n  Scope: Local config (private to you in this project)\n  Type: stdio\n  Command: ${join(c.bin, 'graphify-mcp')}\n  Args: ${c.graphPath}\n`
+      const get = `${policy.graphifyMcpServerName}:\n  Scope: Local config (private to you in this project)\n  Type: stdio\n  Command: ${c.mcp}\n  Args: ${c.graphPath}\n`
       const r = c.run(['--mcp-only'], { STUB_MCP_GET: get })
       check('a matching local registration is left alone', r.status === 0 && /already registered/.test(r.out) && c.calls().length === 0, r.out)
     }
     {
       const c = makeCase(base, 'stale-registration', policy)
-      const get = `${policy.graphifyMcpServerName}:\n  Scope: Local config (private to you in this project)\n  Type: stdio\n  Command: ${join(c.bin, 'graphify-mcp')}\n  Args: /elsewhere/graph.json\n`
+      const get = `${policy.graphifyMcpServerName}:\n  Scope: Local config (private to you in this project)\n  Type: stdio\n  Command: ${c.mcp}\n  Args: /elsewhere/graph.json\n`
       const r = c.run(['--mcp-only'], { STUB_MCP_GET: get })
       const args = c.calls().map((call) => call.args.slice(0, 2).join(' '))
       check('a local registration pointing elsewhere is removed, then added again', r.status === 0 && args.join(',') === 'mcp remove,mcp add', `${r.out} ${args}`)
+    }
+    {
+      // A registration from before mise, at the graphify-mcp a shim or `uv tool install` put on PATH.
+      const c = makeCase(base, 'path-registration', policy)
+      const get = `${policy.graphifyMcpServerName}:\n  Scope: Local config (private to you in this project)\n  Type: stdio\n  Command: ${join(c.bin, 'graphify-mcp')}\n  Args: ${c.graphPath}\n`
+      const r = c.run(['--mcp-only'], { STUB_MCP_GET: get })
+      const calls = c.calls()
+      const add = calls.find((call) => call.args[1] === 'add')
+      check("a registration at another graphify-mcp than mise's is moved to mise's", r.status === 0 && calls.map((call) => call.args.slice(0, 2).join(' ')).join(',') === 'mcp remove,mcp add' && add?.args.at(-2) === c.mcp, `${r.out} ${JSON.stringify(calls)}`)
     }
     // The harness's combined graph (docs/decisions.md § D-28): registered only while it records the
     // blob id of the graph.json beside it, so a rebuild is never hidden behind the build before's.
@@ -752,7 +810,7 @@ async function selftest() {
     }
     {
       const c = makeCase(base, 'registered-prefix', policy)
-      const get = `${policy.graphifyMcpServerName}:\n  Scope: Local config (private to you in this project)\n  Type: stdio\n  Command: ${join(c.bin, 'graphify-mcp')}\n  Args: ${c.graphPath}.combined\n`
+      const get = `${policy.graphifyMcpServerName}:\n  Scope: Local config (private to you in this project)\n  Type: stdio\n  Command: ${c.mcp}\n  Args: ${c.graphPath}.combined\n`
       const r = c.run(['--mcp-only'], { STUB_MCP_GET: get })
       const args = c.calls().map((call) => call.args.slice(0, 2).join(' '))
       check('a registration on a file whose path the graph is a prefix of is moved, not taken as matching', r.status === 0 && args.join(',') === 'mcp remove,mcp add', `${r.out} ${args}`)
@@ -799,12 +857,18 @@ async function selftest() {
       const c = makeCase(base, 'no-graphify', policy)
       rmSync(join(c.bin, 'graphify'))
       const r = c.run(['--no-mcp'])
-      check('graphify missing from PATH exits 2 with the install line', r.status === 2 && /not on PATH/.test(r.out) && r.out.includes(`graphifyy[mcp]==${policy.graphifyVersion}`), r.out)
+      check('graphify missing from PATH exits 2, naming mise install', r.status === 2 && /graphify is not on PATH\. Install it: `mise install`/.test(r.out), r.out)
     }
     {
+      // Another graphify earlier on PATH than mise's: one `uv tool install` left behind, for one.
       const c = makeCase(base, 'wrong-version', policy)
       const r = c.run(['--no-mcp'], { STUB_GRAPHIFY_VERSION: '0.0.1' })
-      check('a graphify other than the pinned release exits 2', r.status === 2 && /pins/.test(r.out), r.out)
+      check("a graphify first on PATH other than mise.toml's pin exits 2, naming mise install", r.status === 2 && r.out.includes(`graphify 0.0.1 is the first on PATH; mise.toml pins ${graphifyPin()}. Install it: \`mise install\``), r.out)
+    }
+    {
+      const c = makeCase(base, 'mise-which-fails', policy)
+      const r = c.run([], { STUB_MISE_WHICH_FAIL: '1' })
+      check('a mise that cannot say where graphify-mcp is installed exits 2, naming mise install', r.status === 2 && /mise cannot say where graphify-mcp is installed \(mise ERROR graphify-mcp is not a mise bin\..*\)\. Install it: `mise install`/.test(r.out), r.out)
     }
     {
       const c = makeCase(base, 'mcp-broken', policy)
@@ -857,7 +921,7 @@ async function main() {
   const graphPath = join(outDir, 'graph.json')
   const server = policy.graphifyMcpServerName
   console.log(`code-graph: ${flags.mcpOnly ? 'registering' : 'building'} ${root} at ${git(root, ['rev-parse', '--short', 'HEAD'])}`)
-  const tools = await preflight(policy, flags, graphPath)
+  const tools = await preflight(graphifyPin(), flags, graphPath)
   if (!flags.mcpOnly) {
     refuseGraphifyHooks(root)
     refuseMemory(outDir)

@@ -193,7 +193,8 @@ pre-push:
     # that reason. Reads those, the tracked file list, the policy through its loader, the TOML and
     # YAML parsers the manifest and lockfile pin, and what the `mise` on PATH reads from `mise.toml`:
     # 0.41 s wall through `node --run` (`/usr/bin/time -p`, the second of two runs; the first took
-    # 1.17 s) on a macOS 26.7.1 laptop with Node 26.8.1 and mise 2026.10.0, 2026-10-03.
+    # 1.17 s) on a macOS 26.7.1 laptop with Node 26.8.1 and mise 2026.10.0, 2026-10-03; 0.81 s (the
+    # first took 1.12 s) on 2026-10-04, with a `pypi:` tool whose uv lock under `.mise/locks/` it hashes.
     - name: check-toolchain
       glob:
         - 'mise.lock'
@@ -219,12 +220,14 @@ pre-push:
         - 'package-lock.json'
       run: node --run check:toolchain
     # Its refusals over copies of those files under the temporary directory, one doctored per case and
-    # each asserting its reason, beside five controls, and rule 7's through a stub `mise`: 2.02 s wall
-    # for its 61 cases, the second of two runs, the same host and day.
+    # each asserting its reason, beside its controls, and rule 7's through a stub `mise`: 2.02 s wall
+    # for its 61 cases, the second of two runs, the same host and day; 1.76 s (the first took 3.20 s)
+    # for 70 with four controls, 2026-10-04, ten of them a `pypi:` tool's, over its copied uv lock.
     - name: check-toolchain-selftest
       glob:
         - 'mise.toml'
         - 'mise.lock'
+        - '.mise/locks/**'
         - '.github/workflows/*.yml'
         - '.devcontainer/Dockerfile'
         - 'tools/policy/**'
@@ -633,16 +636,21 @@ pre-push:
     # model, folder and server name, each partial-extraction text, the registration left alone or
     # replaced, the harness's combined graph registered only while it records the graph beside it
     # (docs/decisions.md § D-28), the lock, a hook's exported GIT_DIR, and each refusal by its
-    # reason, with one undoctored control. Reads the script, `tools/lib/git-env.ts` and the live
-    # policy. 24.96-25.15 s wall for its 42 checks (`/usr/bin/time -p`, two runs through
+    # reason, with one undoctored control. Reads the script, `tools/lib/git-env.ts`, the live policy,
+    # and graphify's release from `mise.toml`, with the `smol-toml` the manifest and lockfile pin; a
+    # stub mise names its graphify-mcp. 24.96-25.15 s wall for its 42 checks (`/usr/bin/time -p`, two runs through
     # `node --run`) on a macOS 26.7.1 laptop with Node 26.8.1, 2026-10-02, most of it a git
     # repository and a stub server per case; 11.98-12.06 s on 2026-10-01, with fewer cases and
-    # none of the combined graph's.
+    # none of the combined graph's; 29.25-31.28 s for 45 (two runs, the same host, 2026-10-04), with
+    # mise's graphify-mcp, a registration moved to it, and a mise that cannot name it.
     - name: code-graph-selftest
       glob:
         - 'scripts/code-graph.mjs'
         - 'tools/lib/**'
         - 'tools/policy/**'
+        - 'mise.toml'
+        - 'package.json'
+        - 'package-lock.json'
       run: node --run code-graph:selftest
     # The test-trace reader's refusals, each on a doctored copy of a test file's source, and its
     # hash over a fixture spec tree: the definition's text, what moves a hash and what does not, the

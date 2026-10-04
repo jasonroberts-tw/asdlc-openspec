@@ -6,7 +6,11 @@
  *      than a range each later install resolves again;
  *   2. `mise.lock` holds each tool at its pin, with a URL and a checksum for every platform
  *      `toolchainLockPlatforms` in `tools/policy/tool-settings.json` names, so `mise install --locked`,
- *      which CI runs, verifies what it downloads on every kind of machine this repository is set up on;
+ *      which CI runs, verifies what it downloads on every kind of machine this repository is set up on.
+ *      A `pypi:` tool is locked otherwise: by a uv lock of all its dependencies under `.mise/locks/`,
+ *      which `mise.lock` names by its path and its `uv.lock`'s sha256, and whose `pyproject.toml` asks
+ *      for the pin with its extras (asdlc-openspec-8juz.1, question 7); and no lock there is one that
+ *      no entry of `mise.lock` names, as a moved pin leaves behind;
  *   3. every `jdx/mise-action` step under `.github/workflows/`, itself pinned by a full commit rather
  *      than a tag a third party can move, pins `version:` to the mise the dev
  *      container copies in (`COPY --from=ghcr.io/jdx/mise:<version>@sha256:<digest>` in
@@ -20,7 +24,9 @@
  *      the checkout root;
  *   5. `mise.toml` holds only `min_version`, `[tools]`, `[settings]` and `[task_config]`; each tool a
  *      plain version string, since an option table can run a command at install (`postinstall`) or
- *      fetch from a URL the lock does not name; only the settings this file needs, since a setting can
+ *      fetch from a URL the lock does not name, but a `pypi:` tool, which may carry `version` and a list
+ *      of `extras` alone, whose dependencies its uv lock holds (asdlc-openspec-8juz.3); only the
+ *      settings this file needs, since a setting can
  *      turn off mise's checksum, signature and provenance checks or trust other files, for every
  *      install and shim; no template but `[task_config] dir = "{{cwd}}"`, under which a task a
  *      worktree borrows from the primary checkout runs on the worktree's own files, and no
@@ -46,7 +52,9 @@
  * tool fetched by another route -- a `curl` of a release, `pip`, `corepack` -- passes it, and review
  * is what refuses that. It holds that the lock has a URL and a checksum, not that they are honest: a
  * change to both at once is what the reviewer's floor, which holds every place mise reads a config or
- * a lock from to a person, is for. Rule 7 compares tools, settings and files, not `[task_config]`.
+ * a lock from to a person, is for. Likewise a `pypi:` tool's uv lock is held to the digest
+ * `mise.lock` records and to the pin it asks for, not each package in it. Rule 7 compares tools,
+ * settings and files, not `[task_config]`.
  *
  * THE FAILURE IT EXISTS TO PREVENT. No incident on the trunk yet: the gate came with mise
  * (`docs/decisions.md` § D-31). Before it, Node's version had four homes that disagreed
@@ -75,8 +83,11 @@
  * `git ls-files` in every case, its 59 cases took 7.96 s. 0.41 s wall for the gate (1.17 s on the
  * first of two runs) and 2.02 s for its selftest's 61 cases through `node --run` (`/usr/bin/time -p`,
  * the second of two runs) on a macOS 26.7.1 laptop with Node 26.8.1 and mise 2026.10.0, 2026-10-03.
+ * With a `pypi:` tool, its uv lock hashed and its ten cases added, 0.81 s for the gate (1.12 s on the
+ * first of two runs) and 1.76 s for the selftest's 70 cases (3.20 s first), the same host, 2026-10-04.
  */
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -113,6 +124,16 @@ const SETTINGS = ['auto_install', 'not_found_system_fallback']
 const OTHER_VERSION_FILES = ['.node-version', '.nvmrc', '.python-version']
 /** Where the `pypi:` backend keeps its locks (asdlc-openspec-8juz.3): a lock, which configures nothing. */
 const PYPI_LOCKS = '.mise/locks/'
+/** The backend whose tools uv installs, each with its dependencies in a uv lock of its own. */
+const PYPI = 'pypi:'
+/**
+ * The keys a `pypi:` tool's table may hold: its version, and `extras`, which select more of its
+ * dependencies, every one of them in its uv lock. Any other option could run a command at install or
+ * fetch from a URL the lock does not name (rule 5).
+ */
+const PYPI_OPTIONS = ['version', 'extras']
+/** A Python package extra's name. */
+const EXTRA_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 
 /**
  * Whether mise would read the tracked file at `path` as a project config beside the root `mise.toml`
@@ -148,6 +169,49 @@ const isNewer = (a, b) => {
   return false
 }
 const read = (root, path) => (existsSync(join(root, path)) ? readFileSync(join(root, path), 'utf8') : null)
+
+/** The extras a lock entry or a dependency spells, sorted: a list, or one comma-separated string. */
+const extrasList = (value) =>
+  (Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : []).map((e) => String(e).trim()).filter(Boolean).sort(byCodePoint)
+
+/**
+ * Rule 2 for a `pypi:` tool, whose lock entry has no platforms: the uv lock `entry` names by `uv.path`
+ * under `.mise/locks/`, its `uv.lock` hashing to `uv.digest`, its `pyproject.toml` asking for exactly
+ * the pin with `extras`, and the entry's extras the pin's. One message each; empty when it holds.
+ */
+function pypiLockProblems(root, name, version, entry, extras, relock) {
+  const at = `${name}@${version}`
+  const pkg = name.slice(PYPI.length)
+  const prefix = `${PYPI_LOCKS}pypi-${pkg}/${version}~`
+  const path = typeof entry.uv?.path === 'string' ? entry.uv.path : ''
+  if (!path.startsWith(prefix) || !/^[0-9a-f]+$/.test(path.slice(prefix.length))) {
+    return [
+      `${LOCK} names no uv lock for ${at} under ${prefix}<hash> (it names ${JSON.stringify(path || null)}): a ${PYPI} tool's dependencies are locked there, not per platform; ${relock}, and commit ${PYPI_LOCKS}.`,
+    ]
+  }
+  if (!existsSync(join(root, path, 'uv.lock'))) return [`${path}/uv.lock is missing, which ${LOCK} names for ${at}; ${relock}, and commit ${PYPI_LOCKS}.`]
+  const problems = []
+  const digest = `sha256:${createHash('sha256').update(readFileSync(join(root, path, 'uv.lock'))).digest('hex')}`
+  if (entry.uv?.digest !== digest) {
+    problems.push(`${path}/uv.lock hashes to ${digest}, where ${LOCK} records ${entry.uv?.digest ?? 'no digest'} for ${at}: the uv lock is not the one ${LOCK} records; ${relock}.`)
+  }
+  const want = `${pkg}${extras.length > 0 ? `[${extras.join(',')}]` : ''}==${version}`
+  let asked = null
+  try {
+    asked = parseToml(read(root, `${path}/pyproject.toml`) ?? '').project?.dependencies
+  } catch {
+    // Reported as asking for nothing, below.
+  }
+  const one = Array.isArray(asked) && asked.length === 1 ? /^([^\s[=]+)(?:\[([^\]]*)\])?==(\S+)$/.exec(String(asked[0])) : null
+  if (!one || one[1].toLowerCase() !== pkg.toLowerCase() || one[3] !== version || extrasList(one[2] ?? '').join(',') !== extras.join(',')) {
+    problems.push(`${path}/pyproject.toml asks for ${JSON.stringify(asked ?? null)}, where ${CONFIG} pins ${want}: the uv lock was resolved for another pin; ${relock}.`)
+  }
+  const locked = extrasList(entry.options?.extras)
+  if (locked.join(',') !== extras.join(',')) {
+    problems.push(`${LOCK} records the extras ${JSON.stringify(locked)} for ${at}, where ${CONFIG} gives ${JSON.stringify(extras)}; ${relock}.`)
+  }
+  return problems
+}
 
 /** Every string value under `value`, with its dotted path. */
 function* strings(value, path = '') {
@@ -344,16 +408,33 @@ export function runCheck(root, { mise = ['mise'], notes = [] } = {}) {
 
   // 1. Exact pins.
   const pins = new Map()
+  /** Each `pypi:` tool's extras, sorted, as rule 2 holds its uv lock to them. */
+  const extrasOf = new Map()
   const tools = config.tools ?? {}
   if (Object.keys(tools).length === 0) problems.push(`${CONFIG} pins no tool under [tools].`)
   for (const [name, value] of Object.entries(tools)) {
+    let version = value
     if (typeof value !== 'string') {
-      problems.push(
-        `${CONFIG} pins ${name} with a table of options, not a plain version string: an option can run a command at install (\`postinstall\`) or fetch from a URL the lock does not name.`,
-      )
-      continue
+      if (!name.startsWith(PYPI) || value === null || typeof value !== 'object' || Array.isArray(value)) {
+        problems.push(
+          `${CONFIG} pins ${name} with a table of options, not a plain version string: an option can run a command at install (\`postinstall\`) or fetch from a URL the lock does not name.`,
+        )
+        continue
+      }
+      const others = Object.keys(value).filter((key) => !PYPI_OPTIONS.includes(key)).sort(byCodePoint)
+      if (others.length > 0) {
+        problems.push(
+          `${CONFIG} gives ${name} ${others.map((key) => `\`${key}\``).join(', ')}: a ${PYPI} tool's table holds \`version\` and \`extras\` alone, since another option can run a command at install (\`postinstall\`) or fetch from a URL the lock does not name.`,
+        )
+        continue
+      }
+      if (value.extras !== undefined && !(Array.isArray(value.extras) && value.extras.length > 0 && value.extras.every((e) => typeof e === 'string' && EXTRA_NAME.test(e)))) {
+        problems.push(`${CONFIG} gives ${name} \`extras\` ${JSON.stringify(value.extras)}, not a list of extra names.`)
+        continue
+      }
+      extrasOf.set(name, extrasList(value.extras ?? []))
+      version = value.version
     }
-    const version = value
     if (!EXACT.test(version)) {
       problems.push(
         `${CONFIG} pins ${name} at ${JSON.stringify(version ?? value)}, not an exact MAJOR.MINOR.PATCH version: a range or a prefix resolves again on each install, so two machines can run two versions from one file.`,
@@ -376,14 +457,17 @@ export function runCheck(root, { mise = ['mise'], notes = [] } = {}) {
   } catch (error) {
     problems.push(`tools/policy/ cannot be read: ${firstLine(error.message)}.`)
   }
-  const relock = `run \`mise lock --platform ${platforms.join(',')}\` and commit ${LOCK}`
+  const relock = `run \`mise install\`, then \`mise lock --platform ${platforms.join(',')}\`, and commit ${LOCK}`
   const lockText = read(root, LOCK)
+  /** Every uv lock `mise.lock` names, once it parses: rule 6's list of the locks `.mise/locks/` may hold. */
+  let uvLocks = null
   if (lockText === null) {
     problems.push(`${LOCK} is missing: \`mise install --locked\`, which CI runs, has nothing to verify a download against; ${relock}.`)
   } else {
     let lock
     try {
       lock = parseToml(lockText)
+      uvLocks = new Set(Object.values(lock.tools ?? {}).flatMap((entries) => (Array.isArray(entries) ? entries : [])).map((e) => e?.uv?.path).filter(isText))
     } catch (error) {
       problems.push(`${LOCK} does not parse as TOML: ${firstLine(error.message)}.`)
     }
@@ -395,6 +479,10 @@ export function runCheck(root, { mise = ['mise'], notes = [] } = {}) {
         problems.push(
           `${LOCK} holds ${name} at ${held}, not at ${version}, the pin in ${CONFIG}: \`mise install --locked\`, which CI runs, refuses a tool the lock does not hold. Moving a pin means ${relock}.`,
         )
+        continue
+      }
+      if (name.startsWith(PYPI)) {
+        problems.push(...pypiLockProblems(root, name, version, entry, extrasOf.get(name) ?? [], relock))
         continue
       }
       for (const platform of platforms) {
@@ -473,6 +561,11 @@ export function runCheck(root, { mise = ['mise'], notes = [] } = {}) {
       `${path} is a mise config beside ${CONFIG}: mise loads its tools, settings, env and hooks too, and trusts it where it trusts the checkout, and this gate reads none of them. Move what it holds into ${CONFIG}, or delete it.`,
     )
   }
+  // 2, the rest: no lock under `.mise/locks/` that no entry of the lockfile names.
+  const stale = new Set(tracked.filter((path) => path.startsWith(PYPI_LOCKS)).map((path) => path.split('/').slice(0, 4).join('/')))
+  for (const dir of uvLocks === null ? [] : [...stale].filter((d) => !uvLocks.has(d)).sort(byCodePoint)) {
+    problems.push(`${dir} is a uv lock no entry of ${LOCK} names, as a moved pin leaves behind: delete it.`)
+  }
   return problems
 }
 
@@ -485,8 +578,10 @@ function main() {
     const platforms = readPolicy(ROOT)[PLATFORMS_KEY]
     const image = MISE_IMAGE.exec(readFileSync(join(ROOT, DOCKERFILE), 'utf8'))[1]
     const actions = workflows(ROOT, []).flatMap(({ steps }) => steps).filter(({ step }) => MISE_ACTION.test(String(step.uses ?? ''))).length
+    const names = Object.keys(config.tools)
+    const pypi = names.filter((name) => name.startsWith(PYPI)).length
     console.log(
-      `toolchain: ${Object.keys(config.tools).length} tool(s) pinned exactly in ${CONFIG}, each in ${LOCK} for ${platforms.length} platform(s); ` +
+      `toolchain: ${names.length} tool(s) pinned exactly in ${CONFIG}, ${names.length - pypi} in ${LOCK} for ${platforms.length} platform(s) and ${pypi} by a uv lock under ${PYPI_LOCKS}; ` +
         `${actions} jdx/mise-action step(s) and the dev container on mise ${image}; no second home and no other mise config; ` +
         (notes.length === 0 ? `and mise reads ${CONFIG} as this gate does.` : 'mise itself not asked.'),
     )
@@ -574,8 +669,7 @@ function cases() {
     { name: 'a mise.lock that is not TOML', doctor: write(LOCK, 'tools = \n'), expect: /^mise\.lock does not parse as TOML/ },
     { name: 'a workflow that is not YAML', doctor: write(VERIFY, 'jobs: [\n'), expect: /^\.github\/workflows\/verify\.yml does not parse as YAML/ },
     { name: 'no Dockerfile', doctor: remove(DOCKERFILE), expect: /^\.devcontainer\/Dockerfile is missing/ },
-    // 6. Another mise config, at any depth.
-    { name: 'control: a pypi lock under .mise/locks configures nothing', doctor: write(`${PYPI_LOCKS}pypi-graphifyy/0.9.73~0d7b0bde/uv.lock`, 'version = 1\n'), expect: 'pass' },
+    // 6. Another mise config, at any depth; the live control holds a pypi: tool's uv lock under .mise/locks/ to be none.
     { name: 'a mise config directory beside mise.toml', doctor: write('.mise/config.toml', '[env]\nFOO = "1"\n'), expect: /^\.mise\/config\.toml is a mise config beside mise\.toml/ },
     { name: 'a mise.toml below the root', doctor: write('apps/mise.toml', '[hooks]\nenter = "echo"\n'), expect: /^apps\/mise\.toml is a mise config beside mise\.toml/ },
     { name: 'a mise.local.toml tracked', doctor: write('mise.local.toml', '[settings]\njobs = 3\n'), expect: /^mise\.local\.toml is a mise config beside mise\.toml/ },
@@ -596,6 +690,35 @@ function cases() {
     },
     { name: 'mise reads a setting this gate does not', doctor: () => {}, stub: (o) => { o['settings ls --local --json'].jobs = 3 }, expect: /^mise reads \[settings\] in mise\.toml as .*"jobs":3.*, where this gate reads/ },
     { name: 'mise reads a second config file', doctor: () => {}, stub: (o) => { o['config ls --json'].push({ path: join(o.real, '.mise/config.toml'), tools: [] }) }, expect: /^mise reads \.mise\/config\.toml as well as mise\.toml/ },
+  ]
+}
+
+const escape = (text) => text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
+
+/** The live tree's first `pypi:` tool with the uv lock `mise.lock` names for it, which `pypiCases` doctor; null with none. */
+function livePypi() {
+  const lock = parseToml(readFileSync(join(REPO_ROOT, LOCK), 'utf8'))
+  for (const [name, entries] of Object.entries(lock.tools ?? {})) {
+    const entry = name.startsWith(PYPI) && Array.isArray(entries) ? entries.find((e) => isText(e?.uv?.path)) : undefined
+    if (entry) return { name, version: String(entry.version), path: entry.uv.path, pkg: name.slice(PYPI.length) }
+  }
+  return null
+}
+
+/** Rules 2 and 5 for a `pypi:` tool, each case breaking one thing in a copy of the live tree's. */
+function pypiCases({ name, version, path, pkg }) {
+  const at = `${escape(name)}@${escape(version)}`
+  return [
+    { name: 'a pypi: tool given an option besides version and extras', doctor: edit(CONFIG, new RegExp(`^("${escape(name)}" = \\{[^}\\n]*)\\}$`, 'm'), '$1, postinstall = "echo installed" }'), expect: new RegExp(`^mise\\.toml gives ${escape(name)} \`postinstall\`: a pypi: tool's table holds \`version\` and \`extras\` alone`) },
+    { name: 'extras given to a tool that is not a pypi: tool', doctor: edit(CONFIG, /^gh = "([^"]+)"$/m, 'gh = { version = "$1", extras = ["mcp"] }'), expect: /^mise\.toml pins gh with a table of options, not a plain version string/ },
+    { name: "a pypi: tool's extras that are not a list of names", doctor: edit(CONFIG, /extras = \[[^\]\n]*\]/, 'extras = "mcp; rm -rf ~"'), expect: new RegExp(`^mise\\.toml gives ${escape(name)} \`extras\` "mcp; rm -rf ~", not a list of extra names`) },
+    { name: 'a pypi: pin moved without mise lock', doctor: edit(CONFIG, `version = "${version}"`, 'version = "0.0.1"'), expect: new RegExp(`^mise\\.lock holds ${escape(name)} at ${escape(version)}, not at 0\\.0\\.1, the pin in mise\\.toml`) },
+    { name: 'mise.lock naming no uv lock for a pypi: tool', doctor: edit(LOCK, /^uv = \{[^\n]*\}\n/m, ''), expect: new RegExp(`^mise\\.lock names no uv lock for ${at} under ${escape(`${PYPI_LOCKS}pypi-${pkg}/${version}~`)}<hash>`) },
+    { name: 'a uv lock edited by hand', doctor: append(`${path}/uv.lock`, '# edited\n'), expect: new RegExp(`^${escape(path)}/uv\\.lock hashes to sha256:[0-9a-f]{64}, where mise\\.lock records sha256:[0-9a-f]{64} for ${at}`) },
+    { name: 'a uv lock missing', doctor: remove(`${path}/uv.lock`), expect: new RegExp(`^${escape(path)}/uv\\.lock is missing, which mise\\.lock names for ${at}`) },
+    { name: 'a uv lock resolved for another extra', doctor: edit(`${path}/pyproject.toml`, /\[[^\]"\n]*\]==/, '[all]=='), expect: new RegExp(`^${escape(path)}/pyproject\\.toml asks for \\["${escape(pkg)}\\[all\\]==${escape(version)}"\\], where mise\\.toml pins ${escape(pkg)}`) },
+    { name: "mise.lock's extras for a pypi: tool not the pin's", doctor: edit(LOCK, /^extras = "[^"\n]*"$/m, 'extras = "all"'), expect: new RegExp(`^mise\\.lock records the extras \\["all"\\] for ${at}, where mise\\.toml gives`) },
+    { name: 'a uv lock no entry of mise.lock names, as a moved pin leaves behind', doctor: write(`${PYPI_LOCKS}pypi-${pkg}/0.0.1~deadbeef/uv.lock`, 'version = 1\n'), expect: new RegExp(`^${escape(`${PYPI_LOCKS}pypi-${pkg}/0.0.1~deadbeef`)} is a uv lock no entry of mise\\.lock names`) },
   ]
 }
 
@@ -633,16 +756,20 @@ function stubAnswers(dir) {
 function copyInputs(dir) {
   for (const path of [CONFIG, LOCK, DOCKERFILE]) cpSync(join(REPO_ROOT, path), join(dir, path), { recursive: true })
   cpSync(join(REPO_ROOT, WORKFLOWS), join(dir, WORKFLOWS), { recursive: true })
+  if (existsSync(join(REPO_ROOT, PYPI_LOCKS))) cpSync(join(REPO_ROOT, PYPI_LOCKS), join(dir, PYPI_LOCKS), { recursive: true })
   copyPolicy(REPO_ROOT, dir)
 }
 
 function selftest() {
   const base = mkdtempSync(join(tmpdir(), 'check-toolchain-'))
   const results = []
+  const pypi = livePypi()
+  // The pypi: cases doctor the live tree's uv lock; with none to doctor, they cannot hold the rules.
+  if (pypi === null) results.push({ name: 'the pypi: cases', ok: false, detail: `no pypi: tool in the live ${LOCK} names a uv lock, so rules 2 and 5 for one are not tested` })
   try {
     const stub = join(base, 'mise-stub.mjs')
     writeFileSync(stub, STUB)
-    for (const { name, doctor, expect, stub: doctorAnswers, mise } of cases()) {
+    for (const { name, doctor, expect, stub: doctorAnswers, mise } of [...cases(), ...(pypi ? pypiCases(pypi) : [])]) {
       const dir = join(base, name.replace(/[^a-z0-9]+/gi, '-'))
       copyInputs(dir)
       doctor(dir)
