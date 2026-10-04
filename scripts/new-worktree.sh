@@ -98,7 +98,7 @@ BASE_DATE="$(git -C "$REPO_ROOT" log -1 --format=%ci "origin/$TRUNK")"
 # nothing to retry and no serialising lock of this script's own to leave stale; nor the two keys per
 # branch that scripts/prune-worktree-branches.mjs then had to collect. The branch needs no upstream:
 # the briefing rebases onto origin/main by name, `open-pr`'s `git push -u` sets the pushed branch as
-# the upstream, and `npm run gates` reads a branch with none as new, from its merge base with
+# the upstream, and `mise run gates` reads a branch with none as new, from its merge base with
 # origin/main (scripts/git-hooks.mjs). Where it loses: a bare `git pull --rebase` in a worktree not
 # yet pushed, which rebased onto origin/main, now stops on git's "no tracking information" until the
 # push; `git pull --rebase origin main` names the base. The second step is what lets the trap tell

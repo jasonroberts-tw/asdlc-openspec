@@ -7,7 +7,7 @@
  * worktree's absolute git directory, and `GIT_DIR` outranks both `cwd` and `-C <dir>`. A tool that
  * builds a scratch repository and runs git in it from inside such a hook then reads or writes THIS
  * repository while claiming to read the scratch one. Agents push here from linked worktrees, and
- * `npm run gates` runs the pre-push hook there through `git hook run`, which exports the same.
+ * `mise run gates` runs the pre-push hook there through `git hook run`, which exports the same.
  * Measured on Git 2.54.0 (Apple Git-157) and Git 2.55.0, which printed the same, on 2026-10-03, in
  * scratch repositories, through classic `.git/hooks` scripts and config-based `hook.<name>.command`
  * entries alike, for pre-commit, prepare-commit-msg, post-checkout, post-merge and pre-push:
