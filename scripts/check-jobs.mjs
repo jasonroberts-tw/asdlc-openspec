@@ -218,8 +218,9 @@ const UNJOBBED_BY_KIND = [
           "runs the test-builder's E2E tests and Verify-deferred fitness functions, which" +
           ' `docs/test-strategy.md` § Build exit criteria runs at Verify, not at a push or in CI.' +
           ' change-verify\'s fresh run, `scripts/fresh-run.mjs`, runs it in a clone of HEAD, as it runs' +
-          ' every script that runs the test runner; no job does. Its `--dir` is also how the trace,' +
-          ' test-inventory and thresholds gates find those tests (`scripts/lib/test-dirs.mjs`).',
+          ' every script that runs the test runner; no job does. Its `--dir` is also how the trace and' +
+          ' test-inventory gates find those tests, and how the thresholds gate leaves them out of its' +
+          ' runs (`scripts/lib/test-dirs.mjs`).',
       },
       {
         name: 'gates',

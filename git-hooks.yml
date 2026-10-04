@@ -499,11 +499,12 @@ pre-push:
               - 'package-lock.json'
             run: node --run calculator:test
           # The thresholds of `tools/policy/tool-settings.json` held to the code the branch changes under apps/:
-          # every test file run once with Node's own coverage, its changed code lines and branches
-          # counted and the whole product's figures printed beside them; the changed lines of the
-          # Routines mutated by StrykerJS's tap runner, a change to a test alone mutating nothing; and
-          # the ratchet baseline under artifacts/thresholds/ carried from the merge base (the header
-          # of scripts/check-thresholds.mjs). It reads the code and tests under apps/, the baseline,
+          # every test file but the test-builder's Verify stage's, which runs at Verify, run once with
+          # Node's own coverage, its changed code lines and branches counted and the whole product's
+          # figures printed beside them; the changed lines of the Routines mutated by StrykerJS's tap
+          # runner over the same tests, a change to a test alone mutating nothing; and the ratchet
+          # baseline under artifacts/thresholds/ carried from the merge base (the header of
+          # scripts/check-thresholds.mjs). It reads the code and tests under apps/, the baseline,
           # the policy, the manifest's test patterns, the runner, the reader and the helpers they
           # import, and git history; the lockfile pins StrykerJS. The Commands' run,
           # `thresholds:commands:check`, is a CI step and no job here, for its cost, which that
@@ -764,15 +765,20 @@ pre-push:
       run: node --run tests:inventory:selftest
     # The gate's refusals over a fixture repository it builds under the temporary directory, laid out
     # as the calculator is and sized from the live policy's minimum samples, each asserting its reason
-    # beside two controls: coverage, the Routines' tap runs, the Commands' command runs, the baseline
-    # carried through edits and its update, the reader's code lines, and the command line through
-    # THRESHOLDS_ROOT. It runs the real runner, reader
-    # and StrykerJS, so they and the lockfile are in the glob, with the helper that strips a hook's
-    # GIT_* keys. 24.07-24.29 s wall for its 35 cases through `node --run` (`/usr/bin/time -p`, two
-    # runs) on the host above, 2026-09-29, most of it twelve StrykerJS runs; 17.05-20.80 s for 33
-    # before a Command's case over the mutant sample took one of them; 23.33-25.16 s (two runs, the
-    # same day) for 36, with a `--dir` case; 24.52-24.91 s (two runs, 2026-10-03) for 37, that case
-    # again with its tasks in a `tasks.toml`, which the task loader reads through `smol-toml`.
+    # beside two controls: coverage, the Routines' tap runs, the Commands' command runs, the
+    # test-builder's Verify stage left out of the first two, the baseline carried through edits and
+    # its update, the reader's code lines, and the command line through THRESHOLDS_ROOT. It runs the
+    # real runner, reader and StrykerJS, so they and the lockfile are in the glob, with the helper
+    # that strips a hook's GIT_* keys. 24.07-24.29 s wall for its 35 cases through `node --run`
+    # (`/usr/bin/time -p`, two runs) on the host above, 2026-09-29, most of it twelve StrykerJS runs;
+    # 17.05-20.80 s for 33 before a Command's case over the mutant sample took one of them;
+    # 23.33-25.16 s (two runs, the same day) for 36, with a `--dir` case; 24.52-24.91 s (two runs,
+    # 2026-10-03) for 37, that case again with its tasks in a `tasks.toml`, which the task loader reads
+    # through `smol-toml`; and
+    # 96.36-164.96 s (two runs, later on 2026-10-03) for 40, with a case whose Verify-stage test fails
+    # were it run, one StrykerJS run more, and two refused before any run. The runs for 40 were taken
+    # while other worktrees ran their gates on the same host, at load averages of 51 to 84, so their
+    # wall time is the contention's: 32.90-34.01 s user and 13.08-14.31 s sys.
     - name: thresholds-selftest
       glob:
         - 'scripts/check-thresholds.mjs'
