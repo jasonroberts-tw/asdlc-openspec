@@ -120,6 +120,8 @@ const LOADER = 'tools/lib/policy.ts'
 const GIT_HELPER = 'tools/lib/git-env.ts'
 /** The guard that refuses a session's application of the approval label (`docs/decisions.md` § R-01). */
 const GUARD = 'scripts/hooks/guard-git.mjs'
+/** The helper the guard imports, through which a change could loosen what the guard refuses. */
+const GUARD_HELPER = 'scripts/hooks/_shared.mjs'
 const WORKFLOW = '.github/workflows/pr-review.yml'
 const VERIFY = '.github/workflows/verify.yml'
 /** The branch reviewer: the one home of the rubric a branch is held to before its push. */
@@ -222,6 +224,7 @@ export function policyProblems(policy) {
     ...[WORKFLOW, SELF].map((path) => [path, 'part of the reviewer itself']),
     [AGENT, 'the branch reviewer, the one review of correctness and maintainability'],
     [GUARD, "the guard that refuses a session's application of the approval label"],
+    [GUARD_HELPER, 'the helper that guard imports'],
     [POLICY, 'the record of what the reviewer decides by, this floor among it'],
     [BUDGETS, "the record of every prompt's word budget"],
     [LOADER, 'the loader this floor is read through'],
@@ -1482,6 +1485,7 @@ function decisionCases(policy) {
     c('package.json that does not parse at the head: a person decides', [M('package.json')], [{ file: 'package.json', key: '(the whole file)', why: '`package.json` does not parse at the head' }], 'human', /does not parse at the head/),
     c('the branch reviewer changed: a person decides', [M(AGENT)], [], 'human', /`\.claude\/agents\/branch-reviewer\.md` is /),
     c('the approval-label guard changed: a person decides', [M(GUARD)], [], 'human', /`scripts\/hooks\/guard-git\.mjs` is /),
+    c('the helper the guard imports changed: a person decides', [M(GUARD_HELPER)], [], 'human', /`scripts\/hooks\/_shared\.mjs` is /),
     c('the git helper the merging job imports changed: a person decides', [M(GIT_HELPER)], [], 'human', /`tools\/lib\/git-env\.ts` is /),
     c('a prompt review whose title cites no issue, stored cases only: merge, since the title is no input', [{ status: 'A', path: '.claude/prompt-cases/a-case.json' }], [], 'merge', null),
   ]
@@ -1662,8 +1666,8 @@ function helperCases(policy) {
         [[], ['engines'], ['dependencies']],
         'changed keys',
       )),
-    h("classify: the reviewer's record, the budgets, the loader, the git helper, the branch reviewer and the guard are on the floor, the other records are not", () => {
-      const onFloor = [POLICY, BUDGETS, LOADER, GIT_HELPER, AGENT, GUARD]
+    h("classify: the reviewer's record, the budgets, the loader, the git helper, the branch reviewer, the guard and its helper are on the floor, the other records are not", () => {
+      const onFloor = [POLICY, BUDGETS, LOADER, GIT_HELPER, AGENT, GUARD, GUARD_HELPER]
       const off = ['tools/policy/agent-workflows.json', 'tools/policy/vocabulary.json', 'tools/policy/tool-settings.json', '.claude/agents/fan-out-work.md']
       const out = classify([...onFloor, ...off].map((path) => ({ status: 'M', path })), [], policy)
       return assertEqual(out.files.map((f) => [f.path, Boolean(f.highRisk)]), [...onFloor.map((p) => [p, true]), ...off.map((p) => [p, false])], 'floor')
@@ -1830,6 +1834,7 @@ function wiringCases() {
     { name: 'the floor stops covering the git helper the merging job imports', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[GIT_HELPER]), expect: /does not cover tools\/lib\/git-env\.ts, the git helper the job that merges imports/ },
     { name: 'the floor stops covering the branch reviewer', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[AGENT]), expect: /does not cover \.claude\/agents\/branch-reviewer\.md, the branch reviewer/ },
     { name: 'the floor stops covering the approval-label guard', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[GUARD]), expect: /does not cover scripts\/hooks\/guard-git\.mjs, the guard that refuses/ },
+    { name: 'the floor stops covering the helper the guard imports', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[GUARD_HELPER]), expect: /does not cover scripts\/hooks\/_shared\.mjs, the helper that guard imports/ },
     { name: 'the floor stops covering mise.toml at any depth', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths['**/mise.toml']), expect: /does not cover mise\.toml, the one home of every tool version/ },
     { name: 'the floor stops covering a mise config directory', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths['**/.mise/**']), expect: /does not cover \.mise\/config\.toml, a mise config directory/ },
     { name: 'the floor stops covering the dev container', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths['.devcontainer/**']), expect: /does not cover \.devcontainer\/Dockerfile, the image that installs the toolchain/ },
