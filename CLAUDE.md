@@ -15,7 +15,7 @@ through a pull request. A rule with two homes has one that is stale, and the sta
 reader finds.
 
 The tracker's memory commands (in Beads, `remember`, `recall` and `memories`) are not used; do not
-write a memory and do not cite one from a tracked file. The harness's per-project memory directory under
+write a memory and do not cite one from a tracked file. Claude Code's per-project memory directory under
 `~/.claude/projects/` is not used either. A fact worth keeping goes in a tracked file or, if it is work,
 in `bd`.
 

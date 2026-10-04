@@ -31,9 +31,9 @@ Read that code as the trunk has it: this step runs in the primary checkout, whos
 reads the same file without one. An agent sent to read the code reads the checkout's copy unless its
 brief says otherwise, so say so.
 
-The harness read this skill and `CLAUDE.md` from that checkout too, so they can trail the trunk as
+Claude Code read this skill and `CLAUDE.md` from that checkout too, so they can trail the trunk as
 well. Compare the trunk with the commit the session started from, the first of the recent commits in
-the git status the harness gave, and not with `HEAD`, which a later pull moves: after the fetch,
+the git status Claude Code gave, and not with `HEAD`, which a later pull moves: after the fetch,
 `git diff --stat <that commit>...origin/main -- .claude/skills/bead/SKILL.md CLAUDE.md` names each of
 the two that the trunk has changed since. Read the trunk's copy of each one it names, as above, and
 follow that copy from here on. A session given no such git status reads the trunk's copy of both.
@@ -108,7 +108,7 @@ The task store names; here the found-at label is bead's.
 
 Before filing this or any follow-up, search for it. `bd search "<words>"` matches titles only and
 `bd list --all --desc-contains "<words>"` matches descriptions; both include closed issues. Run
-both, then again with a second phrasing, because a string can miss. From a worktree, the harness
+both, then again with a second phrasing, because a string can miss. From a worktree, Claude Code
 can refuse quoted text naming git or a shell, so a title or search words leave the name out.
 A match gets a note (`bd note`), not a second issue. A follow-up's body carries the sections
 `bd lint --help` lists for its type.
@@ -133,7 +133,7 @@ with a note naming the pull request and the issue that carries the cause.
 ## 7. Close on green, with a reason
 
 When every check is green, close the issue with a reason that names the pull request, passed with
-`bd close <id> --reason-file <file>`: the harness can refuse an inline `--reason` (step 4). If a
+`bd close <id> --reason-file <file>`: Claude Code can refuse an inline `--reason` (step 4). If a
 person decides the merge, an issue whose criterion needs the merged change stays open, with a note
 naming the pull request, until it merges: closed sooner, it claims an unmet criterion. Whoever sees
 the merge closes it. An acceptance criterion that acts outside the repository is not performed: it
