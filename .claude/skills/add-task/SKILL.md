@@ -13,9 +13,9 @@ name and the documentation as part of the change, not as follow-up.
 
 ## 1. Name it
 
-`<group>:<verb>`. Reuse an existing prefix wherever one fits; a new prefix is a decision, not a
-side effect. A person makes it when they merge the pull request, so its description names the new
-prefix and says why no existing one fits.
+`<group>:<verb>`. Reuse an existing prefix wherever one fits; a new prefix starts a group of public
+names, which is a decision, not a side effect. A person makes it when they merge the pull request,
+so the pull request's description names the new prefix and says why no existing one fits.
 
 The suffixes are the bare name, `:check`, `:selftest` and `:update`, and what each one must do is
 `CLAUDE.md` § The script suffix contract. An emitter's `:check` twin in particular is how a
@@ -62,9 +62,10 @@ such as a bare emitter or an operator command, gets an entry in `UNJOBBED_BY_KIN
 
 ## 5. Write its description, and its row in `README.md` § The tasks — this is not optional
 
-- Its `description` in `tasks.toml`, a `'''` string wrapped as its neighbours' are, says what the
-  task does and what breaks without it. It does not restate the `run` line beside it: two copies
-  means one goes stale.
+- Its `description` in `tasks.toml` says what the task does and what breaks without it, in a `'''`
+  string wrapped as its neighbours' are: the citations gate reads the file as written, and misses a
+  pointer a basic string spells through an escape. It does not restate the `run` line beside it:
+  two copies means one goes stale.
 - Any figure in it must be re-derived at the time of writing, with no exceptions for numbers copied
   out of a source comment. Those drift silently, because a numeral in a comment is not an input to
   anything.
