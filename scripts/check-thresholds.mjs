@@ -1209,8 +1209,13 @@ function fixture(policy, hashLength) {
 
 const SELFTEST_GIT_ENV = () => ({ ...gitEnv(), GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_SYSTEM: '/dev/null' })
 
+/**
+ * A git command in a fixture repository, starting no `git maintenance run --auto`: commit starts it
+ * detached, and the `.git/objects/maintenance.lock` it holds vanished while the first case copied the
+ * base, which threw ENOENT before any case ran (asdlc-openspec-hcfc, as asdlc-openspec-065n in trace).
+ */
 function gitSelftest(dir, args) {
-  const run = spawnSync('git', ['-c', 'user.name=selftest', '-c', 'user.email=selftest@example.invalid', '-c', 'commit.gpgsign=false', ...args], { cwd: dir, env: SELFTEST_GIT_ENV(), encoding: 'utf8' })
+  const run = spawnSync('git', ['-c', 'user.name=selftest', '-c', 'user.email=selftest@example.invalid', '-c', 'commit.gpgsign=false', '-c', 'maintenance.auto=false', ...args], { cwd: dir, env: SELFTEST_GIT_ENV(), encoding: 'utf8' })
   if (run.status !== 0) throw new Error(`git ${args.join(' ')} failed in the fixture: ${run.stderr}`)
   return run.stdout
 }
