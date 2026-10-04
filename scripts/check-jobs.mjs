@@ -157,7 +157,7 @@ const TASK_CONFIG = {
  * `--silent` there, which in mise silences the task's own output. It costs a few milliseconds more
  * than `node --run`, the hooks' launcher before it: the spike measured medians of 91-98 ms through
  * `mise run` against 95 ms through `node --run`, over 20 runs of `counts:check`
- * (asdlc-openspec-8juz.1, question 5), and `docs/decisions.md` § D-35 each job's gap. `npm run`, with
+ * (asdlc-openspec-8juz.1, question 5), and `docs/decisions.md` § D-36 each job's gap. `npm run`, with
  * the `--silent` npm's launcher took, and `node --run` read `package.json` alone, and resolve there.
  */
 const RUN_TOKEN_RE = /\b(?:(npm run|node --run) (?:--silent )?|(mise run) (?:-q |--quiet )?)([A-Za-z0-9][A-Za-z0-9:._-]*)/g

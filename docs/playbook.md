@@ -37,7 +37,7 @@ have (`docs/decisions.md` § D-19), is the row for a clone whose hooks are not i
 status pending, and the crib sheet's line for it, run the command through `env`, as
 `.claude/skills/open-pr/SKILL.md` § 5 now says. Amended 2026-10-04 by `asdlc-openspec-8juz.6`:
 every task runs as `mise run <task>`, since the tasks moved from `package.json` to `tasks.toml`
-(`docs/decisions.md` § D-35), and the glossary and the "where to look" table name `README.md`
+(`docs/decisions.md` § D-36), and the glossary and the "where to look" table name `README.md`
 § The tasks; the notes above keep the commands of their dates.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides

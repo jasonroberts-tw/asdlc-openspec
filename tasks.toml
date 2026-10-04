@@ -2,7 +2,7 @@
 # through a shell, from the directory it is called in (`[task_config]` in `mise.toml`). The hooks
 # (`git-hooks.yml`), CI (`.github/workflows/verify.yml`), the session hooks' launcher (`runTask` in
 # `scripts/hooks/_shared.mjs`) and every prompt call a task here through `mise run`, and the gates
-# read this file through one loader, `scripts/lib/tasks.mjs` (`docs/decisions.md` § D-35).
+# read this file through one loader, `scripts/lib/tasks.mjs` (`docs/decisions.md` § D-36).
 #
 # A task has `run` and, optionally, `description`, each a string with no template in it (`{{`, `{%`
 # or `{#`): any other key, or a template, which mise renders before the task runs, makes mise run it

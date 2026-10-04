@@ -80,11 +80,11 @@ pre-push:
   # under it. `dir/**/*.ext` reaches a file directly in `dir` too.
   #
   # `run: mise run <task>`: the task from `tasks.toml`, run with the tools `mise.toml` pins first on
-  # PATH and printing only what its command prints (`docs/decisions.md` § D-35). It costs a few
+  # PATH and printing only what its command prints (`docs/decisions.md` § D-36). It costs a few
   # milliseconds more than `node --run`, the launcher before it: the spike measured medians of
   # 91-98 ms through `mise run` against 95 ms through `node --run`, 20 runs each of `counts:check` on
   # a macOS laptop with mise 2026.10.0, and all 39 pre-push gates gave the same exit status both ways
-  # (asdlc-openspec-8juz.1, question 5); D-35's Figures give each job's gap since the move. A
+  # (asdlc-openspec-8juz.1, question 5); D-36's Figures give each job's gap since the move. A
   # failing task adds one line, `[<task>] ERROR task failed`, after its own output. Unlike
   # `node --run`, it puts no `node_modules/.bin` on PATH, which no gate needs, and it first installs
   # every pin that is missing, failing the task when one cannot install. Each cost note below that

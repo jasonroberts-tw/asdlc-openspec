@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `mise run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-35 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34 and D-35 added 2026-10-04).**
+**Status: every decision from D-01 to D-36 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35 and D-36 added 2026-10-04).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-35` is checked by `mise run check:register`, which reads those headings, the table and each
+> `D-01 … D-36` is checked by `mise run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -91,7 +91,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-33** | `utils/install-dolt.sh` and `scripts/python.mjs` retire, made redundant by mise | Both files deleted, and `utils/` with them; `harness:graph` and `harness:selftest` run `python` through mise's shims; their rows in `README.md`, `scripts/README.md` and `tools/README.md`; D-26's and D-31's amendments |
 | **D-34** | The `engines` floor rises to Node 24.21.0, the version `mise.toml` pins, so every gate runs it | `engines` in `package.json` and in `package-lock.json`'s root entry; the comment above the `node` pin in `mise.toml`; `README.md` § The Node floor, on every platform; the headers of `scripts/run-tests.mjs` and `scripts/check-thresholds.mjs`; D-31's amendment |
 | **D-35** | graphify and uv are pinned in `mise.toml`, and the `graphifyVersion` key retires | The two pins, their lock entries and graphify's uv lock under `.mise/locks/`, which the dev container copies in; `check:toolchain` admitting a `pypi:` tool's `version` and `extras` and holding its uv lock; `scripts/code-graph.mjs` reading the pin and registering `mise which`'s `graphify-mcp`; the key gone from `tools/policy/tool-settings.json`; D-20's, D-23's, D-26's and D-31's amendments |
-| **D-35** | mise is the task runner: every task moves from `package.json` to `tasks.toml`, but `prepare` and `calculator:serve` | `tasks.toml`, the loader refusing a template in it; `mise.toml`'s `[task_config]` and three `task.*` settings, admitted by `check:toolchain` at their values; `package.json` with two scripts; `mise run` in every hook job, CI step, launcher and prompt; `check:jobs` holding the launchers, their spelling and the one registry; `scripts/fresh-run.mjs` trusting its clone; the `add-npm-script` skill moved to `add-task`; `README.md` § The tasks; D-02's, D-03's, D-04's, D-11's, D-19's, D-20's, D-22's, D-23's, D-24's, D-26's, D-28's, D-29's and D-31's amendments |
+| **D-36** | mise is the task runner: every task moves from `package.json` to `tasks.toml`, but `prepare` and `calculator:serve` | `tasks.toml`, the loader refusing a template in it; `mise.toml`'s `[task_config]` and three `task.*` settings, admitted by `check:toolchain` at their values; `package.json` with two scripts; `mise run` in every hook job, CI step, launcher and prompt; `check:jobs` holding the launchers, their spelling and the one registry; `scripts/fresh-run.mjs` trusting its clone; the `add-npm-script` skill moved to `add-task`; `README.md` § The tasks; D-02's, D-03's, D-04's, D-11's, D-19's, D-20's, D-22's, D-23's, D-24's, D-26's, D-28's, D-29's and D-31's amendments |
 
 ## Risks
 
@@ -220,7 +220,7 @@ Retirement checklist for the deleted skills, each item done in this change:
 
 > **Amended 2026-09-28 by D-13.** Item 2's list of what a change's folder holds gains one file: a `findings.md`, the brief of an `explore` run that preceded the change, which `change-propose` commits there. The six stages stand, and Explore is not a stage.
 
-> **Amended 2026-10-04 by D-35.** Item 6's `npm run worktree:gc` and item 7's `npm run openspec:check` run as `mise run worktree:gc` and `mise run openspec:check`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
+> **Amended 2026-10-04 by D-36.** Item 6's `npm run worktree:gc` and item 7's `npm run openspec:check` run as `mise run worktree:gc` and `mise run openspec:check`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
 
 ### D-03 · The workflow's constants live in tools/policy.json, starting with the change label
 
@@ -258,7 +258,7 @@ Retirement checklist for the deleted skills, each item done in this change:
 
 > **Amended 2026-10-02 by D-27.** The decision's file is gone. The policy is five records under `tools/policy/`, read whole through `tools/lib/policy.ts`, and they hold every constant a prompt or a tool of the workflow reads: the settings of single tools in `tools/policy/tool-settings.json` too, not only the constants that belong to no one tool. Each constant keeps its key and its `Means` sibling, or, in the budgets' table, its reason in its row. `specChangeLabel` is in `tools/policy/vocabulary.json`, and item 2 stands.
 
-> **Amended 2026-10-04 by D-35.** Item 2's `npm run openspec:check` runs as `mise run openspec:check`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them. Item 3's `outcomes:record:selftest` is no task: D-06 retired it.
+> **Amended 2026-10-04 by D-36.** Item 2's `npm run openspec:check` runs as `mise run openspec:check`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them. Item 3's `outcomes:record:selftest` is no task: D-06 retired it.
 
 ### D-04 · The repository carries a demo product, a calculator served on loopback only
 
@@ -298,7 +298,7 @@ The server reading `.worktree/ports.env` itself also lost: the spec names `PORT`
 
 > **Amended 2026-09-29 by D-13.** Item 2 no longer holds for every check that runs the server's tests. This records the maintainer's choice of 2026-09-28, made as the answer to question 3 of the spike `asdlc-openspec-j09.2` and written in that issue's notes under "The maintainer's answer, 2026-09-28"; it is not a new decision. The mutation run of a Command, `npm run thresholds:commands:check`, reads only committed files and talks to its servers over loopback, and it is a `.github/workflows/verify.yml` step and a `change-verify` run, not a pre-push job, for its cost: 181.05 s and 185.99 s wall for all 72 of `serve.js`'s mutants one at a time, and 19.02-19.04 s for a change to one of its lines, on the host the header of `scripts/check-thresholds.mjs` names, which holds the measurements. Where it loses: a push that leaves a mutant of a changed `serve.js` line undetected passes pre-push and is refused minutes later in CI. The mutation run of the Routines and the coverage run, `npm run thresholds:check`, stay a pre-push job and a CI step, as item 2 has `calculator:test`. Landed by `asdlc-openspec-j09.10`, which carries D-13 items 8 and 9.
 
-> **Amended 2026-10-04 by D-35.** Items 1 and 3 stand as written: `calculator:serve` stays a `package.json` script, run by `npm run calculator:serve` after `npm ci` alone, the command the living spec names. The CI step What changed names and the two gates of the amendment of 2026-09-29 run as `mise run calculator:test`, `mise run thresholds:commands:check` and `mise run thresholds:check`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
+> **Amended 2026-10-04 by D-36.** Items 1 and 3 stand as written: `calculator:serve` stays a `package.json` script, run by `npm run calculator:serve` after `npm ci` alone, the command the living spec names. The CI step What changed names and the two gates of the amendment of 2026-09-29 run as `mise run calculator:test`, `mise run thresholds:commands:check` and `mise run thresholds:check`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
 
 ### D-05 · A prompt review runs in the background, and lives in its own pull request rather than in a file
 
@@ -626,7 +626,7 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 
 **Figures.** None: `npm run beads:check` names each open issue it refuses, and names none at the commit that added this entry.
 
-> **Amended 2026-10-04 by D-35.** The Decision's `npm run beads:check` and item 2's `npm run beads:selftest` run as `mise run beads:check` and `mise run beads:selftest`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
+> **Amended 2026-10-04 by D-36.** The Decision's `npm run beads:check` and item 2's `npm run beads:selftest` run as `mise run beads:check` and `mise run beads:selftest`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
 
 ### D-12 · A prompt that an edit would take past its word budget is consolidated first, and every rule it removes is accounted for
 
@@ -1017,7 +1017,7 @@ Where it loses:
 
 > **Amended 2026-10-01 by D-22.** Item 2 no longer holds where it expects the tracker's own hooks in `.git/hooks`. The tracker's git integration runs from its five jobs in `git-hooks.yml`, and nothing here runs `bd hooks install`. A section bd writes there on its own still runs, but it runs bd a second time, and the install and the runner warn of it. The install also removes what lefthook left in `.git/hooks`.
 
-> **Amended 2026-10-04 by D-35.** Item 5's forced suite is `mise run gates`: it keeps its name and goes through Git as before, launched by mise, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them. The jobs `git-hooks.yml` runs launch through `mise run` in place of `node --run`, and `check:jobs` refuses a job left on the old launcher.
+> **Amended 2026-10-04 by D-36.** Item 5's forced suite is `mise run gates`: it keeps its name and goes through Git as before, launched by mise, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them. The jobs `git-hooks.yml` runs launch through `mise run` in place of `node --run`, and `check:jobs` refuses a job left on the old launcher.
 
 ### D-20 · A local code graph is built with graphify on each person's machine, never committed, and queried through its MCP server
 
@@ -1082,7 +1082,7 @@ Where it loses:
 
 > **Amended 2026-10-04 by D-35.** graphify's release is the `pypi:graphifyy` pin in `mise.toml`, which `mise install` installs with its MCP extra, and no longer `graphifyVersion`, which is retired. The script names `mise install` where it named `uv tool install`, and item 5's server is the `graphify-mcp` that `mise which` names. The loss "The script relies on graphify 0.9.73's internals" now reads: a new release is checked against the script's header, and the guard's reading of its command line, before the pin moves, as the comment above the pin says.
 
-> **Amended 2026-10-04 by D-35.** Item 1's `npm run code-graph` and item 5's `npm run code-graph:mcp` run as `mise run code-graph` and `mise run code-graph:mcp`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
+> **Amended 2026-10-04 by D-36.** Item 1's `npm run code-graph` and item 5's `npm run code-graph:mcp` run as `mise run code-graph` and `mise run code-graph:mcp`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
 
 ### D-21 · `open-pr` reviews each branch before its push, in an agent's own context, and the reviewer's brief carries the facts its job can compute
 
@@ -1155,7 +1155,7 @@ Where it loses:
 - Five lefthook shims, five `.backup` copies and no `BEGIN BEADS INTEGRATION` section in the primary checkout's `.git/hooks` on 2026-10-01: `ls -la` and `grep -c "BEGIN BEADS"` there, read-only, outside this repository (`asdlc-openspec-uc1`'s notes, step 0a). Not re-derived here.
 - A foreign hook ending in `false` exiting 0 under bd 1.3.0's appended section: a scratch repository with its own `bd init --sandbox` project, outside this repository (the same notes, step 0b). Not re-derived here.
 
-> **Amended 2026-10-04 by D-35.** Items 1 and 2's `npm run hooks:install` runs as `mise run hooks:install`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them. `npm ci`'s `prepare`, which runs the same install, stays a `package.json` script.
+> **Amended 2026-10-04 by D-36.** Items 1 and 2's `npm run hooks:install` runs as `mise run hooks:install`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them. `npm ci`'s `prepare`, which runs the same install, stays a `package.json` script.
 
 ### D-23 · An in-session guard refuses graphify's update, watch, hook install and claude install, from any checkout
 
@@ -1200,7 +1200,7 @@ Where it loses:
 
 > **Amended 2026-10-04 by D-35.** The loss "It reads graphify 0.9.73's command line by position, and that release's help guard" no longer stands as written: `graphifyVersionMeans` is retired with its key, and the comment above the `pypi:graphifyy` pin in `mise.toml` names `GRAPHIFY_ERODING` and `GRAPHIFY_HELP`, and what of graphify to re-read for them, among what is checked before the pin moves.
 
-> **Amended 2026-10-04 by D-35.** Items 2 and 3's `npm run code-graph` runs as `mise run code-graph`, and the guard's refusal names it so, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
+> **Amended 2026-10-04 by D-36.** Items 2 and 3's `npm run code-graph` runs as `mise run code-graph`, and the guard's refusal names it so, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
 
 ### D-24 · The co-change map of merged pull requests is committed, pinned to a trunk commit that only its `:update` moves
 
@@ -1249,7 +1249,7 @@ Where it loses:
 
 > **Amended 2026-10-02 by D-25.** `scripts/hooks/check-emitted-drift.mjs` is deleted, so of the two files "What changed" names as saying why they have no row for the map, only `scripts/assert-not-hand-edited.mjs` remains. No hook re-runs `coupling:check` in session. It holds the map at pre-push and in CI, as before.
 
-> **Amended 2026-10-04 by D-35.** Item 2's `npm run coupling` and `npm run coupling:update` run as `mise run coupling` and `mise run coupling:update`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
+> **Amended 2026-10-04 by D-36.** Item 2's `npm run coupling` and `npm run coupling:update` run as `mise run coupling` and `mise run coupling:update`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
 
 ### D-25 · The emitter-drift hook is retired, its list of triggers empty
 
@@ -1354,7 +1354,7 @@ Where it loses:
 
 > **Amended 2026-10-04 by D-35.** The loss "The loader check leans on graphify's private `graphify.serve._load_graph`" names `graphifyVersion` moving as the moment to look. That key is retired, and the moment is the `pypi:graphifyy` pin in `mise.toml` moving.
 
-> **Amended 2026-10-04 by D-35.** Items 1 and 2's `npm run harness` and `npm run harness:graph` run as `mise run harness` and `mise run harness:graph`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
+> **Amended 2026-10-04 by D-36.** Items 1 and 2's `npm run harness` and `npm run harness:graph` run as `mise run harness` and `mise run harness:graph`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
 
 ### D-27 · The policy is split under `tools/policy/` by who may change each key and who reads it, read through one loader and held by a gate of its own
 
@@ -1461,7 +1461,7 @@ Where it loses:
 - 283 words to 266 by the first consolidation and 255 by the second, and 297 with the sentence: `node scripts/check-prompts.mjs --counts` at each commit. The two consolidations freed 28 words, and the sentence adds 42.
 - 42 checks in `code-graph:selftest` and 24.96-25.15 s for its job; 82 and 48 checks in `harness:selftest`, 49 under graphify's own interpreter, and 5.67-6.33 s for its job: each run, and the jobs' comments in `git-hooks.yml`, which name the host.
 
-> **Amended 2026-10-04 by D-35.** Item 2's `npm run code-graph:mcp` runs as `mise run code-graph:mcp`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
+> **Amended 2026-10-04 by D-36.** Item 2's `npm run code-graph:mcp` runs as `mise run code-graph:mcp`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
 
 ### D-29 · An issue's type and priority are the first rows of a rubric in the policy that fit it, and `beads:check` refuses a type the rubric does not name
 
@@ -1505,7 +1505,7 @@ Where it loses:
 - `CLAUDE.md` from 3,240 words to 3,213 by the consolidation and 3,258 with the sentences: `node scripts/check-prompts.mjs --counts` at each commit.
 - 14 checks in `beads:selftest`, and 1.11-1.98 s for its job: each run, and the job's comment in `git-hooks.yml`, which names the host.
 
-> **Amended 2026-10-04 by D-35.** Item 5's `npm run beads:check` and `npm run beads:selftest` run as `mise run beads:check` and `mise run beads:selftest`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
+> **Amended 2026-10-04 by D-36.** Item 5's `npm run beads:check` and `npm run beads:selftest` run as `mise run beads:check` and `mise run beads:selftest`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
 
 ### D-30 · The explore skill is OpenSpec's explore stance, adapted: it draws, cites, writes only a brief, and hands a change to change-propose
 
@@ -1608,7 +1608,7 @@ Where it loses:
 
 > **Amended 2026-10-04 by D-35.** Item 1's graphify and uv have joined `mise.toml`: uv 0.12.22, and graphify 0.9.73 with its MCP extra. Item 6 admits one option table, a `pypi:` tool's `version` and list of `extras`, and holds such a tool's lock to the uv lock under `.mise/locks/` that `mise.lock` names, in place of a URL and checksum per platform. The comment at the head of `mise.toml` now says to run `mise install` before `mise lock`.
 
-> **Amended 2026-10-04 by D-35.** Item 6's list of what `mise.toml` may hold gains three settings, `task.output`, `task.quiet` and `task.timings`, each admitted by name at its one value, as item 6's last clause allows a later setting, so five settings in all. The loss "A pin bump matches no job's glob but `check:toolchain`'s" names the forced suite as `mise run gates`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
+> **Amended 2026-10-04 by D-36.** Item 6's list of what `mise.toml` may hold gains three settings, `task.output`, `task.quiet` and `task.timings`, each admitted by name at its one value, as item 6's last clause allows a later setting, so five settings in all. The loss "A pin bump matches no job's glob but `check:toolchain`'s" names the forced suite as `mise run gates`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
 
 ### D-32 · A prompt review answers each changed prompt's stored decision cases with its old text and its new, and a case that flips from right to wrong keeps the edit out
 
@@ -1776,9 +1776,9 @@ Where it loses:
 - The `uv.lock`'s sha256, `2233fdc8…`, which `mise.lock` records: `shasum -a 256` on it.
 - 80 cases in `check:toolchain:selftest`, 5 of them controls, and 45 checks in `code-graph:selftest`: each selftest; their costs are on their jobs in `git-hooks.yml`.
 
-### D-35 · mise is the task runner: every task moves from `package.json` to `tasks.toml`, but `prepare` and `calculator:serve`
+### D-36 · mise is the task runner: every task moves from `package.json` to `tasks.toml`, but `prepare` and `calculator:serve`
 
-**Recorded 2026-10-04**, carried by `asdlc-openspec-8juz.6`, a child of `asdlc-openspec-8juz`. On 2026-10-03 the maintainer chose to move the scripts to mise tasks and keep the hook runner, among the choices D-31 records. The spike `asdlc-openspec-8juz.1` measured the move first, and its findings set items 4 and 5; `asdlc-openspec-8juz.5` put every reader of the manifest behind one loader before it. The issue's description set the seven items below; the session that worked it chose how item 6 reads a token, by the registry its launcher reads, that item 6 holds `[task_config]` too, and, from its own reviews, item 1's refusal of a template, item 5's values, item 6's refusal of another launcher spelling, and that `task.run_auto_install` keeps mise's default (the third loss below).
+**Recorded 2026-10-04**, carried by `asdlc-openspec-8juz.6`, a child of `asdlc-openspec-8juz`. On 2026-10-03 the maintainer chose to move the scripts to mise tasks and keep the hook runner, among the choices D-31 records. The spike `asdlc-openspec-8juz.1` measured the move first, and its findings set items 4 and 5; `asdlc-openspec-8juz.5` put every reader of the manifest behind one loader before it. The issue's description set the seven items below; the session that worked it chose how item 6 reads a token, by the registry its launcher reads, that item 6 holds `[task_config]` too, and, from its own reviews, item 1's refusal of a template, item 5's values, item 6's refusal of another launcher spelling, and that `task.run_auto_install` keeps mise's default (the third loss below). It was written as D-35, the number its branch's commits give it, and took D-36 when `asdlc-openspec-8juz.3`'s entry merged first as D-35.
 
 **Builds on / amends:** amends D-02, D-03, D-04, D-11, D-19, D-20, D-22, D-23, D-24, D-26, D-28 and D-29, whose numbered items name a task's command as `npm run <task>`: `git grep -n -E "npm run|node --run" docs/decisions.md` at `5b28c99`, read entry by entry; and amends D-31, whose item 6 lists the settings `mise.toml` may hold. Builds on D-31 too, whose `mise.toml` and `check:toolchain` this entry extends and whose setup makes mise required already; on D-12, under which a prompt's budget falls to its new count; and on D-07, which leaves a change to `mise.toml`, `.github/**`, `CLAUDE.md`, a budget or this register to a person.
 
