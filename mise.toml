@@ -65,8 +65,9 @@ uv = "0.12.22"
 # default: turned off, it ran the system's Node too, while left on it installs a moved pin at its
 # next use. A shim installs its own tool, and `mise run` every missing pin before any task, failing
 # the task when one cannot install, offline among the causes. `task.run_auto_install` keeps mise's
-# default too: turned off, a task ran the system's binary of a tool newly pinned and never
-# installed on the machine, which has no shim yet (docs/decisions.md § D-35).
+# default too: turned off, in a fixture the review of asdlc-openspec-8juz.6 built on 2026-10-04, a
+# task ran the system's `jq` in place of a `jq` newly pinned and never installed, which has no shim
+# yet (docs/decisions.md § D-35).
 not_found_system_fallback = false
 # A task prints only what its command prints: no `[<task>]` prefix, no echo of the command and no
 # timing, so `mise run <task>` writes what `node --run <task>` wrote, byte for byte; a failing task
