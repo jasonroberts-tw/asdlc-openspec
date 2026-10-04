@@ -125,8 +125,8 @@ jobs:
       # network and runs here only as this selftest.
       - name: the citation-support advisory, negative-tested over a stubbed judge
         run: npm run citations:support:selftest
-      # About a second (git-hooks.yml's `gate-summary-selftest` job has the measurement): the Stop
-      # hook over scratch citation trees and scratch repositories under the temporary directory.
+      # Seconds (git-hooks.yml's `gate-summary-selftest` job has the measurement): the Stop hook over
+      # scratch citation trees and scratch repositories under the temporary directory.
       - name: the Stop hook reads untracked files and places a subagent's checkout, negative-tested
         run: npm run gate-summary:selftest
       # Milliseconds: the register's header held to its own headings.
