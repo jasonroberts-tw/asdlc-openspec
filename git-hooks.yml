@@ -291,11 +291,11 @@ pre-push:
     - name: citations
       run: mise run citations:check
     # The citations gate held to its fixtures, and run end to end through `CITATIONS_ROOT` over a
-    # synthetic git tree: thirteen gate runs (the control and twelve doctored copies), each over a
-    # tree built with two git calls, 2.3s wall on a macOS laptop while other worktrees ran their
-    # gates (one run of `time npm run citations:selftest`, 2026-10-03; nine gate runs took 1.2s on
-    # 2026-09-23). The glob is the gate and what it imports, plus the prompt roster and CLAUDE.md,
-    # which its last cases read live.
+    # synthetic git tree: fourteen gate runs (the control and thirteen doctored copies), each over a
+    # tree built with two git calls, 2.84s wall on a macOS laptop (one run of
+    # `time mise run citations:selftest`, 2026-10-04; thirteen gate runs took 2.3s on 2026-10-03
+    # while other worktrees ran their gates, and nine took 1.2s on 2026-09-23). The glob is the gate
+    # and what it imports, plus the prompt roster and CLAUDE.md, which its last cases read live.
     - name: citations-selftest
       glob:
         - 'tools/citations/**'
