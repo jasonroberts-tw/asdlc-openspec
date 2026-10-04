@@ -8,7 +8,10 @@
  * is what a person stops reading. So each case plants exactly one gap in a copy of an undoctored
  * control that reports no finding and no lead, and holds the run to the keys that gap adds, each
  * with its reason: a case that only saw "something was reported" would pass with the check deleted
- * whenever another one fired.
+ * whenever another one fired. `reach`, the rows the pull-request reviewer prints, is held to one
+ * exact row at a fixture's commit, and to that row again after the working tree is edited and with
+ * the redirect table made to throw on import, each beside a run of the report that sees the change,
+ * so a row that holds is not an edit the case failed to make.
  *
  * INVOCATION.
  *
@@ -26,7 +29,7 @@ import { dirname, join } from 'node:path'
 import { TASKS_TOML, taskFiles } from '../../scripts/lib/tasks.mjs'
 import { SCRATCH_GIT_ENV, gitIn } from '../lib/git-env.ts'
 import { ROOT } from '../lib/paths.ts'
-import { CONFIG, assess, blobId, serialise, type Report } from './harness.ts'
+import { CONFIG, assess, blobId, reach, serialise, type ReachRow, type Report } from './harness.ts'
 
 const failures: string[] = []
 let passed = 0
@@ -478,6 +481,75 @@ try {
   check('cli: HARNESS_ROOT points the run at a fixture and writes both files', cli.status === 0 && existsSync(join(out, DATE, 'harness.json')) && existsSync(join(out, DATE, 'harness.md')), cli.stderr || cli.stdout)
   const refused = spawnSync(process.execPath, [join(ROOT, 'tools/harness/harness.ts'), '--date', DATE, '--out', out], { env: { ...process.env, HARNESS_ROOT: noMeans }, encoding: 'utf8' })
   check('cli: an unreadable input exits 1 and says why', refused.status === 1 && /harness: config: .*`hubsTopMeans` is missing/.test(refused.stderr), refused.stderr)
+
+  /* ---------------------------------------------------------------------------- reach ---------- */
+  // The session hook imports the helper too, so one file is reached every way a row names; and
+  // `check-a.mjs` imports a file the commit lacks, as a pull request that adds one leaves its base.
+  const reachDoctor: Parameters<typeof fixture>[0] = (w, r) => {
+    w('scripts/hooks/guard.mjs', "import './_shared.mjs'\nimport '../lib/helper.mjs'\n")
+    w('scripts/check-a.mjs', r('scripts/check-a.mjs').replace("import { helper } from './lib/helper.mjs'", "import { helper } from './lib/helper.mjs'\nimport './lib/new.mjs'"))
+  }
+  const HELPER: ReachRow = {
+    path: 'scripts/lib/helper.mjs',
+    globJobs: ['pre-push/check-a'],
+    importJobs: ['pre-push/check-a'],
+    steps: ['.github/workflows/verify.yml: mise run check:a'],
+    hooks: ['PreToolUse Bash: scripts/hooks/guard.mjs'],
+  }
+  const reachDir = fixture(reachDoctor)
+  const head = gitIn(reachDir, SCRATCH_GIT_ENV)(['rev-parse', 'HEAD']).trim()
+  const helperRow = reach(reachDir, 'HEAD', ['scripts/lib/helper.mjs'])
+  check('reach: a file a job globs and imports, a CI step and a session hook reach is that row exactly, at the full commit id', JSON.stringify(helperRow) === JSON.stringify({ rev: head, rows: [HELPER] }), helperRow)
+
+  const absent = reach(reachDir, head, ['scripts/lib/new.mjs']).rows
+  const ABSENT: ReachRow = { path: 'scripts/lib/new.mjs', globJobs: ['pre-push/check-a'], importJobs: [], steps: [], hooks: [] }
+  check('reach: a path the commit does not track, though a committed file imports it, is matched by globs alone', JSON.stringify(absent) === JSON.stringify([ABSENT]), absent)
+
+  const asked = ['scripts/lib/new.mjs', 'scripts/lib/helper.mjs', 'docs/extra.md', 'scripts/lib/helper.mjs']
+  const first = JSON.stringify(reach(reachDir, 'HEAD', asked))
+  const again = JSON.stringify(reach(reachDir, head, [...asked].reverse()))
+  const NOTHING: ReachRow = { path: 'docs/extra.md', globJobs: [], importJobs: [], steps: [], hooks: [] }
+  check('reach: one row per distinct path in code-point order, and two calls give the same JSON', first === again && first === JSON.stringify({ rev: head, rows: [NOTHING, HELPER, ABSENT] }), { first, again })
+
+  for (const rev of ['no-such-ref', `${head}^{tree}`]) {
+    try {
+      reach(reachDir, rev, ['scripts/lib/helper.mjs'])
+      check(`reach: \`${rev}\`, which names no commit, is refused`, false, 'accepted')
+    } catch (error) {
+      check(`reach: \`${rev}\`, which names no commit, is refused as an input`, (error as Error).message.startsWith('input: '), (error as Error).message)
+    }
+  }
+
+  // The working tree drops the job and the hook's import after the commit; the report, which reads
+  // the working tree, sees the job go, so a row that holds is the commit's and not an edit missed.
+  const editedDir = fixture(reachDoctor)
+  const editedHooks = readFileSync(join(editedDir, 'git-hooks.yml'), 'utf8').replace(/ {4}# Reads[\s\S]*?run: node --run check:a\n/, '')
+  writeFileSync(join(editedDir, 'git-hooks.yml'), editedHooks)
+  writeFileSync(join(editedDir, 'scripts/hooks/guard.mjs'), "import './_shared.mjs'\n")
+  const edited = reach(editedDir, 'HEAD', ['scripts/lib/helper.mjs']).rows
+  const editedReport = await assess(editedDir, DATE)
+  check('reach: an edit to the working tree after the commit does not move the commit\'s row', JSON.stringify(edited) === JSON.stringify([HELPER]), edited)
+  check('reach: the same edit is one the report, reading the working tree, sees', editedReport.summary.jobs === control.summary.jobs - 1, { edited: editedReport.summary.jobs, control: control.summary.jobs })
+
+  // The redirect table throws when imported: the report imports it, so it fails for that reason,
+  // and a row still given proves `reach` never imports it.
+  const throwing = fixture((w, r) => {
+    reachDoctor(w, r)
+    w('scripts/hooks/_shared.mjs', `throw new Error('the redirect table was imported')\n${r('scripts/hooks/_shared.mjs')}`)
+  })
+  let thrown: unknown = null
+  try {
+    const rows = reach(throwing, 'HEAD', ['scripts/lib/helper.mjs']).rows
+    check('reach: a redirect table that throws on import is never imported', JSON.stringify(rows) === JSON.stringify([HELPER]), rows)
+  } catch (error) {
+    check('reach: a redirect table that throws on import is never imported', false, (error as Error).message)
+  }
+  try {
+    await assess(throwing, DATE)
+  } catch (error) {
+    thrown = error
+  }
+  check('reach: the same table fails the report, which imports it, for that reason', /the redirect table was imported/.test((thrown as Error | null)?.message ?? ''), (thrown as Error | null)?.message ?? 'the report did not fail')
 } finally {
   rmSync(scratch, { recursive: true, force: true })
 }
