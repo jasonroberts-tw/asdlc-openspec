@@ -169,7 +169,9 @@ export const meta = {
  *   layer `architectRunLayers` lists that declares `runAt` build, and `verify` for every other, so
  *   the package script that runs the build stage at push and in CI runs no E2E test or
  *   Verify-deferred fitness function (`docs/test-strategy.md` § Build exit criteria). A task naming
- *   no ID gets no test-builder, and says so. Its code can still break what an earlier task's tests
+ *   no ID gets no test-builder to write its own tests, and says so; an earlier file the architect
+ *   routes `rewrite-test` still goes to one, whose rewrite comes back without its exemption and is
+ *   sent back unrun (asdlc-openspec-wkgb). Its code can still break what an earlier task's tests
  *   cover, so the architect still runs every build-stage file an earlier task committed, below, and
  *   triages each failure as for any task: a regression surfaces at the task that caused it, not
  *   first among the gates of `.claude/skills/change-build/SKILL.md` § 6. Repeat, then hand over.
