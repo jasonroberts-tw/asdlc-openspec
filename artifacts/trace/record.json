@@ -2547,6 +2547,98 @@
     },
     {
       "file": "apps/calculator/test/serve.test.js",
+      "name": "[asdlc-openspec-lgh] The command listens once, on 127.0.0.1 alone, whatever HOST, BIND and HOSTNAME say",
+      "modifier": null,
+      "layer": "integration",
+      "level": 1,
+      "ids": [
+        "asdlc-openspec-lgh"
+      ],
+      "refs": [
+        {
+          "ref": "asdlc-openspec-lgh",
+          "hash": null,
+          "status": "task"
+        },
+        {
+          "ref": "surface:apps/calculator/binding-surface.md",
+          "hash": "e52392e73c00",
+          "status": "current"
+        }
+      ],
+      "partition": "regression"
+    },
+    {
+      "file": "apps/calculator/test/serve.test.js",
+      "name": "[asdlc-openspec-lgh] The command refuses PORT=0 and an empty PORT rather than serving",
+      "modifier": null,
+      "layer": "integration",
+      "level": 1,
+      "ids": [
+        "asdlc-openspec-lgh"
+      ],
+      "refs": [
+        {
+          "ref": "asdlc-openspec-lgh",
+          "hash": null,
+          "status": "task"
+        },
+        {
+          "ref": "surface:apps/calculator/binding-surface.md",
+          "hash": "e52392e73c00",
+          "status": "current"
+        }
+      ],
+      "partition": "regression"
+    },
+    {
+      "file": "apps/calculator/test/serve.test.js",
+      "name": "[asdlc-openspec-lgh] The command refuses a listen error other than a port in use in one line naming its code",
+      "modifier": null,
+      "layer": "integration",
+      "level": 1,
+      "ids": [
+        "asdlc-openspec-lgh"
+      ],
+      "refs": [
+        {
+          "ref": "asdlc-openspec-lgh",
+          "hash": null,
+          "status": "task"
+        },
+        {
+          "ref": "surface:apps/calculator/binding-surface.md",
+          "hash": "e52392e73c00",
+          "status": "current"
+        }
+      ],
+      "partition": "regression"
+    },
+    {
+      "file": "apps/calculator/test/serve.test.js",
+      "name": "[asdlc-openspec-lgh] The no-stack-trace check finds a frame anywhere on a line, and none in a refusal",
+      "modifier": null,
+      "layer": "integration",
+      "level": 1,
+      "ids": [
+        "asdlc-openspec-lgh"
+      ],
+      "refs": [
+        {
+          "ref": "asdlc-openspec-lgh",
+          "hash": null,
+          "status": "task"
+        },
+        {
+          "ref": "surface:apps/calculator/binding-surface.md",
+          "hash": "e52392e73c00",
+          "status": "current"
+        }
+      ],
+      "partition": "regression"
+    },
+    {
+      "file": "apps/calculator/test/serve.test.js",
       "name": "[asdlc-openspec-zgh.4] A listen error other than a port in use is refused in one line naming its code",
       "modifier": null,
       "layer": "integration",
@@ -3030,6 +3122,28 @@
         "apps/calculator/test/README.md"
       ],
       "tests": []
+    },
+    {
+      "id": "asdlc-openspec-lgh",
+      "paths": [],
+      "tests": [
+        {
+          "file": "apps/calculator/test/serve.test.js",
+          "name": "[asdlc-openspec-lgh] The command listens once, on 127.0.0.1 alone, whatever HOST, BIND and HOSTNAME say"
+        },
+        {
+          "file": "apps/calculator/test/serve.test.js",
+          "name": "[asdlc-openspec-lgh] The command refuses PORT=0 and an empty PORT rather than serving"
+        },
+        {
+          "file": "apps/calculator/test/serve.test.js",
+          "name": "[asdlc-openspec-lgh] The command refuses a listen error other than a port in use in one line naming its code"
+        },
+        {
+          "file": "apps/calculator/test/serve.test.js",
+          "name": "[asdlc-openspec-lgh] The no-stack-trace check finds a frame anywhere on a line, and none in a refusal"
+        }
+      ]
     },
     {
       "id": "asdlc-openspec-m7p",
