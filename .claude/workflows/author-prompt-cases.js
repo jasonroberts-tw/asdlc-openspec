@@ -22,13 +22,12 @@ export const meta = {
  * session writes each validated case there, and `.claude/workflows/review-prompts.js` answers the
  * bank with the old text and the new of every prompt a review changes (`docs/decisions.md` § D-32).
  * It commits nothing. Its reader runs `scripts/prompt-case-texts.mjs`, which writes each text it needs
- * under `.scratch/prompt-case-texts/` where the session stands, and each author or answer reads its own
- * file there: a model that copied a text through its output would have to retype tens of thousands of
- * characters exactly, and the tools
- * show an agent only part of a line that long (the session review of asdlc-openspec-7c1 measured
- * `CLAUDE.md`'s at 39,891 characters, and a Read that showed 21,247 of them). One such copy, of
- * 46,547 characters, did match, in the first run, on the design this replaced; one slip in it would
- * have failed the run.
+ * under `.scratch/prompt-case-texts/` where the session stands, and each author or answer reads its
+ * own file there: a model that copied a text through its output would have to retype tens of
+ * thousands of characters exactly, and the tools show an agent only part of a line that long (the
+ * session review of asdlc-openspec-7c1 measured `CLAUDE.md`'s at 39,891 characters, and a Read that
+ * showed 21,247 of them). One such copy, of 46,547 characters, did match, in the first run, on the
+ * design this replaced; one slip in it would have failed the run.
  *
  * THE FAILURE IT EXISTS TO PREVENT. On 2026-10-03 its first run, on the 9 settled findings of
  * asdlc-openspec-7c1, dropped 23 of its 27 candidates, their content whole, for a case id or option
