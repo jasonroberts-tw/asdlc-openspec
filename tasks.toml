@@ -4,7 +4,8 @@
 # `scripts/hooks/_shared.mjs`) and every prompt call a task here through `mise run`, and the gates
 # read this file through one loader, `scripts/lib/tasks.mjs` (`docs/decisions.md` § D-35).
 #
-# A task has `run` and, optionally, `description`, each a string: any other key makes mise run it
+# A task has `run` and, optionally, `description`, each a string with no template in it (`{{`, `{%`
+# or `{#`): any other key, or a template, which mise renders before the task runs, makes mise run it
 # otherwise than the command every reader sees, so the loader refuses one. `package.json` keeps two
 # scripts and no more, `prepare`, which `npm ci` runs, and `calculator:serve`, the command the
 # calculator's spec names; `check:jobs` holds both lists. Add, rename or remove a task with the

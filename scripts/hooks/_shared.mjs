@@ -191,7 +191,6 @@ export function generatedFileRedirect(rel) {
  * ============================================================================================= */
 
 const WINDOWS = process.platform === 'win32'
-const NPM = WINDOWS ? 'npm.cmd' : 'npm'
 
 /**
  * How `runTask` launches the task `name` in the checkout at `cwd`, read from that checkout's own
@@ -201,8 +200,9 @@ const NPM = WINDOWS ? 'npm.cmd' : 'npm'
  * gates on either side of the move (asdlc-openspec-8juz.6). A task that manifest lacks is refused,
  * never launched: mise resolves a name a checkout lacks from a checkout above it, so a worktree's
  * gate would run the primary checkout's definition there, and pass on the wrong tree
- * (asdlc-openspec-8juz.1, question 1). Exported so `gate-summary.selftest.mjs` holds the choice
- * without starting either.
+ * (asdlc-openspec-8juz.1, question 1). The launch itself is `launchFor` in `scripts/lib/tasks.mjs`,
+ * which `scripts/fresh-run.mjs` launches through too. Exported so `gate-summary.selftest.mjs` holds
+ * the choice without starting either.
  */
 export async function taskLaunch(name, cwd = ROOT) {
   let manifest
@@ -223,9 +223,7 @@ export async function taskLaunch(name, cwd = ROOT) {
         ' checkout that defines it, since mise would take a definition from a checkout above this one.',
     }
   }
-  return manifest.file === lib.TASKS_TOML
-    ? { command: 'mise', args: ['run', '--quiet', name], label: `mise run ${name}` }
-    : { command: NPM, args: ['run', '--silent', name], label: `npm run ${name}` }
+  return lib.launchFor(manifest, name)
 }
 
 /**

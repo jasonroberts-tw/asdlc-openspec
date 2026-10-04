@@ -47,10 +47,13 @@
  * WHAT FAILS THE JOB:
  *   1. an `npm run <name>`, `node --run <name>` or `mise run <name>` token in a `run:` of
  *      `git-hooks.yml` or `.github/workflows/verify.yml` whose <name> is not a script of the registry
- *      that launcher reads: `mise run`, the tasks; `npm run` and `node --run`, `package.json` alone.
- *      So a job left on `node --run check:jobs` beside a `tasks.toml` fails here, not at the push.
- *      Comment lines are not read -- both files quote scripts they deliberately do NOT run -- and a
- *      multi-line `run: |` block is.
+ *      that launcher reads: `mise run`, the tasks of `tasks.toml`, and none in a tree without one;
+ *      `npm run` and `node --run`, `package.json` alone. So a job left on `node --run check:jobs`
+ *      beside a `tasks.toml` fails here, not at the push. And a line that names a launcher in any
+ *      other shape than one such token alone, `mise r`, `mise --quiet run`, a `:::` list or
+ *      `npm run -s` among them, since a missing task behind it would pass unread. Comment lines are
+ *      not read -- both files quote scripts they deliberately do NOT run -- and a multi-line `run: |`
+ *      block is.
  *   2. a script with no `run:` token in either file that `UNJOBBED_BY_KIND` below
  *      does not declare. A gate-shaped one (`check:*`, `*:check`, `*:selftest`, `*:selfcheck`) is
  *      reported as "wire it, or name the exception with its reason"; anything else as "declare its
@@ -96,8 +99,8 @@
  * five files has no `tools/` or `apps/`: a path case doctors the copy's command line to name what
  * the real tree lacks. A case that needs a file the real tree lacks, such as a dotfile, doctors a
  * copy of the three roots instead. The control must read at least one `apps/` path and one glob, or
- * the apps cases have no passing twin. A case that moves the copy's tasks back into `package.json`
- * holds the shape a tree from before the move has. By hand, point `CHECK_JOBS_ROOT` at a copy, as
+ * the apps cases have no passing twin. A case that moves the copy's tasks back into `package.json`,
+ * and its jobs back onto `node --run` and `npm run`, holds the shape a tree from before the move has. By hand, point `CHECK_JOBS_ROOT` at a copy, as
  * `check-register-status.mjs` does with `CHECK_REGISTER_ROOT`.
  *
  * Reads only committed files, and lists the directories a path or a glob names; no `../sibling`
@@ -157,6 +160,14 @@ const TASK_CONFIG = {
  * the `--silent` npm's launcher took, and `node --run` read `package.json` alone, and resolve there.
  */
 const RUN_TOKEN_RE = /\b(?:(npm run|node --run) (?:--silent )?|(mise run) (?:-q |--quiet )?)([A-Za-z0-9][A-Za-z0-9:._-]*)/g
+/** A line of a `run:` string that names a launcher at all: mise, npm (but `npm ci`) or `node --run`. */
+const LAUNCHER_MENTION_RE = /\bmise\b|\bnode --run\b|\bnpm\b(?! ci\b)/
+/**
+ * The one shape such a line may take, the token `RUN_TOKEN_RE` reads and nothing else beside it. mise
+ * and npm accept other spellings (`mise r`, `mise --quiet run`, a `:::` list, `npm run -s`) that the
+ * token expression does not read, so a missing task behind one would pass here unread.
+ */
+const LAUNCHER_LINE_RE = /^\s*(?:mise run(?: -q| --quiet)?|npm run(?: --silent)?|node --run) [A-Za-z0-9][A-Za-z0-9:._-]*\s*$/
 /**
  * The scripts `package.json` keeps beside a `tasks.toml`, and no others (assertion 6), each with the
  * reason it stays there and the reason no job runs it. In a tree with no `tasks.toml` they are among
@@ -406,8 +417,12 @@ export function runCheck(root, { pathsRoot = root } = {}) {
     }
   }
   const packageNames = new Set(Object.keys(packageScripts))
+  // mise reads its tasks from `tasks.toml` alone, never `package.json`, so in a tree without one a
+  // `mise run` token names no task.
   const registry = (launcher) =>
-    launcher === 'mise run' ? { known: names, label: `${file} ${kindOf}` } : { known: packageNames, label: `${PACKAGE} script` }
+    launcher === 'mise run'
+      ? { known: moved ? names : new Set(), label: `${TASKS_TOML} task` }
+      : { known: packageNames, label: `${PACKAGE} script` }
 
   /* ------------------------------------------------- 1. every token resolves ------------------- */
 
@@ -429,7 +444,15 @@ export function runCheck(root, { pathsRoot = root } = {}) {
     const blocks = runBlocks(file, doc)
     let carrying = 0
     for (const block of blocks) {
-      const found = [...withoutComments(block.run).matchAll(RUN_TOKEN_RE)].map((m) => ({
+      const lines = withoutComments(block.run).split('\n')
+      for (const line of lines.filter((l) => LAUNCHER_MENTION_RE.test(l) && !LAUNCHER_LINE_RE.test(l))) {
+        fail(
+          `${block.where} runs \`${line.trim()}\`, a launcher spelled otherwise than one \`mise run <task>\` alone on its` +
+            ' line. This gate reads no other spelling, so a task missing behind it would pass here and fail when the' +
+            ' job runs; spell it `mise run <task>`, one task to a line.',
+        )
+      }
+      const found = [...lines.join('\n').matchAll(RUN_TOKEN_RE)].map((m) => ({
         launcher: m[1] ?? m[2],
         name: m[3],
       }))
@@ -452,8 +475,11 @@ export function runCheck(root, { pathsRoot = root } = {}) {
         (moved && token.launcher !== 'mise run' && names.has(token.name)
           ? ` \`${token.launcher}\` reads ${PACKAGE} alone, and the task is in ${TASKS_TOML}, so the job` +
             ` fails on the next push; launch it with \`mise run ${token.name}\`.`
-          : ' A job over a script that does not exist fails on the next push for a reason unrelated to' +
-            ' the push; rename the token or restore the script.'),
+          : !moved && token.launcher === 'mise run'
+            ? ` mise reads tasks from ${TASKS_TOML} alone, and this tree has none, so the job fails on the next` +
+              ` push; launch a ${PACKAGE} script with \`node --run\` here.`
+            : ' A job over a script that does not exist fails on the next push for a reason unrelated to' +
+              ' the push; rename the token or restore the script.'),
     )
   }
   // A task a job names through the wrong launcher is refused above, once; read as un-jobbed too, it
@@ -825,11 +851,16 @@ function editTasks(dir, transform) {
   })
 }
 
-/** The copy's tasks moved back into package.json's scripts, as a tree from before the move has them. */
+/**
+ * The copy's tasks moved back into package.json's scripts, and its jobs and steps back onto the
+ * launchers that read them, `node --run` and `npm run`, as a tree from before the move has them.
+ */
 function toPackageJson(dir) {
   const tasks = parseTasks(TASKS_TOML, readFileSync(join(dir, TASKS_TOML), 'utf8'))
   rmSync(join(dir, TASKS_TOML))
   editScripts(dir, (scripts) => Object.assign(scripts, tasks))
+  edit(dir, HOOK_JOBS, (t) => t.replaceAll('run: mise run ', 'run: node --run '))
+  edit(dir, VERIFY, (t) => t.replaceAll('run: mise run ', 'run: npm run '))
 }
 
 /** A job appended to the copy's git-hooks.yml, under the last hook's `jobs:` list. */
@@ -899,11 +930,32 @@ function cases() {
       expect: 'pass',
     },
     {
-      // A tree from before the move, which the loader reads too: every launcher reads package.json.
+      // A tree from before the move, which the loader reads too: its launchers read package.json.
       name: "the copy's tasks moved back into package.json pass, as a tree from before the move",
       doctor: (dir) => toPackageJson(dir),
       expect: 'pass',
     },
+    {
+      // mise reads no package.json script, so a job left on it in such a tree finds no task.
+      name: 'a `mise run` job in a tree with no tasks.toml',
+      doctor: (dir) => {
+        toPackageJson(dir)
+        edit(dir, HOOK_JOBS, appendJob('doctored', 'mise run check:jobs'))
+      },
+      expect: /^git-hooks\.yml pre-push\/doctored invokes `mise run check:jobs`, which is not a tasks\.toml task\. mise reads tasks from tasks\.toml alone, and this tree has none/,
+    },
+    // A launcher spelled any way the token expression does not read: a missing task behind it would pass unread.
+    ...[
+      ['mise --quiet run no:such:task', 'mise --quiet run no:such:task'],
+      ['mise r no:such:task', 'mise r no:such:task'],
+      ['a `:::` list of tasks', 'mise run check:jobs ::: no:such:task'],
+      ['npm run -s check:jobs', 'npm run -s check:jobs'],
+    ].map(([what, run]) => ({
+      name: `a hook job spells its launcher as ${what}`,
+      // Quoted, since `::: ` would otherwise read as a YAML mapping.
+      doctor: (dir) => edit(dir, HOOK_JOBS, appendJob('doctored', `'${run}'`)),
+      expect: new RegExp(`^git-hooks\\.yml pre-push/doctored runs \`${run.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\`, a launcher spelled otherwise than one \`mise run <task>\` alone on its line`),
+    })),
     // Each refusal of the task loader (`scripts/lib/tasks.mjs`), reported in its words.
     ...[
       ['a tasks.toml that does not parse', (t) => `${t}[unclosed\n`, /^tasks\.toml cannot be read as TOML/],
@@ -911,6 +963,10 @@ function cases() {
       ['a task in the tasks.toml whose `run` is not a string', (t) => t.replace('run = "node scripts/check-jobs.mjs"\n', 'run = ["node", "scripts/check-jobs.mjs"]\n'), /^tasks\.toml: the task `check:jobs` has no `run` string\./],
       ['a task in the tasks.toml whose description is not a string', (t) => t.replace('run = "node scripts/check-jobs.mjs"\n', 'run = "node scripts/check-jobs.mjs"\ndescription = 1\n'), /^tasks\.toml: the task `check:jobs` has a `description` that is not a string\./],
       ['a task in the tasks.toml carries a key the loader refuses', (t) => t.replace('run = "node scripts/check-jobs.mjs"\n', 'run = "node scripts/check-jobs.mjs"\ndepends = ["counts:check"]\n'), /^tasks\.toml: the task `check:jobs` has `depends`/],
+      // mise renders a template before it runs a task, so each of Tera's three openers is refused.
+      ['a task in the tasks.toml whose `run` holds a template statement', (t) => t.replace('run = "node scripts/check-count-index.mjs"\n', 'run = "node scripts/check-count-index.mjs {% if true %}--selftest{% endif %}"\n'), /^tasks\.toml: the task `counts:check` has a template in its `run` \(`\{%`\)\. mise renders it/],
+      ['a task in the tasks.toml whose `run` holds a template comment', (t) => t.replace('run = "node scripts/check-count-index.mjs"\n', 'run = "node scripts/check-count-index.mjs {# a note #}"\n'), /^tasks\.toml: the task `counts:check` has a template in its `run` \(`\{#`\)\. mise renders it/],
+      ['a task in the tasks.toml whose description holds a template expression', (t) => t.replace('run = "node scripts/check-jobs.mjs"\n', 'run = "node scripts/check-jobs.mjs"\ndescription = "{{ exec(command=\'date\') }}"\n'), /^tasks\.toml: the task `check:jobs` has a template in its `description` \(`\{\{`\)\. mise renders it/],
     ].map(([name, change, expect]) => ({ name, doctor: (dir) => edit(dir, TASKS_TOML, change), expect })),
     // The same loader's refusals of a package.json, in a tree from before the move and beside a tasks.toml.
     ...[

@@ -11,7 +11,11 @@
  * finds none either. The test-inventory gate compares a branch's head with its merge base, so the
  * second would read no test patterns at the base and pass a test the move deleted. And a task with a
  * key mise reads and the readers do not, such as `depends`, `dir` or `env`, would run otherwise than
- * the command every reader sees, so any key but `run` and `description`, each a string, is refused.
+ * the command every reader sees, so any key but `run` and `description`, each a string, is refused;
+ * and so is a template in either (`{{`, `{%` or `{#`), which mise renders, `exec()` included, before
+ * the task runs. The near miss, on 2026-10-04: the session review of asdlc-openspec-8juz.6 showed
+ * `{{ exec(command='echo --selftest') }}` in `counts:check` turn the gate into its selftest under
+ * mise, while this loader and `check:jobs` passed the command.
  *
  * Imported, never run:
  *
@@ -20,6 +24,7 @@
  *   tasksFrom(read)          the same from `read(path)`, a path's text or null: a commit's blobs, or
  *                            the files a tool has read
  *   parseTasks(file, text)   one manifest's text; throws naming the file and the task at fault
+ *   launchFor(manifest, name, args)   the command, arguments and label that launch one task
  *   taskFiles(file, tasks)   a fixture's manifest in either shape, for the readers' selftests
  *
  * Each refusal is held, in its words, by `check:jobs:selftest`, since the job gate reports a
@@ -39,6 +44,12 @@ export const PACKAGE_JSON = 'package.json'
 
 /** The keys a task in `tasks.toml` may have; every other one is mise's, and changes how it runs. */
 const TASK_KEYS = new Set(['run', 'description'])
+/**
+ * What opens a template in Tera, which mise renders in a task's `run` before the task runs and in
+ * every task's `description` whenever it loads the tasks, `exec()` included, so a command no reader
+ * sees runs. A shell's own `${#VAR}` holds `{#` too, and mise already refuses it as an unclosed comment.
+ */
+const TEMPLATE_OPENER = /\{\{|\{%|\{#/
 
 const toml = () => createRequire(import.meta.url)('smol-toml')
 const isTable = (value) => value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)
@@ -81,6 +92,15 @@ export function parseTasks(file, text) {
       if (task.description !== undefined && typeof task.description !== 'string') {
         throw new Error(`${file}: the task \`${name}\` has a \`description\` that is not a string.`)
       }
+      for (const key of ['run', 'description']) {
+        const opener = typeof task[key] === 'string' ? TEMPLATE_OPENER.exec(task[key])?.[0] : undefined
+        if (opener !== undefined) {
+          throw new Error(
+            `${file}: the task \`${name}\` has a template in its \`${key}\` (\`${opener}\`). mise renders it, \`exec()\`` +
+              ' included, before it runs a task, so the task would run otherwise than the command every reader sees.',
+          )
+        }
+      }
       tasks[name] = task.run
     }
     return tasks
@@ -107,6 +127,23 @@ export function loadTasks(root) {
       throw error
     }
   })
+}
+
+/**
+ * How the task `name` of `manifest`, as `tasksFrom` gives it, is launched with `args`, as
+ * `{ command, args, label }`: `mise run --quiet` beside a `tasks.toml`, which hands the task the
+ * arguments after its name and would take a `--` for itself (asdlc-openspec-8juz.1, question 3), and
+ * in a tree from before the move `npm run --silent`, `npm.cmd` on Windows, with a `--` before them.
+ * `runTask` in `scripts/hooks/_shared.mjs` and `scripts/fresh-run.mjs` both launch a task through here.
+ */
+export function launchFor(manifest, name, args = []) {
+  return manifest.file === TASKS_TOML
+    ? { command: 'mise', args: ['run', '--quiet', name, ...args], label: `mise run ${name}` }
+    : {
+        command: process.platform === 'win32' ? 'npm.cmd' : 'npm',
+        args: ['run', '--silent', name, ...(args.length > 0 ? ['--', ...args] : [])],
+        label: `npm run ${name}`,
+      }
 }
 
 /**

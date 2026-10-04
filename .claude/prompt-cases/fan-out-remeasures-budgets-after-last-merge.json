@@ -15,7 +15,7 @@
     },
     {
       "id": "b",
-      "text": "Don't settle the figures merge by merge. Once L11, the last lane, is merged, re-measure every prompt with `node scripts/check-prompts.mjs --counts`, write the budgets it reports and run `npm run gates`."
+      "text": "Don't settle the figures merge by merge. Once L11, the last lane, is merged, re-measure every prompt with `node scripts/check-prompts.mjs --counts`, write the budgets it reports and run `mise run gates`."
     },
     {
       "id": "c",

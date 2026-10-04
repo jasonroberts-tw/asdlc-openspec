@@ -85,10 +85,11 @@
  */
 import { spawn as childSpawn, spawnSync } from 'node:child_process'
 import { cpSync, existsSync, globSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { arch, platform, release, tmpdir } from 'node:os'
 import { delimiter, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { PACKAGE_JSON, TASKS_TOML, loadTasks, parseTasks, taskFiles } from './lib/tasks.mjs'
+import { PACKAGE_JSON, TASKS_TOML, launchFor, loadTasks, parseTasks, taskFiles } from './lib/tasks.mjs'
 import { words } from './lib/test-dirs.mjs'
 import { POLICY_DIR, copyPolicy, readPolicy } from '../tools/lib/policy.ts'
 
@@ -174,7 +175,7 @@ function killGroup(child) {
 function runChild(command, args, clone) {
   const started = performance.now()
   return new Promise((done) => {
-    const child = childSpawn(command, args, { cwd: clone, env: childEnv(clone), detached: process.platform !== 'win32', shell: process.platform === 'win32' && command === 'npm' })
+    const child = childSpawn(command, args, { cwd: clone, env: childEnv(clone), detached: process.platform !== 'win32', shell: process.platform === 'win32' && /^npm(?:\.cmd)?$/.test(command) })
     live.add(child)
     let stdout = ''
     let stderr = ''
@@ -336,23 +337,14 @@ export function testScripts(scripts) {
 const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'))
 
 /**
- * How the clone's task `script` runs with `args`, by the clone's own manifest, as `runTask` in
- * `scripts/hooks/_shared.mjs` chooses: `mise run --quiet` beside a `tasks.toml`, which hands the
- * task the arguments after its name and would take a `--` for itself (asdlc-openspec-8juz.1,
- * question 3), and `npm run --silent` with a `--` before them in a commit from before the move.
+ * Each test script in the clone, with its exit and its results; `manifest` is the clone's, as
+ * `loadTasks` reads it, and each launches by it through `launchFor`, as `runTask` launches one.
  */
-function launch(manifest, script, args = []) {
-  return manifest.file === TASKS_TOML
-    ? { command: 'mise', args: ['run', '--quiet', script, ...args], label: `mise run ${script}` }
-    : { command: 'npm', args: ['run', '--silent', script, ...(args.length > 0 ? ['--', ...args] : [])], label: `npm run --silent ${script}` }
-}
-
-/** Each test script in the clone, with its exit and its results; `manifest` is the clone's, as `loadTasks` reads it. */
 async function runScripts(clone, out, manifest) {
   const ran = []
   for (const script of testScripts(manifest.tasks)) {
     const file = join(out, `${script.replace(/[^a-z0-9]+/gi, '-')}.json`)
-    const { command, args, label } = launch(manifest, script, ['--results', file])
+    const { command, args, label } = launchFor(manifest, script, ['--results', file])
     const run = withinDeadline(await runChild(command, args, clone), label)
     const results = existsSync(file) ? readJson(file) : null
     ran.push({ script, status: run.status, ms: run.ms, results, output: results ? null : tail(run) })
@@ -377,7 +369,7 @@ async function traceCheck(clone) {
 /** The Commands' mutation run, as the gate prints it, or why it did not run; `manifest` is the clone's, as `loadTasks` reads it. */
 async function commandsCheck(clone, manifest) {
   if (!manifest.tasks[COMMANDS_CHECK]) return { script: COMMANDS_CHECK, skipped: `${manifest.file} at this commit has no \`${COMMANDS_CHECK}\`` }
-  const { command, args, label } = launch(manifest, COMMANDS_CHECK)
+  const { command, args, label } = launchFor(manifest, COMMANDS_CHECK)
   const run = withinDeadline(await runChild(command, args, clone), label)
   return { script: COMMANDS_CHECK, status: run.status, ms: run.ms, output: `${run.stdout}${run.stderr}`.replace(/\s+$/, '') }
 }
@@ -592,18 +584,15 @@ const SLEEP_ENV = 'FRESH_RUN_SELFTEST_SLEEP'
 const COMMANDS_STUB = 'node stub/commands.mjs'
 /** The selftest's task id that no fixture test cites, passed where a case does not choose its own. */
 const OTHER_TASK = 'asdlc-openspec-fx.9'
-/** The fixture's `mise.toml`: this repository's task settings and `[task_config]`, and no tool. */
-const FIXTURE_MISE = [
-  '[settings]',
-  'task.output = "interleave"',
-  'task.quiet = true',
-  'task.timings = false',
-  '',
-  '[task_config]',
-  'dir = "{{cwd}}"',
-  'includes = ["tasks.toml"]',
-  '',
-].join('\n')
+/**
+ * The fixture's `mise.toml`: this checkout's own `[settings] task` and `[task_config]`, read from its
+ * `mise.toml` so the fixture runs under them as they are, and no tool, so mise installs nothing.
+ */
+function fixtureMise() {
+  const toml = createRequire(import.meta.url)('smol-toml')
+  const live = toml.parse(readFileSync(join(REPO_ROOT, 'mise.toml'), 'utf8'))
+  return `${toml.stringify({ settings: { task: live.settings?.task ?? {} }, task_config: live.task_config ?? {} })}\n`
+}
 const SPEC = `# calculator Specification
 
 ## Purpose
@@ -668,7 +657,7 @@ async function buildFixture(base) {
     [COMMANDS_CHECK]: COMMANDS_STUB,
   }
   for (const [path, text] of Object.entries(taskFiles(TASKS_TOML, scripts, { type: 'module' }))) write(dir, path, text)
-  write(dir, 'mise.toml', FIXTURE_MISE)
+  write(dir, 'mise.toml', fixtureMise())
   write(
     dir,
     'stub/commands.mjs',

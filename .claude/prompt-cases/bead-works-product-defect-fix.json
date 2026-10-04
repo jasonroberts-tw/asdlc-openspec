@@ -15,7 +15,7 @@
     },
     {
       "id": "b",
-      "text": "Work it through bead. Claim it, make the worktree with `EnterWorktree`, fix the defect and add the test, regenerate, run `npm run gates`, rebase, run the gates again, and open the pull request with `open-pr`."
+      "text": "Work it through bead. Claim it, make the worktree with `EnterWorktree`, fix the defect and add the test, regenerate, run `mise run gates`, rebase, run the gates again, and open the pull request with `open-pr`."
     }
   ],
   "expected": "b",

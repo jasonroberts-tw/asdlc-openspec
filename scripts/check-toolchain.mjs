@@ -38,8 +38,9 @@
  *      `[task_config]` but that and `includes = ["tasks.toml"]`, the task move's one registry;
  *      `[settings] not_found_system_fallback = false` with `auto_install` left on, the two settings
  *      under which a pin that is not installed fails or installs rather than run the system's binary
- *      in its place; and of the settings under `task`, only `output`, `quiet` and `timings`, which
- *      make a task print what its command prints (asdlc-openspec-8juz.1, questions 1, 4 and 6);
+ *      in its place; and of the settings under `task`, only `output`, `quiet` and `timings`, each at
+ *      the one value that makes a task print what its command prints, `"interleave"`, `true` and
+ *      `false` (asdlc-openspec-8juz.1, questions 1, 4 and 6);
  *   6. no tracked file is a mise config but the root `mise.toml`: not `.mise.toml`, `mise.*.toml`,
  *      `.tool-versions`, a `mise.toml` below the root, nor anything under a `mise/`, `.mise/` or
  *      `.config/mise` directory but the `pypi:` backend's locks under `.mise/locks/`. mise loads each
@@ -135,6 +136,12 @@ const TASK_CONFIG = { dir: CWD_TEMPLATE, includes: ['tasks.toml'] }
  * task print only what its command prints (asdlc-openspec-8juz.1, question 4).
  */
 const SETTINGS = ['auto_install', 'not_found_system_fallback', 'task.output', 'task.quiet', 'task.timings']
+/**
+ * The one value each of the three under `task` may hold where it is set: any other changes what a
+ * task prints, and `task.output = "silent"` drops a failing task's own output, leaving only mise's
+ * `[<task>] ERROR task failed` (asdlc-openspec-8juz.6).
+ */
+const TASK_SETTING_VALUES = { 'task.output': 'interleave', 'task.quiet': true, 'task.timings': false }
 /** Files another version manager reads at the root, each a second home for a version `mise.toml` pins. */
 const OTHER_VERSION_FILES = ['.node-version', '.nvmrc', '.python-version']
 /** Where the `pypi:` backend keeps its locks (asdlc-openspec-8juz.3): a lock, which configures nothing. */
@@ -429,6 +436,14 @@ export function runCheck(root, { mise = ['mise'], notes = [] } = {}) {
     problems.push(
       `\`settings.${key}\` in ${CONFIG} is not one of the settings it may carry (${SETTINGS.join(', ')}): a setting acts on every install and shim, and one can turn off mise's checksum, signature or provenance checks, or trust other files.`,
     )
+  }
+  for (const [key, want] of Object.entries(TASK_SETTING_VALUES)) {
+    const value = key.split('.').reduce((at, part) => (at !== null && typeof at === 'object' ? at[part] : undefined), config.settings)
+    if (value !== undefined && value !== want) {
+      problems.push(
+        `\`settings.${key}\` in ${CONFIG} holds ${JSON.stringify(value)}, not the one value it may hold, ${JSON.stringify(want)}: a task then prints otherwise than its command prints, as \`node --run\` printed it, and \`"silent"\` drops a failing task's own output (${SPIKE}, question 4).`,
+      )
+    }
   }
   for (const [key, value] of Object.entries(config.task_config ?? {}).sort(([a], [b]) => byCodePoint(a, b))) {
     if (!Object.hasOwn(TASK_CONFIG, key)) problems.push(`\`task_config.${key}\` in ${CONFIG} is not one of \`task_config.dir\` or \`task_config.includes\`.`)
@@ -736,6 +751,7 @@ function cases() {
     { name: 'a task_config includes naming another file', doctor: edit(CONFIG, /^includes = \["tasks\.toml"\]$/m, 'includes = ["tasks.toml", "more-tasks.toml"]'), expect: /^`task_config\.includes` in mise\.toml holds \["tasks\.toml","more-tasks\.toml"\], not the one value it may hold/ },
     { name: 'a template other than task_config dir {{cwd}}', doctor: edit(CONFIG, /^dir = "\{\{cwd\}\}"$/m, 'dir = "{{config_root}}"'), expect: /^mise\.toml holds a template at `task_config\.dir` \("\{\{config_root\}\}"\)/ },
     { name: 'a task setting it does not admit', doctor: edit(CONFIG, /^(task\.timings = false)$/m, '$1\ntask.run_auto_install = false'), expect: /^`settings\.task\.run_auto_install` in mise\.toml is not one of the settings it may carry/ },
+    { name: 'a task setting at a value it does not admit', doctor: edit(CONFIG, /^task\.output = "interleave"$/m, 'task.output = "silent"'), expect: /^`settings\.task\.output` in mise\.toml holds "silent", not the one value it may hold, "interleave"/ },
     { name: 'the system fallback left on', doctor: edit(CONFIG, /^not_found_system_fallback = false\n/m, ''), expect: /^mise\.toml does not set `\[settings\] not_found_system_fallback = false`/ },
     { name: 'a tool pinned with a table of options', doctor: edit(CONFIG, /^gh = "([^"]+)"$/m, 'gh = { version = "$1", postinstall = "echo installed" }'), expect: /^mise\.toml pins gh with a table of options, not a plain version string/ },
     { name: 'a setting that turns a check off', doctor: edit(CONFIG, /^(not_found_system_fallback = false)$/m, '$1\ngithub_attestations = false'), expect: /^`settings\.github_attestations` in mise\.toml is not one of the settings it may carry/ },
