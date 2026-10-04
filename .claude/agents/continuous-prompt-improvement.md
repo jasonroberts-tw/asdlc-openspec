@@ -55,11 +55,11 @@ earlier review held for any other reason, set aside by its file's agent or not u
 skeptics, goes to a group again only when a run in this batch shows it that none of its held lines
 names. It must still meet the threshold, because the workflow refuses a finding below it.
 
-A group is one file, or several when one finding concerns them together. Its findings are those
-that met the threshold, in the fields the script's header gives `args.groups`. Add to that evidence
-the counts across runs, the same for every group: what the commands an analysis ends with
-(`.claude/skills/close-prompt-run/SKILL.md` § 1) print when you run them now, each with its command,
-since an analysis's own were measured when it was written.
+A group is one file, or several when one finding concerns them together, such as two prompts that
+contradict each other. Its findings are those that met the threshold, in the fields the script's
+header gives `args.groups`. Add to that evidence the counts across runs, the same for every group:
+what the commands an analysis ends with (`.claude/skills/close-prompt-run/SKILL.md` § 1) print when
+you run them now, each with its command, since an analysis's own were measured when it was written.
 
 A finding whose right answer a source settles, the run's action, the pull-request reviewer's finding
 or a later commit, is also a seed for a stored decision case, held or not, unless a case under
