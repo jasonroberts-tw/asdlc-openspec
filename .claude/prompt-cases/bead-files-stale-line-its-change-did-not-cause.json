@@ -1,0 +1,27 @@
+{
+  "id": "bead-files-stale-line-its-change-did-not-cause",
+  "prompt": ".claude/skills/bead/SKILL.md",
+  "lens": "near-miss",
+  "source": {
+    "run": "asdlc-openspec-8juz.3@2026-10-04T03:49:33Z",
+    "point": 1,
+    "commit": "d1eb90a"
+  },
+  "situation": "You are working one issue with the bead skill, in its worktree. The issue moves a tool's version out of a policy key and into `mise.toml`, and retires the key. You have made that change. Before the gates, you read every hit for the tool's name and for the words that describe how tools are installed, looking for files that restate what your change alters. Your change made two of them false, a README row naming the retired key and a script header listing the toolchain, and you have fixed both in this branch. One more hit is a different kind. `docs/setup.md` says the repository needs Node 20 or later, but the `engines` field in `package.json` says 22. Your branch changes neither file. A pull request merged weeks ago raised the floor and missed this line, and the line has nothing to do with the tool you pinned. `docs/setup.md` has no `**Written:**` line. You have run `bd search` and `bd list --all --desc-contains` with two phrasings each, and no open or closed issue covers the line. The pull request is not open yet. What do you do with this line?",
+  "options": [
+    {
+      "id": "a",
+      "text": "Fix the Node line in `docs/setup.md` in this branch, since the sweep for restatements turned it up, and say in the pull request's body that it was fixed along the way."
+    },
+    {
+      "id": "b",
+      "text": "Leave `docs/setup.md` as it is in this branch. File the stale line now as its own issue, discovered from the one you are working, with the found-at and asset labels, and name the new id in the pull request's body."
+    },
+    {
+      "id": "c",
+      "text": "Leave `docs/setup.md` as it is and file nothing. Note in the pull request's body that its Node line is stale, so the reviewer can weigh it."
+    }
+  ],
+  "expected": "b",
+  "settledBy": "Settled by the skill's own sentences in step 4 (Implement, regenerate, gate): a defect found on the way is fixed in this branch only when it sits in a file the issue already changes. Otherwise it is filed as its own issue, never folded in, before the pull request opens, discovered from the issue being worked and carrying the labels CLAUDE.md § The task store names, so that the pull request's body names the new id. No run settles this neighbouring case. The finding's evidence settles only restatements the change itself made false: the three major findings the branch reviewer raised on #130, fixed in 8bf6b20, and #117's later fix of the README rows #116 left stale. This case marks the boundary that a broadened rule like \"fix every stale restatement the search turns up\" must not cross."
+}

@@ -1,0 +1,27 @@
+{
+  "id": "worktree-temp-files-under-scratch",
+  "prompt": ".claude/worktree-CONTEXT.md.tmpl",
+  "lens": "recorded",
+  "source": {
+    "run": "asdlc-openspec-jtrt@2026-10-04T18:02:28Z",
+    "point": 5,
+    "commit": "dce3b17"
+  },
+  "situation": "You are a background session working on a task in your own git worktree, and the worktree briefing above is loaded. You now need files for two things. A gate run printed a long output that you will search more than once. You are also about to add tracker notes whose bodies run to several paragraphs, and you will pass them with the tracker's file flag. Claude Code also gave this session a background-job instruction: put temporary files under $CLAUDE_JOB_DIR/tmp. That directory is outside your worktree path. The files only have to last for this session, and nobody else reads them. Nothing you are measuring or running depends on where they sit. Where do you write them?",
+  "options": [
+    {
+      "id": "a",
+      "text": "Write them under $CLAUDE_JOB_DIR/tmp, as the background-job instruction says, because that directory belongs to this job and no sibling worktree uses it."
+    },
+    {
+      "id": "b",
+      "text": "Write them under .scratch/ inside your own worktree, and pass the note bodies from there with the tracker's file flag."
+    },
+    {
+      "id": "c",
+      "text": "Make a directory with mktemp -d and write them there, because CLAUDE.md allows a mktemp -d directory for long prose."
+    }
+  ],
+  "expected": "b",
+  "settledBy": "Two sources settle it. The first is CLAUDE.md § Bash command style: long prose passes from a file under .scratch/, and a mktemp -d directory is only for a session with no worktree. The briefing's rule against reading or writing outside the worktree path, except through the graphify server's tools, agrees with it. The second is the run's own action: it wrote its gate output and note bodies under .scratch/ in its own worktree, not under $CLAUDE_JOB_DIR/tmp, and lost nothing."
+}

@@ -1,0 +1,27 @@
+{
+  "id": "worktree-no-npm-ci-after-clean-rebase",
+  "prompt": ".claude/worktree-CONTEXT.md.tmpl",
+  "lens": "near-miss",
+  "source": {
+    "run": "asdlc-openspec-8juz.5@2026-10-04T00:20:40Z",
+    "point": 1,
+    "commit": "07c4a65"
+  },
+  "situation": "A session is working in a worktree that had no node_modules when it was cut. Before its first `npm run` it ran `npm ci`, which succeeded. It then made its change and ran the full gate suite, and every job passed. Now it is following the briefing's Finishing steps. It ran `git fetch origin` and then `git rebase origin/main`, and the rebase applied cleanly. The rebase brought in several commits that other agents landed on main. A diff of its old base against the new `origin/main` shows that none of those commits touched `package.json` or `package-lock.json`. Nothing has been installed or removed since the `npm ci`. The session is about to run the suite a second time, as step 3 of Finishing requires.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Run `npm ci` again and then the suite, because the rebase brought in other agents' commits"
+    },
+    {
+      "id": "b",
+      "text": "Run the suite again as the worktree stands, without reinstalling anything"
+    },
+    {
+      "id": "c",
+      "text": "Run `npm install` and then the suite, so any dependency the rebased commits need is added without wiping node_modules"
+    }
+  ],
+  "expected": "b",
+  "settledBy": "The section's own sentences. Under \"npm ci before any npm command\", the briefing says one `npm ci` per worktree is enough unless a rebase changes the lockfile, and that `npm ci` is used, not `npm install`, because package-lock.json is authoritative. Finishing step 1 also asks for `npm ci` only if the session has not already run it. In this near-miss the session already ran `npm ci` and the lockfile did not change, so the text says to rerun the suite without reinstalling. A rewrite that broadens the rule to \"run npm ci before every gate run\" would wrongly cover this case. The finding's own settlement, the instruction to run npm ci in a fresh worktree and the refusal text in scripts/git-hooks.mjs, covers the neighbouring fresh-worktree case and does not settle this one."
+}

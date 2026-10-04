@@ -1,0 +1,23 @@
+{
+  "id": "bead-next-issue-in-new-worktree-while-checks-watch",
+  "prompt": ".claude/skills/bead/SKILL.md",
+  "lens": "recorded",
+  "source": {
+    "run": "asdlc-openspec-8juz.5@2026-10-04T00:20:40Z",
+    "point": 3,
+    "commit": "e8919c3"
+  },
+  "situation": "The user asked you to work through the open children of an epic. You claimed the first child, worked it in its own worktree, and opened its pull request with the open-pr skill. That pull request's checks are now watching in the background, and the epic still has other open children that nobody has worked. The `.worktree/CONTEXT.md` briefing you read when you entered this worktree ends its section on finishing by telling the session to stop at that point. It says not to merge, not to pick up follow-up work and not to open a second task. Its header says it takes precedence where it conflicts with general guidance. The first pull request has not merged yet. What do you do next?",
+  "options": [
+    {
+      "id": "a",
+      "text": "Stop here, as the worktree briefing says. Report the open pull request and its watching checks, and leave the epic's remaining children for a later session."
+    },
+    {
+      "id": "b",
+      "text": "Leave this worktree with ExitWorktree (action keep). Make the next child's worktree with EnterWorktree, and work that child through to its own pull request while the first one's checks keep watching."
+    }
+  ],
+  "expected": "b",
+  "settledBy": "The run's action, taken because the user had asked it to continue the epic. Once the first pull request was open and its checks were watching, the run left the worktree, made a second one and worked the next child to a second pull request. Both pull requests merged: the reviewer merged the first and a person merged the second."
+}

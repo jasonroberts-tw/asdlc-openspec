@@ -1,0 +1,27 @@
+{
+  "id": "bead-tests-behaviour-the-fix-adds",
+  "prompt": ".claude/skills/bead/SKILL.md",
+  "lens": "recorded",
+  "source": {
+    "run": "asdlc-openspec-k6pd@2026-10-04T17:24:35Z",
+    "point": 2,
+    "commit": "2fb0865"
+  },
+  "situation": "You are working one issue with the bead skill, in its worktree. The issue: a gate reads four values from a GitHub workflow file's raw text, comments included, so a commented-out line can be read as the live value. For each reproduction the issue gives, you wrote a selftest case, ran it against the unfixed gate and saw it fail. Then you fixed the gate to read the parsed workflow, and those cases now pass. While making the fix you also changed how the gate finds EVENT_NAME: it now looks in the step's env, then the job's env, then the workflow's top-level env. The issue did not ask for that lookup order and no reproduction exercises it. No selftest case fails if the fallback is removed or its order changed. You have nothing else to edit. Next you would stage the files, run `mise run gates`, rebase, run the gates again, and push to open the pull request.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Run the gates and push as the branch stands. Step 4's fail-first rule is about the defect's fix, every reproduction already has a case seen to fail, and the EVENT_NAME fallback was only a side effect of that fix."
+    },
+    {
+      "id": "b",
+      "text": "Before the gates and the push, write selftest cases that hold where the gate takes EVENT_NAME from (step env, then job env, then workflow env), and see each one fail against a copy of the gate without that fallback."
+    },
+    {
+      "id": "c",
+      "text": "Push as the branch stands, say in the pull request's body that the EVENT_NAME fallback has no case yet, and file a follow-up issue to add its cases."
+    }
+  ],
+  "expected": "b",
+  "settledBy": "The pre-push branch reviewer rated the untested EVENT_NAME fallback a major finding. Commit dce3b17 was added before the push: its selftest holds where the gate takes EVENT_NAME from."
+}
