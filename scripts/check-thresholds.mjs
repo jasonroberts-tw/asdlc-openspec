@@ -63,16 +63,19 @@
  *
  * THE TEST-BUILDER'S STAGES. Its tests live under `independentTestDir` in
  * `tools/policy/agent-workflows.json`, a directory per stage below it. A `--dir` under it and not
- * under its `build` stage is the Verify stage's: its E2E tests and Verify-deferred fitness functions
- * run at Verify (`docs/test-strategy.md` § Build exit criteria), in change-verify's fresh run, so
- * neither run here runs them, and the gate prints a note naming each such `--dir`. Counted here
- * they would run at every push (asdlc-openspec-8yd). The other choice that issue allowed, to run
- * them here and state their cost at push, was not taken: the strategy runs them at Verify alone, and
- * an E2E test runs on the real component topology. Where it loses: a changed line only a Verify-stage
- * test reaches counts as uncovered, and a mutant only one detects as undetected, so a build-stage or
- * app-builder's test must reach it, or a directive excuse it with a reason. A `--dir` at or above
- * `independentTestDir` holds both stages, and is refused. The stage's name, `build`, is spelled here
- * and in the build workflow, and no key holds it yet (asdlc-openspec-d9rt).
+ * under the stage `independentBuildStage` names is the Verify stage's: its E2E tests and
+ * Verify-deferred fitness functions run at Verify (`docs/test-strategy.md` § Build exit criteria), in
+ * change-verify's fresh run, so neither run here runs them, and the gate prints a note naming each
+ * such `--dir`. Counted here they would run at every push (asdlc-openspec-8yd). The other choice that
+ * issue allowed, to run them here and state their cost at push, was not taken: the strategy runs them
+ * at Verify alone, and an E2E test runs on the real component topology. Where it loses: a changed line
+ * only a Verify-stage test reaches counts as uncovered, and a mutant only one detects as undetected,
+ * so a build-stage or app-builder's test must reach it, or a directive excuse it with a reason. A
+ * `--dir` at or above `independentTestDir` holds both stages, and is refused. The key
+ * `independentBuildStage` holds the build stage's name, `build`, and this gate reads it from there;
+ * the build workflow, the `--dir` of `package.json`'s `calculator:test:independent`, the comments of
+ * `git-hooks.yml` and `independentTestDirMeans` still spell it, and nothing holds them to the key,
+ * until asdlc-openspec-d9rt.
  *
  * WHAT IT REFUSES, each refusal opening with what it measured:
  *
@@ -85,8 +88,8 @@
  *   - `mutation`: a mutant a `Stryker disable` comment ignores with no reason, and a changed
  *     `Stryker disable` without `next-line`, which silences every mutant after it with one reason.
  *   - `baseline`: below.
- *   - `policy`, `branch`: a policy without the gate's keys or without `independentTestDir`; a
- *     checkout with no `origin/main`, or a root that is not the top of one.
+ *   - `policy`, `branch`: a policy without the gate's keys, or without `independentTestDir` or
+ *     `independentBuildStage`; a checkout with no `origin/main`, or a root that is not the top of one.
  *   - `suite`: a failing test, in the words of `scripts/run-tests.mjs`, since coverage over a failing
  *     suite measures the wrong thing; and a `--dir` at or above the test-builder's directory, whose
  *     run would run its Verify stage's tests. A mutation run whose first test run fails in Stryker's
@@ -171,8 +174,8 @@
  * Routines' mutants when their code changed; `git-hooks.yml` carries its measurement.
  *
  * NEEDS git and `origin/main` (a shallow clone has no merge base, so CI checks out with
- * `fetch-depth: 0`), the gate's keys in `tools/policy/tool-settings.json` and `independentTestDir` in
- * `tools/policy/agent-workflows.json`, and
+ * `fetch-depth: 0`), the gate's keys in `tools/policy/tool-settings.json`, `independentTestDir` and
+ * `independentBuildStage` in `tools/policy/agent-workflows.json`, and
  * `@stryker-mutator/core` and `@stryker-mutator/tap-runner` (`npm ci`). No network.
  *
  * KIND: gate, and the emitter of the baseline: `thresholds:update` writes it, and the two checks
@@ -211,16 +214,15 @@ const KEYS = {
   scope: 'thresholdScope',
   commands: 'mutationCommands',
 }
-/** The policy record that holds `independentTestDir`, named in the refusal about it. */
+/** The policy record that holds `independentTestDir` and `independentBuildStage`, named in the refusals about them. */
 const AGENT_WORKFLOWS = `${POLICY_DIR}/agent-workflows.json`
 /** Where the test-builder's tests live, a directory per stage below it (`independentTestDirMeans`). */
 const INDEPENDENT_KEY = 'independentTestDir'
 /**
- * The stage directory under `independentTestDir` whose tests run at a push, as the build workflow's
- * `stageOf` names it (the header of `.claude/workflows/build-change-task.js`); every other stage's
- * run at Verify (`docs/test-strategy.md` § Build exit criteria).
+ * The name of the stage directory under `independentTestDir` whose tests run at a push; every other
+ * stage's run at Verify (`independentBuildStageMeans`; `docs/test-strategy.md` § Build exit criteria).
  */
-const BUILD_STAGE = 'build'
+const BUILD_STAGE_KEY = 'independentBuildStage'
 /** What Stryker writes as the reason of a mutant a `Stryker disable` comment ignores without one. */
 const STRYKER_DEFAULT_REASON = 'Ignored using a comment'
 /** Mutants of each outcome, as Stryker's own score counts them. */
@@ -238,6 +240,8 @@ const percent = (part, whole) => `${((100 * part) / whole).toFixed(2)}%`
 const lineCount = (text) => (text === '' ? 0 : text.split('\n').length - (text.endsWith('\n') ? 1 : 0))
 const allLines = (text) => new Set(Array.from({ length: lineCount(text) }, (_, n) => n + 1))
 const posix = (path) => path.split('\\').join('/')
+/** `text` with every character a regular expression reads as syntax escaped, `/` among them, to match itself. */
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
 
 /* --------------------------------------------------------------------------------- policy ------- */
 
@@ -277,9 +281,13 @@ export function readPolicy(root) {
   }
   const independent = policy[INDEPENDENT_KEY]
   if (typeof independent !== 'string' || !independent.includes('{app}')) {
-    throw new Error(`${AGENT_WORKFLOWS} has no \`${INDEPENDENT_KEY}\`, a path holding \`{app}\`, so the test-builder's Verify stage cannot be told from its ${BUILD_STAGE} stage.`)
+    throw new Error(`${AGENT_WORKFLOWS} has no \`${INDEPENDENT_KEY}\`, a path holding \`{app}\`, so the test-builder's Verify stage cannot be told from its build stage.`)
   }
-  return { percents, samples, scope, commands, independent }
+  const buildStage = policy[BUILD_STAGE_KEY]
+  if (typeof buildStage !== 'string' || !/^[^/\\]+$/.test(buildStage) || buildStage === '.' || buildStage === '..') {
+    throw new Error(`${AGENT_WORKFLOWS} has no \`${BUILD_STAGE_KEY}\`, the name of one directory under \`${INDEPENDENT_KEY}\`, so the test-builder's build stage cannot be told from its Verify stage.`)
+  }
+  return { percents, samples, scope, commands, independent, buildStage }
 }
 
 /* --------------------------------------------------------------------------------- git ---------- */
@@ -561,7 +569,7 @@ function tasksOf(root) {
 
 /** The quoted patterns of every task that runs the runner, as `tools/trace/trace.ts` reads them. */
 function testPatterns(root) {
-  const invocation = new RegExp(`node ${RUNNER.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}((?:\\s+"[^"]+")+)`, 'g')
+  const invocation = new RegExp(`node ${escapeRegExp(RUNNER)}((?:\\s+"[^"]+")+)`, 'g')
   const patterns = []
   for (const command of Object.values(tasksOf(root))) {
     for (const call of command.matchAll(invocation)) for (const quoted of call[1].matchAll(/"([^"]+)"/g)) patterns.push(quoted[1])
@@ -571,16 +579,17 @@ function testPatterns(root) {
 
 /**
  * Where a `--dir` stands to the test-builder's directory, `template` (`independentTestDir`, `{app}`
- * any one name): `outside` it, `build` at or under its build stage, `verify` at or under any other
- * stage, whose tests run at Verify, or `spans` at or above the directory itself, holding every stage.
+ * any one name): `outside` it, `build` at or under its build stage, the directory below it that
+ * `buildStage` (`independentBuildStage`) names, `verify` at or under any other stage, whose tests run
+ * at Verify, or `spans` at or above the directory itself, holding every stage.
  */
-function stageOf(dir, template) {
+function stageOf(dir, { independent: template, buildStage }) {
   const normal = posixPath.normalize(dir)
   const parts = normal === '.' ? [] : normal.split('/')
-  const segments = template.split('/').map((segment) => new RegExp(`^${segment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replaceAll('\\{app\\}', '[^/]+')}$`))
+  const segments = template.split('/').map((segment) => new RegExp(`^${escapeRegExp(segment).replaceAll('\\{app\\}', '[^/]+')}$`))
   for (let k = 0; k < Math.min(parts.length, segments.length); k++) if (!segments[k].test(parts[k])) return 'outside'
   if (parts.length <= segments.length) return 'spans'
-  return parts[segments.length] === BUILD_STAGE ? 'build' : 'verify'
+  return parts[segments.length] === buildStage ? 'build' : 'verify'
 }
 
 /**
@@ -592,12 +601,12 @@ function stageDirs(root, policy) {
   const run = []
   const left = []
   for (const dir of scriptDirs(tasksOf(root))) {
-    const stage = stageOf(dir, policy.independent)
+    const stage = stageOf(dir, policy)
     if (stage === 'spans') {
       throw Object.assign(
         new Error(
           `the --dir ${dir} holds every stage of the test-builder's \`${policy.independent}\` (${AGENT_WORKFLOWS}), so its run would run the Verify stage's tests,` +
-            ` which run at Verify alone (docs/test-strategy.md § Build exit criteria); give the ${BUILD_STAGE} stage a --dir of its own.`,
+            ` which run at Verify alone (docs/test-strategy.md § Build exit criteria); give the ${policy.buildStage} stage a --dir of its own.`,
         ),
         { kind: 'suite' },
       )
@@ -1004,7 +1013,7 @@ function setUp(root, { product }) {
     .sort(byCodePoint)
   const notes = dirs.left.map(
     (dir) =>
-      `note: the --dir ${dir} is under the test-builder's \`${policy.independent}\` and not its ${BUILD_STAGE} stage, so its tests run at Verify` +
+      `note: the --dir ${dir} is under the test-builder's \`${policy.independent}\` and not its ${policy.buildStage} stage, so its tests run at Verify` +
       " (docs/test-strategy.md § Build exit criteria) and neither the coverage run nor the Routines' mutation run runs them.",
   )
   const read = { policy, inScope, tests, dirs: dirs.run, notes }
@@ -1310,7 +1319,7 @@ function writeTree(dir, files) {
  * `scan` holds the reader's code lines for a source.
  */
 function cases(f, policy) {
-  const { percents, samples } = policy
+  const { percents, samples, buildStage } = policy
   const only = { coverage: { coverage: true, mutation: false }, mutation: { coverage: false, mutation: true }, none: { coverage: false, mutation: false } }
   const withNew = (extraCalc, extraTest = '') => ({ 'apps/calculator/public/calc.js': f.calc(f.olds) + `\n${extraCalc}`, 'apps/calculator/test/calc.test.js': f.calcTest(f.olds) + extraTest })
   const g = f.fn('g1', 50)
@@ -1320,7 +1329,6 @@ function cases(f, policy) {
   }
   // The test-builder's directory for the fixture's one app, a directory per stage below it.
   const independent = policy.independent.replaceAll('{app}', 'calculator')
-  const escape = (text) => text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
   const importOf = (path) => posixPath.relative(posixPath.dirname(path), 'apps/calculator/public/calc.js')
   /** The calculator's test pattern and, for each task `dirs` names, a run of the runner over its `--dir`, in the manifest `file`. */
   const dirTasks = (file, dirs) =>
@@ -1329,15 +1337,15 @@ function cases(f, policy) {
       { 'calculator:test': 'node scripts/run-tests.mjs "apps/calculator/test/*.test.js"', ...Object.fromEntries(Object.entries(dirs).map(([task, dir]) => [task, `node scripts/run-tests.mjs --dir ${dir}`])) },
       { type: 'module' },
     )
-  /** The agent workflows' policy record without `independentTestDir` and its `Means`. */
-  const withoutIndependent = () => {
+  /** The agent workflows' policy record without `key` and its `Means`. */
+  const withoutKey = (key) => {
     const record = JSON.parse(readFileSync(join(REPO_ROOT, AGENT_WORKFLOWS), 'utf8'))
-    delete record[INDEPENDENT_KEY]
-    delete record[`${INDEPENDENT_KEY}Means`]
+    delete record[key]
+    delete record[`${key}Means`]
     return `${JSON.stringify(record, null, 2)}\n`
   }
   const independentHead = (layer) => `import assert from 'node:assert/strict'\nimport { test } from 'node:test'\n// trace-defaults: layer=${layer}\n`
-  const buildPath = `${independent}/${BUILD_STAGE}/contract/g1.test.js`
+  const buildPath = `${independent}/${buildStage}/contract/g1.test.js`
   /** The test-builder's contract test of `g1` at the build stage, which alone covers it and detects its every mutant. */
   const buildTest = { [buildPath]: `${independentHead('contract')}${gTest({}).replace("'../public/calc.js'", `'${importOf(buildPath)}'`)}` }
   const verifyPath = `${independent}/verify/e2e/g1.test.js`
@@ -1397,28 +1405,34 @@ function cases(f, policy) {
       printed: /uncovered: apps\/calculator\/public\/unloaded\.js:1, in a file no test loads/,
     },
     ...[PACKAGE_JSON, TASKS_TOML].map((file) => ({
-      name: `a changed Routine that only a test under the --dir of the test-builder's ${BUILD_STAGE} stage runs counts as covered, the tasks in ${file}`,
-      files: { ...withNew(g), ...dirTasks(file, { 'calculator:test:independent': `${independent}/${BUILD_STAGE}` }), ...buildTest },
+      name: `a changed Routine that only a test under the --dir of the test-builder's ${buildStage} stage runs counts as covered, the tasks in ${file}`,
+      files: { ...withNew(g), ...dirTasks(file, { 'calculator:test:independent': `${independent}/${buildStage}` }), ...buildTest },
       stages: only.coverage,
       expect: 'pass',
     })),
     {
-      name: `a test under the --dir of the test-builder's Verify stage runs in neither the coverage run nor the Routines' mutation run, where the ${BUILD_STAGE} stage's runs in both`,
-      files: { ...withNew(g), ...dirTasks(PACKAGE_JSON, { 'calculator:test:independent': `${independent}/${BUILD_STAGE}`, 'calculator:test:verify': `${independent}/verify` }), ...buildTest, ...verifyTest },
+      name: `a test under the --dir of the test-builder's Verify stage runs in neither the coverage run nor the Routines' mutation run, where the ${buildStage} stage's runs in both`,
+      files: { ...withNew(g), ...dirTasks(PACKAGE_JSON, { 'calculator:test:independent': `${independent}/${buildStage}`, 'calculator:test:verify': `${independent}/verify` }), ...buildTest, ...verifyTest },
       expect: 'pass',
-      printed: new RegExp(`^note: the --dir ${escape(`${independent}/verify`)} is under the test-builder's \`${escape(policy.independent)}\` and not its ${BUILD_STAGE} stage`),
+      printed: new RegExp(`^note: the --dir ${escapeRegExp(`${independent}/verify`)} is under the test-builder's \`${escapeRegExp(policy.independent)}\` and not its ${escapeRegExp(buildStage)} stage`),
     },
     {
       name: "a --dir holding every stage of the test-builder's directory, whose run would run the Verify stage's tests",
       files: dirTasks(PACKAGE_JSON, { 'calculator:test:independent': independent }),
       stages: only.none,
-      expect: new RegExp(`^suite: the --dir ${escape(independent)} holds every stage of the test-builder's \`${escape(policy.independent)}\``),
+      expect: new RegExp(`^suite: the --dir ${escapeRegExp(independent)} holds every stage of the test-builder's \`${escapeRegExp(policy.independent)}\``),
     },
     {
       name: "a policy without the test-builder's directory, so its Verify stage cannot be told",
-      files: { [AGENT_WORKFLOWS]: withoutIndependent() },
+      files: { [AGENT_WORKFLOWS]: withoutKey(INDEPENDENT_KEY) },
       stages: only.none,
-      expect: new RegExp(`^policy: ${escape(AGENT_WORKFLOWS)} has no \`${INDEPENDENT_KEY}\``),
+      expect: new RegExp(`^policy: ${escapeRegExp(AGENT_WORKFLOWS)} has no \`${INDEPENDENT_KEY}\``),
+    },
+    {
+      name: "a policy without the name of the test-builder's build stage, so its build stage cannot be told",
+      files: { [AGENT_WORKFLOWS]: withoutKey(BUILD_STAGE_KEY) },
+      stages: only.none,
+      expect: new RegExp(`^policy: ${escapeRegExp(AGENT_WORKFLOWS)} has no \`${BUILD_STAGE_KEY}\``),
     },
     { name: 'a change of comments only has no code line, and passes with its counts', files: withNew('// a note on the Routines above\n'), stages: only.coverage, expect: 'pass', printed: /^coverage: lines: 0 of 0 changed code lines covered; below the minimum sample/ },
     { name: 'a failing test fails the gate before any coverage is judged', files: withNew(g, `\n// trace: GRT-801:happy@${f.hash}\ntest('[GRT-801] wrong', () => { assert.equal(1, 2) })\n`), stages: only.coverage, expect: /^suite: it does not pass, so its coverage is not judged: 1 test\(s\) failed/ },
