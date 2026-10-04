@@ -113,7 +113,7 @@ export const meta = {
  *
  * THE RULES a report is held to, in this order, each a problem when broken:
  *
- *   - its branch is an `agent/` branch, as the WorktreeCreate hook names one, where the harness's own
+ *   - its branch is an `agent/` branch, as the WorktreeCreate hook names one, where Claude Code's own
  *     fallback names it `worktree-<name>` (CLAUDE.md § Git workflow);
  *   - no two groups report one branch;
  *   - a changed report lists the files its branch changes, every one of them its own, states at

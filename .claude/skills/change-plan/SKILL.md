@@ -35,7 +35,7 @@ order. Give each one:
 - **Its kind**: the `assetLabels` key in `tools/policy/vocabulary.json` for what it mainly changes.
 - **The scenarios and NFRs it satisfies**, as `[<ID>] <title>` from the delta specs.
 - **Its proof**: the test, gate or check that proves it, named precisely enough to run. A scenario
-  no harness here can observe is proved by an automated test in a real browser, or the task names
+  no tool here can observe is proved by an automated test in a real browser, or the task names
   the open issue that carries one; never by hand, a check no later change repeats
   (`docs/decisions.md` § D-13, item 7).
 - **The tasks it waits on.**

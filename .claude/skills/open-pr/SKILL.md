@@ -44,7 +44,7 @@ branch does not carry to get it reviewed.
 ## 4. The body
 
 It opens with any register entry or prerequisite the caller names, then each conflict step 2 found,
-with the pull request it is against. It ends with the attribution line the harness gives for pull
+with the pull request it is against. It ends with the attribution line Claude Code gives for pull
 requests.
 
 ## 5. Push, open, and mark it pending
