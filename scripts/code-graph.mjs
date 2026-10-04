@@ -308,7 +308,7 @@ async function preflight(pin, flags, graphPath) {
   const version = spawnSync(tools.graphify, ['--version'], { encoding: 'utf8', env: { ...process.env, GRAPHIFY_NO_AUTO_REFRESH: '1' } })
   const found = (version.stdout || '').trim().split(/\s+/).pop()
   if (found !== pin) {
-    throw new Stop(2, `graphify ${found || '(unreadable)'} is the first on PATH; ${MISE_TOML} pins ${pin}. Install it: ${INSTALL}`)
+    throw new Stop(2, `graphify ${found || '(unreadable)'} is the first on PATH; ${MISE_TOML} pins ${pin}. Install it: ${INSTALL}; and put mise's shims before any other graphify on PATH, such as one \`uv tool install\` left (README.md § Setup)`)
   }
   if (!flags.noMcp) {
     tools.mcp = miseWhich('graphify-mcp')
@@ -863,7 +863,7 @@ async function selftest() {
       // Another graphify earlier on PATH than mise's: one `uv tool install` left behind, for one.
       const c = makeCase(base, 'wrong-version', policy)
       const r = c.run(['--no-mcp'], { STUB_GRAPHIFY_VERSION: '0.0.1' })
-      check("a graphify first on PATH other than mise.toml's pin exits 2, naming mise install", r.status === 2 && r.out.includes(`graphify 0.0.1 is the first on PATH; mise.toml pins ${graphifyPin()}. Install it: \`mise install\``), r.out)
+      check("a graphify first on PATH other than mise.toml's pin exits 2, naming mise install and mise's shims", r.status === 2 && r.out.includes(`graphify 0.0.1 is the first on PATH; mise.toml pins ${graphifyPin()}. Install it: \`mise install\``) && r.out.includes("put mise's shims before any other graphify on PATH"), r.out)
     }
     {
       const c = makeCase(base, 'mise-which-fails', policy)
