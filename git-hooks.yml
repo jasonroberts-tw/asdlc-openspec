@@ -500,20 +500,23 @@ pre-push:
         - 'tasks.toml'
       run: mise run workflows:selftest
     # The pull-request reviewer's wiring: the policy's `prReview*` keys whole, and `pr-review.yml`,
-    # `verify.yml` and the reviewer's agent spelling the same labels, check and agent. The reviewer
-    # itself reads a token and a language model and runs only as `pr-review.yml`. 0.10 s wall
-    # through `node --run` (`/usr/bin/time -p`) on a macOS 26.7 laptop (Apple M3 Max) with Node
-    # 26.8.1, 2026-09-25. Its glob's `*.yml` reaches only the files directly in
-    # `.github/workflows/`, which holds no subdirectory. The manifest and lockfile pin the js-yaml
-    # the script imports.
+    # `verify.yml` and the branch reviewer agreeing on labels, check and agent, with no model, secret
+    # or OIDC token in the workflow. The reviewer itself reads a token and runs only as
+    # `pr-review.yml`. 0.08 s wall (`/usr/bin/time -p node scripts/pr-review.mjs --check`, one run) on
+    # a macOS 26.7.1 laptop with Node 26.8.1, 2026-10-04. Its glob's `*.yml` reaches only the files
+    # directly in `.github/workflows/`, which holds no subdirectory. The manifest and lockfile pin the
+    # js-yaml the script imports; the harness, the co-change map and the helpers under `tools/lib/` and
+    # `scripts/lib/` are in the glob because the script imports them for its evidence.
     - name: pr-review-check
       glob:
         - 'scripts/pr-review.mjs'
-        - 'tools/lib/git-env.ts'
+        - 'tools/lib/**'
         - 'tools/policy/**'
-        - 'tools/lib/policy.ts'
+        - 'tools/harness/harness.ts'
+        - 'tools/coupling/coupling.ts'
+        - 'scripts/lib/tasks.mjs'
         - '.github/workflows/*.yml'
-        - '.claude/agents/pr-reviewer.md'
+        - '.claude/agents/branch-reviewer.md'
         - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'
@@ -521,19 +524,21 @@ pre-push:
     # Every decision over fixtures built from the live policy, each asserting its reason, and the
     # wiring gate over doctored copies of the four files it reads, with an undoctored control. The
     # same files decide its verdict, and the brief's prompt counts are taken over a scratch
-    # repository by `scripts/check-prompts.mjs`, so it is in the glob too, beside the git helper the
-    # script imports, and the manifest and lockfile that pin its js-yaml. 0.61 s wall through
-    # `node --run` (`/usr/bin/time -p`, one run) on a macOS 26.7.1 laptop with Node 26.8.1,
-    # 2026-10-01, with that case; 0.16 s before it, on the host and date above.
+    # repository by `scripts/check-prompts.mjs`, so it is in the glob too, beside what the script
+    # imports, and the manifest and lockfile that pin its js-yaml. 1.09 s wall
+    # (`/usr/bin/time -p node scripts/pr-review.mjs --selftest`, one run) on a macOS 26.7.1 laptop
+    # with Node 26.8.1, 2026-10-04, over its 93 cases.
     - name: pr-review-selftest
       glob:
         - 'scripts/pr-review.mjs'
         - 'scripts/check-prompts.mjs'
-        - 'tools/lib/git-env.ts'
+        - 'tools/lib/**'
         - 'tools/policy/**'
-        - 'tools/lib/policy.ts'
+        - 'tools/harness/harness.ts'
+        - 'tools/coupling/coupling.ts'
+        - 'scripts/lib/tasks.mjs'
         - '.github/workflows/*.yml'
-        - '.claude/agents/pr-reviewer.md'
+        - '.claude/agents/branch-reviewer.md'
         - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'

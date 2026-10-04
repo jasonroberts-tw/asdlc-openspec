@@ -110,7 +110,7 @@ jobs:
       - name: the workflows stop, confirm and report as their policy says
         run: mise run workflows:selftest
       # Milliseconds: the reviewer's wiring and its decisions, with the policy's values. The reviewer
-      # itself reads a token and a language model, and runs only as `pr-review.yml`.
+      # itself reads a token and the network, and runs only as `pr-review.yml`.
       - name: the reviewer's workflow, agent and policy agree
         run: mise run pr-review:check
       - name: the reviewer's decisions, and its wiring gate, negative-tested
@@ -240,8 +240,9 @@ jobs:
       #     it reads a fixture export and the committed policy, and runs no `bd`.
       #   * the worktree hooks' selftest, `worktree:selftest`: about a hundred git spawns against a
       #     scratch repository it builds; it is a pre-push job, and nothing it reads differs in CI.
-      #   * the pull-request review itself: it reads a token, a language model and the tracker, so it
-      #     is `.github/workflows/pr-review.yml`, and only its wiring and decisions are steps here.
+      #   * the pull-request review itself: it reads a token and GitHub's state of each pull request,
+      #     so it is `.github/workflows/pr-review.yml`, and only its wiring and decisions are steps
+      #     here.
       #
       # A RETIRED STEP stays here as a comment saying why a restored step would be wrong, so the next
       # person does not restore it:
