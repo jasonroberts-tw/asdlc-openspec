@@ -104,7 +104,7 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 | branch review | The `branch-reviewer` agent, run before each push: it holds the branch to the cited issues' acceptance criteria and the house rubrics (`.claude/skills/open-pr/SKILL.md` § 5). |
 | approval label | What a person applies to approve a head the reviewer left to a person, `prReviewLabels` in `tools/policy.json`. An agent never applies it (`CLAUDE.md` § Git workflow). |
 | analysis | A run's account of itself, left as a note on the issue it worked, which a prompt review later reads (`.claude/skills/close-prompt-run/SKILL.md` § 1. Write the analysis, or none). |
-| prompt review | A background session that reads the pending analyses as one batch and proposes prompt edits as one pull request, which a person merges or not (`CLAUDE.md` § Prompt reviews). |
+| prompt review | A background session that reads the pending analyses as one batch and proposes prompt edits as one pull request, which merges as any other does: by the reviewer off the high-risk floor, by a person on it (`CLAUDE.md` § Prompt reviews). |
 | `.scratch/` | The gitignored directory for commit messages, pull-request bodies and tracker notes, each passed to its tool by file (`CLAUDE.md` § Bash command style). |
 | `RUN THESE YOURSELF` | The block ending a report, listing in order each command the permission classifier refused (`CLAUDE.md` § Guards). |
 
@@ -394,7 +394,8 @@ for what that rule alone still holds).
 
 What the runs leave behind, and how it reaches the prompts and the rules, is `README.md` § The
 work, and what its runs leave behind. Nothing a program derives from them instructs an agent until a
-person merges it (`CLAUDE.md` § A program proposes; only a person promotes).
+person merges it, but for a prompt review off the high-risk floor (`CLAUDE.md` § A program
+proposes; only a person promotes).
 
 ## 5. When it goes wrong
 

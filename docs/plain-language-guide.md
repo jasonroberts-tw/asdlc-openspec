@@ -68,9 +68,10 @@ with it, for a person to read.
 is labelled with the stage that found it and the kind of thing it would fix, so over time the list
 shows what keeps going wrong. Each run also leaves a short account of itself. Once enough accounts
 have gathered, or the oldest has waited long enough, a review reads them together and proposes
-changes to the agents' instructions, as one proposed change a person decides whether to accept.
-Nothing a program learns from its runs changes how the agents behave until a person has read it and
-accepted it.
+changes to the agents' instructions, as one proposed change. Other agents test each edit first. If
+the change touches a file on the list of risky things, as a change to the rules every agent reads
+first does, a person decides whether to accept it; if not, the reviewer merges it. That is the one
+way a program's lessons from its runs reach the agents without a person reading them first.
 
 ## Who decides what
 
@@ -81,8 +82,8 @@ accepted it.
 - **A person approves a high-risk change**, and the agents are forbidden to give that approval
   themselves. A guard stops an agent's own command for it, but not every route to it
   (`docs/decisions.md` § R-01).
-- **A person decides whether the agents' instructions change**, by accepting or closing the change
-  a review proposes.
+- **A person decides whether the agents' instructions change** when the change a review proposes
+  touches a file on the list of risky things; the reviewer merges any other.
 - **A recorded decision is not argued again.** Changing one takes a new recorded decision, which
   says what it changes and why.
 
