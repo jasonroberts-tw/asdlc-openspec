@@ -588,7 +588,7 @@ describe('The command (not a spec scenario)', () => {
     },
   )
 
-  // trace: asdlc-openspec-lgh surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-lgh surface:apps/calculator/binding-surface.md@7f0235d48d40
   test(
     '[asdlc-openspec-lgh] The command refuses a listen error other than a port in use in one line naming its code',
     { timeout: TEST_BOUND_MS },
@@ -603,7 +603,7 @@ describe('The command (not a spec scenario)', () => {
     },
   )
 
-  // trace: asdlc-openspec-lgh surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-lgh surface:apps/calculator/binding-surface.md@7f0235d48d40
   test(
     '[asdlc-openspec-lgh] The command refuses PORT=0 and an empty PORT rather than serving',
     { timeout: TEST_BOUND_MS },
@@ -617,7 +617,7 @@ describe('The command (not a spec scenario)', () => {
     },
   )
 
-  // trace: asdlc-openspec-lgh surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-lgh surface:apps/calculator/binding-surface.md@7f0235d48d40
   test(
     '[asdlc-openspec-lgh] The command listens once, on 127.0.0.1 alone, whatever HOST, BIND and HOSTNAME say',
     { timeout: TEST_BOUND_MS },
@@ -638,7 +638,7 @@ describe('The command (not a spec scenario)', () => {
     },
   )
 
-  // trace: asdlc-openspec-lgh surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-lgh surface:apps/calculator/binding-surface.md@7f0235d48d40
   test('[asdlc-openspec-lgh] The no-stack-trace check finds a frame anywhere on a line, and none in a refusal', () => {
     const { stack } = new Error('a fault')
     assert.match(stack, STACK_FRAME_RE, 'a stack as Node prints it')
