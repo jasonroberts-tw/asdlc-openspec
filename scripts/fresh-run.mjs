@@ -555,6 +555,8 @@ const NEGATIVE = '[CALC-001] Two plus three is not four'
 const TASK_TEST = `[${TASK}] A task of the change`
 const FLAKY_ENV = 'FRESH_RUN_SELFTEST_FLAKY'
 const SLEEP_ENV = 'FRESH_RUN_SELFTEST_SLEEP'
+/** The fixture's `thresholds:commands:check`: a stub that, given `SLEEP_ENV`, sleeps as a Commands run of minutes does. */
+const COMMANDS_STUB = 'node stub/commands.mjs'
 /** The selftest's task id that no fixture test cites, passed where a case does not choose its own. */
 const OTHER_TASK = 'asdlc-openspec-fx.9'
 const SPEC = `# calculator Specification
@@ -618,7 +620,7 @@ async function buildFixture(base) {
   const scripts = {
     'calculator:test': `node ${RUNNER} "apps/calculator/test/*.test.js"`,
     'calculator:test:verify': `node ${RUNNER} --dir ${VERIFY_DIR}`,
-    [COMMANDS_CHECK]: 'node stub/commands.mjs',
+    [COMMANDS_CHECK]: COMMANDS_STUB,
   }
   for (const [path, text] of Object.entries(taskFiles(PACKAGE_JSON, scripts, { type: 'module' }))) write(dir, path, text)
   write(
@@ -719,6 +721,14 @@ function selftestCases() {
       name: "a child that outlives the run's deadline is killed with the processes it started, the run refused by that reason and the clone removed",
       sleep: true,
       deadlineMs: 3000,
+      // The sleeping child is the only child this run starts: the test scripts and the trace gate are
+      // taken out of the fixture, so no stage before it can spend the deadline on a loaded machine,
+      // and the refusal names it however late it starts. The clock still starts with the run.
+      doctor: (dir) => {
+        for (const [path, text] of Object.entries(taskFiles(PACKAGE_JSON, { [COMMANDS_CHECK]: COMMANDS_STUB }, { type: 'module' }))) write(dir, path, text)
+        rmSync(join(dir, 'tools/trace/trace.ts'))
+        fixtureGit(dir, ['commit', '--quiet', '-am', `Only the sleeping child runs (${TASK})`])
+      },
       expect: (o) =>
         refusedFor(/^`npm run --silent thresholds:commands:check` did not finish within the run's deadline of 3 s/)(o) ??
         (o.leftovers.length ? `left ${o.leftovers.join(', ')}` : o.sleeperAlive ? `the sleeping child ${o.sleeper} still runs` : null),
