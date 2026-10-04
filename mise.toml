@@ -34,6 +34,22 @@ vale = "3.23.0"
 # gh: every pull request here is `gh pr create --base main`, and the reviewer's workflow and the
 # worktree sweep call it too. The newest release on 2026-10-03.
 gh = "2.102.0"
+# uv, which installs the PyPI tool below and locks its dependencies. The newest release on
+# 2026-10-03 (`mise latest uv`).
+uv = "0.12.22"
+# graphify, with its MCP extra, which `npm run code-graph` builds the local code graph with and
+# serves it through (docs/decisions.md § D-20). The script refuses a `graphify --version` other than
+# this pin. It is pinned because the script relies on this release's behaviour, read from its source
+# on 2026-10-01: the `claude-cli` backend and `GRAPHIFY_CLAUDE_CLI_MODEL`, the text of its
+# partial-extraction warnings, and the file types in `graphifySemanticExtensions` in
+# tools/policy/tool-settings.json. Moving it means checking those, and the command positions
+# scripts/hooks/guard-git.mjs reads, against the new release and the script's header first; moved
+# without that check, a reworded warning or a new file type gets through unseen. Where it loses: a
+# graphify fix, such as one to the `graphify update` erosion D-20 records, reaches nobody here until
+# someone moves this. `mise lock` locks its dependencies in a uv lock under `.mise/locks/`, resolved
+# for every Python from 3.10, so a dependency can sit at an older release than an unlocked install
+# under 3.12 would pick (asdlc-openspec-8juz.1, question 7).
+"pypi:graphifyy" = { version = "0.9.73", extras = ["mcp"] }
 
 [settings]
 # A shim whose pinned tool is not installed fails and names `mise install`, rather than run what
