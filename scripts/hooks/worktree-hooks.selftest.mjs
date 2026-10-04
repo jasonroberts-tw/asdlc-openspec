@@ -178,8 +178,8 @@ const primary = join(repo, 'primary')
  * absolute `GIT_INDEX_FILE`, so a `git` call made from either hook inherits them and operates on
  * THE REAL REPOSITORY no matter what `cwd` it is given. From the primary checkout neither hook gets
  * `GIT_DIR`, pre-commit gets the relative `GIT_INDEX_FILE=.git/index`, and no hook from either
- * kind of checkout gets `GIT_WORK_TREE`. Measured on Git 2.54.0 (Apple Git-157) on 2026-10-03,
- * in scratch repositories, with the other hooks in `tools/lib/git-env.ts`. Run without this scrub,
+ * kind of checkout gets `GIT_WORK_TREE`. Measured on Git 2.54.0 (Apple Git-157) and Git 2.55.0 on
+ * 2026-10-03, in scratch repositories; `tools/lib/git-env.ts` has the rest. Run without this scrub,
  * these cases registered both scratch worktrees against the actual repo, created their branches in
  * it, wrote `user.email=selftest@example.invalid` into `.git/config` -- which would have
  * misattributed every later commit -- and flipped `core.bare` to `true` on the primary checkout. It
