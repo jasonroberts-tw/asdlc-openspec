@@ -41,6 +41,10 @@ every task runs as `mise run <task>`, since the tasks moved from `package.json` 
 § The tasks; the notes above keep the commands of their dates. Amended 2026-10-04 by
 `asdlc-openspec-8juz.11`: what a task does is its `description` in `tasks.toml`, where the glossary
 and the "where to look" table now send a reader, and `README.md` § The tasks gives its tier alone.
+Amended 2026-10-04 by `asdlc-openspec-qcqm`: the pull-request reviewer decides by the high-risk
+floor alone and requests no changes, the branch review before the push is the one review of the
+cited issues' criteria, and a title that cites no issue no longer leaves the merge to a person
+(`docs/decisions.md` § D-37).
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -96,7 +100,8 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 | policy file | `tools/policy.json`: every constant a prompt or a tool reads, each beside a `Means` sibling saying what it decides (`docs/decisions.md` § D-03). |
 | count key | A `CNT-*` key in `count-index.md`, written where the numeral would go (`count-index.md` § How to use it). |
 | prompt | `CLAUDE.md`, `AGENTS.md`, a skill, an agent, a workflow script's literals or the worktree briefing template, each held to a word budget in the policy file (the `check:prompts` task's `description` in `tasks.toml`). |
-| pull-request reviewer | `.github/workflows/pr-review.yml`: it judges one pull request at a time against the issues its title cites, then merges it or leaves it to a person (`docs/decisions.md` § D-07). |
+| pull-request reviewer | `.github/workflows/pr-review.yml`: it decides one pull request at a time by the high-risk floor, then merges it or leaves it to a person (`docs/decisions.md` § D-07 and § D-37). |
+| branch review | The `branch-reviewer` agent, run before each push: it holds the branch to the cited issues' acceptance criteria and the house rubrics (`.claude/skills/open-pr/SKILL.md` § 5). |
 | approval label | What a person applies to approve a head the reviewer left to a person, `prReviewLabels` in `tools/policy.json`. An agent never applies it (`CLAUDE.md` § Git workflow). |
 | analysis | A run's account of itself, left as a note on the issue it worked, which a prompt review later reads (`.claude/skills/close-prompt-run/SKILL.md` § 1. Write the analysis, or none). |
 | prompt review | A background session that reads the pending analyses as one batch and proposes prompt edits as one pull request, which a person merges or not (`CLAUDE.md` § Prompt reviews). |
@@ -144,7 +149,7 @@ with any long prose passed from a file under `.scratch/` (`CLAUDE.md` § Bash co
 | 4.1 Pick and check | An issue is taken from the queue and its premise checked against the trunk | A claim; a note on the issue when the premise does not hold | Claimed; stopped with the evidence; or handed to the product route |
 | 4.2 The harness route | The work, in a worktree, gated before and after a rebase | Commits on `agent/<name>`; any found issues | Ready for a pull request; or a red gate, reported |
 | 4.3 The product route | The `change-*` stages, each in a fresh session, each stopping where a person decides | A proposal and delta specs, a design or a note ruling one out, child issues, commits, the archive | Ready for a pull request; stopped for review; or sent back to an earlier stage |
-| 4.4 The pull request | Opened, watched to the reviewer's verdict, and merged | A pull request and its `pr-review` verdict | Merged; changes requested; left to a person; or a review that did not complete |
+| 4.4 The pull request | Opened, watched to the reviewer's verdict, and merged | A pull request and its `pr-review` verdict | Merged; left to a person; or a review that did not complete |
 | 4.5 Close and account | The issue closed, the run's analysis written, a prompt review launched if one is due | A closed issue whose reason names the pull request; an analysis note | Closed; or open, waiting on a person or on an issue |
 
 ### 4.1 Pick and check
@@ -337,32 +342,30 @@ Every pull request is opened with the `open-pr` skill, whoever opens it.
 1. Test the merge against each open pull request that touches a file this branch touches, and name
    any conflict in the body. Decided by: `.claude/skills/open-pr/SKILL.md` § 2. Test the merge
    against the open pull requests.
-2. End the title with the ids of the issues the branch carries, in parentheses. The reviewer reads
-   them from there and nowhere else, and a title that carries none leaves the merge to a person.
-   Decided by: `.claude/skills/open-pr/SKILL.md` § 3. The title.
+2. End the title with the ids of the issues the branch carries, in parentheses. The branch review
+   reads them from there and nowhere else; a title that carries none is decided by the floor like
+   any other. Decided by: `.claude/skills/open-pr/SKILL.md` § 3. The title.
 3. Hold the branch to each criterion as worded and to itself, and fix a gap the body would
    disclose, or make the tree say what is true and file its follow-up. Then write the body to a file
    under `.scratch/`, opening with any register entry or prerequisite the work named, and naming
    every found issue. Decided by: `.claude/skills/open-pr/SKILL.md` § 4. The body, and
    `.claude/skills/bead/SKILL.md` § 6. Open the pull request and watch its checks.
 4. Review the branch first, in a context of its own: the `branch-reviewer` agent reads the brief
-   `node scripts/pr-review.mjs brief --local` writes, and the session fixes what it says the
-   reviewer would refuse. Then push, open it with `--base main` typed, and mark the reviewer's
-   status pending with `env PR=<number> node scripts/pr-review.mjs mark`. Decided by:
-   `.claude/skills/open-pr/SKILL.md` § 5. Push, open, and mark it pending.
+   `node scripts/pr-review.mjs brief --local` writes, and the session fixes each criterion it finds
+   not met and each finding in a file the branch changes. Then push, open it with `--base main`
+   typed, and mark the reviewer's status pending with `env PR=<number> node scripts/pr-review.mjs
+   mark`. Decided by: `.claude/skills/open-pr/SKILL.md` § 5. Push, open, and mark it pending.
 5. Watch it with one watcher, `gh pr checks <number> --watch`, in the background, and end the turn
    to wait only if the watcher's exit wakes the session. Decided by:
    `.claude/skills/open-pr/SKILL.md` § 6. Watch it with one watcher.
 6. Act on the outcome. `verify` runs every gate that reads only committed files; once it passes, the
-   reviewer judges the head against the cited issues' acceptance criteria, its maintainability and
-   its risk, and merges it, requests changes, or leaves it to a person. The table of what each
-   status asks is `.claude/skills/open-pr/SKILL.md` § 7. Act on the outcome. Decided by:
-   `scripts/pr-review.mjs`, under `docs/decisions.md` § D-07.
+   reviewer decides the head by the high-risk floor alone, and merges it or leaves it to a person.
+   The table of what each status asks is `.claude/skills/open-pr/SKILL.md` § 7. Act on the outcome.
+   Decided by: `scripts/pr-review.mjs`, under `docs/decisions.md` § D-07 as § D-37 amends it.
 
-A person decides the merge when the reviewer judges the risk high, when a criterion cannot be
-verified, or when the title cites no issue. The paths and JSON keys that make a pull request high
-risk whatever the reviewer says are `prReviewHighRiskPaths` and `prReviewHighRiskJsonKeys` in
-`tools/policy.json`. The person merges it, or applies the approval label for the reviewer to merge
+A person decides the merge when a changed path or JSON key is on the floor:
+`prReviewHighRiskPaths` and `prReviewHighRiskJsonKeys` in `tools/policy/pr-review.json`. The person
+merges it, or applies the approval label for the reviewer to merge
 it; an agent never applies that label (`CLAUDE.md` § Git workflow, and `docs/decisions.md` § R-01
 for what that rule alone still holds).
 
