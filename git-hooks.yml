@@ -469,13 +469,17 @@ pre-push:
     # workflow runs by agentType with only the tools it may have; the prompt cases' authoring
     # workflow with the policy's `promptReviewCase*` keys (how many authors, which case it stores), the
     # prompt review's answers to stored cases (which outcome keeps a branch out), and every stored case
-    # under `.claude/prompt-cases/` through both; and refuses a workflow with no suite. Reads the
+    # under `.claude/prompt-cases/` through both; the two prompt workflows' readers run for real, through
+    # `scripts/prompt-case-texts.mjs` in a fixture git repository, each command held to one plain run of
+    # it that names no git; and refuses a workflow with no suite. Reads the
     # workflows, the policy, those agent files, the stored cases and the renderers, and writes only under
     # the temporary directory. 0.27 s wall, both of two runs, through `node --run` (`/usr/bin/time -p`)
     # on a macOS 26.7 laptop with Node 26.8.1, 2026-09-29, much of it the trace renderers' four child
     # processes; 0.60 s on 2026-09-29 with the report's renderers and their cases
     # (asdlc-openspec-j09.14); 0.63 s and 0.62 s on 2026-10-03 with the stored cases' suites, timed
-    # by a script around `node --run` on the same laptop (asdlc-openspec-7c1).
+    # by a script around `node --run` on the same laptop (asdlc-openspec-7c1); 1.62 s and 1.55 s on
+    # 2026-10-04 with the readers' fixture repository, where the trunk's took 0.64 s and 0.66 s, each
+    # through `node` under `/usr/bin/time -p` on the same laptop (asdlc-openspec-jtrt).
     - name: workflows-selftest
       glob:
         - '.claude/workflows/**'
@@ -484,6 +488,8 @@ pre-push:
         - '.claude/agents/prompt-case-answerer.md'
         - '.claude/prompt-cases/**'
         - 'scripts/workflows.selftest.mjs'
+        - 'scripts/prompt-case-texts.mjs'
+        - 'tools/lib/git-env.ts'
         - 'scripts/render-trace.mjs'
         - 'scripts/render-pr-body.mjs'
         - 'scripts/render-verify-report.mjs'

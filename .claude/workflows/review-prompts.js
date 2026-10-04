@@ -153,10 +153,12 @@ export const meta = {
  * THE STORED CASES. For each group still `merge` once its skeptics have voted, every case whose prompt
  * its branch changes is answered `promptReviewCaseRepetitions` times with the file's text at the
  * branch's merge base with `origin/main`, the old, and as many with its text at the branch's head, the
- * new. One reader agent per group runs a command that writes those texts under
+ * new. One reader agent per group runs `scripts/prompt-case-texts.mjs`, which writes those texts under
  * `.scratch/prompt-case-texts/` where the session stands and prints their paths with a checksum this
  * script re-derives; a copy that is not verbatim, or a path other than where the command writes, is
- * refused. Each answer is an agent by the agentType `prompt-case-answerer`, whose only tools are
+ * refused. Until 2026-10-04 the command was an inline script that ran git, which Claude Code refuses a
+ * session isolated in a worktree, so every case went unanswered (asdlc-openspec-jtrt). Each answer is
+ * an agent by the agentType `prompt-case-answerer`, whose only tools are
  * Read and its structured output, sent to one of those files and shown the options in an order
  * turned by one place at each repetition. No model copies a text: one that did would retype tens of
  * thousands of characters, more than the tools show an agent of a single line. A text is right when floor(n/2)+1 of its n answers chose the case's expected
@@ -188,7 +190,8 @@ export const meta = {
  * session alike (asdlc-openspec-lzr). A worktree an agent leaves is not removed when it ends, changed
  * or not; `mise run worktree:gc` removes each once its branch is contained in `origin/main`. The
  * skeptics and the readers run where the session does, in the review worktree, and read each branch
- * there. The answers need the agent `prompt-case-answerer` in the checkout the session started in, the
+ * there; the readers run that worktree's `scripts/prompt-case-texts.mjs`. The answers need the agent
+ * `prompt-case-answerer` in the checkout the session started in, the
  * primary checkout for a review `close-prompt-run` launched (`.claude/README.md`): where it is absent,
  * every answer returns nothing, and every branch whose files have a stored case is `regressed`. An
  * answer could read a file other than the one it is sent to if it guessed its path, and nothing here
@@ -565,21 +568,14 @@ function fnv(s) {
 }
 
 /**
- * The reader's command: git shows each file at the merge base of `head` with `origin/main` and at
- * `head` into `<root>/<ref>/<file>`, root `.scratch/prompt-case-texts` where the session stands, and
- * it prints each path with a checksum. No model copies a text: each answer reads its file.
+ * The reader's command: `scripts/prompt-case-texts.mjs` writes each file at the merge base of `head`
+ * with `origin/main` and at `head` into `<root>/<ref>/<file>`, root `.scratch/prompt-case-texts`
+ * where the session stands, and prints each path with a checksum. It is one plain command naming no
+ * git, since Claude Code refuses a session isolated in a worktree the git an inline script runs
+ * (asdlc-openspec-jtrt). `head` is a commit hash and each file a case's prompt, which `caseProblem`
+ * holds to characters no shell reads. No model copies a text: each answer reads its file.
  */
-function readCommand(head, files) {
-  const js = [
-    "const cp=require('child_process'),fs=require('fs'),p=require('path');const git=(a)=>cp.execFileSync('git',a,{encoding:'utf8',maxBuffer:1e8,stdio:['ignore','pipe','ignore']});",
-    `const root=p.resolve('.scratch/prompt-case-texts');const head='${head}';const files=${JSON.stringify(files).replace(/"/g, "'")};`,
-    "const base=git(['merge-base','origin/main',head]).trim();",
-    "const texts=[base,head].flatMap((ref)=>files.map((file)=>{const path=p.join(root,ref,file);try{const t=git(['show',ref+':'+file]);fs.mkdirSync(p.dirname(path),{recursive:true});fs.writeFileSync(path,t);return {ref,file,path,bytes:Buffer.byteLength(t)}}catch(e){return {ref,file,path:null,bytes:0}}}));",
-    'const s=JSON.stringify({base,root,texts});let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0}',
-    'console.log(JSON.stringify({base,root,texts,fnv:h}))',
-  ].join('')
-  return `node --no-warnings -e "${js}"`
-}
+const readCommand = (head, files) => `node scripts/prompt-case-texts.mjs --head ${head} ${files.join(' ')}`
 
 /** The paths of the old and new texts the reader wrote, keyed by file, or the reason they cannot be used. */
 function readTexts(reply, head) {
