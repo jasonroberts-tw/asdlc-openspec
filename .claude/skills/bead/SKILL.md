@@ -96,8 +96,8 @@ run after its fix can pass without it. Regenerate every derived artifact the cha
 after the last edit to the emitter or its inputs: an emitter's own source is one of its inputs.
 
 Stage every file the change adds (`git add`) before the gates run: a new file not yet added passes
-the citations and count-index gates unread. Run `npm run gates`, the build check here. There is no
-`tsc` to run: the repository has no `tsconfig.json`. Run no script name `package.json` does not
+the citations and count-index gates unread. Run `mise run gates`, the build check here. There is no
+`tsc` to run: the repository has no `tsconfig.json`. Run no task name `tasks.toml` does not
 list. A red gate is fixed or reported, never bypassed.
 
 A defect found on the way is fixed in this branch only when it sits in a file the issue already
@@ -115,7 +115,7 @@ A match gets a note (`bd note`), not a second issue. A follow-up's body carries 
 
 ## 5. Rebase and gate again
 
-Fetch, rebase onto `origin/main`, and run `npm run gates` again (`CLAUDE.md` § The gate ladder).
+Fetch, rebase onto `origin/main`, and run `mise run gates` again (`CLAUDE.md` § The gate ladder).
 
 ## 6. Open the pull request and watch its checks
 

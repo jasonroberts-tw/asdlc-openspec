@@ -15,7 +15,7 @@ You are the dispatcher. You do not implement; you partition, brief, integrate an
 
 ## 1. Pre-flight the trunk
 
-On a fresh branch cut from `origin/main`, run `npm run gates`. A sweep
+On a fresh branch cut from `origin/main`, run `mise run gates`. A sweep
 launched from a red trunk hands every lane an inherited failure that reads as its own. If the trunk
 is red, stop and report the failing gate; do not dispatch.
 
@@ -57,7 +57,7 @@ three rules, stated in every brief word for word:
    `human` and is never performed by the lane.**
 
 A lane stops at the end of `.claude/skills/bead/SKILL.md` § 5, once its rebased branch passes
-`npm run gates`, and reports its branch and both gate runs as measured. It opens no pull request
+`mise run gates`, and reports its branch and both gate runs as measured. It opens no pull request
 and closes no issue: step 5 integrates its branch, and step 6 opens the one pull request and closes
 its issues.
 
@@ -67,7 +67,7 @@ As each lane reports green, cherry-pick its commits onto the dispatcher's branch
 conflict there rather than in a merge commit, which the reviewer's rebase merge
 (`prReviewMergeMethod` in `tools/policy/pr-review.json`) cannot carry. Never rebase a branch that has
 been pushed. After each lane, regenerate every generated file more than one lane touched,
-renumber any register entry that collided, then run `npm run gates`.
+renumber any register entry that collided, then run `mise run gates`.
 
 ## 6. Open the pull request and watch its checks
 

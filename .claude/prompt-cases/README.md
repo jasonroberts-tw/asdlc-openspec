@@ -30,7 +30,7 @@ option, never prose the prompt writes (`asdlc-openspec-1kie` asks whether that c
 
 ## The format
 
-One JSON object per file. `npm run workflows:selftest` holds every file here to it, through both
+One JSON object per file. `mise run workflows:selftest` holds every file here to it, through both
 workflows, and refuses one whose name is not its `id`.
 
 | Field | What it holds |

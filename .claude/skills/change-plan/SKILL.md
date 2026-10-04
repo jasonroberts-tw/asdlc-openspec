@@ -49,8 +49,8 @@ rules 1 to 3 (`docs/decisions.md` § D-13, items 6 and 14), which no gate reads:
 - **Rule 3:** every `asset:product` task names an ID, and the draft lists every other task as
   exempt.
 - **Each task is small enough** to finish and prove in one sitting, **and whole**: what must land
-  together is one task. A new npm script comes with its job or its `UNJOBBED_BY_KIND` entry in
-  `scripts/check-jobs.mjs` (the `add-npm-script` skill), never in a later task: nothing would catch
+  together is one task. A new task comes with its job or its `UNJOBBED_BY_KIND` entry in
+  `scripts/check-jobs.mjs` (the `add-task` skill), never in a later task: nothing would catch
   the split.
 - **Nothing is left out:** regenerating any artifact whose input the change moves, and adding the
   `README.md` row for any new file (`CLAUDE.md` § Every directory and document says what it is, and

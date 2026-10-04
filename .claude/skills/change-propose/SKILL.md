@@ -93,7 +93,7 @@ the living spec mechanically, so the grammar is exact:
   `- **WHEN** <condition>` and `- **THEN** <outcome>` lines, with `- **AND** ...` lines as needed. A
   later stage traces every scenario to a test, so write each one so it can become one.
 - **IDs.** `<PREFIX>` is the capability's, under `specIdPrefixes` in `tools/policy/vocabulary.json`;
-  a new capability adds its own in this change. `npm run openspec:check` holds the rules an ID follows
+  a new capability adds its own in this change. `mise run openspec:check` holds the rules an ID follows
   (the header of `scripts/check-openspec.mjs`) and prints each prefix's next free ID.
 - **MODIFIED.** Copy the whole requirement block from `openspec/specs/<capability>/spec.md`, with
   its header and each scenario's exactly as they stand there, then edit the copy. A partial block
@@ -108,7 +108,7 @@ Cite any other file by its full path from the repository root. A bare `spec.md` 
 
 ## 7. Check it, commit it, and stop
 
-- Run `npm run openspec:check`. It validates every delta strictly and trial-archives the change
+- Run `mise run openspec:check`. It validates every delta strictly and trial-archives the change
   against the living spec. Fix what it names.
 - Commit the change folder.
 - Stop, and report the name, the epic, the capabilities and each requirement with its scenarios.

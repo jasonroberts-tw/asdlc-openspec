@@ -121,8 +121,8 @@ commit that built it (`.claude/skills/bead/SKILL.md` § 4). The subject, never t
 Go back to step 2 until
 `bd list --parent <epic> --status open,in_progress,blocked,deferred --json` prints an empty list.
 
-Then run `npm run trace`, commit the record (THE RECORD in the header of `tools/trace/trace.ts`),
-and run `npm run gates`. Hand over only when each of `docs/test-strategy.md` § Build exit criteria
+Then run `mise run trace`, commit the record (THE RECORD in the header of `tools/trace/trace.ts`),
+and run `mise run gates`. Hand over only when each of `docs/test-strategy.md` § Build exit criteria
 holds, as shown by:
 
 - **Tasks and implementation elements:** the empty list above, each closed `asset:product` child

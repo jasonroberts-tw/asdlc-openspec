@@ -18,7 +18,7 @@ This skill does the rest, and hands back the pull request and the outcome its ch
 
 ## 1. The branch is ready
 
-It has passed `npm run gates` twice, before and after a rebase onto `origin/main`
+It has passed `mise run gates` twice, before and after a rebase onto `origin/main`
 (`CLAUDE.md` § The gate ladder). If it has not, do that first.
 
 ## 2. Test the merge against the open pull requests

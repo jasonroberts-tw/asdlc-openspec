@@ -142,7 +142,7 @@ export const meta = {
  *
  * NEEDS a change worktree with node, git and `bd` (the tracers read a manual proof with `bd show`,
  * which writes nothing), and the Workflow tool. Nothing here reads a file: the session passes the
- * policy as `args.policy` and the fresh run as `args.run`. `npm run workflows:selftest` runs this script against stubbed agents.
+ * policy as `args.policy` and the fresh run as `args.run`. `mise run workflows:selftest` runs this script against stubbed agents.
  */
 
 const A = args || {}
@@ -392,7 +392,7 @@ function argsProblem() {
   if (!isText(A.commit) || !COMMIT.test(A.commit.trim())) return 'args.commit must be the commit traced, as `git rev-parse HEAD` prints it'
   const r = A.run
   if (!isPlainObject(r) || !Array.isArray(r.tests) || !Array.isArray(r.specs)) return 'args.run must be the fresh run, `.scratch/<change>-verify.json` as scripts/fresh-run.mjs writes it'
-  if (!sameCommit(r.commit, A.commit)) return `args.run is the fresh run at ${String(r.commit).trim() || 'no commit'}, not ${A.commit.trim()}: run \`npm run tests:fresh\` at the commit traced`
+  if (!sameCommit(r.commit, A.commit)) return `args.run is the fresh run at ${String(r.commit).trim() || 'no commit'}, not ${A.commit.trim()}: run \`mise run tests:fresh\` at the commit traced`
   if (!isWhole(A.scenarios)) return 'args.scenarios must be how many `#### Scenario:` lines the delta specs hold'
   if (typeof A.design !== 'boolean') return 'args.design must say whether openspec/changes/<change>/design.md exists'
   if (A.previous !== undefined) {

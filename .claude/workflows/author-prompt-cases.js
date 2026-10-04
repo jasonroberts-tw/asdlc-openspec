@@ -79,7 +79,7 @@ export const meta = {
  * dropped and every case turned away, each because its agent returned nothing. Such an agent could
  * read a file other than the one it is sent to if it guessed its path, and nothing here records that
  * it did not. The script reads no file: the session passes the policy as `args.policy`.
- * `npm run workflows:selftest` runs this script against stubbed agents.
+ * `mise run workflows:selftest` runs this script against stubbed agents.
  */
 
 const A = args || {}

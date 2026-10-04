@@ -57,7 +57,7 @@ requirement, goes through the `bead` skill. A change to what the product does go
 · [The guardrails](#the-guardrails)
 · [Setup](#setup)
 · [Working here](#working-here)
-· [The npm scripts](#the-npm-scripts)
+· [The tasks](#the-tasks)
 · [The work, and what its runs leave behind](#the-work-and-what-its-runs-leave-behind)
 · [What is still a placeholder](#what-is-still-a-placeholder)
 · [Where to read next](#where-to-read-next)
@@ -91,9 +91,10 @@ level above them. `apps/` and `openspec/` hold the product; every other path is 
 | `apps/` | The product's code, one directory per app, each with its own `README.md`, its Binding Surface in `binding-surface.md` (what a test may depend on), and its tests beside it. `calculator/` is the first: plain ES modules, run as committed in a browser and under Node's test runner, with no build step. |
 | `count-index.md` | Every count that more than one file restates, under a `CNT-*` key, with the source it re-derives from. |
 | `.beads/` | The configuration of `bd`, the issue tracker. Its database syncs through the git remote and is never committed; `bd bootstrap` hydrates it. `PRIME.md` is what `bd prime` prints in place of its own text when the tracker's plugin runs it at a session's start and before a compaction: it points at where each rule lives and states none. |
-| `git-hooks.yml` | The git-hook tiers: which gate runs at commit and at push, each with the glob that scopes it and a note of its measured cost. `scripts/git-hooks.mjs` runs it, called by the five `hook.asdlc-*` entries `npm run hooks:install` writes into the repository's config. |
-| `mise.toml`, `mise.lock` | The toolchain: every tool version the repository installs, and the lockfile that holds each one's download URL and checksum per platform, or, for a `pypi:` tool such as graphify, the path and digest of its uv lock. CI, the dev container and § Setup install from them (`docs/decisions.md` § D-31), and `npm run check:toolchain` holds them. |
+| `git-hooks.yml` | The git-hook tiers: which gate runs at commit and at push, each with the glob that scopes it and a note of its measured cost. `scripts/git-hooks.mjs` runs it, called by the five `hook.asdlc-*` entries `mise run hooks:install` writes into the repository's config. |
+| `mise.toml`, `mise.lock` | The toolchain: every tool version the repository installs, and the lockfile that holds each one's download URL and checksum per platform, or, for a `pypi:` tool such as graphify, the path and digest of its uv lock. CI, the dev container and § Setup install from them (`docs/decisions.md` § D-31), and `mise run check:toolchain` holds them. |
 | `.mise/locks/` | The uv lock of each `pypi:` tool's dependencies, with the versions and hashes uv installs them at, which `mise lock` writes and `mise.lock` names. CI and the dev container install from it too (`docs/decisions.md` § D-35). |
+| `tasks.toml` | Every task the hooks, CI and the prompts run by name, through `mise run <name>`; § The tasks has one row each. `package.json` keeps two scripts beside it, `prepare` and `calculator:serve` (`docs/decisions.md` § D-35), and `mise run check:jobs` holds the two lists apart. |
 | `.vale.ini`, `.vale-styles/Layout/` | The configuration of Vale, the prose linter the `vale@agent-tools` hook runs on each edit of prose, and `Layout`, the one style this repository writes itself. |
 | `.github/workflows/verify.yml` | The slowest tier: every gate that reads only committed files, on every pull request and every push to `main`. |
 | `.github/workflows/pr-review.yml` | The pull-request reviewer: one pull request at a time, Claude Code judges it against the issues its title cites, and it merges when every dimension passes and the risk is not high. |
@@ -109,7 +110,7 @@ Some paths appear only on a working machine and are gitignored, each with its re
 - `.worktree/`: a worktree's rendered briefing.
 - `.claude/settings.local.json`: machine-specific permissions.
 - `.vale-styles/`, all but `Layout/`: the styles `vale sync` downloads.
-- `graphify-out/`: the local code graph `npm run code-graph` builds, never committed
+- `graphify-out/`: the local code graph `mise run code-graph` builds, never committed
   (`docs/decisions.md` § D-20).
 - `__pycache__/`, anywhere in the tree: the bytecode cache Python writes beside a tracked Python
   file that another Python process imports.
@@ -133,7 +134,7 @@ the rule. The third column wins over the first two.
 |---|---|---|
 | A rule with two homes, one of them stale; a rule kept in an agent's memory store | The citations gate's memory rule (`tools/citations/memory.ts`), and review | `CLAUDE.md` § Rules for agents live in tracked files, and nowhere else |
 | A hand edit to generated output | `scripts/hooks/block-generated-edit.mjs` in session, `scripts/assert-not-hand-edited.mjs` at commit, and each emitter's `:check` twin at push and in CI | `CLAUDE.md` § The script suffix contract |
-| A green run that ran nothing | `npm run gates` forces the full suite, and refuses a clone whose hooks are not installed; the hook runner names every job it skips; `check:jobs` refuses a gate no job runs unless it is declared, with its reason; `scripts/run-tests.mjs` fails a test run whose pattern matches no file or matches a file that declares no test | `CLAUDE.md` § The gate ladder |
+| A green run that ran nothing | `mise run gates` forces the full suite, and refuses a clone whose hooks are not installed; the hook runner names every job it skips; `check:jobs` refuses a gate no job runs unless it is declared, with its reason; `scripts/run-tests.mjs` fails a test run whose pattern matches no file or matches a file that declares no test | `CLAUDE.md` § The gate ladder |
 | A test that does not say which IDs it proves, how, at which layer and level, or against which version of each artifact; or a test that runs and that a gate reading tests from source cannot see | `scripts/run-tests.mjs` reads every test file it runs through `scripts/test-trace.mjs`, fails the run on metadata that reader refuses, and fails it on any test that reader and Node's runner do not both see; `tests:selftest` and `tests:trace:selftest` hold both | the header of `scripts/test-trace.mjs` |
 | A scenario without its happy-path or its negative test, a test on an ID no spec heads or on an old version of what it proves, a change under `apps/` in a commit that names no task, or a contract operation no test covers | `trace:check`, at push and in CI, re-derives the traceability record and holds it to traceability rules 5 to 8, the happy-path-and-negative obligation and a ratchet baseline of the gaps that predate it, which may fall and never rise; `trace:selftest` holds each refusal | the header of `tools/trace/trace.ts` |
 | A test deleted, skipped or disabled, or its assertions weakened, on a branch with no recorded architect decision | `tests:inventory:check` compares the tests at HEAD with those at the merge base with `origin/main` and refuses each such change unless a commit on the branch carries a trailer naming the test and the reason; `tests:inventory:selftest` holds it | the header of `scripts/check-test-inventory.mjs` |
@@ -151,7 +152,7 @@ the rule. The third column wins over the first two.
 | A recorded decision argued again, or a register whose summary drifts from its entries | `check:register` | `CLAUDE.md` § Decisions live in the register |
 | Work tracked in a checklist or a status table, an issue that does not say where its work lands, a found issue that does not say what kind of file it would change, or an issue of a type the rubric does not describe | The issue: `beads:check`, at push, refuses an open issue with no `repo:` label, an open issue filed `discovered-from` with no label `assetLabels` in `tools/policy/vocabulary.json` lists, and an open issue whose type no row of `issueTypes` there names; `beads:selftest` holds each refusal. Its priority: review alone, because no check can tell which row of `issuePriorities` fits. The checklist or status table: review alone, because no gate scans a file for one | `CLAUDE.md` § The task store |
 | A generated artifact left stale after its input moved | Each emitter's `:check` twin, which re-derives the artifact and diffs it, at push and in CI | `CLAUDE.md` § The script suffix contract |
-| A pre-push job skipped on the push that changed one of its inputs, because its glob misses it | Nothing refuses it. `npm run harness` reports each job whose glob misses a module its entry imports, a pinned package's manifest or lockfile, a file it reads from the checkout, a script it launches or a generated file its check compares, and the gates nothing runs, for a person to act on; `harness:selftest` holds each kind | the header of `tools/harness/harness.ts`; `git-hooks.yml`'s rule for a glob; `docs/decisions.md` § D-26 |
+| A pre-push job skipped on the push that changed one of its inputs, because its glob misses it | Nothing refuses it. `mise run harness` reports each job whose glob misses a module its entry imports, a pinned package's manifest or lockfile, a file it reads from the checkout, a script it launches or a generated file its check compares, and the gates nothing runs, for a person to act on; `harness:selftest` holds each kind | the header of `tools/harness/harness.ts`; `git-hooks.yml`'s rule for a glob; `docs/decisions.md` § D-26 |
 | A co-change map read through a commit the trunk never had, or one its emitter or policy no longer writes | `coupling:check`, at push and in CI, re-derives the map through the trunk commit it records and refuses a difference, and a commit off `origin/main`'s first-parent chain; `coupling:selftest` holds each refusal | the header of `tools/coupling/coupling.ts`; `docs/decisions.md` § D-24 |
 | A pull request merged without being held to the issue it carries, a high-risk one merged without a person, or two merged at once | `.github/workflows/pr-review.yml`, one run at a time, deciding through `scripts/pr-review.mjs`; `pr-review:check` and `pr-review:selftest` hold its wiring and its decisions | `CLAUDE.md` § Git workflow |
 | A program that rewrites its own instructions from what it observed | The prompt reviewer only opens a pull request, and a person decides whether it merges | `CLAUDE.md` § A program proposes; only a person promotes |
@@ -201,7 +202,7 @@ does not apply to your platform is absent from its list, not marked optional.
    answer with the versions `mise.toml` pins.
 1. Run `npm ci` in the clone. Its `prepare` step writes the git hooks into the clone's config, and
    refuses a Git older than 2.54.0; if your package manager blocks install scripts, run
-   `npm run hooks:install` once.
+   `mise run hooks:install` once.
 1. Run `vale sync` in the clone. It downloads the styles `.vale.ini` names into the directory its
    `StylesPath` names, where git ignores all but `Layout`, the style this repository tracks, and it
    needs the network. Then check that `vale ls-config`
@@ -212,7 +213,7 @@ does not apply to your platform is absent from its list, not marked optional.
    on every command without it) and `git config beads.role maintainer` (`contributor` on a fork;
    git config is per clone, so no tracked file can set it), then `bd bootstrap`. Never `bd init`:
    it creates a new tracker instead of hydrating this one, and takes over the git hooks directory.
-1. Run `npm run gates` and read a green suite before the first change. It refuses a clone whose
+1. Run `mise run gates` and read a green suite before the first change. It refuses a clone whose
    hooks are not installed (`CLAUDE.md` § The gate ladder).
 
 ### Windows, native
@@ -225,13 +226,13 @@ does not apply to your platform is absent from its list, not marked optional.
    Git's hooks and Claude Code's hooks run a bare `node`, and mise's shims there are `.exe` files.
 1. Clone, then run `mise trust` and `mise install` in the clone, as step 3 of macOS and Linux says.
    Check that `node -v` and `bd --version` answer from the shell you will work in.
-1. Run `npm ci` in the clone. If install scripts are blocked, run `npm run hooks:install` once.
+1. Run `npm ci` in the clone. If install scripts are blocked, run `mise run hooks:install` once.
 1. Run `vale sync` in the clone, then check that `vale ls-config` loads, as step 5 of macOS and
    Linux says.
 1. Set `sync.remote` in `.beads/config.yaml` if it still holds a placeholder (`<protocol>` is
    `git+https` or `git+ssh`), run `git config beads.role maintainer` (`contributor` on a fork),
    then `bd bootstrap`. Never `bd init`.
-1. Run `npm run gates` and read a green suite before the first change.
+1. Run `mise run gates` and read a green suite before the first change.
 
 A clone that is built on Windows is not also built from Linux (a container, WSL): `node_modules`
 holds platform-native binaries. Use one clone per platform.
@@ -247,7 +248,7 @@ holds platform-native binaries. Use one clone per platform.
 1. If it warned that Vale cannot load `.vale.ini`, run `vale sync` once in the container, then check
    that `vale ls-config` loads. The image carries every tool `mise.toml` pins; the styles land in the
    clone, so a rebuild keeps them.
-1. Run `npm run gates` and read a green suite before the first change.
+1. Run `mise run gates` and read a green suite before the first change.
 
 `.devcontainer/README.md` has the reasons and the mounts.
 
@@ -282,50 +283,51 @@ lockfile change that lifts that version above the floor is refused on the push t
 | Have the last reply, or one term, explained in plain words | the `eli5` skill | It supplies the missing background and changes nothing; the original's facts and caveats survive exactly. |
 | Draft what a person must do for an issue an agent cannot finish | the `human-plan` skill | |
 | Retire a file | the `retire-asset` skill | A register decision with a checklist, not a tidy-up. |
-| Add, rename or remove an npm script | the `add-npm-script` skill | It keeps § The npm scripts below, the hook runner and CI in step. |
+| Add, rename or remove a task | the `add-task` skill | It keeps § The tasks below, the hook runner and CI in step. |
 | Make a worktree by hand | `scripts/new-worktree.sh <task-ref> <slug>` | From the primary checkout. It cuts `agent/<name>` from `origin/main`; `npm ci` is the first command inside. |
-| Check your work before a pull request | `npm run gates` | Then fetch, rebase onto `origin/main`, and run it again. |
+| Check your work before a pull request | `mise run gates` | Then fetch, rebase onto `origin/main`, and run it again. |
 | Open a pull request | the `open-pr` skill | Tests the merge against the open pull requests, ends the title with the ids of the issues carried, sets the reviewer's `pr-review` status pending from the session, watches the checks with one watcher, and says what each outcome of `verify` and the reviewer asks. Every other skill and agent that opens a pull request opens it with this one. |
 | Close a run of a prompt | the `close-prompt-run` skill | Leaves the run's analysis as a note in the tracker and, when enough are pending or the oldest is old enough, launches the reviewer in the background under a name of its own, without waiting for it. |
 | Improve a prompt after running it | the `continuous-prompt-improvement` agent | Launched by the `close-prompt-run` skill (`CLAUDE.md` § Prompt reviews). One review reads every pending analysis, one agent per prompt file; what they change is one pull request, whose description is the review. An edit that turns a stored decision case of its prompt from right to wrong stays out of it (`.claude/prompt-cases/README.md`). |
 | Get a pull request reviewed and merged | nothing: `.github/workflows/pr-review.yml` takes it once `verify` passes | It merges one whose title cites the issues it carries, satisfies them, and is not high risk. `gh workflow run pr-review.yml -f pr=<number>` reviews a head again. |
 | Approve a pull request the reviewer left to a person | apply the approval label, `prReviewLabels` in `tools/policy/pr-review.json` | A person only, never an agent (`CLAUDE.md` § Git workflow). It approves the head the reviewer last judged, and a push needs it again. Merging by hand works too. |
 | Check a pull request, report or analysis before trusting it | the `adversarial-verifier` agent | Pass it the pull request number or file path. Every claim is re-derived from source; it reports a verdict table and changes nothing. |
-| Ask how parts of the repository connect | the `code-graph` skill, through the `graphify` MCP server | Each person builds the graph: `mise install`, step 3 of § Setup, installs the graphify release `mise.toml` pins, with its MCP extra; then run `npm run code-graph` from any checkout. It builds into the primary checkout and registers the server for it and its worktrees. A first build sends every document to the model `graphifyClaudeCliModel` names, on your own Claude plan; later builds send only what changed (`docs/decisions.md` § D-20). |
+| Ask how parts of the repository connect | the `code-graph` skill, through the `graphify` MCP server | Each person builds the graph: `mise install`, step 3 of § Setup, installs the graphify release `mise.toml` pins, with its MCP extra; then run `mise run code-graph` from any checkout. It builds into the primary checkout and registers the server for it and its worktrees. A first build sends every document to the model `graphifyClaudeCliModel` names, on your own Claude plan; later builds send only what changed (`docs/decisions.md` § D-20). |
 
-## The npm scripts
+## The tasks
 
-Every script in `package.json`, one sub-section per prefix. A name of the form `<group>:<verb>` is
-public: the bare name writes the artifact, `:check` re-derives it and writes nothing, `:selftest`
-proves the gate refuses what it should (`CLAUDE.md` § The script suffix contract). The **Gate**
-column is read off `git-hooks.yml` and `.github/workflows/verify.yml`; where it disagrees with them,
-they win.
+Every task in `tasks.toml`, run with `mise run <name>`, one sub-section per prefix, and
+`calculator:serve`, which `package.json` keeps beside `prepare` and `npm run` runs
+(`docs/decisions.md` § D-35). A name of the form `<group>:<verb>` is public: the bare name writes
+the artifact, `:check` re-derives it and writes nothing, `:selftest` proves the gate refuses what it
+should (`CLAUDE.md` § The script suffix contract). The **Gate** column is read off `git-hooks.yml`
+and `.github/workflows/verify.yml`; where it disagrees with them, they win.
 
-<!-- kit 3.1-5 · ADAPT: one row per script, kept in step with `package.json` by the add-npm-script
-     skill where you took it. The kit lists the scripts it laid down. Delete this comment when
+<!-- kit 3.1-5 · ADAPT: one row per task, kept in step with `tasks.toml` by the add-task
+     skill where you took it. The kit lists the tasks it laid down. Delete this comment when
      done. -->
 
 ### beads
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
 | `beads:check` | Refuses an open issue with no label naming where its work lands, an open issue filed `discovered-from` another with no label `assetLabels` in `tools/policy/vocabulary.json` lists, an open issue whose type no row of `issueTypes` there names, and an issue citing an identifier that does not resolve here. Without the second, a found issue drops out of `bd count --by-label` and the count still reads as complete. Without the third, an issue takes a type no filer was told when to use. It reads the tracker's database, which a fresh clone in CI does not have. | pre-push |
 | `beads:selftest` | The tracker gate, negative-tested: each refusal over a fixture export and a copy of the committed policy, read through `BEADS_CHECK_ROOT`, with an undoctored control that must name the fixture's bead count. It runs no `bd`, so it runs in CI too. Without it the gate could lose a rule, or read the live tracker when pointed at a copy, and still pass. | pre-push + CI |
 
 ### calculator
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
-| `calculator:serve` | Serves the calculator page on `127.0.0.1` alone, at the port `PORT` names or at the default `apps/calculator/serve.js` holds, and prints the URL; it runs until Ctrl-C, and a port in use or an invalid `PORT` is refused in one line. Without it the calculator can be tested but not used. No job runs it, since it never returns: `calculator:test` runs the same file and proves what it does. | |
+| `calculator:serve` | A `package.json` script, run with `npm run calculator:serve`. Serves the calculator page on `127.0.0.1` alone, at the port `PORT` names or at the default `apps/calculator/serve.js` holds, and prints the URL; it runs until Ctrl-C, and a port in use or an invalid `PORT` is refused in one line. Without it the calculator can be tested but not used. No job runs it, since it never returns: `calculator:test` runs the same file and proves what it does. | |
 | `calculator:test` | Runs the test files directly in `apps/calculator/test/` (its `README.md` lists them) with Node's own test runner: each scenario of the calculator and of its local server is a test named for its ID and title, under a suite named for its requirement, except the few a browser alone can show, which `apps/calculator/test/README.md` names. Without it nothing holds the calculator to its specs. It runs through `scripts/run-tests.mjs`, which also fails the run when its pattern matches no file or a matched file declares no test, since Node's runner passes both, and when a test's metadata breaks the convention in the header of `scripts/test-trace.mjs` or a test is one that reader and the runner do not both see. | pre-push + CI |
 | `calculator:test:independent` | Runs every test file under `apps/calculator/test/independent/build/`, the contract tests and build-time fitness functions the build workflow's test-builder writes, through `scripts/run-tests.mjs --dir`, with the same refusals as `calculator:test`; while the directory holds no test it passes and says so. Without it the tests that check the calculator's Binding Surface independently of the agent that built it would run only inside a build. It runs none of `independent/verify/`, which the strategy leaves to Verify. | pre-push + CI |
 | `calculator:test:verify` | Runs every test file under `apps/calculator/test/independent/verify/`, the E2E tests and Verify-deferred fitness functions the test-builder writes, the same way; while the directory holds no test it passes and says so. `docs/test-strategy.md` § Build exit criteria runs them at Verify, so no push or CI step runs it, and `scripts/check-jobs.mjs` names it as an exception; change-verify's fresh run, `tests:fresh`, runs it in a clone of HEAD. Its `--dir` is also how the trace and test-inventory gates find those tests, without which they would not count an E2E test toward its scenario or see one removed, and how the thresholds gate leaves them out of its coverage and mutation runs. | |
 
 ### check
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
-| `check:jobs` | Holds the hook runner's configuration, the CI workflow and `package.json` to each other: every job names a script that exists, every script no job runs is declared with its reason, and every declaration is current and of the right kind. It also holds each script to the files it names: a `tools/`, `scripts/` or `apps/` path exists as spelled, case included, and a glob matches a file. Without it a gate can be unwired, or a script can name a file that is gone, and nothing says so. | pre-push + CI |
+| `check:jobs` | Holds the hook runner's configuration and the CI workflow to the tasks: every job names a task that exists in the registry its launcher reads, every task no job runs is declared with its reason, and every declaration is current and of the right kind. It also holds each task to the files it names: a `tools/`, `scripts/` or `apps/` path exists as spelled, case included, and a glob matches a file. And it holds the tasks to one registry: `package.json` keeps `calculator:serve` and `prepare` and no other script, and `mise.toml` defines no task, includes `tasks.toml` and runs a task where it is called. Without it a gate can be unwired, a job can stay on a launcher that no longer finds its task, or a task can name a file that is gone, and nothing says so. | pre-push + CI |
 | `check:jobs:selftest` | The job cross-check, negative-tested. | pre-push + CI |
 | `check:node-floor` | Prints the lowest version on the floor's major line that every package in `package-lock.json` accepts, beside `package.json` `engines`. Refuses a floor below it, a major line on which no version satisfies every locked package, and a range form it cannot read, which it names rather than skip. Without it a lockfile change can lift that version above the floor, or bring a range nothing reads, and nothing says so until someone runs the check by hand. | pre-push + CI |
 | `check:node-floor:selftest` | The Node-floor gate, negative-tested: each range form it reads, over a fixture a misreading would give another version, and each refusal by its reason, beside the live files as a control. | pre-push + CI |
@@ -340,7 +342,7 @@ they win.
 
 ### citations
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
 | `citations:check` | Resolves every line and section pointer in every tracked text file, and refuses a pointer into a memory store this repository does not use. Without it a renamed heading leaves pointers that still look authoritative. | pre-push + CI |
 | `citations:selftest` | The citations gate, negative-tested: its scanner held to fixtures, and the gate run end to end over a synthetic tree through `CITATIONS_ROOT`, with exact counts in the control and one break per doctored copy. Without it the gate can go quietly green over a repository it has stopped reading. | pre-push + CI |
@@ -349,7 +351,7 @@ they win.
 
 ### code-graph
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
 | `code-graph` | Builds the local code graph with graphify into the primary checkout's gitignored `graphify-out/` and registers graphify's MCP server for it at Claude Code's local scope, which that checkout's worktrees share. The server is on the harness assessment's combined graph beside it while that records this build, and on the graph otherwise, as after a build that registers (`docs/decisions.md` § D-28). A build with `--no-mcp`, or one that fails, leaves the server where it was, and says so. `-- --code-only` parses code alone and calls no model; `-- --force` re-sends every document; `-- --no-mcp` leaves Claude Code's configuration alone. It reads the network, a language model and your own Claude plan, so no job runs it. Without it a graph is refreshed with `graphify update`, which erodes its document layer (`docs/decisions.md` § D-20). | |
 | `code-graph:mcp` | Registers the MCP server alone, or leaves a matching registration as it is: on the combined graph `harness:graph` wrote, while it records the graph beside it, and on the graph otherwise. Run it after `harness:graph` to serve what it wrote. | |
@@ -357,14 +359,14 @@ they win.
 
 ### counts
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
 | `counts:check` | Re-derives every value in `count-index.md` from the source the index names for it. The table is updated from what it reports, never the reverse. | pre-push + CI |
 | `counts:selftest` | The count-index gate, negative-tested. | pre-push + CI |
 
 ### coupling
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
 | `coupling` | Writes the co-change map, `artifacts/coupling/cochange.json`, through the trunk commit it records, `throughCommit`: which files the pull requests merged to `main` changed together, read from git history, with how often, the hub files that change with nearly everything, and the clusters of files that move as one. It never moves that commit, so it writes the same bytes until the emitter or its keys in `tools/policy/tool-settings.json` change; with no map it refuses. Without it, which issues can run in parallel lanes, and where a decomposition would cut, are argued from memory of what changed together. No job runs it: `coupling:check` is its gate. | |
 | `coupling:check` | Re-derives the map and refuses any difference, any other file under `artifacts/coupling/`, a `throughCommit` off `origin/main`'s first-parent chain, a merge commit on it, a shallow clone, and a `coupling*` key missing or malformed. It prints how many pull requests landed after the baseline, and does not fail on them. Without it a hand-edited map, or one an edit to its emitter left behind, reads as current. | pre-push + CI |
@@ -373,19 +375,19 @@ they win.
 
 ### gate-summary
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
 | `gate-summary:selftest` | The Stop and SubagentStop hook, run as Claude Code runs it over scratch trees: an untracked file with a broken pointer must turn its verdict to FAIL for that reason, an ignored one must not, and a subagent's verdict must say so. A copy of the hook in a scratch repository must run its gates in the linked worktree the payload's `cwd` names, and its verdict must say what that worktree's own gate read. A copy of `block-generated-edit.mjs` must refuse an edit to generated output in a linked worktree with the reason it gives in the primary checkout. Without it the hook could go back to reporting PASS over files it never read, or over a checkout it never gated, and the edit hook to passing every generated file in a worktree. | pre-push + CI |
 
 ### gates
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
 | `gates` | The forced full pre-push suite, run through `git hook run` with the branch's push line, so it sees a real push's environment and input. It refuses a clone whose hooks are not installed, and a Git older than 2.54.0, rather than report a clean run that ran nothing. | |
 
 ### harness
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
 | `harness` | Writes a dated report of the harness under `.scratch/harness/`, from committed files and the co-change map. It names each hook job whose glob misses one of its inputs, by kind; each gate a README table names that nothing runs; each script that runs at pre-push or in CI but not both, undeclared; and code files that change together and import neither way. Its tables give the rule sections scripts cite and, per file, the jobs that declare it, the jobs whose imports reach it, how often pull requests change it and how many globbed jobs that fires per hundred pull requests. Each item is a finding, a lead or a note, under a stable key, and the report names what changed since the last one and whether the tool did. It reports and enforces nothing. Without it a glob that misses an input is found when the job it should have run is first needed. | |
 | `harness:graph` | After `harness`, for the same date: the local code graph's freshness, the graph's own leads, the co-change pairs with no edge between them in the graph, and the map's clusters against the graph's communities. It writes one combined graph, the local graph with the harness's wiring and the co-change edges added. Run from the checkout that holds the graph, it writes it beside the graph, where `code-graph:mcp` then serves it to sessions; from a worktree, or with `--graph`, beside its report, not served. With no graph it says so and exits 0. Run under graphify's own Python, it also loads that graph through graphify's loader and reports an edge lost. | |
@@ -393,28 +395,28 @@ they win.
 
 ### hooks
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
 | `hooks:install` | Writes the five `hook.asdlc-*` entries into the repository's config, the same from any checkout, and removes lefthook's shims from `.git/hooks`; it reports a `.old` or `.backup` file and a tracker section it leaves. `npm ci` runs it through `prepare`; run it by hand after an install that skipped scripts. Without it no commit or push here runs a gate. It refuses a Git older than 2.54.0, under which the entries run nothing. | |
-| `hooks:selftest` | The hook runner, negative-tested: each refusal of the job file and the policy over a doctored copy, and commits, pushes, a linked worktree, the install, `npm run gates`, an older Git and a signal through real Git in scratch repositories with a bare remote, beside a control commit and push. Without it a glob the runner misread, or a skip it did not print, would read as a pass. | pre-push + CI |
+| `hooks:selftest` | The hook runner, negative-tested: each refusal of the job file and the policy over a doctored copy, and commits, pushes, a linked worktree, the install, `mise run gates`, an older Git and a signal through real Git in scratch repositories with a bare remote, beside a control commit and push. Without it a glob the runner misread, or a skip it did not print, would read as a pass. | pre-push + CI |
 
 ### openspec
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
 | `openspec:check` | Validates every living spec and active change under `openspec/` strictly with the pinned CLI, and trial-archives each active change into a scratch copy so a delta that cannot merge is refused before Finalize. It refuses a living spec still carrying the archive's placeholder Purpose, a scenario or NFR requirement without a unique ID carrying its capability's prefix (`specIdPrefixes` in `tools/policy/vocabulary.json`), and an ID an archived change gave another title. It refuses, too, a retired `openspec-*` skill that `openspec init` or `openspec update` wrote back, and a skill or agent that spells the change label without citing its one home, `specChangeLabel` in `tools/policy/vocabulary.json`. | pre-push + CI |
 | `openspec:selftest` | The OpenSpec gate, negative-tested against a fixture tree it builds. | pre-push + CI |
 
 ### pr-review
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
 | `pr-review:check` | Holds the pull-request reviewer's four files to each other: the policy's `prReview*` keys whole, and a floor that covers the reviewer itself; `pr-review.yml` queuing rather than cancelling, waking on `verify`'s runs and filtering on the policy's approval label; and the agent it names read-only. It holds, too, the review job installing `bd` with `CI` unset and running `bd --version` in the same step, and `verify.yml` carrying the required check and a dispatch trigger. Without it a renamed label or check leaves approvals and merges waiting on the schedule, and nothing says why. | pre-push + CI |
 | `pr-review:selftest` | Every decision the reviewer makes, over fixtures built from the live policy, each case asserting its reason: which verdicts merge, ask a person or request changes, which approvals count, what the queue takes next, and which heads `mark` sets pending when the session that opened the pull request, or a person, runs it. It holds the brief's facts too: which other issues the cited issues and the body name, that the prompt counts come from the commit and not the working tree, when they are shown and that a failed count always is, how the commits read, and what `brief --local` refuses as its inputs. It also runs the wiring gate over doctored copies with an undoctored control. Without it a change to the decisions shows only in a merge nobody meant. | pre-push + CI |
 
 ### tests
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
 | `tests:fresh` | The verifier's fresh run, from a change's worktree (`change-verify` § 4): it clones HEAD under the temporary directory with the worktree's `origin/main` and no remote, runs `npm ci`, every test script, the trace gate and `thresholds:commands:check` there, sorts each test by the traceability record, and writes `.scratch/<change>-verify.json`, which the trace workflow and the verification report read. `--rerun` runs one failing test once more, by name, in a fresh clone. Without it Verify runs the proofs in a worktree whose leftover state a test can pass on, and a flaky test can be retried until green. It reads the network through `npm ci`, so no job runs it. | |
 | `tests:fresh:selftest` | The fresh run, negative-tested over a fixture repository with `npm ci` stubbed: the clone is of HEAD, with the checkout's `origin/main` and no remote, and is removed; a dirty tree, a temporary root inside a repository, a missing `origin/main` and a failed install are refused by their reasons. It holds, too, that a test the record lacks is a problem of the run, a test citing a task passed in joins the change's partition, and a failing test is run once more by name, once. Without it the stand-in for a run no job can make would not exist. | pre-push + CI |
@@ -425,7 +427,7 @@ they win.
 
 ### thresholds
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
 | `thresholds:check` | Runs every test file but those of the test-builder's Verify stage once with Node's own coverage. It holds the code lines and branches a branch changes under `apps/`, against its merge base with `origin/main`, to the thresholds and minimum samples in `tools/policy/tool-settings.json`, and prints the whole product's figures beside them, ungated. Then StrykerJS's tap runner mutates the changed lines of the Routines over the same tests, and it holds their mutants to the mutation threshold. A change to a test alone mutates nothing. It holds the ratchet baseline, `artifacts/thresholds/baseline.json`, to the one at the merge base, carried through the branch's edits. Below a minimum sample it gives the counts and no rate, and refuses any one gap a directive does not excuse with a reason. Without it a change can land code no test runs, or tests that run it and detect nothing, and every other gate passes. | pre-push + CI |
 | `thresholds:commands:check` | Has StrykerJS's command runner mutate the changed lines of the Commands, the files `mutationCommands` in `tools/policy/tool-settings.json` names, one mutant at a time, and holds their mutants as `thresholds:check` holds the Routines'. It is no pre-push job, for its minutes of cost, which the header of `scripts/check-thresholds.mjs` gives; `tests:fresh` runs it too, at `change-verify`, and the verification report carries its output. Without it code the tests reach only by spawning a process is never scored, since the tap runner cannot see it. | CI |
@@ -434,7 +436,7 @@ they win.
 
 ### trace
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
 | `trace` | Writes the traceability record, `artifacts/trace/record.json`, and the directory's `README.md`: every scenario and NFR requirement of the living specs and the active deltas, with its tests by role and its obligation; every test, with each reference it cites and whether that is current; every contract operation; and every task a commit on HEAD names, with the paths under `apps/` it changed. Without it Verify has no record to sort a change's tests from the regression suite by, and a scenario's proof is traced by hand. A commit joins the record only once it exists, so it runs after the last commit that changes `apps/`. No job runs it: `trace:check` is its gate. | |
 | `trace:check` | Re-derives the record and its README and refuses any difference, or any other file under `artifacts/trace/`. It holds the rules the header of `tools/trace/trace.ts` gives, refusing a commit of the branch that changes `apps/` and names no task, a contract operation with no contract test, a test with no ID or no artifact hash, an ID nothing heads, and a hash that is not current. It refuses, too, a scenario with no happy-path or no negative test at the functional layer or above that the baseline does not list, and holds the baseline itself, which may fall and never rise. Without it a scenario can land half-proved, or a test keep proving a scenario its change rewrote. | pre-push + CI |
@@ -443,19 +445,19 @@ they win.
 
 ### vale
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
 | `vale:selftest` | This repository's own Vale style, `.vale-styles/Layout/`, over fixtures: a control holding every construct its rules must pass draws no alert, and each doctored case draws exactly its rule's alert at its line; every section of `.vale.ini` that lints with a style applies it, and one with the style taken out is refused by name. It runs the `vale` mise installs, in CI too, and skips clean where none is on PATH; a `vale` that is found and fails is a failure, which it holds by running itself with a failing stub. Without it a rule that stops matching leaves the hook silent over the fault it names. | pre-push + CI |
 
 ### workflows
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
 | `workflows:selftest` | Runs each workflow under `.claude/workflows/` against stubbed agents with the values in `tools/policy/agent-workflows.json`. For the change-build review, `build-change-task.js`: how it stops, how many skeptics it sends a finding, that a finding nobody could verify is never counted refuted, and that it reports a listener it left behind. It must stop as `not-red`, before any review, a task of a kind `buildRedFirstKinds` lists when a scenario the parent named has neither a red record nor an already-green report, and no task of another kind. For a task of a kind `buildIndependentKinds` lists, its test-builder must be called by its agent type with a prompt built from the allowed inputs alone. For such a task it must stop as `not-independent` a builder writing under the test-builder's directory, a test-builder file outside it or under the wrong stage (an E2E test or a Verify-deferred fitness function under `build/`), or a runner that leaves one behind. For such a task it must run every build-stage file an earlier task committed beside the task's own, where it stands and never written, and route each failure, an earlier file's included, to rewrite-test, fix-app or re-design. It must stop such a task on a re-design its skeptics uphold and on tests still failing at the last run, and let no planted test source, assertion or stack frame reach its builder's or fixer's prompt. `.claude/agents/test-builder.md` must have no tool but its structured output. For the prompt review, `review-prompts.js`: that it refuses a finding below the threshold, sends each edit the skeptics its severity is given and each consolidation the `blocker` count, refuses a consolidation that does not say where each removed rule went, merges no branch a majority did not uphold, and returns every finding it read and did not carry, to be held. It also keeps out a branch that turns a stored decision case of a file it changes from right to wrong, or leaves one unanswered. For its cases, `author-prompt-cases.js`: that it sends one author per lens, shown its own seed alone, stores a case only when every answer chose its expected option, and refuses a reader's copy its checksum does not match or a path other than where its command writes. Every case under `.claude/prompt-cases/` must pass both workflows, which give one case one answer prompt. `prompt-case-author.md` and `prompt-case-answerer.md` may have no tool but Read and their structured output. For the change-verify trace, `verify-change-trace.js`: that it counts no group its tracer returned short or read at another commit, gives each row its gap from its reading, never counts an unverified gap refuted, and never lets a skeptic's vote clear a proof that failed. It must keep on a run again only the readings it is given, of lenses that read, take each row's result from the fresh run, counting a flaky test as failing, and refuse a run of another commit. The trace and pull-request-body renderers must refuse a result with a scenario missing, a gap open or a row that did not pass. The verification report's two renderers must write one section from one stubbed run, and reject on a flaky or failing test, an unmet obligation or a failed Commands' run. It also holds each file to what the Workflow runtime accepts, and refuses a workflow with no suite. Without it a wrong stop rule shows only in a real run, at millions of tokens. | pre-push + CI |
 
 ### worktree
 
-| Script | What it does | Gate |
+| Task | What it does | Gate |
 |---|---|---|
 | `worktree:gc` | Removes a clean checkout with no process in it once HEAD there has been still for `worktreeGcMinAgeHours`, or at once when `-- --finished <name>` names it. It deletes an agent branch only on proof its content is in the trunk, a merged pull request's head among the proofs; `-- --dry-run` prints what it would do. | |
 | `worktree:selftest` | The worktree hooks, the git guard and the branch sweep, negative-tested against a scratch repository it builds, and the worktree briefing rendered from its template into a scratch directory. | pre-push |
@@ -507,7 +509,7 @@ at its start: restart the session after changing it.
 | Trigger | Effect | Wired in |
 |---|---|---|
 | `npm ci` | `package.json`'s `prepare` runs `scripts/git-hooks.mjs --install`, unless `CI` is set: it writes the five `hook.asdlc-*` entries into the repository's config, which run the git hooks below, and removes lefthook's shims from `.git/hooks`. It refuses a Git older than 2.54.0. | `package.json` (`prepare`) |
-| `git commit`, `git checkout`, `git merge`, `git push` | `scripts/git-hooks.mjs` runs the event's jobs from `git-hooks.yml`, those whose globs match the staged or pushed files and every one with no glob, and prints one line per job, the jobs it skipped and a total. | the repository's config (`hook.asdlc-*`, from `npm run hooks:install`) |
+| `git commit`, `git checkout`, `git merge`, `git push` | `scripts/git-hooks.mjs` runs the event's jobs from `git-hooks.yml`, those whose globs match the staged or pushed files and every one with no glob, and prints one line per job, the jobs it skipped and a total. | the repository's config (`hook.asdlc-*`, from `mise run hooks:install`) |
 | A session is about to run a Bash command | `scripts/hooks/guard-git.mjs` refuses, from a linked worktree, a git command against a protected branch or the worktree registry; any git command in what a removed worktree leaves under `.claude/worktrees/`, where git would act on the primary checkout; and from any checkout, a `gh pr create` that does not name `main` as its base and a `gh` command that applies the reviewer's approval label. From any checkout it also refuses graphify's `update`, `watch`, `hook install` and `claude install`, which erode the local code graph or write graphify's advice to run `update` into `CLAUDE.md`. | `.claude/settings.json` (`PreToolUse`) |
 | A session is about to write or edit a file | `scripts/hooks/block-generated-edit.mjs` refuses an edit to generated output and names where the change belongs. | `.claude/settings.json` (`PreToolUse`) |
 | A session has written or edited a prose file | The `vale@agent-tools` plugin's hook runs Vale over the whole file and hands back its error-level alerts, the `Layout` style's among them. It is silent where `vale` is not installed. | `.claude/settings.json` (`enabledPlugins`) |
@@ -519,8 +521,8 @@ at its start: restart the session after changing it.
 | `git commit`, `git checkout`, `git merge`, `git push` | The tracker's own git hooks, as jobs of the hook runner rather than a section `bd hooks install` writes into `.git/hooks`, which would run them twice. | `git-hooks.yml` (`pre-commit`, `prepare-commit-msg`, `post-checkout`, `post-merge`, `pre-push`) |
 | `git push` | `beads:check` holds the open issues to the label, type and identifier rules. It reads the tracker's database, so it is not a `.github/workflows/verify.yml` step. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `scripts/check-beads.mjs`, `tools/policy/`, `tools/lib/policy.ts` or `tools/lib/bd-launcher.ts` | `beads:selftest`: `beads:check`'s refusals of an issue with no `repo:` label, of a found issue with no label `assetLabels` lists and of an issue whose type no row of `issueTypes` names, over a fixture export, each asserting its reason. It runs no `bd`, so it is a `.github/workflows/verify.yml` step as well. | `git-hooks.yml` (`pre-push`) |
-| `git push` that changes `scripts/git-hooks.mjs`, `git-hooks.yml`, `tools/policy/`, `tools/lib/policy.ts`, `tools/lib/git-env.ts`, `package.json` or the lockfile | `hooks:selftest`: the hook runner's refusals of a key, token or event it does not read and of a policy without its cap, each asserting its reason, and commits, pushes, a linked worktree, the install, `npm run gates`, an older Git and a signal through real Git in scratch repositories. | `git-hooks.yml` (`pre-push`) |
-| `git push` that changes `package.json`, the lockfile, `git-hooks.yml`, `.github/workflows/verify.yml`, or anything under `tools/`, `scripts/` or `apps/`, the gate among them | `check:jobs` and its selftest: every job names a script that exists; every script no job runs is declared, and no declaration is stale or of the wrong kind; every `tools/`, `scripts/` or `apps/` path a script names exists as spelled, case included; and every glob a script names matches a file. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `scripts/git-hooks.mjs`, `git-hooks.yml`, `tools/policy/`, `tools/lib/policy.ts`, `tools/lib/git-env.ts`, `package.json` or the lockfile | `hooks:selftest`: the hook runner's refusals of a key, token or event it does not read and of a policy without its cap, each asserting its reason, and commits, pushes, a linked worktree, the install, `mise run gates`, an older Git and a signal through real Git in scratch repositories. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `tasks.toml`, `mise.toml`, `package.json`, the lockfile, `git-hooks.yml`, `.github/workflows/verify.yml`, or anything under `tools/`, `scripts/` or `apps/`, the gate among them | `check:jobs` and its selftest: every job names a task that exists in the registry its launcher reads; every task no job runs is declared, and no declaration is stale or of the wrong kind; every `tools/`, `scripts/` or `apps/` path a task names exists as spelled, case included; every glob a task names matches a file; and the tasks have one registry. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes a skill, an agent, a workflow, `CLAUDE.md`, `AGENTS.md`, the worktree briefing template, `.beads/PRIME.md`, `tools/policy/`, `tools/lib/policy.ts` or the gate | `check:prompts`: every skill and agent opens with the line `CLAUDE.md` requires, and every prompt is within its word budget; `check:prompts:selftest` holds the gate. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes a mise config, `mise.lock` or a uv lock under `.mise/locks/`, a workflow, the Dockerfile or its ignore file, a version file at the root, `tools/policy/`, `tools/lib/policy.ts`, `tools/lib/git-env.ts`, the gate, `package.json` or the lockfile | `check:toolchain`: every pin exact and in the lockfile for every platform the policy names, one mise for CI and the dev container, no second home, and no mise config but `mise.toml`; `check:toolchain:selftest` holds the gate. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `package.json`, the lockfile or the gate | `check:node-floor`: the floor in `engines` not below the lowest version on its major line that every locked package accepts, and every locked range one the gate reads; `check:node-floor:selftest` holds the gate. | `git-hooks.yml` (`pre-push`) |
@@ -535,20 +537,20 @@ at its start: restart the session after changing it.
 | `git push` that changes the register, `CLAUDE.md` or the gate | `check:register` holds the register's header, summary table and dates to its entries, and its selftest holds the gate. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `openspec/`, a skill, an agent, `tools/policy/`, `tools/lib/policy.ts`, the gate or the pinned CLI | `openspec:check` validates the living spec and every active change, proves each change applies, holds every scenario and NFR requirement to a unique ID that no archived change gave another title (never reused, within the limits the gate's header names), and holds every prompt that spells the change label to `tools/policy/vocabulary.json`; `openspec:selftest` holds the gate. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes a workflow under `.claude/workflows/`, a tool-less agent (`.claude/agents/test-builder.md`, `prompt-case-author.md`, `prompt-case-answerer.md`), a stored case under `.claude/prompt-cases/`, `tools/policy/`, `tools/lib/policy.ts`, the trace or verification-report renderers or its selftest | `workflows:selftest`: the change-build review workflow, the prompt review workflow, the prompt cases' authoring workflow and the change-verify trace workflow, run against stubbed agents with the policy's review sizes, red-first kinds, independent-test keys, prompt-review threshold, case lenses and repetitions, trace sizes and skeptic counts. Beside them run the trace's renderers on its result, the verification report's on a stubbed fresh run, every stored case through both prompt workflows, and the tool-less agents' tools lines. | `git-hooks.yml` (`pre-push`) |
-| `git push` that changes `scripts/fresh-run.mjs`, the test runner, the reader, `scripts/lib/`'s test-dirs, tasks and bin-path helpers, the trace gate, `tools/lib/` or `tools/policy/` | `tests:fresh:selftest`: the verifier's fresh run over a fixture repository, `npm ci` stubbed. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `scripts/fresh-run.mjs`, the test runner, the reader, `scripts/lib/`'s test-dirs, tasks and bin-path helpers, the trace gate, `tools/lib/`, `tools/policy/`, `package.json` or the lockfile | `tests:fresh:selftest`: the verifier's fresh run over a fixture repository, `npm ci` stubbed, its tasks run through `mise run`, and through npm in a commit from before the move. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `scripts/code-graph.mjs`, `tools/lib/`, `tools/policy/`, `mise.toml`, `package.json` or the lockfile | `code-graph:selftest`: the code-graph script over a fixture repository, graphify, its MCP server, `claude` and `mise` stubbed. The script itself reads a language model and your plan, so it runs in no job. | `git-hooks.yml` (`pre-push`) |
-| `git push` that changes `apps/calculator/`, `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy/`, `tools/lib/policy.ts`, `package.json` or the lockfile | `calculator:test`: the calculator's scenarios, each a test named for its ID, under Node's own test runner, with no matched file allowed to declare none, every test's `// trace:` metadata read, and every test the runner reports held to the tests that reader sees. | `git-hooks.yml` (`pre-push`) |
-| `git push` that changes `apps/calculator/`, `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy/`, `tools/lib/policy.ts`, `package.json` or the lockfile | `calculator:test:independent`: the test-builder's contract tests and build-time fitness functions under `apps/calculator/test/independent/build/`, held as `calculator:test` holds the rest, and a pass that says so while there is none. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `apps/calculator/`, `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy/`, `tools/lib/policy.ts`, `tasks.toml`, `package.json` or the lockfile | `calculator:test`: the calculator's scenarios, each a test named for its ID, under Node's own test runner, with no matched file allowed to declare none, every test's `// trace:` metadata read, and every test the runner reports held to the tests that reader sees. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `apps/calculator/`, `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy/`, `tools/lib/policy.ts`, `tasks.toml`, `package.json` or the lockfile | `calculator:test:independent`: the test-builder's contract tests and build-time fitness functions under `apps/calculator/test/independent/build/`, held as `calculator:test` holds the rest, and a pass that says so while there is none. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/test-dirs.mjs` or `tools/policy/`, `tools/lib/policy.ts` | `tests:selftest`: the test runner, negative-tested. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `tools/policy/`, `tools/lib/policy.ts`, `package.json` or the lockfile | `tests:trace:selftest`: the test-trace reader and its hash, negative-tested, with one archive by the pinned OpenSpec CLI. | `git-hooks.yml` (`pre-push`) |
-| `git push` that changes `openspec/`, `apps/`, `artifacts/trace/`, the trace gate, `tools/lib/`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/tasks.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy/`, `package.json` or the lockfile | `trace:check`: the traceability record re-derived and diffed, and every rule the header of `tools/trace/trace.ts` holds, the ratchet baseline among them. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `openspec/`, `apps/`, `artifacts/trace/`, the trace gate, `tools/lib/`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/tasks.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy/`, `tasks.toml`, `package.json` or the lockfile | `trace:check`: the traceability record re-derived and diffed, and every rule the header of `tools/trace/trace.ts` holds, the ratchet baseline among them. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes the trace gate, `tools/lib/`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/tasks.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy/`, `package.json` or the lockfile | `trace:selftest`: the trace gate, negative-tested over fixture repositories, with trial archives by the pinned OpenSpec CLI, whose count the job's comment in `git-hooks.yml` gives with its cost. | `git-hooks.yml` (`pre-push`) |
-| `git push` that changes `artifacts/coupling/`, the co-change gate, `tools/lib/`, `tools/policy/` or `package.json` | `coupling:check`: the co-change map re-derived through the trunk commit it records and diffed, that commit held to `origin/main`, and a note of how many pull requests landed after it. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `artifacts/coupling/`, the co-change gate, `tools/lib/`, `tools/policy/`, `tasks.toml` or `package.json` | `coupling:check`: the co-change map re-derived through the trunk commit it records and diffed, that commit held to `origin/main`, and a note of how many pull requests landed after it. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes the co-change gate, `tools/lib/`, `scripts/hooks/_shared.mjs`, `scripts/lib/tasks.mjs`, `tools/policy/` or `package.json` | `coupling:selftest`: the co-change gate, negative-tested over fixture repositories built from its ratified history. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `tools/harness/`, `tools/lib/`, `scripts/lib/tasks.mjs`, `package.json` or the lockfile | `harness:selftest`: the harness assessment's core over fixture repositories and its graph half over fixture graphs. The two commands write a local report or read the local code graph, so they run in no job. | `git-hooks.yml` (`pre-push`) |
 | `git push` | `tests:inventory:check`: no test removed, skipped or weakened since the merge base with `origin/main` without an architect decision in a commit's trailer. It has no glob, since a push that only rewords a commit message can change its verdict. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `scripts/check-test-inventory.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/tasks.mjs`, `scripts/lib/test-dirs.mjs`, `tools/lib/git-env.ts`, `tools/policy/`, `tools/lib/policy.ts`, `package.json` or the lockfile | `tests:inventory:selftest`: the test-inventory gate, negative-tested over doctored test files and fixture repositories. | `git-hooks.yml` (`pre-push`) |
-| `git push` that changes `apps/`, `artifacts/thresholds/`, the thresholds gate, `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/tasks.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy/`, `tools/lib/policy.ts`, `package.json` or the lockfile | `thresholds:check`: the changed code's coverage and its Routines' mutation score held to the policy's thresholds, and the ratchet baseline. The Commands' run is a `.github/workflows/verify.yml` step alone. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `apps/`, `artifacts/thresholds/`, the thresholds gate, `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/tasks.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy/`, `tools/lib/policy.ts`, `tasks.toml`, `package.json` or the lockfile | `thresholds:check`: the changed code's coverage and its Routines' mutation score held to the policy's thresholds, and the ratchet baseline. The Commands' run is a `.github/workflows/verify.yml` step alone. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes the thresholds gate, `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/tasks.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy/`, `tools/lib/policy.ts`, `package.json` or the lockfile | `thresholds:selftest`: the thresholds gate, negative-tested over a fixture repository, with StrykerJS's tap and command runners. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes the reviewer's script, `tools/policy/`, `tools/lib/policy.ts`, a workflow, the reviewer's agent, `package.json` or the lockfile | `pr-review:check`: the reviewer's workflow, agent and policy agree; `pr-review:selftest`: its decisions over fixtures, and the check over doctored copies. | `git-hooks.yml` (`pre-push`) |
 | A pull request, a push to `main`, or a merge the reviewer made | Every gate that reads only committed files, cheapest first. It trusts none of the faster tiers. After a reviewer's merge it runs by dispatch, since that merge starts no push run. | `.github/workflows/verify.yml` |

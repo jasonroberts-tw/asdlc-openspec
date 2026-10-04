@@ -167,7 +167,7 @@ constant a tool or a prompt reads lives in a policy file under a key, and is sta
 
 ## The script suffix contract
 
-A script named `<group>:<verb>` in `package.json` is a public name. The bare name writes the
+A task named `<group>:<verb>` in `tasks.toml` is a public name. The bare name writes the
 artifact. `:check` re-derives it in memory, diffs against what is committed, exits 1 on any
 difference or on a stale file a fresh run would not write, and writes nothing. `:selftest` asserts
 invariants from fixtures it builds under the temporary directory. `:update` moves a baseline.
@@ -196,8 +196,8 @@ over fixtures runs in both.
 A legitimately absent input skips clean and prints why; a tool that is found and then fails is a
 failure, never a skip.
 
-**`npm run gates` is the forced full suite**, run through Git as a push runs it. Before opening or
-updating a pull request: regenerate every derived artifact, run `npm run gates`, fetch and rebase
+**`mise run gates` is the forced full suite**, run through Git as a push runs it. Before opening or
+updating a pull request: regenerate every derived artifact, run `mise run gates`, fetch and rebase
 onto `origin/main`, and run it again.
 
 ## A workflow a session writes itself is bounded

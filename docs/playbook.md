@@ -11,7 +11,7 @@ that `openspec:check` finds on two headers of different titles. Amended 2026-09-
 `.claude/workflows/verify-change-trace.js` and `scripts/render-trace.mjs`. Amended 2026-09-28 by
 `asdlc-openspec-j09.8`: the Plan stage's first step names each task's kind and IDs and traceability
 rules 1 to 3, where it had a scenario marked manual. Amended 2026-09-28 by `asdlc-openspec-j09.12`:
-the Finalize step that settles the living spec runs `npm run trace` before the gates, and sends a
+the Finalize step that settles the living spec runs `mise run trace` before the gates, and sends a
 test `trace:check` refuses back to `change-build`. Amended 2026-09-29 by `asdlc-openspec-j09.13`:
 the Build step for what the build turns up sends a scenario or NFR that must change back to Propose
 and runs a re-design pass, and the step that hands over holds the Build exit criteria. Amended
@@ -86,11 +86,11 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 | primary checkout | The clone a session starts in. The premise is read from here, and a prompt review is launched from here (`.claude/skills/close-prompt-run/SKILL.md` § 3. Launch the review). |
 | gate | A check that refuses one thing. Its header names the failure it exists to prevent, and its `:selftest` proves it still refuses (`CLAUDE.md` § Standing rules for prompts and gates). |
 | gate ladder | The same checks in session, at commit, at push and in CI; a slower tier never trusts a faster one (`CLAUDE.md` § The gate ladder). |
-| `npm run gates` | The forced full pre-push suite, and the only way to run it by hand (`CLAUDE.md` § The gate ladder). |
+| `mise run gates` | The forced full pre-push suite, and the only way to run it by hand (`CLAUDE.md` § The gate ladder). |
 | register | `docs/decisions.md`: the decisions (`D-NN`) and risks (`R-NN`) no agent re-argues, amended and never rewritten (`CLAUDE.md` § Decisions live in the register). |
 | policy file | `tools/policy.json`: every constant a prompt or a tool reads, each beside a `Means` sibling saying what it decides (`docs/decisions.md` § D-03). |
 | count key | A `CNT-*` key in `count-index.md`, written where the numeral would go (`count-index.md` § How to use it). |
-| prompt | `CLAUDE.md`, `AGENTS.md`, a skill, an agent, a workflow script's literals or the worktree briefing template, each held to a word budget in the policy file (`README.md` § The npm scripts, the `check:prompts` row). |
+| prompt | `CLAUDE.md`, `AGENTS.md`, a skill, an agent, a workflow script's literals or the worktree briefing template, each held to a word budget in the policy file (`README.md` § The tasks, the `check:prompts` row). |
 | pull-request reviewer | `.github/workflows/pr-review.yml`: it judges one pull request at a time against the issues its title cites, then merges it or leaves it to a person (`docs/decisions.md` § D-07). |
 | approval label | What a person applies to approve a head the reviewer left to a person, `prReviewLabels` in `tools/policy.json`. An agent never applies it (`CLAUDE.md` § Git workflow). |
 | analysis | A run's account of itself, left as a note on the issue it worked, which a prompt review later reads (`.claude/skills/close-prompt-run/SKILL.md` § 1. Write the analysis, or none). |
@@ -112,9 +112,9 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 | what a constant decides | `tools/policy.json`, the key's `Means` sibling |
 | how many of anything | `count-index.md`, by key |
 | what runs automatically, and on what trigger | `README.md` § What runs automatically |
-| what an npm script does, and which tier runs it | `README.md` § The npm scripts |
+| what a task does, and which tier runs it | `README.md` § The tasks |
 | what a gate refuses, and why it exists | the gate's own header; `scripts/README.md` and `tools/README.md` list them |
-| what to regenerate after an input moves | the emitter's `:check` twin, which `npm run gates` runs |
+| what to regenerate after an input moves | the emitter's `:check` twin, which `mise run gates` runs |
 | what a worktree is for, and how to finish in it | `.worktree/CONTEXT.md` inside it, rendered from `.claude/worktree-CONTEXT.md.tmpl` |
 | what the reviewer said about a pull request | its `pr-review` status, and `gh pr view <number> --comments` |
 | why a prompt says what it says | the pull requests that changed it, found as `CLAUDE.md` § Standing rules for prompts and gates says |
@@ -124,7 +124,7 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 ## 3. Before you start
 
 There is no separate prerequisite checker. A machine is ready when it has followed its platform's
-list in `README.md` § Setup, and `npm run gates` reads green from the primary checkout. A new
+list in `README.md` § Setup, and `mise run gates` reads green from the primary checkout. A new
 worktree has no `node_modules`, so `npm ci` is the first command inside one
 (`.claude/worktree-CONTEXT.md.tmpl`).
 
@@ -188,12 +188,12 @@ code back to its spec (`docs/decisions.md` § D-02, item 2).
    second phrasing), and noted on a match or filed as a found issue before the pull request opens.
    Decided by: `.claude/skills/bead/SKILL.md` § 4. Implement, regenerate, gate, and `CLAUDE.md`
    § The task store for its labels.
-5. Stage every new file with `git add`, then run `npm run gates`. The citations and count-index
+5. Stage every new file with `git add`, then run `mise run gates`. The citations and count-index
    gates read only tracked files, so an unstaged file passes them unread. Decided by:
    `.claude/skills/bead/SKILL.md` § 4. Implement, regenerate, gate.
 6. Commit, with the message passed from a file under `.scratch/`. Decided by: `CLAUDE.md` § Bash
    command style.
-7. `git fetch origin`, then `git rebase origin/main`, then `npm run gates` again. A rebase that
+7. `git fetch origin`, then `git rebase origin/main`, then `mise run gates` again. A rebase that
    conflicts in a way you did not anticipate is stopped and reported. Decided by:
    `.claude/skills/bead/SKILL.md` § 5. Rebase and gate again, and `CLAUDE.md` § The gate ladder.
 
@@ -226,7 +226,7 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
    `.claude/skills/change-propose/SKILL.md` § 5. Write the proposal.
 5. Write one delta spec per capability the proposal lists, in the exact grammar the archive merges.
    Decided by: `.claude/skills/change-propose/SKILL.md` § 6. Write one delta spec per capability.
-6. Run `npm run openspec:check`, commit, and stop: the user reviews the proposal and the specs
+6. Run `mise run openspec:check`, commit, and stop: the user reviews the proposal and the specs
    before anything else happens. Decided by: `.claude/skills/change-propose/SKILL.md` § 7. Check it,
    commit it, and stop.
 
@@ -244,7 +244,7 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
 3. Work out every scenario's expected value from the design, and put any that depends on an
    unmade choice to the user now. Decided by: `.claude/skills/change-design/SKILL.md` § 4. Settle
    each scenario's expected value.
-4. Stage, run `npm run openspec:check` and `npm run citations:check`, commit, and stop for the
+4. Stage, run `mise run openspec:check` and `mise run citations:check`, commit, and stop for the
    user's review. Decided by: `.claude/skills/change-design/SKILL.md` § 5. Commit it, and stop.
 
 #### Plan
@@ -279,8 +279,8 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
    re-design pass: a new `design.md` and contract artifacts and no delta spec, committed before the
    code it allows. Either reopens the tasks the trace record links to what changed. Decided by:
    `.claude/skills/change-build/SKILL.md` § 5. What the build turns up.
-6. Repeat until no child of the epic is open, then run `npm run trace`, commit the record and run
-   `npm run gates`, and hand over only when each Build exit criterion holds, each shown by the gate
+6. Repeat until no child of the epic is open, then run `mise run trace`, commit the record and run
+   `mise run gates`, and hand over only when each Build exit criterion holds, each shown by the gate
    or the workflow result the skill names. Decided by: `.claude/skills/change-build/SKILL.md` § 6.
    Repeat, then hand over.
 
@@ -288,10 +288,10 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
 
 1. Every child of the epic is closed; if not, the build has not finished. Decided by:
    `.claude/skills/change-verify/SKILL.md` § 2. Every task is closed.
-2. `npm run openspec:check` passes: the deltas validate and apply to the living spec. Decided by:
+2. `mise run openspec:check` passes: the deltas validate and apply to the living spec. Decided by:
    `.claude/skills/change-verify/SKILL.md` § 3. The specs are valid, and apply.
 3. Run every test, the trace gate and the Commands' mutation run in a fresh clone of HEAD with
-   `npm run tests:fresh`, and run each failing test once more, by name, as its own call; a test
+   `mise run tests:fresh`, and run each failing test once more, by name, as its own call; a test
    that fails and then passes is flaky and counts as failing. Trace every scenario to the tests the
    traceability record gives it, reading each rather than trusting its name, with
    `.claude/workflows/verify-change-trace.js`, which takes each result from that run;
@@ -299,7 +299,7 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
    rules 1 to 3 against the epic's children, and write the verification report with
    `scripts/render-verify-report.mjs`. A manual verification is no proof. Decided by:
    `.claude/skills/change-verify/SKILL.md` § 4. Every scenario is traced.
-4. `npm run gates` passes. Decided by: `.claude/skills/change-verify/SKILL.md` § 5. The gates are
+4. `mise run gates` passes. Decided by: `.claude/skills/change-verify/SKILL.md` § 5. The gates are
    green.
 5. On a gap, a failing blocking test, an unmet obligation or a gap-analysis item not waived, the
    user picks the stage that fixes it, and the epic is labelled and noted. The report goes on the
@@ -314,7 +314,7 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
 2. Archive with the pinned CLI, merging the deltas into `openspec/specs/`. Decided by:
    `.claude/skills/change-finalize/SKILL.md` § 3. Archive.
 3. Write each new capability's Purpose, read each living spec the archive touched, repoint every
-   path the archive moved, run `npm run trace` and `npm run gates`, and commit. A test `trace:check`
+   path the archive moved, run `mise run trace` and `mise run gates`, and commit. A test `trace:check`
    refuses, on an ID the change removed or modified, undoes the archive and sends the change back to
    `change-build`. Decided by: `.claude/skills/change-finalize/SKILL.md` § 4. Settle the living spec.
 4. Open the pull request (§ 4.4), titled `<change>: <what changed> (<epic id>)`, then leave the
@@ -393,8 +393,8 @@ person merges it (`CLAUDE.md` § A program proposes; only a person promotes).
 |---|---|---|
 | `issue not claimable: status deferred` | The issue was deferred out of the queue. | `bd undefer <id>`, only if you mean to work it now, then claim it (§ 4.1). |
 | A gate fails on a missing binary in a new worktree | `npm ci` has not run there. | `npm ci`, then run the gate again (§ 3). |
-| `npm run gates` refuses: no `hook.asdlc-pre-push.command` | The clone's hooks are not installed: `npm ci` ran with install scripts blocked, or with `CI` set. | `npm run hooks:install`, then `npm run gates` again (`CLAUDE.md` § The gate ladder). |
-| The gates are green, yet a pointer in a new file is broken | The file was not staged, so the citations gate never read it. | `git add` it, then `npm run gates` again (§ 4.2, step 5). |
+| `mise run gates` refuses: no `hook.asdlc-pre-push.command` | The clone's hooks are not installed: `npm ci` ran with install scripts blocked, or with `CI` set. | `mise run hooks:install`, then `mise run gates` again (`CLAUDE.md` § The gate ladder). |
+| The gates are green, yet a pointer in a new file is broken | The file was not staged, so the citations gate never read it. | `git add` it, then `mise run gates` again (§ 4.2, step 5). |
 | A hook refuses a git or `gh` command, or an edit | A guard caught a slip: a protected branch, the approval label, generated output. | Read the refusal, which names what to do instead; never retry a variation (`.claude/worktree-CONTEXT.md.tmpl`). |
 | The permission classifier refuses a command | Its judgement of that call, not a rule of the repository. | Skip it, no workaround, and list it in `RUN THESE YOURSELF` (`CLAUDE.md` § Guards). |
 | A rebase conflicts in a way you did not anticipate | Someone else's work landed on the same lines. | Stop and report it; do not resolve it creatively (`.claude/worktree-CONTEXT.md.tmpl`). |
@@ -426,10 +426,10 @@ npm ci                                               # first command in a worktr
 bd search "<words>"                                  # a follow-up filed already, titles
 bd list --all --desc-contains "<words>"              # the same search over descriptions
 git add <new file>                                   # stage before the gates run
-npm run gates                                        # the forced full pre-push suite
+mise run gates                                        # the forced full pre-push suite
 git fetch origin                                     # then rebase onto the trunk
 git rebase origin/main                               # rebase, never merge the trunk
-npm run gates                                        # gate again after the rebase
+mise run gates                                        # gate again after the rebase
 git push -u origin agent/<name>                      # publish the agent branch once
 gh pr create --base main --head agent/<name> --title "<what changed> (<id>)" --body-file .scratch/<pr>.md   # open it, base typed
 env PR=<number> node scripts/pr-review.mjs mark      # set the review status pending
@@ -445,10 +445,10 @@ The product route adds:
 
 ```bash
 bd list --label <specChangeLabel> --type epic --metadata-field change=<change> --json   # find the change's epic
-npm run openspec:check                               # validate and trial-archive every change
+mise run openspec:check                               # validate and trial-archive every change
 bd ready --parent <epic> --json                      # the change's next ready task
 bd list --parent <epic> --status open,in_progress,blocked,deferred --json   # empty means the build finished
 OPENSPEC_TELEMETRY=0 node_modules/.bin/openspec archive <change> --yes   # merge deltas into living spec
-npm run worktree:gc -- --dry-run                     # what the sweep would remove
+mise run worktree:gc --dry-run                     # what the sweep would remove
 bd count -t epic -l <specChangeLabel> --by-label     # changes, and their send-backs
 ```

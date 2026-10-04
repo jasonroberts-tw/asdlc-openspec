@@ -115,8 +115,8 @@ none rather than invent one. A clean pull request has an empty list.
     root override (`CLAUDE.md` § Standing rules for prompts and gates);
   - an emitter is deterministic and lands its `:check` twin (§ The script suffix contract).
 - **It is wired**:
-  - a new npm script has its job and step, or its `UNJOBBED_BY_KIND` entry, and its `README.md` rows
-    (`.claude/skills/add-npm-script/SKILL.md`);
+  - a new task has its job and step, or its `UNJOBBED_BY_KIND` entry, and its `README.md` rows
+    (`.claude/skills/add-task/SKILL.md`);
   - a new file has its directory README's row
     (`CLAUDE.md` § Every directory and document says what it is, and who wins).
 - **Its constants live in a policy file** under a key with a `Means` sibling, not in the code

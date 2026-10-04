@@ -224,7 +224,7 @@ export const meta = {
  *
  * NEEDS a change worktree with node, git and bd, `lsof` (macOS) or `ss` (Linux) for the listeners, the
  * Workflow tool, and a calling session started where `.claude/agents/test-builder.md` exists. Nothing
- * here reads a file: Setup's agent reads the policy and the inputs. `npm run workflows:selftest` runs
+ * here reads a file: Setup's agent reads the policy and the inputs. `mise run workflows:selftest` runs
  * this script against stubbed agents.
  */
 
@@ -286,10 +286,10 @@ const LENSES = {
     label: 'the repository around the change',
     prompt: [
       "Hold the files around the change to what the task's acceptance criteria ask of them.",
-      'An npm script it adds is wired as the add-npm-script skill says, with a cost note measured on this host.',
+      'A task it adds is wired as the add-task skill says, with a cost note measured on this host.',
       "A file it adds has its row in its directory's README.md. A script, emitter or hook it adds opens with the header CLAUDE.md asks of one.",
       'Every comment and README sentence it touches is true of the code.',
-      'Run npm run check:jobs and npm run citations:check, and report what they print.',
+      'Run mise run check:jobs and mise run citations:check, and report what they print.',
     ].join(' '),
   },
   contract: {
@@ -297,7 +297,7 @@ const LENSES = {
     prompt: [
       "Read every line the task adds or changes, and hold it to the task's acceptance criteria, the delta specs and the design: everything they ask for is there, and nothing they do not ask for is.",
       'Hold it also to the rules for its kind of file: a register entry to how docs/decisions.md says an entry is written and changed; a README to what CLAUDE.md asks of a directory README; a prompt to what CLAUDE.md asks of a skill or an agent; a template to the placeholders its renderer fills.',
-      'Run the gate that holds the file, where one does (npm run check:register for the register, npm run check:prompts for a prompt), and report what it prints.',
+      'Run the gate that holds the file, where one does (mise run check:register for the register, mise run check:prompts for a prompt), and report what it prints.',
     ].join(' '),
   },
   record: {
@@ -306,7 +306,7 @@ const LENSES = {
       'Re-derive every claim the changed text makes about the repository: each file, script, path, command, figure and date.',
       "A file-level record, such as a register entry's What changed or a README table, must match git diff --stat origin/main...HEAD and git status --short, with nothing missing and nothing extra.",
       'Each figure must come with the command that re-derives it, and equal what that command prints now.',
-      'Run npm run citations:check and npm run counts:check, and report what they print.',
+      'Run mise run citations:check and mise run counts:check, and report what they print.',
     ].join(' '),
   },
 }
