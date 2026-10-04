@@ -11,7 +11,7 @@ that `openspec:check` finds on two headers of different titles. Amended 2026-09-
 `.claude/workflows/verify-change-trace.js` and `scripts/render-trace.mjs`. Amended 2026-09-28 by
 `asdlc-openspec-j09.8`: the Plan stage's first step names each task's kind and IDs and traceability
 rules 1 to 3, where it had a scenario marked manual. Amended 2026-09-28 by `asdlc-openspec-j09.12`:
-the Finalize step that settles the living spec runs `mise run trace` before the gates, and sends a
+the Finalize step that settles the living spec runs `npm run trace` before the gates, and sends a
 test `trace:check` refuses back to `change-build`. Amended 2026-09-29 by `asdlc-openspec-j09.13`:
 the Build step for what the build turns up sends a scenario or NFR that must change back to Propose
 and runs a re-design pass, and the step that hands over holds the Build exit criteria. Amended
@@ -35,7 +35,10 @@ branch to each criterion and to itself, as `.claude/skills/bead/SKILL.md` § 6 n
 have (`docs/decisions.md` § D-19), is the row for a clone whose hooks are not installed. Amended
 2026-10-01 by the prompt review `review-prompts-20261001-2143`: the step that marks the reviewer's
 status pending, and the crib sheet's line for it, run the command through `env`, as
-`.claude/skills/open-pr/SKILL.md` § 5 now says.
+`.claude/skills/open-pr/SKILL.md` § 5 now says. Amended 2026-10-04 by `asdlc-openspec-8juz.6`:
+every task runs as `mise run <task>`, since the tasks moved from `package.json` to `tasks.toml`
+(`docs/decisions.md` § D-35), and the glossary and the "where to look" table name `README.md`
+§ The tasks; the notes above keep the commands of their dates.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;

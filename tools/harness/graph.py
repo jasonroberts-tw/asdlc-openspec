@@ -345,7 +345,7 @@ def check_freshness(root: Path, graph: dict, cc: dict, cfg: dict, findings: list
     state = "is stale" if stale else "is current"
     findings.append(finding("freshness", "note", "graph", "commit",
                             f"built at `{short(built)}`, HEAD is `{short(head)}`, the map is through `{short(through)}`; the graph {state}"
-                            + ("; `mise run code-graph` rebuilds it, and `-- --code-only` calls no model." if stale else ".")))
+                            + ("; `mise run code-graph` rebuilds it, and `--code-only` calls no model." if stale else ".")))
     for path in gone:
         findings.append(finding("freshness", "note", "gone", path, "the graph holds it, tracked at the graph's commit and not now."))
     for path in absent:

@@ -106,6 +106,7 @@ import { load as yamlLoad } from 'js-yaml'
 import { parse as parseToml } from 'smol-toml'
 import { gitEnv } from '../tools/lib/git-env.ts'
 import { copyPolicy, editPolicy, readPolicy } from '../tools/lib/policy.ts'
+import { TASK_CONFIG as TASK_CONFIG_VALUES } from './lib/tasks.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ROOT = process.env.TOOLCHAIN_CHECK_ROOT ?? REPO_ROOT
@@ -122,14 +123,14 @@ const SPIKE = 'asdlc-openspec-8juz.1'
 
 /** What `mise.toml` may hold at its top level; an `[env]`, `[hooks]` or `[tasks]` would act on every shim, hook and session. */
 const TOP_LEVEL = ['min_version', 'settings', 'task_config', 'tools']
-/** The one template admitted: tasks run in the caller's directory (spike, question 1). */
-const CWD_TEMPLATE = '{{cwd}}'
 /**
- * The one value each `[task_config]` key may hold, both for the task move (asdlc-openspec-8juz.6): tasks
- * run in the caller's directory, and come from `tasks.toml` alone, since another file named here would
- * be a second registry of command names.
+ * The one value each `[task_config]` key may hold, both for the task move (asdlc-openspec-8juz.6), from
+ * the task loader, which `check:jobs` holds them to as well: tasks run in the caller's directory, and
+ * come from `tasks.toml` alone, since another file named here would be a second registry of names.
  */
-const TASK_CONFIG = { dir: CWD_TEMPLATE, includes: ['tasks.toml'] }
+const TASK_CONFIG = TASK_CONFIG_VALUES
+/** The one template admitted: tasks run in the caller's directory (spike, question 1). */
+const CWD_TEMPLATE = TASK_CONFIG.dir
 /**
  * The settings `mise.toml` may carry, each by its dotted path, a table's key under its name: each other
  * one could weaken every install or shim, as item 5 of the header says. The three under `task` make a
