@@ -658,7 +658,8 @@ pre-push:
     # `tasks.toml`, which the task loader reads through `smol-toml`, pinned by the lockfile.
     # 23.81 and 51.82 s (two runs, later on 2026-10-03, while sibling worktrees ran their gates;
     # 11.26 and 13.78 s user plus sys) for 56, with a walk that disagrees handed to check, trace and
-    # trace:update, beside a control given the sound walk.
+    # trace:update, beside a control given the sound walk. Those two wall times measure the host's
+    # load more than the four added cases; a figure from an idle host is still owed.
     - name: trace-selftest
       glob:
         - 'tools/trace/**'
