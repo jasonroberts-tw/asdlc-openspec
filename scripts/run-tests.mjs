@@ -113,7 +113,8 @@ const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
  * this file's `process.exit(0)` would swallow. At 22.22.2, the engines floor before
  * `docs/decisions.md` § D-34, `run()` had no `cwd` option and resolved the globs and the reported
  * paths against `process.cwd()`, so the run changes to `root` and back; 24.21.0, the floor since,
- * has the option, which this does not use. A flag such as `--experimental-test-coverage` given to
+ * has the option, which this does not use: the change of directory works at both, and whether `cwd`
+ * also roots the coverage globs is unmeasured. A flag such as `--experimental-test-coverage` given to
  * this process reaches `run()` at neither, since its own `coverage` option, false unless set,
  * overrides it.
  */

@@ -28,7 +28,8 @@
  *     `scripts/run-tests.mjs` match (as `tools/trace/trace.ts` reads them), and every one under a
  *     `--dir` of one (`scripts/lib/test-dirs.mjs`), runs once with Node's own
  *     coverage, through `runTests()`, which changes to the root because `run()` had no `cwd` option
- *     at 22.22.2, the floor before `docs/decisions.md` § D-34. The figures come from the runner's
+ *     at 22.22.2, the floor before `docs/decisions.md` § D-34, and still does, for the reason that
+ *     function's comment gives. The figures come from the runner's
  *     `test:coverage` summary, whose per-line and per-branch counts were the same at 22.22.2 and
  *     26.8.1; its lcov export was not (an instance at 22.22.2, a factory at 26.8.1 and at 24.21.0,
  *     the floor since), so none is written. `run()`'s own thresholds are not used: they
