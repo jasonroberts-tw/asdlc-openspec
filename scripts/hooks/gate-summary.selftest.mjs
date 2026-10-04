@@ -27,7 +27,9 @@
  * its own checkout, the primary one for a session in a worktree, so an edit to generated output in a
  * linked worktree passed while the same edit in the primary checkout was refused
  * (asdlc-openspec-d2qv). Part 5 is what turns red for that, and for a fix that placed the edit by the
- * payload's `cwd`, which would pass a worktree session's edit to the primary checkout's output.
+ * payload's `cwd`, which would pass a worktree session's edit to the primary checkout's output. Its
+ * two `GIT_DIR` cases turn red for a fix that ran git with the hook's inherited `GIT_*` variables,
+ * which a branch review found placing the primary checkout's trace record in its own directory.
  *
  * Five parts, each asserting the REASON:
  *
@@ -53,8 +55,9 @@
  *      checkout the redirect table assigns, and a file whose header carries a banner, refused in the
  *      primary checkout (the controls), then refused in a worktree with the same reason, through a
  *      symbolic link too; a new file claiming a banner refused in a directory the worktree lacks; a
- *      primary-checkout file refused for a session whose `cwd` is a worktree; and an unbannered file,
- *      a document, and a path in another repository or in no checkout, each passed.
+ *      primary-checkout file refused for a session whose `cwd` is a worktree; the same refusal with
+ *      `GIT_DIR`, and with `GIT_WORK_TREE` beside it, in the hook's environment; and an unbannered
+ *      file, a document, and a path in another repository or in no checkout, each passed.
  *
  *   npm run gate-summary:selftest
  *
@@ -367,10 +370,10 @@ try {
     JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Edit', tool_input: { file_path: filePath, old_string: 'a', new_string: 'b' }, ...extra })
   const writeIn = (filePath, content) =>
     JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: 'Write', tool_input: { file_path: filePath, content } })
-  /** Spawn the copy as the harness spawns it: its exit code and the reason it gives on stderr. */
-  const edit = (name, payload) => {
+  /** Spawn the copy as the harness spawns it, `env` added: its exit code and the reason it gives on stderr. */
+  const edit = (name, payload, env = {}) => {
     const started = performance.now()
-    const r = spawnSync(process.execPath, [editCopy], { input: payload, encoding: 'utf8' })
+    const r = spawnSync(process.execPath, [editCopy], { input: payload, encoding: 'utf8', env: { ...process.env, ...env } })
     wall[name] = (performance.now() - started) / 1000
     return { code: r.status, why: r.stderr }
   }
@@ -406,6 +409,22 @@ try {
       refusedAs(fromSide, firstOwn),
       `exit ${fromSide.code}: ${fromSide.why}`,
     )
+    // A hook inherits its session's environment. With `GIT_DIR` and no `GIT_WORK_TREE`, git takes its
+    // `cwd` for the top of the work tree, so an edit would be placed in its own directory; with both
+    // naming the primary checkout, an edit in a worktree would be placed under the primary one.
+    // Either way no redirect matches, unless the hook runs git with no `GIT_*` variable.
+    const gitDir = join(editHome, '.git')
+    for (const [label, filePath, env] of [
+      [`${first} in the primary checkout, with GIT_DIR in the hook's environment, is refused there`, join(editHome, first), { GIT_DIR: gitDir }],
+      [
+        `${first} in a linked worktree, with GIT_DIR and GIT_WORK_TREE naming the primary checkout in the hook's environment, is refused there`,
+        join(inside, first),
+        { GIT_DIR: gitDir, GIT_WORK_TREE: editHome },
+      ],
+    ]) {
+      const got = edit(`edit-env ${label}`, editIn(filePath), env)
+      check(label, refusedAs(got, firstOwn), `exit ${got.code}: ${got.why}`)
+    }
     for (const [where, dir] of [['under .claude/worktrees/', inside], ['outside the primary checkout', away]]) {
       const got = edit(`edit-banner ${where}`, editIn(join(dir, BANNERED)))
       check(`a bannered file in a linked worktree ${where} is refused by the catch-all, as in the primary checkout`, refusedAs(got, bannered), `exit ${got.code}: ${got.why}`)

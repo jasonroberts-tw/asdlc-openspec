@@ -328,6 +328,8 @@ pre-push:
     # and one through mise. 6.96-24.31 s (four runs, the same host, 2026-10-03, while sibling lanes ran
     # their gates: 3.28-3.53 s user, 1.90-2.41 s sys) with the edit hook's 21 runs, which took 3.09
     # and 8.70 s of it in the two runs that summed them; a quiet host's figure is not yet measured.
+    # 12.62 s (one run, the same host and load, 2026-10-03: 3.60 s user, 2.20 s sys) with its two
+    # `GIT_DIR` cases, 23 runs in 2.40 s.
     - name: gate-summary-selftest
       glob:
         - 'package.json'

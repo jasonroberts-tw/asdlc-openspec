@@ -26,7 +26,10 @@ stops loading after a Bash `cd`, and a guard that fails to load blocks nothing
 outside the checkout. `CLAUDE_PROJECT_DIR` names the directory the session started in and does not
 follow it into a worktree, so a session that has entered one runs the primary checkout's copy of
 each hook, as current as that checkout's last pull. A hook that must act on the worktree finds it
-from the payload's `cwd`, as `gate-summary.mjs` and `guard-git.mjs` do; a hook that read
+from the payload: one that acts on the session's directory from its `cwd`, as `gate-summary.mjs`
+and `guard-git.mjs` do, and one that acts on an edited file from that file's own path
+(`editedCheckout` in `scripts/hooks/_shared.mjs`), as `block-generated-edit.mjs` does, since a
+session in a worktree can edit the primary checkout's files too. A hook that read
 `CLAUDE_PROJECT_DIR` for it would judge the primary checkout instead, which is how the guard applied
 no git rule in any entered worktree until `asdlc-openspec-bvf`.
 
