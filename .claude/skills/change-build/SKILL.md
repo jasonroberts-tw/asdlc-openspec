@@ -77,7 +77,8 @@ each red record.
 
 ## 4. Close it
 
-Run `bd close <id> --reason "<the subject of the commit that built it>"`. The subject, never the id:
+Run `bd close <id> --reason-file <file>`, the file under `.scratch/` holding the subject of the
+commit that built it (`CLAUDE.md` § Bash command style). The subject, never the id:
 `change-finalize` rebases the branch and its pull request is rebase-merged
 (`docs/decisions.md` § D-02), and each of them rewrites every commit id.
 
