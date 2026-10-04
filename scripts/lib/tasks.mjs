@@ -44,7 +44,7 @@ export const PACKAGE_JSON = 'package.json'
 /**
  * The one value each key of `mise.toml`'s `[task_config]` may hold beside a `tasks.toml`: a task runs
  * in the directory `mise run` is called from, and the tasks come from this file alone. `check:jobs`
- * and `check:toolchain` both hold `mise.toml` to it (`docs/decisions.md` § D-35, items 1 and 4).
+ * and `check:toolchain` both hold `mise.toml` to it (`docs/decisions.md` § D-36, items 1 and 4).
  */
 export const TASK_CONFIG = Object.freeze({ dir: '{{cwd}}', includes: Object.freeze([TASKS_TOML]) })
 

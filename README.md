@@ -94,7 +94,7 @@ level above them. `apps/` and `openspec/` hold the product; every other path is 
 | `git-hooks.yml` | The git-hook tiers: which gate runs at commit and at push, each with the glob that scopes it and a note of its measured cost. `scripts/git-hooks.mjs` runs it, called by the five `hook.asdlc-*` entries `mise run hooks:install` writes into the repository's config. |
 | `mise.toml`, `mise.lock` | The toolchain: every tool version the repository installs, and the lockfile that holds each one's download URL and checksum per platform, or, for a `pypi:` tool such as graphify, the path and digest of its uv lock. CI, the dev container and § Setup install from them (`docs/decisions.md` § D-31), and `mise run check:toolchain` holds them. |
 | `.mise/locks/` | The uv lock of each `pypi:` tool's dependencies, with the versions and hashes uv installs them at, which `mise lock` writes and `mise.lock` names. CI and the dev container install from it too (`docs/decisions.md` § D-35). |
-| `tasks.toml` | Every task the hooks, CI and the prompts run by name, through `mise run <name>`; § The tasks has one row each. `package.json` keeps two scripts beside it, `prepare` and `calculator:serve` (`docs/decisions.md` § D-35), and `mise run check:jobs` holds the two lists apart. |
+| `tasks.toml` | Every task the hooks, CI and the prompts run by name, through `mise run <name>`; § The tasks has one row each. `package.json` keeps two scripts beside it, `prepare` and `calculator:serve` (`docs/decisions.md` § D-36), and `mise run check:jobs` holds the two lists apart. |
 | `.vale.ini`, `.vale-styles/Layout/` | The configuration of Vale, the prose linter the `vale@agent-tools` hook runs on each edit of prose, and `Layout`, the one style this repository writes itself. |
 | `.github/workflows/verify.yml` | The slowest tier: every gate that reads only committed files, on every pull request and every push to `main`. |
 | `.github/workflows/pr-review.yml` | The pull-request reviewer: one pull request at a time, Claude Code judges it against the issues its title cites, and it merges when every dimension passes and the risk is not high. |
@@ -298,7 +298,7 @@ lockfile change that lifts that version above the floor is refused on the push t
 
 Every task in `tasks.toml`, run with `mise run <name>`, one sub-section per prefix, and
 `calculator:serve`, which `package.json` keeps beside `prepare` and `npm run` runs
-(`docs/decisions.md` § D-35). A name of the form `<group>:<verb>` is public: the bare name writes
+(`docs/decisions.md` § D-36). A name of the form `<group>:<verb>` is public: the bare name writes
 the artifact, `:check` re-derives it and writes nothing, `:selftest` proves the gate refuses what it
 should (`CLAUDE.md` § The script suffix contract). The **Gate** column is read off `git-hooks.yml`
 and `.github/workflows/verify.yml`; where it disagrees with them, they win.
