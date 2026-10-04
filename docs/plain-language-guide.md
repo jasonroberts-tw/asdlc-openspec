@@ -2,7 +2,8 @@
 
 **Written:** 2026-09-28.
 
-**Status:** amended 2026-09-28 by `asdlc-openspec-iom`, which names the harness.
+**Status:** amended 2026-09-28 by `asdlc-openspec-iom`, which names the harness. Amended 2026-10-03
+by `asdlc-openspec-a7x`, which says a product fix that changes no requirement goes straight to work.
 
 **Which document wins.** This page simplifies. Where it and a technical document disagree, the
 technical document is right and this page needs correcting.
@@ -36,8 +37,9 @@ document. Each item says where its work lands. An agent takes an item, first che
 item claims is still true of the code, and only then does the work, in a private copy of the
 repository, so that agents working at the same time do not tread on each other. A problem the agent
 finds outside its item is not fixed on the side: it becomes a new item of its own. An item that
-changes the harness goes straight to work this way. An item that changes what the product does
-first becomes a written agreement, below.
+changes the harness goes straight to work this way. So does a fix to the product that leaves its
+requirements as they are, such as making the calculator give the answer they already ask for. An
+item that changes what the product does first becomes a written agreement, below.
 
 **The written agreement of what the product does.** A change to what the product does starts as a
 written proposal: the requirements it adds or alters, each with concrete examples of the form
