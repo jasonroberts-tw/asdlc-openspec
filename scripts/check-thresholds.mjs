@@ -26,10 +26,10 @@
  *
  *   - Coverage. Every test file the quoted patterns of a package script running
  *     `scripts/run-tests.mjs` match (as `tools/trace/trace.ts` reads them), and every one under a
- *     `--dir` of one (`scripts/lib/test-dirs.mjs`), runs once with Node's own
- *     coverage, through `runTests()`, which changes to the root because `run()` had no `cwd` option
- *     at 22.22.2, the floor before `docs/decisions.md` § D-34, and still does, for the reason that
- *     function's comment gives. The figures come from the runner's
+ *     `--dir` of one (`scripts/lib/test-dirs.mjs`) but the test-builder's Verify stage (below), runs
+ *     once with Node's own coverage, through `runTests()`, which changes to the root because `run()`
+ *     had no `cwd` option at 22.22.2, the floor before `docs/decisions.md` § D-34, and still does,
+ *     for the reason that function's comment gives. The figures come from the runner's
  *     `test:coverage` summary, whose per-line and per-branch counts were the same at 22.22.2 and
  *     26.8.1; its lcov export was not (an instance at 22.22.2, a factory at 26.8.1 and at 24.21.0,
  *     the floor since), so none is written. `run()`'s own thresholds are not used: they
@@ -44,22 +44,35 @@
  *     is to judge only the ones this gate lists as undetected (asdlc-openspec-j09.2's notes, answer
  *     2; asdlc-openspec-4vo changes the lens). A Command is a file whose code the tests reach by
  *     spawning a process, each a key of `mutationCommands` with the test files its run runs; every
- *     other file counted is a Routine. The Routines' run uses the tap runner over every test file no
- *     Command lists, since a test file that spawns a server leaves it running when the tap runner
- *     kills that file's process on a failure (the spike found 30 such processes, one listening on
- *     every interface); a server started in the test's own process dies with it. The Commands' run
- *     uses the command runner, one mutant at a time, since at 13 at once 11 of 454 mutants changed
- *     outcome between two runs and at one none did, and the tap runner cannot see what a spawned
- *     process runs: 25 of `serve.js`'s 72 mutants were invisible to it. Every test process runs on
- *     the node that runs this gate, put first in PATH, since the tap runner spawns `node` from PATH.
- *     Stryker's sandbox holds `apps/` and `package.json` only, under the temporary directory. A
- *     Routine or Command is mutated over its changed lines alone, Stryker taking only the mutants
- *     that lie wholly inside them, so a change to a test file alone mutates nothing: the
- *     maintainer's choice of 2026-09-29 (asdlc-openspec-j09.10's notes), over mutating the file
- *     whole when its test changes, which catches a weakened test with no source line changed but
- *     costs a whole-file run on every test-only change. The score is Stryker's own: killed and timed
- *     out over those plus survived and without coverage; an invalid mutant, one whose test run
- *     errored, is left out, and so is one a comment ignores.
+ *     other file counted is a Routine. The Routines' run uses the tap runner over every test file of
+ *     the coverage run that no Command lists, since a test file that spawns a server leaves it
+ *     running when the tap runner kills that file's process on a failure (the spike found 30 such
+ *     processes, one listening on every interface); a server started in the test's own process dies
+ *     with it. The Commands' run uses the command runner, one mutant at a time, since at 13 at once
+ *     11 of 454 mutants changed outcome between two runs and at one none did, and the tap runner
+ *     cannot see what a spawned process runs: 25 of `serve.js`'s 72 mutants were invisible to it.
+ *     Every test process runs on the node that runs this gate, put first in PATH, since the tap
+ *     runner spawns `node` from PATH. Stryker's sandbox holds `apps/` and `package.json` only, under
+ *     the temporary directory. A Routine or Command is mutated over its changed lines alone, Stryker
+ *     taking only the mutants that lie wholly inside them, so a change to a test file alone mutates
+ *     nothing: the maintainer's choice of 2026-09-29 (asdlc-openspec-j09.10's notes), over mutating
+ *     the file whole when its test changes, which catches a weakened test with no source line
+ *     changed but costs a whole-file run on every test-only change. The score is Stryker's own:
+ *     killed and timed out over those plus survived and without coverage; an invalid mutant, one
+ *     whose test run errored, is left out, and so is one a comment ignores.
+ *
+ * THE TEST-BUILDER'S STAGES. Its tests live under `independentTestDir` in
+ * `tools/policy/agent-workflows.json`, a directory per stage below it. A `--dir` under it and not
+ * under its `build` stage is the Verify stage's: its E2E tests and Verify-deferred fitness functions
+ * run at Verify (`docs/test-strategy.md` § Build exit criteria), in change-verify's fresh run, so
+ * neither run here runs them, and the gate prints a note naming each such `--dir`. Counted here
+ * they would run at every push (asdlc-openspec-8yd). The other choice that issue allowed, to run
+ * them here and state their cost at push, was not taken: the strategy runs them at Verify alone, and
+ * an E2E test runs on the real component topology. Where it loses: a changed line only a Verify-stage
+ * test reaches counts as uncovered, and a mutant only one detects as undetected, so a build-stage or
+ * app-builder's test must reach it, or a directive excuse it with a reason. A `--dir` at or above
+ * `independentTestDir` holds both stages, and is refused. The stage's name, `build`, is spelled here
+ * and in the build workflow, and no key holds it yet (asdlc-openspec-d9rt).
  *
  * WHAT IT REFUSES, each refusal opening with what it measured:
  *
@@ -72,11 +85,12 @@
  *   - `mutation`: a mutant a `Stryker disable` comment ignores with no reason, and a changed
  *     `Stryker disable` without `next-line`, which silences every mutant after it with one reason.
  *   - `baseline`: below.
- *   - `policy`, `branch`: a policy without the gate's keys; a checkout with no `origin/main`, or a
- *     root that is not the top of one.
+ *   - `policy`, `branch`: a policy without the gate's keys or without `independentTestDir`; a
+ *     checkout with no `origin/main`, or a root that is not the top of one.
  *   - `suite`: a failing test, in the words of `scripts/run-tests.mjs`, since coverage over a failing
- *     suite measures the wrong thing. A mutation run whose first test run fails in Stryker's sandbox
- *     is refused under the run's own name, with Stryker's reason.
+ *     suite measures the wrong thing; and a `--dir` at or above the test-builder's directory, whose
+ *     run would run its Verify stage's tests. A mutation run whose first test run fails in Stryker's
+ *     sandbox is refused under the run's own name, with Stryker's reason.
  *
  * WHERE A REASON IS WRITTEN. In the product's source, beside the line it excuses, in the directive
  * the tool that counts it already honours: `/* node:coverage ignore next *\/ // <reason>` for a line
@@ -157,7 +171,8 @@
  * Routines' mutants when their code changed; `git-hooks.yml` carries its measurement.
  *
  * NEEDS git and `origin/main` (a shallow clone has no merge base, so CI checks out with
- * `fetch-depth: 0`), the gate's keys in `tools/policy/tool-settings.json`, and
+ * `fetch-depth: 0`), the gate's keys in `tools/policy/tool-settings.json` and `independentTestDir` in
+ * `tools/policy/agent-workflows.json`, and
  * `@stryker-mutator/core` and `@stryker-mutator/tap-runner` (`npm ci`). No network.
  *
  * KIND: gate, and the emitter of the baseline: `thresholds:update` writes it, and the two checks
@@ -174,7 +189,7 @@
 import { spawnSync } from 'node:child_process'
 import { cpSync, existsSync, globSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { delimiter, dirname, join, relative, resolve } from 'node:path'
+import { delimiter, dirname, join, posix as posixPath, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gitEnv } from '../tools/lib/git-env.ts'
 import { POLICY_DIR, copyPolicy, readPolicy as readConstants } from '../tools/lib/policy.ts'
@@ -196,6 +211,16 @@ const KEYS = {
   scope: 'thresholdScope',
   commands: 'mutationCommands',
 }
+/** The policy record that holds `independentTestDir`, named in the refusal about it. */
+const AGENT_WORKFLOWS = `${POLICY_DIR}/agent-workflows.json`
+/** Where the test-builder's tests live, a directory per stage below it (`independentTestDirMeans`). */
+const INDEPENDENT_KEY = 'independentTestDir'
+/**
+ * The stage directory under `independentTestDir` whose tests run at a push, as the build workflow's
+ * `stageOf` names it (the header of `.claude/workflows/build-change-task.js`); every other stage's
+ * run at Verify (`docs/test-strategy.md` § Build exit criteria).
+ */
+const BUILD_STAGE = 'build'
 /** What Stryker writes as the reason of a mutant a `Stryker disable` comment ignores without one. */
 const STRYKER_DEFAULT_REASON = 'Ignored using a comment'
 /** Mutants of each outcome, as Stryker's own score counts them. */
@@ -250,7 +275,11 @@ export function readPolicy(root) {
   for (const key of Object.values(KEYS)) {
     if (typeof policy[`${key}Means`] !== 'string') throw new Error(`${TOOL_SETTINGS} has \`${key}\` and no \`${key}Means\` saying what it decides.`)
   }
-  return { percents, samples, scope, commands }
+  const independent = policy[INDEPENDENT_KEY]
+  if (typeof independent !== 'string' || !independent.includes('{app}')) {
+    throw new Error(`${AGENT_WORKFLOWS} has no \`${INDEPENDENT_KEY}\`, a path holding \`{app}\`, so the test-builder's Verify stage cannot be told from its ${BUILD_STAGE} stage.`)
+  }
+  return { percents, samples, scope, commands, independent }
 }
 
 /* --------------------------------------------------------------------------------- git ---------- */
@@ -540,8 +569,44 @@ function testPatterns(root) {
   return [...new Set(patterns)].sort(byCodePoint)
 }
 
-/** The `--dir` directories of every task that runs the runner (`scripts/lib/test-dirs.mjs`). */
-const testDirs = (root) => scriptDirs(tasksOf(root))
+/**
+ * Where a `--dir` stands to the test-builder's directory, `template` (`independentTestDir`, `{app}`
+ * any one name): `outside` it, `build` at or under its build stage, `verify` at or under any other
+ * stage, whose tests run at Verify, or `spans` at or above the directory itself, holding every stage.
+ */
+function stageOf(dir, template) {
+  const normal = posixPath.normalize(dir)
+  const parts = normal === '.' ? [] : normal.split('/')
+  const segments = template.split('/').map((segment) => new RegExp(`^${segment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replaceAll('\\{app\\}', '[^/]+')}$`))
+  for (let k = 0; k < Math.min(parts.length, segments.length); k++) if (!segments[k].test(parts[k])) return 'outside'
+  if (parts.length <= segments.length) return 'spans'
+  return parts[segments.length] === BUILD_STAGE ? 'build' : 'verify'
+}
+
+/**
+ * The `--dir` directories of every task that runs the runner (`scripts/lib/test-dirs.mjs`) whose
+ * tests run at a push, `run`, and those of the test-builder's Verify stage, `left`, which run at
+ * Verify alone (`docs/test-strategy.md` § Build exit criteria). A `--dir` holding every stage throws.
+ */
+function stageDirs(root, policy) {
+  const run = []
+  const left = []
+  for (const dir of scriptDirs(tasksOf(root))) {
+    const stage = stageOf(dir, policy.independent)
+    if (stage === 'spans') {
+      throw Object.assign(
+        new Error(
+          `the --dir ${dir} holds every stage of the test-builder's \`${policy.independent}\` (${AGENT_WORKFLOWS}), so its run would run the Verify stage's tests,` +
+            ` which run at Verify alone (docs/test-strategy.md § Build exit criteria); give the ${BUILD_STAGE} stage a --dir of its own.`,
+        ),
+        { kind: 'suite' },
+      )
+    }
+    if (stage === 'verify') left.push(dir)
+    else run.push(dir)
+  }
+  return { run, left }
+}
 
 /** Every file under `root` that the scope's `code` globs match and its `tests` globs do not. */
 function scopeFiles(root, scope) {
@@ -926,22 +991,32 @@ const describe = (entry) => `${entry.file}'s ${entry.mutator} mutant ${JSON.stri
 
 /* --------------------------------------------------------------------------------- the gate ----- */
 
-/** What every command reads first: the policy, the files in scope, the test files and what changed. */
+/**
+ * What every command reads first: the policy, the files in scope, the test files and the `--dir`
+ * directories its runs run, a note for each `--dir` they leave out, and what changed.
+ */
 function setUp(root, { product }) {
   const policy = readPolicy(root)
   const inScope = scopeFiles(root, policy.scope)
-  const tests = [...testPatterns(root), ...testDirs(root).map(dirGlob)]
+  const dirs = stageDirs(root, policy)
+  const tests = [...testPatterns(root), ...dirs.run.map(dirGlob)]
     .flatMap((pattern) => globSync(pattern, { cwd: root }).map(posix))
     .sort(byCodePoint)
+  const notes = dirs.left.map(
+    (dir) =>
+      `note: the --dir ${dir} is under the test-builder's \`${policy.independent}\` and not its ${BUILD_STAGE} stage, so its tests run at Verify` +
+      " (docs/test-strategy.md § Build exit criteria) and neither the coverage run nor the Routines' mutation run runs them.",
+  )
+  const read = { policy, inScope, tests, dirs: dirs.run, notes }
   if (product) {
     const changed = new Map([...inScope].map((path) => [path, allLines(readFileSync(join(root, path), 'utf8'))]))
-    return { policy, inScope, tests, changed, diff: null, base: null, said: `the whole product: every line of ${plural(inScope.size, 'file')} of code under apps/ counts as changed.` }
+    return { ...read, changed, diff: null, base: null, said: `the whole product: every line of ${plural(inScope.size, 'file')} of code under apps/ counts as changed.` }
   }
   const base = mergeBase(root)
   const diff = readDiff(root, base)
   const changed = changedOf(diff)
   const count = [...changed.keys()].filter((path) => inScope.has(path)).length
-  return { policy, inScope, tests, changed, diff, base, said: `measured against the merge base ${base.slice(0, 12)} with ${TRUNK}: ${plural(count, 'file')} of code under apps/ changed.` }
+  return { ...read, changed, diff, base, said: `measured against the merge base ${base.slice(0, 12)} with ${TRUNK}: ${plural(count, 'file')} of code under apps/ changed.` }
 }
 
 /**
@@ -959,10 +1034,10 @@ export async function check(given, { commands = false, product = false, stages =
   try {
     context = setUp(root, { product })
   } catch (error) {
-    return { refusals: [`${error.message.startsWith(POLICY_DIR) ? 'policy' : 'branch'}: ${error.message}`], printed }
+    return { refusals: [`${error.kind ?? (error.message.startsWith(POLICY_DIR) ? 'policy' : 'branch')}: ${error.message}`], printed }
   }
-  const { policy, inScope, tests, changed, diff, base } = context
-  printed.push(context.said)
+  const { policy, inScope, tests, dirs, changed, diff, base } = context
+  printed.push(context.said, ...context.notes)
 
   // A `Stryker disable` without `next-line` on a changed line silences every mutant after it.
   for (const path of [...changed.keys()].filter((file) => inScope.has(file)).sort(byCodePoint)) {
@@ -1007,7 +1082,7 @@ export async function check(given, { commands = false, product = false, stages =
   }
 
   if (!commands && stages.coverage) {
-    const { failures, coverage } = await runTests(root, testPatterns(root), { coverage: { include: policy.scope.code, exclude: policy.scope.tests }, dirs: testDirs(root) })
+    const { failures, coverage } = await runTests(root, testPatterns(root), { coverage: { include: policy.scope.code, exclude: policy.scope.tests }, dirs })
     if (failures.length > 0) return { refusals: [...refusals, ...failures.map((failure) => `suite: it does not pass, so its coverage is not judged: ${failure}`)], printed }
     if (coverage === null) return { refusals: [...refusals, "suite: Node's test runner sent no coverage summary, so no line can be judged; this Node does not measure coverage through run()."], printed }
     const judged = judgeCoverage(root, changed, inScope, coverage, policy)
@@ -1243,6 +1318,33 @@ function cases(f, policy) {
     const lines = [...(options.above === false ? [] : ["  assert.equal(g1(51), 'g1-a')"]), ...(options.boundary === false ? [] : ["  assert.equal(g1(50), 'g1-b')"]), "  assert.equal(g1(49), 'g1-b')"]
     return `import { g1 } from '../public/calc.js'\n// trace: GRT-800:happy@${f.hash}\ntest('[GRT-800] g1', () => {\n${lines.join('\n')}\n})\n`
   }
+  // The test-builder's directory for the fixture's one app, a directory per stage below it.
+  const independent = policy.independent.replaceAll('{app}', 'calculator')
+  const escape = (text) => text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
+  const importOf = (path) => posixPath.relative(posixPath.dirname(path), 'apps/calculator/public/calc.js')
+  /** The calculator's test pattern and, for each task `dirs` names, a run of the runner over its `--dir`, in the manifest `file`. */
+  const dirTasks = (file, dirs) =>
+    taskFiles(
+      file,
+      { 'calculator:test': 'node scripts/run-tests.mjs "apps/calculator/test/*.test.js"', ...Object.fromEntries(Object.entries(dirs).map(([task, dir]) => [task, `node scripts/run-tests.mjs --dir ${dir}`])) },
+      { type: 'module' },
+    )
+  /** The agent workflows' policy record without `independentTestDir` and its `Means`. */
+  const withoutIndependent = () => {
+    const record = JSON.parse(readFileSync(join(REPO_ROOT, AGENT_WORKFLOWS), 'utf8'))
+    delete record[INDEPENDENT_KEY]
+    delete record[`${INDEPENDENT_KEY}Means`]
+    return `${JSON.stringify(record, null, 2)}\n`
+  }
+  const independentHead = (layer) => `import assert from 'node:assert/strict'\nimport { test } from 'node:test'\n// trace-defaults: layer=${layer}\n`
+  const buildPath = `${independent}/${BUILD_STAGE}/contract/g1.test.js`
+  /** The test-builder's contract test of `g1` at the build stage, which alone covers it and detects its every mutant. */
+  const buildTest = { [buildPath]: `${independentHead('contract')}${gTest({}).replace("'../public/calc.js'", `'${importOf(buildPath)}'`)}` }
+  const verifyPath = `${independent}/verify/e2e/g1.test.js`
+  /** The test-builder's E2E test of `g1` at the Verify stage, which fails, so a run that runs it refuses the suite or stops Stryker. */
+  const verifyTest = {
+    [verifyPath]: `${independentHead('e2e')}import { g1 } from '${importOf(verifyPath)}'\n// trace: GRT-803:happy@${f.hash}\ntest('[GRT-803] g1, run at Verify alone', () => {\n  assert.equal(g1(51), 'run before Verify')\n})\n`,
+  }
   const excuse = (reason) => `/* node:coverage ignore next */ // ${reason}\n`
   const gExcused = `export function g1(x) {\n  ${excuse('reached only by hand, in this fixture')}  if (x > 50) return 'g1-a'\n  ${excuse('reached only by hand, in this fixture')}  return 'g1-b'\n${excuse('reached only by hand, in this fixture')}}\n`
   const strengthened = f.calcTest(f.olds, { legacy: { boundary: true } })
@@ -1295,15 +1397,29 @@ function cases(f, policy) {
       printed: /uncovered: apps\/calculator\/public\/unloaded\.js:1, in a file no test loads/,
     },
     ...[PACKAGE_JSON, TASKS_TOML].map((file) => ({
-      name: `a changed Routine that only a test under a --dir directory runs counts as covered, the tasks in ${file}`,
-      files: {
-        ...withNew(g),
-        ...taskFiles(file, { 'calculator:test': 'node scripts/run-tests.mjs "apps/calculator/test/*.test.js"', 'calculator:test:independent': 'node scripts/run-tests.mjs --dir apps/calculator/test/independent' }, { type: 'module' }),
-        'apps/calculator/test/independent/contract/g1.test.js': `import assert from 'node:assert/strict'\nimport { test } from 'node:test'\n// trace-defaults: layer=contract level=1\n${gTest({}).replace("'../public/calc.js'", "'../../../public/calc.js'")}`,
-      },
+      name: `a changed Routine that only a test under the --dir of the test-builder's ${BUILD_STAGE} stage runs counts as covered, the tasks in ${file}`,
+      files: { ...withNew(g), ...dirTasks(file, { 'calculator:test:independent': `${independent}/${BUILD_STAGE}` }), ...buildTest },
       stages: only.coverage,
       expect: 'pass',
     })),
+    {
+      name: `a test under the --dir of the test-builder's Verify stage runs in neither the coverage run nor the Routines' mutation run, where the ${BUILD_STAGE} stage's runs in both`,
+      files: { ...withNew(g), ...dirTasks(PACKAGE_JSON, { 'calculator:test:independent': `${independent}/${BUILD_STAGE}`, 'calculator:test:verify': `${independent}/verify` }), ...buildTest, ...verifyTest },
+      expect: 'pass',
+      printed: new RegExp(`^note: the --dir ${escape(`${independent}/verify`)} is under the test-builder's \`${escape(policy.independent)}\` and not its ${BUILD_STAGE} stage`),
+    },
+    {
+      name: "a --dir holding every stage of the test-builder's directory, whose run would run the Verify stage's tests",
+      files: dirTasks(PACKAGE_JSON, { 'calculator:test:independent': independent }),
+      stages: only.none,
+      expect: new RegExp(`^suite: the --dir ${escape(independent)} holds every stage of the test-builder's \`${escape(policy.independent)}\``),
+    },
+    {
+      name: "a policy without the test-builder's directory, so its Verify stage cannot be told",
+      files: { [AGENT_WORKFLOWS]: withoutIndependent() },
+      stages: only.none,
+      expect: new RegExp(`^policy: ${escape(AGENT_WORKFLOWS)} has no \`${INDEPENDENT_KEY}\``),
+    },
     { name: 'a change of comments only has no code line, and passes with its counts', files: withNew('// a note on the Routines above\n'), stages: only.coverage, expect: 'pass', printed: /^coverage: lines: 0 of 0 changed code lines covered; below the minimum sample/ },
     { name: 'a failing test fails the gate before any coverage is judged', files: withNew(g, `\n// trace: GRT-801:happy@${f.hash}\ntest('[GRT-801] wrong', () => { assert.equal(1, 2) })\n`), stages: only.coverage, expect: /^suite: it does not pass, so its coverage is not judged: 1 test\(s\) failed/ },
     {
