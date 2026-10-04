@@ -6,7 +6,8 @@
 by `asdlc-openspec-a7x`, which says a product fix that changes no requirement goes straight to work.
 Amended 2026-10-04 by `asdlc-openspec-qcqm`: the automated reviewer decides by a list of risky things
 alone, and the review before an agent shares its work reads the change against its item
-(`docs/decisions.md` § D-37).
+(`docs/decisions.md` § D-37). Amended 2026-10-04 by `asdlc-openspec-ewyi`: that list holds the
+commands each check runs and the checks that hold the product (`docs/decisions.md` § D-38).
 
 **Which document wins.** This page simplifies. Where it and a technical document disagree, the
 technical document is right and this page needs correcting.
@@ -59,10 +60,11 @@ second agent, with no part in writing it, reads the change against what its item
 easy it is to keep up and how far a mistake in it could reach, and the first agent fixes what it
 finds. Once the shared server's checks pass, an automated reviewer asks one thing: does the change
 touch a file on a fixed list of risky things? The list holds the file of rules every agent reads
-first, the reviewer itself, the shared server's jobs, the recorded decisions, the tools' versions
-and the outside code the project uses. If it does, a person decides. If not, the reviewer merges
-it. Beside its answer it lists which checks run each changed file, and the files that often change
-with it, for a person to read.
+first, the reviewer itself, the shared server's jobs, the recorded decisions, the tools' versions,
+the outside code the project uses, the list of commands each check runs, and the checks that hold
+the product to its specifications, with what they import and the settings they read. If it does, a
+person decides. If not, the reviewer merges it. Beside its answer it lists which checks run each
+changed file, and the files that often change with it, for a person to read.
 
 **The loop between them.** What the work turns up goes back on the list. Each new item a run files
 is labelled with the stage that found it and the kind of thing it would fix, so over time the list
