@@ -514,6 +514,17 @@ export function mergeRefusal({ pr, sha, open, state, trunk, now }, policy) {
   return `${short(sha)} is on the high-risk floor (${now.reasons[0]}), and ${state.approval ? state.approval.why : 'no person approved it'}`
 }
 
+/**
+ * Whether the verdict on record still stands against the floor recomputed now. A `merge` verdict
+ * does not when the floor puts the head on it: a comment another workflow forged, or a floor the
+ * trunk widened since the review. Left on record, it has the queue choose that head to merge on
+ * every run, and `mergeRefusal` refuse it every time, while no other head is reviewed. A floor that
+ * cannot be computed overturns nothing, since a fetch that failed once may not fail again.
+ */
+export function verdictStands(verdict, now) {
+  return !(verdict?.outcome === 'merge' && now.outcome === 'human')
+}
+
 /* ------------------------------------------------------------------ comments and approvals ----- */
 
 /** The verdict the reviewer last recorded on `sha`, from its own comments only, or null. */
@@ -1275,6 +1286,18 @@ function decideHead(pr, sha, policy) {
   return { base, floor, decision }
 }
 
+/** Post the verdict on `sha`, and set the outcome's label and the reviewer's status to match it. */
+function record(dryRun, repo, pr, sha, policy, { decision, floor, evidence }) {
+  const body = renderComment({ pr, sha, decision, floor, evidence }, policy)
+  const comment = write(dryRun, `comment on #${pr}`, 'POST', `repos/${repo}/issues/${pr}/comments`, { body })
+  if (dryRun) console.log(body)
+  const labelsNow = ghJson(`repos/${repo}/issues/${pr}/labels`).map((l) => l.name)
+  setOutcomeLabel(dryRun, repo, pr, policy, decision.outcome, labelsNow)
+  const { state, description } = statusFor(decision)
+  setStatus(dryRun, repo, sha, policy, state, description, comment?.html_url)
+  console.log(`#${pr} at ${short(sha)}: ${decision.outcome}${decision.reasons.length ? ` (${decision.reasons.join('; ')})` : ''}`)
+}
+
 /**
  * Merge `pr` at `sha` if everything still holds now; say what does not, otherwise. `now` is the
  * decision on the head made in this job (`mergeRefusal` says why it is not the comment's).
@@ -1319,18 +1342,17 @@ function act({ dryRun }) {
       return
     }
     const { base, floor, decision } = decideHead(pr, sha, policy)
-    const evidenceText = evidenceFor(env('EVIDENCE', { required: false }), env('EVIDENCE_RESULT', { required: false }), sha, base)
-    const body = renderComment({ pr, sha, decision, floor, evidence: evidenceText }, policy)
-    const comment = write(dryRun, `comment on #${pr}`, 'POST', `repos/${repo}/issues/${pr}/comments`, { body })
-    if (dryRun) console.log(body)
-    const labelsNow = ghJson(`repos/${repo}/issues/${pr}/labels`).map((l) => l.name)
-    setOutcomeLabel(dryRun, repo, pr, policy, decision.outcome, labelsNow)
-    const { state, description } = statusFor(decision)
-    setStatus(dryRun, repo, sha, policy, state, description, comment?.html_url)
-    console.log(`#${pr} at ${short(sha)}: ${decision.outcome}${decision.reasons.length ? ` (${decision.reasons.join('; ')})` : ''}`)
+    const evidence = evidenceFor(env('EVIDENCE', { required: false }), env('EVIDENCE_RESULT', { required: false }), sha, base)
+    record(dryRun, repo, pr, sha, policy, { decision, floor, evidence })
     if (decision.outcome === 'merge' && !dryRun) tryMerge(dryRun, repo, pr, sha, policy, decision)
   } else if (action === 'merge') {
-    tryMerge(dryRun, repo, pr, sha, policy, decideHead(pr, sha, policy).decision)
+    const { floor, decision } = decideHead(pr, sha, policy)
+    const verdict = latestVerdict(ghPaged(`repos/${repo}/issues/${pr}/comments?per_page=100`), sha)
+    if (verdictStands(verdict, decision)) tryMerge(dryRun, repo, pr, sha, policy, decision)
+    else {
+      console.log(`#${pr} at ${short(sha)}: the merge verdict on record is not the floor's, recomputed now; recording the floor's.`)
+      record(dryRun, repo, pr, sha, policy, { decision, floor, evidence: 'Not computed: this verdict replaces a merge verdict on this head that the floor, recomputed when the merge was due, does not bear out.' })
+    }
   } else {
     throw new Error(`ACTION is ${action}; act takes review or merge`)
   }
@@ -1473,14 +1495,19 @@ export async function runCheck(root) {
       fail(`${WORKFLOW}'s \`${id}\` job runs ${roles.map((r) => `\`${r}\``).join(' and ')} in one job: each runs one, so the evidence's packages never share a job with the token that merges.`)
       continue
     }
-    const shape = JOB_SHAPES[roles[0]]
-    if (!shape) continue
+    // A subcommand with no shape (`mark`, which a session or a person runs, or one this script lacks)
+    // is refused here, never skipped: skipped, its job's steps would go unchecked.
+    const shape = Object.hasOwn(JOB_SHAPES, roles[0]) ? JOB_SHAPES[roles[0]] : null
+    if (!shape) {
+      fail(`${WORKFLOW}'s \`${id}\` job runs \`${roles[0]}\`, which no job of the reviewer runs: a job runs ${Object.keys(JOB_SHAPES).map((r) => `\`${r}\``).join(', ')} or nothing.`)
+      continue
+    }
     for (const step of steps(id)) {
       const keys = Object.keys(step ?? {}).filter((key) => !STEP_KEYS.includes(key))
       if (keys.length > 0) fail(`${WORKFLOW}'s \`${id}\` job has a step with ${keys.map((k) => `\`${k}\``).join(', ')}: a step carries only ${STEP_KEYS.join(', ')}.`)
       if (step?.uses !== undefined) {
         const action = String(step.uses).split('@')[0]
-        const inputs = STEP_ACTIONS[action]
+        const inputs = Object.hasOwn(STEP_ACTIONS, action) ? STEP_ACTIONS[action] : null
         if (!inputs) {
           fail(`${WORKFLOW}'s \`${id}\` job uses ${step.uses}: a step uses only ${Object.keys(STEP_ACTIONS).join(' or ')}, so no other code, a language model's included, runs here.`)
           continue
@@ -1993,6 +2020,22 @@ function helperCases(policy) {
       assertEqual(refusal({ verdict: { outcome: 'human' }, approved: true, approval: { holds: true, why: 'approved by maintainer' } }, human), null, 'refusal')),
     h('merge: a floor that cannot be recomputed refuses the merge, by its reason', () =>
       assertEqual(refusal({}, floorDecision(() => { throw new Error('boom') })), 'the floor could not be recomputed before the merge: the floor could not be computed: boom', 'refusal')),
+    h('a merge verdict the floor, recomputed now, puts on the floor does not stand, so the queue records the floor\'s and stops choosing it; every other pairing stands', () => {
+      const merge = { outcome: 'merge', reasons: [] }
+      const error = floorDecision(() => { throw new Error('boom') })
+      return assertEqual(
+        [
+          verdictStands({ outcome: 'merge' }, human),
+          verdictStands({ outcome: 'merge' }, merge),
+          verdictStands({ outcome: 'human' }, human),
+          verdictStands({ outcome: 'human' }, merge),
+          verdictStands({ outcome: 'merge' }, error),
+          verdictStands(null, human),
+        ],
+        [false, true, true, true, true, true],
+        'stands',
+      )
+    }),
     h('merge: a moved head, a red main and no verdict each refuse, by their reasons', () =>
       assertEqual(
         [refusal({ sha: 'c'.repeat(40) }), refusal({}, undefined, { verify: 'failure' }), refusal({ verdict: null })],
@@ -2120,6 +2163,21 @@ function wiringCases() {
     { name: 'the job that merges runs in a container', doctor: edit(WORKFLOW, /^( {2}act:\n)/m, '$1    container: node:24\n'), expect: /`act` job sets `container`/ },
     { name: 'the workflow sets a variable for every job', doctor: edit(WORKFLOW, /^permissions: \{\}$/m, 'permissions: {}\n\nenv:\n  NODE_OPTIONS: --require ./x.js'), expect: /sets `env` for every job/ },
     { name: 'the job that merges also computes the evidence', doctor: edit(WORKFLOW, /^( {8})run: node scripts\/pr-review\.mjs act$/m, '$1run: node scripts/pr-review.mjs evidence\n      - run: node scripts/pr-review.mjs act'), expect: /`act` job runs `evidence` and `act` in one job/ },
+    {
+      name: 'a job runs mark, which has no shape, and a model action beside it',
+      doctor: edit(WORKFLOW, /^jobs:\n/m, 'jobs:\n  rogue:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: anthropics/claude-code-action@v1\n      - run: node scripts/pr-review.mjs mark\n'),
+      expect: /`rogue` job runs `mark`, which no job of the reviewer runs/,
+    },
+    {
+      name: "a job runs a subcommand named for a key every object has",
+      doctor: edit(WORKFLOW, /^jobs:\n/m, 'jobs:\n  rogue:\n    runs-on: ubuntu-latest\n    steps:\n      - run: node scripts/pr-review.mjs constructor\n'),
+      expect: /`rogue` job runs `constructor`, which no job of the reviewer runs/,
+    },
+    {
+      name: 'a step uses an action named for a key every object has',
+      doctor: edit(WORKFLOW, /^( {6})- name: decide the head from the floor, post the verdict, set the labels and the status, and merge$/m, '$1- uses: constructor@v1\n$1- name: decide the head from the floor, post the verdict, set the labels and the status, and merge'),
+      expect: /`act` job uses constructor@v1: a step uses only actions\/checkout or jdx\/mise-action/,
+    },
     { name: 'a job runs none of the subcommands', doctor: edit(WORKFLOW, /^jobs:\n/m, 'jobs:\n  extra:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n'), expect: /`extra` job runs none of the reviewer's subcommands/ },
     { name: 'the branch reviewer is renamed', doctor: edit(AGENT, /^name: branch-reviewer$/m, 'name: reviewer'), expect: /is named `reviewer`, not `branch-reviewer`/ },
     { name: 'the branch reviewer is given Bash', doctor: edit(AGENT, /^tools: Read, /m, 'tools: Bash, Read, '), expect: /branch-reviewer\.md gives Bash/ },

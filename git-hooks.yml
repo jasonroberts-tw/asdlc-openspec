@@ -526,9 +526,9 @@ pre-push:
     # wiring gate over doctored copies of the four files it reads, with an undoctored control. The
     # same files decide its verdict, and the brief's prompt counts are taken over a scratch
     # repository by `scripts/check-prompts.mjs`, so it is in the glob too, beside what the script
-    # imports, and the manifest and lockfile that pin its js-yaml. 1.45 s wall
+    # imports, and the manifest and lockfile that pin its js-yaml. 1.62 s wall
     # (`/usr/bin/time -p node scripts/pr-review.mjs --selftest`, one run) on a macOS 26.7.1 laptop
-    # with Node 26.8.1, 2026-10-04, over its 125 cases.
+    # with Node 26.8.1, 2026-10-04, over its 129 cases.
     - name: pr-review-selftest
       glob:
         - 'scripts/pr-review.mjs'
