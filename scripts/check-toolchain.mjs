@@ -35,10 +35,11 @@
  *      turn off mise's checksum, signature and provenance checks or trust other files, for every
  *      install and shim; no template but `[task_config] dir = "{{cwd}}"`, under which a task a
  *      worktree borrows from the primary checkout runs on the worktree's own files, and no
- *      `[task_config]` but that and `includes = ["tasks.toml"]`, the task move's one registry; and
+ *      `[task_config]` but that and `includes = ["tasks.toml"]`, the task move's one registry;
  *      `[settings] not_found_system_fallback = false` with `auto_install` left on, the two settings
  *      under which a pin that is not installed fails or installs rather than run the system's binary
- *      in its place (asdlc-openspec-8juz.1, questions 1 and 6);
+ *      in its place; and of the settings under `task`, only `output`, `quiet` and `timings`, which
+ *      make a task print what its command prints (asdlc-openspec-8juz.1, questions 1, 4 and 6);
  *   6. no tracked file is a mise config but the root `mise.toml`: not `.mise.toml`, `mise.*.toml`,
  *      `.tool-versions`, a `mise.toml` below the root, nor anything under a `mise/`, `.mise/` or
  *      `.config/mise` directory but the `pypi:` backend's locks under `.mise/locks/`. mise loads each
@@ -76,9 +77,9 @@
  *
  * INVOCATION.
  *
- *   npm run check:toolchain                               the gate
- *   npm run check:toolchain:selftest                      its fixtures -- every refusal on a doctored copy
- *   TOOLCHAIN_CHECK_ROOT=<dir> npm run check:toolchain    the same gate over a doctored copy
+ *   mise run check:toolchain                               the gate
+ *   mise run check:toolchain:selftest                      its fixtures -- every refusal on a doctored copy
+ *   TOOLCHAIN_CHECK_ROOT=<dir> mise run check:toolchain    the same gate over a doctored copy
  *
  * NEEDS committed files: `mise.toml`, `mise.lock`, the workflows, the Dockerfile, the policy records
  * and the tracked file list, through `git ls-files` at a checkout's root. It parses TOML with the
@@ -128,8 +129,12 @@ const CWD_TEMPLATE = '{{cwd}}'
  * be a second registry of command names.
  */
 const TASK_CONFIG = { dir: CWD_TEMPLATE, includes: ['tasks.toml'] }
-/** The settings `mise.toml` may carry: each other one could weaken every install or shim, as item 5 of the header says. */
-const SETTINGS = ['auto_install', 'not_found_system_fallback']
+/**
+ * The settings `mise.toml` may carry, each by its dotted path, a table's key under its name: each other
+ * one could weaken every install or shim, as item 5 of the header says. The three under `task` make a
+ * task print only what its command prints (asdlc-openspec-8juz.1, question 4).
+ */
+const SETTINGS = ['auto_install', 'not_found_system_fallback', 'task.output', 'task.quiet', 'task.timings']
 /** Files another version manager reads at the root, each a second home for a version `mise.toml` pins. */
 const OTHER_VERSION_FILES = ['.node-version', '.nvmrc', '.python-version']
 /** Where the `pypi:` backend keeps its locks (asdlc-openspec-8juz.3): a lock, which configures nothing. */
@@ -255,6 +260,15 @@ function* strings(value, path = '') {
   else if (value && typeof value === 'object') {
     for (const [key, inner] of Object.entries(value)) yield* strings(inner, path ? `${path}.${key}` : key)
   }
+}
+
+/** Each setting's dotted path: a table such as `task` gives one path per key under it, `task.output`. */
+function settingPaths(settings, prefix = '') {
+  return Object.entries(settings ?? {}).flatMap(([key, value]) =>
+    value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)
+      ? settingPaths(value, `${prefix}${key}.`)
+      : [`${prefix}${key}`],
+  )
 }
 
 /** The workflows under `root`, each with its parsed steps; a file that does not parse is a problem of its own. */
@@ -411,7 +425,7 @@ export function runCheck(root, { mise = ['mise'], notes = [] } = {}) {
       `\`[${key}]\` in ${CONFIG} is not one of min_version, [tools], [settings] or [task_config]: an [env] or a [hooks] there acts on every shim, hook and session that enters the checkout, and a task there is a second registry of command names.`,
     )
   }
-  for (const key of Object.keys(config.settings ?? {}).filter((k) => !SETTINGS.includes(k)).sort(byCodePoint)) {
+  for (const key of settingPaths(config.settings).filter((k) => !SETTINGS.includes(k)).sort(byCodePoint)) {
     problems.push(
       `\`settings.${key}\` in ${CONFIG} is not one of the settings it may carry (${SETTINGS.join(', ')}): a setting acts on every install and shim, and one can turn off mise's checksum, signature or provenance checks, or trust other files.`,
     )
@@ -681,7 +695,8 @@ const beforeEntrypoint = (line) => edit(DOCKERFILE, /^ENTRYPOINT \[/m, `${line}\
 function cases() {
   return [
     { name: 'control: the live files, undoctored', doctor: () => {}, expect: 'pass' },
-    { name: 'control: the one task_config admitted, dir {{cwd}} and includes tasks.toml', doctor: append(CONFIG, `\n[task_config]\ndir = "${CWD_TEMPLATE}"\nincludes = ["tasks.toml"]\n`), expect: 'pass' },
+    // The live file carries the one [task_config] admitted and the three task settings; without them it passes too.
+    { name: 'control: no [task_config] and no task setting', doctor: (dir) => { edit(CONFIG, /^\[task_config\]\n[\s\S]*$/m, '')(dir); edit(CONFIG, /^task\.[a-z_]+ = .*\n/gm, '')(dir) }, expect: 'pass' },
     { name: 'control: a commented mention of an old install', doctor: beforeEntrypoint('# NodeSource and ARG NODE_MAJOR=22 once installed Node here.'), expect: 'pass' },
     { name: 'a pin that is a range', doctor: edit(CONFIG, /^node = "[^"]+"$/m, 'node = "24"'), expect: /^mise\.toml pins node at "24", not an exact MAJOR\.MINOR\.PATCH version/ },
     { name: 'a pin the lock does not hold', doctor: edit(CONFIG, /^(gh = "[^"]+")$/m, '$1\njq = "1.8.1"'), expect: /^mise\.lock holds jq at no version, not at 1\.8\.1, the pin in mise\.toml/ },
@@ -716,10 +731,11 @@ function cases() {
     { name: 'an .nvmrc at the checkout root', doctor: write('.nvmrc', '24\n'), expect: /^\.nvmrc is at the checkout root, and another version manager reads it/ },
     { name: 'an [env] in mise.toml', doctor: append(CONFIG, '\n[env]\nFOO = "1"\n'), expect: /^`\[env\]` in mise\.toml is not one of min_version, \[tools\], \[settings\] or \[task_config\]/ },
     { name: 'a [tasks] in mise.toml', doctor: append(CONFIG, '\n[tasks.hello]\nrun = "echo hello"\n'), expect: /^`\[tasks\]` in mise\.toml is not one of/ },
-    { name: 'a task_config key other than dir and includes', doctor: append(CONFIG, '\n[task_config]\nfoo = "bar"\n'), expect: /^`task_config\.foo` in mise\.toml is not one of/ },
-    { name: 'a task_config dir other than {{cwd}}', doctor: append(CONFIG, '\n[task_config]\ndir = "scripts"\n'), expect: /^`task_config\.dir` in mise\.toml holds "scripts", not the one value it may hold/ },
-    { name: 'a task_config includes naming another file', doctor: append(CONFIG, '\n[task_config]\nincludes = ["tasks.toml", "more-tasks.toml"]\n'), expect: /^`task_config\.includes` in mise\.toml holds \["tasks\.toml","more-tasks\.toml"\], not the one value it may hold/ },
-    { name: 'a template other than task_config dir {{cwd}}', doctor: append(CONFIG, '\n[task_config]\ndir = "{{config_root}}"\n'), expect: /^mise\.toml holds a template at `task_config\.dir` \("\{\{config_root\}\}"\)/ },
+    { name: 'a task_config key other than dir and includes', doctor: edit(CONFIG, /^(includes = \["tasks\.toml"\])$/m, '$1\nfoo = "bar"'), expect: /^`task_config\.foo` in mise\.toml is not one of/ },
+    { name: 'a task_config dir other than {{cwd}}', doctor: edit(CONFIG, /^dir = "\{\{cwd\}\}"$/m, 'dir = "scripts"'), expect: /^`task_config\.dir` in mise\.toml holds "scripts", not the one value it may hold/ },
+    { name: 'a task_config includes naming another file', doctor: edit(CONFIG, /^includes = \["tasks\.toml"\]$/m, 'includes = ["tasks.toml", "more-tasks.toml"]'), expect: /^`task_config\.includes` in mise\.toml holds \["tasks\.toml","more-tasks\.toml"\], not the one value it may hold/ },
+    { name: 'a template other than task_config dir {{cwd}}', doctor: edit(CONFIG, /^dir = "\{\{cwd\}\}"$/m, 'dir = "{{config_root}}"'), expect: /^mise\.toml holds a template at `task_config\.dir` \("\{\{config_root\}\}"\)/ },
+    { name: 'a task setting it does not admit', doctor: edit(CONFIG, /^(task\.timings = false)$/m, '$1\ntask.run_auto_install = false'), expect: /^`settings\.task\.run_auto_install` in mise\.toml is not one of the settings it may carry/ },
     { name: 'the system fallback left on', doctor: edit(CONFIG, /^not_found_system_fallback = false\n/m, ''), expect: /^mise\.toml does not set `\[settings\] not_found_system_fallback = false`/ },
     { name: 'a tool pinned with a table of options', doctor: edit(CONFIG, /^gh = "([^"]+)"$/m, 'gh = { version = "$1", postinstall = "echo installed" }'), expect: /^mise\.toml pins gh with a table of options, not a plain version string/ },
     { name: 'a setting that turns a check off', doctor: edit(CONFIG, /^(not_found_system_fallback = false)$/m, '$1\ngithub_attestations = false'), expect: /^`settings\.github_attestations` in mise\.toml is not one of the settings it may carry/ },

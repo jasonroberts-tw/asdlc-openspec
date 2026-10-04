@@ -1,8 +1,8 @@
 /**
  * Register-status gate: the header of `docs/decisions.md` agrees with its body.
  *
- *   npm run check:register             the gate
- *   npm run check:register:selftest    its fixtures -- every assertion exercised on a doctored copy
+ *   mise run check:register             the gate
+ *   mise run check:register:selftest    its fixtures -- every assertion exercised on a doctored copy
  *
  * THE JOB THIS EXISTS FOR. A register's status line said "every decision from D-01 to D-22 is
  * recorded and applied" while ten more were recorded in the same file below it, and its

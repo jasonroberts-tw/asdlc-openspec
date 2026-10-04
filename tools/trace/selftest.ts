@@ -15,7 +15,7 @@
  * disagrees read only what `ratify` returned. The cases that hand each command such a walk, and
  * assert its refusal and its files unchanged, came with asdlc-openspec-j326.
  *
- * INVOCATION. `npm run trace:selftest`. Nothing to point at a copy: it builds its own.
+ * INVOCATION. `mise run trace:selftest`. Nothing to point at a copy: it builds its own.
  *
  * NEEDS git, the live records under `tools/policy/`, which each fixture copies so a change to a key
  * the gate reads is felt here, and the pinned OpenSpec CLI (`npm ci`), which trial-archives an active change
@@ -462,7 +462,7 @@ function cases(): Case[] {
         writeTests(dir, `${TEST_SOURCE}\n// trace: GRT-004:negative@{GRT-004}\ntest('[GRT-004] A reader who stays is not bid farewell', () => {})\n`)
         reemit(dir)
       },
-      expect: /^baseline: GRT-004:negative is listed and is no longer unmet \(met, or its scenario gone\); run `npm run trace:update`/,
+      expect: /^baseline: GRT-004:negative is listed and is no longer unmet \(met, or its scenario gone\); run `mise run trace:update`/,
     },
     {
       name: 'baseline: an entry for a scenario an active change modifies',
@@ -490,12 +490,12 @@ function cases(): Case[] {
     {
       name: 'baseline: a file edited by hand',
       doctor: (dir) => edit(dir, BASELINE, (text) => `${JSON.stringify(JSON.parse(text))}\n`),
-      expect: /^baseline: artifacts\/trace\/baseline\.json is not as `npm run trace:update` writes it/,
+      expect: /^baseline: artifacts\/trace\/baseline\.json is not as `mise run trace:update` writes it/,
     },
     {
       name: 'baseline: none',
       doctor: (dir) => rmSync(join(dir, BASELINE)),
-      expect: /^baseline: artifacts\/trace\/baseline\.json does not exist; run `npm run trace:update`/,
+      expect: /^baseline: artifacts\/trace\/baseline\.json does not exist; run `mise run trace:update`/,
     },
     {
       name: 'baseline: a file that is not JSON',
@@ -535,22 +535,22 @@ function cases(): Case[] {
     {
       name: 'record: stale, a test changed and the record not written again',
       doctor: (dir) => writeTests(dir, swap('// trace: GRT-001:negative@{GRT-001}', '// trace: GRT-001:negative@{GRT-001} layer=integration')),
-      expect: /^record: artifacts\/trace\/record\.json is stale, line \d+: committed .*run `npm run trace` after the last commit that changes apps\//,
+      expect: /^record: artifacts\/trace\/record\.json is stale, line \d+: committed .*run `mise run trace` after the last commit that changes apps\//,
     },
     {
       name: 'record: none',
       doctor: (dir) => rmSync(join(dir, RECORD)),
-      expect: /^record: artifacts\/trace\/record\.json does not exist; run `npm run trace` and commit it/,
+      expect: /^record: artifacts\/trace\/record\.json does not exist; run `mise run trace` and commit it/,
     },
     {
       name: 'record: the README edited by hand',
       doctor: (dir) => edit(dir, README, (text) => text.replace('nothing edits by hand', 'hardly anything edits by hand')),
-      expect: /^record: artifacts\/trace\/README\.md is stale, line \d+: .*it is never edited by hand: `npm run trace` writes it/,
+      expect: /^record: artifacts\/trace\/README\.md is stale, line \d+: .*it is never edited by hand: `mise run trace` writes it/,
     },
     {
       name: 'record: a file in artifacts/trace/ that neither command writes',
       doctor: (dir) => put(dir, 'artifacts/trace/record.old.json', '{}\n'),
-      expect: /^record: artifacts\/trace\/record\.old\.json is a file neither `npm run trace` nor `npm run trace:update` writes/,
+      expect: /^record: artifacts\/trace\/record\.old\.json is a file neither `mise run trace` nor `mise run trace:update` writes/,
     },
     {
       name: 'record: a policy whose obligation layers name one testTraceLayers does not',

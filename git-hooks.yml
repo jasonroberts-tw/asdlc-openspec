@@ -3,11 +3,11 @@
 # slower tier never trusts a faster one.
 #
 # Git's config-based hooks call the runner, one `hook.asdlc-<event>` entry per event, which
-# `npm run hooks:install` writes (`docs/decisions.md` § D-19). This file keeps lefthook's schema, and
+# `mise run hooks:install` writes (`docs/decisions.md` § D-19). This file keeps lefthook's schema, and
 # only the part of it the runner's header names: any other key or token is refused, not ignored.
 #
 # kit 1.6-3 · ADAPT: every cost note below that gives a figure was measured on the kit author's
-# host, and says so. Re-measure on yours (`time npm run
+# host, and says so. Re-measure on yours (`time mise run
 # <name>`) and replace the note, naming the host: the same job costs several times more behind
 # endpoint security on native Windows than on Linux. Delete this paragraph when done.
 
@@ -28,7 +28,7 @@ pre-commit:
     #
     # The tracker's own pre-commit hook. The tracker's git integration runs from its five jobs here,
     # and not from a section `bd hooks install` writes into .git/hooks, which would run it a second
-    # time after them (`docs/decisions.md` § D-22); `npm run hooks:install` and the runner warn of one.
+    # time after them (`docs/decisions.md` § D-22); `mise run hooks:install` and the runner warn of one.
     - name: beads
       env:
         NO_COLOR: '1'
@@ -60,7 +60,7 @@ pre-push:
   # Parallel here, up to the machine's available parallelism, because these jobs take tens of
   # seconds together and minutes in sequence.
   parallel: true
-  # RUN THIS SUITE BY HAND WITH `npm run gates`. It runs this block through `git hook run`, given
+  # RUN THIS SUITE BY HAND WITH `mise run gates`. It runs this block through `git hook run`, given
   # the branch's push line and forced, so it sees a real push's environment and standard input, and
   # it refuses a checkout whose hooks are not installed rather than reporting a clean run. A push
   # runs the jobs its files reach and prints the rest as skipped, with their names: it never skips
@@ -69,7 +69,7 @@ pre-push:
   # EVERY JOB CARRIES A `glob` NAMING THE FILES WHOSE CHANGE CAN ALTER ITS VERDICT, except a job
   # that reads every tracked file or reads the tracker. A check that reads only committed files is a
   # pure function of those files, so when a push changes none of them its verdict is the one the
-  # last green run gave, and `.github/workflows/verify.yml` runs every gate on the pull request regardless. `npm run gates`
+  # last green run gave, and `.github/workflows/verify.yml` runs every gate on the pull request regardless. `mise run gates`
   # runs a job whether or not its glob matches, so it is still the whole suite.
   #
   # THE RULE FOR A GLOB: re-derive it from the script's declared inputs (the files it reads, the
@@ -79,10 +79,14 @@ pre-push:
   # it, so `dir/*.ext` reaches only the files directly in `dir`; write `dir/**` for everything
   # under it. `dir/**/*.ext` reaches a file directly in `dir` too.
   #
-  # `run: node --run <script>` RATHER THAN `npm run <script>`: it runs the package script with
-  # `node_modules/.bin` on PATH and skips the package manager's own start-up. Measured in the source
-  # repository at 0.9-1.2s against 2.1-3.1s through `npm run`, about a minute of pure launcher over
-  # a suite in sequence.
+  # `run: mise run <task>`: the task from `tasks.toml`, run with the tools `mise.toml` pins first on
+  # PATH and printing only what its command prints (`docs/decisions.md` § D-35). It costs what
+  # `node --run`, the launcher before it, cost: medians of 91-98 ms through `mise run` against 95 ms
+  # through `node --run`, 20 runs each of `counts:check` on a macOS laptop with mise 2026.10.0, and
+  # all 39 pre-push gates gave the same exit status both ways (asdlc-openspec-8juz.1, question 5). A
+  # failing task adds one line, `[<task>] ERROR task failed`, after its own output. Unlike
+  # `node --run`, it puts no `node_modules/.bin` on PATH, which no gate needs. Each cost note below
+  # that says `node --run` was measured through it.
   #
   # DELIBERATELY ABSENT: any check that reads something outside the repository (another checkout, a
   # token, a network, a language model). It runs in neither this file nor `.github/workflows/verify.yml`, and its selftest
@@ -91,15 +95,19 @@ pre-push:
   # A RETIRED JOB stays as a comment carrying the rule text worth keeping and the shape the job
   # would take if it came back.
   jobs:
-    # Every `run:` token here and in `.github/workflows/verify.yml` resolves to a package script, and every script no job
-    # invokes is declared by kind in the gate's own table. Reads three committed files and lists the
-    # directories the scripts' paths and globs name; milliseconds. `tools/**`, `scripts/**` and
-    # `apps/**`, the roots a script's path is read under, are in both globs: moving, renaming or
-    # emptying a file a script names changes the verdict (the path and glob checks), and a push that
-    # touched only that file would otherwise skip the job. The selftest's control reads those same
-    # files, and `scripts/**` holds the gate itself. The lockfile pins the js-yaml the gate imports.
+    # Every `run:` token here and in `.github/workflows/verify.yml` resolves to a task of the registry
+    # its launcher reads, every task no job invokes is declared by kind in the gate's own table, and
+    # the tasks have one registry. Reads five committed files, `tasks.toml`, `package.json`,
+    # `mise.toml` and the two job files, and lists the directories the tasks' paths and globs name;
+    # milliseconds. `tools/**`, `scripts/**` and `apps/**`, the roots a task's path is read under, are
+    # in both globs: moving, renaming or emptying a file a task names changes the verdict (the path
+    # and glob checks), and a push that touched only that file would otherwise skip the job. The
+    # selftest's control reads those same files, and `scripts/**` holds the gate itself. The lockfile
+    # pins the js-yaml and smol-toml the gate imports.
     - name: check-jobs
       glob:
+        - 'tasks.toml'
+        - 'mise.toml'
         - 'package.json'
         - 'package-lock.json'
         - 'git-hooks.yml'
@@ -107,9 +115,11 @@ pre-push:
         - 'tools/**'
         - 'scripts/**'
         - 'apps/**'
-      run: node --run check:jobs
+      run: mise run check:jobs
     - name: check-jobs-selftest
       glob:
+        - 'tasks.toml'
+        - 'mise.toml'
         - 'package.json'
         - 'package-lock.json'
         - 'git-hooks.yml'
@@ -117,10 +127,10 @@ pre-push:
         - 'tools/**'
         - 'scripts/**'
         - 'apps/**'
-      run: node --run check:jobs:selftest
+      run: mise run check:jobs:selftest
     # The hook runner itself: every refusal of the job file and the policy over a doctored copy, each
     # asserting its reason, beside the real file; then commits, pushes, a linked worktree, the
-    # install, `npm run gates`, an older Git and a signal, through real Git in scratch repositories
+    # install, `mise run gates`, an older Git and a signal, through real Git in scratch repositories
     # with a bare remote, beside a control commit and push. The glob is the runner, the job file and
     # the policy it reads, the helper its selftest imports, and the manifest and lockfile that pin
     # js-yaml. 27 cases: 18.53 s wall through `node --run` (`/usr/bin/time -p`, one run) on a macOS
@@ -137,7 +147,7 @@ pre-push:
         - 'tools/lib/git-env.ts'
         - 'package.json'
         - 'package-lock.json'
-      run: node --run hooks:selftest
+      run: mise run hooks:selftest
     # Every skill and agent opens with the line CLAUDE.md requires, read out of CLAUDE.md itself, and
     # every prompt is within its word budget in `tools/policy/prompt-budgets.json`: the skills and
     # agents, CLAUDE.md, AGENTS.md, the worktree briefing template, `.beads/PRIME.md` (what `bd prime`
@@ -156,14 +166,14 @@ pre-push:
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
         - 'scripts/check-prompts.mjs'
-      run: node --run check:prompts
+      run: mise run check:prompts
     # Its refusals against a fixture tree it builds under the temporary directory, with one
     # undoctored control. Reads nothing but the gate itself and the policy loader it imports.
     - name: check-prompts-selftest
       glob:
         - 'scripts/check-prompts.mjs'
         - 'tools/lib/policy.ts'
-      run: node --run check:prompts:selftest
+      run: mise run check:prompts:selftest
     # Every record under `tools/policy/` carries its five header fields, a `Means` beside every
     # constant and no `Means` without one; no key is defined in two records; the directory's README
     # names every record and no other, the directory holding nothing else; and `tools/policy.json`,
@@ -176,7 +186,7 @@ pre-push:
         - 'tools/policy.json'
         - 'tools/lib/policy.ts'
         - 'scripts/check-policy.mjs'
-      run: node --run check:policy
+      run: mise run check:policy
     # Its refusals over copies of the live records under the temporary directory, one doctored per
     # case and each asserting its reason, beside the undoctored copy: 0.12 s wall, one run, the same
     # host and day.
@@ -185,7 +195,7 @@ pre-push:
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
         - 'scripts/check-policy.mjs'
-      run: node --run check:policy:selftest
+      run: mise run check:policy:selftest
     # `mise.toml` is the one home of every tool version (docs/decisions.md § D-31): each pin exact
     # and in `mise.lock` for every platform the policy names, one mise for every workflow's
     # `jdx/mise-action` and the dev container, no second home in a workflow, the Dockerfile or a
@@ -220,7 +230,7 @@ pre-push:
         - 'scripts/check-toolchain.mjs'
         - 'package.json'
         - 'package-lock.json'
-      run: node --run check:toolchain
+      run: mise run check:toolchain
     # Its refusals over copies of those files under the temporary directory, one doctored per case and
     # each asserting its reason, beside its controls, and rule 7's through a stub `mise`: 2.02 s wall
     # for its 61 cases, the second of two runs, the same host and day; 4.51 s (the first took 12.37 s)
@@ -240,7 +250,7 @@ pre-push:
         - 'scripts/check-toolchain.mjs'
         - 'package.json'
         - 'package-lock.json'
-      run: node --run check:toolchain:selftest
+      run: mise run check:toolchain:selftest
     # The floor in `package.json` `engines` is not below the lowest version on its major line that
     # every package `package-lock.json` locks accepts, and every locked range is one the gate can read
     # (`README.md` § The Node floor, on every platform). Reads those two files and nothing else:
@@ -251,7 +261,7 @@ pre-push:
         - 'package.json'
         - 'package-lock.json'
         - 'scripts/check-node-floor.mjs'
-      run: node --run check:node-floor
+      run: mise run check:node-floor
     # Each range form it reads, and each refusal, over fixtures it writes under the temporary
     # directory, beside a control that copies the live two files, so they are in the glob too: 28
     # cases, 0.74-0.80 s wall, two runs, the same host and day; 29 since a case for a package.json
@@ -261,10 +271,10 @@ pre-push:
         - 'package.json'
         - 'package-lock.json'
         - 'scripts/check-node-floor.mjs'
-      run: node --run check:node-floor:selftest
+      run: mise run check:node-floor:selftest
     # No glob: the citations gate reads every tracked text file, so any push can change its verdict.
     - name: citations
-      run: node --run citations:check
+      run: mise run citations:check
     # The citations gate held to its fixtures, and run end to end through `CITATIONS_ROOT` over a
     # synthetic git tree: thirteen gate runs (the control and twelve doctored copies), each over a
     # tree built with two git calls, 2.3s wall on a macOS laptop while other worktrees ran their
@@ -280,7 +290,7 @@ pre-push:
         - '.claude/**'
         - '.beads/formulas/**'
         - '.beads/PRIME.md'
-      run: node --run citations:selftest
+      run: mise run citations:selftest
     # The advisory `citations:support`, held to a fixture tree through `CITATIONS_ROOT` with a stubbed
     # judge, and once through the real SDK to a refused loopback connection: no key, no network beyond
     # that. The command itself reads a token and a language model and runs in no job. 2.0 s wall
@@ -293,7 +303,7 @@ pre-push:
         - 'tools/policy/**'
         - 'package.json'
         - 'package-lock.json'
-      run: node --run citations:support:selftest
+      run: mise run citations:support:selftest
     # The worktree hooks and the guard, negative-tested: each case asserts the REASON a refusal
     # reports. Also loads every command `.claude/settings.json` registers from a subdirectory and
     # from outside the checkout, through a stand-in `node` that runs no hook, so the settings file is
@@ -329,7 +339,7 @@ pre-push:
         - 'tools/lib/policy.ts'
         - '.vale.ini'
         - '.gitignore'
-      run: node --run worktree:selftest
+      run: mise run worktree:selftest
     # This repository's own Vale style, `.vale-styles/Layout/`: each rule over a control and one
     # doctored fixture per fault under the temporary directory, each asserting its rule and its line,
     # and every styled section of `.vale.ini` applying it. It runs `vale`, and skips clean, saying
@@ -341,7 +351,7 @@ pre-push:
         - '.vale.ini'
         - '.vale-styles/Layout/**'
         - 'scripts/vale.selftest.mjs'
-      run: node --run vale:selftest
+      run: mise run vale:selftest
     # The Stop and SubagentStop hook, run as the harness runs it over scratch citation trees: an
     # untracked file with a broken pointer turns its verdict to FAIL for that reason, an ignored one
     # does not, and `checkoutOf` places a linked worktree over scratch repositories; and a copy of the
@@ -351,10 +361,10 @@ pre-push:
     # refusing an edit to generated output in a linked worktree with the reason it gives in the primary
     # checkout, over each path of this checkout's `git ls-files` that the redirect table in
     # `scripts/hooks/_shared.mjs` assigns. The hook runs `check:jobs` over this checkout in four of its
-    # seven runs, so the glob carries that gate's inputs too, the whole of `tools/`, `scripts/` and
-    # `apps/` among them. `scripts/**` and `tools/**` also hold the hook, the task loader and the
-    # citations gate it runs. The lockfile pins the `smol-toml` the loader requires to write a
-    # `tasks.toml` fixture.
+    # seven runs, so the glob carries that gate's inputs too, `tasks.toml`, `mise.toml` and the whole
+    # of `tools/`, `scripts/` and `apps/` among them. `scripts/**` and `tools/**` also hold the hook,
+    # the task loader and the citations gate it runs. The lockfile pins the `smol-toml` the loader
+    # requires to write a `tasks.toml` fixture.
     # 3.35-3.43 s wall through `node --run` (`/usr/bin/time -p`, two runs, while other worktrees ran
     # their gates) on a macOS 26.7 laptop (Apple M3 Max) with Node 26.8.1, 2026-09-26: seven hook
     # runs, each two npm starts, three of them against stub gates. 3.60-3.61 s (two runs, the same
@@ -366,6 +376,8 @@ pre-push:
     # `GIT_DIR` cases, 23 runs in 2.40 s.
     - name: gate-summary-selftest
       glob:
+        - 'tasks.toml'
+        - 'mise.toml'
         - 'package.json'
         - 'package-lock.json'
         - 'git-hooks.yml'
@@ -373,7 +385,7 @@ pre-push:
         - 'tools/**'
         - 'scripts/**'
         - 'apps/**'
-      run: node --run gate-summary:selftest
+      run: mise run gate-summary:selftest
     # The register's status line, its parenthetical dates, its mechanism sentence and its summary
     # table, held to the `### D-` headings in both directions; and `CLAUDE.md`, which cites the
     # register without a bound and must not grow one. Three committed files; milliseconds.
@@ -382,13 +394,13 @@ pre-push:
         - 'docs/decisions.md'
         - 'CLAUDE.md'
         - 'scripts/check-register-status.mjs'
-      run: node --run check:register
+      run: mise run check:register
     - name: register-status-selftest
       glob:
         - 'docs/decisions.md'
         - 'CLAUDE.md'
         - 'scripts/check-register-status.mjs'
-      run: node --run check:register:selftest
+      run: mise run check:register:selftest
     # Every living spec and active change under `openspec/` validated strictly by the pinned CLI,
     # every active change trial-archived into a scratch copy, every scenario and NFR requirement held
     # to a unique ID with its capability's prefix from `tools/policy/vocabulary.json` that no archived
@@ -408,7 +420,7 @@ pre-push:
         - 'scripts/lib/bin-path.mjs'
         - 'package.json'
         - 'package-lock.json'
-      run: node --run openspec:check
+      run: mise run openspec:check
     # The gate's refusals against a fixture tree it builds under the temporary directory, with one
     # undoctored control. One or two CLI starts per case; measured at 15.4 s for 54 cases
     # (`/usr/bin/time -p`) on the author's macOS host on 2026-09-28, once the ID cases landed, where
@@ -420,7 +432,7 @@ pre-push:
         - 'tools/lib/policy.ts'
         - 'package.json'
         - 'package-lock.json'
-      run: node --run openspec:selftest
+      run: mise run openspec:selftest
     # Every workflow under `.claude/workflows/` run against stubbed agents: the change-build review
     # with the review sizes and red-first kinds in `tools/policy/agent-workflows.json` (how it stops, how many skeptics
     # it sends, and what it returns), the prompt review with the policy's `promptReview*` keys (which
@@ -456,7 +468,7 @@ pre-push:
         - 'scripts/lib/verify-report.mjs'
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
-      run: node --run workflows:selftest
+      run: mise run workflows:selftest
     # The pull-request reviewer's wiring: the policy's `prReview*` keys whole, and `pr-review.yml`,
     # `verify.yml` and the reviewer's agent spelling the same labels, check and agent. The reviewer
     # itself reads a token and a language model and runs only as `pr-review.yml`. 0.10 s wall
@@ -474,7 +486,7 @@ pre-push:
         - '.claude/agents/pr-reviewer.md'
         - 'package.json'
         - 'package-lock.json'
-      run: node --run pr-review:check
+      run: mise run pr-review:check
     # Every decision over fixtures built from the live policy, each asserting its reason, and the
     # wiring gate over doctored copies of the four files it reads, with an undoctored control. The
     # same files decide its verdict, and the brief's prompt counts are taken over a scratch
@@ -493,17 +505,17 @@ pre-push:
         - '.claude/agents/pr-reviewer.md'
         - 'package.json'
         - 'package-lock.json'
-      run: node --run pr-review:selftest
+      run: mise run pr-review:selftest
     # The calculator's scenarios, each a test named for the IDs it proves under a suite named for its
     # requirement, run by Node's own test runner over `apps/calculator/test/` through
     # `scripts/run-tests.mjs`, which also refuses a matched file that declares no test, a test whose
     # `// trace:` metadata `scripts/test-trace.mjs` refuses, and a test that reader and the runner
     # do not both see. The runner, the reader, the helper it imports and the policy it reads its
-    # hash length, layers and task shape from are in the glob because they decide the verdict. The
-    # manifest is in
-    # the glob for three reasons: it holds the runner's file pattern, its `"type": "module"` is
-    # what makes these `.js` files ES modules, and a test asserts the command `calculator:serve`
-    # runs. The lockfile is in it because it pins any package a test imports, jsdom among them. The
+    # hash length, layers and task shape from are in the glob because they decide the verdict.
+    # `tasks.toml` is in the glob because it holds the runner's file pattern, and `package.json` for
+    # two reasons: its `"type": "module"` is what makes these `.js` files ES modules, and a test
+    # asserts the command `calculator:serve` runs, which it keeps. The lockfile is in it because it
+    # pins any package a test imports, jsdom among them. The
     # server's tests bind free ports on `127.0.0.1`, in-process and in the `serve.js` processes they
     # spawn (the default port among them, while it is free), and one tries a connection to this host's own
     # address on another interface, which a host that drops it unanswered waits 0.5 s on.
@@ -532,9 +544,10 @@ pre-push:
               - 'scripts/lib/test-dirs.mjs'
               - 'tools/policy/**'
               - 'tools/lib/policy.ts'
+              - 'tasks.toml'
               - 'package.json'
               - 'package-lock.json'
-            run: node --run calculator:test
+            run: mise run calculator:test
           # The thresholds of `tools/policy/tool-settings.json` held to the code the branch changes under apps/:
           # every test file but the test-builder's Verify stage's, which runs at Verify, run once with
           # Node's own coverage, its changed code lines and branches counted and the whole product's
@@ -542,7 +555,7 @@ pre-push:
           # runner over the same tests, a change to a test alone mutating nothing; and the ratchet
           # baseline under artifacts/thresholds/ carried from the merge base (the header of
           # scripts/check-thresholds.mjs). It reads the code and tests under apps/, the baseline,
-          # the policy, the manifest's test patterns, the runner, the reader and the helpers they
+          # the policy, the test patterns in `tasks.toml`, the runner, the reader and the helpers they
           # import, and git history; the lockfile pins StrykerJS. The Commands' run,
           # `thresholds:commands:check`, is a CI step and no job here, for its cost, which that
           # header gives (`docs/decisions.md` § D-04, amendment of 2026-09-29). 1.94-1.99 s wall
@@ -565,9 +578,10 @@ pre-push:
               - 'tools/lib/git-env.ts'
               - 'tools/policy/**'
               - 'tools/lib/policy.ts'
+              - 'tasks.toml'
               - 'package.json'
               - 'package-lock.json'
-            run: node --run thresholds:check
+            run: mise run thresholds:check
           # The calculator's tests that run at Build, its contract tests and build-time fitness
           # functions, which the build workflow's test-builder writes under
           # `apps/calculator/test/independent/build/` (the header of
@@ -590,9 +604,10 @@ pre-push:
               - 'scripts/lib/test-dirs.mjs'
               - 'tools/policy/**'
               - 'tools/lib/policy.ts'
+              - 'tasks.toml'
               - 'package.json'
               - 'package-lock.json'
-            run: node --run calculator:test:independent
+            run: mise run calculator:test:independent
     # The test runner's refusals (a matched file that declares no test, a pattern that matches no
     # file, a `--dir` that is not a directory, a test the reader refuses or does not see, one the
     # runner never registers, and a policy without the reader's keys) and its failures, against
@@ -610,12 +625,14 @@ pre-push:
         - 'scripts/lib/test-dirs.mjs'
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
-      run: node --run tests:selftest
+      run: mise run tests:selftest
     # The stand-in for `tests:fresh`, which runs `npm ci` and so reads the network (docs/decisions.md
     # § D-15, item 3): the verifier's fresh run over a fixture repository it builds with git and the
     # trace gate, `npm ci` stubbed, asserting the clone is of HEAD with the checkout's origin/main and
     # no remote and is removed, each refusal by its reason, the join to the record, the tasks'
-    # partition and the one re-run by name. Reads the script and the files it copies into the fixture.
+    # partition and the one re-run by name. Reads the script and the files it copies into the fixture,
+    # whose tasks it runs through `mise run`, and through npm in a commit from before the move; the
+    # manifest and lockfile pin the `smol-toml` the task loader requires for the fixture's `tasks.toml`.
     # 8.82-8.87 s wall through `node --run` (`/usr/bin/time -p`, two runs) on a macOS laptop (Apple M3
     # Max) with Node 26.8.1, 2026-09-29, most of it a clone, a test run and a trace check per case;
     # 15.7-15.8 s with the deadline, SIGTERM and `--tasks` cases, which wait on a sleeping child.
@@ -633,7 +650,9 @@ pre-push:
         - 'tools/trace/**'
         - 'tools/lib/**'
         - 'tools/policy/**'
-      run: node --run tests:fresh:selftest
+        - 'package.json'
+        - 'package-lock.json'
+      run: mise run tests:fresh:selftest
     # The stand-in for `code-graph`, which reads a language model and the person's plan
     # (docs/decisions.md § D-20): the script run against a fixture repository with stub graphify,
     # graphify-mcp and claude first on PATH, asserting the stamp, the withheld API key, the policy's
@@ -655,7 +674,7 @@ pre-push:
         - 'mise.toml'
         - 'package.json'
         - 'package-lock.json'
-      run: node --run code-graph:selftest
+      run: mise run code-graph:selftest
     # The test-trace reader's refusals, each on a doctored copy of a test file's source, and its
     # hash over a fixture spec tree: the definition's text, what moves a hash and what does not, the
     # delta that wins, the refused references, the root override, `cite` refusing a ref no trace
@@ -670,12 +689,12 @@ pre-push:
         - 'tools/lib/policy.ts'
         - 'package.json'
         - 'package-lock.json'
-      run: node --run tests:trace:selftest
+      run: mise run tests:trace:selftest
     # The traceability record re-derived and diffed, and the rules its header holds: rules 5 to 8,
     # every scenario's happy-path and negative test, IDs that resolve, hashes that are current, and
     # the ratchet baseline against the one at the branch's merge base with origin/main. It reads the
     # specs, the tests, contracts and Binding Surfaces under apps/, everything under artifacts/trace/,
-    # the policy, the manifest's test patterns and `--dir` directories, the reader and the helpers
+    # the policy, the test patterns and `--dir` directories in `tasks.toml`, the reader and the helpers
     # it imports, and git history: a commit that changes the record's tasks changes a path under
     # apps/, which the glob holds. The lockfile pins the OpenSpec CLI it trial-archives an active
     # change with. 0.31-0.33 s wall through `node --run` (`/usr/bin/time -p`, two runs) on a macOS
@@ -692,9 +711,10 @@ pre-push:
         - 'scripts/lib/tasks.mjs'
         - 'scripts/lib/test-dirs.mjs'
         - 'tools/policy/**'
+        - 'tasks.toml'
         - 'package.json'
         - 'package-lock.json'
-      run: node --run trace:check
+      run: mise run trace:check
     # The trace gate's refusals, each on a doctored copy of a fixture repository it builds under the
     # temporary directory with the live policy copied in, asserting the reason, beside a control; the
     # baseline's update; the history walk against its ratified fixture, and check, trace and
@@ -721,12 +741,12 @@ pre-push:
         - 'tools/policy/**'
         - 'package.json'
         - 'package-lock.json'
-      run: node --run trace:selftest
+      run: mise run trace:selftest
     # The co-change map re-derived through the trunk commit it records and diffed, and that commit
     # held to origin/main's first-parent chain. Its verdict is a pure function of the files below and
     # of trunk history through that commit, which never changes: a merge to main moves only the note
     # of how many pull requests landed after it. It reads the emitter, the git helpers it imports,
-    # the map, the policy's coupling keys and merge method, and the manifest's script. 0.47-0.50 s
+    # the map, the policy's coupling keys and merge method, and the task that runs it. 0.47-0.50 s
     # wall through `node --run` (`/usr/bin/time -p`, two runs) on a macOS 26.7.1 laptop with Node
     # 26.8.1, 2026-10-02, over 93 merged pull requests.
     - name: coupling-check
@@ -735,8 +755,9 @@ pre-push:
         - 'tools/coupling/**'
         - 'tools/lib/**'
         - 'tools/policy/**'
+        - 'tasks.toml'
         - 'package.json'
-      run: node --run coupling:check
+      run: mise run coupling:check
     # The co-change gate's refusals, each on a doctored copy of a fixture repository it builds under
     # the temporary directory from the ratified history, the live policy copied in with its coupling
     # keys set to the fixture's, asserting the reason, beside a control; the walk against its
@@ -752,7 +773,7 @@ pre-push:
         - 'scripts/lib/tasks.mjs'
         - 'tools/policy/**'
         - 'package.json'
-      run: node --run coupling:selftest
+      run: mise run coupling:selftest
     # The harness assessment (`docs/decisions.md` § D-26), whose two commands read the local code
     # graph or write a local report and run in no job: the core over fixture repositories it builds
     # under the temporary directory, one planted gap per case asserting the keys it adds and their
@@ -772,7 +793,7 @@ pre-push:
         - 'scripts/lib/tasks.mjs'
         - 'package.json'
         - 'package-lock.json'
-      run: node --run harness:selftest
+      run: mise run harness:selftest
     # No test removed, skipped or weakened on this branch without an architect decision recorded in
     # a commit's trailer: the tests at HEAD against the tests at its merge base with origin/main,
     # read from git through the reader. No glob: its verdict also turns on the branch's commit
@@ -781,7 +802,7 @@ pre-push:
     # (`/usr/bin/time -p`, one run through `node --run` and one through `node`) on a macOS 26.7
     # laptop with Node 26.8.1, 2026-09-28, over 75 tests at each commit.
     - name: tests-inventory
-      run: node --run tests:inventory:check
+      run: mise run tests:inventory:check
     # The gate's refusals: in-process over doctored copies of a fixture's test files, and through
     # git over fixture repositories under the temporary directory, a shallow clone and one with no
     # origin/main among them, with undoctored controls and one run of the CLI through
@@ -804,7 +825,7 @@ pre-push:
         - 'tools/lib/policy.ts'
         - 'package.json'
         - 'package-lock.json'
-      run: node --run tests:inventory:selftest
+      run: mise run tests:inventory:selftest
     # The gate's refusals over a fixture repository it builds under the temporary directory, laid out
     # as the calculator is and sized from the live policy's minimum samples, each asserting its reason
     # beside two controls: coverage, the Routines' tap runs, the Commands' command runs, the
@@ -836,11 +857,11 @@ pre-push:
         - 'tools/lib/policy.ts'
         - 'package.json'
         - 'package-lock.json'
-      run: node --run thresholds:selftest
+      run: mise run thresholds:selftest
     # Every value in the count index re-derived from the source the index names for it. No glob: a
     # key's source may be any tracked file, so any push can change its verdict. Milliseconds.
     - name: count-index
-      run: node --run counts:check
+      run: mise run counts:check
     # The gate's refusals, each exercised on a doctored fixture it builds under the temporary
     # directory, with one undoctored control, and the fixture's files counted while `GIT_DIR` names
     # another repository, as it does in a hook in a linked worktree. Reads the gate and the helper
@@ -849,7 +870,7 @@ pre-push:
       glob:
         - 'scripts/check-count-index.mjs'
         - 'tools/lib/git-env.ts'
-      run: node --run counts:selftest
+      run: mise run counts:selftest
     # The tracker's own pre-push hook, and the label, type and foreign-id rules over its open
     # issues: a `repo:` label on every one, a label `assetLabels` in `tools/policy/vocabulary.json` lists on
     # every one filed `discovered-from`, and a type a row of `issueTypes` there names on every one.
@@ -861,7 +882,7 @@ pre-push:
     - name: beads-check
       env:
         NO_COLOR: '1'
-      run: node --run beads:check
+      run: mise run beads:check
     # The gate's refusals over a fixture export and a copy of the committed policy it writes under the
     # temporary directory, read through `BEADS_CHECK_ROOT`, each asserting its reason, with one
     # undoctored control. It runs no `bd`, so it carries a glob: the gate, the policy it copies and
@@ -873,4 +894,4 @@ pre-push:
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
         - 'tools/lib/bd-launcher.ts'
-      run: node --run beads:selftest
+      run: mise run beads:selftest

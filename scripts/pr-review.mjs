@@ -22,11 +22,11 @@
  *                                       print what a run would do, from any checkout with `gh`, and
  *                                       write nothing to GitHub (`act --dry-run` and `brief
  *                                       --dry-run` likewise)
- *   npm run pr-review:check             the wiring gate: the workflow, `verify.yml`, the agent and
+ *   mise run pr-review:check             the wiring gate: the workflow, `verify.yml`, the agent and
  *                                       the policy spell the same labels, check and agent
- *   npm run pr-review:selftest          every decision over fixtures, each asserting its reason,
+ *   mise run pr-review:selftest          every decision over fixtures, each asserting its reason,
  *                                       and the wiring gate over doctored copies
- *   PR_REVIEW_ROOT=<dir> npm run pr-review:check
+ *   PR_REVIEW_ROOT=<dir> mise run pr-review:check
  *                                       the gate over a doctored copy of the four files it reads
  *
  * The subcommands read their inputs from the environment the workflow sets (PR, SHA, ACTION, MORE,

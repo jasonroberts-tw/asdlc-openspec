@@ -27,10 +27,13 @@
  *      root, one with no `origin/main`, and a temporary root that is inside a git repository.
  *   2. `git clone --local --no-checkout` of the root's common git directory, `checkout --detach` of
  *      HEAD, `git remote remove origin`, and `refs/remotes/origin/main` set to the root's
- *      `origin/main`; then `npm ci --no-audit --no-fund`.
+ *      `origin/main`; then `npm ci --no-audit --no-fund`. Every child in the clone has mise trust the
+ *      clone's `mise.toml` through `MISE_TRUSTED_CONFIG_PATHS` (`childEnv`, which says why).
  *   3. Every script that runs `scripts/run-tests.mjs` and neither `--selftest` nor `--name`, in
  *      code-point order, each with `--results`, read from the clone's own tasks through
- *      `scripts/lib/tasks.mjs` rather than named here: today `calculator:test`, the test-builder's `build/` stage
+ *      `scripts/lib/tasks.mjs` rather than named here, and launched as `runTask` launches one:
+ *      `mise run`, or `npm run` in a commit from before the move to mise; a commit with neither
+ *      manifest is refused. Today `calculator:test`, the test-builder's `build/` stage
  *      (`calculator:test:independent`) and its `verify/` stage (`calculator:test:verify`), which no
  *      job runs and which holds the E2E tests and the fitness functions deferred to Verify, so this
  *      run is where they run. Then `check()` of `tools/trace/trace.ts` in a child, and
@@ -54,10 +57,10 @@
  * INVOCATION, from the change's worktree, each as a Bash call given a 600000 ms timeout, the most a
  * call may wait and above the deadline, so the deadline and its cleanup end the call first:
  *
- *   npm run tests:fresh -- <change> --tasks <id>[,<id>...]   the run; `--tasks` from
+ *   mise run tests:fresh <change> --tasks <id>[,<id>...]   the run; `--tasks` from
  *                                                           `bd list --parent <epic> --all --json`
  *   node scripts/fresh-run.mjs <change> --rerun "<name>"     one failing test once more, recorded
- *   npm run tests:fresh:selftest                             its fixtures, stubbing `npm ci`
+ *   mise run tests:fresh:selftest                             its fixtures, stubbing `npm ci`
  *
  * `FRESH_RUN_ROOT` names the checkout to run from, a doctored copy by hand; `FRESH_RUN_TMP` the
  * temporary root the clone goes under (the OS's by default). It exits 0 when it wrote the JSON,
@@ -81,11 +84,11 @@
  * fixed port collides with one serving in the worktree (the maintainer's choice 1, where it loses).
  */
 import { spawn as childSpawn, spawnSync } from 'node:child_process'
-import { cpSync, existsSync, globSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, globSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { arch, platform, release, tmpdir } from 'node:os'
 import { delimiter, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { PACKAGE_JSON, loadTasks, taskFiles } from './lib/tasks.mjs'
+import { PACKAGE_JSON, TASKS_TOML, loadTasks, parseTasks, taskFiles } from './lib/tasks.mjs'
 import { words } from './lib/test-dirs.mjs'
 import { POLICY_DIR, copyPolicy, readPolicy } from '../tools/lib/policy.ts'
 
@@ -107,12 +110,20 @@ const testKey = (file, name) => `${file}\u0000${name}`
 /** The path of a change's fresh-run JSON under `root`. */
 export const verifyFile = (change) => `.scratch/${change}-verify.json`
 
-/** The environment every child runs in: no `GIT_*` key, and this node first in PATH, so npm's children run on it too. */
-function childEnv() {
+/**
+ * The environment every child runs in: no `GIT_*` key, and this node first in PATH, so npm's and
+ * mise's children run on it too. A child in a clone, `trusted`, has mise trust the clone's config
+ * through `MISE_TRUSTED_CONFIG_PATHS`: a clone under the temporary directory is no worktree and
+ * shares no trust, so mise's shim would refuse its `mise.toml` in the install's `prepare`, and a
+ * `mise run` there would write a trust entry for every clone that outlives it (asdlc-openspec-8juz.1,
+ * question 8).
+ */
+function childEnv(trusted = null) {
   const env = {}
   for (const [key, value] of Object.entries(process.env)) if (!key.startsWith('GIT_')) env[key] = value
   env.PATH = `${dirname(process.execPath)}${delimiter}${env.PATH ?? ''}`
   env.npm_config_update_notifier = 'false'
+  if (trusted !== null) env.MISE_TRUSTED_CONFIG_PATHS = [trusted, env.MISE_TRUSTED_CONFIG_PATHS].filter(Boolean).join(delimiter)
   return env
 }
 
@@ -157,13 +168,13 @@ function killGroup(child) {
 }
 
 /**
- * Runs a long child in `cwd` in a process group of its own, killed with everything it started when
+ * Runs a long child in `clone` in a process group of its own, killed with everything it started when
  * the run's deadline passes; `{ status, stdout, stderr, ms, timedOut }`. Never throws on an exit.
  */
-function runChild(command, args, cwd) {
+function runChild(command, args, clone) {
   const started = performance.now()
   return new Promise((done) => {
-    const child = childSpawn(command, args, { cwd, env: childEnv(), detached: process.platform !== 'win32', shell: process.platform === 'win32' && command === 'npm' })
+    const child = childSpawn(command, args, { cwd: clone, env: childEnv(clone), detached: process.platform !== 'win32', shell: process.platform === 'win32' && command === 'npm' })
     live.add(child)
     let stdout = ''
     let stderr = ''
@@ -324,12 +335,25 @@ export function testScripts(scripts) {
 
 const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'))
 
-/** Each test script in the clone, with its exit and its results. */
-async function runScripts(clone, out, scripts) {
+/**
+ * How the clone's task `script` runs with `args`, by the clone's own manifest, as `runTask` in
+ * `scripts/hooks/_shared.mjs` chooses: `mise run --quiet` beside a `tasks.toml`, which hands the
+ * task the arguments after its name and would take a `--` for itself (asdlc-openspec-8juz.1,
+ * question 3), and `npm run --silent` with a `--` before them in a commit from before the move.
+ */
+function launch(manifest, script, args = []) {
+  return manifest.file === TASKS_TOML
+    ? { command: 'mise', args: ['run', '--quiet', script, ...args], label: `mise run ${script}` }
+    : { command: 'npm', args: ['run', '--silent', script, ...(args.length > 0 ? ['--', ...args] : [])], label: `npm run --silent ${script}` }
+}
+
+/** Each test script in the clone, with its exit and its results; `manifest` is the clone's, as `loadTasks` reads it. */
+async function runScripts(clone, out, manifest) {
   const ran = []
-  for (const script of testScripts(scripts)) {
+  for (const script of testScripts(manifest.tasks)) {
     const file = join(out, `${script.replace(/[^a-z0-9]+/gi, '-')}.json`)
-    const run = withinDeadline(await runChild('npm', ['run', '--silent', script, '--', '--results', file], clone), `npm run --silent ${script}`)
+    const { command, args, label } = launch(manifest, script, ['--results', file])
+    const run = withinDeadline(await runChild(command, args, clone), label)
     const results = existsSync(file) ? readJson(file) : null
     ran.push({ script, status: run.status, ms: run.ms, results, output: results ? null : tail(run) })
   }
@@ -351,9 +375,10 @@ async function traceCheck(clone) {
 }
 
 /** The Commands' mutation run, as the gate prints it, or why it did not run; `manifest` is the clone's, as `loadTasks` reads it. */
-async function commandsCheck(clone, { file, tasks }) {
-  if (!tasks[COMMANDS_CHECK]) return { script: COMMANDS_CHECK, skipped: `${file} at this commit has no \`${COMMANDS_CHECK}\`` }
-  const run = withinDeadline(await runChild('npm', ['run', '--silent', COMMANDS_CHECK], clone), `npm run --silent ${COMMANDS_CHECK}`)
+async function commandsCheck(clone, manifest) {
+  if (!manifest.tasks[COMMANDS_CHECK]) return { script: COMMANDS_CHECK, skipped: `${manifest.file} at this commit has no \`${COMMANDS_CHECK}\`` }
+  const { command, args, label } = launch(manifest, COMMANDS_CHECK)
+  const run = withinDeadline(await runChild(command, args, clone), label)
   return { script: COMMANDS_CHECK, status: run.status, ms: run.ms, output: `${run.stdout}${run.stderr}`.replace(/\s+$/, '') }
 }
 
@@ -400,7 +425,7 @@ export function assemble({ change, head, base, tasks, install, scripts, record, 
       seen.set(key, s.script)
       const t = byKey.get(key)
       if (!t) {
-        problems.push(`${r.file}: "${r.name}" ran under \`${s.script}\`, and the record does not list it, so it sorts into no partition; run \`npm run trace\` and commit the record`)
+        problems.push(`${r.file}: "${r.name}" ran under \`${s.script}\`, and the record does not list it, so it sorts into no partition; run \`mise run trace\` and commit the record`)
         continue
       }
       const cited = t.refs.map((ref) => ref.ref.split(/[:@]/)[0])
@@ -441,11 +466,17 @@ export async function freshRun(root, change, { tasks = [], tmp = tmpdir(), insta
   const src = source(root)
   const temporary = temporaryRoot(tmp)
   const run = await guarded(root, deadlineMs, () => withClone({ ...src, commit: src.head, tmp: temporary, install }, async (clone, out, installed) => {
-    const manifest = loadTasks(clone) ?? { file: PACKAGE_JSON, tasks: {} }
-    const scripts = await runScripts(clone, out, manifest.tasks)
+    let manifest
+    try {
+      manifest = loadTasks(clone)
+    } catch (error) {
+      refuse(`the commit's task manifest cannot be read, so no test script can be found: ${error.message}`)
+    }
+    if (manifest === null) refuse(`the commit has neither ${TASKS_TOML} nor ${PACKAGE_JSON}, so it names no test script to run.`)
+    const scripts = await runScripts(clone, out, manifest)
     const trace = await traceCheck(clone)
     const thresholds = await commandsCheck(clone, manifest)
-    if (!existsSync(join(clone, RECORD))) refuse(`the commit has no ${RECORD}, so no test can be sorted: run \`npm run trace\` and commit it.`)
+    if (!existsSync(join(clone, RECORD))) refuse(`the commit has no ${RECORD}, so no test can be sorted: run \`mise run trace\` and commit it.`)
     const record = readJson(join(clone, RECORD))
     const baseline = existsSync(join(clone, BASELINE)) ? readJson(join(clone, BASELINE)).unmet ?? [] : []
     return assemble({ change, head: src.head, base: src.base, tasks, install: installed, scripts, record, baseline, trace, thresholds, fitness: fitnessRecords(clone) })
@@ -561,6 +592,18 @@ const SLEEP_ENV = 'FRESH_RUN_SELFTEST_SLEEP'
 const COMMANDS_STUB = 'node stub/commands.mjs'
 /** The selftest's task id that no fixture test cites, passed where a case does not choose its own. */
 const OTHER_TASK = 'asdlc-openspec-fx.9'
+/** The fixture's `mise.toml`: this repository's task settings and `[task_config]`, and no tool. */
+const FIXTURE_MISE = [
+  '[settings]',
+  'task.output = "interleave"',
+  'task.quiet = true',
+  'task.timings = false',
+  '',
+  '[task_config]',
+  'dir = "{{cwd}}"',
+  'includes = ["tasks.toml"]',
+  '',
+].join('\n')
 const SPEC = `# calculator Specification
 
 ## Purpose
@@ -624,7 +667,8 @@ async function buildFixture(base) {
     'calculator:test:verify': `node ${RUNNER} --dir ${VERIFY_DIR}`,
     [COMMANDS_CHECK]: COMMANDS_STUB,
   }
-  for (const [path, text] of Object.entries(taskFiles(PACKAGE_JSON, scripts, { type: 'module' }))) write(dir, path, text)
+  for (const [path, text] of Object.entries(taskFiles(TASKS_TOML, scripts, { type: 'module' }))) write(dir, path, text)
+  write(dir, 'mise.toml', FIXTURE_MISE)
   write(
     dir,
     'stub/commands.mjs',
@@ -635,7 +679,10 @@ async function buildFixture(base) {
       'if (marker) {',
       '  writeFileSync(marker, String(process.pid))',
       '  setTimeout(() => {}, 20000)',
-      "} else console.log('thresholds:commands:check: every threshold holds, as the stub prints it.')",
+      '} else {',
+      "  console.log('thresholds:commands:check: every threshold holds, as the stub prints it.')",
+      "  console.log(`trusted: ${process.env.MISE_TRUSTED_CONFIG_PATHS ?? '(none)'}`)",
+      '}',
       '',
     ].join('\n'),
   )
@@ -671,11 +718,15 @@ async function buildFixture(base) {
   return { dir, a, b, hash, surface }
 }
 
-/** A stub for `npm ci` that installs nothing and records what the clone's git says. */
+/**
+ * A stub for `npm ci` that downloads nothing, links this checkout's `node_modules` into the clone,
+ * which the loader needs to read a `tasks.toml` there, and records what the clone's git says.
+ */
 function stubInstall(seen, { status = 0 } = {}) {
   return async (clone) => {
+    symlinkSync(join(REPO_ROOT, 'node_modules'), join(clone, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir')
     const trunk = spawn('git', ['rev-parse', '--verify', '--quiet', `${TRUNK}^{commit}`], clone)
-    seen.push({ remotes: git(clone, ['remote']), trunk: trunk.status === 0 ? trunk.stdout.trim() : '(none)', head: git(clone, ['rev-parse', 'HEAD']) })
+    seen.push({ clone, remotes: git(clone, ['remote']), trunk: trunk.status === 0 ? trunk.stdout.trim() : '(none)', head: git(clone, ['rev-parse', 'HEAD']) })
     return { status, stdout: '', stderr: status ? 'the stub install failed on purpose' : '', ms: 0, command: 'stub install' }
   }
 }
@@ -705,6 +756,8 @@ function selftestCases() {
         if (run.problems.length) return `problems: ${run.problems.join(' | ')}`
         if (run.trace.error || run.trace.failures.length) return `the trace came back ${JSON.stringify(run.trace)}`
         if (run.thresholds.status !== 0 || !/as the stub prints it/.test(run.thresholds.output)) return `the thresholds came back ${JSON.stringify(run.thresholds)}`
+        const trusted = /^trusted: (.*)$/m.exec(run.thresholds.output)?.[1] ?? ''
+        if (!trusted.split(delimiter).includes(seen[0].clone)) return `the clone's tasks ran with MISE_TRUSTED_CONFIG_PATHS ${JSON.stringify(trusted)}, not naming the clone ${seen[0].clone}`
         if (run.fitness.length !== 1 || run.fitness[0].environment !== 'verify') return `the fitness records came back ${JSON.stringify(run.fitness)}`
         return leftovers.length ? `left ${leftovers.join(', ')} under the temporary root` : null
       }),
@@ -732,7 +785,7 @@ function selftestCases() {
         fixtureGit(dir, ['commit', '--quiet', '-am', `Only the sleeping child runs (${TASK})`])
       },
       expect: (o) =>
-        refusedFor(/^`npm run --silent thresholds:commands:check` did not finish within the run's deadline of 3 s/)(o) ??
+        refusedFor(/^`mise run thresholds:commands:check` did not finish within the run's deadline of 3 s/)(o) ??
         (o.leftovers.length ? `left ${o.leftovers.join(', ')}` : o.sleeperAlive ? `the sleeping child ${o.sleeper} still runs` : null),
     },
     {
@@ -745,6 +798,33 @@ function selftestCases() {
         if (o.sleeperAlive) return `the sleeping child ${o.sleeper} still runs`
         return existsSync(join(o.dir, verifyFile(CHANGE))) ? 'it wrote the run' : null
       },
+    },
+    {
+      // A commit from before the move to mise: its scripts run through npm, given their arguments after a `--`.
+      name: 'a commit whose tasks are package.json scripts runs them through npm, with the same results',
+      doctor: (dir) => {
+        const tasks = parseTasks(TASKS_TOML, readFileSync(join(dir, TASKS_TOML), 'utf8'))
+        rmSync(join(dir, TASKS_TOML))
+        for (const [path, text] of Object.entries(taskFiles(PACKAGE_JSON, tasks, { type: 'module' }))) write(dir, path, text)
+        fixtureGit(dir, ['add', '-A'])
+        fixtureGit(dir, ['commit', '--quiet', '-m', `The tasks in package.json (${TASK})`])
+      },
+      expect: ran(({ run }) => {
+        const got = run.tests.map((t) => `${t.name}|${t.status}|${t.script}`).sort().join(' ; ')
+        const want = [`${HAPPY}|pass|calculator:test`, `${HAPPY}|pass|calculator:test:verify`, `${NEGATIVE}|pass|calculator:test`, `${TASK_TEST}|pass|calculator:test`].sort().join(' ; ')
+        if (got !== want) return `the tests came back ${got}`
+        return run.thresholds.status === 0 && /as the stub prints it/.test(run.thresholds.output) ? null : `the thresholds came back ${JSON.stringify(run.thresholds)}`
+      }),
+    },
+    {
+      name: 'a commit with neither tasks.toml nor package.json is refused',
+      doctor: (dir) => {
+        rmSync(join(dir, TASKS_TOML))
+        rmSync(join(dir, PACKAGE_JSON))
+        fixtureGit(dir, ['add', '-A'])
+        fixtureGit(dir, ['commit', '--quiet', '-m', `No task manifest (${TASK})`])
+      },
+      expect: refusedFor(/^the commit has neither tasks\.toml nor package\.json, so it names no test script to run\./),
     },
     {
       name: 'a tree with a change no commit holds is refused',

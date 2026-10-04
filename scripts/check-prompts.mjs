@@ -48,8 +48,8 @@
  *
  * INVOCATION.
  *
- *   npm run check:prompts                     the gate
- *   npm run check:prompts:selftest            its fixtures -- every refusal exercised on a doctored copy
+ *   mise run check:prompts                     the gate
+ *   mise run check:prompts:selftest            its fixtures -- every refusal exercised on a doctored copy
  *   node scripts/check-prompts.mjs --counts   every prompt's words and its budget, in code-point
  *                                             order of path; it refuses nothing
  *

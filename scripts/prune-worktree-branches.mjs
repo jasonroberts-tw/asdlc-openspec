@@ -5,7 +5,7 @@
  *
  *   node scripts/prune-worktree-branches.mjs [--dry-run] [--trunk <ref>] [--repo <path>]
  *                                            [--finished <worktree>]...
- *   npm run worktree:gc [-- --finished <worktree>]
+ *   mise run worktree:gc [--finished <worktree>]
  *
  * THE TWO DEFECTS THIS PREVENTS.
  *

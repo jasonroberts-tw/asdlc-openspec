@@ -9,7 +9,7 @@
  * refuses one. On 2026-09-23 a quoted pattern that matched no file printed `tests 0` and exited 0
  * (asdlc-openspec-frm). On 2026-09-25, with Node 26.8.1, a file that matched the pattern and declared
  * no test was reported as ONE PASSING TEST, named for the file's own path (`tests 1`, `pass 1`, exit
- * 0), so a guard on the reported total would not see it either. `npm run calculator:test`, its
+ * 0), so a guard on the reported total would not see it either. `mise run calculator:test`, its
  * pre-push job and its CI step ran `node --test` directly, and could read green over a suite that ran
  * nothing. `check:jobs` has refused a package script's quoted pattern that matches no file since
  * asdlc-openspec-zgh.5; nothing refused the file that matches and holds no test.
@@ -69,12 +69,12 @@
  *
  * INVOCATION.
  *
- *   node scripts/run-tests.mjs "<pattern>" [...]   the run; `npm run calculator:test` is one
- *   node scripts/run-tests.mjs --dir <dir> [...]   every test file under <dir>; `npm run
+ *   node scripts/run-tests.mjs "<pattern>" [...]   the run; `mise run calculator:test` is one
+ *   node scripts/run-tests.mjs --dir <dir> [...]   every test file under <dir>; `mise run
  *                                                  calculator:test:independent` is one
  *   node scripts/run-tests.mjs --name "<name>" "<file>"   the one test of that name, run once more
  *   ... --results <file>                           the results as JSON, too
- *   npm run tests:selftest                         its fixtures -- each refusal on a doctored tree
+ *   mise run tests:selftest                         its fixtures -- each refusal on a doctored tree
  *
  * A pattern is a glob relative to the repository root, quoted so that this script expands it with
  * `fs.globSync` and the shell does not. By hand, point `RUN_TESTS_ROOT` at a doctored copy and the

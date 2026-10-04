@@ -320,7 +320,7 @@ describe('The page needs no other origin', () => {
 })
 
 describe('Every response (not a spec scenario)', () => {
-  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@7f0235d48d40
   test('[asdlc-openspec-zgh.3] The page, a miss and a refused method carry the policy, a type and a length', async () => {
     const answers = {
       200: await ask(calculator.port, '/'),
@@ -338,7 +338,7 @@ describe('Every response (not a spec scenario)', () => {
     assert.equal(answers[405].headers.allow, 'GET')
   })
 
-  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@7f0235d48d40
   test('[asdlc-openspec-zgh.3] Every method but GET is refused, HEAD among them', async () => {
     for (const method of ['HEAD', 'PUT', 'DELETE', 'OPTIONS']) {
       const answer = await ask(calculator.port, '/', method)
@@ -347,7 +347,7 @@ describe('Every response (not a spec scenario)', () => {
     }
   })
 
-  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@7f0235d48d40
   test('[asdlc-openspec-zgh.3] CONNECT is refused too, though Node hands it past the request handler', async () => {
     const answer = await askRaw(
       calculator.port,
@@ -362,7 +362,7 @@ describe('Every response (not a spec scenario)', () => {
     assert.equal(answer.body, (await ask(calculator.port, '/', 'POST')).body)
   })
 
-  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@7f0235d48d40
   test('[asdlc-openspec-zgh.3] A CONNECT client that keeps its side open cannot keep a stopped server open', async (t) => {
     const local = await startServer(PUBLIC_DIR)
     // Once answered, this client never closes its own side, so only the server can end the
@@ -393,7 +393,7 @@ describe('Every response (not a spec scenario)', () => {
     assert.equal(stopped, true, `still open ${STOP_BOUND_MS} ms after it was stopped`)
   })
 
-  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@7f0235d48d40
   test('[asdlc-openspec-zgh.3] A query is ignored and the path is matched exactly', async () => {
     const page = await ask(calculator.port, '/')
     const byName = await ask(calculator.port, '/index.html')
@@ -417,7 +417,7 @@ describe('Every response (not a spec scenario)', () => {
     }
   })
 
-  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@7f0235d48d40
   test('[asdlc-openspec-zgh.3] Only the listing taken at creation is served; a vanished file is not found', async (t) => {
     const dir = scratchDir(t)
     writeFileSync(join(dir, 'index.html'), '<!doctype html><title>t</title>\n')
@@ -438,7 +438,7 @@ describe('Every response (not a spec scenario)', () => {
     }
   })
 
-  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@7f0235d48d40
   test('[asdlc-openspec-zgh.3] A file replaced by a directory, or its directory by a file, is not found', async (t) => {
     const dir = scratchDir(t)
     writeFileSync(join(dir, 'index.html'), '<!doctype html><title>t</title>\n')
@@ -460,7 +460,7 @@ describe('Every response (not a spec scenario)', () => {
     }
   })
 
-  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-zgh.3 surface:apps/calculator/binding-surface.md@7f0235d48d40
   test('[asdlc-openspec-zgh.3] A symbolic link is not followed', async (t) => {
     const dir = scratchDir(t)
     const outside = scratchDir(t)
@@ -479,7 +479,7 @@ describe('Every response (not a spec scenario)', () => {
     assert.equal((await ask(local.port, '/linked.js')).status, 404)
   })
 
-  // trace: asdlc-openspec-zgh.9 surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-zgh.9 surface:apps/calculator/binding-surface.md@7f0235d48d40
   test('[asdlc-openspec-zgh.9] A file that is there and cannot be read is a 500, with the policy, a type and a length', async (t) => {
     const dir = scratchDir(t)
     writeFileSync(join(dir, 'index.html'), '<!doctype html><title>t</title>\n')

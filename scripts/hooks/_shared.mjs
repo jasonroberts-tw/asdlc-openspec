@@ -150,31 +150,31 @@ const REDIRECTS = [
     owns: (rel) => rel === 'artifacts/trace/record.json',
     what: 'traceability record (tools/trace/trace.ts)',
     where: 'the specs under openspec/, the tests, contracts or Binding Surface under apps/, or the commits it reads',
-    command: 'npm run trace',
+    command: 'mise run trace',
   },
   {
     owns: (rel) => rel === 'artifacts/trace/README.md',
     what: "README of the trace record's directory (tools/trace/trace.ts)",
     where: '`README_TEXT` in tools/trace/trace.ts',
-    command: 'npm run trace',
+    command: 'mise run trace',
   },
   {
     owns: (rel) => rel === 'artifacts/trace/baseline.json',
     what: 'ratchet baseline (tools/trace/trace.ts), which may fall and never rise',
     where: 'the test that meets an obligation it lists; nothing adds one',
-    command: 'npm run trace:update',
+    command: 'mise run trace:update',
   },
   {
     owns: (rel) => rel === 'artifacts/thresholds/baseline.json',
     what: 'ratchet baseline of undetected mutants (scripts/check-thresholds.mjs), which may fall and never rise',
     where: 'the test that detects a mutant it lists, or a `Stryker disable next-line` comment with its reason; nothing adds one',
-    command: 'npm run thresholds:update',
+    command: 'mise run thresholds:update',
   },
   {
     owns: (rel) => rel === 'artifacts/coupling/cochange.json',
     what: 'co-change map of the pull requests merged to main (tools/coupling/coupling.ts)',
-    where: 'tools/coupling/coupling.ts or its `coupling*` keys in tools/policy/tool-settings.json; `npm run coupling:update` moves its baseline',
-    command: 'npm run coupling',
+    where: 'tools/coupling/coupling.ts or its `coupling*` keys in tools/policy/tool-settings.json; `mise run coupling:update` moves its baseline',
+    command: 'mise run coupling',
   },
 ]
 
@@ -196,22 +196,26 @@ const NPM = WINDOWS ? 'npm.cmd' : 'npm'
 /**
  * How `runTask` launches the task `name` in the checkout at `cwd`, read from that checkout's own
  * manifest through `scripts/lib/tasks.mjs`: `{ command, args, label }`, or `{ refused }` with why.
- * A checkout with a `tasks.toml` runs it with `mise run --quiet`, and one without with
- * `npm run --silent`, so the primary checkout's copy of a hook runs a worktree's gates on either
- * side of the move to mise (asdlc-openspec-8juz.6). A task that manifest lacks is refused, never
- * launched: mise resolves a name a checkout lacks from a checkout above it, so a worktree's gate
- * would run the primary checkout's definition there, and pass on the wrong tree (asdlc-openspec-8juz.1,
- * question 1). Exported so `gate-summary.selftest.mjs` holds the choice without starting either.
+ * A checkout with a `tasks.toml` runs it with `mise run --quiet`, and one without, cut before the
+ * move to mise, with `npm run --silent`, so the primary checkout's copy of a hook runs a worktree's
+ * gates on either side of the move (asdlc-openspec-8juz.6). A task that manifest lacks is refused,
+ * never launched: mise resolves a name a checkout lacks from a checkout above it, so a worktree's
+ * gate would run the primary checkout's definition there, and pass on the wrong tree
+ * (asdlc-openspec-8juz.1, question 1). Exported so `gate-summary.selftest.mjs` holds the choice
+ * without starting either.
  */
 export async function taskLaunch(name, cwd = ROOT) {
   let manifest
+  let lib
   try {
-    const { loadTasks } = await import('../lib/tasks.mjs')
-    manifest = loadTasks(cwd)
+    lib = await import('../lib/tasks.mjs')
+    manifest = lib.loadTasks(cwd)
   } catch (error) {
     return { refused: `the task manifest in ${cwd} cannot be read: ${error.message}` }
   }
-  if (manifest === null) return { refused: `${cwd} has neither tasks.toml nor package.json, so it defines no task \`${name}\`.` }
+  if (manifest === null) {
+    return { refused: `${cwd} has neither ${lib.TASKS_TOML} nor ${lib.PACKAGE_JSON}, so it defines no task \`${name}\`.` }
+  }
   if (!Object.hasOwn(manifest.tasks, name)) {
     return {
       refused:
@@ -219,7 +223,7 @@ export async function taskLaunch(name, cwd = ROOT) {
         ' checkout that defines it, since mise would take a definition from a checkout above this one.',
     }
   }
-  return manifest.file === 'tasks.toml'
+  return manifest.file === lib.TASKS_TOML
     ? { command: 'mise', args: ['run', '--quiet', name], label: `mise run ${name}` }
     : { command: NPM, args: ['run', '--silent', name], label: `npm run ${name}` }
 }

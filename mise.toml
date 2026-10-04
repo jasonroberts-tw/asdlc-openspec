@@ -1,16 +1,18 @@
 # The one home of every tool version this repository installs (docs/decisions.md § D-31). CI's
 # `jdx/mise-action`, the dev container's image and README.md § Setup each install from this file
-# through `mise.lock`, and nothing else states a version it pins. `npm run check:toolchain` holds
+# through `mise.lock`, and nothing else states a version it pins. `mise run check:toolchain` holds
 # that: each pin exact, each in the lockfile for every platform `toolchainLockPlatforms` in
 # tools/policy/tool-settings.json names, and no second install of any of them. After a change here,
 # run `mise install`, which records a new or moved pin in the lock, then `mise lock --platform` with
 # that list, comma-separated, and commit both files and `.mise/locks/`.
 #
 # Not here, each on purpose: Git, a system prerequisite whose floor scripts/git-hooks.mjs holds;
-# Claude Code, which updates itself; and the npm packages, which package.json and its lockfile pin.
+# Claude Code, which updates itself; the npm packages, which package.json and its lockfile pin; and
+# the tasks, which `tasks.toml` holds, so that a task's edit is not an edit to this file
+# (docs/decisions.md § D-35). `check:jobs` refuses a task defined here.
 
 # The oldest mise that reads this file as written. Every workflow's `jdx/mise-action` and the dev
-# container's image pin one mise, no older than this, and `npm run check:toolchain` holds the three.
+# container's image pin one mise, no older than this, and `mise run check:toolchain` holds the three.
 min_version = "2026.10.0"
 
 [tools]
@@ -63,3 +65,19 @@ uv = "0.12.22"
 # default: turned off, it ran the system's Node too, while left on it installs a moved pin at its
 # next use.
 not_found_system_fallback = false
+# A task prints only what its command prints: no `[<task>]` prefix, no echo of the command and no
+# timing, so `mise run <task>` writes what `node --run <task>` wrote, byte for byte; a failing task
+# adds one line, `[<task>] ERROR task failed`, on stderr (asdlc-openspec-8juz.1, question 4).
+task.output = "interleave"
+task.quiet = true
+task.timings = false
+
+[task_config]
+# A task runs in the directory `mise run` is called from. mise reads every config from the working
+# directory up, so in a worktree under `.claude/worktrees/` a task the worktree's `tasks.toml` lacks
+# resolves to the primary checkout's: without this line it ran there, and a gate passed on the
+# wrong tree (asdlc-openspec-8juz.1, question 1). With it, such a task runs against the worktree's
+# own files, and `runTask` in scripts/hooks/_shared.mjs refuses one before mise sees it.
+dir = "{{cwd}}"
+# The one file the tasks come from.
+includes = ["tasks.toml"]

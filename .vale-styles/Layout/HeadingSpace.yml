@@ -1,6 +1,6 @@
 # A heading with no blank line before it, outside front matter and fenced code: what an edit leaves
 # when it inserts or renumbers an entry above a heading, as the register's D-15 heading kept on
-# `main` (asdlc-openspec-m7p). `npm run vale:selftest` holds it.
+# `main` (asdlc-openspec-m7p). `mise run vale:selftest` holds it.
 extends: script
 message: "Put a blank line before this heading."
 level: error

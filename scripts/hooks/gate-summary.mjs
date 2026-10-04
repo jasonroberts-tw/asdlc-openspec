@@ -63,7 +63,7 @@
  *
  *   node scripts/hooks/gate-summary.mjs    no flags; registered as the `Stop` and `SubagentStop`
  *                                          hook in `.claude/settings.json`, and safe to run by hand
- *   npm run gate-summary:selftest          its fixtures (`gate-summary.selftest.mjs`)
+ *   mise run gate-summary:selftest          its fixtures (`gate-summary.selftest.mjs`)
  *
  * Each gate's own root override passes through, so a by-hand run can point it at a doctored copy:
  * `CITATIONS_ROOT=<dir> node scripts/hooks/gate-summary.mjs`, which is how the selftest runs this

@@ -185,7 +185,7 @@ describe('Keyboard input', () => {
 })
 
 describe('Page wiring (not a spec scenario)', () => {
-  // trace: asdlc-openspec-zgh.2 surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-zgh.2 surface:apps/calculator/binding-surface.md@7f0235d48d40
   test('[asdlc-openspec-zgh.2] A chain clicked through every button reaches the logic', () => {
     const page = openPage()
     const clickAll = (texts) => texts.forEach((text) => click(page, text))
@@ -212,7 +212,7 @@ describe('Page wiring (not a spec scenario)', () => {
     assert.equal(page.display.textContent, '67890')
   })
 
-  // trace: asdlc-openspec-zgh.2 surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-zgh.2 surface:apps/calculator/binding-surface.md@7f0235d48d40
   test('[asdlc-openspec-zgh.2] A calculator key typed with AltGr still counts', () => {
     // The spec's keys work "whatever modifier the keyboard layout needs". Windows reports AltGr as
     // Ctrl+Alt, which the page otherwise reads as a shortcut, so AltGr is told apart by its own

@@ -3,8 +3,8 @@
  * fires on the fault it names, at the line it is on, and on nothing else; and every section of
  * `.vale.ini` that lints Markdown with a style applies it.
  *
- *   npm run vale:selftest                           the cases below
- *   VALE_SELFTEST_ROOT=<dir> npm run vale:selftest  the same, over a doctored copy of `.vale.ini` and
+ *   mise run vale:selftest                           the cases below
+ *   VALE_SELFTEST_ROOT=<dir> mise run vale:selftest  the same, over a doctored copy of `.vale.ini` and
  *                                                   `.vale-styles/Layout/` under <dir>
  *
  * WHAT IT WOULD LET THROUGH IF IT WERE WRONG. The rules run in the vale@agent-tools plugin's hook on

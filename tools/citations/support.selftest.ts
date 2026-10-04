@@ -1,5 +1,5 @@
 /**
- * `npm run citations:support:selftest` -- does `citations:support` still judge what it should, skip
+ * `mise run citations:support:selftest` -- does `citations:support` still judge what it should, skip
  * what it should, and fail when it should?
  *
  * WHAT IT HOLDS. `support.ts` is held to a fixture tree whose answer is known by construction, read
@@ -22,7 +22,7 @@
  * reason in the message, and never fall back. One case goes through the real SDK to a closed
  * loopback port, so the wiring in `tools/lib/typesafe.ts` is held to that too, not only the stub.
  *
- *   npm run citations:support:selftest
+ *   mise run citations:support:selftest
  *   node tools/citations/support.ts --selftest      the same
  *
  * Needs `git` on PATH, to build the fixture tree, and `npm ci`, for the one case that goes through the

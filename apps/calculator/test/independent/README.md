@@ -13,5 +13,5 @@ the spec disagree, the spec wins and the test is rewritten by the test-builder.
 | Path | What it holds |
 |---|---|
 | `README.md` | This file. No test is here yet: the calculator has no contract artifact under `apps/calculator/contracts/` and no NFR (`apps/calculator/binding-surface.md` § 1. Contract artifacts and § 2. Module boundaries and dependency rules), so no task of it has had a contract or fitness test to write. |
-| `build/` | The tests that run at Build, contract tests and build-time fitness functions, which `npm run calculator:test:independent` runs at each push and in CI; `build/README.md` has one row per file. |
-| `verify/` | The tests that run at Verify, E2E tests and Verify-deferred fitness functions, which `npm run calculator:test:verify` runs; `verify/README.md` has one row per file. |
+| `build/` | The tests that run at Build, contract tests and build-time fitness functions, which `mise run calculator:test:independent` runs at each push and in CI; `build/README.md` has one row per file. |
+| `verify/` | The tests that run at Verify, E2E tests and Verify-deferred fitness functions, which `mise run calculator:test:verify` runs; `verify/README.md` has one row per file. |

@@ -34,7 +34,7 @@
  *   5. a manifest whose own `Files:` / `Total bytes:` header disagrees with its rows
  *
  * EVERY CHECK READS ONLY COMMITTED FILES OF THIS REPOSITORY, so nothing here skips: no sibling
- * checkout, no network, no Windows desktop. This is the rule the `add-npm-script` skill states for a
+ * checkout, no network, no Windows desktop. This is the rule the `add-task` skill states for a
  * check over committed files -- the SOURCE may only be reachable on one machine, but the check that
  * reads what was committed must run on all of them -- and check 1 is the whole point of the gate.
  * It runs at `pre-push` and in `.github/workflows/verify.yml`, and CI is the run that matters: CI is

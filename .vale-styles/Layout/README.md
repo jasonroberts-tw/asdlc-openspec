@@ -4,7 +4,7 @@
 `vale@agent-tools` hook names one on the edit that makes it.** `.vale.ini` applies it to every
 section that lints Markdown with a style. It is tracked although the rest of `.vale-styles/` is not:
 `.gitignore` re-includes this directory, `vale sync` leaves it in place, and `scripts/new-worktree.sh`
-copies a worktree only the synced styles it lacks. `npm run vale:selftest` holds each rule.
+copies a worktree only the synced styles it lacks. `mise run vale:selftest` holds each rule.
 
 | File | What it refuses |
 |---|---|

@@ -14,7 +14,7 @@
  * it. Each case breaks one thing and asserts the refusal's own words, so a case cannot pass
  * because another rule refused.
  *
- * INVOCATION. `npm run coupling:selftest`. Nothing to point at a copy: it builds its own.
+ * INVOCATION. `mise run coupling:selftest`. Nothing to point at a copy: it builds its own.
  *
  * NEEDS git, and the live records under `tools/policy/`, which the fixture copies with the `coupling*`
  * keys set to the ratified fixture's values, so a change to another key the gate reads is felt here; one
@@ -122,7 +122,7 @@ function cases(): Case[] {
     {
       name: 'map: none',
       doctor: (dir) => rmSync(join(dir, MAP)),
-      expect: /^map: artifacts\/coupling\/cochange\.json does not exist; run `npm run coupling:update`/,
+      expect: /^map: artifacts\/coupling\/cochange\.json does not exist; run `mise run coupling:update`/,
     },
     {
       name: 'map: a count edited by hand',
@@ -143,7 +143,7 @@ function cases(): Case[] {
     {
       name: 'map: a file in artifacts/coupling/ the emitter does not write',
       doctor: (dir) => writeFileSync(join(dir, 'artifacts/coupling/notes.txt'), 'a note\n'),
-      expect: /^map: artifacts\/coupling\/notes\.txt is a file neither `npm run coupling` nor `npm run coupling:update` writes/,
+      expect: /^map: artifacts\/coupling\/notes\.txt is a file neither `mise run coupling` nor `mise run coupling:update` writes/,
     },
     {
       name: 'baseline: no throughCommit',
@@ -352,7 +352,7 @@ function others(base: string, control: string): Result[] {
   })
   attempt("the hand-edit guards name the emitter as the map's owner", () => {
     const message = generatedFileRedirect(MAP) ?? ''
-    return [/npm run coupling/.test(message) && /tools\/coupling\/coupling\.ts/.test(message), JSON.stringify(message.slice(0, 200))]
+    return [/mise run coupling/.test(message) && /tools\/coupling\/coupling\.ts/.test(message), JSON.stringify(message.slice(0, 200))]
   })
 
   const cli = (dir: string, args: string[], env: NodeJS.ProcessEnv = {}) =>

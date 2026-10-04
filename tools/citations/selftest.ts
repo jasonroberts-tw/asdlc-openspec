@@ -1,5 +1,5 @@
 /**
- * `npm run citations:selftest` -- does the citation scanner still BITE?
+ * `mise run citations:selftest` -- does the citation scanner still BITE?
  *
  * A resolution gate has one characteristic failure and it is not a false alarm: it is going quietly
  * green. Narrow the regex by a character, resolve a path one strategy too eagerly, or let the
@@ -23,7 +23,7 @@
  * the live registry breaks whenever the registry legitimately changes. Section 6 now counts a tree
  * whose answer is known by construction, and section 7 holds the region shapes to its own registry.
  *
- *   npm run citations:selftest
+ *   mise run citations:selftest
  *
  * Needs `git` on PATH, to build the synthetic tree; no `../sibling` checkout and no network.
  */

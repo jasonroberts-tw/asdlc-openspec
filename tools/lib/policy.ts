@@ -12,7 +12,7 @@
  * gates would hold one constant to two values while each passed. Or a reader would see a moved key
  * as absent, and fall back to a default or skip a refusal with no reason given. So it refuses a key
  * that two records define, and a record that is not a JSON object, rather than merging past either.
- * `npm run check:policy` holds the records' shape; this holds only what every reader needs to read
+ * `mise run check:policy` holds the records' shape; this holds only what every reader needs to read
  * them at all.
  *
  * INVOCATION.

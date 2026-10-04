@@ -449,7 +449,7 @@ check(
  * graphify's `update`, `watch` and `hook install` rebuild the local code graph through the path that
  * erodes its document layer, and `claude install` writes graphify's advice to run `update` into
  * CLAUDE.md (docs/decisions.md § D-20), so the guard refuses each, in the primary checkout as in a
- * worktree. Each refusal is asserted by its reason, which names the command, `npm run code-graph`
+ * worktree. Each refusal is asserted by its reason, which names the command, `mise run code-graph`
  * and D-20, and the module cases hold each way Python reads `-m`. The controls are graphify's
  * reading commands, which must still run, and the near misses: a command that shares a first word
  * with a refused one, a refused word as another command's argument or as graphify's second, and a
@@ -461,7 +461,7 @@ console.log("guard-git: graphify's eroding commands, from any checkout")
 const graphifyRefusal = (words) => (r) =>
   r.code === 2 &&
   r.stderr.includes(`\`graphify ${words}\``) &&
-  r.stderr.includes('npm run code-graph') &&
+  r.stderr.includes('mise run code-graph') &&
   r.stderr.includes('docs/decisions.md § D-20')
 for (const [label, dir, words, command] of [
   ['graphify update, in the primary checkout', primary, 'update', 'graphify update .'],

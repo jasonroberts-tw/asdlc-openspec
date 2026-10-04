@@ -30,9 +30,9 @@
  *
  * INVOCATION.
  *
- *   npm run check:policy                          the gate
- *   npm run check:policy:selftest                 its fixtures -- every refusal on a doctored copy
- *   POLICY_CHECK_ROOT=<dir> npm run check:policy  the same gate over a doctored copy
+ *   mise run check:policy                          the gate
+ *   mise run check:policy:selftest                 its fixtures -- every refusal on a doctored copy
+ *   POLICY_CHECK_ROOT=<dir> mise run check:policy  the same gate over a doctored copy
  *
  * NEEDS only committed files: the records and `tools/policy/README.md`. No tool, no network.
  * 0.09 s wall for the gate and 0.12 s for its selftest through `node --run` (`/usr/bin/time -p`, one

@@ -87,7 +87,7 @@ setup() {
   # second time after them (docs/decisions.md § D-22).
   if [ -f scripts/git-hooks.mjs ]; then
     node scripts/git-hooks.mjs --install >/dev/null 2>&1 \
-      || warn 'installing the git hooks failed -- run `npm run hooks:install` to see why'
+      || warn 'installing the git hooks failed -- run `mise run hooks:install` to see why'
   fi
 
   # The Dolt remote is already configured in .beads/config.yaml (refs/dolt/data on the GitHub
@@ -158,6 +158,6 @@ setup || true
 credentials || true
 
 # Last, so that anything above it reads as a warning about a container that is otherwise ready.
-log 'ready: bd ready | npm run gates | claude'
+log 'ready: bd ready | mise run gates | claude'
 
 exec "$@"

@@ -70,7 +70,7 @@
  *
  * INVOCATION.
  *
- *   npm run workflows:selftest    every case, against the tracked workflow and policy
+ *   mise run workflows:selftest    every case, against the tracked workflow and policy
  *
  * By hand, point `WORKFLOWS_ROOT` at a copy whose workflow or policy you have doctored, to see which
  * case catches the change:
@@ -1285,7 +1285,7 @@ const reviewArgs = (policy, groups, extra = {}) => ({
   ...extra,
 })
 
-const gateRun = (passed) => ({ command: 'npm run check:prompts', passed, output: passed ? 'ok' : '1 problem' })
+const gateRun = (passed) => ({ command: 'mise run check:prompts', passed, output: passed ? 'ok' : '1 problem' })
 
 /** A clean change answering finding `f`, to the file its key names. */
 const change = (f) => ({
@@ -2535,7 +2535,7 @@ function verifyCases(policy) {
     {
       name: "a row with no test takes its tracer's result, of the gate or check it ran",
       args: verifyArgs(policy),
-      scenario: { traces: { alpha: (g) => cleanTrace(g, (s) => (s === 'Two plus two' ? { tests: [], proof: 'npm run openspec:check', result: 'pass' } : s === 'Zero plus zero' ? { tests: [], proof: 'npm run openspec:check', result: 'fail' } : null)) } },
+      scenario: { traces: { alpha: (g) => cleanTrace(g, (s) => (s === 'Two plus two' ? { tests: [], proof: 'mise run openspec:check', result: 'pass' } : s === 'Zero plus zero' ? { tests: [], proof: 'mise run openspec:check', result: 'fail' } : null)) } },
       expect: ['gaps', tallyOf(0, 0, 0, 1)],
       check: ({ result }) => {
         const pass = rowOf(result, 'Two plus two')
@@ -2859,7 +2859,7 @@ function verifyCases(policy) {
         ]
       : [unexercised('a kept design reading', 'the policy gives no design lens')]),
     refused('refused: a commit that is not one', verifyArgs(policy, { commit: 'HEAD' }), /^args\.commit must be the commit traced/),
-    refused('refused: a fresh run of another commit than the one traced', verifyArgs(policy, { run: stubRun({ commit: PREVIOUS }) }), /^args\.run is the fresh run at fedcba98\w+, not 0123456789\w+: run `npm run tests:fresh` at the commit traced/),
+    refused('refused: a fresh run of another commit than the one traced', verifyArgs(policy, { run: stubRun({ commit: PREVIOUS }) }), /^args\.run is the fresh run at fedcba98\w+, not 0123456789\w+: run `mise run tests:fresh` at the commit traced/),
     refused('refused: no fresh run', verifyArgs(policy, { run: undefined }), /^args\.run must be the fresh run/),
     lenses >= 1
       ? refused(

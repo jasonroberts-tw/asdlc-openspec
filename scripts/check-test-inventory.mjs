@@ -96,8 +96,8 @@
  *
  * INVOCATION.
  *
- *   npm run tests:inventory:check        the gate, over this checkout's HEAD and `origin/main`
- *   npm run tests:inventory:selftest     each refusal over fixture repositories it builds under
+ *   mise run tests:inventory:check        the gate, over this checkout's HEAD and `origin/main`
+ *   mise run tests:inventory:selftest     each refusal over fixture repositories it builds under
  *                                        the temporary directory, beside undoctored controls
  *
  * By hand, point `TEST_INVENTORY_ROOT` at a doctored repository and the gate reads its HEAD and its
