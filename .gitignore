@@ -46,6 +46,11 @@ mise.local.lock
 # Unanchored, so a stray build inside a worktree is ignored as well.
 graphify-out/
 
+# Python's bytecode caches. A Python process that imports a tracked Python file, such as
+# `tools/harness/graph.py`, rather than running it, writes one beside it, and a commit that adds
+# every file would carry it. Unanchored, so a cache anywhere in the tree is ignored.
+__pycache__/
+
 # The starter kit's bootstrap state. Delete this entry with KIT-CHECKLIST.md once the checklist is
 # done.
 .kit/

@@ -110,6 +110,8 @@ Some paths appear only on a working machine and are gitignored, each with its re
 - `.vale-styles/`, all but `Layout/`: the styles `vale sync` downloads.
 - `graphify-out/`: the local code graph `npm run code-graph` builds, never committed
   (`docs/decisions.md` § D-20).
+- `__pycache__/`, anywhere in the tree: the bytecode cache Python writes beside a tracked Python
+  file that another Python process imports.
 
 Every file is one of three kinds: hand-maintained source, a hand-authored decision record (JSON
 that emitters read and nothing writes) or generated output that nothing edits by hand
