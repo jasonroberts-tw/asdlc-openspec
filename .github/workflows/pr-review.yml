@@ -1,38 +1,27 @@
-# The pull-request reviewer: one pull request at a time, Claude Code reviews its head against the
-# issues its title cites, and the reviewer merges it when every dimension passes and its risk is not
-# high (`docs/decisions.md` § D-07). Claude Code only returns a verdict; `scripts/pr-review.mjs`
-# decides what the verdict does, by the `prReview*` keys of `tools/policy/pr-review.json`.
+# The pull-request reviewer: one pull request at a time, the queue decides its head by the floor
+# alone, and the reviewer merges it when no changed path or key is on the floor
+# (`docs/decisions.md` § D-07, as § D-37 amends it). `scripts/pr-review.mjs` decides, by the
+# `prReview*` keys of `tools/policy/pr-review.json`; no language model and no secret takes part.
+# Beside the decision, the verdict prints each changed file's reach and its co-change partners as
+# evidence for a person, which decides nothing.
 #
-# THE INCIDENTS. On 2026-09-25 the review of pull request #47 (run 36191751066) failed before it read
-# anything: `bd bootstrap` found no `bd` binary (asdlc-openspec-61t). `@beads/bd`'s postinstall
-# downloads the binary only when `CI` is unset, Actions sets `CI=true` on every step, and the install
-# exited 0 all the same. The first diagnosis blamed the `allowScripts` warning npm 11.19.0 printed,
-# but that warning withholds nothing yet, and its fix, `--allow-scripts` alone, still skipped the
-# download when measured with `CI=true`. So the install step unset `CI`, passed `--allow-scripts`
-# for the npm that will enforce it, and ran `bd --version` itself, and `pr-review:check` held all
-# three. Since 2026-10-03 bd comes through `jdx/mise-action` from its own GitHub release, which has
-# no postinstall to skip (docs/decisions.md § D-31), so the first two went with the npm install;
-# `bd --version` stays, as a step of its own before `bd bootstrap`, and `pr-review:check` holds
-# that and the install.
+# THE INCIDENT. On 2026-10-04 (asdlc-openspec-qcqm) the verdicts on the 41 pull requests merged after
+# 003a5f6 showed the model this workflow ran deciding nothing the floor had not: every pull request it
+# judged high risk was already high by the floor, and its two requests for changes fell on pull
+# requests the floor sent to a person anyway. Until then the review job held an Anthropic workload
+# identity, four Actions secrets, an OIDC token and the tracker's CLI, each with an incident of its own
+# (`git log -- .github/workflows/pr-review.yml` before D-37); none of them is needed now. The job that
+# merges was always kept from the model; now it is kept from every package too.
 #
-# The same day, the first reviews to reach Claude Code (run 36194854141 and after) failed in the
-# action with "--json-schema was provided but Claude did not return structured_output"
-# (asdlc-openspec-2se). The action says that whenever the session ends in an error, and it hides the
-# error itself, even in debug mode. There were two causes, and only the Anthropic console showed
-# either. First, the federation rule matched a name-only subject, which GitHub no longer issues here
-# (authentication history: `match_subject_prefix`). Then the organisation had no API credit, so the
-# first request made with a valid token failed at no cost. A replayed token (`jti_reused`) was
-# suspected in between, and the authentication history ruled it out. NEEDS below states both.
-#
-# WHAT ELSE IT WOULD LET THROUGH IF IT WERE WRONG. Written 2026-09-25 (asdlc-openspec-mi6), before the
-# first run. Two runs merging at once would each judge a base the other was about
-# to move; a pending run cancelled by a newer one would leave its pull request unreviewed until the
-# schedule; and a job that checked out a pull request's head would run that pull request's code with
-# this workflow's token. So every run that reviews or merges shares one concurrency group whose
-# pending runs queue rather than cancel; a run takes one action and re-dispatches itself while more
-# are waiting; every job checks out the trunk and reads a pull request only as data; and the job that
-# runs Claude Code holds a read-only token and no tool that writes, while the job that merges cannot
-# reach Anthropic at all: it has neither `id-token: write` nor the identity's secrets.
+# WHAT ELSE IT WOULD LET THROUGH IF IT WERE WRONG. Two runs merging at once would each judge a base the
+# other was about to move; a pending run cancelled by a newer one would leave its pull request
+# undecided until the schedule; a job that checked out a pull request's head would run that pull
+# request's code with this workflow's token; and evidence computed in the job that merges would load
+# the harness's packages beside the write token. So every run that reviews or merges shares one
+# concurrency group whose pending runs queue rather than cancel; a run takes one action and
+# re-dispatches itself while more are waiting; every job checks out the trunk and reads a pull request
+# only as git objects; the job that computes the evidence holds a token that reads only; and the job
+# that merges installs no package and imports only files on the floor. `pr-review:check` holds each.
 #
 # INVOCATION. It runs on its triggers. By hand, `gh workflow run pr-review.yml` wakes the queue, and
 # `gh workflow run pr-review.yml -f pr=<number>` reviews that pull request again at its head.
@@ -45,18 +34,9 @@
 # The queue reviews a head that passed `verify` whether or not it was marked. The `mark` job that did
 # it on every new head was retired on 2026-09-28 (asdlc-openspec-08a).
 #
-# NEEDS. An Anthropic federation rule that accepts this workflow's OIDC token when it runs on `main`,
-# with audience `https://api.anthropic.com`. While the repository's `use_immutable_subject` is on,
-# GitHub issues the subject with the owner's and the repository's ids,
-# `repo:<owner>@<owner id>/<repo>@<repo id>:ref:refs/heads/main`, and a rule written for
-# `repo:<owner>/<repo>:...` refuses it; `gh api repos/{owner}/{repo}/actions/oidc/customization/sub`
-# prints this repository's prefix. The rule's ids are the Actions secrets
-# ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID, ANTHROPIC_SERVICE_ACCOUNT_ID and
-# ANTHROPIC_WORKSPACE_ID; no API key is stored anywhere. The organisation needs API credit: with
-# none, the review step fails with "did not return structured_output". It also needs `bd` at the
-# version `mise.toml` pins, the tracker's database, cloned read-only from this
-# repository's `refs/dolt/data` over HTTPS, and the network. It reads a token, a language model and
-# the network, so it is neither a pre-push job nor a `verify.yml` step
+# NEEDS. Only the run's own `github.token`, the network to GitHub, and the toolchain `mise.toml` pins;
+# the evidence job also installs the packages `package-lock.json` pins, with their install scripts off.
+# It reads a token and the network, so it is neither a pre-push job nor a `verify.yml` step
 # (`CLAUDE.md` § The gate ladder): `pr-review:check` holds its wiring to the policy, and
 # `pr-review:selftest` holds every decision, from those tiers.
 name: pr-review
@@ -125,102 +105,50 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           FORCE_PR: ${{ inputs.pr }}
-          # A `pull_request_target` run's OIDC subject is `…:pull_request`, which a federation
-          # rule pinned to `main` refuses, so such a run only merges, and hands a review to a
-          # dispatch on `main`.
-          EVENT_NAME: ${{ github.event_name }}
 
-  review:
+  evidence:
     needs: select
     if: needs.select.outputs.action == 'review'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
-    # Read-only: whatever the pull request persuades the reviewer of, this token can write nothing.
-    # `id-token: write` is the one grant beyond reading, and this job alone has it: GitHub's OIDC
-    # token is what the action exchanges for a short-lived Anthropic token.
+    timeout-minutes: 15
+    # Read-only: the trunk's harness and co-change code runs here, over the pull request's files read
+    # as git objects, and nothing it computes can write.
     permissions:
       contents: read
-      pull-requests: read
-      id-token: write
     outputs:
-      verdict: ${{ steps.claude.outputs.structured_output }}
-      facts: ${{ steps.brief.outputs.facts }}
-    env:
-      PR: ${{ needs.select.outputs.pr }}
-      SHA: ${{ needs.select.outputs.sha }}
+      evidence: ${{ steps.evidence.outputs.evidence }}
     steps:
-      # The trunk with its history: the merge base, and the reviewer's working directory.
+      # The trunk with its whole history: the merge base, and every pull request the co-change map
+      # counts.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      # The tracker's CLI, beside Node and gh, at the versions `mise.toml` pins: bd from its own
-      # GitHub release, verified against the checksum `mise.lock` holds (docs/decisions.md § D-31).
-      - name: install the toolchain mise.toml pins, the tracker's CLI among it
-        uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
+      - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.10.0
           sha256: 57ced973f968b8fbab07aa8e32bd7077d4a357e200a22356d98963c723c6de0a
-      # An install that left no binary fails here rather than at `bd bootstrap` (the incident in this
-      # file's header), and the log shows the version the review read the tracker with.
-      - name: the tracker's CLI answers, at the version mise.toml pins
-        run: bd --version
+      # The harness reads its hook file with js-yaml and its tasks with smol-toml, which
+      # `package-lock.json` pins; no install script runs.
+      - name: install the packages the harness imports, with no install script
+        run: npm ci --ignore-scripts
+      - id: evidence
+        name: the reach and co-change partners of the head, as evidence that decides nothing
+        run: node scripts/pr-review.mjs evidence
         env:
-          NO_COLOR: '1'
-      - name: clone the tracker read-only
-        run: |
-          chmod 700 .beads
-          bd bootstrap --yes --sandbox
-        env:
-          BD_SYNC_REMOTE: git+https://github.com/${{ github.repository }}.git
-          NO_COLOR: '1'
-      - id: brief
-        name: write the brief, the diff and each changed file at the head
-        run: node scripts/pr-review.mjs brief
-        env:
-          GH_TOKEN: ${{ github.token }}
-          # The runner's temporary directory, outside the checkout: nothing there is `main`'s, and
-          # neither `.gitignore` nor a `CLAUDE.md` of the pull request's applies to it.
-          REVIEW_DIR: ${{ runner.temp }}/pr-review
-      - id: claude
-        name: review
-        uses: anthropics/claude-code-action@v1
-        with:
-          # Workload identity federation: no API key exists to store, leak or rotate. The four ids
-          # are Actions secrets, not variables or committed values, so a public log masks them.
-          # An `anthropic_api_key` here would silently win over them, and `pr-review:check`
-          # refuses one.
-          anthropic_federation_rule_id: ${{ secrets.ANTHROPIC_FEDERATION_RULE_ID }}
-          anthropic_organization_id: ${{ secrets.ANTHROPIC_ORGANIZATION_ID }}
-          anthropic_service_account_id: ${{ secrets.ANTHROPIC_SERVICE_ACCOUNT_ID }}
-          anthropic_workspace_id: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
-          github_token: ${{ github.token }}
-          # The session hooks guard agents that edit; the reviewer edits nothing. Writing to the
-          # prompt cache is the largest part of a review's cost, and a review lasts minutes, so it
-          # writes at the five-minute lifetime, not the one-hour one at twice the input price
-          # (asdlc-openspec-tvv3).
-          settings: '{"disableAllHooks": true, "promptCacheTtl": "5m"}'
-          prompt: >-
-            Review pull request #${{ needs.select.outputs.pr }} at head commit
-            ${{ needs.select.outputs.sha }}. Your brief is ${{ runner.temp }}/pr-review/brief.md.
-          # The agent's own file allows exactly Read, Grep, Glob and StructuredOutput, the tool the
-          # verdict's schema is answered through (the incident in `scripts/pr-review.mjs`'s header).
-          # The run denies what writes or reaches out as well, so that file is not the only guard.
-          claude_args: >-
-            --agent pr-reviewer
-            --add-dir ${{ runner.temp }}/pr-review
-            --max-turns 80
-            --disallowedTools Bash,Edit,Write,NotebookEdit,WebFetch,WebSearch,Agent,mcp__*
-            --json-schema '${{ steps.brief.outputs.schema }}'
+          PR: ${{ needs.select.outputs.pr }}
+          SHA: ${{ needs.select.outputs.sha }}
 
   act:
-    needs: [select, review]
-    # Runs after a skipped review too (a merge needs none), and after a failed one, to record it.
+    needs: [select, evidence]
+    # Runs after a skipped evidence job too (a merge needs none), and after a failed one: the decision
+    # is the floor's, and the verdict says the evidence was not computed.
     if: >-
       !cancelled() && needs.select.result == 'success'
       && needs.select.outputs.action != 'none'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # No `id-token: write` and no Anthropic identity here: the job that can merge never runs the model.
+    # No package installed here: this job imports only files on the floor, so nothing a pull request
+    # could change without a person runs with this token.
     permissions:
       contents: write
       pull-requests: write
@@ -230,13 +158,16 @@ jobs:
       # After a merge, `verify.yml` on `main`; while more is waiting, this workflow again.
       actions: write
     steps:
+      # The trunk with its whole history, so the merge base of the pull request's head is found.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       # The toolchain `mise.toml` pins, as in the `select` job.
       - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
         with:
           version: 2026.10.0
           sha256: 57ced973f968b8fbab07aa8e32bd7077d4a357e200a22356d98963c723c6de0a
-      - name: post the verdict, set the labels and the status, and merge
+      - name: decide the head from the floor, post the verdict, set the labels and the status, and merge
         run: node scripts/pr-review.mjs act
         env:
           GH_TOKEN: ${{ github.token }}
@@ -244,6 +175,5 @@ jobs:
           PR: ${{ needs.select.outputs.pr }}
           SHA: ${{ needs.select.outputs.sha }}
           MORE: ${{ needs.select.outputs.more }}
-          REVIEW_RESULT: ${{ needs.review.result }}
-          VERDICT: ${{ needs.review.outputs.verdict }}
-          FACTS: ${{ needs.review.outputs.facts }}
+          EVIDENCE: ${{ needs.evidence.outputs.evidence }}
+          EVIDENCE_RESULT: ${{ needs.evidence.result }}
