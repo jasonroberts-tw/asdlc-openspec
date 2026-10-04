@@ -169,9 +169,8 @@ export const meta = {
  *   layer `architectRunLayers` lists that declares `runAt` build, and `verify` for every other, so
  *   the package script that runs the build stage at push and in CI runs no E2E test or
  *   Verify-deferred fitness function (`docs/test-strategy.md` § Build exit criteria). A task naming
- *   no ID gets no test-builder to write its own tests, and says so; an earlier file the architect
- *   routes `rewrite-test` still goes to one, and its rewrite keeps the earlier file's exemption,
- *   below, and runs at the next architect round. Its code can still break what an earlier task's tests
+ *   no ID gets no test-builder to write its own tests, and says so; one still rewrites an earlier file
+ *   the architect routes `rewrite-test` (Running, below). Its code can still break what an earlier task's tests
  *   cover, so the architect still runs every build-stage file an earlier task committed, below, and
  *   triages each failure as for any task: a regression surfaces at the task that caused it, not
  *   first among the gates of `.claude/skills/change-build/SKILL.md` § 6. Repeat, then hand over.
@@ -185,9 +184,9 @@ export const meta = {
  *   Here, a first pass is a pass, a failure then a pass is flaky and counts as failing, and two
  *   failures fail. A file left behind, or a committed one changed or removed, stops the run as
  *   not-independent before any fixer runs. A file of this task's whose tests name an ID the task does
- *   not is routed to rewrite-test here, and runs at no architect; an earlier file names earlier tasks'
- *   IDs, and is exempt by its path, so a rewrite of it is too, which the runner writes before it runs
- *   it. An earlier file that fails is triaged as this task's are, and a rewrite of it
+ *   not is routed to rewrite-test here, and runs at no architect. An earlier file names earlier tasks'
+ *   IDs and is exempt by its path, so its rewrite is exempt too, and the runner writes the rewrite
+ *   before it runs it. An earlier file that fails is triaged as this task's are, and its rewrite
  *   comes back in `independent.files` for the parent to write; one left unchanged never does. Every
  *   earlier file runs, not only those whose scope the task touches: the strategy reruns the tests of
  *   the elements a task changes, and no rule here could tell which those are without reading the code,
@@ -1409,9 +1408,8 @@ if (!I) return finish(...reviewEnd)
  * The architect: run the test-builder's tests, route each failure, act on the routes. Every
  * build-stage file an earlier task committed, as Setup read it, runs beside this task's: `earlier`
  * files are run where they stand, never written or removed, and come back to the parent only rewritten.
- * A rewrite comes back as the test-builder returns it, without `earlier`, so the runner writes it and
- * the parent gets it; its exemption from the check on the IDs its tests name goes by its path, which
- * the rewrite keeps. A task naming no ID has no test-builder files of its own, so the earlier ones run
+ * `exempt` holds their paths, so a rewrite, stored without `earlier`, keeps the exemption (the header's
+ * Running paragraph). A task naming no ID has no test-builder files of its own, so the earlier ones run
  * alone; with no earlier one either, nothing is left to run and the review's end is the run's.
  */
 const taskFiles = tests ? tests.files : []
