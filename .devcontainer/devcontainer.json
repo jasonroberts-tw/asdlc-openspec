@@ -56,8 +56,10 @@
 
   "customizations": {
     "vscode": {
-      // Editor wiring for gates the repository already enforces -- not environment setup.
-      "extensions": ["dbaeumer.vscode-eslint", "esbenp.prettier-vscode", "anthropic.claude-code"]
+      // Claude Code's extension, for the agent the image installs and every skill here is written
+      // for. No ESLint or Prettier extension: no gate here runs either and no config for either is
+      // committed, so one would lint and format by its own defaults, which nothing here holds.
+      "extensions": ["anthropic.claude-code"]
     }
   },
   "overrideCommand": false
