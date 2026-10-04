@@ -106,8 +106,7 @@ jobs:
         run: mise run vale:selftest
       # Milliseconds: each workflow under `.claude/workflows/` against stubbed agents, with the policy's
       # review sizes, prompt-review threshold and skeptic counts, and the stored prompt cases' lenses
-      # and repetitions, with every stored case under `.claude/prompt-cases/`, and the prompt workflows'
-      # readers run for real through `scripts/prompt-case-texts.mjs`, in a fixture git repository.
+      # and repetitions, with every stored case under `.claude/prompt-cases/`.
       - name: the workflows stop, confirm and report as their policy says
         run: mise run workflows:selftest
       # Milliseconds: the reviewer's wiring and its decisions, with the policy's values. The reviewer
