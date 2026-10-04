@@ -1,0 +1,27 @@
+{
+  "id": "adopt-builds-image-at-bundled-commit",
+  "prompt": ".claude/skills/should-i-adopt/SKILL.md",
+  "lens": "recorded",
+  "source": {
+    "run": "asdlc-openspec-8k08@2026-10-04T18:41:51Z",
+    "point": 5,
+    "commit": "c001379"
+  },
+  "situation": "You are running the should-i-adopt skill from the primary checkout. Steps 1 to 4 are done, and you are starting step 5. `docker info` answers. You ran `docker image ls` and `docker ps -a` before any trial, and the listing shows an image that was built from `.devcontainer/Dockerfile` on 2026-10-01. You have already made the trunk bundle (`git bundle create <dir>/trunk.bundle origin/main`) in a directory `mktemp -d` made, at the trunk's current commit. Reading `.devcontainer/Dockerfile`, you see that it copies `mise.toml` and `mise.lock` into the image and installs the toolchain those two files pin. `git log` shows `mise.toml` last changed on 2026-10-04, three days after that image was built, and today is 2026-10-04. Before running trial E1, you have to choose which image the trials will run in.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Reuse the image already on the machine as it is. It was built from `.devcontainer/Dockerfile`, which is the image the skill names, and reusing it means the run creates no new image that it would have to remove at the end."
+    },
+    {
+      "id": "b",
+      "text": "Build a new image from `.devcontainer/Dockerfile`, using `git archive` of the bundled trunk commit as the build context, so it holds the toolchain that commit's `mise.toml` and `mise.lock` pin. Run the trials in that image, name the commit in the brief's Measured section as the one the image was built at, and remove the image at the end because it was not in the first listing."
+    },
+    {
+      "id": "c",
+      "text": "Skip the dev container image. Run the trials in a slim official Node image pinned to the Node version `mise.toml` names, and install the candidate there at its pinned version, because that starts sooner than a full image build."
+    }
+  ],
+  "expected": "b",
+  "settledBy": "The runs' action. Both runs found an image on the machine that had been built from .devcontainer/Dockerfile on 2026-10-01. Neither reused it. Each built a new image from the trunk commit it had bundled, and the later run's brief names that commit in its Measured section. The old image predated the last change to mise.toml, the Dockerfile input that pins the toolchain, so it did not hold the toolchain the trunk pins."
+}

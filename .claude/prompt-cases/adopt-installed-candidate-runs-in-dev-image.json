@@ -1,0 +1,27 @@
+{
+  "id": "adopt-installed-candidate-runs-in-dev-image",
+  "prompt": ".claude/skills/should-i-adopt/SKILL.md",
+  "lens": "near-miss",
+  "source": {
+    "run": "asdlc-openspec-jpnk@2026-10-04T20:01:37Z",
+    "point": 1,
+    "commit": "67f954f"
+  },
+  "situation": "You are running should-i-adopt from the primary checkout. The candidate is a Markdown linter that would be added to `package.json` as a devDependency and run as a pre-commit job over staged files. It is an npm package with an optional native dependency, and its install script offers to register a Git hook. Steps 1 to 4 are done. The claims that would decide the verdict are three. First, whether its install writes into the shared `.git/hooks` or sets `core.hooksPath`. Second, whether its optional native build really succeeds or quietly falls back. Third, how long it takes on a commit of staged files, compared with the pre-commit tier's latency. `docker info` answers, you have saved the `docker image ls` and `docker ps -a` listings, and `trunk.bundle` of `origin/main` sits in a directory `mktemp -d` made. The image `.devcontainer/Dockerfile` builds holds the harness's toolchain and Claude Code. The linter's maintainers also publish a container image of it, tagged for each release with an index digest, and their documentation calls it the supported way to run the linter. It is a minimal image holding only the linter and its runtime. Before E1, you have to choose which image or images trials E1 to E3 run in.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Run E1 to E3 in the maintainers' published image, pinned by its release tag and index digest, with the trunk bundle mounted read-only and fetched into it, and have the brief's Trials section name that image."
+    },
+    {
+      "id": "b",
+      "text": "Build the image from `.devcontainer/Dockerfile`, fetch the trunk from the read-only bundle into it, install the linter there with npm at the pinned version, and run E1 to E3 in that container."
+    },
+    {
+      "id": "c",
+      "text": "Split the trials across two images. The trunk, Git and the test commit run in the image `.devcontainer/Dockerfile` builds, and the linter runs from the maintainers' published image, pinned by tag and digest, on a Docker network of their own. The brief names which image ran what."
+    }
+  ],
+  "expected": "b",
+  "settledBy": "Settled by the section's own sentence in step 5 of the skill, the one that says to use the image `.devcontainer/Dockerfile` builds and to pin the candidate's version. Its stated reason, that a slim image lacks a compiler and the Git the hooks need and that npm exits 0 on a failed optional build, is exactly what the three deciding claims test. Friction questions 4 and 8 point the same way. The finding's three runs bear this out: each kept the harness's toolchain and the clients in the dev container image, and ran only the candidate's own server from the candidate's image. Nothing installed into the harness ever ran from the candidate's image, so a candidate that installs into the trunk is outside what the runs did. This is a near-miss case. A rule broadened to say any candidate with a published image runs from it would pick option 1 or 3, and both are wrong here."
+}

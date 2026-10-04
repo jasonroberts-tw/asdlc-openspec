@@ -1,0 +1,27 @@
+{
+  "id": "adopt-pins-version-before-source-subagent",
+  "prompt": ".claude/skills/should-i-adopt/SKILL.md",
+  "lens": "recorded",
+  "source": {
+    "run": "asdlc-openspec-jpnk@2026-10-04T20:01:37Z",
+    "point": 5,
+    "commit": "67f954f"
+  },
+  "situation": "You are running should-i-adopt from the primary checkout. The candidate is a CLI with a public GitHub repository. Steps 1 to 3 are done: you have named the problem with its evidence, found no prior decision, and mapped every file, hook and policy record adopting it would touch. `docker info` answers, and you have listed the images and containers already there. Before you write the friction table you want a subagent to read the candidate's source and answer several of the step-4 questions with file citations: what it writes outside its own files, how it resolves paths in a linked worktree, and which commands it runs. You have not yet chosen the release the container trials will install. The repository publishes tagged releases, and its default branch has commits after the newest one. You are about to write the subagent's brief.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Launch the subagent now against the default branch so it reads while you settle the trial version. Before filing, re-read at the chosen release the file behind any claim that decides the verdict."
+    },
+    {
+      "id": "b",
+      "text": "Run `gh release list` first and pin the newest stable release as the version the trials will install. Give the subagent that tag, so every file it cites is at that tag."
+    },
+    {
+      "id": "c",
+      "text": "Launch the subagent now against the default branch, and record that branch's head commit as the candidate's version in the brief's Measured line."
+    }
+  ],
+  "expected": "b",
+  "settledBy": "The run's action and its outcome, set against an earlier run's cost. The later run ran `gh release list` and pinned the newest stable release (v1.104.0) before it launched its source-reading subagent, and it gave the subagent that tag. Every citation came back at that tag, and the session re-derived the one count that disagreed with its own before filing. An earlier run of the skill that morning launched its subagent before it knew the tag. That subagent read the default branch (4387a1a), not the tag the trials ran (router-v0.2.28), and overstated one claim. The session caught it only by re-reading the tag's file before filing."
+}
