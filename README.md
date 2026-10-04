@@ -22,19 +22,21 @@ failure it prevents.
 - application development workflow (OpenSpec)
 - skills & agents - how agents operate, how they do work (not a complete list)
 	- fan-out-work: analyzes backlog, creates lanes where predicted changes don't overlap, dispatches in parallel
-	- open-pr: creates structured PR and waits for reviewer with guidance on how to reply
-	- pr-reviewer: runs in CI, measures three dimensions (correctness, maintainability, blast radius). has threshold for auto-approval
+	- open-pr: creates structured PR, runs the branch-reviewer before the push, and waits for the pull-request reviewer
+	- branch-reviewer: runs before each push, judges three dimensions (correctness, maintainability, blast radius)
+	- pull-request reviewer: runs in CI with no model; merges what is off the high-risk floor, and prints each changed file's reach and co-change partners as evidence
 - tools/policy/: conventions, definitions, configuration
 - optional dev container for increased workload isolation
 
 ## Principles
 
 **A person decides; agents propose and build.** A person reviews each change's proposal before its
-build starts, decides whether each change a prompt review proposes merges, and approves every pull
-request the reviewer judges high risk or cannot verify. Nothing a program proposes instructs an agent
-until then (`CLAUDE.md` § A program proposes; only a person promotes). The rest merge through the
-pull-request reviewer, one at a time, once each satisfies the issues it carries
-(`docs/decisions.md` § D-07).
+build starts, and approves every pull request on the high-risk floor: a change to CI, the rules,
+the toolchain, a dependency, a recorded decision or the reviewer itself. Nothing a program proposes
+instructs an agent until then, but for a prompt review off the floor (`CLAUDE.md` § A program
+proposes; only a person promotes). The rest merge through the pull-request reviewer, one at a time,
+once `verify` passes; whether each does what its issues ask is the branch review's, before its push
+(`docs/decisions.md` § D-07 and § D-37).
 
 **It is built to learn from its own runs.** A defect a run finds outside the files its issue
 changes is filed as an issue of its own, labelled with the kind of file it would change, so the
@@ -97,7 +99,7 @@ level above them. `apps/` and `openspec/` hold the product; every other path is 
 | `tasks.toml` | Every task the hooks, CI and the prompts run by name, through `mise run <name>`, each with a `description` of what it does; § The tasks has one row each, giving the tier it runs at. `package.json` keeps two scripts beside it, `prepare` and `calculator:serve` (`docs/decisions.md` § D-36), and `mise run check:jobs` holds the two lists apart. |
 | `.vale.ini`, `.vale-styles/Layout/` | The configuration of Vale, the prose linter the `vale@agent-tools` hook runs on each edit of prose, and `Layout`, the one style this repository writes itself. |
 | `.github/workflows/verify.yml` | The slowest tier: every gate that reads only committed files, on every pull request and every push to `main`. |
-| `.github/workflows/pr-review.yml` | The pull-request reviewer: one pull request at a time, Claude Code judges it against the issues its title cites, and it merges when every dimension passes and the risk is not high. |
+| `.github/workflows/pr-review.yml` | The pull-request reviewer: one pull request at a time, it merges one whose changes are off the high-risk floor and leaves the rest to a person, with no model and no secret. Its verdict prints each changed file's reach and co-change partners as evidence that decides nothing. |
 | `.devcontainer/` | A container that needs nothing from the network at create time. |
 | `KIT-CHECKLIST.md` | What the starter kit's bootstrap laid down, step by step, and what is still to adapt. Deleted once it is worked through. |
 
@@ -154,8 +156,9 @@ the rule. The third column wins over the first two.
 | A generated artifact left stale after its input moved | Each emitter's `:check` twin, which re-derives the artifact and diffs it, at push and in CI | `CLAUDE.md` § The script suffix contract |
 | A pre-push job skipped on the push that changed one of its inputs, because its glob misses it | Nothing refuses it. `mise run harness` reports each job whose glob misses a module its entry imports, a pinned package's manifest or lockfile, a file it reads from the checkout, a script it launches or a generated file its check compares, and the gates nothing runs, for a person to act on; `harness:selftest` holds each kind | the header of `tools/harness/harness.ts`; `git-hooks.yml`'s rule for a glob; `docs/decisions.md` § D-26 |
 | A co-change map read through a commit the trunk never had, or one its emitter or policy no longer writes | `coupling:check`, at push and in CI, re-derives the map through the trunk commit it records and refuses a difference, and a commit off `origin/main`'s first-parent chain; `coupling:selftest` holds each refusal | the header of `tools/coupling/coupling.ts`; `docs/decisions.md` § D-24 |
-| A pull request merged without being held to the issue it carries, a high-risk one merged without a person, or two merged at once | `.github/workflows/pr-review.yml`, one run at a time, deciding through `scripts/pr-review.mjs`; `pr-review:check` and `pr-review:selftest` hold its wiring and its decisions | `CLAUDE.md` § Git workflow |
-| A program that rewrites its own instructions from what it observed | The prompt reviewer only opens a pull request, and a person decides whether it merges | `CLAUDE.md` § A program proposes; only a person promotes |
+| A high-risk pull request merged without a person, or two merged at once | `.github/workflows/pr-review.yml`, one run at a time, deciding by the floor through `scripts/pr-review.mjs`; `pr-review:check` and `pr-review:selftest` hold its wiring and its decisions | `CLAUDE.md` § Git workflow |
+| A pull request merged without being held to the issue it carries | The `branch-reviewer` agent `open-pr` § 5 runs before each push; nothing in CI, which judges only the floor (`docs/decisions.md` § D-37) | `.claude/skills/open-pr/SKILL.md` § 5. Push, open, and mark it pending |
+| A program that rewrites its own instructions from what it observed | The prompt reviewer only opens a pull request; one that touches the high-risk floor, as a word budget does, waits for a person, and its skeptics and stored cases judge its edits first | `CLAUDE.md` § A program proposes; only a person promotes |
 | A chained shell command whose failing step cannot be told apart, or a workaround for a refused command | Convention, and a `RUN THESE YOURSELF` block at the end of the agent's report | `CLAUDE.md` § Bash command style |
 | A local code graph whose document layer is eroded, or a partial one reported as built | `scripts/code-graph.mjs` builds with `graphify extract`, never `update`, stamps what a language model produced, and exits 1 on graphify's partial-extraction warnings; the `code-graph` skill tells a session never to run graphify's eroding commands, and `scripts/hooks/guard-git.mjs` refuses a session's `graphify update`, `watch`, `hook install` or `claude install`, from any checkout; nothing refuses graphify behind a launcher or a shell word such as `nohup`, its library called through `python -c`, `graphify install --project`, or anything outside a session | `docs/decisions.md` § D-20 |
 
@@ -286,10 +289,10 @@ lockfile change that lifts that version above the floor is refused on the push t
 | Add, rename or remove a task | the `add-task` skill | It keeps the task's `description`, § The tasks below, the hook runner and CI in step. |
 | Make a worktree by hand | `scripts/new-worktree.sh <task-ref> <slug>` | From the primary checkout. It cuts `agent/<name>` from `origin/main`; `npm ci` is the first command inside. |
 | Check your work before a pull request | `mise run gates` | Then fetch, rebase onto `origin/main`, and run it again. |
-| Open a pull request | the `open-pr` skill | Tests the merge against the open pull requests, ends the title with the ids of the issues carried, sets the reviewer's `pr-review` status pending from the session, watches the checks with one watcher, and says what each outcome of `verify` and the reviewer asks. Every other skill and agent that opens a pull request opens it with this one. |
+| Open a pull request | the `open-pr` skill | Tests the merge against the open pull requests, ends the title with the ids of the issues carried, reviews the branch with the `branch-reviewer` agent before the push, sets the reviewer's `pr-review` status pending from the session, watches the checks with one watcher, and says what each outcome of `verify` and the reviewer asks. Every other skill and agent that opens a pull request opens it with this one. |
 | Close a run of a prompt | the `close-prompt-run` skill | Leaves the run's analysis as a note in the tracker and, when enough are pending or the oldest is old enough, launches the reviewer in the background under a name of its own, without waiting for it. |
 | Improve a prompt after running it | the `continuous-prompt-improvement` agent | Launched by the `close-prompt-run` skill (`CLAUDE.md` § Prompt reviews). One review reads every pending analysis, one agent per prompt file; what they change is one pull request, whose description is the review. An edit that turns a stored decision case of its prompt from right to wrong stays out of it (`.claude/prompt-cases/README.md`). |
-| Get a pull request reviewed and merged | nothing: `.github/workflows/pr-review.yml` takes it once `verify` passes | It merges one whose title cites the issues it carries, satisfies them, and is not high risk. `gh workflow run pr-review.yml -f pr=<number>` reviews a head again. |
+| Get a pull request reviewed and merged | nothing: `.github/workflows/pr-review.yml` takes it once `verify` passes | It merges one off the high-risk floor (`prReviewHighRisk*` in `tools/policy/pr-review.json`) and leaves the rest to a person. `gh workflow run pr-review.yml -f pr=<number>` reviews a head again. |
 | Approve a pull request the reviewer left to a person | apply the approval label, `prReviewLabels` in `tools/policy/pr-review.json` | A person only, never an agent (`CLAUDE.md` § Git workflow). It approves the head the reviewer last judged, and a push needs it again. Merging by hand works too. |
 | Check a pull request, report or analysis before trusting it | the `adversarial-verifier` agent | Pass it the pull request number or file path. Every claim is re-derived from source; it reports a verdict table and changes nothing. |
 | Ask how parts of the repository connect | the `code-graph` skill, through the `graphify` MCP server | Each person builds the graph: `mise install`, step 3 of § Setup, installs the graphify release `mise.toml` pins, with its MCP extra; then run `mise run code-graph` from any checkout. It builds into the primary checkout and registers the server for it and its worktrees. A first build sends every document to the model `graphifyClaudeCliModel` names, on your own Claude plan; later builds send only what changed (`docs/decisions.md` § D-20). |
@@ -469,9 +472,9 @@ hooks, and a session reads it once, at its start: restart the session after chan
 | `git push` that changes `scripts/check-test-inventory.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/tasks.mjs`, `scripts/lib/test-dirs.mjs`, `tools/lib/git-env.ts`, `tools/policy/`, `tools/lib/policy.ts`, `package.json` or the lockfile | `tests:inventory:selftest`: the test-inventory gate, negative-tested over doctored test files and fixture repositories. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `apps/`, `artifacts/thresholds/`, the thresholds gate, `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/tasks.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy/`, `tools/lib/policy.ts`, `tasks.toml`, `package.json` or the lockfile | `thresholds:check`: the changed code's coverage and its Routines' mutation score held to the policy's thresholds, and the ratchet baseline. The Commands' run is a `.github/workflows/verify.yml` step alone. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes the thresholds gate, `scripts/run-tests.mjs`, `scripts/test-trace.mjs`, `scripts/lib/bin-path.mjs`, `scripts/lib/tasks.mjs`, `scripts/lib/test-dirs.mjs`, `tools/policy/`, `tools/lib/policy.ts`, `package.json` or the lockfile | `thresholds:selftest`: the thresholds gate, negative-tested over a fixture repository, with StrykerJS's tap and command runners. | `git-hooks.yml` (`pre-push`) |
-| `git push` that changes the reviewer's script, `tools/policy/`, `tools/lib/policy.ts`, a workflow, the reviewer's agent, `package.json` or the lockfile | `pr-review:check`: the reviewer's workflow, agent and policy agree; `pr-review:selftest`: its decisions over fixtures, and the check over doctored copies. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes the reviewer's script, `tools/policy/`, `tools/lib/`, the harness, the co-change map's emitter, `scripts/lib/tasks.mjs`, a workflow, the branch reviewer, `package.json` or the lockfile | `pr-review:check`: the reviewer's workflow, agent and policy agree; `pr-review:selftest`: its decisions over fixtures, and the check over doctored copies. | `git-hooks.yml` (`pre-push`) |
 | A pull request, a push to `main`, or a merge the reviewer made | Every gate that reads only committed files, cheapest first. It trusts none of the faster tiers. After a reviewer's merge it runs by dispatch, since that merge starts no push run. | `.github/workflows/verify.yml` |
-| A `verify` run ends, a person applies the approval label, every 15 minutes, or by hand | The reviewer takes one action, one run at a time: it merges a pull request whose verdict allows it, or reviews the oldest head that passed `verify` and has no verdict, and runs again while more are waiting. | `.github/workflows/pr-review.yml` |
+| A `verify` run ends, a person applies the approval label, every 15 minutes, or by hand | The reviewer takes one action, one run at a time: it merges a pull request whose verdict allows it, or decides the oldest head that passed `verify` and has no verdict by the floor, and runs again while more are waiting. | `.github/workflows/pr-review.yml` |
 | The dev container starts | `npm ci` when the lockfile moved, the git hooks, and the tracker's hydration; each step warns and carries on. It warns, too, while a tool `mise.toml` pins is missing from the image, which it never installs, and while Vale cannot load `.vale.ini`, and runs no `vale sync`. | `.devcontainer/entrypoint.sh` |
 
 ## What is still a placeholder

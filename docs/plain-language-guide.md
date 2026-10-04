@@ -4,6 +4,9 @@
 
 **Status:** amended 2026-09-28 by `asdlc-openspec-iom`, which names the harness. Amended 2026-10-03
 by `asdlc-openspec-a7x`, which says a product fix that changes no requirement goes straight to work.
+Amended 2026-10-04 by `asdlc-openspec-qcqm`: the automated reviewer decides by a list of risky things
+alone, and the review before an agent shares its work reads the change against its item
+(`docs/decisions.md` § D-37).
 
 **Which document wins.** This page simplifies. Where it and a technical document disagree, the
 technical document is right and this page needs correcting.
@@ -15,9 +18,9 @@ operator follows, step by step, is `docs/playbook.md`.
 ## The short version
 
 AI agents do software work in this repository, under rules a person can check. Work goes in as an
-item on a shared to-do list, and comes out as a proposed change that an automated reviewer holds to
-what the item asked for before it merges. People decide what the product should do, approve
-anything risky, and decide whether the agents' own instructions change.
+item on a shared to-do list, and comes out as a proposed change. A second agent reads it against
+what the item asked for before it is shared, and an automated reviewer merges it unless it is
+risky. People decide what the product should do, and approve anything risky.
 
 ## What the repository is for
 
@@ -51,12 +54,15 @@ written about the product.
 
 **The checks and the reviewer.** The same automatic checks run at several moments: inside the
 agent's session, when it saves its work, before it shares it, and on the shared server for every
-proposed change. A later moment never trusts an earlier one. Once the shared server's checks pass,
-an automated reviewer reads the change against what its item asked for, and against how easy it is
-to maintain and how far a mistake in it could reach. It merges the change only when every part
-passes and the risk is not high. A change to the file of rules every agent reads first, to the
-reviewer itself, to the shared server's automated jobs or to the recorded decisions is always high
-risk, and waits for a person.
+proposed change. A later moment never trusts an earlier one. Before an agent shares its work, a
+second agent, with no part in writing it, reads the change against what its item asked for, how
+easy it is to keep up and how far a mistake in it could reach, and the first agent fixes what it
+finds. Once the shared server's checks pass, an automated reviewer asks one thing: does the change
+touch a file on a fixed list of risky things? The list holds the file of rules every agent reads
+first, the reviewer itself, the shared server's jobs, the recorded decisions, the tools' versions
+and the outside code the project uses. If it does, a person decides. If not, the reviewer merges
+it. Beside its answer it lists which checks run each changed file, and the files that often change
+with it, for a person to read.
 
 **The loop between them.** What the work turns up goes back on the list. Each new item a run files
 is labelled with the stage that found it and the kind of thing it would fix, so over time the list
@@ -126,7 +132,7 @@ source when someone needs them, and are not copied onto this page.
 | standing description | What the product does now, one file per area of the product; the technical documents call it the living spec. |
 | check | An automatic test of the repository that refuses one kind of mistake; the technical documents call it a gate. |
 | proposed change | A pull request: a set of changes offered for merging into the shared version. |
-| reviewer | The automated reviewer that judges each proposed change and merges it or leaves it to a person. |
+| reviewer | The automated reviewer that merges each proposed change, or leaves it to a person when it touches a file on the list of risky things. |
 | recorded decision | An entry in `docs/decisions.md`, the register, which wins over every other document. |
 | instructions | The files that tell the agents how to work: `CLAUDE.md`, and the skills and agents under `.claude/`. |
 | key | A name such as `CNT-HOOKS`, standing for a count kept in `count-index.md`. |
