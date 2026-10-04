@@ -444,7 +444,7 @@ they win.
 
 | Script | What it does | Gate |
 |---|---|---|
-| `worktree:gc` | Removes checkouts nobody is using, and deletes an agent branch only on proof its content is in the trunk, a merged pull request's head among the proofs; `-- --dry-run` prints what it would do. | |
+| `worktree:gc` | Removes a clean checkout with no process in it once HEAD there has been still for `worktreeGcMinAgeHours`, or at once when `-- --finished <name>` names it. It deletes an agent branch only on proof its content is in the trunk, a merged pull request's head among the proofs; `-- --dry-run` prints what it would do. | |
 | `worktree:selftest` | The worktree hooks, the git guard and the branch sweep, negative-tested against a scratch repository it builds, and the worktree briefing rendered from its template into a scratch directory. | pre-push |
 
 ## The work, and what its runs leave behind

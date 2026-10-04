@@ -1,8 +1,9 @@
 /**
  * Self-test for scripts/hooks/worktree-create.mjs, scripts/hooks/worktree-remove.mjs,
  * scripts/prune-worktree-branches.mjs, scripts/render-worktree-context.mjs with the briefing
- * template it renders, scripts/new-worktree.sh's choice of which copy of that template renders and
- * its copy of the primary checkout's Vale styles, and for the hook registrations in
+ * template it renders, scripts/new-worktree.sh's choice of which copy of that template renders, its
+ * copy of the primary checkout's Vale styles, its run beside another that holds `.git/config.lock`
+ * and the branch a failed run of it made, and for the hook registrations in
  * .claude/settings.json: each must load
  * whatever the session's working directory is (the last section says what broke).
  *
@@ -508,18 +509,21 @@ for (const [label, command] of [
  * branch, a branch a kept worktree has checked out, and a branch that is not worktree-provisioned at
  * all. For worktrees, one case per condition of the abandonment proof: a dirty tree, a locked tree, a
  * tree whose branch is not in the trunk, a tree outside `.claude/worktrees/`, a tree with a process
- * inside it, and the tree the sweep itself runs from. The positive cases -- a rebase-merged branch,
- * a clean contained checkout nobody is in, and a registration whose directory is already gone -- are
- * only interesting because they prove the negatives are not vacuous: a script that deleted nothing
- * would pass every refusal.
+ * inside it, a tree whose HEAD moved within `worktreeGcMinAgeHours`, and the tree the sweep itself
+ * runs from. The positive cases -- a rebase-merged branch, a clean contained checkout nobody has used
+ * for days, one its caller names as finished, and a registration whose directory is already gone --
+ * are only interesting because they prove the negatives are not vacuous: a script that deleted
+ * nothing would pass every refusal.
  *
  * The interesting positive is the REBASE-MERGED shape, which is what this repository's pull requests
  * actually leave behind: the branch is not an ancestor of the trunk, its commit SHA appears nowhere
  * on it, and only the patch-id matches. Built below with a cherry-pick, because that is exactly what
  * a rebase merge does to one commit.
  *
- * Every worktree below is cut from the trunk commit and so trivially contained. Each differs from
- * `abandoned` in exactly one condition, which is what lets a refusal be pinned to its reason.
+ * Every worktree below is cut from the trunk commit and so trivially contained. `abandoned` alone has
+ * had HEAD still past the threshold; `between-calls` differs from it in that alone, and each other
+ * refusal in one condition the sweep checks before the age, which is what lets a refusal be pinned
+ * to its reason.
  * --------------------------------------------------------------------------------------------- */
 console.log('prune-worktree-branches: the safety rule')
 const GC = resolve(HOOKS, '..', 'prune-worktree-branches.mjs')
@@ -563,7 +567,24 @@ const wt = (name) => {
   git(gcPrimary, 'worktree', 'add', '-q', '-b', `agent/${name}`, path, 'main')
   return path
 }
-const abandoned = wt('abandoned') // clean, contained, nobody in it: THE ONE THAT GOES
+// THE AGE RULE holds on every host (asdlc-openspec-m4m): a clean, contained worktree with no process
+// in it goes only once HEAD there has sat still for `worktreeGcMinAgeHours`, or at once when the
+// caller names it with `--finished`. `age` sets the mtime of each file the script reads HEAD's last
+// move from, in the scratch repository `primary` names.
+const MIN_AGE = readPolicy(POLICY_ROOT).worktreeGcMinAgeHours
+const age = (path, name, hours, primary = gcPrimary) => {
+  const then = new Date(Date.now() - hours * 3_600_000)
+  const admin = join(primary, '.git', 'worktrees', name)
+  for (const file of [join(path, '.git'), join(admin, 'HEAD'), join(admin, 'logs', 'HEAD')]) {
+    if (existsSync(file)) utimesSync(file, then, then)
+  }
+}
+const abandoned = wt('abandoned') // clean, contained, nobody in it, HEAD still for days: THE ONE THAT GOES
+age(abandoned, 'abandoned', MIN_AGE * 2)
+// The shape asdlc-openspec-m4m lost on 2026-09-30: a workflow agent's worktree, clean, at the trunk,
+// with no process in it because the agent is between two calls, each of which starts and ends.
+const betweenCalls = wt('between-calls')
+const finished = wt('finished') // the same, but its caller has finished with it and names it
 const dirty = wt('dirty')
 writeFileSync(join(dirty, 'wip.txt'), 'wip\n') // one untracked file is one uncommitted change
 const locked = wt('locked')
@@ -583,8 +604,9 @@ const busy = wt('busy') // clean and contained, but a process is standing in it
 const sleeper = LIVE_CHECK ? spawn('sleep', ['120'], { cwd: busy, stdio: 'ignore' }) : null
 process.on('exit', () => sleeper?.kill())
 
-// Tracking config of the shape provisioning leaves behind, plus one section whose branch does not
-// exist at all -- the orphan case, which is collected on its own evidence and needs no trunk.
+// Tracking config of the shape an agent's `git push -u` leaves behind, as provisioning did before it
+// cut with `--no-track`, plus one section whose branch does not exist at all -- the orphan case,
+// which is collected on its own evidence and needs no trunk.
 for (const b of [
   'agent/rebase-merged',
   'agent/unmerged',
@@ -650,11 +672,8 @@ check(
   preview.includes('agent/rebase-merged'),
   preview.slice(0, 300),
 )
-check(
-  'dry run reports the abandoned worktree',
-  preview.includes('.claude/worktrees/abandoned  agent/abandoned  (clean, ancestor of origin/main)'),
-  preview.slice(0, 900),
-)
+const ABANDONED_LINE = `.claude/worktrees/abandoned  agent/abandoned  (clean, HEAD idle ${(MIN_AGE * 2).toFixed(1)}h, ancestor of origin/main)`
+check('dry run reports the abandoned worktree', preview.includes(ABANDONED_LINE), preview.slice(0, 900))
 // A prunable registration holds no checkout, so it must not shield its branch even before `prune`.
 check(
   'dry run reports the branch behind a prunable registration',
@@ -677,7 +696,7 @@ check(
   fromInside.slice(0, 900),
 )
 
-const report = runGc()
+const report = runGc('--finished', 'finished')
 sleeper?.kill()
 
 // The positives.
@@ -694,14 +713,36 @@ check('its branch went with it', !branchExists('agent/abandoned'))
 check('and its config section', !configKeys().some((k) => k.includes('agent/abandoned')))
 check(
   'the report says so',
-  report.includes(`removed ${LIVE_CHECK ? 1 : 2} abandoned worktree(s)`) &&
-    report.includes(
-      '.claude/worktrees/abandoned  agent/abandoned  (clean, ancestor of origin/main)',
-    ),
+  report.includes('removed 2 abandoned worktree(s)') && report.includes(ABANDONED_LINE),
   report.slice(0, 900),
 )
 check('the prunable registration is reconciled', !registered('gone'))
 check('and the branch behind it is collected', !branchExists('agent/gone'))
+
+// THE KEEP asdlc-openspec-m4m asks for, by its reason, where a liveness check works and saw no
+// process: the age rule is read there too. `abandoned` above is its control, still removed; and a
+// worktree its caller names goes at once, which is how a session that has finished with a lane
+// removes it without waiting the threshold out.
+check(
+  'a worktree an agent works in, between its calls, is kept by its reason',
+  report.includes(
+    `.claude/worktrees/between-calls  agent/between-calls  -- HEAD moved 0.0h ago, under worktreeGcMinAgeHours (${MIN_AGE})`,
+  ),
+  report.slice(0, 1500),
+)
+check('and survives, with its branch', existsSync(betweenCalls) && branchExists('agent/between-calls'))
+check(
+  'a worktree named --finished goes at once, by that proof',
+  !existsSync(finished) &&
+    !branchExists('agent/finished') &&
+    report.includes('.claude/worktrees/finished  agent/finished  (clean, named by --finished, ancestor of origin/main)'),
+  report.slice(0, 1500),
+)
+check(
+  'the report names the age rule and what --finished waived',
+  report.includes(`  min age: ${MIN_AGE}h (worktreeGcMinAgeHours), waived for --finished finished\n`),
+  report.slice(0, 400),
+)
 
 // The worktree refusals, each by its reason. Survival alone would be VACUOUS for `dirty` and
 // `locked`: `git worktree remove` refuses both on its own, exactly as `git branch -D` refuses a
@@ -772,9 +813,9 @@ check('the trunk survives', branchExists('main'))
 
 // A missing trunk is no evidence of containment, so neither the worktree sweep nor the branch sweep
 // may run -- while the orphan sweep, which never needed the trunk, still does.
-const spare = wt('spare') // clean, contained, nobody in it: would go on any run with a trunk
+const spare = wt('spare') // clean, contained, nobody in it, named: would go on any run with a trunk
 git(gcPrimary, 'config', '--local', 'branch.agent/ghost2.remote', 'origin')
-const noTrunk = runGc('--trunk', 'origin/does-not-exist')
+const noTrunk = runGc('--trunk', 'origin/does-not-exist', '--finished', 'spare')
 check('a missing trunk skips both sweeps', noTrunk.includes('MISSING'), noTrunk.slice(0, 300))
 check('and still deletes nothing', branchExists('agent/unmerged') && branchExists('agent/spare'))
 check(
@@ -788,19 +829,10 @@ check(
   noTrunk.slice(0, 300),
 )
 
-// WHERE NO LIVENESS CHECK WORKS, a clean, contained worktree goes only once HEAD there has sat still
-// for `worktreeGcMinAgeHours` (asdlc-openspec-zlz). `WORKTREE_GC_LIVENESS=none` stands in for such a
-// host. `spare` was just cut, as a lane is at launch; `idle` has had HEAD still for twice the
-// threshold; `rebased` is as old, but HEAD moved a moment ago, as a lane's rebase moves it. Aging
-// sets the mtime of each file the script reads HEAD's last move from.
-const MIN_AGE = readPolicy(POLICY_ROOT).worktreeGcMinAgeHours
-const age = (path, name, hours) => {
-  const then = new Date(Date.now() - hours * 3_600_000)
-  const admin = join(gcPrimary, '.git', 'worktrees', name)
-  for (const file of [join(path, '.git'), join(admin, 'HEAD'), join(admin, 'logs', 'HEAD')]) {
-    if (existsSync(file)) utimesSync(file, then, then)
-  }
-}
+// WHERE NO LIVENESS CHECK WORKS, the age rule is all there is (asdlc-openspec-zlz).
+// `WORKTREE_GC_LIVENESS=none` stands in for such a host. `spare` was just cut, as a lane is at
+// launch; `idle` has had HEAD still for twice the threshold; `rebased` is as old, but HEAD moved a
+// moment ago, as a lane's rebase moves it.
 const idle = wt('idle')
 age(idle, 'idle', MIN_AGE * 2)
 const rebased = wt('rebased')
@@ -821,9 +853,7 @@ const unpolicied = runGcWith({
 })
 check(
   'with no liveness check and no policy, an idle worktree is kept by its reason',
-  unpolicied.includes(
-    '.claude/worktrees/idle  agent/idle  -- no liveness check, and no worktreeGcMinAgeHours to wait out',
-  ),
+  unpolicied.includes('.claude/worktrees/idle  agent/idle  -- no worktreeGcMinAgeHours to wait out'),
   unpolicied.slice(0, 1200),
 )
 check('and survives', existsSync(idle) && branchExists('agent/idle'))
@@ -837,7 +867,7 @@ check(
 check(
   'with no liveness check, a worktree just cut is kept by its reason',
   blind.includes(
-    `.claude/worktrees/spare  agent/spare  -- no liveness check, and HEAD moved 0.0h ago, under worktreeGcMinAgeHours (${MIN_AGE})`,
+    `.claude/worktrees/spare  agent/spare  -- HEAD moved 0.0h ago, under worktreeGcMinAgeHours (${MIN_AGE})`,
   ),
   blind.slice(0, 1500),
 )
@@ -845,7 +875,7 @@ check('and survives', existsSync(spare) && branchExists('agent/spare'))
 check(
   'with no liveness check, a worktree whose HEAD just moved is kept by its reason',
   blind.includes(
-    `.claude/worktrees/rebased  agent/rebased  -- no liveness check, and HEAD moved 0.0h ago, under worktreeGcMinAgeHours (${MIN_AGE})`,
+    `.claude/worktrees/rebased  agent/rebased  -- HEAD moved 0.0h ago, under worktreeGcMinAgeHours (${MIN_AGE})`,
   ),
   blind.slice(0, 1500),
 )
@@ -905,12 +935,22 @@ const [prStaleHead] = branchWith(
   ['pr-stale.txt', 'pushed\n', 'the head the pull request merged'],
   ['pr-stale.txt', 'pushed, then more\n', 'a commit after it'],
 )
-const prTree = join(rmPrimary, '.claude', 'worktrees', 'pr-worktree')
-git(rmPrimary, 'worktree', 'add', '-q', '-b', 'agent/pr-worktree', prTree, 'main')
-writeFileSync(join(prTree, 'pr-tree.txt'), 'tree\n')
-git(prTree, 'add', 'pr-tree.txt')
-git(prTree, ...AS, 'commit', '-qm', 'merged work in a worktree')
-const prTreeTip = git(prTree, 'rev-parse', 'HEAD').trim()
+/** A worktree on `agent/<name>` with one commit of its own, which a pull request below merges; its tip. */
+const mergedTree = (name) => {
+  const path = join(rmPrimary, '.claude', 'worktrees', name)
+  git(rmPrimary, 'worktree', 'add', '-q', '-b', `agent/${name}`, path, 'main')
+  writeFileSync(join(path, `${name}.txt`), 'tree\n')
+  git(path, 'add', `${name}.txt`)
+  git(path, ...AS, 'commit', '-qm', `merged work in ${name}`)
+  return [path, git(path, 'rev-parse', 'HEAD').trim()]
+}
+// `pr-worktree` is a lane long finished: HEAD still past the threshold. `pr-live` is the same shape
+// with HEAD just moved, as an agent's is while it works on after its pull request merged, or after
+// it rebased onto a branch that then merged (asdlc-openspec-zlz): a commit beyond `origin/main`,
+// contained, no process in it between two calls.
+const [prTree, prTreeTip] = mergedTree('pr-worktree')
+age(prTree, 'pr-worktree', MIN_AGE * 2, rmPrimary)
+const [prLive, prLiveTip] = mergedTree('pr-live')
 
 // The trunk: a neighbour of `context-moved`'s line changes, then its commit lands as a rebase merge
 // lands it; `line-edited`'s commit lands with its own changed line edited, as a resolved conflict.
@@ -928,6 +968,7 @@ const merged = [
   { number: 102, headRefOid: prOther, baseRefName: 'release' },
   { number: 103, headRefOid: prStaleHead, baseRefName: 'main' },
   { number: 104, headRefOid: prTreeTip, baseRefName: 'main' },
+  { number: 105, headRefOid: prLiveTip, baseRefName: 'main' },
 ]
 const ghDir = mkdtempSync(join(tmpdir(), 'wt-gc-gh-'))
 const mergedFile = join(ghDir, 'merged.json')
@@ -1020,18 +1061,23 @@ check(
     afterMerge.includes('agent/line-edited  -- 1 of 1 commit(s) not in origin/main'),
   afterMerge.slice(0, 1500),
 )
-if (LIVE_CHECK) {
-  check(
-    'a worktree whose branch a pull request merged is removed, by that proof',
-    !existsSync(prTree) &&
-      afterMerge.includes(
-        '.claude/worktrees/pr-worktree  agent/pr-worktree  (clean, merged as pull request #104)',
-      ),
-    afterMerge.slice(0, 1500),
-  )
-} else {
-  console.log(`  skip a merged pull request's worktree (no liveness check held on ${process.platform})`)
-}
+check(
+  'a worktree whose branch a pull request merged, idle past the threshold, is removed, by that proof',
+  !existsSync(prTree) &&
+    afterMerge.includes(
+      `.claude/worktrees/pr-worktree  agent/pr-worktree  (clean, HEAD idle ${(MIN_AGE * 2).toFixed(1)}h, merged as pull request #104)`,
+    ),
+  afterMerge.slice(0, 1500),
+)
+check(
+  'the same with HEAD just moved, as an agent works on between its calls, is kept by its reason',
+  existsSync(prLive) &&
+    rmBranchExists('agent/pr-live') &&
+    afterMerge.includes(
+      `.claude/worktrees/pr-live  agent/pr-live  -- HEAD moved 0.0h ago, under worktreeGcMinAgeHours (${MIN_AGE})`,
+    ),
+  afterMerge.slice(0, 1500),
+)
 
 /* --------------------------------------------------------------------------------------------- *
  * render-worktree-context: the briefing a new worktree opens with.
@@ -1436,6 +1482,123 @@ check(
     unsynced.stderr.includes(stylesPath) &&
     unsynced.stderr.includes('vale sync'),
   JSON.stringify(unsynced.stderr.slice(0, 400)),
+)
+
+/* --------------------------------------------------------------------------------------------- *
+ * new-worktree.sh: concurrent runs, and the branch a failed run made.
+ *
+ * THE INCIDENT (asdlc-openspec-686). On 2026-09-26 a fan-out sweep launched eleven lanes in one
+ * message, and two WorktreeCreate hooks failed with "could not lock config file .git/config: File
+ * exists": `git worktree add -b ... origin/main` set the new branch's upstream, a write to the
+ * shared `.git/config` that concurrent runs race for, and the cleanup trap acted only once the
+ * worktree existed, so each failure left its branch behind with no worktree. A `.git/config.lock`
+ * the case holds stands in for the concurrent run that holds it, which makes the race certain.
+ *
+ * So, with the lock held, the script must provision and write no tracking config. The negative is
+ * the script doctored back to that one `git worktree add -b`, which must fail by the lock's reason
+ * and leave its branch: without it, a git that set up no upstream would pass the case unraced. A run
+ * that fails after making its branch, at an occupied worktree path, must delete that branch, by its
+ * reason, and leave the directory as it found it. The control is a name whose branch already exists,
+ * which must fail and keep that branch, which the run did not make: without it, a trap that deleted
+ * whatever branch the name gave would pass the case above.
+ * --------------------------------------------------------------------------------------------- */
+console.log('new-worktree: concurrent runs, and the branch a failed run made')
+const race = mkdtempSync(join(tmpdir(), 'wt-race-'))
+const racePrimary = join(race, 'primary')
+const raceOrigin = join(race, 'origin.git')
+execFileSync('git', ['init', '-q', '--bare', '-b', 'main', raceOrigin], { env: GIT_ENV })
+execFileSync('git', ['init', '-q', '-b', 'main', racePrimary], { env: GIT_ENV })
+mkdirSync(join(racePrimary, 'scripts'))
+mkdirSync(join(racePrimary, '.claude'))
+copyFileSync(PROVISION, join(racePrimary, 'scripts', 'new-worktree.sh'))
+copyFileSync(RENDERER, join(racePrimary, 'scripts', 'render-worktree-context.mjs'))
+writeFileSync(join(racePrimary, '.claude', 'worktree-CONTEXT.md.tmpl'), templateOf('base'))
+git(racePrimary, 'add', '.')
+git(racePrimary, ...AS, 'commit', '-qm', 'a checkout lanes are cut from')
+git(racePrimary, 'remote', 'add', 'origin', raceOrigin)
+git(racePrimary, 'push', '-q', 'origin', 'main')
+const raceScript = join(racePrimary, 'scripts', 'new-worktree.sh')
+/** The tip of `agent/<name>` in the scratch checkout, or null when it has no such branch. */
+const raceTip = (name) => {
+  try {
+    return git(racePrimary, 'rev-parse', '--verify', '--quiet', `refs/heads/agent/${name}`).trim()
+  } catch {
+    return null
+  }
+}
+/** The `branch.agent/<name>.*` keys in the scratch checkout's own config. */
+const trackingKeys = (name) =>
+  git(racePrimary, 'config', '--local', '--name-only', '--list')
+    .split('\n')
+    .filter((key) => key.startsWith(`branch.agent/${name}.`))
+const raceWhy = (r) => `code=${r.code} ${JSON.stringify(r.stderr.slice(0, 400))}`
+
+const configLock = join(racePrimary, '.git', 'config.lock')
+writeFileSync(configLock, '')
+const held = provision(raceScript, 'held', racePrimary)
+check(
+  'with .git/config.lock held, as a concurrent run holds it, the script provisions a worktree',
+  held.code === 0 && held.text !== '',
+  raceWhy(held),
+)
+check('and writes no tracking config', trackingKeys('held').length === 0, JSON.stringify(trackingKeys('held')))
+
+const CUTS_BRANCH = 'git -C "$REPO_ROOT" branch --no-track "$BRANCH" "origin/$TRUNK"'
+const ADDS_WORKTREE = 'git -C "$REPO_ROOT" worktree add "$WORKTREE_PATH" "$BRANCH"'
+check(
+  "negative: the doctoring reaches the script's branch and worktree lines",
+  provisionSource.includes(CUTS_BRANCH) && provisionSource.includes(ADDS_WORKTREE),
+  `no ${CUTS_BRANCH} or no ${ADDS_WORKTREE} in scripts/new-worktree.sh`,
+)
+const oneStepScript = join(race, 'new-worktree.one-step.sh')
+writeFileSync(
+  oneStepScript,
+  provisionSource
+    .replace(CUTS_BRANCH, 'git -C "$REPO_ROOT" worktree add -b "$BRANCH" "$WORKTREE_PATH" "origin/$TRUNK"')
+    .replace(ADDS_WORKTREE, ':'),
+)
+const oneStep = provision(oneStepScript, 'one-step', racePrimary)
+check(
+  'doctored back to one `git worktree add -b`, it fails by the lock and leaves its branch behind',
+  oneStep.code !== 0 &&
+    oneStep.stderr.includes('could not lock config file') &&
+    raceTip('one-step') !== null &&
+    !existsSync(oneStep.path),
+  `${raceWhy(oneStep)} branch=${raceTip('one-step')}`,
+)
+rmSync(configLock, { force: true })
+
+const occupied = join(racePrimary, '.claude', 'worktrees', 'occupied')
+mkdirSync(occupied, { recursive: true })
+const OCCUPANT = 'a file the run did not write\n'
+writeFileSync(join(occupied, 'occupant.txt'), OCCUPANT)
+const blocked = provision(raceScript, 'occupied', racePrimary)
+check(
+  'a run that fails after making its branch deletes that branch, by its reason',
+  blocked.code !== 0 &&
+    blocked.stderr.includes('already exists') &&
+    blocked.stderr.includes('deleting agent/occupied, the branch this run made') &&
+    raceTip('occupied') === null,
+  `${raceWhy(blocked)} branch=${raceTip('occupied')}`,
+)
+check(
+  'and leaves the directory it found as it found it',
+  existsSync(join(occupied, 'occupant.txt')) &&
+    readFileSync(join(occupied, 'occupant.txt'), 'utf8') === OCCUPANT &&
+    JSON.stringify(readdirSync(occupied)) === JSON.stringify(['occupant.txt']),
+  JSON.stringify(existsSync(occupied) ? readdirSync(occupied) : null),
+)
+
+git(racePrimary, 'branch', '--no-track', 'agent/taken', 'main')
+const takenTip = raceTip('taken')
+const taken = provision(raceScript, 'taken', racePrimary)
+check(
+  'control: a run whose branch already exists fails, and keeps that branch, which it did not make',
+  taken.code !== 0 &&
+    taken.stderr.includes("a branch named 'agent/taken' already exists") &&
+    raceTip('taken') === takenTip &&
+    !existsSync(taken.path),
+  `${raceWhy(taken)} branch=${raceTip('taken')}`,
 )
 
 /* --------------------------------------------------------------------------------------------- *

@@ -21,8 +21,9 @@
  * WHAT IT DOES DO INSTEAD, once the removal is done: run `scripts/prune-worktree-branches.mjs`,
  * which removes ABANDONED sibling checkouts -- registered, clean, unattended, on a branch whose work
  * is ALREADY IN `origin/main` -- deletes worktree branches whose work is already in `origin/main` and,
- * with each one, the `branch.<name>.remote` / `.merge` pair provisioning wrote to the shared
- * `.git/config`. The paragraph above is why that is a separate step rather than a line here: the
+ * with each one, the `branch.<name>.remote` / `.merge` pair the agent's `git push -u` wrote to the
+ * shared `.git/config`, as provisioning also did until it cut the branch with `--no-track`
+ * (asdlc-openspec-686). The paragraph above is why that is a separate step rather than a line here: the
  * branch being torn down now is usually unmerged, so the sweep will keep it and collect the leavings
  * of EARLIER worktrees whose pull requests have since landed -- including checkouts no teardown ever
  * ran for, because this hook fires only when the harness removes a worktree and a background job
