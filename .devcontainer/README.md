@@ -9,13 +9,13 @@ code <repository>           # then: "Reopen in Container" when VS Code offers
 ```
 
 The first build takes several minutes and is cached afterwards. You get the toolchain the root
-`mise.toml` pins (Node, Python, `bd`, `gh` and Vale), Claude Code and the tracker's plugin
-marketplace.
+`mise.toml` pins (Node, Python, `bd`, `gh`, Vale, uv and graphify), Claude Code and the tracker's
+plugin marketplace.
 
 | File | What it holds |
 |---|---|
-| `Dockerfile` | Every tool, as a layer. The base image's major tag is at the top; every other version is in the root `mise.toml`, installed through `mise.lock` by the mise the Dockerfile copies in (`docs/decisions.md` § D-31). After a pin moves, rebuild. |
-| `Dockerfile.dockerignore` | What the build may read from the repository's root, its context: `mise.toml`, `mise.lock` and `entrypoint.sh`, and nothing else. |
+| `Dockerfile` | Every tool, as a layer. The base image's major tag is at the top; every other version is in the root `mise.toml`, installed through `mise.lock` by the mise the Dockerfile copies in (`docs/decisions.md` § D-31), and graphify's dependencies through its uv lock under `.mise/locks/` (§ D-35). After a pin moves, rebuild. |
+| `Dockerfile.dockerignore` | What the build may read from the repository's root, its context: `mise.toml`, `mise.lock`, the uv locks under `.mise/locks/` and `entrypoint.sh`, and nothing else. |
 | `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, three bind mounts, one passthrough env var, and the one folder whose `mise.toml` mise trusts, the workspace's own. |
 | `entrypoint.sh` | The three setup steps that read the repository, which is a bind mount and does not exist at build time; a warning while a tool `mise.toml` pins is missing from the image; and a warning while Vale cannot load `.vale.ini`. |
 
@@ -24,8 +24,9 @@ marketplace.
 **Setup goes in a layer, not in a lifecycle command.** `features` resolve over the network every
 time a container is created and fail differently on every machine; a `postCreateCommand` re-runs on
 every rebuild. A layer is built once and is identical for everyone. If you add a tool, pin it in
-`mise.toml` and run `mise lock --platform` with the platforms `toolchainLockPlatforms` names, as the
-header of `mise.toml` says: the image's mise layer installs it. `entrypoint.sh` never installs a tool
+`mise.toml`, run `mise install`, then `mise lock --platform` with the platforms
+`toolchainLockPlatforms` names, as the header of `mise.toml` says, and commit what they write: the
+image's mise layer installs it. `entrypoint.sh` never installs a tool
 itself; it warns while the image lags `mise.toml`, because a rebuild is how the container catches up.
 Until then a shim installs the moved pin over the network at its first use, the entrypoint's
 `npm ci` among them.

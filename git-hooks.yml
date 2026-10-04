@@ -224,7 +224,8 @@ pre-push:
     # Its refusals over copies of those files under the temporary directory, one doctored per case and
     # each asserting its reason, beside its controls, and rule 7's through a stub `mise`: 2.02 s wall
     # for its 61 cases, the second of two runs, the same host and day; 4.51 s (the first took 12.37 s)
-    # for 78 with five controls, 2026-10-04, eighteen of them a `pypi:` tool's, over its copied uv lock.
+    # for 78 with five controls, 2026-10-04, eighteen of them a `pypi:` tool's, over its copied uv lock;
+    # 2.31-3.23 s for 80, two runs at a load average near 64, the same day.
     - name: check-toolchain-selftest
       glob:
         - 'mise.toml'
@@ -641,9 +642,9 @@ pre-push:
     # (docs/decisions.md § D-28), the lock, a hook's exported GIT_DIR, and each refusal by its
     # reason, with one undoctored control. Reads the script, `tools/lib/git-env.ts`, the live policy,
     # and graphify's release from `mise.toml`, with the `smol-toml` the manifest and lockfile pin; a
-    # stub mise names its graphify-mcp. 24.96-25.15 s wall for its 42 checks (`/usr/bin/time -p`, two runs through
-    # `node --run`) on a macOS 26.7.1 laptop with Node 26.8.1, 2026-10-02, most of it a git
-    # repository and a stub server per case; 11.98-12.06 s on 2026-10-01, with fewer cases and
+    # stub mise names its graphify-mcp. 24.96-25.15 s wall for its 42 checks (`/usr/bin/time -p`, two
+    # runs through `node --run`) on a macOS 26.7.1 laptop with Node 26.8.1, 2026-10-02, most of it a
+    # git repository and a stub server per case; 11.98-12.06 s on 2026-10-01, with fewer cases and
     # none of the combined graph's; 29.25-31.28 s for 45 (two runs, the same host, 2026-10-04), with
     # mise's graphify-mcp, a registration moved to it, and a mise that cannot name it.
     - name: code-graph-selftest

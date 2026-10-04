@@ -1,9 +1,9 @@
 # The whole "new machine setup" of README.md, baked into an image.
 #
 # Everything a person would otherwise do by hand -- the toolchain `mise.toml` pins (Node, Python,
-# `bd`, `gh` and Vale), Claude Code and the tracker's plugin marketplace -- is a layer here rather
-# than a devcontainer.json `feature` or `postCreateCommand`. That is deliberate: features resolve at
-# container-create time over the network and fail differently on every machine, and a
+# `bd`, `gh`, Vale, uv and graphify), Claude Code and the tracker's plugin marketplace -- is a layer
+# here rather than a devcontainer.json `feature` or `postCreateCommand`. That is deliberate: features
+# resolve at container-create time over the network and fail differently on every machine, and a
 # `postCreateCommand` re-runs on every rebuild. A layer is built once, cached, and identical for
 # everyone. devcontainer.json next to this file does little but point at it.
 #
@@ -13,10 +13,11 @@
 # still owned by the image, and devcontainer.json still has no lifecycle command in it.
 #
 # Versions are the base tag below, and `mise.toml`, whose every tool installs here through
-# `mise.lock` (docs/decisions.md § D-31); this file states no tool's version. The build context is
-# the repository's root, so the image can read those two files, and `Dockerfile.dockerignore` beside
-# this file admits them and the entrypoint and nothing else. After a pin moves, rebuild: entrypoint.sh
-# warns while the image's tools lag `mise.toml`.
+# `mise.lock` (docs/decisions.md § D-31), graphify's dependencies through its uv lock under
+# `.mise/locks/` (§ D-35); this file states no tool's version. The build context is the repository's
+# root, so the image can read those files, and `Dockerfile.dockerignore` beside this file admits
+# them and the entrypoint and nothing else. After a pin moves, rebuild: entrypoint.sh warns while the
+# image's tools lag `mise.toml`.
 
 # The base image's major version, on its Ubuntu 24.04 codename tag. `3-noble` takes every 3.x
 # release devcontainers/images publishes and never crosses a major. The codename form is the tag that

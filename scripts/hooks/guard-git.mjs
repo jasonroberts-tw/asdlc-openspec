@@ -767,8 +767,9 @@ function denialForGh(call, linked) {
  * by, with what it does; each says it without naming another graphify command, so a refusal names
  * its own alone. graphify 0.9.73 takes its command from its first argument and a second word from its
  * second, with no option before them (its `__main__.py` and `cli.py`), so a command matches by
- * position and nowhere else; re-read both when the `pypi:graphifyy` pin in mise.toml moves. Every other command still runs: `query`, `path` and `explain` read the graph, and
- * `extract` builds it as `npm run code-graph` does.
+ * position and nowhere else; re-read both when the `pypi:graphifyy` pin in mise.toml moves. Every
+ * other command still runs: `query`, `path` and `explain` read the graph, and `extract` builds it
+ * as `npm run code-graph` does.
  */
 const ERODES = 'the local code graph through the path that erodes its document layer'
 const GRAPHIFY_ERODING = new Map([
