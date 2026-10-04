@@ -87,7 +87,8 @@ anything is filed, even a part the session proposed itself.
 
 ## 4. Implement, regenerate, gate
 
-Make the change. A prompt it would take past its word budget
+Make the change in every file restating what it alters, by value or by reference: searching for
+the old text alone misses some. A prompt it would take past its word budget
 (`node scripts/check-prompts.mjs --counts`) is consolidated first, as
 `.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated says, not once
 `check:prompts` refuses it at the gate. A defect's fix lands only after a test or selftest case
