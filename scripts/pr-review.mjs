@@ -33,11 +33,14 @@
  *                                       print what a run would do, from any checkout with `gh`, and
  *                                       write nothing to GitHub (`act --dry-run` likewise)
  *   mise run pr-review:check             the wiring gate: the workflow, `verify.yml`, the branch
- *                                       reviewer and the policy agree, and the workflow runs no model
+ *                                       reviewer and the policy agree, the workflow runs no model,
+ *                                       and the floor holds the gates `prReviewFloorTasks` lists
  *   mise run pr-review:selftest          every decision over fixtures, each asserting its reason,
  *                                       and the wiring gate over doctored copies
  *   PR_REVIEW_ROOT=<dir> mise run pr-review:check
- *                                       the gate over a doctored copy of the four files it reads
+ *                                       the gate over a doctored copy of the files it reads: the
+ *                                       policy, the two workflows, the branch reviewer, `tasks.toml`
+ *                                       and every file of a listed gate
  *
  * The subcommands read their inputs from the environment the workflow sets (PR, SHA, ACTION, MORE,
  * EVIDENCE, EVIDENCE_RESULT, REVIEW_DIR, FORCE_PR, GH_TOKEN), never from the command line, so no
@@ -59,6 +62,21 @@
  * the floor decides, and reach and co-change only print. The figures and the replay that re-derives
  * them are in the pull request that made this change, and `docs/decisions.md` § D-37.
  *
+ * The same day (asdlc-openspec-ewyi) a security review of that change found what the model's
+ * judgement of a weakened gate had held to a person and the floor did not: `verify` runs a pull
+ * request's own `tasks.toml` and gates, so one that pointed `trace:check` at `true`, or loosened the
+ * trace gate's script or a threshold it reads, passed by the weakened gate and merged; and one that
+ * dropped `open-pr` § 5 dropped the branch review. The fix first weighed, `tasks.toml` and
+ * `git-hooks.yml` on the floor, would have sent 5 of the 14 pull requests the floor merged in #99 to
+ * #139 to a person for `git-hooks.yml`, which decides only the local pre-push tier. So the floor took
+ * the skill, `tasks.toml` and the gates `prReviewFloorTasks` lists, and `pr-review:check` derives
+ * every file those run and import and every policy key those files name, and refuses a floor that
+ * misses one (`docs/decisions.md` § D-38). The session review of that change then found a package
+ * committed under `scripts/node_modules/`, which Node loads before the lockfile's, and a root Stryker
+ * config excluding every mutator, which passed the thresholds gate on no mutant, each off the floor,
+ * and imports written with a query, in backticks or through `createRequire(…)('…')` that the first
+ * derivation, which read only `from`, `import(` and `require(`, did not see.
+ *
  * The brief (asdlc-openspec-744, before it was local only): criteria marked unverifiable for a fact
  * a script could compute and a reader, who runs nothing, could not. A budget that equals its prompt's
  * count (#56, #79), a consolidation committed alone and first (#79), a follow-up a criterion asked to
@@ -77,7 +95,14 @@
  * comments as the same bot; evidence read as a decision; and the pull request's own code run with the
  * write token. So the merge takes its floor from git objects in the job that merges, never from a
  * comment; that job installs Node and gh and no npm package, and imports only files on the floor; and
- * every job reads a pull request only as git objects. Wrong the other
+ * every job reads a pull request only as git objects. The derivation of a listed gate's files reads
+ * a task's command and the relative paths its files write out, never one written with `${`, joined
+ * at run time or written without its extension, so a gate weakened through a file it reaches only
+ * that way, through a file its tool reads by convention that the floor does not name, or through a
+ * policy key it reads by a computed name, merges as any gate off the list does. And the floor holds
+ * a gate's files, not its run: `verify` runs the pull request's own code before the listed gates in
+ * the same job, the `prepare` script `npm ci` runs among it, and that code can rewrite a gate's file
+ * on disk before the gate runs (asdlc-openspec-64wd). Wrong the other
  * way, a pull request waits forever: a pending status nobody clears, or a workflow label filter that
  * no longer spells the policy's approval label, so an approval waits for the schedule.
  * `pr-review:check` holds the wiring; the selftest holds every decision above.
@@ -89,8 +114,8 @@
  * `js-yaml` and `smol-toml`, which it loads only when it runs, so `act` needs none. `brief --local`
  * needs git, `bd` with the tracker cloned and those packages, and no `gh`. All of them need the
  * network, which is why none is a pre-push job or a `verify.yml` step (`CLAUDE.md` § The gate
- * ladder). `pr-review:check` and `pr-review:selftest` read only committed files and `js-yaml`, and
- * are both.
+ * ladder). `pr-review:check` and `pr-review:selftest` read only committed files, `js-yaml` and,
+ * through `scripts/lib/tasks.mjs`, `smol-toml`, and are both.
  */
 import { execFileSync } from 'node:child_process'
 import {
@@ -101,13 +126,21 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, posix, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { SCRATCH_GIT_ENV, gitEnv, gitIn } from '../tools/lib/git-env.ts'
-import { copyPolicy, editPolicy as editRecords, readPolicy as readRecords, readPolicyAt } from '../tools/lib/policy.ts'
+import {
+  HEADER_FIELDS,
+  copyPolicy,
+  editPolicy as editRecords,
+  readRecords as policyRecords,
+  readPolicy as readRecords,
+  readPolicyAt,
+} from '../tools/lib/policy.ts'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ROOT = process.env.PR_REVIEW_ROOT ?? REPO_ROOT
@@ -124,6 +157,10 @@ const GIT_HELPER = 'tools/lib/git-env.ts'
 const GUARD = 'scripts/hooks/guard-git.mjs'
 /** The helper the guard imports, through which a change could loosen what the guard refuses. */
 const GUARD_HELPER = 'scripts/hooks/_shared.mjs'
+/** The skill whose § 5 runs the branch review before every push: dropped there, the review is gone. */
+const OPEN_PR = '.claude/skills/open-pr/SKILL.md'
+/** The tasks every gate runs through: `verify.yml` runs `mise run <task>`, and `mise.toml` includes this. */
+const TASKS = 'tasks.toml'
 const WORKFLOW = '.github/workflows/pr-review.yml'
 const VERIFY = '.github/workflows/verify.yml'
 /** The branch reviewer: the one home of the rubric a branch is held to before its push. */
@@ -184,6 +221,7 @@ const POLICY_SHAPES = {
   prReviewContextPaths: 'strings',
   prReviewHighRiskPaths: 'reasons',
   prReviewHighRiskJsonKeys: 'jsonKeys',
+  prReviewFloorTasks: 'reasons',
   prReviewMergeMethod: 'string',
 }
 const LABEL_ROLES = ['approved', 'human']
@@ -224,7 +262,7 @@ export function policyProblems(policy) {
       }
     }
     if (shape === 'reasons' && (!isRecord(value) || Object.keys(value).length === 0 || Object.values(value).some((r) => typeof r !== 'string' || !r))) {
-      bad('an object mapping each glob to the reason it is high risk')
+      bad(`an object mapping each ${key === 'prReviewFloorTasks' ? 'task' : 'glob'} to the reason it is high risk`)
     }
     if (shape === 'jsonKeys' && (!isRecord(value) || Object.values(value).some((keys) => !isStrings(keys)))) {
       bad('an object mapping each JSON file to a list of its top-level keys')
@@ -237,14 +275,21 @@ export function policyProblems(policy) {
     }
   }
   // The floor must cover the reviewer itself and what the job that merges imports, or a pull request
-  // could change its own judge and merge; the branch reviewer, the one judge of correctness left, and
-  // the guard on the approval label; the two records only a person may change, or one could lower its
-  // own floor or raise a budget; and the toolchain (docs/decisions.md § D-31): every place mise reads
-  // a config or a lock from, and the image that installs it, or one could change what every shim,
-  // hook and session runs.
+  // could change its own judge and merge; the branch reviewer, the one judge of correctness left, the
+  // skill that runs it and the guard on the approval label; the tasks every gate runs through, or one
+  // could point a gate at a command that always passes (docs/decisions.md § D-38); the two records
+  // only a person may change, or one could lower its own floor or raise a budget; and the toolchain
+  // (docs/decisions.md § D-31): every place mise reads a config or a lock from, and the image that
+  // installs it, or one could change what every shim, hook and session runs.
   const covered = [
     ...[WORKFLOW, SELF].map((path) => [path, 'part of the reviewer itself']),
     [AGENT, 'the branch reviewer, the one review of correctness and maintainability'],
+    [OPEN_PR, 'the skill whose § 5 runs the branch review before every push'],
+    [TASKS, 'the command each gate runs, which verify.yml runs through mise'],
+    // What a listed gate reads without importing it, which `floorTaskProblems` cannot derive
+    // (docs/decisions.md § D-38): a package committed into the tree, and Stryker's config at the root.
+    ['scripts/node_modules/smol-toml/index.js', "a package committed into the tree, which Node resolves before the lockfile's copy"],
+    ...['stryker.conf.json', 'stryker.config.mjs', '.stryker.conf.js', '.stryker.config.cjs'].map((path) => [path, "a Stryker config, which the thresholds gate's mutation run loads"]),
     [GUARD, "the guard that refuses a session's application of the approval label"],
     [GUARD_HELPER, 'the helper that guard imports'],
     [POLICY, 'the record of what the reviewer decides by, this floor among it'],
@@ -271,6 +316,133 @@ function readPolicy(root) {
   const problems = policyProblems(policy)
   if (problems.length > 0) throw new Error(problems.join('\n'))
   return policy
+}
+
+/** A token of a task's command that is a code file's path, relative to the checkout. */
+const CODE_PATH_RE = /(?<![\w./-])((?:[\w.-]+\/)+[\w.-]+\.(?:mjs|cjs|js|ts|mts|cts))(?![\w./-])/g
+/** A code file, by the extensions Node loads one with. */
+const CODE_FILE_RE = /\.(?:mjs|cjs|js|ts|mts|cts)$/
+/** A task a command runs in turn, spelt as `check:jobs` holds a job's launcher. */
+const MISE_RUN_RE = /\bmise run (?:-q |--quiet )?([A-Za-z0-9][\w:.-]*)/g
+/**
+ * A launch of a task the derivation cannot follow, once each `MISE_RUN_RE` launch is cut: mise in any
+ * other spelling (`mise -q run`, `mise r`, a `:::` list), or a script of `package.json` through `npm
+ * run` or `node --run`. A listed task that reaches one is refused rather than read short.
+ */
+const UNREAD_LAUNCH_RE = /\bmise\b|:::|\bnpm\s+(?:run|run-script|rum|urn)\b|\bnode\s+--run\b/
+/**
+ * A relative path a file writes out in a string, in `'`, `"` or backticks: every spelling of an import
+ * names its file so, `import … from`, `import('…')`, `require('…')`, `createRequire(…)('…')` and
+ * `register('…')` among them, whatever the call. Read over the whole text, comments included, and kept
+ * when it names a code file of the tree once a `?query` or `#fragment` is cut, so a string that is no
+ * import only asks the floor for more. One written with `${` is built at run time, and not read.
+ */
+const RELATIVE_PATH_RE = /(['"`])(\.{1,2}\/[^'"`\n]*)\1/g
+
+const isFile = (root, path) => {
+  try {
+    return statSync(join(root, path)).isFile()
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The files the task `name` of `tasks` runs and imports in the tree at `root`: each code path its
+ * command names that the tree holds, those of each task it runs through `mise run`, and every code
+ * file they name by a relative path written out in a string, transitively. A path written with `${`,
+ * or joined at run time, is not read, nor one written without its extension, so a file reached only
+ * that way is not among them.
+ */
+export function filesOfTask(root, tasks, name, seen = new Set()) {
+  const files = new Set()
+  if (seen.has(name) || !Object.hasOwn(tasks, name)) return files
+  seen.add(name)
+  for (const [, named] of tasks[name].matchAll(CODE_PATH_RE)) {
+    const path = posix.normalize(named)
+    if (!path.startsWith('../') && isFile(root, path)) files.add(path)
+  }
+  for (const [, task] of tasks[name].matchAll(MISE_RUN_RE)) for (const file of filesOfTask(root, tasks, task, seen)) files.add(file)
+  const stack = [...files]
+  while (stack.length > 0) {
+    const file = stack.pop()
+    for (const [, , written] of readFileSync(join(root, file), 'utf8').matchAll(RELATIVE_PATH_RE)) {
+      if (written.includes('${')) continue
+      const target = posix.normalize(posix.join(posix.dirname(file), written.replace(/[?#].*$/s, '')))
+      if (CODE_FILE_RE.test(target) && !target.startsWith('../') && !files.has(target) && isFile(root, target)) {
+        files.add(target)
+        stack.push(target)
+      }
+    }
+  }
+  return files
+}
+
+/**
+ * Why the floor does not hold the gates `prReviewFloorTasks` lists in the tree at `root`, one message
+ * per problem; empty when it does. A listed task must be one `tasks.toml` defines and must run a file
+ * of the tree; every file it runs or imports must match `prReviewHighRiskPaths`; and every top-level
+ * key of a policy record whose name such a file holds must be held, by its record's path or by
+ * `prReviewHighRiskJsonKeys` (`docs/decisions.md` § D-38). The tasks are read through
+ * `scripts/lib/tasks.mjs`, imported here and never at the top of this file, so `act` does not load it.
+ */
+export async function floorTaskProblems(root, policy) {
+  const { loadTasks, TASKS_TOML } = await import('./lib/tasks.mjs')
+  let manifest
+  try {
+    manifest = loadTasks(root)
+  } catch (error) {
+    return [`${TASKS} cannot be read, so the gates \`prReviewFloorTasks\` lists cannot be held to the floor: ${error.message}`]
+  }
+  const tasks = manifest?.file === TASKS_TOML ? manifest.tasks : {}
+  const floor = Object.keys(policy.prReviewHighRiskPaths)
+  const problems = []
+  const reachedBy = new Map()
+  for (const name of Object.keys(policy.prReviewFloorTasks).sort(byCodePoint)) {
+    if (!Object.hasOwn(tasks, name)) {
+      problems.push(`${POLICY} \`prReviewFloorTasks\` lists \`${name}\`, which ${TASKS} does not define: the gate it names is held to no floor.`)
+      continue
+    }
+    const reached = new Set()
+    const files = filesOfTask(root, tasks, name, reached)
+    for (const task of [...reached].sort(byCodePoint)) {
+      if (UNREAD_LAUNCH_RE.test(tasks[task].replace(MISE_RUN_RE, ''))) {
+        problems.push(
+          `${POLICY} \`prReviewFloorTasks\` lists \`${name}\`, which reaches \`${task}\`, whose command in ${TASKS} (\`${tasks[task]}\`) launches a task other than as \`mise run <task>\`: the check cannot read what that runs, so it cannot hold it to the floor.`,
+        )
+      }
+    }
+    if (files.size === 0) {
+      problems.push(
+        `${POLICY} \`prReviewFloorTasks\` lists \`${name}\`, whose command in ${TASKS} (\`${tasks[name]}\`) runs no file of this repository: a gate that runs nothing here proves nothing, and nothing it runs can be held to the floor.`,
+      )
+      continue
+    }
+    for (const file of [...files].sort(byCodePoint)) if (!reachedBy.has(file)) reachedBy.set(file, name)
+  }
+  for (const [file, name] of [...reachedBy].sort(([a], [b]) => byCodePoint(a, b))) {
+    if (!matchesAny(file, floor)) {
+      problems.push(
+        `${POLICY} \`prReviewHighRiskPaths\` does not cover ${file}, which \`mise run ${name}\` runs or imports (\`prReviewFloorTasks\`): a pull request could weaken that gate through it and merge without a person.`,
+      )
+    }
+  }
+  const texts = [...reachedBy.keys()].sort(byCodePoint).map((file) => [file, readFileSync(join(root, file), 'utf8')])
+  for (const { path, data } of policyRecords(root)) {
+    if (matchesAny(path, floor)) continue
+    const patterns = Object.hasOwn(policy.prReviewHighRiskJsonKeys, path) ? policy.prReviewHighRiskJsonKeys[path] : []
+    for (const key of Object.keys(data).sort(byCodePoint)) {
+      if (HEADER_FIELDS.includes(key) || key.endsWith('Means') || patterns.some((pattern) => keyMatches(key, pattern))) continue
+      const word = new RegExp(`(?<![\\w$])${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w$])`)
+      const named = texts.find(([, text]) => word.test(text))
+      if (named) {
+        problems.push(
+          `${POLICY} \`prReviewHighRiskJsonKeys\` does not hold ${path}'s \`${key}\`, which ${named[0]} names and \`mise run ${reachedBy.get(named[0])}\` runs or imports (\`prReviewFloorTasks\`): a pull request could loosen that gate through the value alone and merge without a person.`,
+        )
+      }
+    }
+  }
+  return problems
 }
 
 /* ----------------------------------------------------------------------- paths, ids, criteria ----- */
@@ -1418,6 +1590,7 @@ export async function runCheck(root) {
   }
   failures.push(...policyProblems(policy))
   if (failures.length > 0) return failures
+  failures.push(...(await floorTaskProblems(root, policy)))
 
   let workflow
   let verify
@@ -1594,7 +1767,7 @@ export async function runCheck(root) {
 async function check() {
   const failures = await runCheck(ROOT)
   if (failures.length === 0) {
-    console.log(`pr-review: ${POLICY}, ${WORKFLOW}, ${VERIFY} and ${AGENT} agree.`)
+    console.log(`pr-review: ${POLICY}, ${WORKFLOW}, ${VERIFY} and ${AGENT} agree, and the floor holds the gates \`prReviewFloorTasks\` lists.`)
     process.exit(0)
   }
   console.error(`pr-review: ${failures.length} failure(s). ${SELF}.\n`)
@@ -1612,6 +1785,8 @@ const OTHER = 'asdlc-openspec-def.2'
 /** One decision per case, from a classified floor, each asserting its outcome and its reason. */
 function decisionCases(policy) {
   const pkg = (before, after) => changedJsonKeys('package.json', before, after, policy.prReviewHighRiskJsonKeys['package.json'])
+  const SETTINGS = 'tools/policy/tool-settings.json'
+  const settings = (before, after) => changedJsonKeys(SETTINGS, before, after, policy.prReviewHighRiskJsonKeys[SETTINGS])
   const c = (name, files, jsonChanges, outcome, reason) => ({
     name,
     run: () => {
@@ -1633,6 +1808,13 @@ function decisionCases(policy) {
     c('the approval-label guard changed: a person decides', [M(GUARD)], [], 'human', /`scripts\/hooks\/guard-git\.mjs` is /),
     c('the helper the guard imports changed: a person decides', [M(GUARD_HELPER)], [], 'human', /`scripts\/hooks\/_shared\.mjs` is /),
     c('the git helper the merging job imports changed: a person decides', [M(GIT_HELPER)], [], 'human', /`tools\/lib\/git-env\.ts` is /),
+    c('the skill that runs the branch review changed: a person decides', [M(OPEN_PR)], [], 'human', /`\.claude\/skills\/open-pr\/SKILL\.md` is the skill whose § 5 runs the branch review/),
+    c('the tasks every gate runs through changed: a person decides', [M(TASKS)], [], 'human', /`tasks\.toml` is the command each gate runs/),
+    c('the trace gate changed: a person decides', [M('tools/trace/trace.ts')], [], 'human', /`tools\/trace\/trace\.ts` is the trace gate/),
+    c('a threshold a listed gate reads lowered: a person decides', [M(SETTINGS)], settings({ thresholdPercents: { lines: 80 } }, { thresholdPercents: { lines: 10 } }), 'human', /`tools\/policy\/tool-settings\.json` changes its `thresholdPercents`/),
+    c('a key of the same record no listed gate reads changed: merge', [M(SETTINGS)], settings({ couplingMinSampleUnits: 20 }, { couplingMinSampleUnits: 30 }), 'merge', null),
+    c('a package committed under scripts/: a person decides', [{ status: 'A', path: 'scripts/node_modules/smol-toml/index.js' }], [], 'human', /`scripts\/node_modules\/smol-toml\/index\.js` is a package committed into the tree/),
+    c('a Stryker config added at the root: a person decides', [{ status: 'A', path: 'stryker.config.json' }], [], 'human', /`stryker\.config\.json` is a Stryker config/),
     c('a prompt review whose title cites no issue, stored cases only: merge, since the title is no input', [{ status: 'A', path: '.claude/prompt-cases/a-case.json' }], [], 'merge', null),
   ]
 }
@@ -2082,6 +2264,81 @@ function wiringCases() {
     { name: 'the floor stops covering mise.toml at any depth', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths['**/mise.toml']), expect: /does not cover mise\.toml, the one home of every tool version/ },
     { name: 'the floor stops covering a mise config directory', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths['**/.mise/**']), expect: /does not cover \.mise\/config\.toml, a mise config directory/ },
     { name: 'the floor stops covering the dev container', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths['.devcontainer/**']), expect: /does not cover \.devcontainer\/Dockerfile, the image that installs the toolchain/ },
+    { name: 'the floor stops covering the skill that runs the branch review', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[OPEN_PR]), expect: /does not cover \.claude\/skills\/open-pr\/SKILL\.md, the skill whose § 5 runs the branch review/ },
+    { name: 'the floor stops covering the tasks every gate runs through', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[TASKS]), expect: /does not cover tasks\.toml, the command each gate runs/ },
+    { name: 'the list of gates the floor holds goes missing', doctor: editPolicy((p) => { delete p.prReviewFloorTasks; delete p.prReviewFloorTasksMeans }), expect: /`prReviewFloorTasks` is missing/ },
+    { name: 'the floor stops covering the file a listed gate runs', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths['tools/trace/trace.ts']), expect: /does not cover tools\/trace\/trace\.ts, which `mise run [\w:.-]+` runs or imports \(`prReviewFloorTasks`\)/ },
+    { name: 'the floor stops covering a helper a listed gate imports', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths['scripts/lib/test-dirs.mjs']), expect: /does not cover scripts\/lib\/test-dirs\.mjs, which `mise run [\w:.-]+` runs or imports/ },
+    {
+      name: 'a listed gate gains an import the floor does not cover',
+      doctor: (dir) => {
+        writeFileSync(join(dir, 'tools/trace/added.ts'), 'export const added = 1\n')
+        edit('tools/trace/trace.ts', /^/, "import { added } from './added.ts'\n")(dir)
+      },
+      expect: /does not cover tools\/trace\/added\.ts, which `mise run [\w:.-]+` runs or imports/,
+    },
+    {
+      name: 'a listed gate gains a dynamic import the floor does not cover',
+      doctor: (dir) => {
+        writeFileSync(join(dir, 'scripts/lib/added.mjs'), 'export const added = 1\n')
+        edit('scripts/run-tests.mjs', /^/, "const later = () => import('./lib/added.mjs')\n")(dir)
+      },
+      expect: /does not cover scripts\/lib\/added\.mjs, which `mise run calculator:test` runs or imports/,
+    },
+    {
+      name: 'a listed gate gains an import with a query the floor does not cover',
+      doctor: (dir) => {
+        writeFileSync(join(dir, 'tools/trace/added-query.ts'), 'export const added = 1\n')
+        edit('tools/trace/trace.ts', /^/, "import { added } from './added-query.ts?gate'\n")(dir)
+      },
+      expect: /does not cover tools\/trace\/added-query\.ts, which `mise run [\w:.-]+` runs or imports/,
+    },
+    {
+      name: 'a listed gate gains an import in backticks the floor does not cover',
+      doctor: (dir) => {
+        writeFileSync(join(dir, 'scripts/lib/added-tick.mjs'), 'export const added = 1\n')
+        edit('scripts/run-tests.mjs', /^/, 'const later = () => import(`./lib/added-tick.mjs`)\n')(dir)
+      },
+      expect: /does not cover scripts\/lib\/added-tick\.mjs, which `mise run calculator:test` runs or imports/,
+    },
+    {
+      name: 'a listed gate requires a file through createRequire the floor does not cover',
+      doctor: (dir) => {
+        writeFileSync(join(dir, 'scripts/lib/added-req.cjs'), 'module.exports = 1\n')
+        edit('scripts/run-tests.mjs', /^/, "const later = () => createRequire(import.meta.url)('./lib/added-req.cjs')\n")(dir)
+      },
+      expect: /does not cover scripts\/lib\/added-req\.cjs, which `mise run calculator:test` runs or imports/,
+    },
+    { name: 'the floor stops covering a package committed into the tree', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths['**/node_modules/**']), expect: /does not cover scripts\/node_modules\/smol-toml\/index\.js, a package committed into the tree/ },
+    { name: "the floor stops covering one of Stryker's config names", doctor: editPolicy((p) => delete p.prReviewHighRiskPaths['stryker.config.*']), expect: /does not cover stryker\.config\.mjs, a Stryker config/ },
+    {
+      name: 'a listed gate comes to run a task whose file the floor does not cover',
+      doctor: (dir) => {
+        writeFileSync(join(dir, 'scripts/lib/added-nested.mjs'), 'export const added = 1\n')
+        edit(TASKS, 'run = "node tools/trace/trace.ts --check"', 'run = "node tools/trace/trace.ts --check && mise run added:nested"\n\n["added:nested"]\nrun = "node scripts/lib/added-nested.mjs"')(dir)
+      },
+      expect: /does not cover scripts\/lib\/added-nested\.mjs, which `mise run trace:check` runs or imports/,
+    },
+    {
+      name: 'a listed gate launches a task in a spelling the check cannot follow',
+      doctor: edit(TASKS, 'run = "node tools/trace/trace.ts --check"', 'run = "node tools/trace/trace.ts --check && mise -q run calculator:serve"'),
+      expect: /lists `trace:check`, which reaches `trace:check`, whose command in tasks\.toml \(`node tools\/trace\/trace\.ts --check && mise -q run calculator:serve`\) launches a task other than as `mise run <task>`/,
+    },
+    { name: "a listed gate's file named from the checkout's own directory is the floor's file", doctor: edit(TASKS, 'run = "node tools/trace/trace.ts --check"', 'run = "node ./tools/trace/trace.ts --check"'), expect: 'pass' },
+    { name: 'a listed task that tasks.toml does not define', doctor: editPolicy((p) => { p.prReviewFloorTasks['no:such:task'] = 'a gate that is gone' }), expect: /lists `no:such:task`, which tasks\.toml does not define/ },
+    { name: "a listed gate's command swapped for one that runs no file", doctor: edit(TASKS, /^(\["trace:check"\][\s\S]*?^run = ).*$/m, '$1"true"'), expect: /lists `trace:check`, whose command in tasks\.toml \(`true`\) runs no file of this repository/ },
+    { name: 'tasks.toml that does not parse', doctor: edit(TASKS, /^\["/m, '[[["'), expect: /tasks\.toml cannot be read, so the gates `prReviewFloorTasks` lists cannot be held to the floor/ },
+    {
+      name: 'a key a listed gate reads leaves the floor',
+      doctor: editPolicy((p) => { p.prReviewHighRiskJsonKeys['tools/policy/tool-settings.json'] = p.prReviewHighRiskJsonKeys['tools/policy/tool-settings.json'].filter((k) => k !== 'thresholdPercents') }),
+      expect: /does not hold tools\/policy\/tool-settings\.json's `thresholdPercents`, which scripts\/check-thresholds\.mjs names/,
+    },
+    { name: 'a listed gate comes to name a key the floor does not hold', doctor: edit('tools/trace/trace.ts', /^/, '// reads couplingMinSampleUnits\n'), expect: /does not hold tools\/policy\/tool-settings\.json's `couplingMinSampleUnits`, which tools\/trace\/trace\.ts names/ },
+    {
+      name: 'the keys a listed gate reads held by a prefix pass',
+      doctor: editPolicy((p) => { p.prReviewHighRiskJsonKeys['tools/policy/tool-settings.json'] = ['freshRunDeadlineSeconds', 'mutationCommands', 'threshold*'] }),
+      expect: 'pass',
+    },
     { name: 'a key the reviewer reads is defined in two records', doctor: (dir) => writeFileSync(join(dir, 'tools/policy/other.json'), JSON.stringify({ prReviewMergeMethod: 'merge' })), expect: /cannot be read: `prReviewMergeMethod` is defined in both tools\/policy\/other\.json and tools\/policy\/pr-review\.json/ },
     { name: 'the approval label renamed in the policy only', doctor: editPolicy((p) => { p.prReviewLabels.approved = 'lgtm' }), expect: /filters on the label .* not on `prReviewLabels\.approved` \(`lgtm`\)/ },
     {
@@ -2205,11 +2462,16 @@ async function selftest() {
     results.push({ name, ok: problem === null, detail: problem ?? 'holds' })
   }
 
+  // Each copy carries the tasks and every file the gates `prReviewFloorTasks` lists run and import, so
+  // the control derives what the live tree does.
+  const { loadTasks } = await import('./lib/tasks.mjs')
+  const liveTasks = loadTasks(REPO_ROOT).tasks
+  const gateFiles = [...new Set(Object.keys(policy.prReviewFloorTasks).flatMap((name) => [...filesOfTask(REPO_ROOT, liveTasks, name)]))]
   const base = mkdtempSync(join(tmpdir(), 'pr-review-'))
   try {
     for (const { name, doctor, expect } of wiringCases()) {
       const dir = join(base, name.replace(/[^a-z0-9]+/gi, '-'))
-      for (const path of [WORKFLOW, VERIFY, AGENT]) {
+      for (const path of [WORKFLOW, VERIFY, AGENT, TASKS, ...gateFiles]) {
         mkdirSync(dirname(join(dir, path)), { recursive: true })
         copyFileSync(join(REPO_ROOT, path), join(dir, path))
       }

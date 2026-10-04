@@ -362,17 +362,21 @@ run = "node scripts/check-openspec.mjs --selftest"
 ["pr-review:check"]
 description = '''
 Holds the pull-request reviewer's four files to each other. The policy's `prReview*` keys must be
-whole, with a floor that covers the reviewer itself, the branch reviewer, the approval-label guard
-with the helper it imports, and what the merging job imports. `pr-review.yml` must queue rather than
-cancel, wake on `verify`'s runs and filter on the policy's approval label, and the branch reviewer
-must read only. Each job of `pr-review.yml` runs one subcommand and only what its allowlist names:
-its actions and their inputs, its commands, its variables and its tools from mise. So it refuses a
-language model, a package in the job that merges, and a command or shell of a step's own. It
-refuses a secret however it is read, an OIDC token, `write-all` included, and an expression
-interpolated into a shell. It refuses an evidence job without a read-only token of its own, and a
-shallow history where the evidence is computed or the merge made. It refuses a `verify.yml` without
-the required check or a dispatch trigger. Without it a renamed label or check leaves approvals and
-merges waiting on the schedule, and nothing says why.'''
+whole, with a floor that covers the reviewer itself, the branch reviewer and the `open-pr` skill
+that runs it, this file, the approval-label guard with the helper it imports, and what the merging
+job imports. The floor must also cover every file a task `prReviewFloorTasks` lists runs or imports,
+which it derives from this file and their imports, and hold every policy key whose name such a file
+holds; a listed task this file lacks, or one that runs no file, is refused. `pr-review.yml` must
+queue rather than cancel, wake on `verify`'s runs and filter on the policy's approval label, and the
+branch reviewer must read only. Each job of `pr-review.yml` runs one subcommand and only what its
+allowlist names: its actions and their inputs, its commands, its variables and its tools from mise.
+So it refuses a language model, a package in the job that merges, and a command or shell of a
+step's own. It refuses a secret however it is read, an OIDC token, `write-all` included, and an
+expression interpolated into a shell. It refuses an evidence job without a read-only token of its
+own, and a shallow history where the evidence is computed or the merge made. It refuses a
+`verify.yml` without the required check or a dispatch trigger. Without it a renamed label or check
+leaves approvals and merges waiting on the schedule, and nothing says why, and a gate that holds the
+product can be weakened in the pull request it proves and merge without a person.'''
 run = "node scripts/pr-review.mjs --check"
 
 ["pr-review:selftest"]
