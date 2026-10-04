@@ -313,7 +313,10 @@ pre-push:
     # does not, and `checkoutOf` places a linked worktree over scratch repositories; and a copy of the
     # hook in a scratch repository gates a linked worktree and reports what that worktree's own gate
     # read; and `runTask` over scratch checkouts, launching npm or mise by each one's own manifest and
-    # refusing a task that manifest lacks. The hook runs `check:jobs` over this checkout in four of its
+    # refusing a task that manifest lacks; and a copy of the edit hook, `block-generated-edit.mjs`,
+    # refusing an edit to generated output in a linked worktree with the reason it gives in the primary
+    # checkout, over each path of this checkout's `git ls-files` that the redirect table in
+    # `scripts/hooks/_shared.mjs` assigns. The hook runs `check:jobs` over this checkout in four of its
     # seven runs, so the glob carries that gate's inputs too, the whole of `tools/`, `scripts/` and
     # `apps/` among them. `scripts/**` and `tools/**` also hold the hook, the task loader and the
     # citations gate it runs. The lockfile pins the `smol-toml` the loader requires to write a
@@ -322,7 +325,9 @@ pre-push:
     # their gates) on a macOS 26.7 laptop (Apple M3 Max) with Node 26.8.1, 2026-09-26: seven hook
     # runs, each two npm starts, three of them against stub gates. 3.60-3.61 s (two runs, the same
     # host with mise 2026.10.0, 2026-10-03) with `runTask`'s cases, which run one task through npm
-    # and one through mise.
+    # and one through mise. 6.96-24.31 s (four runs, the same host, 2026-10-03, while sibling lanes ran
+    # their gates: 3.28-3.53 s user, 1.90-2.41 s sys) with the edit hook's 21 runs, which took 3.09
+    # and 8.70 s of it in the two runs that summed them; a quiet host's figure is not yet measured.
     - name: gate-summary-selftest
       glob:
         - 'package.json'

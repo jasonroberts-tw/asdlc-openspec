@@ -3,16 +3,16 @@
  *
  * These hooks run on EVERY matching tool call, so the budget is a few hundred milliseconds. This file
  * imports Node's built-in `fs`, `path`, `url` and `child_process` and nothing else, and it reads no
- * file and starts no process when it is loaded. Two helpers start a process, and only when called:
- * `runTask` runs a task, after importing `scripts/lib/tasks.mjs` to read the manifest, and
- * `checkoutOf` runs git. A hook that calls neither starts none.
+ * file and starts no process when it is loaded. Three helpers start a process, and only when called:
+ * `runTask` runs a task, after importing `scripts/lib/tasks.mjs` to read the manifest; `checkoutOf`
+ * runs git; and `editedCheckout` runs it through `checkoutOf`. A hook that calls none starts none.
  *
  * Why this tier exists: most of the work in this
  * repository is done by an agent, and a gate that fires after the agent has spent twenty minutes
  * going the wrong way is worth far less than one that stops it at the first keystroke.
  */
-import { closeSync, openSync, readFileSync, readSync, realpathSync } from 'node:fs'
-import { dirname, relative, resolve, sep } from 'node:path'
+import { closeSync, existsSync, openSync, readFileSync, readSync, realpathSync } from 'node:fs'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFileSync, spawn } from 'node:child_process'
 
@@ -53,10 +53,13 @@ export function editTarget(input) {
   }
 }
 
-/** A repo-relative POSIX path, or `null` when the target is outside this repository. */
-export function toRepoRel(filePath) {
+/**
+ * A POSIX path relative to the checkout at `root`, this one unless the caller names another, or `null`
+ * when the target is outside it.
+ */
+export function toRepoRel(filePath, root = ROOT) {
   if (typeof filePath !== 'string' || filePath === '') return null
-  const rel = relative(ROOT, resolve(ROOT, filePath))
+  const rel = relative(root, resolve(root, filePath))
   if (rel === '' || rel.startsWith('..')) return null
   return rel.split(sep).join('/')
 }
@@ -260,7 +263,7 @@ export async function runTask(name, { timeoutMs = 120_000, cwd = ROOT, env = {} 
 }
 
 /* ============================================================================================= *
- * Which checkout a stopping agent worked in.
+ * Which checkout a stopping agent worked in, and which checkout an edit lands in.
  * ============================================================================================= */
 
 /** An absolute path `git rev-parse` gives for `flag` in `dir`, resolved, or null outside a checkout. */
@@ -291,6 +294,32 @@ export function checkoutOf(cwd, ownRoot = ROOT) {
   const theirs = gitPath(cwd, '--git-common-dir')
   const ours = gitPath(ownRoot, '--git-common-dir')
   return theirs !== null && theirs === ours ? top : own
+}
+
+/**
+ * The checkout of this repository an edit to `filePath` lands in, placed by the path itself, and the
+ * path relative to it: `{ root, rel }`, or `null` when the path is in no checkout of this repository.
+ * Never by the payload's `cwd`: a session in a worktree can edit the primary checkout's files too.
+ * A relative path resolves against `ownRoot`, as in `toRepoRel`. The nearest of its directories that
+ * exists places it, since a Write may make the file's directory and git answers only in one that
+ * exists; and it is compared in its real form, the form `checkoutOf` gives a checkout's top in.
+ * Starts git through `checkoutOf`: four calls inside a checkout, two outside any.
+ */
+export function editedCheckout(filePath, ownRoot = ROOT) {
+  if (typeof filePath !== 'string' || filePath === '') return null
+  const abs = resolve(ownRoot, filePath)
+  let dir = dirname(abs)
+  while (!existsSync(dir) && dirname(dir) !== dir) dir = dirname(dir)
+  const real = (p) => {
+    try {
+      return realpathSync(p)
+    } catch {
+      return p
+    }
+  }
+  const root = real(checkoutOf(dir, ownRoot))
+  const rel = toRepoRel(join(real(dir), relative(dir, abs)), root)
+  return rel === null ? null : { root, rel }
 }
 
 /** Read a file, or a fallback. */
