@@ -170,8 +170,8 @@ export const meta = {
  *   the package script that runs the build stage at push and in CI runs no E2E test or
  *   Verify-deferred fitness function (`docs/test-strategy.md` § Build exit criteria). A task naming
  *   no ID gets no test-builder to write its own tests, and says so; an earlier file the architect
- *   routes `rewrite-test` still goes to one, whose rewrite comes back without its exemption and is
- *   sent back unrun (asdlc-openspec-wkgb). Its code can still break what an earlier task's tests
+ *   routes `rewrite-test` still goes to one, and its rewrite keeps the earlier file's exemption,
+ *   below, and runs at the next architect round. Its code can still break what an earlier task's tests
  *   cover, so the architect still runs every build-stage file an earlier task committed, below, and
  *   triages each failure as for any task: a regression surfaces at the task that caused it, not
  *   first among the gates of `.claude/skills/change-build/SKILL.md` § 6. Repeat, then hand over.
@@ -186,7 +186,8 @@ export const meta = {
  *   failures fail. A file left behind, or a committed one changed or removed, stops the run as
  *   not-independent before any fixer runs. A file of this task's whose tests name an ID the task does
  *   not is routed to rewrite-test here, and runs at no architect; an earlier file names earlier tasks'
- *   IDs, and is exempt. An earlier file that fails is triaged as this task's are, and a rewrite of it
+ *   IDs, and is exempt by its path, so a rewrite of it is too, which the runner writes before it runs
+ *   it. An earlier file that fails is triaged as this task's are, and a rewrite of it
  *   comes back in `independent.files` for the parent to write; one left unchanged never does. Every
  *   earlier file runs, not only those whose scope the task touches: the strategy reruns the tests of
  *   the elements a task changes, and no rule here could tell which those are without reading the code,
@@ -1408,8 +1409,10 @@ if (!I) return finish(...reviewEnd)
  * The architect: run the test-builder's tests, route each failure, act on the routes. Every
  * build-stage file an earlier task committed, as Setup read it, runs beside this task's: `earlier`
  * files are run where they stand, never written or removed, and come back to the parent only rewritten.
- * A task naming no ID has no test-builder files of its own, so the earlier ones run alone; with no
- * earlier one either, nothing is left to run and the review's end is the run's.
+ * A rewrite comes back as the test-builder returns it, without `earlier`, so the runner writes it and
+ * the parent gets it; its exemption from the check on the IDs its tests name goes by its path, which
+ * the rewrite keeps. A task naming no ID has no test-builder files of its own, so the earlier ones run
+ * alone; with no earlier one either, nothing is left to run and the review's end is the run's.
  */
 const taskFiles = tests ? tests.files : []
 const buildDir = `${I.dir}/build/`
@@ -1418,6 +1421,7 @@ const earlier = I.files
   .map((x) => ({ path: x.path, layer: x.path.slice(buildDir.length).split(/\//)[0], runAt: 'build', content: x.text, earlier: true }))
 if (!tests && !earlier.length) return finish(...reviewEnd)
 const files = new Map([...earlier, ...taskFiles].map((f) => [f.path, f]))
+const exempt = new Set(earlier.map((f) => f.path))
 const allowed = new Set([...I.ids, A.task.id])
 const env = { platform: '', node: '' }
 const levelOf = (f) => (/trace-defaults:[^\n]*\blevel=(\d)/.exec(f.content) || [])[1] || policy.testTraceLayers[f.layer] || 1
@@ -1460,7 +1464,7 @@ for (let round = 1; round <= policy.buildArchitectMaxRounds; round++) {
   for (const f of runnable) {
     const ids = testIds(f.content)
     const stray = ids.filter((id) => !allowed.has(id))
-    if (!f.earlier && (!ids.length || stray.length)) {
+    if (!exempt.has(f.path) && (!ids.length || stray.length)) {
       const reason = ids.length ? `its tests name ${stray.join(', ')}, which task ${A.task.id} does not` : 'no test in it carries a name the convention reads'
       record.routes.push({ path: f.path, route: 'rewrite-test', by: 'code', reason })
       rewrite.push({ path: f.path, reason, content: f.content })
