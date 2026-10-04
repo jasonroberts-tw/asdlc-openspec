@@ -8,7 +8,8 @@
 # or `{#`): any other key, or a template, which mise renders before the task runs, makes mise run it
 # otherwise than the command every reader sees, so the loader refuses one. Every task here has a
 # `description`, a `'''` string saying what it does and what breaks without it, which
-# `mise tasks info <name>` prints; no gate holds that yet (asdlc-openspec-16mc).
+# `mise tasks info <name>` prints; no gate holds that yet (asdlc-openspec-16mc). Every pre-push job
+# with a glob names this file, so a push that edits only a description runs every pre-push job.
 # `README.md` § The tasks gives the tier each runs at. Where a description and the header of the
 # script its task runs disagree, the header wins. `package.json` keeps two scripts and no more,
 # `prepare`, which `npm ci` runs, and `calculator:serve`, the command the calculator's spec names;
@@ -120,8 +121,8 @@ requires, read out of `CLAUDE.md` so the sentence has one home. Refuses too a pr
 budget, or with none: every skill and agent, `CLAUDE.md`, `AGENTS.md`, the worktree briefing
 template, `.beads/PRIME.md` and the string literals of each workflow, each against its row, by path,
 in `tools/policy/prompt-budgets.json`. Without it a prompt copied in or written fresh loses the
-line, and a prompt grows with every review, and nothing says so. `node scripts/check-prompts.mjs
---counts` prints each prompt's words beside its budget.'''
+line, and a prompt grows with every review, and nothing says so.
+`node scripts/check-prompts.mjs --counts` prints each prompt's words beside its budget.'''
 run = "node scripts/check-prompts.mjs"
 
 ["check:prompts:selftest"]
@@ -268,9 +269,9 @@ run = "node tools/coupling/selftest.ts"
 
 ["coupling:update"]
 description = '''
-Moves the map's baseline to `origin/main`, and writes the map through it. Run it after `git fetch
-origin main`, when the map lags the trunk by more than its reader will accept. No job runs it, since
-a job that did would move the baseline it holds.'''
+Moves the map's baseline to `origin/main`, and writes the map through it. Run it after
+`git fetch origin main`, when the map lags the trunk by more than its reader will accept. No job
+runs it, since a job that did would move the baseline it holds.'''
 run = "node tools/coupling/coupling.ts --update"
 
 ["gate-summary:selftest"]
