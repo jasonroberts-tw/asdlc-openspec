@@ -476,10 +476,14 @@ describe('The port is configurable', () => {
       return
     }
     // Something on this host held the port when the command tried it: another program, or another
-    // run of this suite. The command runs again with the probe steering its listen to port 0. The
-    // port it asked for, and the URL it prints for the port it got, are the URL above had the port
-    // been free; a refusal naming 8080 would prove only the first.
-    t.diagnostic(`the command exited before printing a URL, so the probe reads the port it asks for: ${first.exit.stderr.trim()}`)
+    // run of this suite. Only the command's own refusal of 8080 as in use, the line it prints for
+    // EADDRINUSE and nothing else, lets the probe stand in; any other early exit fails here. That
+    // refusal proves only the port the command asked for, so it runs again with the probe steering
+    // its listen to port 0: the port it asked for, and the URL it prints for the port it got, are
+    // the URL above had the port been free.
+    assertRefused(first.exit, '8080')
+    assert.equal(first.exit.stderr.trim(), listenRefusal({ code: 'EADDRINUSE' }, 8080), 'refused as in use')
+    t.diagnostic(`port 8080 was in use when the command tried it, so the probe reads the port it asks for: ${first.exit.stderr.trim()}`)
     const served = serve(t, undefined, { probe: listenProbe('any-port') })
     const url = await printedUrl(served)
     served.child.kill('SIGKILL')
