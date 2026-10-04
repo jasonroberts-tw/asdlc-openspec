@@ -4,18 +4,19 @@
  * `branch.<name>.remote` / `branch.<name>.merge` pair in `.git/config`.
  *
  *   node scripts/prune-worktree-branches.mjs [--dry-run] [--trunk <ref>] [--repo <path>]
- *   npm run worktree:gc
+ *                                            [--finished <worktree>]...
+ *   npm run worktree:gc [-- --finished <worktree>]
  *
  * THE TWO DEFECTS THIS PREVENTS.
  *
- * First, `.git/config` growing without bound. Provisioning sets up tracking twice over -- `git
- * worktree add -b agent/<name> ... origin/main` writes the pair once because the start point is a
- * remote-tracking branch, and the agent's `git push -u` rewrites it to point at its own pushed branch
- * -- and nothing ever takes it back out. `scripts/hooks/worktree-remove.mjs` removes the checkout and
- * deliberately not the branch, which is right (the branch is the work, and a pull request is how it
- * reaches trunk), but it means the branch and its two config keys outlive the worktree by design and
- * then outlive the merged pull request by neglect. Measured before this script existed: 222 of 241
- * local config keys were `branch.agent/*`, spread over 111 branches of which 9 had a live worktree.
+ * First, `.git/config` growing without bound. The agent's `git push -u` writes the pair to point at
+ * its own pushed branch, as provisioning also did, from the remote-tracking start point, until it
+ * cut the branch with `--no-track` (asdlc-openspec-686) -- and nothing ever takes it back out.
+ * `scripts/hooks/worktree-remove.mjs` removes the checkout and deliberately not the branch, which is
+ * right (the branch is the work, and a pull request is how it reaches trunk), but it means the branch
+ * and its two config keys outlive the worktree by design and then outlive the merged pull request by
+ * neglect. Measured before this script existed: 222 of 241 local config keys were `branch.agent/*`,
+ * spread over 111 branches of which 9 had a live worktree.
  *
  * Second, REGISTERED CHECKOUTS NOBODY IS USING. The `WorktreeRemove` hook fires only when the harness
  * tears a worktree down. A background job that simply ends, or a session that answers "keep" at exit,
@@ -76,8 +77,8 @@
  *     lingering MSBuild node for the minutes it takes to idle out -- conservative, and self-correcting
  *     on the next run;
  *   - its branch is contained in the trunk by one of the three proofs above;
- *   - where no liveness check works, HEAD there has not moved for `worktreeGcMinAgeHours`
- *     (`tools/policy/tool-settings.json`).
+ *   - HEAD there has not moved for `worktreeGcMinAgeHours` (`tools/policy/tool-settings.json`),
+ *     unless the caller names the worktree with `--finished` (THE AGE RULE, below).
  *
  * THE LIVENESS CHECK, and the defect it closes. Until 2026-09-29 it read only `/proc/<pid>/cwd`, and
  * where `/proc` was absent it was skipped and the clean-and-contained proof stood alone. On
@@ -91,18 +92,40 @@
  *   - Linux and WSL2: `/proc/<pid>/cwd`, as before;
  *   - macOS and other BSDs: `lsof -w -a -d cwd -Fpn`, every process's working directory in one call
  *     (measured 2026-09-29 on macOS: 0.25 s for about 500 processes), run once per sweep. `lsof`
- *     found but exiting non-zero is no answer, and falls through to the age rule rather than to
- *     "nobody is there";
- *   - anywhere neither works (native Windows, or a host with no `lsof`): no check, and a clean,
- *     contained worktree is removed only once HEAD there has not moved for `worktreeGcMinAgeHours`.
- *     HEAD's last move is the newest mtime of the worktree's `.git` file (written when it was cut)
- *     and of `HEAD` and `logs/HEAD` in its admin directory (moved by a commit, a checkout or a
- *     rebase). The index is not read: `git status`, this sweep's own, can rewrite it. With the
- *     policy unreadable, nothing is removed on that platform.
+ *     found but exiting non-zero is no answer, and falls through to the age rule alone rather than
+ *     to "nobody is there";
+ *   - anywhere neither works (native Windows, or a host with no `lsof`): no check, and the age rule
+ *     below is all that stands between a lane and its removal.
  *
  * `WORKTREE_GC_LIVENESS` (`proc`, `lsof` or `none`) forces one check alone, for the selftest and a
  * by-hand run; unset, each is tried in the order above. The report's `liveness:` line names the one
  * that ran.
+ *
+ * THE AGE RULE, and the defect it closes. It once held only where no liveness check worked, and
+ * where one did, a clean, contained worktree with no process in it was removed at once. On
+ * 2026-09-30, on macOS, a prompt review's workflow agent lost its worktree before its first edit
+ * (asdlc-openspec-m4m): it was clean and at the trunk, and no process had its directory there, since
+ * each of the agent's Bash calls starts and ends and between them nothing stands in the worktree.
+ * Every Bash call it made after was refused, and its finding, 178,551 tokens in, was reviewed again
+ * from the start. So a liveness check sees a working agent only while one of its commands runs, and
+ * proves no worktree unused: on every host, a clean, contained worktree with no process in it is
+ * removed only once HEAD there has not moved for `worktreeGcMinAgeHours`.
+ * HEAD's last move is the newest mtime of the worktree's `.git` file (written when it was cut) and of
+ * `HEAD` and `logs/HEAD` in its admin directory (moved by a commit, a checkout or a rebase). The
+ * index is not read: `git status`, this sweep's own, can rewrite it. With the policy unreadable, no
+ * worktree is removed but one named by `--finished`.
+ *
+ * `--finished <worktree>` is the caller's word that it has finished with a worktree, by its name
+ * under `.claude/worktrees/` or by its path, and waives the age rule for that one alone; every other
+ * condition above still holds. It is how a session removes the worktree of a change it has just
+ * landed, or of a lane it ran, without waiting the threshold out. The report's `min age:` line names
+ * the threshold and what was named; a name that matches no registered worktree is reported.
+ *
+ * Where the age rule loses. An agent that works longer than `worktreeGcMinAgeHours` in one clean,
+ * contained worktree without a commit, a checkout or a rebase, and with no command running there
+ * when a sweep runs, loses its worktree. A finished worktree no caller names stays, with its branch,
+ * until the threshold passes, where the check before it removed it at once. And `--finished` is taken
+ * at its word: a caller that names a worktree another agent still works in removes it.
  *
  * A kept worktree keeps its branch with it, reported as `checked out by <path> (<reason>)`.
  *
@@ -114,8 +137,8 @@
  *
  * WHAT IT WILL NOT TOUCH, regardless of proof:
  *   - the primary checkout, the worktree it runs from, a locked worktree, a worktree outside
- *     `.claude/worktrees/`, any worktree with a change or a process in it, or, where no liveness
- *     check works, one whose HEAD moved within `worktreeGcMinAgeHours`;
+ *     `.claude/worktrees/`, any worktree with a change or a process in it, or one whose HEAD moved
+ *     within `worktreeGcMinAgeHours` that no `--finished` names;
  *   - any branch a kept worktree has checked out;
  *   - `main`, `release`, and anything not named `agent/*` or `worktree-*`. Human branches are
  *     not this script's business and prefix is how it knows.
@@ -151,19 +174,31 @@ const argv = process.argv.slice(2)
 let dryRun = false
 let trunkArg = null
 let repoArg = null
+/** What each `--finished` named, as given: a worktree's directory name or its path. */
+const finishedArgs = []
 
 for (let i = 0; i < argv.length; i += 1) {
   const arg = argv[i]
   if (arg === '--dry-run' || arg === '-n') dryRun = true
   else if (arg === '--trunk') trunkArg = argv[(i += 1)]
   else if (arg === '--repo') repoArg = argv[(i += 1)]
-  else if (arg === '--help' || arg === '-h') {
+  else if (arg === '--finished') {
+    const value = argv[(i += 1)]
+    if (!value) {
+      console.error('prune-worktree-branches: --finished needs a worktree name or path')
+      process.exit(1)
+    }
+    finishedArgs.push(value)
+  } else if (arg === '--help' || arg === '-h') {
     console.log(
-      'usage: prune-worktree-branches.mjs [--dry-run] [--trunk <ref>] [--repo <path>]\n' +
+      'usage: prune-worktree-branches.mjs [--dry-run] [--trunk <ref>] [--repo <path>] [--finished <worktree>]...\n' +
         '\n' +
         '  --dry-run   report what would be removed and change nothing\n' +
         '  --trunk     the ref that proves containment (default origin/main, or $TRUNK_BRANCH)\n' +
-        '  --repo      a path inside the repository to operate on (default: the cwd)',
+        '  --repo      a path inside the repository to operate on (default: the cwd)\n' +
+        '  --finished  a worktree the caller has finished with, by its name under .claude/worktrees/\n' +
+        '              or its path: removed without waiting out worktreeGcMinAgeHours, once every\n' +
+        '              other condition holds; repeatable',
     )
     process.exit(0)
   } else {
@@ -652,6 +687,19 @@ const PRIMARY = worktrees.length > 0 ? realpath(worktrees[0].path) : realpath(RO
 const OWNED_DIR = join(PRIMARY, '.claude', 'worktrees') + sep
 const SELF = realpath(ROOT)
 
+/**
+ * The worktrees `--finished` names, as a map from real path to what was given: a bare name is a
+ * directory under `.claude/worktrees/`, anything with a separator a path from the cwd.
+ */
+const FINISHED = new Map(
+  finishedArgs.map((given) => [
+    realpath(given.includes('/') || given.includes(sep) ? resolve(given) : join(OWNED_DIR, given)),
+    given,
+  ]),
+)
+/** Every registered worktree's real path, read before the sweep removes any. */
+const REGISTERED = new Set(worktrees.map((wt) => realpath(wt.path)))
+
 /** A worktree path as the report prints it: relative to the primary checkout where it is inside. */
 function shortPath(p) {
   const rel = relative(PRIMARY, p)
@@ -687,20 +735,19 @@ function worktreeVerdict(wt, index) {
   }
   const verdict = containment(wt.branch)
   if (!verdict.contained) return { remove: false, reason: `branch ${wt.branch}: ${verdict.reason}` }
-  if (pids !== null) return { remove: true, proof: `clean, ${verdict.proof}` }
+  if (FINISHED.has(real)) return { remove: true, proof: `clean, named by --finished, ${verdict.proof}` }
 
-  // No liveness check: a clean, contained worktree is what a lane looks like the moment it is cut,
+  // THE AGE RULE, on every host: a clean, contained worktree with no process in it is also what a
+  // lane looks like the moment it is cut, and what an agent's looks like between two of its calls,
   // so only one whose HEAD has sat still for the policy's threshold is taken as abandoned.
   const minAge = minAgeHours()
-  if (minAge === null) {
-    return { remove: false, reason: 'no liveness check, and no worktreeGcMinAgeHours to wait out' }
-  }
+  if (minAge === null) return { remove: false, reason: 'no worktreeGcMinAgeHours to wait out' }
   const idle = hoursSinceHeadMoved(wt.path)
-  if (idle === null) return { remove: false, reason: 'no liveness check, and no HEAD age' }
+  if (idle === null) return { remove: false, reason: 'no HEAD age' }
   if (idle < minAge) {
     return {
       remove: false,
-      reason: `no liveness check, and HEAD moved ${idle.toFixed(1)}h ago, under worktreeGcMinAgeHours (${minAge})`,
+      reason: `HEAD moved ${idle.toFixed(1)}h ago, under worktreeGcMinAgeHours (${minAge})`,
     }
   }
   return { remove: true, proof: `clean, HEAD idle ${idle.toFixed(1)}h, ${verdict.proof}` }
@@ -807,8 +854,15 @@ if (livenessCache !== null) {
   console.log(
     livenessCache.method !== null
       ? `  liveness: ${livenessCache.method}`
-      : `  liveness: none (${livenessCache.why}) -- a clean, contained worktree goes only once HEAD is idle ${minAgeHours() ?? '(unset)'}h`,
+      : `  liveness: none (${livenessCache.why})`,
   )
+  const waived = FINISHED.size > 0 ? `, waived for --finished ${finishedArgs.join(', ')}` : ''
+  console.log(`  min age: ${minAgeHours() ?? '(unset)'}h (worktreeGcMinAgeHours)${waived}`)
+}
+// A name that matched no registered worktree is a typo or a worktree already gone; either way the
+// caller should see that it removed nothing.
+for (const [real, given] of FINISHED) {
+  if (!REGISTERED.has(real)) console.log(`  --finished ${given}: no registered worktree at ${real}`)
 }
 if (mergedCache !== null) {
   console.log(

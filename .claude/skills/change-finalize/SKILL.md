@@ -119,12 +119,12 @@ The cleanup comes first, because an epic's criteria can name its result, such as
 gone.
 
 1. Update the primary checkout: `git fetch origin`, then `git pull --rebase`.
-2. Run `npm run worktree:gc -- --dry-run` first. The sweep is not scoped to this change: it
-   removes every clean worktree under `.claude/worktrees/` whose branch it proves is in
-   `origin/main`, with that branch, unless a process works there
-   (`scripts/prune-worktree-branches.mjs`, its header). If the dry run names only this change's
-   worktree, run `npm run worktree:gc`. If it names others, show the user the list, and run it
-   only on their word.
+2. Run `npm run worktree:gc -- --dry-run --finished <change>` first. The sweep is not scoped to
+   this change: it removes every clean worktree under `.claude/worktrees/` whose branch it proves is
+   in `origin/main`, with that branch, unless its header's conditions keep it
+   (`scripts/prune-worktree-branches.mjs`). If the dry run names only this change's worktree, run it
+   again without `--dry-run`. If it names others, show the user the list, and run it only on their
+   word.
 3. Confirm with `git worktree list` that the worktree is gone.
 4. Check each of the epic's acceptance criteria. They are the bullets under `## Acceptance Criteria`
    in its description, and its `acceptance_criteria` field, as `bd show <epic> --json` prints them.
@@ -148,7 +148,7 @@ gone.
 
 ## 9. Report
 
-Report:
+Report these:
 
 - the pull request and its merge;
 - each of the epic's acceptance criteria as step 8 found it, with the command or file that shows

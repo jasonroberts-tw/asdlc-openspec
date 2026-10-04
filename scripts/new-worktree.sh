@@ -18,6 +18,10 @@
 # checkout has none; `npm ci` is the first command inside the worktree, and both the summary printed
 # below and the rendered briefing say so.
 #
+# Several runs at once, as a fan-out sweep starts them, do not fail one another: no run writes the
+# shared .git/config, and a run that fails deletes the branch it made, and only that one
+# (asdlc-openspec-686; the block that cuts the branch has the incident).
+#
 # Run from the primary checkout.
 
 set -euo pipefail
@@ -46,17 +50,24 @@ LIFETIME_HOURS="${LIFETIME_HOURS:-2}"
 BRANCH="agent/${NAME}"
 WORKTREE_PATH="${WORKTREE_ROOT}/${NAME}"
 
-# Anything that fails AFTER `worktree add` succeeds has to undo it. Without this, a failure in the
-# renderer left the worktree and the branch on disk, and the obvious fix -- run the script again --
-# died on `fatal: a branch named 'agent/...' already exists` with no hint that the way out is
-# `git worktree remove` plus `git branch -D`.
+# Anything that fails AFTER the branch is made has to undo what this run made, and only that.
+# Without this, a failure in the renderer left the worktree and the branch on disk, and the obvious
+# fix -- run the script again -- died on `fatal: a branch named 'agent/...' already exists` with no
+# hint that the way out is `git worktree remove` plus `git branch -D`. The trap once acted only once
+# the worktree existed, so a `worktree add` that failed after making the branch left the branch
+# behind with no worktree (asdlc-openspec-686, below). BRANCH_MADE is set only once this run's own
+# `git branch` succeeds, so a branch that existed before the run is never this trap's to delete.
+BRANCH_MADE=0
 CREATED=0
 cleanup() {
   local code=$?
   if [ "$code" -ne 0 ] && [ "$CREATED" -eq 1 ]; then
-    echo "provisioning failed (exit $code); removing the worktree and branch" >&2
+    echo "provisioning failed (exit $code); removing the worktree" >&2
     git -C "$REPO_ROOT" worktree remove --force "$WORKTREE_PATH" 2>/dev/null || true
-    git -C "$REPO_ROOT" branch -D "$BRANCH" 2>/dev/null || true
+  fi
+  if [ "$code" -ne 0 ] && [ "$BRANCH_MADE" -eq 1 ]; then
+    echo "provisioning failed (exit $code); deleting $BRANCH, the branch this run made" >&2
+    git -C "$REPO_ROOT" branch -D "$BRANCH" >/dev/null 2>&1 || true
   fi
   exit "$code"
 }
@@ -77,7 +88,25 @@ if ! git -C "$REPO_ROOT" fetch origin "$TRUNK" --quiet 2>/dev/null; then
 fi
 BASE_SHA="$(git -C "$REPO_ROOT" rev-parse --short "origin/$TRUNK")"
 BASE_DATE="$(git -C "$REPO_ROOT" log -1 --format=%ci "origin/$TRUNK")"
-git -C "$REPO_ROOT" worktree add -b "$BRANCH" "$WORKTREE_PATH" "origin/$TRUNK"
+
+# The branch is cut with --no-track, and before the worktree, in two steps. On 2026-09-26 a fan-out
+# sweep launched eleven lanes at once and two WorktreeCreate hooks failed with "could not lock config
+# file .git/config: File exists" (asdlc-openspec-686): `git worktree add -b ... origin/main` set the
+# new branch's upstream, a write to the one `.git/config` every worktree shares, and concurrent runs
+# race for its lock. On 2026-10-03, 30 concurrent runs of a scratch copy failed 3 times so, and 50 of
+# this one none. With --no-track no run writes the config at all, so there is no lock to race for,
+# nothing to retry and no serialising lock of this script's own to leave stale; nor the two keys per
+# branch that scripts/prune-worktree-branches.mjs then had to collect. The branch needs no upstream:
+# the briefing rebases onto origin/main by name, `open-pr`'s `git push -u` sets the pushed branch as
+# the upstream, and `npm run gates` reads a branch with none as new, from its merge base with
+# origin/main (scripts/git-hooks.mjs). Where it loses: a bare `git pull --rebase` in a worktree not
+# yet pushed, which rebased onto origin/main, now stops on git's "no tracking information" until the
+# push; `git pull --rebase origin main` names the base. The second step is what lets the trap tell
+# its own branch from another's: `git worktree add -b` makes the branch and then fails on an
+# occupied path, so its exit status cannot say whether the branch it failed with was its own.
+git -C "$REPO_ROOT" branch --no-track "$BRANCH" "origin/$TRUNK"
+BRANCH_MADE=1
+git -C "$REPO_ROOT" worktree add "$WORKTREE_PATH" "$BRANCH"
 CREATED=1
 
 # Ports, timestamps and the briefing. See the renderer's header for why this is not another `sed`.
