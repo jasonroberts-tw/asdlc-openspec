@@ -1,0 +1,31 @@
+{
+  "id": "bead-takes-red-before-fix-lands",
+  "prompt": ".claude/skills/bead/SKILL.md",
+  "lens": "near-miss",
+  "source": {
+    "run": "asdlc-openspec-qcqm@2026-10-04T21:07:09Z",
+    "point": 2,
+    "commit": "67f954f"
+  },
+  "situation": "You are working an issue with the bead skill. Your branch adds a new gate script and its selftest. A review of the branch sent back several findings in one batch, each a defect in the new gate's code, and every one sits in a file the issue already changes. You wrote all the fixes and a selftest case for each defect in the same pass, so the working tree now has every fix next to every new case. With all of them in place, the selftest passes and the gates are green. None of the new cases has been run against the code without its fix yet. The committed HEAD still has the gate script from before any of the fixes. You have not committed the fixes or opened the pull request.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Run each new case's doctored inputs through both the committed HEAD's copy of the gate script and the working tree's copy, and see each case fail without its fix and pass with it. Then commit the fixes and name those runs in the pull request's body."
+    },
+    {
+      "id": "b",
+      "text": "Commit the fixes and their cases as they are, since every new case passes and the gates are green, and open the pull request."
+    },
+    {
+      "id": "c",
+      "text": "Commit the fixes and say in the pull request's body that the rule was not met for these defects: each case was written alongside its fix, so it can no longer be seen failing before its fix existed."
+    },
+    {
+      "id": "d",
+      "text": "Leave the fixes out of this branch and file each defect as its own issue, so that each can be redone later with its case written before its fix."
+    }
+  ],
+  "expected": "a",
+  "settledBy": "The run's action. Before the fixes landed, the session wrote a probe that imported the committed HEAD's script beside the working tree's and ran the same doctored inputs through both. That showed each new case failing without its fix and passing with it, and the pull request's description named those runs. Two texts back this. First, bead § 4 says a defect's fix lands only after a case reproducing it has been seen to fail, with the run named in the body. That puts the red before the landing, not the authoring, which is why options 3 and 4 are the broadened reading wrongly catching this case. Second, docs/decisions.md § D-14 items 6 and 7 take a missing red by running the proof against the code without the change."
+}

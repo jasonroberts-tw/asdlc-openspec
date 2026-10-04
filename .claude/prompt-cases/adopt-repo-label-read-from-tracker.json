@@ -1,0 +1,27 @@
+{
+  "id": "adopt-repo-label-read-from-tracker",
+  "prompt": ".claude/skills/should-i-adopt/SKILL.md",
+  "lens": "recorded",
+  "source": {
+    "run": "asdlc-openspec-8k08@2026-10-04T18:41:51Z",
+    "point": 1,
+    "commit": "c001379"
+  },
+  "situation": "You are running the should-i-adopt skill from the primary checkout. Steps 1 to 7 are done: the problem, the prior-decision search, the map, the friction table, the Docker trials, the options and the recommendation are written. You are at step 8, filing the brief as a `decision` issue. Step 8 asks for the `repo:` label and one `assetLabels` label for each kind of file adopting would change, and points at `tools/policy/vocabulary.json`. That record defines `assetLabels` and other label families, but it has no `repo:` key and lists no `repo:` value. The only place the record mentions it is its `foundIssueCommand` template, which has the literal placeholder `<the repo: label>` in that slot. No other policy record names the value. The tracker already holds this repository's issues, and you have not looked at their labels yet. You plan to hand the filing command to a subagent, along with the brief text you drafted under `.scratch/`.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Read the value off the tracker first: list the labels the existing issues carry (for example `bd count --by-label`, then `bd list --label repo:<value> --type decision` to confirm). File the brief with the `repo:` label those issues carry, and give the subagent that value along with the command that produced it."
+    },
+    {
+      "id": "b",
+      "text": "Have the subagent do the filing, and state in its brief as a fact that `tools/policy/vocabulary.json` lists the labels starting `repo:`, so it can pick the label from that record."
+    },
+    {
+      "id": "c",
+      "text": "File the brief with only its `assetLabels` labels and no `repo:` label, because no policy record spells one, and name the missing value in the report."
+    }
+  ],
+  "expected": "a",
+  "settledBy": "The run's action. The session first put \"labels starting repo: in vocabulary.json\" into a subagent's brief as a premise. The subagent reported the premise false. The session then took the value from the tracker's existing issues (`bd list --label repo:asdlc-openspec --type decision`), and `bd count --by-label` shows every issue in the tracker carries repo:asdlc-openspec."
+}

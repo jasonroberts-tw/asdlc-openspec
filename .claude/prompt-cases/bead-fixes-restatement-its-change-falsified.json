@@ -1,0 +1,27 @@
+{
+  "id": "bead-fixes-restatement-its-change-falsified",
+  "prompt": ".claude/skills/bead/SKILL.md",
+  "lens": "recorded",
+  "source": {
+    "run": "asdlc-openspec-8juz.11@2026-10-04T19:36:38Z",
+    "point": 3,
+    "commit": "c001379"
+  },
+  "situation": "You are working an issue that asks for one more case in the citations gate's selftest. You have added the case and staged it, and `mise run gates` passes. The branch changes the gate's selftest and nothing in `git-hooks.yml`. Because the branch has code in it, you ran one adversarial reviewer on it. That reviewer reports a major finding, and its skeptic upholds it: in `git-hooks.yml`, the comment on the `citations-selftest` job says the selftest makes thirteen gate runs, the control and twelve doctored copies. With your new case it now makes fourteen, so the comment is false. The issue's acceptance criteria do not mention that comment. You have not pushed, and no pull request is open yet.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Before the push, correct the comment in `git-hooks.yml` on this branch so it counts fourteen gate runs, and re-time the job it describes."
+    },
+    {
+      "id": "b",
+      "text": "Leave `git-hooks.yml` alone because the issue does not otherwise change it. File the stale count as its own issue, discovered from this one, and name that issue in the pull-request body."
+    },
+    {
+      "id": "c",
+      "text": "Open the pull request with the comment as it is, because the acceptance criteria do not name it and every gate passes."
+    }
+  ],
+  "expected": "a",
+  "settledBy": "The session's adversarial reviewer rated the stale count a major finding, and it was upheld. Commit 83f9c46 on the branch (\"counts its fourteen gate runs\") then fixed it before the push and re-timed the job. When a change moves a count that another file restates, that line is corrected in the same branch, even if the issue does not otherwise change that file."
+}

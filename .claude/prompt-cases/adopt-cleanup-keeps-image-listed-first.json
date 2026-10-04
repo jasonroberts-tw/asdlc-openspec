@@ -1,0 +1,27 @@
+{
+  "id": "adopt-cleanup-keeps-image-listed-first",
+  "prompt": ".claude/skills/should-i-adopt/SKILL.md",
+  "lens": "near-miss",
+  "source": {
+    "run": "asdlc-openspec-8k08@2026-10-04T18:41:51Z",
+    "point": 6,
+    "commit": "c001379"
+  },
+  "situation": "You are assessing a candidate with this skill, in Docker as step 5 requires. Before the first trial you ran `docker image ls` and `docker ps -a`. The image listing already held `postgres:16-alpine`. The container listing held none of the containers below. Trial E1 then brought up the candidate's own docker-compose stack. `docker compose up` started four containers, created a network and two named volumes, and built one service image locally. It printed no pull for `postgres:16-alpine`, which one of the four services runs, because the image was already there. You had also built and tagged a trial image for E1. The trials are finished, and before writing the brief you are choosing how to clean up Docker.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Run `docker compose down -v --rmi all`, then remove the E1 trial tag. This removes the stack's containers, network and volumes and every image its services use, including `postgres:16-alpine`, because the trial ran it."
+    },
+    {
+      "id": "b",
+      "text": "Run `docker compose down -v --rmi local`, then remove the E1 trial tag. Leave `postgres:16-alpine` in place, and check that the image and container listings now match the ones taken before the first trial."
+    },
+    {
+      "id": "c",
+      "text": "Remove only the E1 trial tag. Leave the stack's containers, network, volumes and `postgres:16-alpine` in place, because the stack runs on an image that was there before the trial."
+    }
+  ],
+  "expected": "b",
+  "settledBy": "The runs' action, with the skill's own sentence in step 5 that removing an image already there takes someone else's. In cleanup, the runs removed the containers, networks and named volumes their compose trials made, the images they built, and any image they pulled that the first listing lacked. They removed nothing the first listing already held, and the 8k08 brief records the listings matching after cleanup. This is the near-miss next to that rule: a run that took cleanup to mean removing everything its compose trial used would also delete an image someone else had pulled before the run. Leaving the stack's containers, network and volumes in place is wrong as well, because the first listing did not hold them."
+}
