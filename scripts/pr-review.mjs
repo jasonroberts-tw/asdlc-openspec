@@ -1382,7 +1382,8 @@ function frontmatter(text) {
 /**
  * The reviewer's four files held to each other: the policy is whole; `pr-review.yml` queues rather
  * than cancels, wakes on `verify.yml`'s runs, filters on the policy's approval label, runs `next`,
- * `brief` and `act` and no subcommand this file lacks, and names an agent that exists; the agent allows exactly its four
+ * `brief` and `act` in its jobs' `run:` steps and no subcommand this file lacks, a comment counting
+ * for neither, and names an agent that exists; the agent allows exactly its four
  * tools and the run denies every one that runs, writes or reaches out; the review job alone may
  * mint an OIDC token, and authenticates by workload identity federation, its ids Actions secrets and
  * no stored credential beside them to win over them; `next` is told the event, so a run whose token
@@ -1435,7 +1436,14 @@ export async function runCheck(root) {
       `${WORKFLOW} filters on the label ${JSON.stringify(filtered)}, not on \`prReviewLabels.approved\` (\`${policy.prReviewLabels.approved}\`): an approval would wait for the schedule.`,
     )
   }
-  const subcommands = [...text.matchAll(/node scripts\/pr-review\.mjs (\S+)/g)].map((m) => m[1])
+  // The subcommands are read from the jobs' `run:` steps, each shell comment cut, and never from the
+  // file's text: on 2026-09-28 (asdlc-openspec-08a) a header comment naming `mark` passed this check
+  // for a workflow with no `mark` job, and the same comment written inline was refused (asdlc-openspec-whh).
+  const jobs = workflow?.jobs ?? {}
+  const runOf = (step) => String(step?.run ?? '')
+  const subcommands = Object.values(jobs)
+    .flatMap((job) => (job?.steps ?? []).flatMap((step) => runOf(step).split('\n')))
+    .flatMap((line) => [...line.replace(/(^|\s)#.*$/, '').matchAll(/node scripts\/pr-review\.mjs (\S+)/g)].map((m) => m[1]))
   for (const sub of subcommands) {
     if (!SUBCOMMANDS.includes(sub)) fail(`${WORKFLOW} runs \`node scripts/pr-review.mjs ${sub}\`, which is not one of ${SUBCOMMANDS.join(', ')}.`)
   }
@@ -1465,7 +1473,6 @@ export async function runCheck(root) {
       )
     }
   }
-  const jobs = workflow?.jobs ?? {}
   const usesAction = (step) => String(step?.uses ?? '').startsWith(ACTION)
   const reviewId = Object.keys(jobs).find((id) => (jobs[id]?.steps ?? []).some(usesAction))
   if (!reviewId) {
@@ -1505,7 +1512,6 @@ export async function runCheck(root) {
 
   // `brief` reads each cited issue with `bd`, which comes from `mise.toml`'s pin through
   // jdx/mise-action (docs/decisions.md § D-31), and an install can leave no binary.
-  const runOf = (step) => String(step?.run ?? '')
   const briefId = Object.keys(jobs).find((id) => (jobs[id]?.steps ?? []).some((step) => /node scripts\/pr-review\.mjs brief\b/.test(runOf(step))))
   if (briefId) {
     const steps = jobs[briefId].steps ?? []
@@ -1910,6 +1916,21 @@ function wiringCases() {
     { name: 'the workflow wakes on another workflow\'s runs', doctor: edit(WORKFLOW, "workflows: ['verify']", "workflows: ['build']"), expect: /wakes on the runs of \["build"\]/ },
     { name: 'the workflow runs a subcommand that does not exist', doctor: edit(WORKFLOW, 'node scripts/pr-review.mjs act', 'node scripts/pr-review.mjs merge'), expect: /runs `node scripts\/pr-review\.mjs merge`, which is not one of/ },
     { name: 'the workflow stops running a step the queue needs', doctor: edit(WORKFLOW, 'node scripts/pr-review.mjs act', 'node scripts/pr-review.mjs next'), expect: /never runs `node scripts\/pr-review\.mjs act`; the queue needs every step/ },
+    {
+      name: 'no job runs a step the queue needs, and a comment names it',
+      doctor: (dir) => {
+        edit(WORKFLOW, 'run: node scripts/pr-review.mjs act', 'run: node scripts/pr-review.mjs next')(dir)
+        edit(WORKFLOW, /^name: pr-review$/m, '#   node scripts/pr-review.mjs act\nname: pr-review')(dir)
+      },
+      expect: /never runs `node scripts\/pr-review\.mjs act`; the queue needs every step/,
+    },
+    {
+      name: 'no job runs a step the queue needs, and a shell comment in a run names it',
+      doctor: edit(WORKFLOW, /^( {8})run: node scripts\/pr-review\.mjs act$/m, '$1run: |\n$1  # node scripts/pr-review.mjs act\n$1  node scripts/pr-review.mjs next'),
+      expect: /never runs `node scripts\/pr-review\.mjs act`; the queue needs every step/,
+    },
+    { name: 'a comment names a subcommand that does not exist, and no job runs it', doctor: edit(WORKFLOW, /^name: pr-review$/m, '#   node scripts/pr-review.mjs merge\nname: pr-review'), expect: 'pass' },
+    { name: 'no step and no comment names mark, which no job runs', doctor: edit(WORKFLOW, /^#.*node scripts\/pr-review\.mjs mark\n/m, ''), expect: 'pass' },
     { name: 'the agent is renamed without the workflow', doctor: edit(AGENT, /^name: pr-reviewer$/m, 'name: reviewer'), expect: /runs the agent `pr-reviewer`, but .* is named `reviewer`/ },
     { name: 'the agent is given Bash', doctor: edit(AGENT, /^tools: Read, /m, 'tools: Bash, Read, '), expect: /pr-reviewer\.md gives Bash/ },
     { name: 'the agent loses its allowlist, and a denylist leaks', doctor: edit(AGENT, /^tools: .*\n/m, ''), expect: /lists no `tools:`/ },
