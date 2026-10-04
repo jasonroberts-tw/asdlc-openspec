@@ -20,7 +20,7 @@ checked.
 
 Write down what the harness does badly today that the candidate would fix, with its evidence: an
 issue, a file, a gate's output. When the argument gives none, ask. A candidate with no problem is
-all cost, and an adoption nobody gave a reason for leaves nothing to say why it came.
+all cost.
 
 ## 2. Look for a prior decision
 
@@ -56,7 +56,7 @@ that matters.
    `tools/policy/prompt-budgets.json`.
 2. **What files it adds, and of which kind** (`CLAUDE.md` § Three kinds of file, and never a fourth).
    Output a model writes, or that carries a timestamp or randomness, cannot be committed as
-   generated output. Each constant it needs is a key in the record `tools/policy/README.md` names.
+   generated output.
 3. **What it reads, which decides its tier** (`CLAUDE.md` § The gate ladder). Measure its time
    against that tier's; a hook's budget is in `.claude/README.md` § The hooks.
 4. **What it writes outside its own files:** the shared `.git/hooks`, `core.hooksPath`, an install
