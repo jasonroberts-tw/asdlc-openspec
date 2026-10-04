@@ -63,10 +63,10 @@ What happens next depends on who is listening:
 
 With several issues, decide before claiming any of them which can share a branch and which cannot,
 by the overlap kinds in `.claude/agents/fan-out-work.md` § 2. Two branches that each add a row
-beside the same anchor, such as neighbouring rows of a README table or jobs in `git-hooks.yml`, stay
-separate and conflict when the second merges; step 6 finds that. Two issues that describe one defect
-are one lane; where their acceptance criteria conflict, the choice and its reason go in the
-pull-request body and in both close reasons. Claim only what this session will finish.
+beside the same anchor stay separate and conflict when the second merges; step 6 finds that. Two
+issues that describe one defect are one lane; where their acceptance criteria conflict, the choice
+and its reason go in the pull-request body and in both close reasons. Claim only what this session
+will finish.
 
 Separate branches are worked one after another, never interleaved. Take one through step 6, its
 watcher running in the background, then leave its worktree with `ExitWorktree` (action `keep`) and
@@ -87,7 +87,8 @@ anything is filed, even a part the session proposed itself.
 
 ## 4. Implement, regenerate, gate
 
-Make the change. A prompt it would take past its word budget
+Make the change in every file restating what it alters, by value or by reference: searching for
+the old text alone misses some. A prompt it would take past its word budget
 (`node scripts/check-prompts.mjs --counts`) is consolidated first, as
 `.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated says, not once
 `check:prompts` refuses it at the gate. A defect's fix lands only after a test or selftest case
@@ -115,7 +116,7 @@ A match gets a note (`bd note`), not a second issue. A follow-up's body carries 
 
 ## 5. Rebase and gate again
 
-Fetch, rebase onto `origin/main`, and run `mise run gates` again (`CLAUDE.md` § The gate ladder).
+As `CLAUDE.md` § The gate ladder says.
 
 ## 6. Open the pull request and watch its checks
 
@@ -124,8 +125,7 @@ admits merges anyway off the high-risk floor. Fix one the body would disclose, o
 tree say what is true and file its follow-up (step 4). A criterion the work will not meet as worded
 is changed by the user before the push, as step 1 says.
 
-Open it with the `open-pr` skill. Its body opens with any register entry or prerequisite step 1
-named, and names every issue filed in step 4.
+Open it with the `open-pr` skill. Its body names every issue filed in step 4.
 
 When a review did not complete for a cause in the reviewer's own workflow, leave the issue open
 with a note naming the pull request and the issue that carries the cause.
