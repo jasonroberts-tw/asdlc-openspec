@@ -647,7 +647,8 @@ pre-push:
       run: node --run trace:check
     # The trace gate's refusals, each on a doctored copy of a fixture repository it builds under the
     # temporary directory with the live policy copied in, asserting the reason, beside a control; the
-    # baseline's update; the history walk against its ratified fixture; and the command line through
+    # baseline's update; the history walk against its ratified fixture, and check, trace and
+    # trace:update each refusing a walk that disagrees with it; and the command line through
     # TRACE_ROOT. Eight trial archives of an active change by the pinned CLI, two in each of four
     # cases.
     # 12.01-12.53 s wall for its 49 cases through `node --run` (`/usr/bin/time -p`, two runs, while
@@ -655,6 +656,9 @@ pre-push:
     # in parallel. 13.87-14.48 s (two runs, 2026-09-29) for 50, with a test under a `--dir`.
     # 14.73-14.80 s (two runs, 2026-10-03) for 52, with two cases whose scripts sit in a
     # `tasks.toml`, which the task loader reads through `smol-toml`, pinned by the lockfile.
+    # 23.81 and 51.82 s (two runs, later on 2026-10-03, while sibling worktrees ran their gates;
+    # 11.26 and 13.78 s user plus sys) for 56, with a walk that disagrees handed to check, trace and
+    # trace:update, beside a control given the sound walk.
     - name: trace-selftest
       glob:
         - 'tools/trace/**'

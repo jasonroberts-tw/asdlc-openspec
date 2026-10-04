@@ -2,13 +2,18 @@
  * The trace gate's selftest: every refusal of `tools/trace/trace.ts`, each on a doctored copy of a
  * fixture repository it builds under the temporary directory, asserting the reason the refusal
  * reports, beside an undoctored control that must pass; the ratchet's update; the history walk held
- * to its ratified fixture; and the command line run end to end through `TRACE_ROOT`.
+ * to its ratified fixture, and `check`, `emit` and `update` each refusing, its files untouched, when
+ * handed a walk that disagrees with it; and the command line run end to end through `TRACE_ROOT`.
  *
- * THE FAILURE IT EXISTS TO PREVENT. No incident yet; this is what the gate would let through if a
- * rule of it broke and this file were absent. Every rule of the gate reads the same derivation, so a
- * refusal that stopped firing would leave the gate green over the calculator, whose tests meet each
- * rule the gate holds today or sit in its baseline: nothing live would show it. Each case breaks one
- * thing and asserts the refusal's own words, so a case cannot pass because another rule refused.
+ * THE FAILURE IT EXISTS TO PREVENT. A refusal that stops firing and nothing shows it. Every rule of
+ * the gate reads the same derivation, so such a refusal would leave the gate green over the
+ * calculator, whose tests meet each rule the gate holds today or sit in its baseline. Each case
+ * breaks one thing and asserts the refusal's own words, so a case cannot pass because another rule
+ * refused. It happened here to the walk's guard: on 2026-10-02 the session review of
+ * asdlc-openspec-3oln found that every case still held with the ratification deleted from `check`,
+ * `emit` and `update`, because each case passed `ratified: true` and the one case of a walk that
+ * disagrees read only what `ratify` returned. The cases that hand each command such a walk, and
+ * assert its refusal and its files unchanged, came with asdlc-openspec-j326.
  *
  * INVOCATION. `npm run trace:selftest`. Nothing to point at a copy: it builds its own.
  *
@@ -611,7 +616,7 @@ function run(base: string, control: string, results: { name: string; ok: boolean
   return true
 }
 
-/** The ratchet's update, the walk's ratification, and the command line through `TRACE_ROOT`. */
+/** The ratchet's update, the walk's ratification and its guard, and the command line through `TRACE_ROOT`. */
 function others(base: string, control: string) {
   const out: { name: string; ok: boolean; detail: string }[] = []
   const copy = (name: string) => {
@@ -645,10 +650,60 @@ function others(base: string, control: string) {
     const problem = ratify()
     return [problem === null, problem ?? 'agrees']
   })
-  attempt('a history walk that drops a commit is refused before anything is written', () => {
-    // The oldest commit, which names abc.1: a walk that loses it returns a smaller answer.
-    const problem = ratify((git, pattern, range) => walk(git, pattern, range).slice(0, -1))
-    return [problem !== null && /^the history walk read the hand-ratified fixture as /.test(problem), problem ?? 'PASSED, but should have been refused']
+  // A walk that loses the oldest commit, which names abc.1: it returns a smaller answer and says nothing.
+  const dropping: typeof walk = (git, pattern, range) => walk(git, pattern, range).slice(0, -1)
+  const DISAGREES = /^the history walk read the hand-ratified fixture as /
+  attempt('the ratification reads a walk that drops a commit as a disagreement', () => {
+    const problem = ratify(dropping)
+    return [problem !== null && DISAGREES.test(problem), problem ?? 'PASSED, but should have been refused']
+  })
+  // A copy a sound run rewrites: a test now meets GRT-004's negative obligation, so `trace` writes
+  // another record and `trace:update` drops the baseline's one entry. Its bytes unchanged after a
+  // command, then, mean the command wrote nothing.
+  const guarded = (name: string) => {
+    const dir = copy(name)
+    writeTests(dir, `${TEST_SOURCE}\n// trace: GRT-004:negative@{GRT-004}\ntest('[GRT-004] A reader who stays is not bid farewell', () => {})\n`)
+    return dir
+  }
+  /** The record, the README and the baseline, as one string to compare. */
+  const written = (dir: string) => [RECORD, README, BASELINE].map((path) => readFileSync(join(dir, path), 'utf8')).join('\u0000')
+  attempt('control: trace and trace:update, given the sound walk, rewrite the copy the guard cases leave as it was', () => {
+    const dir = guarded('guard-control')
+    const was = readFileSync(join(dir, RECORD), 'utf8')
+    const { wrote } = emit(dir, { walker: walk })
+    update(dir, { walker: walk })
+    const rewritten = readFileSync(join(dir, RECORD), 'utf8') !== was
+    const baseline = readFileSync(join(dir, BASELINE), 'utf8')
+    return [wrote && rewritten && baseline === baselineText([]), `wrote ${wrote}, record ${rewritten ? 'rewritten' : 'UNCHANGED'}, baseline ${JSON.stringify(JSON.parse(baseline).unmet)}`]
+  })
+  attempt('trace:check, given a walk that disagrees with its fixture, refuses and checks nothing else', () => {
+    const dir = guarded('guard-check')
+    const before = written(dir)
+    const { failures } = check(dir, { walker: dropping })
+    const untouched = written(dir) === before
+    const refused = failures.length === 1 && /^record: the history walk read the hand-ratified fixture as /.test(failures[0]) && /; nothing is checked until it agrees\.$/.test(failures[0])
+    return [refused && untouched, `${untouched ? 'files untouched' : 'files REWRITTEN'}, ${JSON.stringify(failures.map((f) => f.slice(0, 120)))}`]
+  })
+  attempt('trace, given a walk that disagrees with its fixture, refuses to write and leaves the record and the baseline as they were', () => {
+    const dir = guarded('guard-emit')
+    const before = written(dir)
+    const { wrote, message } = emit(dir, { walker: dropping })
+    const untouched = written(dir) === before
+    const refused = !wrote && DISAGREES.test(message) && /; refusing to write artifacts\/trace\/record\.json\.$/.test(message)
+    return [refused && untouched, `${untouched ? 'files untouched' : 'files REWRITTEN'}, ${JSON.stringify(message.slice(0, 120))}`]
+  })
+  attempt('trace:update, given a walk that disagrees with its fixture, refuses to write and leaves the record and the baseline as they were', () => {
+    const dir = guarded('guard-update')
+    const before = written(dir)
+    let refusal = ''
+    try {
+      update(dir, { walker: dropping })
+    } catch (error) {
+      refusal = (error as Error).message
+    }
+    const untouched = written(dir) === before
+    const refused = DISAGREES.test(refusal) && /; refusing to write artifacts\/trace\/baseline\.json\.$/.test(refusal)
+    return [refused && untouched, `${untouched ? 'files untouched' : 'files REWRITTEN'}, ${JSON.stringify(refusal.slice(0, 120))}`]
   })
 
   const cli = (dir: string, ...args: string[]) =>
