@@ -255,6 +255,53 @@ console.log('citation scanner selftest\n')
     apostrophe.section.startsWith("Reviewer's rubric"),
     JSON.stringify(apostrophe.section),
   )
+  // A NAME'S OWN OPENING QUOTE IS NOT A CLOSING ONE. A quote with no letter after it ends a name only
+  // once the name has begun: cut at its opening quote, a quoted name that does not close on its line
+  // is empty, and an empty name is no citation at all. Each of these is read as the scanner read it
+  // before it read unbackticked names.
+  const opened = sections('`foo.md` § "3.2 Three names\nthe next line')
+  ok(
+    'a quoted name that does not close on its line keeps what follows its opening quote',
+    opened.length === 1 && opened[0]?.section === '3.2 Three names',
+    JSON.stringify(opened),
+  )
+  const numbered = sections('`foo.md` § "1) Foo"')
+  ok(
+    'a quoted number that a bracket ends is read as the number',
+    numbered.length === 1 && numbered[0]?.section === '1',
+    JSON.stringify(numbered),
+  )
+  const emphasised = sections('`foo.md` § *"1) Foo"*')
+  ok(
+    'a wrapper before the opening quote is not the start of the name either',
+    emphasised.length === 1 && emphasised[0]?.section === '1',
+    JSON.stringify(emphasised),
+  )
+  // TWO POINTERS ON ONE LINE. An unbackticked name may sit inside the text a pointer before it
+  // captured as its section, so reading resumes after the `§`, not after that text.
+  const pair = sections('decided in docs/foo.md § Alpha and docs/bar.md § Beta')
+  ok(
+    'a second unbackticked pointer on the line is read too',
+    pair.length === 2 &&
+      pair[0]?.target === 'docs/foo.md' &&
+      pair[0].section.startsWith('Alpha') &&
+      pair[1]?.target === 'docs/bar.md' &&
+      pair[1].section === 'Beta',
+    JSON.stringify(pair),
+  )
+  ok(
+    'an unbackticked pointer after a backticked one on the line is read too',
+    sections('see `docs/foo.md` § Alpha and docs/bar.md § Beta').length === 2,
+  )
+  // A POINTER'S CONTEXT is every line from its file name to its section name, the name's line
+  // included when a break follows the `§`: the match now ends at the `§`, so the context is computed
+  // from where the name ends, and computed from the match it would lose that line.
+  const context = sections('see `foo.md` §\nINVARIANTS says so')
+  ok(
+    'a pointer split after the § keeps the name line in its context',
+    context.length === 1 && context[0]?.context === 'see `foo.md` § INVARIANTS says so',
+    JSON.stringify(context),
+  )
 }
 
 /* --------------------------------------------------------------------------------------------- *

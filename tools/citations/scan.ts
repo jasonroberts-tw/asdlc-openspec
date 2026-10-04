@@ -263,13 +263,18 @@ const LINE_RE = /([A-Za-z0-9._][A-Za-z0-9._/-]*\.md):(\d+)(?:-(\d+))?/g
  * THE FILE NAME NEED NOT BE BACKTICKED. Until 2026-10-03 the pattern required the backticks, so a
  * pointer written without them -- `(docs/decisions.md § D-04)` in `scripts/new-worktree.sh`, found
  * on 2026-09-26 working `asdlc-openspec-5sc` -- was read by no gate, whether it resolved or not, and
- * such pointers multiplied: the issue's `git grep -P` for them counts 25 lines at d69527a
- * (2026-09-26), 55 at f862fe0 (2026-10-01) and 88, in 37 tracked files, at 6f0533e (2026-10-03)
- * (`asdlc-openspec-tl0`). Backticking each was the other fix, passed over because it would edit
- * files a person must merge and leave the next unbackticked pointer unread. Measured before it was
- * adopted, as `CLAUDE.md` § Citations asks: at 6f0533e the widened gate read 90 section pointers in
- * 32 files that it had not read before, stopped reading none, and every one resolved once a pointer
- * that ends a string literal was read without its closing quote (`stripWrapper`).
+ * such pointers multiplied. The issue's count of them is this command, from a POSIX shell, with `-P`
+ * because `\S` is PCRE and with `HISTORY`'s paths left out; it prints a count per file:
+ *
+ *     git grep -c -P '(^|[^`A-Za-z0-9._/-])[A-Za-z0-9._][A-Za-z0-9._/-]*\.md[^\S\n]*§' -- ':!tools/citations' ':!docs/retired' ':!history' ':!openspec/changes/archive'
+ *
+ * Its counts sum to 25 lines at d69527a (2026-09-26), 55 at f862fe0 (2026-10-01) and 88, in 37
+ * tracked files, at 6f0533e (2026-10-03) (`asdlc-openspec-tl0`). Backticking each was the other
+ * fix, passed over because it would edit files a person must merge and leave the next unbackticked
+ * pointer unread. Measured before it was adopted, as `CLAUDE.md` § Citations asks: at 6f0533e the
+ * widened gate read 90 section pointers in 32 files that it had not read before, stopped reading
+ * none, and every one resolved once a pointer that ends a string literal was read without its
+ * closing quote (`stripWrapper`).
  *
  * An unbackticked name starts at a path boundary, so a home or absolute path (`~/.claude/x.md`,
  * `/etc/x.md`) is not read from its middle, as the backticked form, whose first character cannot be
@@ -279,6 +284,16 @@ const LINE_RE = /([A-Za-z0-9._][A-Za-z0-9._/-]*\.md):(\d+)(?:-(\d+))?/g
  * (comma, semicolon, closing bracket, backtick, newline). Prose regularly runs straight on past the
  * heading -- "§ Measurement gives the failure condition for this node" -- which is why the resolver
  * below matches by PREFIX rather than requiring the captured text to be the whole heading.
+ *
+ * THE NAME IS READ BY A LOOKAHEAD, so the next match is sought from just after the `§` and not
+ * from the end of the name. An unbackticked file name can sit inside the text the pointer before it
+ * took as its name, `a.md § Foo and b.md § Bar`, and matching that resumed after the name never
+ * read the second pointer; a backticked one is safe either way, since a backtick ends the name
+ * before it. The branch review of `asdlc-openspec-tl0` on 2026-10-03 found two such lines, in
+ * `.claude/prompt-cases/bead-names-implied-register-entry.json` and
+ * `tools/policy/tool-settings.json`. Their second pointers resolved, and the lookahead read no
+ * other new pointer over the tree at 0dc97fa. The first pointer's name still runs on through the
+ * second, and resolves by prefix as any name running on into prose does.
  *
  * ONE LINE BREAK MAY SPLIT THE POINTER, before the `§` or between the `§` and the name, and after
  * the break only whitespace and one comment or quote leader (`*`, `//`, `>`, `#`, `-`) may come
@@ -301,11 +316,12 @@ const LINE_RE = /([A-Za-z0-9._][A-Za-z0-9._/-]*\.md):(\d+)(?:-(\d+))?/g
 const GAP = String.raw`[^\S\n]*`
 const BREAK = String.raw`[^\S\n]*\n[^\S\n]*(?:\/\/|[*>#-])?[^\S\n]*`
 const NAME = String.raw`[A-Za-z0-9._][A-Za-z0-9._/-]*\.md`
-// Group 1 is a backticked name, group 2 an unbackticked one, group 3 the section.
+// Group 1 is a backticked name, group 2 an unbackticked one, group 3 the section, in a lookahead,
+// so the whole match ends before the section.
 const SECTION_RE = new RegExp(
   String.raw`(?:\`(${NAME})\`|(?<![A-Za-z0-9._/-])(${NAME}))` +
     `(?:${BREAK}§${GAP}|${GAP}§(?:${BREAK}|${GAP}))` +
-    String.raw`([^\`\n,;)|]{2,80})`,
+    String.raw`(?=([^\`\n,;)|]{2,80}))`,
   'g',
 )
 
@@ -488,10 +504,14 @@ export function citationsIn(from: string, text: string): Citation[] {
   })
   const lineOf = lineIndexer(text)
   for (const m of text.matchAll(SECTION_RE)) {
-    const section = stripWrapper((m[3] as string).trim())
+    const named = m[3] as string
+    const section = stripWrapper(named.trim())
     if (section && looksLikeSectionName(section)) {
       const first = lineOf(m.index)
-      const last = lineOf(m.index + m[0].length - 1)
+      // The match ends at the `§` and the gap after it, since the name is read by a lookahead
+      // (`SECTION_RE`), so the pointer's last line is the one its name ends on, past `m[0]`. A
+      // break after the `§` puts that line after the last line `m[0]` touches.
+      const last = lineOf(m.index + m[0].length + named.length - 1)
       out.push({
         kind: 'section',
         from,
@@ -510,7 +530,11 @@ export function citationsIn(from: string, text: string): Citation[] {
   return out.sort((a, b) => a.at - b.at)
 }
 
-/** The 0-based line of an offset into `text`, for offsets asked in ascending order. */
+/**
+ * The 0-based line of an offset into `text`, for offsets asked in ascending order or on the line of
+ * the last one asked. `citationsIn` asks a smaller offset only for a pointer that starts inside the
+ * name the pointer before it ends on, and a name holds no line break, so the two share that line.
+ */
 function lineIndexer(text: string): (offset: number) => number {
   let line = 0
   let next = text.indexOf('\n')
@@ -538,11 +562,19 @@ function stripWrapper(s: string): string {
   const quoted = /^(["'])(.+?)\1/.exec(s) ?? /^\*+([^*]+)\*+/.exec(s)
   if (quoted) return (quoted[2] ?? quoted[1] ?? '').trim()
 
-  // AN UNQUOTED NAME ENDS AT A QUOTE NO LETTER FOLLOWS: the quote closing a string literal the whole
-  // pointer sits in, as in `includes('docs/decisions.md § D-20')`, which the gate read as a section
-  // called "D-20'" once it read unbackticked names (2026-10-03, asdlc-openspec-tl0). An apostrophe
-  // inside a name, `Reviewer's`, has a letter after it and is kept.
-  const unclosed = s.replace(/["'](?![A-Za-z]).*$/, '')
+  // AN UNQUOTED NAME ENDS AT A QUOTE NO LETTER FOLLOWS, ONCE THE NAME HAS BEGUN: the quote closing a
+  // string literal the whole pointer sits in, as in `includes('docs/decisions.md § D-20')`, which the
+  // gate read as a section called "D-20'" once it read unbackticked names (2026-10-03,
+  // asdlc-openspec-tl0). An apostrophe inside a name, `Reviewer's`, has a letter after it and is
+  // kept. The name begins at its first character that is not a space, quote, `*` or `_`. Cut at
+  // the name's own opening quote instead, as the first version of that change cut,
+  // `§ "3.2 Three names` with no closing quote on its line and `§ "1) Foo"`, which the bracket ends
+  // at `"1`, became empty names, and an empty name is dropped as no citation, where the gate before
+  // it read `3.2 Three names` and `1` (found by that change's branch review, 2026-10-03). A name cut
+  // after its first character keeps the character `looksLikeSectionName` reads, and is a prefix of
+  // the uncut name, which `namesSection` matches by prefix: the cut fails no pointer that passed,
+  // unless it leaves a one-character name that is not a number, which that match skips as too short.
+  const unclosed = s.replace(/(?<=[^\s"'*_].*)["'](?![A-Za-z]).*$/, '')
   const withoutLine = unclosed.replace(/\s*\((?:line|lines)\s+\d+(?:[-–]\d+)?\)?\s*$/i, '').trim()
   const m = /^["'*_]+(.+?)["'*_]+$/.exec(withoutLine)
   return (m ? (m[1] as string) : withoutLine).replace(/^["'*_]+/, '').trim()
