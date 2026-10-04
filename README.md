@@ -176,11 +176,17 @@ does not apply to your platform is absent from its list, not marked optional.
    and mise: `brew install mise`, or `curl https://mise.run | sh`. Check that `mise --version`
    answers with a release no older than the `min_version` in `mise.toml`. mise installs every other
    tool at the version `mise.toml` pins (`docs/decisions.md` § D-31).
-1. Put mise's shims first on the `PATH` that every process inherits: add
-   `export PATH="$HOME/.local/share/mise/shims:$PATH"` to `~/.zshenv`, or under bash to `~/.profile`
-   and `~/.bashrc`. Open a new terminal, and check that `sh -c 'command -v node'` prints a path under
-   `~/.local/share/mise/shims`. Git's hooks and Claude Code's hooks run a bare `node`. Without the
-   shims they find another Node or none, and Claude Code's guard hooks stop guarding in silence.
+1. Put mise's shims first on the `PATH` that every process inherits, after every line that puts
+   another directory first. Make `export PATH="$HOME/.local/share/mise/shims:$PATH"` the last line
+   of `~/.zprofile` and of `~/.zshrc` under zsh. Under bash, make it the last line of
+   `~/.bash_profile` (or `~/.profile` where there is none) and of `~/.bashrc`. In PowerShell, make
+   `$env:PATH = "$HOME/.local/share/mise/shims:$env:PATH"` the last line of `$PROFILE`. A line in
+   `~/.zshenv` is not enough: a login zsh reads `~/.zprofile` after it, and Homebrew's
+   `brew shellenv` there puts its own directory back in front. A login bash skips `~/.profile` when
+   `~/.bash_profile` exists. Open a new terminal, and check that `sh -c 'command -v node'` prints a
+   path under `~/.local/share/mise/shims`. Any other path means another directory still comes
+   first. Git's hooks and Claude Code's hooks run a bare `node`. Without the shims they find another
+   Node or none, and Claude Code's guard hooks stop guarding in silence.
 1. Clone, then run `mise trust` and `mise install` in the clone. The trust is needed because
    `mise.toml` carries a setting, and a linked worktree shares it. The install fetches Node, Python
    3, `bd`, `gh` and Vale from `mise.lock`, each download checked against its checksum. Vale is the
