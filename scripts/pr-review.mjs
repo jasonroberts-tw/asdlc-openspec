@@ -1460,7 +1460,8 @@ export async function runCheck(root) {
   }
 
   // The agent and the denied tools are read from the review step's `claude_args` as the action reads
-  // them: it drops each line whose first non-blank character is `#` before it parses the rest.
+  // them: it drops each line whose first non-blank character is `#` before it parses the rest, and of
+  // two `--agent` flags the last wins.
   const usesAction = (step) => String(step?.uses ?? '').startsWith(ACTION)
   const reviewId = Object.keys(jobs).find((id) => (jobs[id]?.steps ?? []).some(usesAction))
   const reviewStep = reviewId ? jobs[reviewId].steps.find(usesAction) : undefined
@@ -1468,7 +1469,7 @@ export async function runCheck(root) {
     .split('\n')
     .filter((line) => !line.trim().startsWith('#'))
     .join('\n')
-  const agentName = /--agent\s+(\S+)/.exec(claudeArgs)?.[1]
+  const agentName = [...claudeArgs.matchAll(/--agent\s+(\S+)/g)].at(-1)?.[1]
   const agent = frontmatter(readFileSync(join(root, AGENT), 'utf8'))
   const listed = (value) => String(value ?? '').split(',').map((t) => t.trim()).filter(Boolean)
   if (!agent || agent.name !== agentName) {
@@ -1981,6 +1982,11 @@ function wiringCases() {
     {
       name: 'the review step runs another agent, and a comment line in its claude_args names the reviewer',
       doctor: edit(WORKFLOW, /^( {10})claude_args: >-\n( {12})--agent pr-reviewer$/m, '$1claude_args: |\n$2# --agent pr-reviewer\n$2--agent some-other-agent'),
+      expect: /runs the agent `some-other-agent`, but .* is named `pr-reviewer`/,
+    },
+    {
+      name: 'the review step names the reviewer, then another agent, which the action runs',
+      doctor: edit(WORKFLOW, /^( {12})--agent pr-reviewer$/m, '$1--agent pr-reviewer\n$1--agent some-other-agent'),
       expect: /runs the agent `some-other-agent`, but .* is named `pr-reviewer`/,
     },
     { name: 'the agent is given Bash', doctor: edit(AGENT, /^tools: Read, /m, 'tools: Bash, Read, '), expect: /pr-reviewer\.md gives Bash/ },
