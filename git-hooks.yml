@@ -282,7 +282,11 @@ pre-push:
     # from 10.71 s to 14.64 s, the two runs back to back while other worktrees ran their gates. The
     # guard's graphify cases are twenty-two more runs of the guard: 1.96-2.01 s timed alone, two
     # runs, and 22.38 s for the whole job with them, one run while other worktrees ran their gates,
-    # on the same laptop with Node 26.8.1, 2026-10-01.
+    # on the same laptop with Node 26.8.1, 2026-10-01. The cases for a held config lock and a failed
+    # run's branch, four more runs of the script, and for the age rule, three more worktrees, moved
+    # it less than the load did: 32.79-44.19 s wall without them and 28.49-40.80 s with them
+    # (`/usr/bin/time -p` on `node`, two runs each, alternating, while other worktrees ran their
+    # gates), on the same laptop with Node 26.8.1, 2026-10-03.
     - name: worktree-hooks
       glob:
         - 'scripts/hooks/**'
