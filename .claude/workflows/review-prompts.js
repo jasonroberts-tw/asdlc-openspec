@@ -186,14 +186,14 @@ export const meta = {
  * worktree from `origin/main`: on 2026-09-26 a workflow agent's `isolation: 'worktree'` landed on
  * `agent/wf_<run>-<n>` at `origin/main` with its briefing, from a session and from a `claude --bg`
  * session alike (asdlc-openspec-lzr). A worktree an agent leaves is not removed when it ends, changed
- * or not; `npm run worktree:gc` removes each once its branch is contained in `origin/main`. The
+ * or not; `mise run worktree:gc` removes each once its branch is contained in `origin/main`. The
  * skeptics and the readers run where the session does, in the review worktree, and read each branch
  * there. The answers need the agent `prompt-case-answerer` in the checkout the session started in, the
  * primary checkout for a review `close-prompt-run` launched (`.claude/README.md`): where it is absent,
  * every answer returns nothing, and every branch whose files have a stored case is `regressed`. An
  * answer could read a file other than the one it is sent to if it guessed its path, and nothing here
  * records that it did not. The script reads no file: the session passes the policy as `args.policy`.
- * `npm run workflows:selftest` runs this script against stubbed agents.
+ * `mise run workflows:selftest` runs this script against stubbed agents.
  */
 
 const A = args || {}
@@ -469,7 +469,7 @@ function reviewPrompt(g) {
     '',
     '- Account for every finding above by its key: each change names under finding the one it answers, and each finding you leave alone goes under notChanged with your reason.',
     '- If nothing should change: edit nothing and commit nothing. Return the verdict unchanged.',
-    '- If a file should change: make the edit, stage it with `git add`, run `npm run check:prompts` and `npm run citations:check`, fix what they report in your own files, and commit. Return the verdict changed, with each gate you ran and what it printed.',
+    '- If a file should change: make the edit, stage it with `git add`, run `mise run check:prompts` and `mise run citations:check`, fix what they report in your own files, and commit. Return the verdict changed, with each gate you ran and what it printed.',
     `- If your edit would take a file past its word budget, consolidate the file first, as ${CONSOLIDATED} says, commit that alone, and report it under consolidations.`,
     "- Each change states how often the situation arises (frequency) and what it costs when it does (cost), each figure citing a run, a label count or a pull request, and the net words the edit adds (words, negative when it removes more), counted from `git diff --word-diff=porcelain origin/main...HEAD` on its file.",
     "- After you finish, skeptics judge each change against your branch's diff. A branch merges only when a majority upholds every change on it, so leave out an edit you would not defend.",

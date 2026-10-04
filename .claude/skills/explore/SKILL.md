@@ -103,7 +103,7 @@ can be committed as it stands (`CLAUDE.md` § Verification before claiming):
 - **Quote** the words a claim rests on wherever its reading could be disputed.
 
 Say what you inferred rather than read, and what you could not check. A brief committed as
-`findings.md` is held by `npm run citations:check`, which refuses a `.md` pointer that does not
+`findings.md` is held by `mise run citations:check`, which refuses a `.md` pointer that does not
 resolve.
 
 ## A brief, when asked

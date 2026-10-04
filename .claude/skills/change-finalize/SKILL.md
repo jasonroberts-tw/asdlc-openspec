@@ -46,7 +46,7 @@ in step 2, so a refusal here means stop and read it.
 
 - **Write the Purpose of each new capability.** For each capability the archive created, replace
   its Purpose placeholder (`TBD - created by archiving change ...`) with a sentence or two on what
-  the capability covers. `npm run openspec:check` refuses the placeholder. The archive also writes
+  the capability covers. `mise run openspec:check` refuses the placeholder. The archive also writes
   `## Purpose` and `## Requirements` with no blank line after them; add one, as the rest of the
   file has.
 - **Read each living spec the archive touched.** The merge is mechanical, so fix any requirement
@@ -55,7 +55,7 @@ in step 2, so a refusal here means stop and read it.
   file that still names a path the archive moved. Point each at the living spec or the archive
   path, except a `docs/decisions.md` entry, which stays as recorded (`CLAUDE.md` § Decisions live in
   the register). The citations gate does not catch these: a bare path is not a citation it checks.
-- **Then run `npm run trace`**, which rewrites the record the archive staled, **and `npm run gates`**.
+- **Then run `mise run trace`**, which rewrites the record the archive staled, **and `mise run gates`**.
   Among them, `trace:check` refuses a test that still cites an ID the change removed, or the old
   version of one it modified (`unknown` and `stale` in the header of `tools/trace/trace.ts`). On a
   refusal, never retire or regenerate the test here, where neither the build's review nor
@@ -107,7 +107,7 @@ Step 5's `open-pr` skill watched the checks to the reviewer's verdict. Read
 
 `scripts/hooks/guard-git.mjs` refuses a merge from a worktree.
 
-Always rebase, never squash. `npm run worktree:gc` can prove a rebase-merged branch is in the trunk,
+Always rebase, never squash. `mise run worktree:gc` can prove a rebase-merged branch is in the trunk,
 but it keeps a squash-merged one.
 
 If the remote branch survives the merge (`git ls-remote --heads origin agent/<change>` prints it),
@@ -119,7 +119,7 @@ The cleanup comes first, because an epic's criteria can name its result, such as
 gone.
 
 1. Update the primary checkout: `git fetch origin`, then `git pull --rebase`.
-2. Run `npm run worktree:gc -- --dry-run --finished <change>` first. The sweep is not scoped to
+2. Run `mise run worktree:gc --dry-run --finished <change>` first. The sweep is not scoped to
    this change: it removes every clean worktree under `.claude/worktrees/` whose branch it proves is
    in `origin/main`, with that branch, unless its header's conditions keep it
    (`scripts/prune-worktree-branches.mjs`). If the dry run names only this change's worktree, run it

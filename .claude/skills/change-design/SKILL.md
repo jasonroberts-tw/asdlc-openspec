@@ -114,8 +114,8 @@ scenario states.
 
 ## 5. Commit it, and stop
 
-Stage the design and every file this stage revised with `git add`, then run `npm run openspec:check`
-and `npm run citations:check`. Stage first: the citations gate reads only tracked files, so a
+Stage the design and every file this stage revised with `git add`, then run `mise run openspec:check`
+and `mise run citations:check`. Stage first: the citations gate reads only tracked files, so a
 design not yet added passes without being read.
 
 Commit. Report what the design decides, each question step 4 put to the user with its answer, and

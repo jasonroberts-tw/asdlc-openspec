@@ -35,11 +35,11 @@ This refusal writes nothing: no trace, no note and no label.
 
 ## 3. The specs are valid, and apply
 
-`npm run openspec:check` passes.
+`mise run openspec:check` passes.
 
 ## 4. Every scenario is traced
 
-**The fresh run.** `npm run tests:fresh -- <change> --tasks <ids>`, given the task ids and the Bash
+**The fresh run.** `mise run tests:fresh <change> --tasks <ids>`, given the task ids and the Bash
 timeout the header of `scripts/fresh-run.mjs` names, runs what it names in a clone of HEAD and writes
 `.scratch/<change>-verify.json`. For each failing test it prints a
 command: run each once, as its own Bash call, and never again, since an unasked retry hides a flaky
@@ -85,7 +85,7 @@ either way, and each row carries its new result.
 
 ## 5. The gates are green
 
-`npm run gates` passes.
+`mise run gates` passes.
 
 ## 6. Verdict
 

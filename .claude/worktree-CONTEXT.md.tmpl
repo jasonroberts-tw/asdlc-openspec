@@ -31,7 +31,7 @@ The project instructions (the *Git workflow* section of CLAUDE.md) name `main` a
 
 ## Environment
 
-### `npm ci` before any `npm` command
+### `npm ci` before any task
 
 **A fresh worktree has no `node_modules`.** `node_modules/` is gitignored, so `git worktree add`
 does not carry it across from the primary checkout — the tree you are standing in has the source and
@@ -41,7 +41,7 @@ none of the dependencies. Run:
 npm ci
 ```
 
-**before the first `npm run` of the session**, and before anything that shells out to one: the gates,
+**before the first `mise run` of the session**, and before anything that shells out to one: the gates,
 the emitters, and the `Stop` hook, whose `GATES` list in `scripts/hooks/gate-summary.mjs` names what it runs.
 Skip it and they fail on a missing binary rather than on anything you changed.
 
@@ -73,7 +73,7 @@ $env:PORT = '{{APP_PORT}}'
 npm run calculator:serve
 ```
 
-The second, `SB_PORT`, is unused. The calculator's tests (`npm run calculator:test`) need neither:
+The second, `SB_PORT`, is unused. The calculator's tests (`mise run calculator:test`) need neither:
 they bind free loopback ports of their own, and the server's default port only for a moment while it
 is free.
 

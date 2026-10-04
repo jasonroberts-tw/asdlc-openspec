@@ -19,7 +19,7 @@ files, not a dependency, and one whose context is `wiringContext` there is what 
    `get_community`, `god_nodes` and `graph_stats`. Never read the graph's folder directly: from a
    worktree it is outside the tree you may read.
 2. If that server is not connected, or a tool reports no graph, say so and stop. The person builds
-   one with `npm run code-graph`. Never run it yourself: it spends their plan.
+   one with `mise run code-graph`. Never run it yourself: it spends their plan.
 3. Treat an answer as a lead. Read the file it names before you state what it says (`CLAUDE.md`
    § Verification before claiming). An edge marked INFERRED or AMBIGUOUS is a guess.
 4. Never run graphify's `update`, `watch`, `hook install`, `claude install` or `install`: they erode
