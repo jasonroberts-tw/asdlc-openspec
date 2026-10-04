@@ -220,7 +220,7 @@ Retirement checklist for the deleted skills, each item done in this change:
 
 > **Amended 2026-09-28 by D-13.** Item 2's list of what a change's folder holds gains one file: a `findings.md`, the brief of an `explore` run that preceded the change, which `change-propose` commits there. The six stages stand, and Explore is not a stage.
 
-> **Amended 2026-10-04 by D-35.** Item 6's `npm run worktree:gc` and `npm run openspec:check` run as `mise run worktree:gc` and `mise run openspec:check`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
+> **Amended 2026-10-04 by D-35.** Item 6's `npm run worktree:gc` and item 7's `npm run openspec:check` run as `mise run worktree:gc` and `mise run openspec:check`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
 
 ### D-03 · The workflow's constants live in tools/policy.json, starting with the change label
 

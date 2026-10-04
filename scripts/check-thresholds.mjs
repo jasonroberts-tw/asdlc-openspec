@@ -73,7 +73,7 @@
  * so a build-stage or app-builder's test must reach it, or a directive excuse it with a reason. A
  * `--dir` at or above `independentTestDir` holds both stages, and is refused. The key
  * `independentBuildStage` holds the build stage's name, `build`, and this gate reads it from there;
- * the build workflow, the `--dir` of `package.json`'s `calculator:test:independent`, the comments of
+ * the build workflow, the `--dir` of `tasks.toml`'s `calculator:test:independent`, the comments of
  * `git-hooks.yml` and `independentTestDirMeans` still spell it, and nothing holds them to the key,
  * until asdlc-openspec-d9rt.
  *
