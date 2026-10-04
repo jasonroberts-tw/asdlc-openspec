@@ -2956,6 +2956,13 @@
   "contracts": [],
   "tasks": [
     {
+      "id": "asdlc-openspec-8yd",
+      "paths": [
+        "apps/calculator/test/independent/verify/README.md"
+      ],
+      "tests": []
+    },
+    {
       "id": "asdlc-openspec-frm",
       "paths": [
         "apps/calculator/test/README.md"
