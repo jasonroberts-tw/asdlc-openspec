@@ -8,9 +8,9 @@
  * builds a scratch repository and runs git in it from inside such a hook then reads or writes THIS
  * repository while claiming to read the scratch one. Agents push here from linked worktrees, and
  * `npm run gates` runs the pre-push hook there through `git hook run`, which exports the same.
- * Measured on Git 2.54.0 (Apple Git-157) on 2026-10-03, in scratch repositories, through classic
- * `.git/hooks` scripts and config-based `hook.<name>.command` entries alike, for pre-commit,
- * prepare-commit-msg, post-checkout, post-merge and pre-push:
+ * Measured on Git 2.54.0 (Apple Git-157) and Git 2.55.0, which printed the same, on 2026-10-03, in
+ * scratch repositories, through classic `.git/hooks` scripts and config-based `hook.<name>.command`
+ * entries alike, for pre-commit, prepare-commit-msg, post-checkout, post-merge and pre-push:
  *   - from a linked worktree, top level or subdirectory, every one of them gets `GIT_DIR`
  *     (`<common>/.git/worktrees/<name>`), pre-commit and prepare-commit-msg also get an absolute
  *     `GIT_INDEX_FILE` (that directory's `index`), and in each hook `git -C <other>` and git run in
