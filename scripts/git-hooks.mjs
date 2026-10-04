@@ -45,12 +45,12 @@
  *
  * INVOCATION.
  *   node scripts/git-hooks.mjs <event> [git's arguments]   what each `hook.asdlc-<event>.command` runs
- *   npm run gates           (--gates) the pre-push suite through `git hook run --to-stdin`, forced, with
+ *   mise run gates           (--gates) the pre-push suite through `git hook run --to-stdin`, forced, with
  *                           the branch's push line, so it sees a real push's environment and input
- *   npm run hooks:install   (--install) writes the five `hook.asdlc-*` entries into the repository's
+ *   mise run hooks:install   (--install) writes the five `hook.asdlc-*` entries into the repository's
  *                           own config and removes lefthook's shims from the hooks directory
  *   npm's `prepare`         (--prepare) the install, skipped when `CI` is set; `npm ci` runs it
- *   npm run hooks:selftest  (--selftest) every refusal and every path above, in scratch repositories
+ *   mise run hooks:selftest  (--selftest) every refusal and every path above, in scratch repositories
  *   GIT_HOOKS_FORCE=1       runs every job, whatever its glob
  *   GIT_HOOKS_SKIP=1        runs none, and says so
  *   GIT_HOOKS_ROOT=<dir>    reads `git-hooks.yml` and `tools/policy/` from a doctored copy, and
@@ -317,7 +317,7 @@ function classicWarnings(event) {
   if (text.includes(LEFTHOOK_SHIM)) {
     warnings.push(
       `warning: ${path} is a lefthook shim, and Git runs it after this runner;` +
-        ' `npm run hooks:install` removes it',
+        ' `mise run hooks:install` removes it',
     )
   }
   if (text.includes(BEADS_SECTION)) {
@@ -652,7 +652,7 @@ function install({ prepare }) {
   return 0
 }
 
-/** `npm run gates`: the pre-push hook through Git, forced, with the branch's push line. */
+/** `mise run gates`: the pre-push hook through Git, forced, with the branch's push line. */
 function gates() {
   try {
     requireGit()
@@ -665,7 +665,7 @@ function gates() {
   if (!installed || !installed.includes(commandFor('pre-push'))) {
     console.error(
       `gates: refused. This checkout's Git config has no \`hook.${HOOK_PREFIX}pre-push.command\`` +
-        ` = \`${commandFor('pre-push')}\`, so no push here runs a gate. Run \`npm run hooks:install\`.`,
+        ` = \`${commandFor('pre-push')}\`, so no push here runs a gate. Run \`mise run hooks:install\`.`,
     )
     return 1
   }
@@ -757,12 +757,12 @@ async function readingCases(base, record) {
     },
     {
       name: 'a run token this runner does not expand is refused',
-      doctor: (t) => t.replace('run: node --run check:jobs\n', 'run: node --run check:jobs {push_files}\n'),
+      doctor: (t) => t.replace('run: mise run check:jobs\n', 'run: mise run check:jobs {push_files}\n'),
       expect: /`pre-push\/check-jobs` uses `\{push_files\}`, which this runner does not expand/,
     },
     {
       name: '{staged_files} outside pre-commit is refused',
-      doctor: (t) => t.replace('run: node --run check:jobs\n', 'run: node --run check:jobs {staged_files}\n'),
+      doctor: (t) => t.replace('run: mise run check:jobs\n', 'run: mise run check:jobs {staged_files}\n'),
       expect: /`pre-push\/check-jobs` uses `\{staged_files\}`, which only pre-commit has/,
     },
     {
@@ -821,7 +821,7 @@ async function readingCases(base, record) {
     },
     {
       name: 'a job name used twice in one event is refused',
-      doctor: (t) => `${t}    - name: check-jobs\n      run: node --run check:jobs\n`,
+      doctor: (t) => `${t}    - name: check-jobs\n      run: mise run check:jobs\n`,
       expect: /`pre-push` names the job `check-jobs` twice/,
     },
     {
@@ -841,7 +841,7 @@ async function readingCases(base, record) {
     },
     {
       name: 'an empty run is refused',
-      doctor: (t) => t.replace('run: node --run check:jobs\n', "run: ''\n"),
+      doctor: (t) => t.replace('run: mise run check:jobs\n', "run: ''\n"),
       expect: /`pre-push\/check-jobs` has an empty `run`/,
     },
     {
@@ -1241,7 +1241,7 @@ async function gitCases(base, env, record) {
   await check('gates refuses a checkout whose hooks are not installed, and names the fix', () => {
     const { repo } = scratch(FIXTURE_JOBS, { installHooks: false })
     const run = node(repo, ['scripts/git-hooks.mjs', '--gates'])
-    expect(run.status !== 0 && /Run `npm run hooks:install`/.test(both(run)), both(run))
+    expect(run.status !== 0 && /Run `mise run hooks:install`/.test(both(run)), both(run))
     return 'refused'
   })
 

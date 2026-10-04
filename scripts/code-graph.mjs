@@ -8,11 +8,11 @@
  * an operator command, not an emitter or a gate: what it writes is never committed, and no job runs it.
  *
  * WHAT THE SERVER SERVES (`docs/decisions.md` § D-28). The harness assessment's combined graph, the
- * file `graphifyCombinedGraphFile` names beside `graph.json`, which `npm run harness:graph` writes
+ * file `graphifyCombinedGraphFile` names beside `graph.json`, which `mise run harness:graph` writes
  * with the git blob id of the `graph.json` it was built from, is registered while that id is the
  * `graph.json` beside it; otherwise `graph.json` is, and the run says why. A build rewrites
- * `graph.json`, so after one that registers the server is on `graph.json` until `npm run harness`,
- * `npm run harness:graph` and `npm run code-graph:mcp` run again: a combined graph of the build
+ * `graph.json`, so after one that registers the server is on `graph.json` until `mise run harness`,
+ * `mise run harness:graph` and `mise run code-graph:mcp` run again: a combined graph of the build
  * before would hide the new one. A build with `--no-mcp`, or one that fails, registers nothing and
  * leaves the server where it was, which may be that combined graph, and says so.
  *
@@ -59,9 +59,9 @@
  *
  *   node scripts/code-graph.mjs [--code-only] [--force] [--mcp-only] [--no-mcp]
  *   node scripts/code-graph.mjs --selftest
- *   npm run code-graph               build, then register the MCP server
- *   npm run code-graph:mcp           register the MCP server only (--mcp-only)
- *   npm run code-graph:selftest      the script against a fixture repository and stub tools
+ *   mise run code-graph               build, then register the MCP server
+ *   mise run code-graph:mcp           register the MCP server only (--mcp-only)
+ *   mise run code-graph:selftest      the script against a fixture repository and stub tools
  *
  *   --code-only   parse code only: no LLM call, and no community naming when none is saved yet
  *   --force       rebuild everything, re-sending every document to the LLM
@@ -490,7 +490,7 @@ function servedGraph(outDir, policy) {
   }
   if (typeof recorded !== 'string') return { path: graphPath, why: `${combined} records no graph.json it was built from` }
   if (recorded !== blobId(graphPath)) {
-    return { path: graphPath, why: `${combined} is of another build of graph.json; npm run harness, npm run harness:graph and npm run code-graph:mcp serve a current one` }
+    return { path: graphPath, why: `${combined} is of another build of graph.json; mise run harness, mise run harness:graph and mise run code-graph:mcp serve a current one` }
   }
   return { path: combined, why: 'the combined graph, built from this graph.json' }
 }
@@ -516,7 +516,7 @@ function registerMcp(root, tools, graphPath, server) {
 }
 
 function summary(root, graphPath, policy) {
-  if (!existsSync(graphPath)) return `no graph at ${graphPath} yet: run npm run code-graph`
+  if (!existsSync(graphPath)) return `no graph at ${graphPath} yet: run mise run code-graph`
   const graph = JSON.parse(readFileSync(graphPath, 'utf8'))
   const links = graph.links || graph.edges || []
   const types = new Set(policy.graphifySemanticExtensions)
@@ -802,7 +802,7 @@ async function selftest() {
     }
     {
       const { r } = combinedCase('combined-no-mcp', blobId, ['--no-mcp'])
-      check('a build with --no-mcp says the server may still be on the combined graph of the build before', r.status === 0 && /may still be on .*, of the build before; npm run code-graph:mcp moves it/.test(r.out), r.out)
+      check('a build with --no-mcp says the server may still be on the combined graph of the build before', r.status === 0 && /may still be on .*, of the build before; mise run code-graph:mcp moves it/.test(r.out), r.out)
     }
     {
       const { r } = combinedCase('combined-partial', blobId, [], { STUB_EXTRACT_STDERR: PARTIAL_TEXTS[0] })
@@ -821,7 +821,7 @@ async function selftest() {
     }
     {
       const { c, r, served } = combinedCase('combined-stale', () => '0'.repeat(40))
-      check('a combined graph of another build leaves the server on graph.json, naming what renews it', r.status === 0 && served === c.graphPath && /is of another build of graph\.json; npm run harness, npm run harness:graph and npm run code-graph:mcp/.test(r.out), `${r.out} served ${served}`)
+      check('a combined graph of another build leaves the server on graph.json, naming what renews it', r.status === 0 && served === c.graphPath && /is of another build of graph\.json; mise run harness, mise run harness:graph and mise run code-graph:mcp/.test(r.out), `${r.out} served ${served}`)
     }
     {
       const { c, r, served } = combinedCase('combined-unrecorded', () => undefined)
@@ -941,7 +941,7 @@ async function main() {
         // combined graph of the build before (`docs/decisions.md` § D-28).
         const combined = join(outDir, policy.graphifyCombinedGraphFile)
         if ((flags.noMcp || !built) && existsSync(combined)) {
-          console.log(`code-graph: graph.json changed and the server was not registered again, so it may still be on ${combined}, of the build before; npm run code-graph:mcp moves it to graph.json`)
+          console.log(`code-graph: graph.json changed and the server was not registered again, so it may still be on ${combined}, of the build before; mise run code-graph:mcp moves it to graph.json`)
         }
       }
       release()

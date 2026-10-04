@@ -59,7 +59,7 @@ No fitness function checks these rules, because the calculator has no NFR:
   in `#keypad` one `<button type="button">` per key, with its key in `data-key` and, on every button
   that is not a digit, an `aria-label`. Keyboard input is a `keydown` on the document; the keys it
   acts on are `0` to `9`, `.`, `+`, `-`, `*`, `/`, `=`, `Enter` and `Escape`.
-- **The tests:** `npm run calculator:test`, which runs `scripts/run-tests.mjs` over
+- **The tests:** `mise run calculator:test`, which runs `scripts/run-tests.mjs` over
   `apps/calculator/test/*.test.js`.
 
 ## 4. Configuration keys, environment variables and ports

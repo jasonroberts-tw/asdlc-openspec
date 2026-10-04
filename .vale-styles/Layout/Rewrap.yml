@@ -7,7 +7,7 @@
 #
 # The width is stated here and nowhere else: Vale reads only its own files. It is 100 because the
 # reviewer flagged lines of 121, 141 and 165 among neighbours of 95 to 101, and never one of the
-# many lines of 101 to 106 (asdlc-openspec-m7p). `npm run vale:selftest` holds each case above.
+# many lines of 101 to 106 (asdlc-openspec-m7p). `mise run vale:selftest` holds each case above.
 extends: script
 message: "This line runs more than one word past column 100: re-wrap its paragraph."
 level: error

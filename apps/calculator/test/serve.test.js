@@ -514,7 +514,7 @@ describe('An interrupt stops the server cleanly', () => {
 })
 
 describe('The command (not a spec scenario)', () => {
-  // trace: asdlc-openspec-zgh.4 surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-zgh.4 surface:apps/calculator/binding-surface.md@7f0235d48d40
   test('[asdlc-openspec-zgh.4] PORT is read as a whole number from 1 to 65535, and unset means 8080', () => {
     assert.equal(parsePort(undefined), 8080)
     const valid = [
@@ -555,7 +555,7 @@ describe('The command (not a spec scenario)', () => {
     }
   })
 
-  // trace: asdlc-openspec-zgh.4 surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-zgh.4 surface:apps/calculator/binding-surface.md@7f0235d48d40
   test('[asdlc-openspec-zgh.4] A listen error other than a port in use is refused in one line naming its code', () => {
     const denied = Object.assign(new Error('listen EACCES: permission denied 127.0.0.1:80'), {
       code: 'EACCES',
@@ -567,7 +567,7 @@ describe('The command (not a spec scenario)', () => {
     assert.match(listenRefusal({ code: 'EADDRINUSE' }, 8080), /\b8080\b/)
   })
 
-  // trace: asdlc-openspec-zgh.4 surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-zgh.4 surface:apps/calculator/binding-surface.md@7f0235d48d40
   test(
     '[asdlc-openspec-zgh.4] SIGTERM stops the server as Ctrl-C does',
     { skip: SIGNAL_SKIP, timeout: TEST_BOUND_MS },
@@ -576,7 +576,7 @@ describe('The command (not a spec scenario)', () => {
     },
   )
 
-  // trace: asdlc-openspec-zgh.4 surface:apps/calculator/binding-surface.md@e52392e73c00
+  // trace: asdlc-openspec-zgh.4 surface:apps/calculator/binding-surface.md@7f0235d48d40
   test(
     '[asdlc-openspec-zgh.4] The page is found from the file, not from the working directory',
     { timeout: TEST_BOUND_MS },

@@ -1,5 +1,5 @@
 /**
- * `npm run citations:check` -- does every `<file>.md:NN` and `<file>.md § <Name>` citation in this
+ * `mise run citations:check` -- does every `<file>.md:NN` and `<file>.md § <Name>` citation in this
  * repository, its file name backticked or not, resolve to what it names?
  *
  * `tools/citations/scan.ts` carries the reasoning: why this scans everything rather than an
@@ -21,9 +21,9 @@
  *      -- the section that forbids the store, and the `bd`-generated block once it exists -- exempt
  *      by heading and by marker rather than the file as a whole.
  *
- *   npm run citations:check                        the gate, over this checkout
- *   CITATIONS_ROOT=<dir> npm run citations:check   the same gate over a doctored copy (a git tree)
- *   CITATIONS_UNTRACKED=1 npm run citations:check  also reads untracked files git does not ignore,
+ *   mise run citations:check                        the gate, over this checkout
+ *   CITATIONS_ROOT=<dir> mise run citations:check   the same gate over a doctored copy (a git tree)
+ *   CITATIONS_UNTRACKED=1 mise run citations:check  also reads untracked files git does not ignore,
  *                                                  as the Stop hook runs it (`INCLUDE_UNTRACKED`)
  *
  * Needs no `../sibling` checkout and no network; it reads tracked files, and untracked ones when

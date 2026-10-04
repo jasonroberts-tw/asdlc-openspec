@@ -2,8 +2,8 @@
  * Count-index gate: every value in `count-index.md` is re-derived from the source the index itself
  * names for it, and the run fails when the table disagrees.
  *
- *   npm run counts:check       the gate; prints every key with its derived value on every run
- *   npm run counts:selftest    its fixtures: every refusal exercised on a doctored copy
+ *   mise run counts:check       the gate; prints every key with its derived value on every run
+ *   mise run counts:selftest    its fixtures: every refusal exercised on a doctored copy
  *
  * kit 3.3-3 · ADAPT: a key's source is written in the index's second table, in one of the four
  * spellings below, in the same change as the key. Most keys need no code here. A count no spelling
@@ -330,7 +330,7 @@ function selftest() {
     ['a json source whose file is missing', lay('no-data', { withData: false }), derivers, new RegExp(`${J}: its source could not be read \\(data\\.json is missing\\)`)],
     ['a json pointer that reaches nothing', lay('no-node', { s: { [J]: `| \`${J}\` | \`json: data.json /events/*/*/hook\` |` } }), derivers, new RegExp(`${J}: its source could not be read \\(data\\.json has nothing at /events/\\*/\\*/hook\\)`)],
     ['the index is missing', lay('no-index', { withIndex: false }), derivers, /is missing: there is no index to check/],
-    // A hook in a linked worktree exports GIT_DIR, which `npm run gates` runs under since it goes
+    // A hook in a linked worktree exports GIT_DIR, which `mise run gates` runs under since it goes
     // through `git hook run`; Git then takes the current directory, the fixture, as the work tree's
     // top and lists that repository's index (asdlc-openspec-uc1, 2026-10-01).
     ['a files source is counted from the fixture while GIT_DIR names another repository', lay('git-dir'), derivers, null, { GIT_DIR: join(otherRepo(dir), '.git') }],

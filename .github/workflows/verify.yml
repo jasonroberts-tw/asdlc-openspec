@@ -46,7 +46,7 @@ jobs:
       # because the lockfile is committed, so a pin moved without `mise lock` fails here. The whole
       # toolset, so no step installs a tool of its own mid-run, and the action caches mise's installs
       # by the two files' hash. `version` and `sha256` pin mise itself to the release
-      # `.devcontainer/Dockerfile` copies in, which `npm run check:toolchain` holds
+      # `.devcontainer/Dockerfile` copies in, which `mise run check:toolchain` holds
       # (`docs/decisions.md` § D-31). `sha256` is the linux-x64 binary's line in that release's signed
       # SHASUMS256.txt, read 2026-10-03: `gh release download v<version> --repo jdx/mise --pattern
       # SHASUMS256.txt`. The action is a third party's, so it is pinned by commit rather than by a
@@ -63,39 +63,39 @@ jobs:
       - run: npm ci
       # Milliseconds: three committed files held to each other.
       - name: every job names a script, and every unjobbed script is declared
-        run: npm run check:jobs
+        run: mise run check:jobs
       - name: the job cross-check, negative-tested
-        run: npm run check:jobs:selftest
+        run: mise run check:jobs:selftest
       # Seconds (git-hooks.yml's `hooks-selftest` job has the measurement): the git hook runner's
       # refusals over doctored copies, and commits, pushes, a linked worktree, the install and
-      # `npm run gates` through real Git in scratch repositories under the temporary directory. The
+      # `mise run gates` through real Git in scratch repositories under the temporary directory. The
       # runner refuses a Git older than 2.54.0; the runner image's was 2.55.0 (its image 20260920).
       - name: the git hook runner, negative-tested
-        run: npm run hooks:selftest
+        run: mise run hooks:selftest
       # Milliseconds: CLAUDE.md, the prompts, the workflows' string literals and the word budgets in
       # tools/policy/prompt-budgets.json.
       - name: every skill and agent opens with the line CLAUDE.md requires, and every prompt is within its word budget
-        run: npm run check:prompts
+        run: mise run check:prompts
       - name: the prompt gate, negative-tested
-        run: npm run check:prompts:selftest
+        run: mise run check:prompts:selftest
       # Milliseconds: the records under tools/policy/, their headers, a Means beside every constant,
       # no key in two records, and the directory's README naming each.
       - name: every policy record carries its header and its reasons, and no key has two homes
-        run: npm run check:policy
+        run: mise run check:policy
       - name: the policy gate, negative-tested
-        run: npm run check:policy:selftest
+        run: mise run check:policy:selftest
       # Milliseconds: `mise.toml` held to `mise.lock`, to the mise each workflow and the dev container
       # pin, and to every other place a tool could be installed (`docs/decisions.md` § D-31).
       - name: every tool version has one home, mise.toml, and the lockfile covers it
-        run: npm run check:toolchain
+        run: mise run check:toolchain
       - name: the toolchain gate, negative-tested
-        run: npm run check:toolchain:selftest
+        run: mise run check:toolchain:selftest
       # Under a second (git-hooks.yml's `check-node-floor` and `check-node-floor-selftest` jobs have
       # the measurement): `package.json` `engines` held to the ranges `package-lock.json` locks.
       - name: the Node floor is not below what every locked package accepts
-        run: npm run check:node-floor
+        run: mise run check:node-floor
       - name: the Node-floor gate, negative-tested
-        run: npm run check:node-floor:selftest
+        run: mise run check:node-floor:selftest
       # Under a second (git-hooks.yml's `vale-selftest` job has the measurement): this repository's own
       # Vale style over fixtures, with the `vale` mise installed above. Until mise, this runner had no
       # Vale and the step was left out, since it would only ever have skipped. The selftest skips clean
@@ -103,136 +103,136 @@ jobs:
       - name: Vale is on PATH, so the style's selftest cannot skip
         run: vale --version
       - name: the Layout style's rules fire on their faults and nothing else
-        run: npm run vale:selftest
+        run: mise run vale:selftest
       # Milliseconds: each workflow under `.claude/workflows/` against stubbed agents, with the policy's
       # review sizes, prompt-review threshold and skeptic counts, and the stored prompt cases' lenses
       # and repetitions, with every stored case under `.claude/prompt-cases/`.
       - name: the workflows stop, confirm and report as their policy says
-        run: npm run workflows:selftest
+        run: mise run workflows:selftest
       # Milliseconds: the reviewer's wiring and its decisions, with the policy's values. The reviewer
       # itself reads a token and a language model, and runs only as `pr-review.yml`.
       - name: the reviewer's workflow, agent and policy agree
-        run: npm run pr-review:check
+        run: mise run pr-review:check
       - name: the reviewer's decisions, and its wiring gate, negative-tested
-        run: npm run pr-review:selftest
+        run: mise run pr-review:selftest
       # Milliseconds: the count index held to the committed files its own second table names.
       - name: every count in the index re-derives from its source
-        run: npm run counts:check
+        run: mise run counts:check
       - name: the count-index gate, negative-tested
-        run: npm run counts:selftest
+        run: mise run counts:selftest
       # Every tracked text file, no allowlist.
       - name: every citation resolves
-        run: npm run citations:check
+        run: mise run citations:check
       # Synthetic fixtures, and scratch git trees under the temporary directory for the end-to-end cases.
       - name: the citations gate, negative-tested
-        run: npm run citations:selftest
+        run: mise run citations:selftest
       # About two seconds: the advisory `citations:support` over a fixture tree and a stubbed judge,
       # and the real SDK against a refused loopback connection. The command reads a token and the
       # network and runs here only as this selftest.
       - name: the citation-support advisory, negative-tested over a stubbed judge
-        run: npm run citations:support:selftest
+        run: mise run citations:support:selftest
       # Seconds (git-hooks.yml's `gate-summary-selftest` job has the measurement): the Stop hook over
       # scratch citation trees and scratch repositories under the temporary directory, and the
       # block-generated-edit hook over a scratch repository with two linked worktrees.
       - name: the Stop hook reads untracked files and places a subagent's checkout, negative-tested
-        run: npm run gate-summary:selftest
+        run: mise run gate-summary:selftest
       # Milliseconds: the register's header held to its own headings.
       - name: the register's header agrees with its entries
-        run: npm run check:register
+        run: mise run check:register
       - name: the register gate, negative-tested
-        run: npm run check:register:selftest
+        run: mise run check:register:selftest
       # Under two seconds (git-hooks.yml's `beads-selftest` job has the measurement): a fixture export
       # and a copy of the policy under the temporary directory, read through `BEADS_CHECK_ROOT`,
       # with no `bd`. The gate it tests reads the tracker, so it is absent below.
       - name: the tracker gate, negative-tested over a fixture export
-        run: npm run beads:selftest
+        run: mise run beads:selftest
       # Seconds: the pinned OpenSpec CLI, one start per run plus one per active change; no network.
       - name: every living spec and active change is valid, and every change applies
-        run: npm run openspec:check
+        run: mise run openspec:check
       # Seconds, more than the OpenSpec check and less than its selftest (the cost note on
       # git-hooks.yml's `calculator-test` job has the measurement): Node's own test runner over
       # `apps/calculator/test/`, each test named for the IDs it proves, its `// trace:` metadata read
       # and held to what the runner reports, and no matched file without a test.
       - name: the calculator's scenarios pass
-        run: npm run calculator:test
+        run: mise run calculator:test
       # Under a second while it holds no test (git-hooks.yml's `calculator-test-independent` job has the
       # measurement): the test-builder's contract tests and build-time fitness functions under
       # `apps/calculator/test/independent/build/`, held as the step above holds the rest. Its E2E
       # tests and Verify-deferred fitness functions run at Verify, and no step here runs them.
       - name: the calculator's independent tests pass
-        run: npm run calculator:test:independent
+        run: mise run calculator:test:independent
       # Under a second (git-hooks.yml's `tests-selftest` job has the measurement): fixture trees
       # under the temporary directory, one Node process per fixture test file.
       - name: the test runner, negative-tested
-        run: npm run tests:selftest
+        run: mise run tests:selftest
       # Seconds (git-hooks.yml's `tests-fresh-selftest` job has the measurement): the verifier's fresh
       # run over a fixture repository, its `npm ci` stubbed. `tests:fresh` itself reads the network
       # and runs only in change-verify (docs/decisions.md § D-15, item 3).
       - name: the verifier's fresh run, negative-tested
-        run: npm run tests:fresh:selftest
+        run: mise run tests:fresh:selftest
       # Seconds (git-hooks.yml's `code-graph-selftest` job has the measurement): the code-graph
       # script over a fixture repository, graphify, its MCP server and claude stubbed. `code-graph`
       # itself reads a language model and the person's plan, so no step runs it.
       - name: the code-graph script, negative-tested over stub tools
-        run: npm run code-graph:selftest
+        run: mise run code-graph:selftest
       # Under a second (git-hooks.yml's `tests-trace-selftest` job has the measurement): doctored
       # test sources, a fixture spec tree under the temporary directory, and one archive by the
       # pinned OpenSpec CLI, with no network.
       - name: the test-trace reader and its hash, negative-tested
-        run: npm run tests:trace:selftest
+        run: mise run tests:trace:selftest
       # Under a second (git-hooks.yml's `trace-check` job has the measurement): the traceability
       # record re-derived and diffed, and every rule its header holds, over the branch's commits since
       # its merge base with origin/main, which the whole-history checkout above provides.
       - name: the traceability record is current, and every scenario, test, contract and task holds to it
-        run: npm run trace:check
+        run: mise run trace:check
       # About ten seconds (git-hooks.yml's `trace-selftest` job has the measurement and the count of
       # trial archives): fixture repositories under the temporary directory, and trial archives by
       # the pinned CLI.
       - name: the trace gate, negative-tested
-        run: npm run trace:selftest
+        run: mise run trace:selftest
       # Under a second (git-hooks.yml's `coupling-check` job has the measurement): the co-change map
       # re-derived through the trunk commit it records, which the whole-history checkout above holds,
       # and that commit held to origin/main.
       - name: the co-change map is current through its baseline, and the baseline is on the trunk
-        run: npm run coupling:check
+        run: mise run coupling:check
       # About ten seconds (git-hooks.yml's `coupling-selftest` job has the measurement): fixture
       # repositories under the temporary directory, and the command line run against them.
       - name: the co-change gate, negative-tested
-        run: npm run coupling:selftest
+        run: mise run coupling:selftest
       # Seconds (git-hooks.yml's `harness-selftest` job has the measurement): the harness
       # assessment's core over fixture repositories, then its graph half over fixture graphs, on the
       # Python 3 `mise.toml` pins, which mise installed above. The two commands write a local report
       # or read the local code graph, so no step runs them (docs/decisions.md § D-26).
       - name: the harness assessment, negative-tested over fixtures
-        run: npm run harness:selftest
+        run: mise run harness:selftest
       # Under a second (git-hooks.yml's `tests-inventory` job has the measurement): the tests at HEAD
       # against those at its merge base with origin/main, read from git. On a push to main HEAD is
       # its own merge base, and it passes; on a pull request HEAD is the merge commit.
       - name: no test removed, skipped or weakened without an architect decision
-        run: npm run tests:inventory:check
+        run: mise run tests:inventory:check
       # Seconds (git-hooks.yml's `tests-inventory-selftest` job has the measurement): fixture
       # repositories under the temporary directory.
       - name: the test-inventory gate, negative-tested
-        run: npm run tests:inventory:selftest
+        run: mise run tests:inventory:selftest
       - name: the OpenSpec gate, negative-tested
-        run: npm run openspec:selftest
+        run: mise run openspec:selftest
       # About twenty-five seconds (git-hooks.yml's `thresholds-selftest` job has the measurement): a fixture
       # repository under the temporary directory, with StrykerJS's tap and command runners.
       - name: the thresholds gate, negative-tested
-        run: npm run thresholds:selftest
+        run: mise run thresholds:selftest
       # Seconds, and more as more Routine lines change (git-hooks.yml's `thresholds-check` job has the
       # measurement): the suite once with Node's own coverage, and StrykerJS's tap runner over the
       # changed lines of the Routines, from the merge base with origin/main that the whole-history
       # checkout above provides.
       - name: the changed code is covered, and the changed Routines' mutants detected, to the policy's thresholds
-        run: npm run thresholds:check
+        run: mise run thresholds:check
       # Last, as the slowest: up to minutes when a Command's code changed, and under a second
       # otherwise. StrykerJS's command runner, one mutant at a time, over each Command's changed
       # lines. It is no pre-push job, an exception to the gate ladder that `docs/decisions.md` § D-04
       # records in its amendment of 2026-09-29, for the cost the header of
       # scripts/check-thresholds.mjs gives; change-verify runs it too, in its fresh run (scripts/fresh-run.mjs).
       - name: the changed Commands' mutants are detected, to the policy's threshold
-        run: npm run thresholds:commands:check
+        run: mise run thresholds:commands:check
       #
       # DELIBERATELY ABSENT, each with its reason. Add to this list rather than deleting from it:
       #   * the tracker's checks, `beads:check` and the tracker's own pre-push hook: they read the

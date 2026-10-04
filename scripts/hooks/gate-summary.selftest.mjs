@@ -49,7 +49,8 @@
  *   4. `taskLaunch` and `runTask` over scratch checkouts: one with a `package.json` alone runs a task
  *      with `npm run --silent` (the control), one with a `tasks.toml` with `mise run --quiet`, each
  *      run for real; and a task its own manifest lacks is refused before any launcher starts, in a
- *      worktree whose enclosing checkout defines it and in a `package.json` checkout alike.
+ *      worktree whose enclosing checkout defines it and in a `package.json` checkout alike, as is
+ *      every task of a checkout with neither manifest.
  *   5. A copy of the edit hook and `_shared.mjs` in a scratch repository with two linked worktrees,
  *      one where the worktree script makes one and one outside the checkout: each path of this
  *      checkout the redirect table assigns, and a file whose header carries a banner, refused in the
@@ -59,7 +60,7 @@
  *      `GIT_DIR`, and with `GIT_WORK_TREE` beside it, in the hook's environment; and an unbannered
  *      file, a document, and a path in another repository or in no checkout, each passed.
  *
- *   npm run gate-summary:selftest
+ *   mise run gate-summary:selftest
  *
  * Needs `git`, `mise` (`docs/decisions.md` § D-31), and `npm ci` in this checkout; the scratch
  * repositories are its own and removed after.
@@ -333,6 +334,14 @@ try {
     "a task a package.json checkout's scripts lack is refused unrun too",
     absent.code === 127 && absent.out.startsWith(`\`probe:absent\` is not a task in ${npmSide}'s own package.json, so it was not run`),
     JSON.stringify(absent),
+  )
+  const bare = join(base, 'tasks-none')
+  writeTree(bare, { 'README.md': 'no manifest\n' })
+  const none = await runTask('probe:here', { cwd: bare })
+  check(
+    'a checkout with neither manifest is refused unrun, naming both',
+    none.code === 127 && none.out === `${bare} has neither tasks.toml nor package.json, so it defines no task \`probe:here\`.`,
+    JSON.stringify(none),
   )
 
   console.log('block-generated-edit: an edit to generated output, refused in a linked worktree as in the primary checkout')

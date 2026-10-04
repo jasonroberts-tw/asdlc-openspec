@@ -66,7 +66,7 @@
  * because the first three rebuild the graph through the path that erodes its document layer and the
  * last writes graphify's advice to run `update` into CLAUDE.md (docs/decisions.md § D-20). It lets
  * one through that asks for help, which graphify answers with a line of help alone. It holds in the
- * primary checkout too, because that is where `npm run code-graph` builds the graph. No session has
+ * primary checkout too, because that is where `mise run code-graph` builds the graph. No session has
  * run one here yet. Were this rule wrong, a session following graphify's own advice, which its
  * user-level skill and the block `claude install` writes both give, would erode the graph: on
  * 2026-10-01, on a clone holding a copy of the first graph, two `graphify update` runs took its
@@ -769,7 +769,7 @@ function denialForGh(call, linked) {
  * second, with no option before them (its `__main__.py` and `cli.py`), so a command matches by
  * position and nowhere else; re-read both when the `pypi:graphifyy` pin in mise.toml moves. Every
  * other command still runs: `query`, `path` and `explain` read the graph, and `extract` builds it
- * as `npm run code-graph` does.
+ * as `mise run code-graph` does.
  */
 const ERODES = 'the local code graph through the path that erodes its document layer'
 const GRAPHIFY_ERODING = new Map([
@@ -838,7 +838,7 @@ function graphifyArgs(tokens) {
 
 const GRAPHIFY = (words, does) =>
   `\`graphify ${words}\` ${does} (docs/decisions.md § D-20). A person builds and refreshes the ` +
-  'graph with `npm run code-graph`, which spends their own plan, so do not run it yourself; if the ' +
+  'graph with `mise run code-graph`, which spends their own plan, so do not run it yourself; if the ' +
   'graph needs a refresh, say so in your report.'
 
 /** The reason to deny a graphify call with these arguments, or `null` to allow it. */

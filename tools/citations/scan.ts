@@ -55,7 +55,7 @@
  *     this reason, and the same logic applies here: a gate that fails on the record of a past defect
  *     is a gate nobody can make green, so it gets deleted and checks nothing. See `HISTORY`.
  *   - WHETHER THE CITED LINE SAYS WHAT THE CITER CLAIMS. That needs a judgment over two texts, not a
- *     rule, so `tools/citations/support.ts` makes it as an advisory (`npm run citations:support`).
+ *     rule, so `tools/citations/support.ts` makes it as an advisory (`mise run citations:support`).
  *     Resolution is the half that can be checked deterministically, which is why it is the gate.
  *   - NUMERALS restated from another document. A prompt that repeats a corpus count it did not
  *     derive is a real and more expensive defect, but it needs a policy about prompt-embedded

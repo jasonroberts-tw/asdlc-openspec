@@ -103,7 +103,7 @@
  *                                                  `surface:<path>` or `contract:<path>#<operation>`;
  *                                                  any ref the trace line's grammar would refuse is
  *                                                  refused, and the exit is 1
- *   npm run tests:trace:selftest                   its fixtures, each refusal on a doctored copy
+ *   mise run tests:trace:selftest                   its fixtures, each refusal on a doctored copy
  *
  * The verb is not `hash`: on 2026-09-28 the harness of a session isolated in a worktree refused
  * `node scripts/test-trace.mjs hash <ref>` as running a string through the shell's `hash` builtin,

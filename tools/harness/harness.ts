@@ -29,7 +29,7 @@
  *     of a staged-file event is held instead to cover every generated file, when its closure
  *     imports the redirect table. Matching is `path.matchesGlob`, the hook runner's own.
  *   - reach: each file a README table gives a gate kind that no registration reaches: package
- *     scripts, hook jobs, CI steps, the other workflows, the session hooks, and the `npm run`
+ *     scripts, hook jobs, CI steps, the other workflows, the session hooks, and the `mise run`
  *     mentions in prompts, each through its imports. A kind that says it is not wired is a note.
  *   - parity: a script a pre-push job runs that no CI step runs, or the reverse, unless the CI
  *     file declares it so.
@@ -49,9 +49,9 @@
  *
  * INVOCATION.
  *
- *   npm run harness                      the report for today, compared with the last one
+ *   mise run harness                      the report for today, compared with the last one
  *   node tools/harness/harness.ts --date 2026-10-02 [--out <dir>]
- *   npm run harness:selftest             the core over fixture repositories, then the graph half
+ *   mise run harness:selftest             the core over fixture repositories, then the graph half
  *
  * `HARNESS_ROOT=<dir>` points it at a doctored copy, the top of a git checkout. It exits 0 with
  * findings, which it reports and never enforces, and 1 when an input cannot be read.
@@ -497,7 +497,7 @@ class Repo {
     return sorted([...command.matchAll(re)].map((m) => m[1].replace(/[.,;:]+$/, '')).filter((p) => this.trackedSet.has(p)))
   }
 
-  /** The package scripts a command runs: through `npm run` or `node --run`, or `mise run` once the tasks move to mise. */
+  /** The tasks a command runs: through `mise run`, or `npm run` or `node --run` in a tree from before the move to mise. */
   scriptsIn(command: string): string[] {
     return sorted([...command.matchAll(/\b(?:(?:npm run|node --run) (?:--silent )?|mise run (?:-q |--quiet )?)([A-Za-z0-9][\w:.-]*)/g)].map((m) => m[1]).filter((s) => Object.hasOwn(this.scripts, s)))
   }
@@ -617,7 +617,7 @@ function checkGlobs(repo: Repo, jobs: Job[], rows: RedirectRow[], findings: Find
     const closure = new Set(entries.flatMap((e) => [...repo.closure(e)]))
     if (repo.cfg.stagedFileEvents.includes(job.event)) {
       if (closure.has(redirectModule)) {
-        for (const row of rows) if (!repo.covers(globs, row.path)) add(job, 'generated', row.path, 'finding', `its closure imports \`${redirectModule}\`, which assigns \`${row.path}\` to \`npm run ${row.script}\`, and a staged change to it would not run the job.`)
+        for (const row of rows) if (!repo.covers(globs, row.path)) add(job, 'generated', row.path, 'finding', `its closure imports \`${redirectModule}\`, which assigns \`${row.path}\` to \`mise run ${row.script}\`, and a staged change to it would not run the job.`)
       }
       continue
     }
@@ -650,7 +650,7 @@ function checkGlobs(repo: Repo, jobs: Job[], rows: RedirectRow[], findings: Find
       if (!script.endsWith(':check')) continue
       for (const row of rows) {
         if (baseOf(row.script) !== baseOf(script)) continue
-        if (!inGlob(row.path)) add(job, 'generated', row.path, 'finding', `it runs \`${script}\`, the check twin of the emitter that writes \`${row.path}\` (\`npm run ${row.script}\`).`)
+        if (!inGlob(row.path)) add(job, 'generated', row.path, 'finding', `it runs \`${script}\`, the check twin of the emitter that writes \`${row.path}\` (\`mise run ${row.script}\`).`)
       }
     }
     for (const declared of declaredIn(repo, job.comment)) {
@@ -929,7 +929,7 @@ export type Report = {
 }
 
 const BANNER = [
-  'Written by `npm run harness` (tools/harness/harness.ts): a local assessment, never committed. Each finding has a stable key and a level: finding, lead or note.',
+  'Written by `mise run harness` (tools/harness/harness.ts): a local assessment, never committed. Each finding has a stable key and a level: finding, lead or note.',
   'read: what the run read, each file by its git blob id, and the file the tasks came from. limits: what each check cannot see. comparison: what changed since the latest earlier report, by key.',
 ]
 
@@ -1017,7 +1017,7 @@ export function serialise(report: Report): string {
 /** The report as Markdown, for a person. */
 export function markdown(report: Report, cfg: Config): string {
   const out: string[] = [`# Harness assessment, ${report.date}`, '']
-  out.push(`Written by \`npm run harness\`. Script blob \`${report.read.script.slice(0, 12)}\`, config blob \`${report.read.config.slice(0, 12)}\`, co-change map through \`${(report.read.cochangeThrough ?? 'none').slice(0, 12)}\`, ${report.read.sources.length} files read.`, '')
+  out.push(`Written by \`mise run harness\`. Script blob \`${report.read.script.slice(0, 12)}\`, config blob \`${report.read.config.slice(0, 12)}\`, co-change map through \`${(report.read.cochangeThrough ?? 'none').slice(0, 12)}\`, ${report.read.sources.length} files read.`, '')
   out.push(`${report.summary.findings} findings, ${report.summary.leads} leads, ${report.summary.notes} notes over ${report.summary.jobs} jobs, ${report.summary.jobsWithGlob} with a glob. A finding rests on exact evidence; a lead is a heuristic to read before acting; a note is declared or informational.`, '')
   const c = report.comparison
   out.push('## Compared with the last report', '')

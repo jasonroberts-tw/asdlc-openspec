@@ -57,7 +57,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # --- mise ---------------------------------------------------------------------------------------
-# mise itself, at the release every workflow's `jdx/mise-action` pins, which `npm run
+# mise itself, at the release every workflow's `jdx/mise-action` pins, which `mise run
 # check:toolchain` holds equal to this tag, copied from mise's own image as its documentation does.
 # The digest pins the image as the workflows' `sha256` pins their binary: a tag can be moved to
 # another image, and a digest cannot. Read on 2026-10-03 from ghcr.io's manifest for the tag; when

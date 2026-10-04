@@ -3,8 +3,8 @@
  * change applies to the living spec, every scenario and NFR requirement carries a unique ID that no
  * archived change gave another title, and no retired generated skill has come back.
  *
- *   npm run openspec:check       the gate
- *   npm run openspec:selftest    its fixtures -- every refusal exercised on a doctored copy
+ *   mise run openspec:check       the gate
+ *   mise run openspec:selftest    its fixtures -- every refusal exercised on a doctored copy
  *
  * THE JOB THIS EXISTS FOR. Product work runs as changes in OpenSpec's on-disk format, and the pinned
  * OpenSpec CLI is used for two commands only: `validate` and `archive` (`docs/decisions.md` § D-02).

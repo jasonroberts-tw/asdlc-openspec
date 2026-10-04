@@ -1,7 +1,7 @@
 {
   "describes": "What the harness assessment, `tools/harness/harness.ts` and `tools/harness/graph.py`, takes to be this repository's harness: where its wiring is declared (the tasks, which the core reads through `scripts/lib/tasks.mjs`, the hook job file, the CI and other workflows, the session settings, the prompts, the README tables and the generated-file redirect table), which paths and extensions hold code, how a live read and a declared exception are spelled, where the co-change map and its thresholds are, where the reports go, and what the graph half names the edges it adds. The two halves read every repository-specific fact from here, so for another harness built from the same kinds of parts (npm scripts, a job file in lefthook's schema, GitHub Actions workflows, Claude Code's settings) the code is the same and this file is what changes; a harness of other parts needs a reader of its own for each.",
   "whyThisFileExists": "The untracked script this tool replaced hard-coded four wiring sources, three path roots, a filename pattern for gates and the citation format, so it could not be pointed at another harness and nobody could see what it assumed without reading its code. Each constant here says what it decides, so a report's limits are read from one place.",
-  "gatedBy": "npm run harness:selftest refuses a config with a preamble key, a constant or its `Means` sibling missing, or a constant the core reads of the wrong shape; the graph half checks only that each constant it reads and its `Means` are there. It copies this file into every fixture repository it builds, so each case runs with these values, except the graph half's `wiringContext`, which its fixture changes so a context the code spells itself fails. No gate holds a value here to the files it names: a path that is wrong makes the check that reads it report nothing, which the report's own counts show.",
+  "gatedBy": "mise run harness:selftest refuses a config with a preamble key, a constant or its `Means` sibling missing, or a constant the core reads of the wrong shape; the graph half checks only that each constant it reads and its `Means` are there. It copies this file into every fixture repository it builds, so each case runs with these values, except the graph half's `wiringContext`, which its fixture changes so a context the code spells itself fails. No gate holds a value here to the files it names: a path that is wrong makes the check that reads it report nothing, which the report's own counts show.",
   "whatItDoesNOTDo": "It copies no value another file holds: the co-change map's thresholds, graphify's file types and folder, and the combined graph's file name and blob field are named as keys of `tools/policy/tool-settings.json` (`cochangeSamplePolicy`, `observedJaccardPolicy`, `graphExtensionsPolicy`, `graphOutDirPolicy`, `combinedGraphPolicy`, `combinedGraphBlobPolicy`), and the path roots as a constant of `scripts/check-jobs.mjs` (`pathRootsFrom`), each staying the one home. It is not read by any gate, and changing it changes no verdict of a push or a pull request.",
   "provenance": "Written 2026-10-02 with asdlc-openspec-o6w1, which `docs/decisions.md` § D-26 records, from the measurements of that issue at 2660d32. `combinedGraphPolicy`, `combinedGraphBlobPolicy` and `wiringContext` added the same day with asdlc-openspec-fot7, which `docs/decisions.md` § D-28 records. `dependencyManifest` replaced `packageManifest`, and `launchHelpers` named `runTask` for `npmRun`, on 2026-10-03 with asdlc-openspec-8juz.5, which reads every task manifest through `scripts/lib/tasks.mjs`.",
 
@@ -33,7 +33,7 @@
   "stagedFileEventsMeans": "Events whose globs filter which staged files a job inspects rather than list its inputs. Their jobs are held to one rule instead: a job whose closure imports the redirect table must cover every generated file it assigns.",
 
   "ciWorkflow": ".github/workflows/verify.yml",
-  "ciWorkflowMeans": "The workflow that runs every gate on a pull request. Its `npm run` steps are set against the pre-push jobs for parity, and its paths and scripts are registrations for reachability.",
+  "ciWorkflowMeans": "The workflow that runs every gate on a pull request. Its `mise run` steps are set against the pre-push jobs for parity, and its paths and scripts are registrations for reachability.",
 
   "ciAbsentMarker": "DELIBERATELY ABSENT",
   "ciAbsentMarkerMeans": "A regular expression for the comment line that opens the CI file's list of scripts deliberately run at pre-push only. Each backticked package script in the comment lines after it, to the first empty comment line, is a declared exception to parity.",
@@ -42,13 +42,13 @@
   "ciOnlyMarkerMeans": "A regular expression, case-insensitive, that the comment above a CI step must match for its scripts to be declared CI-only, as `thresholds:commands:check`'s comment cites `docs/decisions.md` § D-04.",
 
   "otherWorkflows": [".github/workflows/pr-review.yml"],
-  "otherWorkflowsMeans": "Workflows besides the CI one whose `node <path>` and `npm run` lines are registrations: a script they run is reached. They hold no globs and are not set against the pre-push jobs.",
+  "otherWorkflowsMeans": "Workflows besides the CI one whose `node <path>` and `mise run` lines are registrations: a script they run is reached. They hold no globs and are not set against the pre-push jobs.",
 
   "sessionSettings": ".claude/settings.json",
   "sessionSettingsMeans": "The session settings whose `hooks` commands register in-session hooks, each a registration for reachability and a `registers_hook` edge in the graph half's overlay.",
 
   "promptPaths": [".claude", "CLAUDE.md", "AGENTS.md"],
-  "promptPathsMeans": "The prompts, as files or directories, whose `npm run <script>` mentions are registrations and `names_script` edges, and whose `node <path>` mentions are entries. A prompt naming a script is how an operator command is reached.",
+  "promptPathsMeans": "The prompts, as files or directories, whose `mise run <task>` mentions are registrations and `names_script` edges, and whose `node <path>` mentions are entries. A prompt naming a script is how an operator command is reached.",
 
   "readmeTables": [
     { "readme": "scripts/README.md", "fileColumn": "File", "kindColumn": "Kind", "gateKind": "\\bgate\\b|\\bselftest\\b|test runner|pre-commit job|hook runner", "notWired": "not wired" },
@@ -61,7 +61,7 @@
   "generatedRedirectModuleMeans": "The module whose redirect table assigns each generated file to the command that writes it. It is imported, and its function asked about every tracked path under `generatedRoot`, so the table has one home.",
 
   "generatedRedirectExport": "generatedFileRedirect",
-  "generatedRedirectExportMeans": "The function of that module that returns, for a path, null or a message naming `npm run <script>`, the command that writes it.",
+  "generatedRedirectExportMeans": "The function of that module that returns, for a path, null or a message naming `mise run <task>`, the command that writes it.",
 
   "generatedRoot": "artifacts",
   "generatedRootMeans": "The directory whose tracked files are asked about. A generated file elsewhere is not checked.",

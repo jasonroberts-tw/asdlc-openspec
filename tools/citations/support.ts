@@ -1,5 +1,5 @@
 /**
- * `npm run citations:support` -- does the passage a citation names say what the sentence citing it
+ * `mise run citations:support` -- does the passage a citation names say what the sentence citing it
  * claims? An ADVISORY command: it prints findings for a person to read and refuses nothing.
  *
  * WHAT IT DOES. Code finds and resolves every citation with the scanner `citations:check` uses
@@ -30,7 +30,7 @@
  *
  * WHY IT IS NOT A GATE, and never in `citations:check`. It reads `TYPESAFE_API_KEY` and the network,
  * so it runs in neither pre-push nor `.github/workflows/verify.yml` (`CLAUDE.md` § The gate ladder);
- * its selftest, `npm run citations:support:selftest`, runs in both over a stubbed judge. A verdict
+ * its selftest, `mise run citations:support:selftest`, runs in both over a stubbed judge. A verdict
  * only ever adds a finding for a person. It never clears a refusal, and it never changes a file
  * (`CLAUDE.md` § A program proposes; only a person promotes).
  *
@@ -43,16 +43,16 @@
  * that repeats the claim's words there passes (`docs/playbook.md:53`, which TypeSafe flags); and a
  * claim that paraphrases its section is printed.
  *
- *   npm run citations:support                    every citation in every tracked text file
- *   npm run citations:support -- --file <path>   only citations written in <path> (repeatable), as
+ *   mise run citations:support                    every citation in every tracked text file
+ *   mise run citations:support --file <path>   only citations written in <path> (repeatable), as
  *                                                a session checks the files its change touched
- *   npm run citations:support -- --min <p>       this run's threshold in place of the policy's, as a
+ *   mise run citations:support --min <p>       this run's threshold in place of the policy's, as a
  *                                                by-hand look at how many findings a threshold gives:
  *                                                P(supports) with a key, the word share without one
- *   npm run citations:support -- --dry-run       count what would be judged; no key, no call
- *   npm run citations:support -- --selftest      the selftest, `npm run citations:support:selftest`
- *   CITATIONS_ROOT=<dir> npm run citations:support   the same run over a doctored copy (a git tree)
- *   CITATIONS_UNTRACKED=1 npm run citations:support  also reads untracked files git does not ignore
+ *   mise run citations:support --dry-run       count what would be judged; no key, no call
+ *   mise run citations:support --selftest      the selftest, `mise run citations:support:selftest`
+ *   CITATIONS_ROOT=<dir> mise run citations:support   the same run over a doctored copy (a git tree)
+ *   CITATIONS_UNTRACKED=1 mise run citations:support  also reads untracked files git does not ignore
  *
  * Exit 0 with or without findings, and 0 when `TYPESAFE_API_KEY` is not set (it prints why and
  * judges by word overlap); 1 when the key is set and a call fails, or the policy is wrong; 2 on a

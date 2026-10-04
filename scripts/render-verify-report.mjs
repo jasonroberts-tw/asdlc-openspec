@@ -12,7 +12,7 @@
  * one or an open gap, and a report of another change's run, or of no run at all, reads the same as
  * a real one. It refuses JSON that is not a fresh run's, and one for another change.
  *
- * INVOCATION, from the change's worktree, once `npm run tests:fresh` has written the run:
+ * INVOCATION, from the change's worktree, once `mise run tests:fresh` has written the run:
  *
  *   node scripts/render-verify-report.mjs <change>      reads .scratch/<change>-verify.json and
  *                                                       writes .scratch/<change>-verify.md
@@ -60,7 +60,7 @@ let run
 try {
   run = JSON.parse(readFileSync(join(ROOT, input), 'utf8'))
 } catch (error) {
-  refuse([`${input} could not be read as JSON (${error.message}); run \`npm run tests:fresh -- ${change}\` first`])
+  refuse([`${input} could not be read as JSON (${error.message}); run \`mise run tests:fresh ${change}\` first`])
 }
 const problems = verifyProblems(run)
 if (problems.length) refuse(problems.map((p) => `${input}: ${p}`))

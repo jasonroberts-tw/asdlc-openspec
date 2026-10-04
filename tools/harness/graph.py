@@ -27,7 +27,7 @@ WHAT IT REPORTS, each item with a stable key and a level, as the core's are:
   - freshness (note): the graph's commit against HEAD and the map's baseline; files the graph holds
     that were tracked at its commit and are not now; harness files tracked now, of a type graphify
     extracts (`graphifySemanticExtensions` in `tools/policy/tool-settings.json` and the code
-    extensions), that it lacks. A package node is not a file. `npm run code-graph` rebuilds the graph.
+    extensions), that it lacks. A package node is not a file. `mise run code-graph` rebuilds the graph.
   - pairing (lead): the graph's `implements` edges from a script or tool to a rule section of the
     rules file. A language model drew them, and a rebuild draws others.
   - hidden (lead): two files that change together at or above the map's cluster index, neither a
@@ -41,7 +41,7 @@ A table, not findings: each cluster of the map against the graph's communities i
 
 INVOCATION.
 
-  npm run harness:graph               after `npm run harness`, for the same date
+  mise run harness:graph               after `mise run harness`, for the same date
   python tools/harness/graph.py [--date YYYY-MM-DD] [--graph PATH]
   python tools/harness/graph.py --selftest
 
@@ -345,7 +345,7 @@ def check_freshness(root: Path, graph: dict, cc: dict, cfg: dict, findings: list
     state = "is stale" if stale else "is current"
     findings.append(finding("freshness", "note", "graph", "commit",
                             f"built at `{short(built)}`, HEAD is `{short(head)}`, the map is through `{short(through)}`; the graph {state}"
-                            + ("; `npm run code-graph` rebuilds it, and `-- --code-only` calls no model." if stale else ".")))
+                            + ("; `mise run code-graph` rebuilds it, and `-- --code-only` calls no model." if stale else ".")))
     for path in gone:
         findings.append(finding("freshness", "note", "gone", path, "the graph holds it, tracked at the graph's commit and not now."))
     for path in absent:
@@ -411,8 +411,8 @@ LIMITS = {
 }
 
 BANNER = [
-    "Written by `npm run harness:graph` (tools/harness/graph.py): a local assessment, never committed. Each item has a stable key and a level: finding, lead or note.",
-    "The combined graph, read.combined, is the local graph with the harness's wiring and the co-change edges added. Where read.served is true it is written beside that graph, and `npm run code-graph:mcp` serves it while it records the graph beside it (docs/decisions.md § D-28); otherwise it is beside this report and not served.",
+    "Written by `mise run harness:graph` (tools/harness/graph.py): a local assessment, never committed. Each item has a stable key and a level: finding, lead or note.",
+    "The combined graph, read.combined, is the local graph with the harness's wiring and the co-change edges added. Where read.served is true it is written beside that graph, and `mise run code-graph:mcp` serves it while it records the graph beside it (docs/decisions.md § D-28); otherwise it is beside this report and not served.",
 ]
 
 
@@ -434,10 +434,10 @@ def serialise(report: dict) -> str:
 def markdown(report: dict) -> str:
     out = [f"# Harness assessment, the graph half, {report['date']}", ""]
     r = report["read"]
-    out += [f"Written by `npm run harness:graph`. Script blob `{r['script'][:12]}`, graph blob `{r['graph'][:12]}` built at `{(r['graphBuiltAt'] or 'unknown')[:12]}`, core report of {report['date']}.", ""]
+    out += [f"Written by `mise run harness:graph`. Script blob `{r['script'][:12]}`, graph blob `{r['graph'][:12]}` built at `{(r['graphBuiltAt'] or 'unknown')[:12]}`, core report of {report['date']}.", ""]
     s = report["summary"]
     out += [f"{s['findings']} findings, {s['leads']} leads, {s['notes']} notes. Combined graph: {s['nodes']} nodes, {s['links']} links, of which {s['cochangeLinks']} co-change and {s['wiringLinks']} wiring. Loader: {report['loader']['status']} ({report['loader']['detail']}).", ""]
-    out += [f"The combined graph is `{r['combined']}`; " + ("`npm run code-graph:mcp` serves it while it records the graph beside it." if r["served"] else "it is beside the report and not served: run from the checkout that holds the graph, with no `--graph`, to serve it."), ""]
+    out += [f"The combined graph is `{r['combined']}`; " + ("`mise run code-graph:mcp` serves it while it records the graph beside it." if r["served"] else "it is beside the report and not served: run from the checkout that holds the graph, with no `--graph`, to serve it."), ""]
     c = report["comparison"]
     out += ["## Compared with the last report", ""]
     if c["previous"] is None:
@@ -475,7 +475,7 @@ def run(root: Path, date: str, graph_path=None, out=None) -> tuple:
     base = Path(out) if out else root / cfg["reportDir"]
     core_path = base / date / "harness.json"
     if not core_path.exists():
-        raise Refusal(f"input: no core report at {core_path}; `npm run harness` writes it for the same date first.")
+        raise Refusal(f"input: no core report at {core_path}; `mise run harness` writes it for the same date first.")
     # The combined graph is served only from beside the default graph, written by a run from the
     # checkout that holds it: a run from a linked worktree reads its own branch's wiring and map, and
     # beside the primary checkout's graph it would serve that branch to every session.
@@ -485,7 +485,7 @@ def run(root: Path, date: str, graph_path=None, out=None) -> tuple:
         graph_path = groot / policy_value(root, cfg["graphOutDirPolicy"]) / "graph.json"
     graph_path = Path(graph_path)
     if not graph_path.exists():
-        return None, f"no graph at {graph_path}, so nothing to read; `npm run code-graph` builds one (`docs/decisions.md` § D-20)."
+        return None, f"no graph at {graph_path}, so nothing to read; `mise run code-graph` builds one (`docs/decisions.md` § D-20)."
     graph_bytes = graph_path.read_bytes()
     graph = json.loads(graph_bytes)
     report_core = json.loads(core_path.read_text(encoding="utf-8"))
@@ -670,7 +670,7 @@ def selftest() -> int:
         check("control: a deleted file is reported gone", "freshness|gone|scripts/deleted.mjs" in keys, keys)
         check("control: a package node is not taken for a file", not any("js-yaml" in k for k in keys), keys)
         check("control: a graph older than HEAD is reported stale, with the rebuild named",
-              any(f["key"] == "freshness|graph|commit" and "is stale" in f["reason"] and "npm run code-graph" in f["reason"] for f in report["findings"]), report["findings"])
+              any(f["key"] == "freshness|graph|commit" and "is stale" in f["reason"] and "mise run code-graph" in f["reason"] for f in report["findings"]), report["findings"])
         check("control: a pair with no graph edge is a hidden lead", "hidden|docs/doc.md|scripts/a.mjs" in keys, keys)
         check("control: a pair with a graph edge is not", not any(k.startswith("hidden|scripts/a.mjs") for k in keys), keys)
         check("control: a pair with a file the graph lacks is not", not any("notes/new.md" in k for k in keys if k.startswith("hidden")), keys)
@@ -744,12 +744,12 @@ def selftest() -> int:
 
         # The inputs.
         reply = run(root, "2026-01-02", graph_path=tmp / "none.json", out=out)
-        check("no graph: nothing is written and the reason names the rebuild", reply[0] is None and "npm run code-graph" in reply[1], reply)
+        check("no graph: nothing is written and the reason names the rebuild", reply[0] is None and "mise run code-graph" in reply[1], reply)
         try:
             run(root, "2026-01-03", out=out)
             check("no core report for the date is refused", False, "accepted")
         except Refusal as error:
-            check("no core report for the date is refused, for that reason", "`npm run harness` writes it" in str(error), str(error))
+            check("no core report for the date is refused, for that reason", "`mise run harness` writes it" in str(error), str(error))
         doctored = json.loads((root / CONFIG).read_text(encoding="utf-8"))
         del doctored["cochangeRelationMeans"]
         (root / CONFIG).write_text(json.dumps(doctored), encoding="utf-8")
@@ -801,7 +801,7 @@ def main(argv=None) -> int:
     s = report["summary"]
     print(f"harness:graph: {s['findings']} findings, {s['leads']} leads, {s['notes']} notes; combined graph of {s['nodes']} nodes and {s['links']} links; loader {report['loader']['status']}; wrote {folder}.")
     if report["read"]["served"]:
-        print(f"harness:graph: wrote {report['read']['combined']}; `npm run code-graph:mcp` registers the server on it.")
+        print(f"harness:graph: wrote {report['read']['combined']}; `mise run code-graph:mcp` registers the server on it.")
     else:
         print(f"harness:graph: wrote {report['read']['combined']} beside the report, not served: run from the checkout that holds the graph, with no --graph, to serve it.")
     return 0

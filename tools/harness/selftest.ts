@@ -12,7 +12,7 @@
  *
  * INVOCATION.
  *
- *   npm run harness:selftest
+ *   mise run harness:selftest
  *
  * NEEDS git, Node's `path.matchesGlob`, `js-yaml`, and for the graph half the Python 3 `mise.toml`
  * pins, run as `python` through mise's shims (README.md § Setup); where no `python` runs, the

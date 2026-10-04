@@ -86,9 +86,9 @@
  *
  * INVOCATION.
  *
- *   npm run beads:check                         the gate, over what `bd export` writes
- *   npm run beads:selftest                      its refusals over a fixture export (--selftest)
- *   BEADS_CHECK_ROOT=<dir> npm run beads:check  the gate over a doctored copy
+ *   mise run beads:check                         the gate, over what `bd export` writes
+ *   mise run beads:selftest                      its refusals over a fixture export (--selftest)
+ *   BEADS_CHECK_ROOT=<dir> mise run beads:check  the gate over a doctored copy
  *
  * ROOT OVERRIDE. `BEADS_CHECK_ROOT` names a doctored copy: a directory holding the policy's records
  * under `tools/policy/` and `export.jsonl`, one issue per line in the shape `bd export` writes. The gate then reads both from
@@ -662,7 +662,7 @@ function selftest() {
   if (listed.length === 0) {
     console.error(
       `beads selftest: the committed ${POLICY} lists no label under \`${POLICY_KEY}\`, so no fixture can ` +
-        'carry one. `npm run beads:check` refuses that policy too.',
+        'carry one. `mise run beads:check` refuses that policy too.',
     )
     process.exit(1)
   }
@@ -674,7 +674,7 @@ function selftest() {
   if (types.length === 0) {
     console.error(
       `beads selftest: the committed ${POLICY} names no type under \`${TYPES_KEY}\`, so no fixture can ` +
-        'carry one. `npm run beads:check` refuses that policy too.',
+        'carry one. `mise run beads:check` refuses that policy too.',
     )
     process.exit(1)
   }
