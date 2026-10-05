@@ -1,7 +1,7 @@
 /**
- * The pull-request reviewer's decisions: which pull request the queue takes next, whether its head
- * merges or waits for a person, and the evidence its verdict prints beside that.
- * `.github/workflows/pr-review.yml` runs one subcommand per job. The decision is the floor alone. A
+ * The pull-request reviewer's decisions: which pull request the queue takes next, and whether its
+ * head merges or waits for a person. `.github/workflows/pr-review.yml` runs `next` and then `act` in
+ * its one job. The decision is the floor alone. A
  * pull request that adds, changes, deletes or renames a path `prReviewHighRiskPaths` names, or
  * changes a top-level key `prReviewHighRiskJsonKeys` names, waits for a person; the reviewer merges
  * any other once `verify` has passed on its head and on `main`. The keys are those of
@@ -10,10 +10,11 @@
  * its issues ask is judged before its push, by the branch review `.claude/skills/open-pr/SKILL.md`
  * § 5 runs (`.claude/agents/branch-reviewer.md`), from the brief `brief --local` writes.
  *
- * Beside the decision the verdict prints evidence that decides nothing, both read at the merge
- * base: each changed file's reach, the pre-push jobs, workflow steps and session hooks that run or
- * import it (`reach` in `tools/harness/harness.ts`); and the files the co-change map says change with
- * it that the pull request leaves alone (`partnersOf` in `tools/coupling/coupling.ts`).
+ * That brief carries evidence that decides nothing, both read at the merge base: each changed file's
+ * reach, the pre-push jobs, workflow steps and session hooks that run or import it (`reach` in
+ * `tools/harness/harness.ts`); and the files the co-change map says change with it that the pull
+ * request leaves alone (`partnersOf` in `tools/coupling/coupling.ts`). The verdict prints none of it
+ * (`docs/decisions.md` § D-46).
  *
  *   PR=<n> node scripts/pr-review.mjs mark
  *                                       set pull request <n>'s head pending, from the session that
@@ -26,8 +27,6 @@
  *                                       print one line, and exit 0 only on the merge (`open-pr` § 8).
  *                                       No job runs it.
  *   node scripts/pr-review.mjs next     choose this run's one action: review, merge or none
- *   node scripts/pr-review.mjs evidence the reach and co-change partners of one head, in a job whose
- *                                       token reads only
  *   node scripts/pr-review.mjs act      decide one head from the floor, post the verdict, set labels
  *                                       and status, and merge
  *   TITLE_FILE=<file> BODY_FILE=<file> REVIEW_DIR=<dir> node scripts/pr-review.mjs brief --local
@@ -48,7 +47,7 @@
  *                                       and every file of a listed gate
  *
  * The subcommands read their inputs from the environment the workflow sets (PR, SHA, ACTION, MORE,
- * EVIDENCE, EVIDENCE_RESULT, REVIEW_DIR, FORCE_PR, GH_TOKEN), never from the command line, so no
+ * REVIEW_DIR, FORCE_PR, GH_TOKEN), never from the command line, so no
  * value from a pull request is ever interpolated into a shell. `mark` and `wait` read PR alone.
  * The workflow's `mark` job set the status seconds after the create: 11 s on #47, created at
  * 21:27:59Z and marked at 21:28:10Z on 2026-09-25. Until a head is marked, `gh pr checks --watch` can
@@ -96,11 +95,11 @@
  * after it was decided (the merge names the decided commit, so GitHub refuses a moved one); a change
  * on the floor a person never approved, or approved before the verdict on the head they approved; an
  * approval applied by a bot; a merge onto a `main` whose last verify run is red; a verdict forged by
- * a path, a reason or evidence that quotes the marker, or posted by another workflow, whose token
- * comments as the same bot; evidence read as a decision; and the pull request's own code run with the
- * write token. So the merge takes its floor from git objects in the job that merges, never from a
- * comment; that job installs Node and gh and no npm package, and imports only files on the floor; and
- * every job reads a pull request only as git objects. The derivation of a listed gate's files reads
+ * a path or a reason that quotes the marker, or posted by another workflow, whose token comments as
+ * the same bot; and the pull request's own code, or code off the floor such as the harness's, run
+ * with the write token. So the merge takes its floor from git objects in the job that merges, never
+ * from a comment; that job installs Node and gh and no npm package, and imports only files on the
+ * floor; and it reads a pull request only as git objects. The derivation of a listed gate's files reads
  * a task's command and the relative paths its files write out, never one written with `${`, joined
  * at run time or written without its extension, so a gate weakened through a file it reaches only
  * that way, through a file its tool reads by convention that the floor does not name, or through a
@@ -123,11 +122,10 @@
  *
  * NEEDS. `mark`, `wait`, `next` and `act` need `gh` with a token that can read pull requests and
  * commit statuses and, for `act`, write pull requests, and for `mark`, `next` and `act`, write commit
- * statuses; from a session, that is the person's own `gh` login. `act` and `evidence` need git with
- * `origin` fetchable and its whole history (`fetch-depth: 0`). `evidence` also needs the packages
- * `tools/harness/harness.ts` imports, `js-yaml` and `smol-toml`, which it loads only when it runs, so
- * `act` needs none. `brief --local` needs git, `bd` with the tracker cloned and those packages, and
- * no `gh`. All of them need the network, which is why none is a pre-push job or a `verify.yml` step
+ * statuses; from a session, that is the person's own `gh` login. `act` needs git with `origin`
+ * fetchable and its whole history (`fetch-depth: 0`). `brief --local` needs git, `bd` with the
+ * tracker cloned and the packages `tools/harness/harness.ts` imports, `js-yaml` and `smol-toml`,
+ * which it loads only when it runs, so `next` and `act` need none; and no `gh`. All of them need the network, which is why none is a pre-push job or a `verify.yml` step
  * (`CLAUDE.md` § The gate ladder). `pr-review:check` and `pr-review:selftest` read only committed
  * files, `js-yaml` and, through `scripts/lib/tasks.mjs`, `smol-toml`, and are both.
  */
@@ -187,21 +185,26 @@ const TRUNK = 'main'
 const WORKFLOW_BOT = 'github-actions[bot]'
 /** The first line of a verdict comment: `<!-- pr-review:verdict {"sha":…,"outcome":…} -->`. */
 const MARKER_RE = /^<!-- pr-review:verdict (\{[^\n]*\}) -->$/
-const SUBCOMMANDS = ['mark', 'wait', 'next', 'evidence', 'act', 'brief']
+const SUBCOMMANDS = ['mark', 'wait', 'next', 'act', 'brief']
 /** The subcommands the workflow must run. Not `mark` or `wait`, which a session or a person runs, nor `brief`, which is local. */
-const WORKFLOW_SUBCOMMANDS = ['next', 'evidence', 'act']
+const WORKFLOW_SUBCOMMANDS = ['next', 'act']
 /** Every tool the branch reviewer has: it reads and searches, and runs, writes and reaches nothing. */
 const AGENT_TOOLS = ['Read', 'Grep', 'Glob']
 /**
- * All a job of the workflow may run, keyed by the one subcommand it runs: its `run:` steps, each the
- * whole of its step; the variables its steps set, which are what that subcommand reads; and the tools
- * its mise step installs. So no model, package or command but these runs, and none with the token
- * that merges but Node, gh and the files on the floor (`docs/decisions.md` § D-37).
+ * All a job of the workflow may run, keyed by the subcommands it runs, in the order its steps run
+ * them: each `run:` step, the whole of its step, with the variables that step may set, which are what
+ * its subcommand reads; and the tools its mise step installs. So no model, package or command but
+ * these runs, and none with the token that merges but Node, gh and the files on the floor
+ * (`docs/decisions.md` § D-37 and § D-46).
  */
 const JOB_SHAPES = {
-  next: { runs: ['node scripts/pr-review.mjs next'], env: ['FORCE_PR', 'GH_TOKEN'], tools: ['gh', 'node'] },
-  evidence: { runs: ['npm ci --ignore-scripts', 'node scripts/pr-review.mjs evidence'], env: ['PR', 'SHA'], tools: ['node'] },
-  act: { runs: ['node scripts/pr-review.mjs act'], env: ['ACTION', 'EVIDENCE', 'EVIDENCE_RESULT', 'GH_TOKEN', 'MORE', 'PR', 'SHA'], tools: ['gh', 'node'] },
+  'next act': {
+    runs: {
+      'node scripts/pr-review.mjs next': ['FORCE_PR', 'GH_TOKEN'],
+      'node scripts/pr-review.mjs act': ['ACTION', 'GH_TOKEN', 'MORE', 'PR', 'SHA'],
+    },
+    tools: ['gh', 'node'],
+  },
 }
 /** The actions a step may use, each with the inputs it may be given: `ref`, `mise_toml` and `bootstrap` are not among them. */
 const STEP_ACTIONS = { 'actions/checkout': ['fetch-depth'], 'jdx/mise-action': ['install_args', 'sha256', 'version'] }
@@ -220,12 +223,6 @@ const COMMENT_MAX = 60000
  * head stays through a push that then conflicts, and would read that conflict as a person's verdict.
  */
 const PERSON_DECIDES = 'A person decides: '
-/**
- * The most of the evidence a verdict prints, in bytes as JSON, so the decision and the approval
- * sentence are never cut; and so the `evidence` job's output, which reaches `act` as one environment
- * variable, stays far below the 128 KiB Linux allows one (`MAX_ARG_STRLEN`, 32 pages of 4 KiB).
- */
-const EVIDENCE_MAX = 40000
 
 const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
 const short = (sha) => String(sha ?? '').slice(0, 7)
@@ -820,39 +817,8 @@ export function evidenceMarkdown({ base, reach, reachError, partners, partnersEr
   return lines.join('\n')
 }
 
-/**
- * The evidence Markdown cut so that, as JSON, it takes at most `EVIDENCE_MAX` bytes. Cut by bytes,
- * not characters: a path of quotes or of characters UTF-8 spends four bytes on grows as JSON.
- */
-export function cutEvidence(markdown) {
-  const size = (text) => Buffer.byteLength(JSON.stringify(text), 'utf8')
-  if (size(markdown) <= EVIDENCE_MAX) return markdown
-  const note = `\n\n…the evidence is cut at ${EVIDENCE_MAX} bytes.`
-  let length = Math.min(markdown.length, EVIDENCE_MAX)
-  while (length > 0 && size(markdown.slice(0, length) + note) > EVIDENCE_MAX) length = Math.floor(length * 0.9)
-  return `${markdown.slice(0, length)}${note}`
-}
-
-/**
- * The evidence `act` prints, from what the `evidence` job wrote: its Markdown when it is for this
- * head and this merge base, cut by `cutEvidence`; otherwise a line saying why none is printed.
- * Nothing here changes the outcome.
- */
-export function evidenceFor(text, result, sha, base) {
-  let parsed = null
-  try {
-    parsed = text ? JSON.parse(text) : null
-  } catch {
-    parsed = null
-  }
-  if (!isRecord(parsed) || typeof parsed.markdown !== 'string') return `Not computed: the evidence job ended ${result || 'unknown'} with no evidence.`
-  if (parsed.sha !== sha) return `Not computed: the evidence is for ${short(parsed.sha)}, not for this head.`
-  if (base && parsed.base && parsed.base !== base) return `Not computed: the evidence was read at ${short(parsed.base)}, not at this merge base, ${short(base)}.`
-  return cutEvidence(parsed.markdown)
-}
-
 /** The review comment, whose first line is the marker `latestVerdict` reads. */
-export function renderComment({ pr, sha, decision, floor, evidence }, policy) {
+export function renderComment({ pr, sha, decision, floor }, policy) {
   const lines = [
     `<!-- pr-review:verdict ${JSON.stringify({ sha, outcome: decision.outcome })} -->`,
     `### PR review of \`${short(sha)}\`: ${HEADLINE[decision.outcome]}`,
@@ -863,12 +829,6 @@ export function renderComment({ pr, sha, decision, floor, evidence }, policy) {
     const high = floor.files.filter((f) => f.highRisk)
     lines.push(`${floor.files.length} changed file${floor.files.length === 1 ? '' : 's'}, ${high.length} on the floor (\`prReviewHighRiskPaths\` and \`prReviewHighRiskJsonKeys\` in \`${POLICY}\`).`, '')
   }
-  lines.push(
-    '**Evidence, which decides nothing.** What follows is printed for a person to read; the outcome above is the floor\'s alone (`docs/decisions.md` § D-37).',
-    '',
-    inert(evidence ?? 'Not computed.'),
-    '',
-  )
   const approve = `\`${policy.prReviewLabels.approved}\``
   if (decision.outcome === 'human') {
     lines.push(`A person with write access merges it, or applies ${approve} and the reviewer merges this head. A push starts a new review.`)
@@ -1190,8 +1150,9 @@ export function floorAt(root, base, sha, rev = `origin/${TRUNK}`) {
 /**
  * The evidence for the change from `base` over `files`, both halves read at `base`: the reach of
  * every changed path, old names included, and the co-change partners it leaves alone. Each half
- * that fails gives its error instead; neither throws. The two tools are imported here, never at the
- * top of this file, so `act`, which prints what this computed, loads neither nor their packages.
+ * that fails gives its error instead; neither throws. Only `brief --local` calls it. The two tools
+ * are imported here, never at the top of this file, so `next` and `act`, which run with the token
+ * that merges, load neither nor their packages, which are off the floor (`docs/decisions.md` § D-46).
  */
 export async function evidenceOf(root, base, files) {
   const paths = [...new Set(files.flatMap((f) => [f.path, f.oldPath].filter(Boolean)))].sort(byCodePoint)
@@ -1275,30 +1236,6 @@ function next({ dryRun }) {
   setOutput('pr', choice.pr ?? '')
   setOutput('sha', choice.sha ?? '')
   setOutput('more', String(choice.more))
-}
-
-/**
- * The evidence for one head, as `{ sha, base, markdown }` in the job's `evidence` output. It never
- * fails the job for evidence it could not compute: the Markdown then says why, and the outcome,
- * which `act` takes from the floor alone, is the same either way.
- */
-async function evidence() {
-  const pr = Number(env('PR'))
-  const sha = env('SHA')
-  const out = { sha, base: null, markdown: '' }
-  try {
-    const head = fetchPull(ROOT, pr)
-    if (head !== sha) throw new Error(`#${pr} is at ${short(head)} now, not ${short(sha)}`)
-    out.base = gitIn(ROOT)(['merge-base', `origin/${TRUNK}`, sha]).trim()
-    out.markdown = evidenceMarkdown(await evidenceOf(ROOT, out.base, changedFiles(ROOT, out.base, sha)))
-  } catch (error) {
-    out.markdown = `Not computed: ${error.message}`
-  }
-  // Cut here, before the output, and not only in `act`: an output past the limit on one environment
-  // variable would stop `act` from starting, and the head would get no verdict.
-  out.markdown = cutEvidence(out.markdown)
-  console.log(`evidence: #${pr} at ${short(sha)}, merge base ${short(out.base) || 'none'}, ${Buffer.byteLength(out.markdown, 'utf8')} bytes`)
-  setOutput('evidence', JSON.stringify(out))
 }
 
 function readIssue(id) {
@@ -1412,7 +1349,7 @@ async function brief({ dryRun, local }) {
     '',
     '## Reach and co-change, read at the merge base',
     '',
-    'The pull-request reviewer prints these in its verdict too. Neither decides anything, and neither is a finding by itself: each is a place to look.',
+    'Only this brief carries these: the pull-request reviewer prints neither. Neither decides anything, and neither is a finding by itself: each is a place to look.',
     '',
     evidenceText,
     '',
@@ -1521,8 +1458,8 @@ function decideHead(pr, sha, policy) {
 }
 
 /** Post the verdict on `sha`, and set the outcome's label and the reviewer's status to match it. */
-function record(dryRun, repo, pr, sha, policy, { decision, floor, evidence }) {
-  const body = renderComment({ pr, sha, decision, floor, evidence }, policy)
+function record(dryRun, repo, pr, sha, policy, { decision, floor }) {
+  const body = renderComment({ pr, sha, decision, floor }, policy)
   const comment = write(dryRun, `comment on #${pr}`, 'POST', `repos/${repo}/issues/${pr}/comments`, { body })
   if (dryRun) console.log(body)
   const labelsNow = ghJson(`repos/${repo}/issues/${pr}/labels`).map((l) => l.name)
@@ -1575,9 +1512,8 @@ function act({ dryRun }) {
       if (env('MORE', { required: false }) === 'true') dispatch(dryRun, repo, WORKFLOW)
       return
     }
-    const { base, floor, decision } = decideHead(pr, sha, policy)
-    const evidence = evidenceFor(env('EVIDENCE', { required: false }), env('EVIDENCE_RESULT', { required: false }), sha, base)
-    record(dryRun, repo, pr, sha, policy, { decision, floor, evidence })
+    const { floor, decision } = decideHead(pr, sha, policy)
+    record(dryRun, repo, pr, sha, policy, { decision, floor })
     if (decision.outcome === 'merge' && !dryRun) tryMerge(dryRun, repo, pr, sha, policy, decision)
   } else if (action === 'merge') {
     const { floor, decision } = decideHead(pr, sha, policy)
@@ -1585,7 +1521,7 @@ function act({ dryRun }) {
     if (verdictStands(verdict, decision)) tryMerge(dryRun, repo, pr, sha, policy, decision)
     else {
       console.log(`#${pr} at ${short(sha)}: the merge verdict on record is not the floor's, recomputed now; recording the floor's.`)
-      record(dryRun, repo, pr, sha, policy, { decision, floor, evidence: 'Not computed: this verdict replaces a merge verdict on this head that the floor, recomputed when the merge was due, does not bear out.' })
+      record(dryRun, repo, pr, sha, policy, { decision, floor })
     }
   } else {
     throw new Error(`ACTION is ${action}; act takes review or merge`)
@@ -1621,20 +1557,17 @@ function stringsIn(value) {
   return []
 }
 
-/** Whether a job's or a workflow's `permissions` grant any write: `write-all`, or any scope at `write`. */
-const writes = (permissions) => permissions === 'write-all' || (isRecord(permissions) && Object.values(permissions).some((level) => level === 'write'))
-
 /**
  * The reviewer's four files held to each other: the policy is whole; `pr-review.yml` queues rather
- * than cancels, wakes on `verify.yml`'s runs, runs `next`, `evidence` and `act` in its jobs' `run:`
- * steps, no subcommand this file lacks and never `brief`, and lets the policy's approval label
- * through the `if:` of the job that runs `next`; each job runs one subcommand and only what
- * `JOB_SHAPES`, `STEP_ACTIONS` and `STEP_KEYS` allow it, so no language model, no package in the job
- * that merges and no command of a step's own; it reads no secret, mints no OIDC token, interpolates
- * no expression into a shell, has the job that runs `evidence` declare a token that only reads, and
- * checks out the whole history where `evidence` and `act` run; the branch reviewer is named as the
- * policy's floor expects and reads only; and `verify.yml` has the check the policy requires and can
- * be dispatched. Each value is read where it takes effect, so a comment counts for none.
+ * than cancels, wakes on `verify.yml`'s runs, runs `next` and `act` in its jobs' `run:` steps, no
+ * subcommand this file lacks and never `brief`, and lets the policy's approval label through the
+ * `if:` of the job that runs `next`; each job runs its subcommands in an order `JOB_SHAPES` names,
+ * and only what it, `STEP_ACTIONS` and `STEP_KEYS` allow, so no language model, no package and no
+ * command of a step's own runs beside the token that merges; it reads no secret, mints no OIDC token,
+ * interpolates no expression into a shell, and checks out the whole history where `act` runs; the
+ * branch reviewer is named as the policy's floor expects and reads only; and `verify.yml` has the
+ * check the policy requires and can be dispatched. Each value is read where it takes effect, so a
+ * comment counts for none.
  */
 export async function runCheck(root) {
   const failures = []
@@ -1709,11 +1642,13 @@ export async function runCheck(root) {
   }
 
   // Nothing runs here but this script and the tools it names (docs/decisions.md § D-37): no model, no
-  // package in the job that merges, and no command of a step's own. Each job runs one subcommand, and
-  // is held to that subcommand's shape in `JOB_SHAPES`, by allowlist: on 2026-10-04 the review of
-  // asdlc-openspec-qcqm passed `Anthropics/Claude-Code-Action`, a model run from a `run:` step,
+  // package in the job that merges, and no command of a step's own. Each job is held to the shape
+  // `JOB_SHAPES` gives the subcommands it runs, in their order, by allowlist: on 2026-10-04 the review
+  // of asdlc-openspec-qcqm passed `Anthropics/Claude-Code-Action`, a model run from a `run:` step,
   // `npm --ignore-scripts ci`, `npm it` and an install behind a quoted `#`, each through a check that
-  // named what to refuse rather than what to allow.
+  // named what to refuse rather than what to allow. Until 2026-10-05 a job ran one subcommand, so the
+  // evidence's packages never shared a job with the token that merges; D-46 retired that job, and
+  // `next` and `act` share one (asdlc-openspec-m8hs).
   for (const key of WORKFLOW_REFUSED_KEYS) {
     if (workflow?.[key] !== undefined) fail(`${WORKFLOW} sets \`${key}\` for every job: a step sets only the variables its subcommand reads, and runs in the runner's own shell.`)
   }
@@ -1723,20 +1658,20 @@ export async function runCheck(root) {
     }
     const roles = [...new Set(steps(id).flatMap(subcommandsOf))]
     if (roles.length === 0) {
-      fail(`${WORKFLOW}'s \`${id}\` job runs none of the reviewer's subcommands: every job runs one, and nothing else.`)
+      fail(`${WORKFLOW}'s \`${id}\` job runs none of the reviewer's subcommands: every job runs them, and nothing else.`)
       continue
     }
-    if (roles.length > 1) {
-      fail(`${WORKFLOW}'s \`${id}\` job runs ${roles.map((r) => `\`${r}\``).join(' and ')} in one job: each runs one, so the evidence's packages never share a job with the token that merges.`)
-      continue
-    }
-    // A subcommand with no shape (`mark`, which a session or a person runs, or one this script lacks)
-    // is refused here, never skipped: skipped, its job's steps would go unchecked.
-    const shape = Object.hasOwn(JOB_SHAPES, roles[0]) ? JOB_SHAPES[roles[0]] : null
+    // Subcommands with no shape (`mark`, which a session or a person runs, one this script lacks, or
+    // `next` and `act` in another order) are refused here, never skipped: skipped, the job's steps
+    // would go unchecked.
+    const key = roles.join(' ')
+    const named = roles.map((r) => `\`${r}\``).join(' then ')
+    const shape = Object.hasOwn(JOB_SHAPES, key) ? JOB_SHAPES[key] : null
     if (!shape) {
-      fail(`${WORKFLOW}'s \`${id}\` job runs \`${roles[0]}\`, which no job of the reviewer runs: a job runs ${Object.keys(JOB_SHAPES).map((r) => `\`${r}\``).join(', ')} or nothing.`)
+      fail(`${WORKFLOW}'s \`${id}\` job runs ${named}, which no job of the reviewer runs: a job runs ${Object.keys(JOB_SHAPES).map((k) => k.split(' ').map((r) => `\`${r}\``).join(' then ')).join(', or ')}, or nothing.`)
       continue
     }
+    const runs = Object.keys(shape.runs)
     for (const step of steps(id)) {
       const keys = Object.keys(step ?? {}).filter((key) => !STEP_KEYS.includes(key))
       if (keys.length > 0) fail(`${WORKFLOW}'s \`${id}\` job has a step with ${keys.map((k) => `\`${k}\``).join(', ')}: a step carries only ${STEP_KEYS.join(', ')}.`)
@@ -1751,21 +1686,26 @@ export async function runCheck(root) {
         if (extra.length > 0) fail(`${WORKFLOW}'s \`${id}\` job gives ${action} ${extra.map((i) => `\`${i}\``).join(', ')}: it takes only ${inputs.map((i) => `\`${i}\``).join(', ')}.`)
         if (action === 'jdx/mise-action') {
           const tools = String(step.with?.install_args ?? '').split(/\s+/).filter(Boolean)
-          if (tools.length === 0) fail(`${WORKFLOW}'s \`${id}\` job installs every tool \`mise.toml\` pins, \`bd\` among them: its \`install_args\` names the ones \`${roles[0]}\` runs, ${shape.tools.join(' and ')}.`)
+          if (tools.length === 0) fail(`${WORKFLOW}'s \`${id}\` job installs every tool \`mise.toml\` pins, \`bd\` among them: its \`install_args\` names the ones ${named} run, ${shape.tools.join(' and ')}.`)
           const other = tools.filter((tool) => !shape.tools.includes(tool))
-          if (other.length > 0) fail(`${WORKFLOW}'s \`${id}\` job installs ${other.map((t) => `\`${t}\``).join(', ')} through mise: \`${roles[0]}\` runs only ${shape.tools.join(' and ')}.`)
+          if (other.length > 0) fail(`${WORKFLOW}'s \`${id}\` job installs ${other.map((t) => `\`${t}\``).join(', ')} through mise: ${named} run only ${shape.tools.join(' and ')}.`)
         }
       }
-      if (step?.run !== undefined) {
-        const text = String(step.run).trim()
+      const text = step?.run === undefined ? null : String(step.run).trim()
+      if (text !== null) {
         if (text.includes('${{')) {
           fail(`${WORKFLOW}'s \`${id}\` job interpolates an expression into a \`run:\` command: pass the value through \`env:\`, so nothing from a pull request reaches a shell.`)
-        } else if (!shape.runs.includes(text)) {
-          fail(`${WORKFLOW}'s \`${id}\` job runs ${JSON.stringify(text)}: its steps run only ${shape.runs.map((r) => `\`${r}\``).join(' and ')}, each as the whole of a \`run:\`, so no package, model or other command runs with its token.`)
+        } else if (!runs.includes(text)) {
+          fail(`${WORKFLOW}'s \`${id}\` job runs ${JSON.stringify(text)}: its steps run only ${runs.map((r) => `\`${r}\``).join(' and ')}, each as the whole of a \`run:\`, so no package, model or other command runs with its token.`)
         }
       }
+      // Each step sets only what the subcommand it runs reads, so `next`'s step cannot hand `act` an
+      // action, and a step that runs none sets nothing.
+      const allowed = text !== null && Object.hasOwn(shape.runs, text) ? shape.runs[text] : []
       for (const name of Object.keys(step?.env ?? {})) {
-        if (!shape.env.includes(name)) fail(`${WORKFLOW}'s \`${id}\` job sets \`${name}\`: a step sets only what \`${roles[0]}\` reads, ${shape.env.join(', ')}, so no variable changes what runs.`)
+        if (!allowed.includes(name)) {
+          fail(`${WORKFLOW}'s \`${id}\` job sets \`${name}\` on a step that ${text === null ? 'runs no subcommand' : `runs ${JSON.stringify(text)}`}: a step sets only what its subcommand reads${allowed.length > 0 ? `, ${allowed.join(', ')}` : ''}, so no variable changes what runs.`)
+        }
       }
     }
   }
@@ -1783,23 +1723,12 @@ export async function runCheck(root) {
     if (idToken(job?.permissions)) fail(`${WORKFLOW}'s \`${id}\` job requests ${idToken(job.permissions)} and no job of the reviewer mints an OIDC token.`)
   }
 
-  // `evidence` runs the trunk's harness and coupling code and reads the pull request as git objects:
-  // a token it declares itself, that reads only, so nothing it computes can write; and the whole
-  // history, which the co-change map and the merge base need.
-  const evidenceId = jobRunning('evidence')
+  // `act` finds the merge base of a pull request's head, read as git objects: the whole history.
   const actId = jobRunning('act')
-  if (evidenceId) {
-    const permissions = jobs[evidenceId].permissions
-    if (permissions === undefined) {
-      fail(`${WORKFLOW}'s \`${evidenceId}\` job declares no \`permissions\`: it would take the workflow's, or the repository's default token, which can write.`)
-    } else if (writes(permissions)) {
-      fail(`${WORKFLOW}'s \`${evidenceId}\` job runs \`evidence\` with a token that writes: it runs the harness's and the co-change map's code, and needs only to read.`)
-    }
-  }
-  for (const id of [evidenceId, actId].filter(Boolean)) {
-    const checkout = steps(id).find((step) => /^actions\/checkout@/.test(String(step?.uses ?? '')))
+  if (actId) {
+    const checkout = steps(actId).find((step) => /^actions\/checkout@/.test(String(step?.uses ?? '')))
     if (!checkout || String(checkout.with?.['fetch-depth']) !== '0') {
-      fail(`${WORKFLOW}'s \`${id}\` job does not check out the whole history (\`fetch-depth: 0\`): the merge base and the co-change map need it.`)
+      fail(`${WORKFLOW}'s \`${actId}\` job does not check out the whole history (\`fetch-depth: 0\`): the merge base needs it.`)
     }
   }
 
@@ -1942,9 +1871,8 @@ function helperCases(policy) {
   const waited = (extra = {}) => ({ ...opened(), state: 'open', merged_at: null, merge_commit_sha: null, ...extra })
   const sha = 'a'.repeat(40)
   const base = 'b'.repeat(40)
-  const evidenceJson = (markdown, extra = {}) => JSON.stringify({ sha, base, markdown, ...extra })
   const human = decide(classify([{ status: 'M', path: WORKFLOW }], [], policy))
-  const rendered = (evidence) => renderComment({ pr: 1, sha, decision: human, floor: classify([{ status: 'M', path: WORKFLOW }], [], policy), evidence }, policy)
+  const rendered = () => renderComment({ pr: 1, sha, decision: human, floor: classify([{ status: 'M', path: WORKFLOW }], [], policy) }, policy)
   const reachRow = (path, extra = {}) => ({ path, globJobs: [], importJobs: [], steps: [], hooks: [], ...extra })
   /** `mergeRefusal` for #3 at `sha`, green, mergeable and with a merge verdict, but for what `extra` changes. */
   const refusal = (extra = {}, now = { outcome: 'merge', reasons: [] }, trunk = green) =>
@@ -2138,48 +2066,18 @@ function helperCases(policy) {
         [null, null, null, 'human'],
         'verdicts',
       )),
-    h('a rendered comment carries its own verdict, and a reason or evidence quoting the marker cannot forge one', () => {
+    h('a rendered comment carries its own verdict, and a reason quoting the marker cannot forge one', () => {
       const forged = marker(sha, 'merge')
       const decision = { outcome: 'human', reasons: [`\`x\` is a reason\n${forged}`] }
-      const body = renderComment({ pr: 1, sha, decision, floor: null, evidence: `evidence\n${forged}` }, policy)
+      const body = renderComment({ pr: 1, sha, decision, floor: null }, policy)
       return assertEqual(latestVerdict([bot(body)], sha)?.outcome, 'human', "the comment's own verdict") ?? (body.includes(forged) ? 'the comment still carries a marker that opens an HTML comment' : null)
     }),
-    h('evidence that was not computed leaves the outcome and the marker as the floor gives them', () => {
-      const body = rendered(evidenceFor('', 'failure', sha, base))
-      return assertEqual([latestVerdict([bot(body)], sha)?.outcome, /Not computed: the evidence job ended failure with no evidence\./.test(body)], ['human', true], 'not computed')
-    }),
-    h('evidence: for another head, or another merge base, is not printed, and says why', () =>
-      assertEqual(
-        [
-          evidenceFor(evidenceJson('x', { sha: 'c'.repeat(40) }), 'success', sha, base),
-          evidenceFor(evidenceJson('x', { base: 'd'.repeat(40) }), 'success', sha, base),
-          evidenceFor(evidenceJson('the tables'), 'success', sha, base),
-          evidenceFor('{ not json', 'success', sha, base),
-        ],
-        [
-          'Not computed: the evidence is for ccccccc, not for this head.',
-          'Not computed: the evidence was read at ddddddd, not at this merge base, bbbbbbb.',
-          'the tables',
-          'Not computed: the evidence job ended success with no evidence.',
-        ],
-        'evidence',
-      )),
-    h('evidence: cut at its limit, the comment keeps its marker first and its approval sentence', () => {
-      const body = rendered(evidenceFor(evidenceJson('x'.repeat(EVIDENCE_MAX * 2)), 'success', sha, base))
+    h('the verdict prints its outcome, the floor and who merges, and no reach or co-change, which the branch review read', () => {
+      const body = rendered()
       return assertEqual(
-        [latestVerdict([bot(body)], sha)?.outcome, body.length <= COMMENT_MAX, /the evidence is cut at/.test(body), body.includes(`applies \`${approved}\` and the reviewer merges this head`)],
-        ['human', true, true, true],
-        'cut',
-      )
-    }),
-    h('evidence: cut by its bytes as JSON, so neither four-byte characters nor quotes carry it past the limit', () => {
-      const size = (text) => Buffer.byteLength(JSON.stringify(text), 'utf8')
-      const wide = cutEvidence('\u{1F600}'.repeat(EVIDENCE_MAX))
-      const quotes = cutEvidence('"'.repeat(EVIDENCE_MAX))
-      return assertEqual(
-        [size(wide) <= EVIDENCE_MAX, size(quotes) <= EVIDENCE_MAX, wide.endsWith(`the evidence is cut at ${EVIDENCE_MAX} bytes.`), cutEvidence('the tables')],
-        [true, true, true, 'the tables'],
-        'cut',
+        [latestVerdict([bot(body)], sha)?.outcome, /on the floor \(`prReviewHighRiskPaths`/.test(body), body.includes(`applies \`${approved}\` and the reviewer merges this head`), /Reach|co-change|[Ee]vidence/.test(body)],
+        ['human', true, true, false],
+        'verdict',
       )
     }),
     h('evidence Markdown: a file that reaches nothing is counted, not listed, and a path cannot close its code span or its cell', () => {
@@ -2248,7 +2146,7 @@ function helperCases(policy) {
       const d = floorDecision(() => {
         throw new Error('fatal: bad object')
       })
-      const body = renderComment({ pr: 9, sha, decision: d, floor: null, evidence: 'Not computed.' }, policy)
+      const body = renderComment({ pr: 9, sha, decision: d, floor: null }, policy)
       return assertEqual(
         [d, statusFor(d).state, latestVerdict([bot(body)], sha)?.outcome, body.includes('`gh workflow run pr-review.yml -f pr=9`')],
         [{ outcome: 'error', reasons: ['the floor could not be computed: fatal: bad object'] }, 'error', 'error', true],
@@ -2453,7 +2351,7 @@ function wiringCases() {
     { name: 'the queue cancels a pending run', doctor: edit(WORKFLOW, /^  queue: max\n/m, ''), expect: /must set `queue: max`/ },
     { name: "the workflow wakes on another workflow's runs", doctor: edit(WORKFLOW, "workflows: ['verify']", "workflows: ['build']"), expect: /wakes on the runs of \["build"\]/ },
     { name: 'the workflow runs a subcommand that does not exist', doctor: edit(WORKFLOW, 'node scripts/pr-review.mjs act', 'node scripts/pr-review.mjs merge'), expect: /runs `node scripts\/pr-review\.mjs merge`, which is not one of/ },
-    { name: 'the workflow stops running a step the queue needs', doctor: edit(WORKFLOW, 'node scripts/pr-review.mjs evidence', 'node scripts/pr-review.mjs next'), expect: /never runs `node scripts\/pr-review\.mjs evidence`; the queue needs every step/ },
+    { name: 'the workflow stops running a step the queue needs', doctor: edit(WORKFLOW, 'run: node scripts/pr-review.mjs next', 'run: node scripts/pr-review.mjs act'), expect: /never runs `node scripts\/pr-review\.mjs next`; the queue needs every step/ },
     {
       name: 'no job runs a step the queue needs, and a comment names it',
       doctor: (dir) => {
@@ -2468,54 +2366,61 @@ function wiringCases() {
       expect: /never runs `node scripts\/pr-review\.mjs act`; the queue needs every step/,
     },
     { name: 'a comment names a subcommand that does not exist, and no job runs it', doctor: comment('#   node scripts/pr-review.mjs merge'), expect: 'pass' },
-    { name: 'a job runs brief, which is the branch reviewer\'s alone', doctor: edit(WORKFLOW, 'run: node scripts/pr-review.mjs evidence', 'run: |\n          node scripts/pr-review.mjs brief\n          node scripts/pr-review.mjs evidence'), expect: /runs `node scripts\/pr-review\.mjs brief`, which is the branch reviewer's/ },
+    { name: 'a job runs brief, which is the branch reviewer\'s alone', doctor: edit(WORKFLOW, 'run: node scripts/pr-review.mjs next', 'run: |\n          node scripts/pr-review.mjs brief\n          node scripts/pr-review.mjs next'), expect: /runs `node scripts\/pr-review\.mjs brief`, which is the branch reviewer's/ },
     {
       name: 'a step runs the model action again',
       doctor: edit(WORKFLOW, /^( {6})- name: decide the head from the floor, post the verdict, set the labels and the status, and merge$/m, '$1- uses: anthropics/claude-code-action@v1\n$1- name: decide the head from the floor, post the verdict, set the labels and the status, and merge'),
-      expect: /`act` job uses anthropics\/claude-code-action@v1: a step uses only actions\/checkout or jdx\/mise-action/,
+      expect: /`queue` job uses anthropics\/claude-code-action@v1: a step uses only actions\/checkout or jdx\/mise-action/,
     },
     {
       name: 'a step runs the model action spelt in another case',
       doctor: edit(WORKFLOW, /^( {6})- name: decide the head from the floor, post the verdict, set the labels and the status, and merge$/m, '$1- uses: Anthropics/Claude-Code-Action@v1\n$1- name: decide the head from the floor, post the verdict, set the labels and the status, and merge'),
-      expect: /`act` job uses Anthropics\/Claude-Code-Action@v1: a step uses only actions\/checkout or jdx\/mise-action/,
+      expect: /`queue` job uses Anthropics\/Claude-Code-Action@v1: a step uses only actions\/checkout or jdx\/mise-action/,
     },
     {
       name: 'the job that merges runs a model from a run step',
       doctor: edit(WORKFLOW, 'run: node scripts/pr-review.mjs act', 'run: |\n          npx -y @anthropic-ai/claude-code -p review\n          node scripts/pr-review.mjs act'),
-      expect: /`act` job runs "npx -y @anthropic-ai\/claude-code -p review\\nnode scripts\/pr-review\.mjs act": its steps run only `node scripts\/pr-review\.mjs act`/,
+      expect: /`queue` job runs "npx -y @anthropic-ai\/claude-code -p review\\nnode scripts\/pr-review\.mjs act": its steps run only `node scripts\/pr-review\.mjs next` and `node scripts\/pr-review\.mjs act`/,
     },
     { name: 'a secret comes back in an env', doctor: edit(WORKFLOW, '          GH_TOKEN: ${{ github.token }}\n          ACTION:', '          GH_TOKEN: ${{ github.token }}\n          KEY: ${{ secrets.ANTHROPIC_API_KEY }}\n          ACTION:'), expect: /reads an Actions secret/ },
     { name: 'a secret read by its index, in a variable the step may set', doctor: edit(WORKFLOW, 'FORCE_PR: ${{ inputs.pr }}', "FORCE_PR: ${{ secrets['ANTHROPIC_API_KEY'] }}"), expect: /reads an Actions secret/ },
     { name: 'every secret read at once through toJSON, in a variable the step may set', doctor: edit(WORKFLOW, 'GH_TOKEN: ${{ github.token }}', 'GH_TOKEN: ${{ toJSON(secrets) }}'), expect: /reads an Actions secret/ },
     { name: 'the workflow grants id-token to every job', doctor: edit(WORKFLOW, /^permissions: \{\}$/m, 'permissions:\n  id-token: write'), expect: /grants `id-token` to every job/ },
     { name: 'the workflow grants write-all, id-token among it', doctor: edit(WORKFLOW, /^permissions: \{\}$/m, 'permissions: write-all'), expect: /grants `id-token`, through `write-all`, to every job/ },
-    { name: 'the job that merges requests id-token', doctor: edit(WORKFLOW, '      contents: write\n', '      contents: write\n      id-token: write\n'), expect: /`act` job requests `id-token`/ },
-    { name: 'the job that merges requests write-all, id-token among it', doctor: edit(WORKFLOW, /(^ {2}act:\n[\s\S]*?^ {4})permissions:\n(?: {6}.*\n)+/m, '$1permissions: write-all\n'), expect: /`act` job requests `id-token`, through `write-all`, and no job/ },
-    { name: 'a run interpolates an expression into a shell', doctor: edit(WORKFLOW, 'run: node scripts/pr-review.mjs evidence', 'run: echo "${{ needs.select.outputs.pr }}"; node scripts/pr-review.mjs evidence'), expect: /`evidence` job interpolates an expression into a `run:` command/ },
-    { name: 'the evidence job gets a token that writes', doctor: edit(WORKFLOW, /(^ {2}evidence:\n[\s\S]*?^ {4}permissions:\n {6}contents: )read$/m, '$1write'), expect: /`evidence` job runs `evidence` with a token that writes/ },
-    { name: 'the evidence job declares no token of its own', doctor: edit(WORKFLOW, /(^ {2}evidence:\n[\s\S]*?)^ {4}permissions:\n {6}contents: read\n/m, '$1'), expect: /`evidence` job declares no `permissions`/ },
-    { name: 'the evidence job checks out a shallow history', doctor: edit(WORKFLOW, /(^ {2}evidence:\n[\s\S]*?- uses: actions\/checkout@\S+\n {8}with:\n {10})fetch-depth: 0$/m, '$1fetch-depth: 1'), expect: /`evidence` job does not check out the whole history/ },
-    { name: 'the job that merges checks out a shallow history', doctor: edit(WORKFLOW, /(^ {2}act:\n[\s\S]*?- uses: actions\/checkout@\S+\n {8}with:\n {10})fetch-depth: 0$/m, '$1fetch-depth: 1'), expect: /`act` job does not check out the whole history/ },
-    { name: "the job that merges checks out the pull request's head", doctor: edit(WORKFLOW, /(^ {2}act:\n[\s\S]*?- uses: actions\/checkout@\S+\n {8}with:\n {10}fetch-depth: 0)$/m, '$1\n          ref: refs/pull/1/head'), expect: /`act` job gives actions\/checkout `ref`/ },
+    { name: 'the job that merges requests id-token', doctor: edit(WORKFLOW, '      contents: write\n', '      contents: write\n      id-token: write\n'), expect: /`queue` job requests `id-token`/ },
+    { name: 'the job that merges requests write-all, id-token among it', doctor: edit(WORKFLOW, /(^ {2}queue:\n[\s\S]*?^ {4})permissions:\n(?: {6}.*\n)+/m, '$1permissions: write-all\n'), expect: /`queue` job requests `id-token`, through `write-all`, and no job/ },
+    { name: 'a run interpolates an expression into a shell', doctor: edit(WORKFLOW, 'run: node scripts/pr-review.mjs next', 'run: echo "${{ inputs.pr }}"; node scripts/pr-review.mjs next'), expect: /`queue` job interpolates an expression into a `run:` command/ },
+    { name: 'the job that merges checks out a shallow history', doctor: edit(WORKFLOW, /(^ {2}queue:\n[\s\S]*?- uses: actions\/checkout@\S+\n {8}with:\n {10})fetch-depth: 0$/m, '$1fetch-depth: 1'), expect: /`queue` job does not check out the whole history/ },
+    { name: "the job that merges checks out the pull request's head", doctor: edit(WORKFLOW, /(^ {2}queue:\n[\s\S]*?- uses: actions\/checkout@\S+\n {8}with:\n {10}fetch-depth: 0)$/m, '$1\n          ref: refs/pull/1/head'), expect: /`queue` job gives actions\/checkout `ref`/ },
     {
       name: 'the job that merges installs packages',
       doctor: edit(WORKFLOW, 'run: node scripts/pr-review.mjs act', 'run: |\n          npm ci --ignore-scripts\n          node scripts/pr-review.mjs act'),
-      expect: /`act` job runs "npm ci --ignore-scripts\\nnode scripts\/pr-review\.mjs act": its steps run only `node scripts\/pr-review\.mjs act`/,
+      expect: /`queue` job runs "npm ci --ignore-scripts\\nnode scripts\/pr-review\.mjs act": its steps run only `node scripts\/pr-review\.mjs next` and `node scripts\/pr-review\.mjs act`/,
     },
     {
       name: 'the job that merges installs packages, a flag before the verb',
       doctor: edit(WORKFLOW, 'run: node scripts/pr-review.mjs act', 'run: |\n          npm --ignore-scripts ci\n          node scripts/pr-review.mjs act'),
-      expect: /`act` job runs "npm --ignore-scripts ci\\nnode scripts\/pr-review\.mjs act": its steps run only/,
+      expect: /`queue` job runs "npm --ignore-scripts ci\\nnode scripts\/pr-review\.mjs act": its steps run only/,
     },
-    { name: 'the job that merges hides an install behind a quoted #', doctor: edit(WORKFLOW, 'run: node scripts/pr-review.mjs act', 'run: |\n          echo "x #"; npm ci\n          node scripts/pr-review.mjs act'), expect: /`act` job runs "echo \\"x #\\"; npm ci\\nnode scripts\/pr-review\.mjs act": its steps run only/ },
-    { name: 'the job that merges installs every tool mise.toml pins', doctor: edit(WORKFLOW, /(^ {2}act:\n[\s\S]*?)\n {10}install_args: node gh$/m, '$1'), expect: /`act` job installs every tool `mise\.toml` pins, `bd` among them/ },
-    { name: 'the job that merges installs bd through mise', doctor: edit(WORKFLOW, /(^ {2}act:\n[\s\S]*?\n {10}install_args: node gh)$/m, '$1 github:gastownhall/beads'), expect: /`act` job installs `github:gastownhall\/beads` through mise/ },
-    { name: "the job that merges has mise bootstrap, which ignores install_args", doctor: edit(WORKFLOW, /(^ {2}act:\n[\s\S]*?\n {10}install_args: node gh)$/m, '$1\n          bootstrap: true'), expect: /`act` job gives jdx\/mise-action `bootstrap`/ },
-    { name: 'a step picks its own shell', doctor: edit(WORKFLOW, /^( {8})run: node scripts\/pr-review\.mjs act$/m, '$1run: node scripts/pr-review.mjs act\n$1shell: python {0}'), expect: /`act` job has a step with `shell`/ },
-    { name: 'a step sets NODE_OPTIONS', doctor: edit(WORKFLOW, '          EVIDENCE_RESULT: ${{ needs.evidence.result }}', '          EVIDENCE_RESULT: ${{ needs.evidence.result }}\n          NODE_OPTIONS: --require ./x.js'), expect: /`act` job sets `NODE_OPTIONS`/ },
-    { name: 'the job that merges runs in a container', doctor: edit(WORKFLOW, /^( {2}act:\n)/m, '$1    container: node:24\n'), expect: /`act` job sets `container`/ },
+    { name: 'the job that merges hides an install behind a quoted #', doctor: edit(WORKFLOW, 'run: node scripts/pr-review.mjs act', 'run: |\n          echo "x #"; npm ci\n          node scripts/pr-review.mjs act'), expect: /`queue` job runs "echo \\"x #\\"; npm ci\\nnode scripts\/pr-review\.mjs act": its steps run only/ },
+    { name: 'the job that merges installs every tool mise.toml pins', doctor: edit(WORKFLOW, /(^ {2}queue:\n[\s\S]*?)\n {10}install_args: node gh$/m, '$1'), expect: /`queue` job installs every tool `mise\.toml` pins, `bd` among them/ },
+    { name: 'the job that merges installs bd through mise', doctor: edit(WORKFLOW, /(^ {2}queue:\n[\s\S]*?\n {10}install_args: node gh)$/m, '$1 github:gastownhall/beads'), expect: /`queue` job installs `github:gastownhall\/beads` through mise/ },
+    { name: "the job that merges has mise bootstrap, which ignores install_args", doctor: edit(WORKFLOW, /(^ {2}queue:\n[\s\S]*?\n {10}install_args: node gh)$/m, '$1\n          bootstrap: true'), expect: /`queue` job gives jdx\/mise-action `bootstrap`/ },
+    { name: 'a step picks its own shell', doctor: edit(WORKFLOW, /^( {8})run: node scripts\/pr-review\.mjs act$/m, '$1run: node scripts/pr-review.mjs act\n$1shell: python {0}'), expect: /`queue` job has a step with `shell`/ },
+    { name: 'a step sets NODE_OPTIONS', doctor: edit(WORKFLOW, '          MORE: ${{ steps.next.outputs.more }}', '          MORE: ${{ steps.next.outputs.more }}\n          NODE_OPTIONS: --require ./x.js'), expect: /`queue` job sets `NODE_OPTIONS` on a step that runs "node scripts\/pr-review\.mjs act": a step sets only what its subcommand reads/ },
+    { name: "the step that runs next sets a variable only act reads", doctor: edit(WORKFLOW, 'FORCE_PR: ${{ inputs.pr }}', 'FORCE_PR: ${{ inputs.pr }}\n          ACTION: merge'), expect: /`queue` job sets `ACTION` on a step that runs "node scripts\/pr-review\.mjs next": a step sets only what its subcommand reads, FORCE_PR, GH_TOKEN/ },
+    { name: 'the job that merges runs in a container', doctor: edit(WORKFLOW, /^( {2}queue:\n)/m, '$1    container: node:24\n'), expect: /`queue` job sets `container`/ },
     { name: 'the workflow sets a variable for every job', doctor: edit(WORKFLOW, /^permissions: \{\}$/m, 'permissions: {}\n\nenv:\n  NODE_OPTIONS: --require ./x.js'), expect: /sets `env` for every job/ },
-    { name: 'the job that merges also computes the evidence', doctor: edit(WORKFLOW, /^( {8})run: node scripts\/pr-review\.mjs act$/m, '$1run: node scripts/pr-review.mjs evidence\n      - run: node scripts/pr-review.mjs act'), expect: /`act` job runs `evidence` and `act` in one job/ },
+    { name: 'the job that merges computes the evidence again', doctor: edit(WORKFLOW, /^( {8})run: node scripts\/pr-review\.mjs act$/m, '$1run: node scripts/pr-review.mjs evidence\n      - run: node scripts/pr-review.mjs act'), expect: /runs `node scripts\/pr-review\.mjs evidence`, which is not one of mark, wait, next, act, brief/ },
+    {
+      name: 'the job runs act before next',
+      doctor: (dir) => {
+        edit(WORKFLOW, 'run: node scripts/pr-review.mjs next', 'run: node scripts/pr-review.mjs swapped')(dir)
+        edit(WORKFLOW, 'run: node scripts/pr-review.mjs act', 'run: node scripts/pr-review.mjs next')(dir)
+        edit(WORKFLOW, 'run: node scripts/pr-review.mjs swapped', 'run: node scripts/pr-review.mjs act')(dir)
+      },
+      expect: /`queue` job runs `act` then `next`, which no job of the reviewer runs: a job runs `next` then `act`, or nothing/,
+    },
     {
       name: 'a job runs mark, which has no shape, and a model action beside it',
       doctor: edit(WORKFLOW, /^jobs:\n/m, 'jobs:\n  rogue:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: anthropics/claude-code-action@v1\n      - run: node scripts/pr-review.mjs mark\n'),
@@ -2529,7 +2434,7 @@ function wiringCases() {
     {
       name: 'a step uses an action named for a key every object has',
       doctor: edit(WORKFLOW, /^( {6})- name: decide the head from the floor, post the verdict, set the labels and the status, and merge$/m, '$1- uses: constructor@v1\n$1- name: decide the head from the floor, post the verdict, set the labels and the status, and merge'),
-      expect: /`act` job uses constructor@v1: a step uses only actions\/checkout or jdx\/mise-action/,
+      expect: /`queue` job uses constructor@v1: a step uses only actions\/checkout or jdx\/mise-action/,
     },
     { name: 'a job runs none of the subcommands', doctor: edit(WORKFLOW, /^jobs:\n/m, 'jobs:\n  extra:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n'), expect: /`extra` job runs none of the reviewer's subcommands/ },
     { name: 'the branch reviewer is renamed', doctor: edit(AGENT, /^name: branch-reviewer$/m, 'name: reviewer'), expect: /is named `reviewer`, not `branch-reviewer`/ },
@@ -2616,7 +2521,7 @@ async function main() {
   const local = process.argv.includes('--local')
   if (process.argv.includes('--selftest')) return selftest()
   if (process.argv.includes('--check')) return check()
-  const commands = { mark, wait, next, evidence, act, brief }
+  const commands = { mark, wait, next, act, brief }
   if (!commands[command] || (local && command !== 'brief')) {
     console.error(`usage: node ${SELF} <${SUBCOMMANDS.join('|')}> [--dry-run] | brief --local | --check | --selftest`)
     process.exit(2)

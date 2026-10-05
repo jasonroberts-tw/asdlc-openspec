@@ -1,9 +1,9 @@
 # The pull-request reviewer: one pull request at a time, the queue decides its head by the floor
 # alone, and the reviewer merges it when no changed path or key is on the floor
-# (`docs/decisions.md` § D-07, as § D-37 amends it). `scripts/pr-review.mjs` decides, by the
-# `prReview*` keys of `tools/policy/pr-review.json`; no language model and no secret takes part.
-# Beside the decision, the verdict prints each changed file's reach and its co-change partners as
-# evidence for a person, which decides nothing.
+# (`docs/decisions.md` § D-07, as § D-37 and § D-46 amend it). `scripts/pr-review.mjs` decides, by
+# the `prReview*` keys of `tools/policy/pr-review.json`; no language model and no secret takes part.
+# Each changed file's reach and co-change partners are the branch review's, in the brief
+# `scripts/pr-review.mjs brief --local` writes before the push; this workflow computes none.
 #
 # THE INCIDENT. On 2026-10-04 (asdlc-openspec-qcqm) the verdicts on the 41 pull requests merged after
 # 003a5f6 showed the model this workflow ran deciding nothing the floor had not: every pull request it
@@ -11,19 +11,25 @@
 # requests the floor sent to a person anyway. Until then the review job held an Anthropic workload
 # identity, four Actions secrets, an OIDC token and the tracker's CLI, each with an incident of its own
 # (`git log -- .github/workflows/pr-review.yml` before D-37); none of them is needed now. The job that
-# merges was always kept from the model; now it is kept from every npm package too.
+# merges was always kept from the model; then from every npm package too, by an `evidence` job of its
+# own that computed reach and co-change with a token that read only. On 2026-10-05
+# (asdlc-openspec-m8hs, D-46) that job went: the branch reviewer, the one reader the tables were for,
+# already had them in its brief, and the verdict reprinted them for a person. On the run that
+# reviewed #154 (37360770831) the three jobs took 65 s from the first start to the last end, 13 s of
+# it the evidence job and 21 s the gaps between jobs.
 #
 # WHAT ELSE IT WOULD LET THROUGH IF IT WERE WRONG. Two runs merging at once would each judge a base the
 # other was about to move; a pending run cancelled by a newer one would leave its pull request
 # undecided until the schedule; a job that checked out a pull request's head would run that pull
-# request's code with this workflow's token; and evidence computed in the job that merges would load
-# the harness's packages beside the write token. So every run that reviews or merges shares one
-# concurrency group whose pending runs queue rather than cancel; a run takes one action and
-# re-dispatches itself while more are waiting; every job checks out the trunk and reads a pull request
-# only as git objects; the job that computes the evidence holds a token that reads only; and the job
-# that merges installs Node and gh and no npm package, and imports only files on the floor. Each job
-# runs one subcommand of `scripts/pr-review.mjs` and nothing its allowlist leaves out, no model, no
-# other action and no command of a step's own. `pr-review:check` holds each.
+# request's code with this workflow's token; and the harness's or the co-change map's code, which is
+# off the floor, run in this job would run beside the token that merges, so a change no person
+# approved could merge the next one. So every run that reviews or merges shares one concurrency group
+# whose pending runs queue rather than cancel; a run takes one action and re-dispatches itself while
+# more are waiting; the one job checks out the trunk and reads a pull request only as git objects; and
+# it installs Node and gh and no npm package, imports only files on the floor, and runs `next` and
+# then `act` and nothing its allowlist leaves out, no model, no other action and no command of a step's
+# own. `pr-review:check` holds each. Where it loses: a run that finds nothing to do holds the token
+# that merges too.
 #
 # INVOCATION. It runs on its triggers. By hand, `gh workflow run pr-review.yml` wakes the queue, and
 # `gh workflow run pr-review.yml -f pr=<number>` reviews that pull request again at its head.
@@ -37,8 +43,7 @@
 # it on every new head was retired on 2026-09-28 (asdlc-openspec-08a).
 #
 # NEEDS. Only the run's own `github.token`, the network to GitHub, and Node and gh at the versions
-# `mise.toml` pins, Node alone in the evidence job, which also installs the packages
-# `package-lock.json` pins, with their install scripts off. No job installs `bd`.
+# `mise.toml` pins. No job installs `bd` or an npm package.
 # It reads a token and the network, so it is neither a pre-push job nor a `verify.yml` step
 # (`CLAUDE.md` § The gate ladder): `pr-review:check` holds its wiring to the policy, and
 # `pr-review:selftest` holds every decision, from those tiers.
@@ -73,28 +78,30 @@ concurrency:
 permissions: {}
 
 jobs:
-  select:
+  queue:
     # Any label but the approval one is not the queue's business.
     if: >-
       github.event_name != 'pull_request_target'
       || github.event.label.name == 'review:approved'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    # Node and gh, and no npm package: this job imports only files on the floor, so nothing a pull
+    # request could change without a person runs with this token.
     permissions:
-      contents: read
-      pull-requests: read
-      issues: read
-      checks: read
-      # A red or conflicting head gets its status; `main` with no verify run gets one dispatched.
+      contents: write
+      pull-requests: write
+      issues: write
+      # A red or conflicting head gets its status, as does every head this job decides.
       statuses: write
+      checks: read
+      # `verify.yml` on `main` when it has no run or after a merge; while more is waiting, this
+      # workflow again.
       actions: write
-    outputs:
-      action: ${{ steps.next.outputs.action }}
-      pr: ${{ steps.next.outputs.pr }}
-      sha: ${{ steps.next.outputs.sha }}
-      more: ${{ steps.next.outputs.more }}
     steps:
+      # The trunk with its whole history, so the merge base of the pull request's head is found.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       # Node and gh, the two tools of `mise.toml` this job runs, installed from `mise.lock` and no
       # other: without `install_args` the action installs every pin, `bd` among them. mise itself,
       # the action's commit and its `sha256` are pinned as `verify.yml` says, which
@@ -110,78 +117,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           FORCE_PR: ${{ inputs.pr }}
-
-  evidence:
-    needs: select
-    if: needs.select.outputs.action == 'review'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    # Read-only: the trunk's harness and co-change code runs here, over the pull request's files read
-    # as git objects, and nothing it computes can write.
-    permissions:
-      contents: read
-    outputs:
-      evidence: ${{ steps.evidence.outputs.evidence }}
-    steps:
-      # The trunk with its whole history: the merge base, and every pull request the co-change map
-      # counts.
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      # Node alone: this job calls no `gh`.
-      - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
-        with:
-          version: 2026.10.0
-          sha256: 57ced973f968b8fbab07aa8e32bd7077d4a357e200a22356d98963c723c6de0a
-          install_args: node
-      # The harness reads its hook file with js-yaml and its tasks with smol-toml, which
-      # `package-lock.json` pins; no install script runs.
-      - name: install the packages the harness imports, with no install script
-        run: npm ci --ignore-scripts
-      - id: evidence
-        name: the reach and co-change partners of the head, as evidence that decides nothing
-        run: node scripts/pr-review.mjs evidence
-        env:
-          PR: ${{ needs.select.outputs.pr }}
-          SHA: ${{ needs.select.outputs.sha }}
-
-  act:
-    needs: [select, evidence]
-    # Runs after a skipped evidence job too (a merge needs none), and after a failed one: the decision
-    # is the floor's, and the verdict says the evidence was not computed.
-    if: >-
-      !cancelled() && needs.select.result == 'success'
-      && needs.select.outputs.action != 'none'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    # Node and gh, and no npm package: this job imports only files on the floor, so nothing a pull
-    # request could change without a person runs with this token.
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: write
-      statuses: write
-      checks: read
-      # After a merge, `verify.yml` on `main`; while more is waiting, this workflow again.
-      actions: write
-    steps:
-      # The trunk with its whole history, so the merge base of the pull request's head is found.
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      # Node and gh, as in the `select` job.
-      - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
-        with:
-          version: 2026.10.0
-          sha256: 57ced973f968b8fbab07aa8e32bd7077d4a357e200a22356d98963c723c6de0a
-          install_args: node gh
       - name: decide the head from the floor, post the verdict, set the labels and the status, and merge
+        if: steps.next.outputs.action != 'none'
         run: node scripts/pr-review.mjs act
         env:
           GH_TOKEN: ${{ github.token }}
-          ACTION: ${{ needs.select.outputs.action }}
-          PR: ${{ needs.select.outputs.pr }}
-          SHA: ${{ needs.select.outputs.sha }}
-          MORE: ${{ needs.select.outputs.more }}
-          EVIDENCE: ${{ needs.evidence.outputs.evidence }}
-          EVIDENCE_RESULT: ${{ needs.evidence.result }}
+          ACTION: ${{ steps.next.outputs.action }}
+          PR: ${{ steps.next.outputs.pr }}
+          SHA: ${{ steps.next.outputs.sha }}
+          MORE: ${{ steps.next.outputs.more }}

@@ -24,7 +24,7 @@ failure it prevents.
 	- fan-out-work: analyzes backlog, creates lanes where predicted changes don't overlap, dispatches in parallel
 	- open-pr: creates structured PR, runs the branch-reviewer before the push, waits for the pull-request reviewer and then the merge, and removes the worktree and branch after it
 	- branch-reviewer: runs before each push, judges three dimensions (correctness, maintainability, blast radius)
-	- pull-request reviewer: runs in CI with no model; merges what is off the high-risk floor, and prints each changed file's reach and co-change partners as evidence
+	- pull-request reviewer: runs in CI with no model, in one job; merges what is off the high-risk floor, and leaves each changed file's reach and co-change partners to the branch review's brief
 - tools/policy/: conventions, definitions, configuration
 - optional dev container for increased workload isolation
 
@@ -100,7 +100,7 @@ level above them. `apps/` and `openspec/` hold the product; every other path is 
 | `tasks.toml` | Every task the hooks, CI and the prompts run by name, through `mise run <name>`, each with a `description` of what it does; § The tasks has one row each, giving the tier it runs at. `package.json` keeps two scripts beside it, `prepare` and `calculator:serve` (`docs/decisions.md` § D-36), and `mise run check:jobs` holds the two lists apart. |
 | `.vale.ini`, `.vale-styles/Layout/` | The configuration of Vale, the prose linter the `vale@agent-tools` hook runs on each edit of prose, and `Layout`, the one style this repository writes itself. |
 | `.github/workflows/verify.yml` | The slowest tier: every gate that reads only committed files, on every pull request and every push to `main`. |
-| `.github/workflows/pr-review.yml` | The pull-request reviewer: one pull request at a time, it merges one whose changes are off the high-risk floor and leaves the rest to a person, with no model and no secret. Its verdict prints each changed file's reach and co-change partners as evidence that decides nothing. |
+| `.github/workflows/pr-review.yml` | The pull-request reviewer: one pull request at a time, it merges one whose changes are off the high-risk floor and leaves the rest to a person, with no model and no secret, in one job that installs no npm package. Each changed file's reach and co-change partners are in the branch review's brief, before the push; the verdict prints neither. |
 | `.devcontainer/` | A container that needs nothing from the network at create time. |
 | `KIT-CHECKLIST.md` | What the starter kit's bootstrap laid down, step by step, and what is still to adapt. Deleted once it is worked through. |
 

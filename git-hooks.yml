@@ -571,8 +571,8 @@ pre-push:
     # Node 26.8.1, 2026-10-04. Its glob's `*.yml` reaches only the files
     # directly in `.github/workflows/`, which holds no subdirectory. The manifest and lockfile pin the
     # js-yaml and smol-toml it reads through; `scripts/**` and `tools/**` hold the script, its helpers,
-    # the harness and the co-change map it imports for its evidence, and every file a listed gate can
-    # import, which it derives, so no narrower glob holds what it reads.
+    # the harness and the co-change map it imports for the brief's evidence, and every file a listed
+    # gate can import, which it derives, so no narrower glob holds what it reads.
     - name: pr-review-check
       glob:
         - 'scripts/**'
