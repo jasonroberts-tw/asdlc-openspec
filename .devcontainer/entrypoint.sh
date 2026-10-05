@@ -161,8 +161,11 @@ credentials() {
 # ~/.claude hides that copy, and the record a project-scope install writes names the clone's path,
 # which the image never sees: so both are checked here against what ~/.claude holds, the record
 # against this clone's path. It runs after credentials(), which makes ~/.claude writable, and with
-# `bd` on PATH, which the beads plugin's hook runs (`bd prime`). No `-y`: an install that would run a
-# command it displays is refused without a terminal, and left to a person.
+# `bd` on PATH, which the beads plugin's hook runs (`bd prime`). No `-y`, so that an install that
+# would run a command it displays is left to a person. That `claude plugin install` without `-y` and
+# without a terminal refuses such an install is NOT VERIFIED: the lane that wrote this function
+# (asdlc-openspec-7us) ran it against a stub `claude`, never a real one, and built no container.
+# asdlc-openspec-xw8z carries the check, in a built container with the host's ~/.claude mounted.
 plugins() {
   if [ -z "$workspace" ] || ! cd "$workspace" 2>/dev/null; then
     return 0
@@ -177,6 +180,12 @@ plugins() {
 
 # plugin <marketplace> <its source> <plugin id>: register the marketplace when ~/.claude lacks it,
 # then install the plugin at project scope when no record names this clone.
+#
+# The `--json` fields read below, a marketplace's `.name` and an installed plugin's `.id`, `.scope`
+# and `.projectPath`, are NOT VERIFIED against a real `claude` either, for the same reason, and only
+# `projectPath` has a source, Claude Code's plugin commands reference (§ plugin list), which
+# asdlc-openspec-xw8z cites. A field misnamed reads as absent, so each start would add the
+# marketplace again or reinstall the plugin and log it, which xw8z's second start would show.
 plugin() {
   local market="$1" source="$2" id="$3"
   if ! printf '%s' "$markets" | jq -e --arg m "$market" 'any(.[]; .name == $m)' >/dev/null 2>&1; then
