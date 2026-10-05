@@ -8,8 +8,7 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 # Plan a change
 
 The third of the six `change-*` stages (`docs/decisions.md` § D-02). Every tracker write below sits
-inside the bracket `CLAUDE.md` § The task store describes. Every question below that recommends an
-option takes the form `CLAUDE.md` § A question shows where its recommendation loses gives.
+inside the bracket `CLAUDE.md` § The task store describes.
 
 ## 1. Find the change and its epic
 
