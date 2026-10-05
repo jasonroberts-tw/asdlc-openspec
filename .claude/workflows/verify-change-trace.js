@@ -280,9 +280,9 @@ const sameCommit = (a, b) => {
 /** Why the policy the session passed cannot drive a run, or null when it can. */
 function policyProblem() {
   const p = A.policy
-  if (!isPlainObject(p)) return 'args.policy must be the `verifyTrace*` keys of tools/policy/agent-workflows.json, as the header prints them'
+  if (!isPlainObject(p)) return 'args.policy must be the `verifyTrace*` keys, as the header prints them'
   const missing = POLICY_KEYS.filter((key) => p[key] === undefined || p[key] === null)
-  if (missing.length) return `args.policy has no ${missing.map((k) => `\`${k}\``).join(', ')}: pass the keys tools/policy/agent-workflows.json holds`
+  if (missing.length) return `args.policy has no ${missing.map((k) => `\`${k}\``).join(', ')}`
   const bad = POLICY_KEYS.find((key) => !isWhole(p[key]))
   return bad ? `args.policy \`${bad}\` must be a whole number of at least 1` : null
 }
@@ -300,9 +300,9 @@ function keptProblem(g, own) {
     if (seen.has(key)) return `${where} keeps ${r.scenario.trim()} twice`
     seen.add(key)
     if (!PROOF_KINDS.includes(r.proofKind) || typeof r.proof !== 'string' || typeof r.exercises !== 'boolean') {
-      return `${where} must carry the reading it keeps: proofKind, proof and exercises, as the earlier result gives them`
+      return `${where} must carry the reading it keeps: proofKind, proof and exercises`
     }
-    if (r.readAt !== undefined && !isCommit(r.readAt)) return `${where}: readAt must be the commit its reading was taken at, as the earlier result gives it`
+    if (r.readAt !== undefined && !isCommit(r.readAt)) return `${where}: readAt must be the commit its reading was taken at`
     if (r.tests !== undefined && (!Array.isArray(r.tests) || r.tests.some((t) => !isPlainObject(t) || !isText(t.file) || !isText(t.name)))) return `${where}: tests must be a list of { file, name }`
   }
   return null
@@ -314,7 +314,7 @@ function keptLensProblem(kept, lensKeys, names) {
   for (const [i, d] of kept.entries()) {
     const where = `args.previous.design[${i}]`
     if (!isPlainObject(d) || !isText(d.key) || !isText(d.label) || !Array.isArray(d.checked)) {
-      return `${where} must be { key, label, status, checked, readAt }, a reading as the earlier result's design.lenses gives it`
+      return `${where} must be { key, label, status, checked, readAt }`
     }
     const key = d.key.trim()
     if (!KEEPABLE.includes(d.status)) {
@@ -323,7 +323,7 @@ function keptLensProblem(kept, lensKeys, names) {
     if (!d.checked.length || !d.checked.every((c) => isPlainObject(c) && isText(c.decision) && typeof c.verified === 'string')) {
       return `${where}: the lens ${key} keeps no decision it checked, so it has no reading to keep; run it again`
     }
-    if (d.readAt !== undefined && !isCommit(d.readAt)) return `${where}: readAt must be the commit the lens read, as the earlier result gives it`
+    if (d.readAt !== undefined && !isCommit(d.readAt)) return `${where}: readAt must be the commit the lens read`
     if (seen.has(key)) return `args.previous.design keeps the lens ${key} twice`
     seen.add(key)
     if (lensKeys.has(key)) return `the lens ${key} both runs again and keeps its earlier reading`
@@ -347,7 +347,7 @@ function groupProblem(g, i, names, placed) {
   const own = new Set()
   for (const [j, s] of g.scenarios.entries()) {
     if (!isPlainObject(s) || !isText(s.requirement) || !isText(s.scenario)) {
-      return `group ${g.key}: scenarios[${j}] must be { requirement, scenario }, each as its heading spells it`
+      return `group ${g.key}: scenarios[${j}] must be { requirement, scenario }`
     }
     const key = scenarioKey(g.capability, s.requirement, s.scenario)
     if (placed.has(key)) {
@@ -370,7 +370,7 @@ function lensProblem(names) {
     if (!isPlainObject(l) || !isText(l.key) || !NAME.test(l.key)) return `args.lenses[${i}].key must be lower case letters, digits and dashes`
     if (names.has(l.key)) return `the key ${l.key} names two groups or lenses`
     names.add(l.key)
-    if (!isText(l.label) || !isText(l.focus)) return `lens ${l.key}: label and focus must be non-empty: its name, and the decisions it reads`
+    if (!isText(l.label) || !isText(l.focus)) return `lens ${l.key}: label and focus must be non-empty`
   }
   const kept = (A.previous && A.previous.design) || []
   const badKept = keptLensProblem(kept, new Set(lenses.map((l) => l.key)), groupKeys)
@@ -389,19 +389,19 @@ function argsProblem() {
   const badPolicy = policyProblem()
   if (badPolicy) return badPolicy
   for (const key of ['change', 'worktree', 'branch']) if (!isText(A[key])) return `args.${key} must be a non-empty string`
-  if (!isText(A.commit) || !COMMIT.test(A.commit.trim())) return 'args.commit must be the commit traced, as `git rev-parse HEAD` prints it'
+  if (!isText(A.commit) || !COMMIT.test(A.commit.trim())) return 'args.commit must be the commit traced'
   const r = A.run
-  if (!isPlainObject(r) || !Array.isArray(r.tests) || !Array.isArray(r.specs)) return 'args.run must be the fresh run, `.scratch/<change>-verify.json` as scripts/fresh-run.mjs writes it'
+  if (!isPlainObject(r) || !Array.isArray(r.tests) || !Array.isArray(r.specs)) return 'args.run must be the fresh run'
   if (!sameCommit(r.commit, A.commit)) return `args.run is the fresh run at ${String(r.commit).trim() || 'no commit'}, not ${A.commit.trim()}: run \`mise run tests:fresh\` at the commit traced`
   if (!isWhole(A.scenarios)) return 'args.scenarios must be how many `#### Scenario:` lines the delta specs hold'
-  if (typeof A.design !== 'boolean') return 'args.design must say whether openspec/changes/<change>/design.md exists'
+  if (typeof A.design !== 'boolean') return 'args.design must be true or false'
   if (A.previous !== undefined) {
     const p = A.previous
     if (!isPlainObject(p) || !isText(p.commit) || !COMMIT.test(p.commit.trim())) {
-      return 'args.previous must be { commit, design }, with the commit the earlier trace names on its first line'
+      return 'args.previous must be { commit, design }'
     }
     if (p.design !== undefined && !Array.isArray(p.design)) {
-      return 'args.previous.design must list each design reading kept, as the earlier result gives it'
+      return 'args.previous.design must list each design reading kept'
     }
   }
   if (!Array.isArray(A.groups) || !A.groups.length) return 'args.groups must be a non-empty list of { key, capability, scenarios }'
@@ -417,7 +417,7 @@ function argsProblem() {
   const badLens = lensProblem(names)
   if (badLens) return badLens
   if (A.manual !== undefined && (!Array.isArray(A.manual) || A.manual.some((m) => !isPlainObject(m) || !isText(m.issue) || !isText(m.covers)))) {
-    return 'args.manual must be a list of { issue, covers }, each a manual proof the plan recorded'
+    return 'args.manual must be a list of { issue, covers }'
   }
   if (A.settled !== undefined && (!Array.isArray(A.settled) || A.settled.some((s) => !isText(s)))) return 'args.settled must be a list of non-empty strings'
   return null
