@@ -1,7 +1,7 @@
 # The pull-request reviewer: on each head a pull request against `main` is given, it sets the
 # `pr-review` commit status from the high-risk floor alone, and does nothing else. Off the floor the
-# status passes, and GitHub's auto-merge, which the session that opened the pull request enabled,
-# merges it once `verify` passes too; on the floor it fails with "A person decides: …", and a person
+# status passes, and once `verify` passes too, the session that opened the pull request enables
+# GitHub's auto-merge, which merges it; on the floor it fails with "A person decides: …", and a person
 # merges it with the ruleset's bypass (`docs/decisions.md` § D-47, amending § D-07, § D-37 and
 # § D-46). `scripts/pr-review.mjs review` decides, by the `prReview*` keys of
 # `tools/policy/pr-review.json`; no language model, no secret and no merge takes part.
@@ -25,7 +25,8 @@
 # Its token reads the trunk and writes commit statuses, and nothing else: it cannot merge, label,
 # comment or dispatch. A workflow that could write a status or a check would set this one green on
 # its own head, which `forgeProblems` in `scripts/pr-review.mjs` refuses, in `pr-review:check` and
-# in `scripts/hooks/guard-workflow-edit.mjs`. `pr-review:check` holds every line of this file.
+# in `scripts/hooks/guard-workflow-edit.mjs`; so would this file run on any other event, where a
+# branch's own copy of it runs with its grant, which both refuse too. `pr-review:check` holds every line of this file.
 #
 # INVOCATION. It runs when a pull request against `main` is opened, reopened, made ready for review
 # or pushed to. A review that did not complete runs again with `gh run rerun <run> --failed`, and

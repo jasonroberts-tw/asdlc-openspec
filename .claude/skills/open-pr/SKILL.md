@@ -1,6 +1,6 @@
 ---
 name: open-pr
-description: Open a pull request from an agent branch and see it through to its merge - test the merge against the open pull requests, end the title with the ids of the issues it carries, pass the body from a file, enable auto-merge, watch with one watcher, act on each outcome of verify and the pull-request reviewer, wait for the merge, and remove the worktree and branch after it. Use whenever a session opens a pull request - from the bead or change-finalize skill, the fan-out-work or prompt-review agent, or when asked to open one.
+description: Open a pull request from an agent branch and see it through to its merge - test the merge against the open pull requests, end the title with the ids of the issues it carries, pass the body from a file, watch with one watcher, act on each outcome of verify and the pull-request reviewer, enable auto-merge once both pass, wait for the merge, and remove the worktree and branch after it. Use whenever a session opens a pull request - from the bead or change-finalize skill, the fan-out-work or prompt-review agent, or when asked to open one.
 ---
 
 Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
@@ -45,7 +45,7 @@ It opens with any register entry or prerequisite the caller names, then each con
 with the pull request it is against. It ends with the attribution line Claude Code gives for pull
 requests (verified against the CLI, 2.1.289).
 
-## 5. Push, open, and enable auto-merge
+## 5. Push and open it
 
 First review the branch in a context of its own, once before each push: off the high-risk floor,
 no later review reads it for correctness or maintainability (`docs/decisions.md` § D-37). Write the
@@ -61,16 +61,9 @@ user before the push, or, with no user, into the body. Do not review those fixes
     git push -u origin <branch>
     gh pr create --base main --head <branch> --title "<title>" --body-file <file>
 
-Open it ready for review: the reviewer takes no draft, so `--draft` only when the request says
-draft. If the create fails, run `gh pr list --head <branch>` before retrying: a create can land
-after its client gives up.
-
-Then have GitHub merge it once `verify` and the reviewer's `pr-review` pass:
-
-    gh pr merge <number> --auto --rebase
-
-Never pass `--admin`, nor set `pr-review` yourself: either merges a head no person read
-(`CLAUDE.md` § Git workflow).
+Open it ready for review, since GitHub merges no draft: `--draft` only when the request says draft.
+If the create fails, run `gh pr list --head <branch>` before retrying: a create can land after its
+client gives up.
 
 ## 6. Watch it with one watcher
 
@@ -94,17 +87,20 @@ gives every reason.
 |---|---|
 | `verify` fails | Read the failing job, then fix, gate and push on the same branch. |
 | The pull request conflicts with `main` | Fetch, rebase onto `origin/main`, gate, and push with `--force-with-lease`. |
-| `pr-review` passes: "Off the high-risk floor: GitHub merges it once verify passes" | GitHub merges it: wait for that (step 8). |
+| `verify` and `pr-review` pass: "Off the high-risk floor: auto-merge can merge it once verify passes" | Have GitHub merge it, with `prReviewMergeMethod` (`tools/policy/pr-review.json`): `gh pr merge <number> --auto --rebase`. Then wait (step 8). |
 | `pr-review` fails: "A person decides: …" | It waits for a person, for the reason given; say so, and why, then wait for the merge (step 8). |
-| `pr-review` errors: "The review did not complete: …" | Read the run its status links to: `gh run view <run> --log-failed`. A cause in the reviewer's own workflow is not this branch's to fix: the caller files it as a defect found on the way, and the pull request waits on that issue. A cause that does not repeat, such as a network error, is run again once: `gh run rerun <run> --failed`. |
+| `pr-review` errors: "The review did not complete: …", or the `review #<number>` job fails with no `pr-review` | Read that run: `gh run view <run> --log-failed`. A cause in the reviewer's own workflow is not this branch's to fix: the caller files it as a defect found on the way, and the pull request waits on that issue. A cause that does not repeat, such as a network error, is run again once: `gh run rerun <run> --failed`. |
+
+Never pass `--admin`, nor set `pr-review` yourself, nor ask GitHub to merge a head whose checks have
+not both passed: each merges a head no person read (`CLAUDE.md` § Git workflow).
 
 A push makes a new head, which the reviewer decides again: review it first unless the push only
 rebased, and watch it again (step 6).
 
 ## 8. Wait for the merge, then clean up
 
-Once `pr-review` passes, or a person decides with a user told why, run in the background, as the
-one watcher:
+Once GitHub is asked to merge it, or a person decides with a user told why, run in the background,
+as the one watcher:
 
     env PR=<number> node scripts/pr-review.mjs wait
 

@@ -59,8 +59,8 @@ the way raises a match's count label. It files afresh a match closed as done who
 The crib sheet gains the command that raises the count, and its note names the policy files its
 placeholders' values are in since D-27. Amended 2026-10-05 by `asdlc-openspec-3cp3`: the reviewer
 sets the `pr-review` status on each pushed head and merges nothing, GitHub's auto-merge merges, the
-step that pushes enables it where it marked the status pending, and the approval label is gone
-(`docs/decisions.md` § D-47).
+step that acts on the checks enables it once both pass, the step that pushes marks nothing, and the
+approval label is gone (`docs/decisions.md` § D-47).
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -142,7 +142,7 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 | what a gate refuses, and why it exists | the gate's own header; `scripts/README.md` and `tools/README.md` list them |
 | what to regenerate after an input moves | the emitter's `:check` twin, which `mise run gates` runs |
 | what a worktree is for, and how to finish in it | `.worktree/CONTEXT.md` inside it, rendered from `.claude/worktree-CONTEXT.md.tmpl` |
-| what the reviewer said about a pull request | its `pr-review` status, and `gh pr view <number> --comments` |
+| what the reviewer said about a pull request | its `pr-review` status, and the summary of the run that status links to |
 | why a prompt says what it says | the pull requests that changed it, found as `CLAUDE.md` § Standing rules for prompts and gates says |
 | what keeps needing a fix across runs | the label counts `.claude/skills/change-finalize/SKILL.md` § 9. Report prints |
 | what was retired, and how to recover it | `docs/retired/README.md`, and the register entry that retired it |
@@ -378,16 +378,16 @@ Every pull request is opened with the `open-pr` skill, whoever opens it.
    `.claude/skills/bead/SKILL.md` § 6. Open the pull request and watch its checks.
 4. Review the branch first, in a context of its own: the `branch-reviewer` agent reads the brief
    `node scripts/pr-review.mjs brief --local` writes, and the session fixes each criterion it finds
-   not met and each finding in a file the branch changes. Then push, open it with `--base main`
-   typed, and enable auto-merge with `gh pr merge <number> --auto --rebase`. Decided by:
-   `.claude/skills/open-pr/SKILL.md` § 5. Push, open, and enable auto-merge.
+   not met and each finding in a file the branch changes. Then push, and open it with `--base main`
+   typed. Decided by: `.claude/skills/open-pr/SKILL.md` § 5. Push and open it.
 5. Watch it with one watcher, `gh pr checks <number> --watch`, in the background, and end the turn
    to wait only if the watcher's exit wakes the session. Decided by:
    `.claude/skills/open-pr/SKILL.md` § 6. Watch it with one watcher.
 6. Act on the outcome. `verify` runs every gate that reads only committed files; beside it, the
-   reviewer sets `pr-review` on the head by the high-risk floor alone, and GitHub merges a head
-   where both pass. The table of what each status asks is `.claude/skills/open-pr/SKILL.md` § 7. Act
-   on the outcome. Decided by: `scripts/pr-review.mjs`, under `docs/decisions.md` § D-47.
+   reviewer sets `pr-review` on the head by the high-risk floor alone. Once both pass, enable
+   auto-merge with `gh pr merge <number> --auto --rebase`, the method `prReviewMergeMethod` names,
+   and GitHub merges it. The table of what each status asks is `.claude/skills/open-pr/SKILL.md` § 7.
+   Act on the outcome. Decided by: `scripts/pr-review.mjs`, under `docs/decisions.md` § D-47.
 7. Wait for the merge with `env PR=<number> node scripts/pr-review.mjs wait`, in the background, as
    the one watcher. Once it has merged, leave the worktree and run
    `mise run worktree:gc --dry-run --finished <worktree>`, then the real run once that names this
@@ -478,8 +478,8 @@ git rebase origin/main                               # rebase, never merge the t
 mise run gates                                        # gate again after the rebase
 git push -u origin agent/<name>                      # publish the agent branch once
 gh pr create --base main --head agent/<name> --title "<what changed> (<id>)" --body-file .scratch/<pr>.md   # open it, base typed
-gh pr merge <number> --auto --rebase                 # GitHub merges it once the checks pass
 gh pr checks <number> --watch                        # one watcher, in the background
+gh pr merge <number> --auto --rebase                 # once both checks pass; prReviewMergeMethod
 env PR=<number> node scripts/pr-review.mjs wait      # wait for the merge, in the background
 mise run worktree:gc --dry-run --finished <worktree>  # once merged, outside the worktree
 bd close <id> --reason-file <file>                   # once merged, naming the pull request

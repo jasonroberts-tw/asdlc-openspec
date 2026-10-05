@@ -435,17 +435,19 @@ function forgeHook(toolInput, root = null) {
 }
 const GRANT = 'permissions:\n  contents: read\n'
 const STEPS = '    steps:\n'
+const TRIGGER = '  pull_request_target:\n'
+const REVIEW_FILE = join(WORKFLOWS_DIR, 'pr-review.yml')
 const verifyText = readFileSync(VERIFY_FILE, 'utf8')
 check(
-  'the fixture: verify.yml holds the grant and the steps line the edits below anchor on, once each',
-  verifyText.split(GRANT).length === 2 && verifyText.split(STEPS).length === 2,
+  "the fixture: verify.yml holds the grant and the steps line, and pr-review.yml its trigger, that the edits below anchor on, once each",
+  verifyText.split(GRANT).length === 2 && verifyText.split(STEPS).length === 2 && readFileSync(REVIEW_FILE, 'utf8').split(TRIGGER).length === 2,
   'the anchors moved: re-anchor the edits below',
 )
 const jobNamed = (name) => `name: forge\non: pull_request\njobs:\n  ${name}:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n`
 
 for (const [label, toolInput] of [
   ['a step added to verify.yml', { file_path: VERIFY_FILE, old_string: STEPS, new_string: `${STEPS}      - run: mise run x:check\n` }],
-  ["the reviewer's own workflow, which may write the status", { file_path: join(WORKFLOWS_DIR, 'pr-review.yml'), content: readFileSync(join(WORKFLOWS_DIR, 'pr-review.yml'), 'utf8') }],
+  ["the reviewer's own workflow, which may write the status", { file_path: REVIEW_FILE, content: readFileSync(REVIEW_FILE, 'utf8') }],
   ['the same grant outside the workflows', { file_path: join(POLICY_ROOT, 'docs', 'forge.yml'), content: 'permissions: write-all\n' }],
   ['an Edit whose old_string the file does not hold, which lands nothing', { file_path: VERIFY_FILE, old_string: 'no such text\n', new_string: 'permissions: write-all\n' }],
   ['a new workflow that reads only', { file_path: FORGE_FILE, content: `permissions:\n  contents: read\n${jobNamed('x')}` }],
@@ -459,6 +461,7 @@ for (const [label, toolInput, reason] of [
   ['a new workflow granting write-all', { file_path: FORGE_FILE, content: `permissions: write-all\n${jobNamed('x')}` }, 'grants `write-all` to every job'],
   ['a new workflow whose job is named for the status', { file_path: FORGE_FILE, content: jobNamed(CONTEXT) }, `job is named \`${CONTEXT}\`, so its check run carries \`${CONTEXT}\``],
   ['a workflow that will not parse', { file_path: FORGE_FILE, content: 'jobs: [unclosed\n' }, 'is a workflow, and this edit could not be judged'],
+  ["the reviewer's own workflow given an event where a branch's copy runs", { file_path: REVIEW_FILE, old_string: TRIGGER, new_string: `  pull_request:\n${TRIGGER}` }, "runs on `pull_request`: on an event but `pull_request_target` a branch's own copy"],
 ]) {
   const r = forgeHook(toolInput)
   check(`${label} is refused, by its reason`, refusedFor(r, reason), why(r))
