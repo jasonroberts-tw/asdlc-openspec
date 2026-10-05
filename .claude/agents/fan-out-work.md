@@ -70,6 +70,9 @@ not in a merge commit: the reviewer's rebase merge (`prReviewMergeMethod` in
 each lane, regenerate every generated file more than one lane touched, renumber any register entry
 that collided, then run `mise run gates`.
 
+Then run `mise run worktree:gc --discard <lane's branch>`, and the same for a lane you drop unless a
+person should see it. Nothing else removes a lane whose pick needed a resolution.
+
 ## 6. Open the pull request and watch its checks
 
 When every check is green, close each issue the lanes carried as `.claude/skills/bead/SKILL.md` § 7
@@ -80,4 +83,4 @@ says.
 | Lane | Issues | Branch | Gates (as measured) | Merged | Follow-ups filed |
 |---|---|---|---|---|---|
 
-Then: issues not dispatched and why.
+Then: issues not dispatched and lanes kept, each with why.
