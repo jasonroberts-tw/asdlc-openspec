@@ -9,8 +9,7 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 The second of the six `change-*` stages (`docs/decisions.md` § D-02). It runs after the user has
 reviewed the proposal and its delta specs. Every tracker write below sits inside the bracket
-`CLAUDE.md` § The task store describes. Every question below that recommends an option takes the
-form `CLAUDE.md` § A question shows where its recommendation loses gives.
+`CLAUDE.md` § The task store describes.
 
 ## 1. Find the change and its epic
 
