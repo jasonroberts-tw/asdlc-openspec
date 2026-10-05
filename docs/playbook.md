@@ -46,7 +46,8 @@ floor alone and requests no changes, the branch review before the push is the on
 cited issues' criteria, and a title that cites no issue no longer leaves the merge to a person
 (`docs/decisions.md` § D-37). Amended 2026-10-04 by `asdlc-openspec-e6v`: the last step of Propose
 and of Design, and Plan's stop for approval, run the `adversarial-verifier` agent on what the stage
-wrote first (`docs/decisions.md` § D-39), and Plan files the verifier's note with the tasks.
+wrote first (`docs/decisions.md` § D-39), Design stops with the verifier's table, and Plan files
+the verifier's note with the tasks.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -262,7 +263,8 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
    each scenario's expected value.
 4. Stage, have the `adversarial-verifier` agent check the staged diff and fix each claim it
    refutes, run `mise run openspec:check` and `mise run citations:check`, commit, and stop for the
-   user's review. Decided by: `.claude/skills/change-design/SKILL.md` § 5. Commit it, and stop.
+   user's review, with the verifier's table. Decided by: `.claude/skills/change-design/SKILL.md`
+   § 5. Commit it, and stop.
 
 #### Plan
 

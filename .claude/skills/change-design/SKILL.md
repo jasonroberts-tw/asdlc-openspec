@@ -117,8 +117,8 @@ Stage the design and every file this stage revised with `git add`, then run the
 change stage), `mise run openspec:check` and `mise run citations:check`. Stage first: a design not
 yet added passes the citations gate unread.
 
-Commit. Report what the design decides, each question step 4 put to the user with its answer, and
-what the design leaves open, then stop.
+Commit. Report what the design decides, each question step 4 put to the user with its answer, what
+the design leaves open and the verifier's table, then stop.
 
 The user reviews it before `change-plan` turns it into tasks.
 
