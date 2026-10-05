@@ -1805,6 +1805,76 @@ function reviewCases(policy) {
       (g) => unchanged(g, { changes: g.findings.map(change), notChanged: [] }),
       /reports no change, but states 1 change\(s\)/,
     ),
+    // asdlc-openspec-wzei: an entry of `changes` that is no edit goes to no skeptic, so its refutation
+    // cannot keep the group's upheld edits out. The first two cases were seen failing against the
+    // trunk's script before the fix; the last two hold where the rule stops.
+    {
+      name: 'a finding set aside under notChanged and also listed under changes with no edit reaches no skeptic, keeps out none of its group\'s upheld edits, and is held as set aside with its reason',
+      args: reviewArgs(policy, [
+        { id: 'bead', files: [BEAD], findings: [reviewFinding(policy, BEAD, 'gates-before-staging', [RUN_A, RUN_B]), reviewFinding(policy, BEAD, 'left-alone', [RUN_A])] },
+        one('open-pr', OPEN_PR, 'second-watcher', [RUN_B, RUN_C]),
+      ]),
+      reports: {
+        bead: (g) =>
+          changed(g, {
+            changes: [change(g.findings[0]), { ...change(g.findings[1]), title: '(none: accounted under notChanged)', edit: 'No edit; see notChanged.', words: 0 }],
+            notChanged: [{ finding: g.findings[1].key, reason: 'Neither run reports a cost.' }],
+          }),
+      },
+      verdict: (key) => reviewVote(key === `${BEAD}#left-alone` ? 'refuted' : 'upheld'),
+      expect: ['done', /^1 to merge, 1 unchanged, 0 not upheld, 0 refused, 0 died; 1 of 1 change\(s\) upheld by \d+ skeptic\(s\); 3 of 3 run\(s\) read, 2 finding\(s\) held$/],
+      check: ({ result, calls }) => {
+        if (skepticsOn(calls, `${BEAD}#left-alone`)) return 'a skeptic judged, as an edit, the finding its agent set aside'
+        if (result.merge.join() !== 'agent/wf_example-bead') return `merge is ${result.merge.join(', ')}, not bead's branch: ${problemsOf(result, 'bead')}`
+        const notEdits = result.groups.find((g) => g.id === 'bead').notEdits
+        if (notEdits?.map((c) => c.finding).join() !== `${BEAD}#left-alone`) return `bead's entries that are no edit are ${JSON.stringify(notEdits)}`
+        const held = heldFinding(result, `${BEAD}#left-alone`)
+        return held?.reason === "set aside by its file's agent: Neither run reports a cost." ? null : `the finding set aside was held as ${JSON.stringify(held)}`
+      },
+    },
+    {
+      name: `a consolidation reported again under changes, with its net words beside the edit for its finding to its file, is judged by its ${skeptics.blocker} consolidation skeptic(s) alone, not a second time as a change`,
+      args: reviewArgs(policy),
+      reports: {
+        bead: (g) =>
+          changed(g, {
+            changes: [change(g.findings[0]), { ...change(g.findings[0]), title: 'Consolidation that makes room in bead', edit: 'The consolidation, reported again.', words: consolidation(BEAD).wordsAfter - consolidation(BEAD).wordsBefore }],
+            consolidations: [consolidation(BEAD)],
+          }),
+      },
+      expect: ['done', /^1 to merge, 1 unchanged, 0 not upheld, 0 refused, 0 died; 1 of 1 change\(s\) upheld by \d+ skeptic\(s\); 1 of 1 consolidation\(s\) upheld by \d+ skeptic\(s\); 3 of 3 run\(s\) read, 1 finding\(s\) held$/],
+      check: ({ result, calls }) => {
+        const severity = reviewFinding(policy, BEAD, 'x', [RUN_A]).severity
+        const sent = skepticsOn(calls, BEAD_KEY)
+        if (sent !== skeptics[severity]) return `sent ${sent} skeptic(s) to bead's finding, not the ${skeptics[severity]} its one edit gets`
+        if (skepticsOn(calls, `consolidation of ${BEAD}`) !== skeptics.blocker) return `sent ${skepticsOn(calls, `consolidation of ${BEAD}`)} skeptic(s) to the consolidation, not ${skeptics.blocker}`
+        const notEdits = result.groups.find((g) => g.id === 'bead').notEdits
+        if (notEdits?.map((c) => c.title).join() !== 'Consolidation that makes room in bead') return `bead's entries that are no edit are ${JSON.stringify(notEdits)}`
+        return result.merge.join() === 'agent/wf_example-bead' ? null : `merge is ${result.merge.join(', ')}`
+      },
+    },
+    {
+      name: "an edit with its file's consolidation's net words, and no other entry for its finding, is still judged as a change",
+      args: reviewArgs(policy),
+      reports: { bead: (g) => changed(g, { changes: [{ ...change(g.findings[0]), words: consolidation(BEAD).wordsAfter - consolidation(BEAD).wordsBefore }], consolidations: [consolidation(BEAD)] }) },
+      expect: ['done', /^1 to merge, 1 unchanged, 0 not upheld, 0 refused, 0 died; 1 of 1 change\(s\) upheld by \d+ skeptic\(s\); 1 of 1 consolidation\(s\) upheld by \d+ skeptic\(s\); 3 of 3 run\(s\) read, 1 finding\(s\) held$/],
+      check: ({ result, calls }) => {
+        const severity = reviewFinding(policy, BEAD, 'x', [RUN_A]).severity
+        if (skepticsOn(calls, BEAD_KEY) !== skeptics[severity]) return `sent ${skepticsOn(calls, BEAD_KEY)} skeptic(s) to bead's one edit, not ${skeptics[severity]}`
+        const notEdits = result.groups.find((g) => g.id === 'bead').notEdits
+        return (notEdits ?? []).length === 0 ? null : `bead's entries that are no edit are ${JSON.stringify(notEdits)}, not none`
+      },
+    },
+    refusedBead(
+      policy,
+      'a change naming a finding its group was not given is not merged, though the report also sets that key aside under notChanged',
+      (g) =>
+        changed(g, {
+          changes: [...g.findings.map(change), { ...change(g.findings[0]), finding: `${BEAD}#never-given` }],
+          notChanged: [{ finding: `${BEAD}#never-given`, reason: 'Out of scope.' }],
+        }),
+      /names the finding\(s\) \.claude\/skills\/bead\/SKILL\.md#never-given, which its group was not given/,
+    ),
     {
       name: `a consolidation goes to the blocker count of skeptics (${skeptics.blocker}) whatever its finding's severity, its file's edit is read from the consolidation's commit, and the branch merges once both are upheld`,
       args: reviewArgs(policy),
