@@ -78,6 +78,11 @@ jobs:
         run: mise run check:prompts
       - name: the prompt gate, negative-tested
         run: mise run check:prompts:selftest
+      # Under a second: the advisory `prompts:incidents` over a fixture tree and a stubbed judge, and
+      # the shared client against a refused loopback connection. The command reads a token and the
+      # network and runs here only as this selftest.
+      - name: the prompt-incident advisory, negative-tested over a stubbed judge
+        run: mise run prompts:incidents:selftest
       # Milliseconds: the records under tools/policy/, their headers, a Means beside every constant,
       # no key in two records, and the directory's README naming each.
       - name: every policy record carries its header and its reasons, and no key has two homes

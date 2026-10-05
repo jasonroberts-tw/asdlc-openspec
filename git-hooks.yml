@@ -180,6 +180,23 @@ pre-push:
         - 'tools/lib/policy.ts'
         - 'tasks.toml'
       run: mise run check:prompts:selftest
+    # The advisory `prompts:incidents` over a fixture tree with a stubbed judge, and once through the
+    # shared client to a refused loopback connection: no key, no network beyond that. The command
+    # itself reads a token and a language model and runs in no job. 0.43 s wall through `mise run`
+    # (`/usr/bin/time -p`, one run) on a macOS laptop with Node 26.8.1, 2026-10-05, before
+    # `tools/lib/typesafe.ts` had the `noul` the loopback case reaches. The glob is the command, the
+    # gate whose lines it reads, the client and loader it imports, the live policy one case reads and
+    # the SDK it loads.
+    - name: prompts-incidents-selftest
+      glob:
+        - 'scripts/prompt-incidents.mjs'
+        - 'scripts/check-prompts.mjs'
+        - 'tools/lib/**'
+        - 'tools/policy/**'
+        - 'tasks.toml'
+        - 'package.json'
+        - 'package-lock.json'
+      run: mise run prompts:incidents:selftest
     # Every record under `tools/policy/` carries its five header fields, a `Means` beside every
     # constant and no `Means` without one; no key is defined in two records; the directory's README
     # names every record and no other, the directory holding nothing else; and `tools/policy.json`,

@@ -424,14 +424,22 @@ function trackerPattern(root) {
 export const incidentRow = (path, line, what) => `  ${path}:${line}  ${what}`
 
 /**
+ * The expression, global, that finds every mark of a dated incident in a line of a prompt under
+ * `root`, and why the tracker id's shape could not be read, or null; without it, no tracker id is a mark.
+ */
+export function incidentMarker(root) {
+  const { pattern, unreadable } = trackerPattern(root)
+  return { marker: new RegExp([...DATED_MARKS, ...(pattern === null ? [] : [`(?:${pattern})`])].join('|'), 'g'), unreadable }
+}
+
+/**
  * Every line of every prompt under `root` that holds a mark of a dated incident, as
  * `{ path, line, marks }` in code-point order of path and then by line, two literals on one source
  * line giving one row; the count of prompts read; and why the tracker id's shape could not be read,
  * or null, in which case no tracker id is listed and every other mark still is.
  */
 export function listIncidents(root) {
-  const { pattern, unreadable } = trackerPattern(root)
-  const marker = new RegExp([...DATED_MARKS, ...(pattern === null ? [] : [`(?:${pattern})`])].join('|'), 'g')
+  const { marker, unreadable } = incidentMarker(root)
   const rows = []
   const paths = budgeted(root)
   for (const path of paths) {
@@ -952,7 +960,8 @@ function cases() {
     {
       name: 'a pull request number in CLAUDE.md, beside a heading whose # is no number',
       doctor: (dir) => edit(dir, 'CLAUDE.md', (t) => t.replace('# Rules', '# Rules, since #147')),
-      listed: ['  CLAUDE.md:1  dated: #147'],
+      // Built, so the citations gate does not read the row as a pointer into this checkout's CLAUDE.md.
+      listed: [`  ${'CLAUDE.md'}:1  dated: #147`],
     },
     {
       name: 'an HTML entity and a fragment after a name are not pull request numbers',
