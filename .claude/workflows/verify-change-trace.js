@@ -24,6 +24,14 @@ export const meta = {
  * returns to `.scratch/<change>-trace.json`, and `scripts/render-trace.mjs` writes the trace from it.
  * That section defines a gap and a finding below one, and every agent here is sent to read it.
  *
+ * WHERE THE CLAUSE CHECK RUNS. Not here: a workflow script has no Node API, so it reads no key and
+ * makes no call (`docs/decisions.md` § D-42). Once a first run stops `no-gap`, the session runs
+ * `scripts/judge-trace-clauses.mjs`, outside the workflow, which asks TypeSafe whether each row's tests
+ * assert each THEN and AND of its scenario and writes the answers; then it runs this script again, its
+ * clause run, with those answers as `args.clauses`, and the first run's result as `args.first`. A clause
+ * under `verifyTraceClauseThreshold` makes its row an `unasserted` gap for the skeptics. An answer never
+ * sets `exercises` and never clears a gap: only the skeptics refute it, as any other.
+ *
  * THE FAILURE IT EXISTS TO PREVENT. On 2026-09-24 the add-calculator-web-app verify ran an untracked
  * ancestor of this script, run wf_a6d4492d-9ca: 5 tracers, 3 design lenses and 3 skeptics for each
  * gap, 23 agents and 1.87M tokens (`bd show asdlc-openspec-as9`). It named that change, its paths
@@ -73,6 +81,10 @@ export const meta = {
  *              the worktree:
  *                node tools/lib/policy.ts --prefix verifyTrace
  *   settled    optional [string]: decided already, by the user or an earlier run; no agent raises it
+ *   first      on a clause run only: the result of a run at `commit` that stopped `no-gap`, as saved
+ *   clauses    on a clause run only: `.scratch/<change>-clauses.json`, as the clause judge wrote it at
+ *              `commit`; every other argument is the one the first run had, `policy` with its
+ *              `verifyTraceClauseThreshold`
  *
  * WHAT IT JUDGES IN CODE.
  *
@@ -113,8 +125,17 @@ export const meta = {
  *   so a proof that failed stays a measured gap. A finding below a gap goes to no skeptic: the
  *   session asks the user where it goes.
  *
+ *   The clause run. With `args.clauses`, no tracer or lens runs. Code takes each row of `args.first`
+ *   the answers name, refusing one whose proof its tracer did not mark exercising it, one named twice
+ *   and a probability outside 0 to 1, and gives a row any of whose clauses is under the threshold,
+ *   strictly, an `unasserted` gap naming each such clause. That gap goes to the skeptics and is tallied
+ *   as above; a refuted one keeps its tracer's reading as `traced`, even on a row skeptics corrected in
+ *   the first run. The result is `args.first` with those rows and gaps, its counts of gaps taken again.
+ *
  * WHAT IT RETURNS. { change, commit, branch, previous, stopped, why, rows, gaps, below, design,
- * manual, groups, counts }, the contract `scripts/lib/trace.mjs` reads. Each row carries its group,
+ * manual, groups, counts, clauses }, the contract `scripts/lib/trace.mjs` reads; `clauses` is null but
+ * on a clause run, where it is { model, threshold, rows, judged, doubted }: the model the answers name,
+ * the threshold, the rows and clauses judged, and the rows given an `unasserted` gap. Each row carries its group,
  * capability, requirement, scenario, reading with its `tests`, result, `measured` (each test's status
  * in the fresh run), `checked` (a gate or check its tracer ran), notes, `readAt`, `kept` and `gap`, its kind
  * and outcome (`upheld`, `refuted`, `unverified` or `measured`) or null, and `traced`, the tracer's
@@ -142,7 +163,8 @@ export const meta = {
  *
  * NEEDS a change worktree with node, git and `bd` (the tracers read a manual proof with `bd show`,
  * which writes nothing), and the Workflow tool. Nothing here reads a file: the session passes the
- * policy as `args.policy` and the fresh run as `args.run`. `mise run workflows:selftest` runs this script against stubbed agents.
+ * policy as `args.policy`, the fresh run as `args.run` and, on a clause run, the clause judge's
+ * answers as `args.clauses`. `mise run workflows:selftest` runs this script against stubbed agents.
  */
 
 const A = args || {}
@@ -157,6 +179,8 @@ const isMeasured = (gap) => MEASURED.includes(gap.kind) || gap.byRecord === true
 /** The design readings a run again may keep: read, or kept by the run before it. */
 const KEEPABLE = ['read', 'kept']
 const POLICY_KEYS = ['verifyTraceMaxScenarios', 'verifyTraceDesignLenses', 'verifyTraceSkeptics']
+/** The clause run's one key, a probability: a clause under it makes its row a gap. */
+const CLAUSE_KEY = 'verifyTraceClauseThreshold'
 const HOME = '`.claude/skills/change-verify/SKILL.md` § 4. Every scenario is traced'
 const NAME = /^[a-z0-9][a-z0-9-]*$/
 const COMMIT = /^[0-9a-f]{7,40}$/
@@ -420,6 +444,30 @@ function argsProblem() {
     return 'args.manual must be a list of { issue, covers }'
   }
   if (A.settled !== undefined && (!Array.isArray(A.settled) || A.settled.some((s) => !isText(s)))) return 'args.settled must be a list of non-empty strings'
+  return A.first === undefined && A.clauses === undefined ? null : clauseProblem()
+}
+
+/** Why a clause run's `first` and `clauses` cannot be judged, or null. The other arguments have held. */
+function clauseProblem() {
+  const t = A.policy[CLAUSE_KEY]
+  if (typeof t !== 'number' || !(t > 0 && t <= 1)) return `args.policy \`${CLAUSE_KEY}\` must be above 0 and at most 1`
+  const f = A.first
+  if (!isPlainObject(f) || f.change !== A.change || !sameCommit(f.commit, A.commit) || !Array.isArray(f.rows) || !Array.isArray(f.gaps) || !isPlainObject(f.counts)) {
+    return 'args.first must be the result of a run at args.commit'
+  }
+  if (f.stopped !== 'no-gap' || f.clauses) return `args.first stopped ${f.stopped}${f.clauses ? ' in a clause run' : ''}, not no-gap in a first run`
+  const c = A.clauses
+  if (!isPlainObject(c) || !sameCommit(c.commit, A.commit) || !isText(c.model) || !Array.isArray(c.rows)) return 'args.clauses must be what scripts/judge-trace-clauses.mjs wrote at args.commit'
+  const rows = new Map(f.rows.map((r) => [scenarioKey(r.capability, r.requirement, r.scenario), r]))
+  const seen = new Set()
+  for (const [i, j] of c.rows.entries()) {
+    const key = isPlainObject(j) && isText(j.capability) && isText(j.requirement) && isText(j.scenario) ? scenarioKey(j.capability, j.requirement, j.scenario) : null
+    if (!key || rows.get(key)?.exercises !== true || seen.has(key)) return `args.clauses.rows[${i}] names no row of args.first, once, whose proof exercises it`
+    seen.add(key)
+    if (!Array.isArray(j.clauses) || !j.clauses.length || j.clauses.some((x) => !isPlainObject(x) || !isText(x.clause) || typeof x.p !== 'number' || !(x.p >= 0 && x.p <= 1))) {
+      return `args.clauses.rows[${i}] must list { clause, p }, p from 0 to 1`
+    }
+  }
   return null
 }
 
@@ -701,7 +749,8 @@ function settle(r, judged) {
   const stands = (why) => ({ row: { ...r, gap: { kind: entry.kind, outcome: 'unverified' } }, gaps: [{ ...entry, outcome: 'unverified', votes: [...entry.votes, why] }] })
   if (entry.outcome !== 'refuted') return { row: { ...r, gap: { kind: entry.kind, outcome: entry.outcome } }, gaps: [entry] }
   if (!reading) return stands('a majority refuted it, but no refuting skeptic gave a reading whose proof exercises the scenario, so it stands unverified')
-  let corrected = { ...r, ...reading, traced: { proofKind: r.proofKind, proof: r.proof, exercises: r.exercises } }
+  // A row skeptics corrected once, in a clause run, keeps its tracer's reading as `traced`.
+  let corrected = { ...r, ...reading, traced: r.traced || { proofKind: r.proofKind, proof: r.proof, exercises: r.exercises } }
   if (reading.tests) {
     // The skeptic's tests prove it only where the record gives them the scenario, and their result is the fresh run's.
     const allowed = recordTests(r.scenario)
@@ -743,6 +792,24 @@ async function confirmLens(d) {
 
 const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
 
+/** The counts of `gaps` by outcome, and the skeptics they were sent. */
+function gapCounts(gaps) {
+  const outcome = (o) => gaps.filter((g) => g.outcome === o).length
+  return {
+    gaps: gaps.length,
+    measured: outcome('measured'),
+    judged: gaps.length - outcome('measured'),
+    upheld: outcome('upheld'),
+    refuted: outcome('refuted'),
+    unverified: outcome('unverified'),
+    skeptics: gaps.reduce((n, g) => n + g.skeptics, 0),
+  }
+}
+
+function tallied(c) {
+  return `${c.gaps} gap(s), ${c.measured} measured and ${c.judged} judged by ${c.skeptics} skeptic(s): ${c.upheld} upheld, ${c.unverified} unverified, ${c.refuted} refuted; ${c.below} finding(s) below a gap`
+}
+
 function result(stopped, why, groups, lenses) {
   const rows = groups.flatMap((g) => g.rows)
   const gaps = [...groups.flatMap((g) => g.gaps), ...lenses.flatMap((l) => l.gaps)]
@@ -760,7 +827,6 @@ function result(stopped, why, groups, lenses) {
   for (const capability of [...new Set(rows.map((r) => r.capability))].sort(byCodePoint)) byCapability[capability] = rows.filter((r) => r.capability === capability).length
   const byProofKind = {}
   for (const kind of PROOF_KINDS) byProofKind[kind] = rows.filter((r) => r.proofKind === kind).length
-  const outcome = (o) => gaps.filter((g) => g.outcome === o).length
   const counts = {
     scenarios: A.scenarios,
     groups: groups.length,
@@ -773,13 +839,7 @@ function result(stopped, why, groups, lenses) {
     correctedRows: rows.filter((r) => r.traced).length,
     byCapability,
     byProofKind,
-    gaps: gaps.length,
-    measured: outcome('measured'),
-    judged: gaps.length - outcome('measured'),
-    upheld: outcome('upheld'),
-    refuted: outcome('refuted'),
-    unverified: outcome('unverified'),
-    skeptics: gaps.reduce((n, g) => n + g.skeptics, 0),
+    ...gapCounts(gaps),
     below: below.length,
   }
   return {
@@ -799,16 +859,54 @@ function result(stopped, why, groups, lenses) {
     manual: A.manual || [],
     groups: groups.map(({ key, capability, scenarios, status, problems, returned }) => ({ key, capability, scenarios, status, problems, returned: returned || [] })),
     counts,
+    clauses: null,
   }
+}
+
+/**
+ * The clause run, as the header says: `args.first` with each row a clause of which `args.clauses`
+ * puts under the threshold judged by skeptics as an `unasserted` gap. No tracer or lens runs.
+ */
+async function clauseRun() {
+  const t = A.policy[CLAUSE_KEY]
+  const f = A.first
+  const key = (r) => scenarioKey(r.capability, r.requirement, r.scenario)
+  const byKey = new Map(A.clauses.rows.map((j) => [key(j), j]))
+  const doubted = f.rows.map((row) => ({ row, under: (byKey.get(key(row)) || { clauses: [] }).clauses.filter((x) => x.p < t) })).filter((d) => d.under.length)
+  const entries = doubted.map(({ row, under }) => ({
+    ...gapEntry(row, { kind: 'unasserted', why: `its tests may not assert ${under.map((x) => x.clause).join('; ')}` }),
+    evidence: `${A.clauses.model}: ${under.map((x) => `${x.p} for ${x.clause}`).join('; ')}, under ${t}. ${row.notes}`,
+  }))
+  if (entries.length) phase('Confirm')
+  const judged = await confirm(entries)
+  const settled = new Map()
+  const gaps = [...f.gaps]
+  doubted.forEach(({ row }, i) => {
+    const s = settle(row, judged[i])
+    settled.set(key(row), s.row)
+    gaps.push(...s.gaps)
+  })
+  const rows = f.rows.map((r) => settled.get(key(r)) || r)
+  const clauses = { model: A.clauses.model, threshold: t, rows: A.clauses.rows.length, judged: A.clauses.rows.reduce((n, j) => n + j.clauses.length, 0), doubted: entries.length }
+  const counts = { ...f.counts, ...gapCounts(gaps), correctedRows: rows.filter((r) => r.traced).length }
+  const open = gaps.some((g) => g.outcome !== 'refuted')
+  const why = `a clause run: ${clauses.judged} clause(s) of ${clauses.rows} row(s) judged, ${clauses.doubted} row(s) with one under ${t}; ${tallied(counts)}`
+  return { ...f, branch: A.branch, stopped: open ? 'gaps' : 'no-gap', why, rows, gaps, counts, clauses }
 }
 
 const badArgs = argsProblem()
 if (badArgs) {
   log(`Refused: ${badArgs}`)
-  return { change: A.change || null, commit: null, branch: null, previous: null, stopped: 'refused', why: badArgs, rows: [], gaps: [], below: [], design: null, manual: [], groups: [], counts: null }
+  return { change: A.change || null, commit: null, branch: null, previous: null, stopped: 'refused', why: badArgs, rows: [], gaps: [], below: [], design: null, manual: [], groups: [], counts: null, clauses: null }
 }
 
 ran = new Map(A.run.tests.map((t) => [testKey(t), t]))
+/** The result, logged as it stops. */
+function stopped(out) {
+  log(`Stopped (${out.stopped}): ${out.why}`)
+  return out
+}
+if (A.clauses !== undefined) return stopped(await clauseRun())
 phase('Trace')
 log(`${A.change} at ${A.commit.trim()}: ${A.scenarios} scenario(s) in ${A.groups.length} group(s), ${(A.lenses || []).length} design lens(es) to run`)
 const traced = await pipeline(
@@ -833,8 +931,6 @@ if (lensList.length) {
 for (const g of groups.filter((x) => x.status !== 'traced')) log(`Group ${g.key} ${g.status}: ${g.problems.join('; ')}`)
 for (const l of lenses.filter((x) => x.status !== 'read')) log(`Lens ${l.key} ${l.status}: ${l.problems.join('; ')}`)
 
-const tallied = (c) =>
-  `${c.gaps} gap(s), ${c.measured} measured and ${c.judged} judged by ${c.skeptics} skeptic(s): ${c.upheld} upheld, ${c.unverified} unverified, ${c.refuted} refuted; ${c.below} finding(s) below a gap`
 let out
 if (groups.every((g) => g.status === 'died')) {
   out = result('agent-died', 'every tracer returned nothing, so no scenario was traced', groups, lenses)
@@ -845,5 +941,4 @@ if (groups.every((g) => g.status === 'died')) {
   const open = groups.some((g) => g.gaps.some((x) => x.outcome !== 'refuted')) || lenses.some((l) => l.gaps.some((x) => x.outcome !== 'refuted'))
   out = result(open ? 'gaps' : 'no-gap', (c) => `every one of the ${c.scenarios} scenario(s) traced, ${c.read} design lens(es) read and ${c.keptLenses} kept; ${tallied(c)}`, groups, lenses)
 }
-log(`Stopped (${out.stopped}): ${out.why}`)
-return out
+return stopped(out)

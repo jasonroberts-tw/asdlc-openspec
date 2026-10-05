@@ -114,6 +114,12 @@ jobs:
       # and repetitions, with every stored case under `.claude/prompt-cases/`.
       - name: the workflows stop, confirm and report as their policy says
         run: mise run workflows:selftest
+      # About three seconds (git-hooks.yml's `trace-clauses-selftest` job has the measurement): the
+      # trace's clause check over a fixture repository and a stubbed client, and the real SDK against a
+      # refused loopback connection. `trace:clauses` itself reads a token and the network, and runs only
+      # in change-verify.
+      - name: the trace's clause check, negative-tested over a stubbed client
+        run: mise run trace:clauses:selftest
       # Milliseconds: the reviewer's wiring and its decisions, with the policy's values. The reviewer
       # itself reads a token and the network, and runs only as `pr-review.yml`.
       - name: the reviewer's workflow, agent and policy agree

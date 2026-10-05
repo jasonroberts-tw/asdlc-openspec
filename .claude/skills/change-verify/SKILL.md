@@ -51,6 +51,9 @@ what it returns to `.scratch/<change>-trace.json`, and `node scripts/render-trac
 writes the trace. The proof is a test the traceability record gives the scenario, or a gate or check
 that exercises it, with its result now; a manual verification is none.
 
+**The clause check.** Before writing a `no-gap` trace, run `mise run trace:clauses <change>` outside
+the workflow, as `scripts/judge-trace-clauses.mjs` directs.
+
 A row is a gap when:
 
 - the scenario has no proof;

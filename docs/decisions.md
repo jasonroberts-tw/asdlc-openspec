@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `mise run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-41 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04).**
+**Status: every decision from D-01 to D-42 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42 added 2026-10-05).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-41` is checked by `mise run check:register`, which reads those headings, the table and each
+> `D-01 … D-42` is checked by `mise run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -97,6 +97,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-39** | The first three change stages run the adversarial-verifier on what each wrote, before each stops for review | `.claude/agents/adversarial-verifier.md` § From a change stage; `change-propose` § 7, `change-design` § 5 and `change-plan` § 3, each consolidated first; the four prompts' budgets in `tools/policy/prompt-budgets.json`; the agent's row in `README.md` and the playbook's Propose, Design and Plan |
 | **D-40** | The task loader reads `tasks.toml` alone, and refuses a tree or a commit that has none | `tasksFrom` and `loadTasks` in `scripts/lib/tasks.mjs`, the refusal held by `check:jobs:selftest` for a tree and `tests:inventory:selftest` for a commit; each reader without its branch for a tree from before the move; D-36's amendment |
 | **D-41** | `beads:check` refuses an open found issue filed since D-06's issue was created with no found-at label | Rule 6 of `scripts/check-beads.mjs`, held by `beads:selftest` at pre-push and in CI; `foundAtLabelsSince` in `tools/policy/vocabulary.json`; D-11's amendment |
+| **D-42** | TypeSafe is a dependency; every call runs in a script a session runs, and an answer may only make an outcome stricter | `tools/lib/typesafe.ts`'s `noul`; `scripts/judge-trace-clauses.mjs` as `trace:clauses`, held by `trace:clauses:selftest` at pre-push and in CI; the clause run of `.claude/workflows/verify-change-trace.js`, held by `workflows:selftest`; `verifyTraceClauseThreshold` in `tools/policy/agent-workflows.json`; `change-verify` § 4 and the workflow, each consolidated first |
 
 ## Risks
 
@@ -2087,6 +2088,52 @@ Where the chosen cut-off loses:
 - `asdlc-openspec-0db`, open, created at `2026-09-24T22:53:47Z`, labelled `asset:environment` and no found-at label: `bd show asdlc-openspec-0db --json`.
 - `mise run beads:check` passes over 280 issues on 2026-10-04, refusing none.
 - `mise run beads:selftest`: 21 of 21 cases hold, the control and 20 doctored copies. Before the rule existed, 14 of 21 held, its seven new cases failing, as the message of the commit that added rule 6 records the lane's run.
+
+### D-42 · TypeSafe is a dependency; every call runs in a script a session runs, and an answer may only make an outcome stricter
+
+**Recorded 2026-10-05**, carried by `asdlc-openspec-6yt.3`, a child of `asdlc-openspec-6yt`. On 2026-10-05 the maintainer answered the epic's open questions, as its note of that date records: the dependency takes this entry, carried by the first child built, and every TypeSafe call runs in a node script a session runs outside the workflow, its answers going in through `args`. The epic's description set items 3 and 4. A lane of a fan-out sweep that no person directed wrote the entry and chose item 5's clause run.
+
+**Builds on / amends:** builds on D-15, under which a check that reads outside the repository runs in no tier and its selftest stands in for it; on D-13, whose scenario trace item 5 second-checks; on D-02, whose `change-verify` stage runs it; on D-12, under which the trace workflow and `change-verify` were consolidated before their edits; and on D-27, under which the threshold and the model live in `tools/policy/`. It amends nothing.
+
+**Decision.**
+
+1. **TypeSafe is a dependency.** `@typesafe-ai/sdk`, exact-pinned as a devDependency since `asdlc-openspec-6yt.2`, is reached through one client, `tools/lib/typesafe.ts`, whose `choose` asks one Choice and `noul` several yes/no questions over one state, and sent one pinned model, `typesafeModel` in `tools/policy/tool-settings.json`.
+2. **Every call runs in a node script that a session or a person runs**, never in a gate, at pre-push or in `.github/workflows/verify.yml`, and never in a workflow script under `.claude/workflows/`, which has no Node.js API and cannot read `TYPESAFE_API_KEY`. Answers reach a workflow through `args`. Each caller's selftest runs at pre-push and in CI over a stubbed client, one case of it through the real SDK to a refused loopback port.
+3. **A missing key skips and says why; a failed call with a key set is a failure.** The client returns a skip with its reason when the key is unset or blank, and once it is set passes on every error the SDK throws. A caller may fall back offline for a missing key, as `citations:support` does (`asdlc-openspec-6yt.6`), and never for a failed call.
+4. **An answer may only make an outcome stricter, or send a case to the skeptics or to a person.** It never clears a refusal, lowers a risk or merges anything (`CLAUDE.md` § A program proposes; only a person promotes).
+5. **The scenario trace's clause check is the first caller in a stage.** Once the first run of `.claude/workflows/verify-change-trace.js` stops `no-gap`, `mise run trace:clauses <change>` (`scripts/judge-trace-clauses.mjs`) asks one Noul per THEN, AND or BUT of each row whose proof names tests, given their bodies and the definitions they use, read at the trace's commit. The workflow's clause run, given those answers as `args.clauses` and the first result as `args.first`, runs no tracer or lens. It makes each row with a clause under `verifyTraceClauseThreshold` an `unasserted` gap for the skeptics, who alone refute it; no answer sets `exercises` or clears a gap. The trace and the pull request's body say whether the check ran.
+
+**Why.** The maintainer's answer settled where calls run. Three alternatives lost:
+
+- **Calls inside a workflow script.** One run would do, where item 5 needs two; but a workflow script has no Node.js API, which Claude Code's workflow-authoring reference states and `scripts/workflows.selftest.mjs` already holds for the clock and randomness, so it cannot read the key.
+- **A call in a gate.** It would be red on every clone without the key, and on every outage, and get bypassed with `--no-verify` (`CLAUDE.md` § The gate ladder).
+- **The second check as a run again of the tracers**, every row kept at the same commit. It reruns a tracer per group to keep readings unchanged, and it drops the first run's refuted gaps from the trace; the clause run takes the first result whole and sends only the doubted rows to skeptics.
+
+Where it loses:
+
+- **A second workflow run.** A doubted row costs that run's setup and `verifyTraceSkeptics` skeptics. A sound row whose outcome a conditional or a helper in another file asserts is doubted too, at each verify: CLS-003's THEN fell under 0.5 on 2026-10-05, its test falling back to a free port when the spec's is taken.
+- **An outage stops verification.** With a key set, a failed call fails the check and the session reports it; the way past is to unset the key, and the trace then says no clause was checked.
+- **No key, no check.** A session without `TYPESAFE_API_KEY` verifies as before, and nothing refuses its pull request for that; only the trace and the body say so.
+- **One model's calibration.** The threshold was measured on one model over this repository's own tests, so a person measures it again when `typesafeModel` changes.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound.
+- **`tools/lib/typesafe.ts`:** `NoulQuestions` and the client's `noul`, through `sdk.noul`, refusing an answer with no probability from 0 to 1; its header.
+- **`scripts/judge-trace-clauses.mjs`:** new, the clause check, as `mise run trace:clauses`, with its `--selftest` as `mise run trace:clauses:selftest` and `TRACE_ROOT` as its root override.
+- **`.claude/workflows/verify-change-trace.js`:** its literals consolidated first under D-12, in a commit of their own; then the clause run, its refusals, the `unasserted` gap, `clauses` in the result, and a refuted row keeping its tracer's reading as `traced`; its header.
+- **`scripts/lib/trace.mjs`, `scripts/render-trace.mjs` and `scripts/render-pr-body.mjs`:** the trace and the body say whether the clause check ran; the headers.
+- **`scripts/workflows.selftest.mjs`:** the clause run's cases over the check's plan and a stubbed client, and the renderers' cases of an `unasserted` gap; its header.
+- **`.claude/skills/change-verify/SKILL.md` § 4:** consolidated first under D-12, in a commit of its own, then the clause check.
+- **`tools/policy/agent-workflows.json`:** `verifyTraceClauseThreshold` and its `Means`; `describes`, `gatedBy` and `provenance`. **`tools/policy/prompt-budgets.json`:** the two prompts' rows and `provenance`.
+- **The wiring:** the two tasks in `tasks.toml` and `workflows:selftest`'s description; the `trace-clauses-selftest` job and `workflows-selftest`'s glob in `git-hooks.yml`; the step in `.github/workflows/verify.yml`; `trace:clauses` in `UNJOBBED_BY_KIND` of `scripts/check-jobs.mjs`.
+- **The rest:** rows of `README.md` § The guardrails, § The tasks and § What runs automatically, `scripts/README.md`, `tools/README.md` and `.claude/README.md`; `docs/playbook.md`'s Verify step and its Status line.
+
+**Figures.**
+
+- The threshold's measurement is in `verifyTraceClauseThresholdMeans` in `tools/policy/agent-workflows.json`. A session's script took it on 2026-10-05 through `planClauses` and `askClauses` of `scripts/judge-trace-clauses.mjs`, over `artifacts/trace/record.json` and the living specs at `158b73e`. That script and its output are not tracked; the same steps measure it again.
+- The prompts' counts, each `node scripts/check-prompts.mjs --counts`: the literals of `.claude/workflows/verify-change-trace.js` 1,675 at `158b73e`, 1,592 after their consolidation and 1,692 at this entry's commit; `.claude/skills/change-verify/SKILL.md` 1,048, 1,028 and 1,047. Each budget row's `means` gives the same steps.
+- `mise run workflows:selftest`: 273 of 273 cases at this entry's commit, where the trunk held 255. With three guards of the clause run removed in one run, its threshold's strictness, its refusal of a trace that had a gap and a refuted row's `traced`, 270 of 273, each removal failing its own case. `mise run trace:clauses:selftest`: 29 of 29 checks. With its refusal of a trace that did not stop `no-gap` and its skipping of strings removed in one run, 26 of 29: the refusal's case and the two that read a test's body and its definitions.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
