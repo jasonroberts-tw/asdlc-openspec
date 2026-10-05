@@ -403,6 +403,26 @@ its inputs. It also runs the wiring gate over doctored copies with an undoctored
 it a change to the decisions shows only in a merge nobody meant.'''
 run = "node scripts/pr-review.mjs --selftest"
 
+["prompts:incidents"]
+description = '''
+An advisory, never a gate: asks TypeSafe, one Noul per paragraph and one request per prompt, whether
+a paragraph of a prompt tells an incident that no date, tracker id, pull request number or run id
+marks, and prints each at or above `promptIncidentMinProbability` in `tools/policy/tool-settings.json`
+in the form `node scripts/check-prompts.mjs --incidents` prints the marked ones, so the two read as
+one list. `--file <path>` limits it to one prompt, `--dry-run` counts without a call. It reads
+`TYPESAFE_API_KEY` and the network; without the key it says so and makes no call. Without it an
+incident told with no date reaches a prompt, and every session that loads the prompt pays for it.'''
+run = "node scripts/prompt-incidents.mjs"
+
+["prompts:incidents:selftest"]
+description = '''
+The advisory, negative-tested over a fixture tree and a stubbed judge: what it sends and leaves to
+`--incidents`, the threshold and the fewest words, a missing key that makes no call, a failed call
+or a missing answer that fails, each policy key and its `Means`, the flags, and once through the
+shared client to a refused loopback connection. Needs no key. Without it the advisory can swallow a
+failed call and print a clean list over a run that judged nothing.'''
+run = "node scripts/prompt-incidents.mjs --selftest"
+
 ["tests:fresh"]
 description = '''
 The verifier's fresh run, from a change's worktree (`change-verify` § 4): it clones HEAD under the
