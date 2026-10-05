@@ -40,8 +40,9 @@ fetch,
 the two that the trunk has changed since. Read the trunk's copy of each one it names, as above, and
 follow that copy from here on. A session given no such git status reads the trunk's copy of both.
 
-Name, too, any register entry an acceptance criterion implies. The pull request's body opens with
-it, so the person who reviews it reads it first (step 6).
+Name, too, any register entry an acceptance criterion implies or that names the issue
+(`git grep <id> origin/main -- docs/decisions.md`). The pull request's body opens with it, so the
+person who reviews it reads it first (step 6).
 
 An issue asking for a change to what the product does, stated as requirements, goes to
 `change-propose` (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
@@ -94,10 +95,12 @@ Make the change in every file restating what it alters, by value or by reference
 the old text alone misses some. A prompt it would take past its word budget
 (`node scripts/check-prompts.mjs --counts`) is consolidated first, as
 `.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated says, not once
-`check:prompts` refuses it at the gate. A defect's fix lands only after a test or selftest case
-that reproduces it has been seen to fail, and the pull request's body names that run: a test first
-run after its fix can pass without it. Regenerate every derived artifact the change touches only
-after the last edit to the emitter or its inputs: an emitter's own source is one of its inputs.
+`check:prompts` refuses it at the gate. This branch sets each changed prompt's budget to its count,
+so the room freed is not spent unseen (`docs/decisions.md` § D-12). A defect's fix lands only after
+a test or selftest case that reproduces it has been seen to fail, and the pull request's body names
+that run: a test first run after its fix can pass without it. Regenerate every derived artifact the
+change touches only after the last edit to the emitter or its inputs: an emitter's own source is one
+of its inputs.
 
 Stage every file the change adds (`git add`) before the gates run: a new file not yet added passes
 the citations and count-index gates unread. Run `mise run gates`, the build check here. There is no
