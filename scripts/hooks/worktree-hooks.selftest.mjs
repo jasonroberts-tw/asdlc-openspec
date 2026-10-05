@@ -1162,8 +1162,10 @@ check(
  * `pending` has a commit not upstream, `release` and `main` are protected, `held` is checked out by
  * a kept worktree, and `raced` moved on the remote to a tip this repository never fetched. A stub
  * `git` then reports `raced` at its old tip, as a push landing between the read and the deletion
- * leaves it, and the lease refuses the deletion. The undoctored control is the run the
- * `WorktreeRemove` hook makes, with no --remote, which must neither read nor change the remote.
+ * leaves it, and the lease refuses the deletion. A run given --discard, as an orchestrator runs it
+ * through the task that passes --remote, must delete no remote branch, `landed` included. The
+ * undoctored control is the run the `WorktreeRemove` hook makes, with no --remote, which must neither
+ * read nor change the remote.
  * --------------------------------------------------------------------------------------------- */
 console.log("prune-worktree-branches: the trunk remote's branches, with --remote")
 const rbRoot = mkdtempSync(join(tmpdir(), 'wt-gc-remote-'))
@@ -1256,6 +1258,29 @@ check(
     !rbUnreachable.startsWith('EXIT') &&
     onRemote('agent/landed') === rbLanded,
   rbUnreachable.slice(0, 1500),
+)
+
+// THE DISCARD RUN. An orchestrator's `mise run worktree:gc --discard <branch>` carries the task's
+// `--remote`, and an agent that runs it was not asked to write to origin, so it deletes no remote
+// branch: `landed`, which the run below deletes, must survive it. `discarded` is the lane it names,
+// with a commit no trunk holds, and its deletion shows the run did not stop short.
+git(rbPrimary, 'checkout', '-q', '-b', 'agent/discarded')
+const rbDiscarded = rbCommit(rbPrimary, 'discarded.txt', 'discarded\n', 'a lane the run did not carry')
+git(rbPrimary, 'checkout', '-q', 'main')
+const rbDiscardRun = rbRun('--discard', 'agent/discarded', '--remote')
+check(
+  'a run given --discard deletes no remote branch, even with --remote, and says why',
+  rbPushed.every((b) => onRemote(b) !== null) &&
+    onRemote('agent/landed') === rbLanded &&
+    rbDiscardRun.includes(
+      '  remote origin: not read (--discard was given; a run without it sweeps the remote), so no remote branch is deleted\n',
+    ),
+  rbDiscardRun.slice(0, 1500),
+)
+check(
+  'while the branch it names is deleted, by that reason',
+  rbDiscardRun.includes(`    agent/discarded  ${rbDiscarded.slice(0, 8)}  (named by --discard)\n`),
+  rbDiscardRun.slice(0, 1500),
 )
 
 const rbSwept = rbRun('--remote')

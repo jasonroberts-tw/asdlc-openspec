@@ -148,7 +148,8 @@
  * agent still works in, clean and between two calls, removes the lane. A discarded branch's commits
  * outlive it only as unreachable objects, which the log's restore command brings back until `git gc`
  * prunes them, and its worktree's ignored files, `.scratch/` among them, go at once. And it confines
- * nothing: the run sweeps every other worktree and branch as a run without it does.
+ * nothing here: the run sweeps every other worktree and local branch as a run without it does. It
+ * does confine the remote, which the run neither reads nor changes (THE REMOTE SWEEP, below).
  *
  * A kept worktree keeps its branch with it, reported as `checked out by <path> (<reason>)`.
  *
@@ -188,13 +189,23 @@
  * on the network or deletes a remote branch. That is also why the remote read has no timeout: an
  * operator's run waits on a hung connection as long as git does. A missing trunk skips this sweep too.
  *
+ * A run given `--discard` skips it as well, `--remote` or not, and its report says so. The callers
+ * that pass `--discard` are the two orchestrators, `fan-out-work` and a prompt review's session, and
+ * each is an agent, which pushes only when asked (CLAUDE.md § Git workflow); a remote deletion is a
+ * push. Until 2026-10-04 the task's `--remote` reached their runs, so each `--discard` also deleted
+ * origin's contained agent branches, an open pull request's head among them, while neither prompt
+ * said the run wrote to origin; the branch review of the fan-out sweep of that day found it before
+ * any run did. The remote sweep is a plain `mise run worktree:gc`'s, which a person runs.
+ *
  * Where the remote sweep loses. It deletes the head of an OPEN pull request whose commits are all in
  * the trunk, and GitHub then closes that pull request; no commit is lost, but the pull request's page
  * no longer shows it as open. It deletes a branch a session in another clone is still pushing to,
  * when every commit there is upstream. That session's next plain push recreates it, but its
  * `--force-with-lease` push with no expected value is refused as stale info while its clone's
- * tracking ref still names the deleted tip, until `git fetch --prune` drops that ref. And it deletes
- * from whichever checkout runs it, a linked worktree included.
+ * tracking ref still names the deleted tip, until `git fetch --prune` drops that ref. It deletes
+ * from whichever checkout runs it, a linked worktree included. And a person who runs
+ * `mise run worktree:gc --discard <branch>` expecting the remote sweep too gets none, and has to run
+ * `mise run worktree:gc` again without `--discard`.
  *
  * Deletions are logged to `<git-common-dir>/worktree-gc.log` as `<sha> <branch>` with a timestamp,
  * and the same restore command is printed. A deleted branch was provably contained in the trunk, so
@@ -267,8 +278,9 @@ for (let i = 0; i < argv.length; i += 1) {
         '  --discard   an agent branch the caller has taken what it wants from, merged, picked or\n' +
         '              rejected: its worktree removed and the branch deleted, contained in the trunk\n' +
         '              or not and without waiting, once every other condition holds; its tip is\n' +
-        '              logged; repeatable\n' +
-        "  --remote    also delete the trunk remote's agent branches the same proofs clear",
+        '              logged; repeatable. A run given it deletes no remote branch, --remote or not\n' +
+        "  --remote    also delete the trunk remote's agent branches the same proofs clear, in a run\n" +
+        '              given no --discard',
     )
     process.exit(0)
   } else {
@@ -940,7 +952,9 @@ if (sweepRemote) {
   const remote = slash > 0 ? TRUNK.slice(0, slash) : null
   let why = null
   let listing = null
-  if (trunkMissing) why = 'the trunk is missing'
+  // The orchestrators that pass `--discard` are agents, which write to a remote only when asked.
+  if (DISCARD.size > 0) why = '--discard was given; a run without it sweeps the remote'
+  else if (trunkMissing) why = 'the trunk is missing'
   else if (remote === null) why = `trunk ${TRUNK} is not a remote branch`
   else if (!(gitOut(['remote']) ?? '').split('\n').includes(remote)) why = `no remote ${remote}`
   else {
