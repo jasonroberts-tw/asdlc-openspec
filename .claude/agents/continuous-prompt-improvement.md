@@ -155,8 +155,9 @@ sections are the value.
    section that stops the same suggestion arriving three times. Include each entry of every group's
    asides in the workflow's result, with its reason.
 7. ***What this review could not verify.*** Every claim above that rests on something no agent could
-   check, named. With them, each prompt sentence `git grep -n "against the CLI"` finds that is not
-   verified, or was verified on a version older than the newest `claude --version` these runs record.
+   check, named. With them, each prompt sentence `git grep -n "against the CLI" -- CLAUDE.md .claude`
+   finds that is not verified, or was verified on a version older than the newest `claude --version`
+   these runs record.
 
 ## How a file is judged
 

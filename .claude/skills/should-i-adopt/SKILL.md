@@ -67,7 +67,8 @@ that matters.
    `CLAUDE_PROJECT_DIR`, which names the directory a session started in and does not follow it
    into a worktree (`.claude/README.md` § The hooks; verified against the CLI, 2.1.289).
 6. **What it does to output an agent reads.** A filter, cap or rewrite breaks `CLAUDE.md` §
-   Verification before claiming, and output larger than a tool result holds is read in part.
+   Verification before claiming, and output larger than a tool result holds is read in part
+   (verified against the CLI, 2.1.289).
 7. **The commands a session would run:** which `scripts/hooks/guard-git.mjs` or the permission
    classifier refuse, and which of its own must never run here, each needing a guard.
 8. **Dependencies and platforms:** `package.json`, `package-lock.json`, a new runtime, Git and Node

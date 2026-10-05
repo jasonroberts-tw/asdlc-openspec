@@ -34,7 +34,8 @@ brief says otherwise (not verified against the CLI), so say so.
 Claude Code read this skill and `CLAUDE.md` from that checkout too
 (verified against the CLI, 2.1.289), so they can trail the trunk as well. Compare the trunk with the
 commit the session started from, the first of the recent commits in the git status Claude Code
-gave, and not with `HEAD`, which a later pull moves: after the fetch,
+gave (verified against the CLI, 2.1.289), and not with `HEAD`, which a later pull moves: after the
+fetch,
 `git diff --stat <that commit>...origin/main -- .claude/skills/bead/SKILL.md CLAUDE.md` names each of
 the two that the trunk has changed since. Read the trunk's copy of each one it names, as above, and
 follow that copy from here on. A session given no such git status reads the trunk's copy of both.

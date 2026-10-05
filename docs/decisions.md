@@ -100,7 +100,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-42** | TypeSafe is a dependency; every call runs in a script a session runs, and an answer may only make an outcome stricter | `tools/lib/typesafe.ts`'s `noul`; `scripts/judge-trace-clauses.mjs` as `trace:clauses`, held by `trace:clauses:selftest` at pre-push and in CI; the clause run of `.claude/workflows/verify-change-trace.js`, held by `workflows:selftest`; `verifyTraceClauseThreshold` in `tools/policy/agent-workflows.json`; `change-verify` § 4 and the workflow, each consolidated first |
 | **D-43** | A run searches before it files an issue outside a change's epic, and a match is noted and counted with a label that is evidence for a person, never a rule | `CLAUDE.md` § The task store, consolidated first; `seenLabelPrefix` in `tools/policy/vocabulary.json`; `bead` § 3 and § 4 and `should-i-adopt` § 2 pointing at it, the latter consolidated first; three budgets in `tools/policy/prompt-budgets.json`; `docs/playbook.md`, `README.md` and `tools/policy/README.md` |
 | **D-44** | A run's analysis lists each of this repository's prompts it loaded on a line of its own, with its commit, and the version of Claude Code it met | `.claude/skills/close-prompt-run/SKILL.md` § 1, consolidated first; `promptReviewLoadedHeading` in `tools/policy/agent-workflows.json`; the skill's budget in `tools/policy/prompt-budgets.json`; D-08's amendment |
-| **D-45** | A prompt's sentence on how Claude Code behaves names the version that verified it, or says none did, and each prompt review lists the stale ones | `CLAUDE.md` § Standing rules for prompts and gates; the tags in `CLAUDE.md`, `bead`, `open-pr`, `close-prompt-run`, `change-finalize`, `should-i-adopt`, `fan-out-work` and the prompt reviewer's agent, whose § 7 item 7 lists them; three of the prompts consolidated first; eight budgets in `tools/policy/prompt-budgets.json`; `README.md` § The guardrails |
+| **D-45** | A prompt's sentence on how Claude Code behaves names the version that verified it, or says none did, and each prompt review lists the stale ones | `CLAUDE.md` § Standing rules for prompts and gates; the tags in `CLAUDE.md`, `bead`, `open-pr`, `close-prompt-run`, `change-finalize`, `should-i-adopt`, `fan-out-work`, the branch reviewer and the prompt reviewer's agent, whose § 7 item 7 lists them; four of the prompts consolidated first; nine budgets in `tools/policy/prompt-budgets.json`; `README.md` § The guardrails |
 
 ## Risks
 
@@ -2221,7 +2221,7 @@ Where it loses: an analysis no longer lists a user-level skill the run loaded, w
 
 **Recorded 2026-10-05**, carried by `asdlc-openspec-r6ha.4`, a child of `asdlc-openspec-r6ha`. On 2026-10-04 the maintainer chose to keep such sentences where they are read, each dated by the version that verified it (the parent's decision 4, with its loss). On 2026-10-05, at the claim, they chose item 2's second spelling for a sentence no session can verify, from a recommendation put with the case where it loses. The session that built it chose the inventory, each sentence's verdict and the evidence for it.
 
-**Builds on / amends:** builds on D-44, whose analysis records the version of Claude Code a run met; on D-08, whose reviewer lists the sentences; and on D-12, under which three of the prompts were consolidated first and the rest raised by a person. It amends nothing.
+**Builds on / amends:** builds on D-44, whose analysis records the version of Claude Code a run met; on D-08, whose reviewer lists the sentences; and on D-12, under which four of the prompts were consolidated first, and eight budgets raised by a person by what no consolidation freed. It amends nothing.
 
 **Decision.** `CLAUDE.md` § Standing rules for prompts and gates holds the rule.
 
@@ -2242,13 +2242,14 @@ Where it loses: the tags cost words in prompts at their budgets, which a person 
 - **`CLAUDE.md`:** consolidated first under D-12, in a commit of its own; then § Standing rules for prompts and gates' rule, and the tags in § Bash command style and § Guards.
 - **`.claude/skills/bead/SKILL.md`, `.claude/skills/open-pr/SKILL.md` and `.claude/skills/change-finalize/SKILL.md`:** consolidated first, then tagged.
 - **`.claude/skills/close-prompt-run/SKILL.md`, `.claude/skills/should-i-adopt/SKILL.md` and `.claude/agents/fan-out-work.md`:** tagged.
+- **`.claude/agents/branch-reviewer.md`:** its sentence on the `CLAUDE.md` loaded into it, which said the branch's and which this change's own branch review showed false, rewritten to say the launching session's start checkout's, and tagged.
 - **`.claude/agents/continuous-prompt-improvement.md`:** § 7 item 7's list, and one tag.
-- **`tools/policy/prompt-budgets.json`:** eight rows and `provenance`. **`README.md` § The guardrails:** a row.
+- **`tools/policy/prompt-budgets.json`:** nine rows and `provenance`. **`README.md` § The guardrails:** a row.
 
 **Figures.**
 
-- The inventory, at this entry's commit: 21 sentences carry a tag, 10 "verified against the CLI, 2.1.289" and 11 "not verified against the CLI". Each is listed, with what verified it or why none did, in the pull request that carried this entry. `git grep -n "against the CLI" -- CLAUDE.md ".claude/skills/*/SKILL.md" ".claude/agents/*.md"` prints 24 lines: the 21 tags, the rule's two spellings in `CLAUDE.md` § Standing rules for prompts and gates, and § 7 item 7's own command.
-- The prompts' counts, each `node scripts/check-prompts.mjs --counts`, at `d306687`, after the consolidations and at this entry's commit: `CLAUDE.md` 3,302, 3,284 and 3,339; `bead` 1,618, 1,609 and 1,634; `open-pr` 1,285, 1,277 and 1,287; `change-finalize` 1,422, 1,407 and 1,412; and, with nothing consolidated, `close-prompt-run` 671 and 686, `should-i-adopt` 1,586 and 1,596, `fan-out-work` 840 and 860, and the prompt reviewer's agent 2,222 and 2,258. Each budget row's `means` gives the same steps.
+- The inventory, at this entry's commit: 24 sentences carry a tag, 13 "verified against the CLI, 2.1.289" and 11 "not verified against the CLI". Each is listed, with what verified it or why none did, in the pull request that carried this entry. `git grep -n "against the CLI" -- CLAUDE.md .claude`, the command § 7 item 7 gives, prints 27 lines: the 24 tags, the rule's two spellings in `CLAUDE.md` § Standing rules for prompts and gates, and § 7 item 7's own command.
+- The prompts' counts, each `node scripts/check-prompts.mjs --counts`, at `d306687`, after the consolidations and at this entry's commit: `CLAUDE.md` 3,302, 3,284 and 3,339; `bead` 1,618, 1,609 and 1,639; `open-pr` 1,285, 1,277 and 1,287; `change-finalize` 1,422, 1,407 and 1,412; and, with nothing consolidated, `close-prompt-run` 671 and 686, `should-i-adopt` 1,586 and 1,601, `fan-out-work` 840 and 860, the prompt reviewer's agent 2,222 and 2,261, and the branch reviewer 1,929 and 1,947. Each budget row's `means` gives the same steps.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
