@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `mise run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-43 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42 and D-43 added 2026-10-05).**
+**Status: every decision from D-01 to D-44 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43 and D-44 added 2026-10-05).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-43` is checked by `mise run check:register`, which reads those headings, the table and each
+> `D-01 … D-44` is checked by `mise run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -99,6 +99,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-41** | `beads:check` refuses an open found issue filed since D-06's issue was created with no found-at label | Rule 6 of `scripts/check-beads.mjs`, held by `beads:selftest` at pre-push and in CI; `foundAtLabelsSince` in `tools/policy/vocabulary.json`; D-11's amendment |
 | **D-42** | TypeSafe is a dependency; every call runs in a script a session runs, and an answer may only make an outcome stricter | `tools/lib/typesafe.ts`'s `noul`; `scripts/judge-trace-clauses.mjs` as `trace:clauses`, held by `trace:clauses:selftest` at pre-push and in CI; the clause run of `.claude/workflows/verify-change-trace.js`, held by `workflows:selftest`; `verifyTraceClauseThreshold` in `tools/policy/agent-workflows.json`; `change-verify` § 4 and the workflow, each consolidated first |
 | **D-43** | A run searches before it files an issue outside a change's epic, and a match is noted and counted with a label that is evidence for a person, never a rule | `CLAUDE.md` § The task store, consolidated first; `seenLabelPrefix` in `tools/policy/vocabulary.json`; `bead` § 3 and § 4 and `should-i-adopt` § 2 pointing at it, the latter consolidated first; three budgets in `tools/policy/prompt-budgets.json`; `docs/playbook.md`, `README.md` and `tools/policy/README.md` |
+| **D-44** | A run's analysis lists each of this repository's prompts it loaded on a line of its own, with its commit, and the version of Claude Code it met | `.claude/skills/close-prompt-run/SKILL.md` § 1, consolidated first; `promptReviewLoadedHeading` in `tools/policy/agent-workflows.json`; the skill's budget in `tools/policy/prompt-budgets.json`; D-08's amendment |
 
 ## Risks
 
@@ -538,6 +539,8 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 > **Amended 2026-09-29 by D-17.** `.claude/skills/close-prompt-run/SKILL.md`, not `CLAUDE.md` § Prompt reviews, now holds the analysis note, the due check, when no review starts and the launch; that section keeps the rule that a run ends with the skill. Item 7 no longer holds, nor does its alternative's loss: each review is named `review-prompts-` and the UTC date and time, and item 5's check counts every working session whose name starts with `review-prompts`, leaving out the reviewer's own.
 
 > **Amended 2026-10-04 by D-37.** It built on D-07 leaving a review's pull request, citing no issue, to a person; that pull request is now decided by the high-risk floor like any other. Its items stand.
+
+> **Amended 2026-10-05 by D-44.** Item 1's lines after the marker no longer name every prompt the run loaded. Under `promptReviewLoadedHeading`, each of this repository's prompts the run loaded takes a line of its own with its commit, a user-level or a plugin's skill is left out, and one line of `claude --version` follows.
 
 ### D-09 · An in-session guard refuses a gh command that applies the approval label, from any checkout
 
@@ -2184,6 +2187,34 @@ Where it loses:
 
 - No issue carries a count label on 2026-10-05: `bd list --all --label-regex "^seen:" -n 0` lists none, of the 290 issues `bd count` counts.
 - The prompts' counts, each `node scripts/check-prompts.mjs --counts`: `CLAUDE.md` 3,272 at `acd02ad`, 3,222 after its first consolidation, 3,283 after the first edit, 3,271 after its second consolidation and 3,302 after the branch review's fixes; `should-i-adopt` 1,586, 1,580 after its consolidation and 1,586; `bead` 1,647 and 1,618. Each budget row's `means` gives the same steps.
+
+### D-44 · A run's analysis lists each of this repository's prompts it loaded on a line of its own, with its commit, and the version of Claude Code it met
+
+**Recorded 2026-10-05**, carried by `asdlc-openspec-r6ha.1`, a child of `asdlc-openspec-r6ha`. The issue, filed on 2026-10-04, set the form: a fixed sub-heading, one prompt to a line with its commit, no prompt from outside the repository, and a line of `claude --version`. On 2026-10-05 the branch review found that leaving prompts out disagrees with D-08 item 1, and the maintainer chose this entry over leaving the register alone and over listing every prompt, from a recommendation put with the case where it loses. The session that built it chose the heading's spelling.
+
+**Builds on / amends:** amends D-08, whose item 1 had the lines after the marker "name every prompt the run loaded and the commit it read them at". Builds on D-17, which made `.claude/skills/close-prompt-run/SKILL.md` the home of the analysis's form, and on D-12, under which that skill was consolidated before the edit.
+
+**Decision.** `.claude/skills/close-prompt-run/SKILL.md` § 1 holds the form.
+
+1. **The prompts a run loaded follow a heading of their own**, `promptReviewLoadedHeading` in `tools/policy/agent-workflows.json`, after the marker line: one line for each, its row's path in `tools/policy/prompt-budgets.json`, a space and the commit it was read at. The rendered worktree briefing is written as its template's path.
+2. **Only this repository's prompts are listed.** A user-level or a plugin's skill, which has no row and which no review here can change, is left out.
+3. **One line holds what `claude --version` printed**, so a reader can tell which Claude Code a run met.
+
+**Why.** An analysis named its prompts in prose, several to a bullet, so no parser could count how often a prompt is loaded (`asdlc-openspec-r6ha.5`) and no reader could tell which Claude Code a run met (`asdlc-openspec-r6ha.4`). Two alternatives lost:
+
+- **Leaving D-08 unamended**, reading its "every prompt" as the prompts with a row. A session holding an analysis to the register alone would ask for user-level skills too, and the register wins.
+- **Listing every prompt, user-level and plugin ones included.** D-08 would stand as worded, but the issue's scope left them out, and a parser would report each as a path with no row.
+
+Where it loses: an analysis no longer lists a user-level skill the run loaded, which a finding about two skills that interacted would need; the analysis's prose still tells that finding. And every analysis written before this entry stays in the old form, which no parser will read.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound; D-08 carries an amendment.
+- **`.claude/skills/close-prompt-run/SKILL.md`:** consolidated first under D-12, in a commit of its own, then § 1's form.
+- **`tools/policy/agent-workflows.json`:** `promptReviewLoadedHeading` and its `Means`; `describes`, `gatedBy` and `provenance`. **`tools/policy/prompt-budgets.json`:** the skill's row and `provenance`.
+- **`tools/policy/README.md`** and **`docs/playbook.md` § 4.5:** the rows that restate the analysis's contents.
+
+**Figures.** `node scripts/check-prompts.mjs --counts` for `.claude/skills/close-prompt-run/SKILL.md`: 672 at `acd02ad`, 639 after the consolidation and 671 at this entry's commit. The skill's budget row's `means` gives the same steps.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

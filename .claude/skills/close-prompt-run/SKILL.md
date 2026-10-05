@@ -21,8 +21,9 @@ Any other run writes one analysis, as a note on the issue or epic it worked
 pull request's title carries. Its first line is `promptReviewAnalysisMarker`, a space, and the run
 id: the issue's id, `@`, and the UTC second the note is written, as `date -u +%Y-%m-%dT%H:%M:%SZ`
 prints it. Next comes a line holding `promptReviewLoadedHeading`, then a line for each of this
-repository's prompts the run loaded, and no other: its path as its row in
-`tools/policy/prompt-budgets.json` spells it, a space and the commit it was read at. Then one line
+repository's prompts the run loaded, and no other: its row's path in
+`tools/policy/prompt-budgets.json` (for the worktree briefing, its template's), a space and the
+commit it was read at. Then one line
 holds what `claude --version` prints. Then comes the analysis: what made the run slower or wrong,
 each point with the prompt it concerns. It ends with the counts, so the reviewer can tell a finding
 that recurs from one seen once:
