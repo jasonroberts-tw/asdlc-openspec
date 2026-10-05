@@ -196,17 +196,18 @@
  * two orchestrators, `fan-out-work` and a prompt review's session, pass `--discard`, and `open-pr`
  * § 8, after every merge it waits for, passes `--finished`. Until 2026-10-04 the task's `--remote`
  * reached every such run, so each also deleted origin's contained agent branches, an open pull
- * request's head among them, while no prompt said the run wrote to origin. The branch review of the fan-out sweep of that
- * day found it for `--discard` before any run did, and the sweep skipped the remote for that flag
- * alone. On 2026-10-05 the push security review of pull request #147 found the two agent paths that
- * left. `change-finalize` § 8 made the real run once its `--dry-run --finished <change>` named no
- * worktree but its change's, and a "would delete N remote branch(es)" line names no worktree, so the
- * real run pushed those deletions. A prompt review's session ran one `--discard` per branch of the
- * workflow's `discard`, which can be empty, and a run with none is a bare one. So `--finished` skips
- * the remote too, and `--discard` or `--finished` followed by a flag is refused, as one followed by
- * nothing already was, where the flag had been read as the name. The empty list is the prompt's to
- * hold (`.claude/agents/continuous-prompt-improvement.md` § 6), since a run with neither flag is the
- * bare run this sweep is for: `mise run worktree:gc`, naming no worktree and no branch, which a person
+ * request's head among them, while no prompt said the run wrote to origin. The branch review of the
+ * fan-out sweep of that day found it for `--discard` before any run did, and the sweep skipped the
+ * remote for that flag alone. On 2026-10-05 the push security review of pull request #147 found the
+ * two agent paths that left. `change-finalize` § 8 made the real run once its
+ * `--dry-run --finished <change>` named no worktree but its change's, and a "would delete N remote
+ * branch(es)" line names no worktree, so the real run pushed those deletions. A prompt review's
+ * session ran one `--discard` per branch of the workflow's `discard`, which can be empty, and a run
+ * with none is a bare one. So `--finished` skips the remote too, and `--discard` or `--finished`
+ * followed by a flag is refused, as one followed by nothing already was, where the flag had been read
+ * as the name. The empty list is the prompt's to hold
+ * (`.claude/agents/continuous-prompt-improvement.md` § 6), since a run with neither flag is the bare
+ * run this sweep is for: `mise run worktree:gc`, naming no worktree and no branch, which a person
  * runs.
  *
  * Where the remote sweep loses. It deletes the head of an OPEN pull request whose commits are all in

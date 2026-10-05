@@ -303,7 +303,7 @@ lockfile change that lifts that version above the floor is refused on the push t
 | To do this | Use this | Notes |
 |---|---|---|
 | See what is ready to be worked | `bd ready` | The queue. There is no status table anywhere else, by rule. |
-| Change the harness, or fix the product without changing a requirement | the `bead` skill | Verifies the issue's premise first, then claims, implements, gates, opens the pull request and closes on green. |
+| Change the harness, or fix the product without changing a requirement | the `bead` skill | Verifies the issue's premise first, then claims, implements, gates, opens the pull request and closes the issue once it merges. |
 | Change what the product does | the `change-*` skills, in order: `change-propose`, `change-design`, `change-plan`, `change-build`, `change-verify`, `change-finalize` | One worktree, one pull request and one `bd` epic per change. The proposal and the delta specs are reviewed before any code is written, and the archive merges them into the living spec under `openspec/` before the merge. |
 | Run the calculator on your machine | `npm run calculator:serve` | It prints the URL to open, on `127.0.0.1` only, and serves until Ctrl-C. Set `PORT` to serve on another port, such as when its default is taken. |
 | Have agents work the ready issues in parallel | the `fan-out-work` agent, as the session itself: `claude --agent fan-out-work`, or ask a session to fan out | The session is the dispatcher, never an agent it launches. One fresh agent per lane, each in its own worktree, integrated on the dispatcher's branch. |
