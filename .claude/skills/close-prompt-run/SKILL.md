@@ -8,8 +8,7 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 # Close a prompt run
 
 This skill is the one home of the analysis's form, of the rule for what is pending, and of a
-review's name; the read and held lines' form is the agent's. The markers and thresholds below are
-keys of `tools/policy/agent-workflows.json`.
+review's name. The `promptReview*` keys below are `tools/policy/agent-workflows.json`'s.
 
 ## 1. Write the analysis, or none
 
@@ -41,8 +40,8 @@ A review is due when `promptReviewDueCount` analyses or more are pending, or the
 in its run id, is older than `promptReviewDueAgeDays` days. None starts while a pull request from a
 branch `agent/review-prompts-*` is open (`gh pr list --state open --json headRefName`), or while
 `claude agents --json` lists a session whose name starts with `review-prompts` and whose `state` is
-`working`: the pending analyses wait for it. Counting only a working one keeps a finished review
-that is still open from holding up the next. When no review is due, or none may start, stop here.
+`working`: the pending analyses wait for it. A finished one still listed holds up none. When no
+review is due, or none may start, stop here.
 
 ## 3. Launch the review
 
@@ -56,9 +55,9 @@ name in both places:
 
     claude --bg --agent continuous-prompt-improvement --permission-mode auto --name <name> "Review the pending prompt-run analyses as <name>."
 
-The mode is passed on the command line because a session started this way does not apply an agent
-file's `permissionMode`, and unless the machine's default is `auto` would stop at its first
-permission prompt with nobody waiting on it. Neither wait for the reviewer nor relay what it finds.
+A session launched so ignores the agent file's `permissionMode`: without the flag, unless the
+machine's default is `auto`, it would stop at its first permission prompt with nobody waiting.
+Neither wait for the reviewer nor relay what it finds.
 
 ## 4. Report
 
