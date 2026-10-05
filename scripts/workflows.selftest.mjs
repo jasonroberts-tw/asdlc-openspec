@@ -2118,11 +2118,71 @@ function reviewCases(policy) {
  * The review's cases for the worktrees its groups leave (asdlc-openspec-dss). The script runs no git,
  * so what it holds is `discard`, the list the session removes with `mise run worktree:gc --discard`:
  * every group whose report names a branch, merged or not, each with its status as the reason it goes.
+ * The branch is the report's word, and the script assigns none, so a branch no workflow agent of this
+ * run could have been given is held out in `discardDropped`, with why: one of no workflow agent's
+ * shape, as a fan-out lane's is, and one of a run that more than half the groups' workflow agent
+ * branches do not share. One branch two groups report is handed over once.
  */
 function discardCases(policy) {
   const listed = (result) => JSON.stringify(result.discard)
   const want = (...entries) => JSON.stringify(entries.map(([id, status]) => ({ id, branch: `agent/wf_example-${id}`, status })))
+  const dropped = (result) => JSON.stringify(result.discardDropped)
+  const three = reviewArgs(policy, [
+    ...reviewArgs(policy).groups,
+    { id: 'other', files: [OTHER], findings: [reviewFinding(policy, OTHER, 'third-finding', [RUN_C])] },
+  ])
+  const LANE = 'agent/agent-a8900798095a74b2f'
   return [
+    {
+      name: "a report naming a fan-out lane's branch, which no workflow agent is given, keeps it out of discard, saying why, and the others' go",
+      args: three,
+      reports: { other: (g) => unchanged(g, { branch: LANE }) },
+      expect: ['done', /^1 to merge, 2 unchanged, 0 not upheld, 0 refused, 0 died;/],
+      check: ({ result }) =>
+        listed(result) !== want(['bead', 'merge'], ['open-pr', 'unchanged'])
+          ? `discard is ${listed(result)}`
+          : dropped(result) === JSON.stringify([{ id: 'other', branch: LANE, status: 'unchanged', why: "it is no workflow agent's branch" }])
+            ? null
+            : `discardDropped is ${dropped(result)}`,
+    },
+    {
+      name: "a report naming another run's workflow agent branch keeps it out of discard, saying why, where most groups name this run's",
+      args: three,
+      reports: { other: (g) => unchanged(g, { branch: 'agent/wf_elsewhere-1' }) },
+      expect: ['done', /^1 to merge, 2 unchanged, 0 not upheld, 0 refused, 0 died;/],
+      check: ({ result }) =>
+        listed(result) !== want(['bead', 'merge'], ['open-pr', 'unchanged'])
+          ? `discard is ${listed(result)}`
+          : dropped(result) === JSON.stringify([{ id: 'other', branch: 'agent/wf_elsewhere-1', status: 'unchanged', why: 'only 1 of 3 groups name wf_elsewhere' }])
+            ? null
+            : `discardDropped is ${dropped(result)}`,
+    },
+    {
+      name: 'two groups naming two runs keep both branches out of discard, since neither run is more than half the groups',
+      args: reviewArgs(policy),
+      reports: { 'open-pr': (g) => unchanged(g, { branch: 'agent/wf_elsewhere-1' }) },
+      expect: ['done', /^1 to merge, 1 unchanged, 0 not upheld, 0 refused, 0 died;/],
+      check: ({ result }) =>
+        listed(result) !== '[]'
+          ? `discard is ${listed(result)}`
+          : dropped(result) ===
+              JSON.stringify([
+                { id: 'bead', branch: 'agent/wf_example-bead', status: 'merge', why: 'only 1 of 2 groups name wf_example' },
+                { id: 'open-pr', branch: 'agent/wf_elsewhere-1', status: 'unchanged', why: 'only 1 of 2 groups name wf_elsewhere' },
+              ])
+            ? null
+            : `discardDropped is ${dropped(result)}`,
+    },
+    {
+      name: 'one branch two groups report is handed to remove once',
+      args: reviewArgs(policy),
+      reports: { bead: (g) => changed(g, { branch: 'agent/wf_example-same' }), 'open-pr': (g) => unchanged(g, { branch: 'agent/wf_example-same' }) },
+      expect: ['done', /^0 to merge, 0 unchanged, 0 not upheld, 2 refused, 0 died;/],
+      check: ({ result }) =>
+        listed(result) === JSON.stringify([{ id: 'bead', branch: 'agent/wf_example-same', status: 'refused' }]) && dropped(result) === '[]'
+          ? null
+          : `discard is ${listed(result)} and discardDropped ${dropped(result)}`,
+    },
     {
       name: "a rejected group's worktree is handed to the session to remove, with not-upheld as its reason, beside the unchanged group's",
       args: reviewArgs(policy),
@@ -2149,7 +2209,7 @@ function discardCases(policy) {
       name: 'arguments refused before any agent runs leave nothing to remove',
       args: reviewArgs(policy, []),
       expect: ['refused', /^args\.groups must be a non-empty list/],
-      check: ({ result }) => (listed(result) === '[]' ? null : `discard is ${listed(result)}`),
+      check: ({ result }) => (listed(result) === '[]' && dropped(result) === '[]' ? null : `discard is ${listed(result)} and discardDropped ${dropped(result)}`),
     },
   ]
 }

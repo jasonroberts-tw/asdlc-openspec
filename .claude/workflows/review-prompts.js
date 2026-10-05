@@ -88,7 +88,7 @@ export const meta = {
  * every finding that meets neither, so one that reaches this script refuses the run. Each change
  * returns `met`, the condition its finding met: `recurrence`, `severity`, or both.
  *
- * WHAT IT RETURNS. { stopped, why, groups, merge, discard, runsRead, runsHeld, findingsHeld, cases, counts }. Every
+ * WHAT IT RETURNS. { stopped, why, groups, merge, discard, discardDropped, runsRead, runsHeld, findingsHeld, cases, counts }. Every
  * count in it is computed here, never by an agent. `stopped` is one of:
  *
  *   refused     an argument did not hold; `why` names it, and no agent ran
@@ -212,12 +212,28 @@ export const meta = {
  * session alike (asdlc-openspec-lzr). A worktree an agent leaves is not removed when it ends, changed
  * or not, and `mise run worktree:gc` proves no branch the review rejected or reworded contained in
  * `origin/main`, so on its own it keeps such a worktree for good (asdlc-openspec-dss). `discard` lists
- * every group whose report names a branch, with its `id`, `branch` and `status`, merged or not: the
- * session removes each worktree and branch with `mise run worktree:gc --discard <branch>` once it has
- * merged `merge` into its own (`.claude/agents/continuous-prompt-improvement.md` § 6), which carries a
- * merged group's commits on. A group whose agent died names no branch and is not listed. The
- * skeptics and the readers run where the session does, in the review worktree, and read each branch
- * there; the readers run that worktree's `scripts/prompt-case-texts.mjs`. The answers need the agent
+ * each branch a group's report names, merged or not, with the `id` and `status` of the first group
+ * that names it: the session removes each worktree and branch with
+ * `mise run worktree:gc --discard <branch>` once it has merged `merge` into its own
+ * (`.claude/agents/continuous-prompt-improvement.md` § 6), which carries a merged group's commits on.
+ * A group whose agent died names no branch and is not listed.
+ *
+ * The branch is the report's word. This script assigns no branch: `agent()` returns the report alone,
+ * and Claude Code names the worktree. A report naming another lane's branch would have that lane
+ * removed with no proof its work is anywhere, so a branch no file agent of this run could have been
+ * given goes to `discardDropped` instead, with the same three fields and a `why`, and the log names
+ * it. One is a branch not of a workflow agent's shape, `agent/wf_<run>-<n>`, as a fan-out lane's
+ * `agent/agent-<hex>` or a change's is not; `docs/decisions.md` § D-08 records one such branch,
+ * `agent/wf_55659cd9-cb4-1`. The other is one whose run part, `wf_` and what follows up to the first
+ * dash, no more than half the branches of that shape share, since every file agent of one run is
+ * given a branch of that run. Where it loses: a lone group naming another run's workflow agent branch
+ * has nothing to be compared with, and that branch is discarded; and an honest group outvoted, or
+ * tied one against one, keeps its worktree, which the sweep then keeps for good, as before
+ * asdlc-openspec-dss. The branch review of the fan-out sweep of 2026-10-04 found the gap before any
+ * run did.
+ *
+ * The skeptics and the readers run where the session does, in the review worktree, and read each
+ * branch there; the readers run that worktree's `scripts/prompt-case-texts.mjs`. The answers need the agent
  * `prompt-case-answerer` in the checkout the session started in, the primary checkout for a review
  * `close-prompt-run` launched (`.claude/README.md`): where it is absent, every answer returns
  * nothing, and every branch whose files have a stored case is `regressed`. An
@@ -241,6 +257,8 @@ const CONSOLIDATION_SEVERITY = 'blocker'
 /** The severity whose skeptic count judges an unstated edit: a consolidation's, as the header says why. */
 const UNSTATED_SEVERITY = CONSOLIDATION_SEVERITY
 const PROVISIONED = 'agent/'
+/** A workflow agent's branch, `agent/wf_<run>-<n>`, its first group the run part `wf_<run>`, as the header's NEEDS gives it. */
+const WORKFLOW_BRANCH = /^agent\/(wf_[^-/]+)-./
 const JUDGED = '`.claude/agents/continuous-prompt-improvement.md` § How a file is judged'
 const CONSOLIDATED = '`.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated'
 const KEY = /^(.+)#([a-z0-9][a-z0-9-]*)$/
@@ -783,7 +801,7 @@ const voteLine = (c) => `${c.upheld} upheld, ${c.refuted} refuted and ${c.skepti
 const badArgs = argsProblem()
 if (badArgs) {
   log(`Refused: ${badArgs}`)
-  return { stopped: 'refused', why: badArgs, groups: [], merge: [], discard: [], runsRead: [], runsHeld: [], findingsHeld: [], cases: [], counts: null }
+  return { stopped: 'refused', why: badArgs, groups: [], merge: [], discard: [], discardDropped: [], runsRead: [], runsHeld: [], findingsHeld: [], cases: [], counts: null }
 }
 
 phase('Review')
@@ -991,14 +1009,27 @@ const counts = {
   regressed: count('regressed'),
 }
 const merge = groups.filter((g) => g.status === 'merge').map((g) => g.branch.trim())
-/** Every group's branch the session removes, merged or not, as the header says. */
-const discard = groups.filter((g) => g.branch?.trim()).map((g) => ({ id: g.id, branch: g.branch.trim(), status: g.status }))
+/** Each branch a group's report names, the run part of a workflow agent's, and its group. */
+const named = groups.filter((g) => g.branch?.trim()).map((g) => ({ id: g.id, branch: g.branch.trim(), status: g.status, run: WORKFLOW_BRANCH.exec(g.branch.trim())?.[1] }))
+const shaped = named.filter((d) => d.run)
+/** The branches the session removes, merged or not, and those it must not, with why, as the header says. */
+const discard = []
+const discardDropped = []
+for (const d of named) {
+  if ([...discard, ...discardDropped].some((o) => o.branch === d.branch)) continue
+  const share = shaped.filter((o) => o.run === d.run).length
+  const why = !d.run ? "it is no workflow agent's branch" : share * 2 <= shaped.length ? `only ${share} of ${shaped.length} groups name ${d.run}` : null
+  const entry = { id: d.id, branch: d.branch, status: d.status }
+  if (why) discardDropped.push({ ...entry, why })
+  else discard.push(entry)
+}
+if (discardDropped.length) log(`Not discarded: ${discardDropped.map((d) => `${d.branch} (${d.why})`).join('; ')}`)
 const cases = caseResults
 
 if (counts.died === counts.groups) {
   const why = 'every agent returned nothing, so no file was reviewed and every run stays pending'
   log(`Stopped (agent-died): ${why}`)
-  return { stopped: 'agent-died', why, groups, merge, discard, runsRead, runsHeld, findingsHeld, cases, counts }
+  return { stopped: 'agent-died', why, groups, merge, discard, discardDropped, runsRead, runsHeld, findingsHeld, cases, counts }
 }
 /** The clause of `why` for the `of` items of one kind the skeptics judged, or none where there were none. */
 const judgedClause = (upheld, of, what, skeptics) => (of ? `; ${upheld} of ${of} ${what} upheld by ${skeptics} skeptic(s)` : '')
@@ -1009,4 +1040,4 @@ const caseClause = counts.cases
   : ''
 const why = `${counts.merge} to merge, ${counts.unchanged} unchanged, ${counts.notUpheld} not upheld, ${counts.refused} refused, ${counts.died} died; ${counts.upheld} of ${counts.changes} change(s) upheld by ${counts.skeptics} skeptic(s)${consolidationClause}${unstatedClause}${caseClause}; ${counts.runsRead} of ${counts.runs} run(s) read, ${counts.findingsHeld} finding(s) held`
 log(`Stopped (done): ${why}`)
-return { stopped: 'done', why, groups, merge, discard, runsRead, runsHeld, findingsHeld, cases, counts }
+return { stopped: 'done', why, groups, merge, discard, discardDropped, runsRead, runsHeld, findingsHeld, cases, counts }
