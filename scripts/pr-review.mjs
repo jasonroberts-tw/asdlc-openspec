@@ -119,13 +119,13 @@
  *
  * NEEDS. `mark`, `wait`, `next` and `act` need `gh` with a token that can read pull requests and
  * commit statuses and, for `act`, write pull requests, and for `mark`, `next` and `act`, write commit
- * statuses; from a session, that is the person's own `gh` login. `act` and `evidence` need git with `origin` fetchable and its whole
- * history (`fetch-depth: 0`). `evidence` also needs the packages `tools/harness/harness.ts` imports,
- * `js-yaml` and `smol-toml`, which it loads only when it runs, so `act` needs none. `brief --local`
- * needs git, `bd` with the tracker cloned and those packages, and no `gh`. All of them need the
- * network, which is why none is a pre-push job or a `verify.yml` step (`CLAUDE.md` § The gate
- * ladder). `pr-review:check` and `pr-review:selftest` read only committed files, `js-yaml` and,
- * through `scripts/lib/tasks.mjs`, `smol-toml`, and are both.
+ * statuses; from a session, that is the person's own `gh` login. `act` and `evidence` need git with
+ * `origin` fetchable and its whole history (`fetch-depth: 0`). `evidence` also needs the packages
+ * `tools/harness/harness.ts` imports, `js-yaml` and `smol-toml`, which it loads only when it runs, so
+ * `act` needs none. `brief --local` needs git, `bd` with the tracker cloned and those packages, and
+ * no `gh`. All of them need the network, which is why none is a pre-push job or a `verify.yml` step
+ * (`CLAUDE.md` § The gate ladder). `pr-review:check` and `pr-review:selftest` read only committed
+ * files, `js-yaml` and, through `scripts/lib/tasks.mjs`, `smol-toml`, and are both.
  */
 import { execFileSync } from 'node:child_process'
 import {

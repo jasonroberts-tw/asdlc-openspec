@@ -1,6 +1,6 @@
 ---
 name: change-finalize
-description: Land a verified change - rebase, archive it into the living spec, open the pull request, and once the pull-request reviewer (or a person) has merged it, clean up its worktree and branch, and close its epic once its acceptance criteria are checked. Use after change-verify, when asked to finalize, archive, ship or merge a change.
+description: Land a verified change - rebase, archive it into the living spec, open the pull request, and once the pull-request reviewer (or a person) has merged it and open-pr has removed its worktree and branch, close its epic once its acceptance criteria are checked. Use after change-verify, when asked to finalize, archive, ship or merge a change.
 ---
 
 Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.

@@ -123,7 +123,7 @@ worktree cleans up once it leaves that one, naming each merged worktree with its
 2. Run `git fetch origin`, then `mise run worktree:gc --dry-run --finished <worktree>`. The sweep is
    not this worktree's alone (`scripts/prune-worktree-branches.mjs`). If the dry run names this
    worktree alone, run it again without `--dry-run`; if it names others, only on the user's word,
-   and with no user, report them.
+   and with no user, report them. One that keeps this worktree is reported with the reason it gives.
 3. If `git ls-remote --heads origin <branch>` prints the branch, run
    `git push origin --delete <branch>`.
 

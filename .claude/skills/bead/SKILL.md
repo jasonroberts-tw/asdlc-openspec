@@ -1,6 +1,6 @@
 ---
 name: bead
-description: Work one or more issues from the task store end to end - verify the premise, claim, implement, gate, open the pull request, close on green. Use when asked to work, pick up or finish an issue.
+description: Work one or more issues from the task store end to end - verify the premise, claim, implement, gate, open the pull request, close once it merges. Use when asked to work, pick up or finish an issue.
 ---
 
 Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
