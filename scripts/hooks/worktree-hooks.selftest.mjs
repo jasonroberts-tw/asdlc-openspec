@@ -1152,6 +1152,179 @@ check(
 )
 
 /* --------------------------------------------------------------------------------------------- *
+ * prune-worktree-branches: the trunk remote's branches, with --remote (asdlc-openspec-jbi4).
+ *
+ * A pushed agent/* branch whose commits another branch's pull request carried is never a pull
+ * request's head, so GitHub never deletes it, and the sweep listed `refs/heads/` alone, so it never
+ * saw one with no local copy. The remote here is a fixture BARE repository under the temporary
+ * directory, so every deletion lands there. `landed` is the incident's shape: pushed, its commit
+ * landed on the trunk with a new hash, and no local copy. Each refusal is asserted by its reason:
+ * `pending` has a commit not upstream, `release` and `main` are protected, `held` is checked out by
+ * a kept worktree, and `raced` moved on the remote to a tip this repository never fetched. A stub
+ * `git` then reports `raced` at its old tip, as a push landing between the read and the deletion
+ * leaves it, and the lease refuses the deletion. The undoctored control is the run the
+ * `WorktreeRemove` hook makes, with no --remote, which must neither read nor change the remote.
+ * --------------------------------------------------------------------------------------------- */
+console.log("prune-worktree-branches: the trunk remote's branches, with --remote")
+const rbRoot = mkdtempSync(join(tmpdir(), 'wt-gc-remote-'))
+const rbBare = join(rbRoot, 'remote.git')
+const rbPrimary = join(rbRoot, 'primary')
+execFileSync('git', ['init', '-q', '--bare', '-b', 'main', rbBare], { env: GIT_ENV, encoding: 'utf8' })
+execFileSync('git', ['init', '-q', '-b', 'main', rbPrimary], { env: GIT_ENV, encoding: 'utf8' })
+/** Commit `file` holding `text` in the checkout `cwd`; the new commit's SHA. */
+const rbCommit = (cwd, file, text, msg) => {
+  writeFileSync(join(cwd, file), text)
+  git(cwd, 'add', file)
+  git(cwd, ...AS, 'commit', '-qm', msg)
+  return git(cwd, 'rev-parse', 'HEAD').trim()
+}
+/** The tip of `refs/heads/<b>` on the fixture remote, or `null` once it is gone. */
+const onRemote = (b) => {
+  try {
+    return git(rbBare, 'rev-parse', '--verify', '--quiet', `refs/heads/${b}`).trim()
+  } catch {
+    return null
+  }
+}
+rbCommit(rbPrimary, 'base.txt', 'base\n', 'base')
+git(rbPrimary, 'remote', 'add', 'origin', rbBare)
+git(rbPrimary, 'checkout', '-q', '-b', 'agent/landed')
+const rbLanded = rbCommit(rbPrimary, 'landed.txt', 'landed\n', 'work another pull request carried')
+git(rbPrimary, 'checkout', '-q', '-b', 'agent/pending', 'main')
+rbCommit(rbPrimary, 'pending.txt', 'pending\n', 'work still in flight')
+git(rbPrimary, 'checkout', '-q', 'main')
+// The trunk moves on, then gains `landed`'s commit with a new hash, as a rebase merge gives it.
+rbCommit(rbPrimary, 'trunk.txt', 'trunk\n', 'the trunk moves on')
+git(rbPrimary, ...AS, 'cherry-pick', 'agent/landed')
+const rbTrunk = git(rbPrimary, 'rev-parse', 'HEAD').trim()
+// Every branch but `landed` and `pending` is pushed at the trunk commit, so only its name or a
+// guard keeps it.
+const rbRefspecs = [
+  'main:refs/heads/main',
+  'agent/landed:refs/heads/agent/landed',
+  'agent/pending:refs/heads/agent/pending',
+  'main:refs/heads/release',
+  'main:refs/heads/feature/human',
+  'main:refs/heads/agent/held',
+  'main:refs/heads/agent/raced',
+]
+const rbPushed = rbRefspecs.map((spec) => spec.slice(spec.indexOf(':refs/heads/') + ':refs/heads/'.length))
+git(rbPrimary, 'push', '-q', 'origin', ...rbRefspecs)
+git(rbPrimary, 'branch', '-D', 'agent/landed', 'agent/pending')
+git(rbPrimary, 'worktree', 'add', '-q', '-b', 'agent/held', join(rbPrimary, '.claude', 'worktrees', 'held'), 'main')
+// Another clone moves `raced` on to a commit this repository never fetches.
+const rbOther = join(rbRoot, 'other')
+execFileSync('git', ['clone', '-q', '-b', 'agent/raced', rbBare, rbOther], { env: GIT_ENV, encoding: 'utf8' })
+const rbRaced = rbCommit(rbOther, 'raced.txt', 'raced\n', 'pushed after the sweep read the remote')
+git(rbOther, 'push', '-q', 'origin', 'agent/raced')
+check(
+  'the fixture: landed is no ancestor of the trunk, so only its patches can clear it',
+  git(rbPrimary, 'cherry', 'origin/main', rbLanded).startsWith('-') &&
+    rbPushed.every((b) => onRemote(b) !== null) &&
+    onRemote('agent/raced') === rbRaced,
+)
+const rbRun = (...extra) => runGcWith({ liveness: 'none', repo: rbPrimary }, ...extra)
+const LANDED_LINE = `origin/agent/landed  ${rbLanded.slice(0, 8)}  (all 1 patch(es) already in origin/main)`
+
+const rbControl = rbRun()
+check(
+  'control: without --remote, as the WorktreeRemove hook runs it, the remote is neither read nor changed',
+  !/^ {2}(?:remote|kept \d+ remote|would delete \d+ remote|deleted \d+ remote)/m.test(rbControl) &&
+    !rbControl.startsWith('EXIT') &&
+    rbPushed.every((b) => onRemote(b) !== null),
+  rbControl.slice(0, 900),
+)
+
+const rbPreview = rbRun('--remote', '--dry-run')
+check(
+  '--dry-run reports the remote branch it would delete, by its proof',
+  rbPreview.includes(`  remote origin: ${rbPushed.length} branch(es) listed\n`) &&
+    rbPreview.includes('  would delete 1 remote branch(es) whose work is already in origin/main:\n') &&
+    rbPreview.includes(`    ${LANDED_LINE}\n`),
+  rbPreview.slice(0, 1500),
+)
+check('and deletes none', rbPushed.every((b) => onRemote(b) !== null), rbPreview.slice(0, 1500))
+
+git(rbPrimary, 'remote', 'set-url', 'origin', join(rbRoot, 'nowhere.git'))
+const rbUnreachable = rbRun('--remote')
+git(rbPrimary, 'remote', 'set-url', 'origin', rbBare)
+check(
+  'an unreachable remote deletes no remote branch, says why, and the run does not fail',
+  /^ {2}remote origin: not read \(fatal: .*does not appear to be a git repository\), so no remote branch is deleted$/m.test(
+    rbUnreachable,
+  ) &&
+    !rbUnreachable.startsWith('EXIT') &&
+    onRemote('agent/landed') === rbLanded,
+  rbUnreachable.slice(0, 1500),
+)
+
+const rbSwept = rbRun('--remote')
+check(
+  'a remote branch whose patches are upstream is deleted, by that proof',
+  onRemote('agent/landed') === null &&
+    rbSwept.includes('  deleted 1 remote branch(es) whose work is already in origin/main:\n') &&
+    rbSwept.includes(`    ${LANDED_LINE}\n`),
+  rbSwept.slice(0, 1500),
+)
+const rbLog = join(rbPrimary, '.git', 'worktree-gc.log')
+check(
+  'and logged, with its restore command',
+  existsSync(rbLog) &&
+    readFileSync(rbLog, 'utf8').includes(` ${rbLanded} origin/agent/landed\n`) &&
+    rbSwept.includes('  restore any of them with:  git push origin <sha>:refs/heads/<branch>\n'),
+  rbSwept.slice(0, 1500),
+)
+for (const [label, branch, reason] of [
+  ['a remote branch with a commit not upstream', 'agent/pending', '1 of 1 commit(s) not in origin/main'],
+  ['a protected remote branch', 'release', 'a protected branch'],
+  ['the trunk itself', 'main', 'a protected branch'],
+  [
+    'a remote branch a kept worktree has checked out',
+    'agent/held',
+    `checked out by .claude/worktrees/held (HEAD moved 0.0h ago, under worktreeGcMinAgeHours (${MIN_AGE}))`,
+  ],
+  [
+    'a remote branch whose tip this repository never fetched',
+    'agent/raced',
+    `tip ${rbRaced.slice(0, 8)} is not in this repository; fetch it first`,
+  ],
+]) {
+  check(
+    `${label} is kept, by its reason`,
+    onRemote(branch) !== null && rbSwept.includes(`    origin/${branch}  -- ${reason}\n`),
+    rbSwept.slice(0, 1500),
+  )
+}
+check(
+  'a human branch is neither touched nor reported',
+  onRemote('feature/human') !== null && !rbSwept.includes('feature/human'),
+  rbSwept.slice(0, 1500),
+)
+
+// THE LEASE. A stub `git` first on PATH answers `ls-remote` with `raced` at the trunk commit it was
+// pushed at, which the sweep proves contained; the remote holds the newer commit, so the deletion
+// must be refused by git's lease, by its reason, and the newer commit must survive.
+const rbStubDir = mkdtempSync(join(tmpdir(), 'wt-gc-remote-git-'))
+const realGit = execFileSync('sh', ['-c', 'command -v git'], { env: GIT_ENV, encoding: 'utf8' }).trim()
+writeFileSync(
+  join(rbStubDir, 'git'),
+  `#!/bin/sh\nif [ "$3" = ls-remote ]; then printf '%s\\trefs/heads/agent/raced\\n' '${rbTrunk}'; exit 0; fi\nexec '${realGit}' "$@"\n`,
+  { mode: 0o755 },
+)
+const rbRacedRun = runGcWith(
+  { liveness: 'none', repo: rbPrimary, path: rbStubDir + delimiter + process.env.PATH },
+  '--remote',
+)
+check(
+  'a remote branch that moved after the read is kept, by the lease refusing its deletion',
+  onRemote('agent/raced') === rbRaced &&
+    rbRacedRun.includes(
+      '    origin/agent/raced  -- git push --delete refused it: ! [rejected] (delete) -> agent/raced (stale info)\n',
+    ),
+  rbRacedRun.slice(0, 1500),
+)
+
+/* --------------------------------------------------------------------------------------------- *
  * render-worktree-context: the briefing a new worktree opens with.
  *
  * THE GAP (asdlc-openspec-pb2). This job's glob names the template and its renderer, and until

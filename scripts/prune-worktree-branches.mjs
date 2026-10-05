@@ -5,6 +5,7 @@
  *
  *   node scripts/prune-worktree-branches.mjs [--dry-run] [--trunk <ref>] [--repo <path>]
  *                                            [--finished <worktree>]... [--discard <branch>]...
+ *                                            [--remote]
  *   mise run worktree:gc [--finished <worktree>] [--discard <branch>]
  *
  * THE TWO DEFECTS THIS PREVENTS.
@@ -165,6 +166,36 @@
  *   - `main`, `release`, and anything not named `agent/*` or `worktree-*`. Human branches are
  *     not this script's business and prefix is how it knows.
  *
+ * THE REMOTE SWEEP, with `--remote`, and the defect it closes. GitHub deletes a merged pull request's
+ * head, and nothing else. A pushed `agent/*` branch whose commits another branch's pull request
+ * carried is never a head, so it stays on the remote after its work lands and reads as unmerged. On
+ * 2026-10-03 `origin/agent/agent-acda051f901800f34` held asdlc-openspec-j09.7's seven commits. They
+ * had reached `main` on 2026-09-29 as `1644e81` to `8b4db6c`, through pull request #70, whose head was
+ * another branch built on them. The rebase merge rewrote their hashes, and every patch was upstream.
+ * This sweep never saw the branch, because it listed `refs/heads/` alone and the branch had no local
+ * copy (asdlc-openspec-jbi4). With `--remote` it reads the branches of the trunk's remote, `origin`
+ * of `origin/main`, with `git ls-remote`, and deletes an `agent/*` or `worktree-*` one when one of
+ * the three proofs above clears the tip the remote reports. A protected branch is kept and reported;
+ * a branch of any other name is passed over unreported, as above. A tip this repository lacks is
+ * kept until a fetch brings it, as is a branch a kept worktree has checked out. The deletion is
+ * `git push --force-with-lease=refs/heads/<branch>:<tip> <remote> --delete refs/heads/<branch>`, so a
+ * push that lands between the proof and the deletion makes git refuse it, and the branch is kept,
+ * reported with git's reason. An unreachable remote deletes nothing: the report says why, and the run
+ * still exits 0, as proof 2 treats `gh`. `--dry-run` still reads the remote, and deletes nothing.
+ * A deletion is logged as `<sha> <remote>/<branch>` in the log below, and
+ * `git push <remote> <sha>:refs/heads/<branch>` puts the branch back.
+ * `mise run worktree:gc` passes `--remote`; the `WorktreeRemove` hook does not, so no teardown waits
+ * on the network or deletes a remote branch. That is also why the remote read has no timeout: an
+ * operator's run waits on a hung connection as long as git does. A missing trunk skips this sweep too.
+ *
+ * Where the remote sweep loses. It deletes the head of an OPEN pull request whose commits are all in
+ * the trunk, and GitHub then closes that pull request; no commit is lost, but the pull request's page
+ * no longer shows it as open. It deletes a branch a session in another clone is still pushing to,
+ * when every commit there is upstream. That session's next plain push recreates it, but its
+ * `--force-with-lease` push with no expected value is refused as stale info while its clone's
+ * tracking ref still names the deleted tip, until `git fetch --prune` drops that ref. And it deletes
+ * from whichever checkout runs it, a linked worktree included.
+ *
  * Deletions are logged to `<git-common-dir>/worktree-gc.log` as `<sha> <branch>` with a timestamp,
  * and the same restore command is printed. A deleted branch was provably contained in the trunk, so
  * its content is not gone; the log is there so the REF can be put back with one command anyway. A
@@ -194,6 +225,7 @@ import { readPolicy } from '../tools/lib/policy.ts'
 
 const argv = process.argv.slice(2)
 let dryRun = false
+let sweepRemote = false
 let trunkArg = null
 let repoArg = null
 /** What each `--finished` named, as given: a worktree's directory name or its path. */
@@ -204,6 +236,7 @@ const discardArgs = []
 for (let i = 0; i < argv.length; i += 1) {
   const arg = argv[i]
   if (arg === '--dry-run' || arg === '-n') dryRun = true
+  else if (arg === '--remote') sweepRemote = true
   else if (arg === '--trunk') trunkArg = argv[(i += 1)]
   else if (arg === '--repo') repoArg = argv[(i += 1)]
   else if (arg === '--finished') {
@@ -223,7 +256,7 @@ for (let i = 0; i < argv.length; i += 1) {
   } else if (arg === '--help' || arg === '-h') {
     console.log(
       'usage: prune-worktree-branches.mjs [--dry-run] [--trunk <ref>] [--repo <path>] [--finished <worktree>]...\n' +
-        '                                   [--discard <branch>]...\n' +
+        '                                   [--discard <branch>]... [--remote]\n' +
         '\n' +
         '  --dry-run   report what would be removed and change nothing\n' +
         '  --trunk     the ref that proves containment (default origin/main, or $TRUNK_BRANCH)\n' +
@@ -234,7 +267,8 @@ for (let i = 0; i < argv.length; i += 1) {
         '  --discard   an agent branch the caller has taken what it wants from, merged, picked or\n' +
         '              rejected: its worktree removed and the branch deleted, contained in the trunk\n' +
         '              or not and without waiting, once every other condition holds; its tip is\n' +
-        '              logged; repeatable',
+        '              logged; repeatable\n' +
+        "  --remote    also delete the trunk remote's agent branches the same proofs clear",
     )
     process.exit(0)
   } else {
@@ -872,6 +906,128 @@ if (!trunkMissing) {
 }
 
 /* ============================================================================================= *
+ * Sweep D -- the trunk remote's branches whose work is already in the trunk (`--remote`)
+ * ============================================================================================= */
+
+/**
+ * `{ ok, out, said }` for a git call that talks to the remote: `said` is the line of git's stderr
+ * the report quotes when the call fails, past the `To <url>` line a push opens with.
+ */
+function gitRemote(args) {
+  try {
+    const out = execFileSync('git', ['-C', CWD, ...args], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return { ok: true, out: out.trim(), said: '' }
+  } catch (err) {
+    const lines = String(err.stderr ?? '')
+      .split('\n')
+      .map((line) => line.trim().replace(/\s+/g, ' '))
+      .filter((line) => line !== '' && !line.startsWith('To '))
+    return { ok: false, out: '', said: lines[0] ?? `git exited ${err.status ?? err.code}` }
+  }
+}
+
+const remoteDeleted = []
+const remoteKept = []
+/** The report's lines for this sweep, printed after the local branches'. */
+const remoteReport = []
+
+if (sweepRemote) {
+  // `origin` of `origin/main`. A trunk that is not a remote branch has no remote to sweep.
+  const slash = TRUNK.indexOf('/')
+  const remote = slash > 0 ? TRUNK.slice(0, slash) : null
+  let why = null
+  let listing = null
+  if (trunkMissing) why = 'the trunk is missing'
+  else if (remote === null) why = `trunk ${TRUNK} is not a remote branch`
+  else if (!(gitOut(['remote']) ?? '').split('\n').includes(remote)) why = `no remote ${remote}`
+  else {
+    listing = gitRemote(['ls-remote', '--heads', remote])
+    if (!listing.ok) why = listing.said
+  }
+  if (why !== null) {
+    remoteReport.push(
+      `  remote${remote === null ? '' : ` ${remote}`}: not read (${why}), so no remote branch is deleted`,
+    )
+  } else {
+    const heads = listing.out
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => line.split('\t'))
+      .filter(([, ref]) => ref?.startsWith('refs/heads/'))
+      .map(([sha, ref]) => ({ sha, branch: ref.slice('refs/heads/'.length) }))
+      .sort((a, b) => (a.branch < b.branch ? -1 : a.branch > b.branch ? 1 : 0))
+    remoteReport.push(`  remote ${remote}: ${heads.length} branch(es) listed`)
+    for (const { sha, branch } of heads) {
+      const shown = `${remote}/${branch}`
+      if (PROTECTED.has(branch)) {
+        remoteKept.push({ shown, reason: 'a protected branch' })
+        continue
+      }
+      if (!OWNED(branch)) continue
+      if (!gitOk(['cat-file', '-e', `${sha}^{commit}`])) {
+        remoteKept.push({ shown, reason: `tip ${sha.slice(0, 8)} is not in this repository; fetch it first` })
+        continue
+      }
+      const holder = heldBy.get(branch)
+      if (holder !== undefined) {
+        remoteKept.push({
+          shown,
+          reason: `checked out by ${shortPath(holder.wt.path)} (${holder.reason})`,
+        })
+        continue
+      }
+      const verdict = containment(sha)
+      if (!verdict.contained) {
+        remoteKept.push({ shown, reason: verdict.reason })
+        continue
+      }
+      if (!dryRun) {
+        // The lease: a push that moved the branch since `ls-remote` read it makes git refuse this.
+        const push = gitRemote([
+          'push',
+          `--force-with-lease=refs/heads/${branch}:${sha}`,
+          remote,
+          '--delete',
+          `refs/heads/${branch}`,
+        ])
+        if (!push.ok) {
+          remoteKept.push({ shown, reason: `git push --delete refused it: ${push.said}` })
+          continue
+        }
+      }
+      remoteDeleted.push({ shown, sha, proof: verdict.proof })
+    }
+    if (remoteDeleted.length > 0) {
+      remoteReport.push(
+        `  ${dryRun ? 'would delete' : 'deleted'} ${remoteDeleted.length} remote branch(es) whose work is already in ${TRUNK}:`,
+      )
+      for (const { shown, sha, proof } of remoteDeleted) {
+        remoteReport.push(`    ${shown}  ${sha.slice(0, 8)}  (${proof})`)
+      }
+      if (!dryRun) {
+        remoteReport.push(`  restore any of them with:  git push ${remote} <sha>:refs/heads/<branch>`)
+        const stamp = new Date().toISOString()
+        try {
+          appendFileSync(
+            join(COMMON_DIR, 'worktree-gc.log'),
+            remoteDeleted.map(({ shown, sha }) => `${stamp} ${sha} ${shown}\n`).join(''),
+          )
+        } catch {
+          /* the log is a convenience; losing it must not fail the sweep */
+        }
+      }
+    }
+    if (remoteKept.length > 0) {
+      remoteReport.push(`  kept ${remoteKept.length} remote branch(es):`)
+      for (const { shown, reason } of remoteKept) remoteReport.push(`    ${shown}  -- ${reason}`)
+    }
+  }
+}
+
+/* ============================================================================================= *
  * Report
  * ============================================================================================= */
 
@@ -950,6 +1106,7 @@ if (kept.length > 0) {
   console.log(`  kept ${kept.length} branch(es):`)
   for (const { branch, reason } of kept) console.log(`    ${branch}  -- ${reason}`)
 }
+for (const line of remoteReport) console.log(line)
 
 const keysAfter = dryRun ? keysBefore : branchKeyCount()
 if (dryRun) {
@@ -957,6 +1114,11 @@ if (dryRun) {
 } else {
   console.log(`  branch.* config keys: ${keysBefore} -> ${keysAfter}`)
 }
-if (orphans.length === 0 && removedWorktrees.length === 0 && deleted.length === 0) {
+if (
+  orphans.length === 0 &&
+  removedWorktrees.length === 0 &&
+  deleted.length === 0 &&
+  remoteDeleted.length === 0
+) {
   console.log('  nothing to collect')
 }
