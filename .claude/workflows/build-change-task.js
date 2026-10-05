@@ -320,7 +320,7 @@ const KIND_RULE = [
   '- The code as it stands breaks the sentence: defect.',
   "- Only a known-wrong implementation, a mutant, breaks it: when no scenario is about that sentence, coverage-gap; when a faithful test of the scenario would fail the mutant but the task's own test passes it, defect, because the task's proof does not prove its scenario; " +
     'otherwise, the kind ' + ROUTES + ' gives it.',
-  '- A behaviour the delta specs leave undecided so that the build had to choose, or anything § 5 calls a spec that is wrong: spec-contradiction. Code that gets a behaviour right where no scenario speaks is never one.',
+  '- A behaviour the delta specs leave undecided so that the build had to choose, or anything § 5 calls a spec that is wrong: spec-contradiction.',
   '- A real defect in a file or a task this task does not own: out-of-scope. Work this change needs that no task of its plan covers: unplanned.',
   'Grade a finding blocker or major when it breaks a scenario or an acceptance criterion, and minor when it is real but small. Report nothing that is a matter of taste.',
   'Where each kind goes is ' + ROUTES + '; the parent session routes it, not you.',
@@ -330,7 +330,7 @@ function rules() {
   return [
     `You are working in the git worktree ${A.worktree}, on branch ${A.branch}, on task ${A.task.id} of the product change ${A.change}. Its delta specs, and its design where it has one, are under openspec/changes/${A.change}/.`,
     'Rules for this run, on top of CLAUDE.md and .worktree/CONTEXT.md:',
-    '- Stay inside the worktree. Do not commit, push, stash, reset or switch branches, and write nothing to the tracker: the parent session commits and closes the task.',
+    '- Do not commit, push, stash, reset or switch branches, and write nothing to the tracker: the parent session commits and closes the task.',
     `- Never edit anything under openspec/changes/${A.change}/. Where the specs or the design cannot be followed as written, report a spec-contradiction rather than coding around it.`,
     '- Use no Node API or syntax newer than the engines floor in package.json, and match the style of the files beside the one you edit.',
     '- Throwaway files go under .scratch/ only.',
@@ -367,6 +367,10 @@ function findingSchema(kinds) {
     required: ['kind', 'severity', 'title', 'file', 'against', 'evidence', 'fix'],
   }
 }
+
+/** How Setup and the sweep each list the listeners, the one text both prompts carry. */
+const LISTENING =
+  'the TCP listeners on 127.0.0.1, with `lsof -nP -iTCP@127.0.0.1 -sTCP:LISTEN` on macOS or `ss -ltnpH src 127.0.0.1` on Linux: one entry per listening socket with its pid, its port and its command, as printed, and an empty list when there is none'
 
 const LISTENERS = {
   type: 'array',
@@ -695,10 +699,12 @@ const keyOf = (l) => `${String(l.pid).trim()}:${String(l.port).trim()}`
 /** Every exit after Setup: list the listeners again, and name those the run left behind. */
 async function finish(stopped, why) {
   phase('Sweep')
-  const sweep = await agent(
-    'List the TCP listeners on 127.0.0.1 now, and do nothing else: on macOS run `lsof -nP -iTCP@127.0.0.1 -sTCP:LISTEN`, on Linux `ss -ltnpH src 127.0.0.1`. Return one entry per listening socket with its pid, its port and its command, as printed. Change nothing and stop nothing.',
-    { label: 'sweep', phase: 'Sweep', schema: SWEEP_SCHEMA, effort: 'low' },
-  )
+  const sweep = await agent(`Now list ${LISTENING}. Do nothing else: change nothing and stop nothing.`, {
+    label: 'sweep',
+    phase: 'Sweep',
+    schema: SWEEP_SCHEMA,
+    effort: 'low',
+  })
   const seen = new Set(before.map(keyOf))
   const leftBehind = sweep ? sweep.listeners.filter((l) => !seen.has(keyOf(l))) : []
   if (!sweep) why += '; the sweep returned nothing, so the listeners were not checked'
@@ -1247,7 +1253,7 @@ const setup = await agent(
     `1. policyJson: node --no-warnings tools/lib/policy.ts ${POLICY_KEYS.join(' ')}`,
     '2. toplevel: git rev-parse --show-toplevel',
     '3. branch: git branch --show-current',
-    '4. listeners: the TCP listeners on 127.0.0.1, with `lsof -nP -iTCP@127.0.0.1 -sTCP:LISTEN` on macOS or `ss -ltnpH src 127.0.0.1` on Linux; one entry per listening socket with its pid, its port and its command, and an empty list when there is none.',
+    `4. listeners: ${LISTENING}.`,
     ...(A.app === undefined ? [] : [`5. inputsJson, the one line this prints: ${inputsCommand()}`]),
     '',
     'Change nothing and stop nothing.',
