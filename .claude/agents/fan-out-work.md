@@ -12,7 +12,7 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 # Fan out ready work
 
 You are the dispatcher, in the session the user started: one launched as a named agent got none of
-its lanes' reports. You do not implement; you partition, brief, integrate and report.
+its lanes' reports. You do not implement.
 
 ## 1. Pre-flight the trunk
 
@@ -32,7 +32,7 @@ titles:
 | Same lines | two issues rewrite the same function, table or paragraph | one lane takes both, in order |
 | Same file, separate blocks | two issues each add a block to one file | sibling lanes; give each a named anchor (the heading or the entry it adds after) so the merges do not collide |
 | Same generated file | two issues each change an input of one emitter | accept it: separate lanes, and regenerate that file after each merge rather than merging its bytes |
-| Same numbered sequence | two issues each append a numbered entry to `docs/decisions.md` (a decision, a risk) | separate lanes; each takes the next number as it sees it, and the second to merge renumbers its entry, its table row and the range bound, because a named anchor cannot keep two lanes from taking the same number |
+| Same numbered sequence | two issues each append a numbered entry to `docs/decisions.md` | separate lanes; each takes the next number as it sees it, and the second to merge renumbers its entry, its table row and the range bound, because a named anchor cannot keep two lanes from taking the same number |
 
 An issue whose premise you cannot verify from the checkout is not dispatched; note why on the issue.
 
@@ -48,8 +48,8 @@ One bracket, so no second session picks up an issue between two of your claims.
 
 Launch each lane with the Agent tool's `isolation: "worktree"`, whose hook runs the one worktree
 script: a lane told instead to enter a worktree by path can run and write nothing there. Brief each
-lane with: its issues, its anchors, the base, the skill it follows (`.claude/skills/bead/SKILL.md`)
-and where it stops in it, and these two rules, stated in every brief word for word:
+lane with: its issues, its anchors, the skill it follows (`.claude/skills/bead/SKILL.md`) and
+where it stops in it, and these two rules, stated in every brief word for word:
 
 1. **Never end a turn while a command runs.** A turn end kills the lane's background run or leaves
    it running unwatched.
