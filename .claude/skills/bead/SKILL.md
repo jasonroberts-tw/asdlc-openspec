@@ -131,14 +131,14 @@ Open it with the `open-pr` skill. Its body names every issue filed in step 4.
 When a review did not complete for a cause in the reviewer's own workflow, leave the issue open
 with a note naming the pull request and the issue that carries the cause.
 
-## 7. Close on green, with a reason
+## 7. Close on the merge, with a reason
 
-When every check is green, close the issue with a reason that names the pull request, passed with
-`bd close <id> --reason-file <file>`: Claude Code can refuse an inline `--reason` (step 4). If a
-person decides the merge, an issue whose criterion needs the merged change stays open, with a note
-naming the pull request, until it merges: closed sooner, it claims an unmet criterion. Whoever sees
-the merge closes it. An acceptance criterion that acts outside the repository is not performed: it
-becomes a follow-up issue labelled `human`, created with its label at creation.
+Once `open-pr` reports the merge, close the issue with a reason that names the pull request, passed
+with `bd close <id> --reason-file <file>`: Claude Code can refuse an inline `--reason` (step 4).
+Handed back unmerged, the issue stays open, with a note naming the pull request, until it merges:
+closed sooner, it claims an unmet criterion. Whoever sees the merge closes it. An acceptance
+criterion that acts outside the repository is not performed: it becomes a follow-up issue labelled
+`human`, created with its label at creation.
 
 ## 8. Report
 

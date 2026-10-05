@@ -275,7 +275,7 @@ reviewer merges a pull request off the high-risk floor (`prReviewHighRisk*` in
 (`prReviewLabels`), after which the reviewer merges it. An agent never applies that label: the
 approval is a person's, and GitHub cannot tell a person from an agent holding their credentials
 (`docs/decisions.md` § R-01). An agent opens every pull request with the `open-pr` skill, which
-holds the steps from the push to the verdict.
+holds the steps from the push to the merge.
 
 ## Prompt reviews
 

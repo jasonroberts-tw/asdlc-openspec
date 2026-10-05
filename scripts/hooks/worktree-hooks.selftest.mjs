@@ -1285,7 +1285,7 @@ check(
 )
 
 // THE FINISHED RUN, and the flags with no value (2026-10-05, the push security review of #147).
-// `change-finalize` § 8 runs `mise run worktree:gc --finished <change>` for real once its dry run
+// `open-pr` § 8 runs `mise run worktree:gc --finished <worktree>` for real once its dry run
 // names only its own worktree, which a remote line does not contradict, so it too carries the task's
 // `--remote` from an agent: `landed` must survive it. `--discard` or `--finished` with nothing after
 // it, or with a flag after it, is the caller's name left out, so the run is refused rather than made
