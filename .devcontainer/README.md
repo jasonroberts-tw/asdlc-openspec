@@ -9,15 +9,16 @@ code <repository>           # then: "Reopen in Container" when VS Code offers
 ```
 
 The first build takes several minutes and is cached afterwards. You get the toolchain the root
-`mise.toml` pins (Node, Python, `bd`, `gh`, Vale, uv and graphify), Claude Code and the tracker's
-plugin marketplace.
+`mise.toml` pins (Node, Python, `bd`, `gh`, Vale, uv and graphify), Claude Code, and the two plugins
+`.claude/settings.json` enables, `beads@beads-marketplace` and `vale@agent-tools`. The image
+registers their marketplaces, and `entrypoint.sh` installs each plugin for the clone at start.
 
 | File | What it holds |
 |---|---|
 | `Dockerfile` | Every tool, as a layer. The base image's major tag is at the top; every other version is in the root `mise.toml`, installed through `mise.lock` by the mise the Dockerfile copies in (`docs/decisions.md` § D-31), and graphify's dependencies through its uv lock under `.mise/locks/` (§ D-35). After a pin moves, rebuild. |
 | `Dockerfile.dockerignore` | What the build may read from the repository's root, its context: `mise.toml`, `mise.lock`, the uv locks under `.mise/locks/` and `entrypoint.sh`, and nothing else. |
 | `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, three bind mounts, one passthrough env var, and the one folder whose `mise.toml` mise trusts, the workspace's own. |
-| `entrypoint.sh` | The three setup steps that read the repository, which is a bind mount and does not exist at build time; a warning while a tool `mise.toml` pins is missing from the image; and a warning while Vale cannot load `.vale.ini`. |
+| `entrypoint.sh` | The three setup steps that read the repository, which is a bind mount and does not exist at build time; a warning while a tool `mise.toml` pins is missing from the image; a warning while Vale cannot load `.vale.ini`; and, where either is missing, each plugin's marketplace and its project-scope install for the clone. |
 
 ## Why the split is where it is
 
@@ -55,6 +56,11 @@ project's. `~/.claude`, `~/.claude.json` and `~/.config/gh` are bind-mounted fro
   says so, but the fix is on the host.
 - Container sessions **share** your host's Claude Code state — history, projects, plugins. The mount
   is read-write because Claude Code rewrites `.credentials.json` on token refresh.
+- A plugin's marketplace registration is shared with the host, but a project-scope install record
+  names the clone's path. The container mounts the clone under `/workspaces/<name>`, not at the
+  host's path, so `entrypoint.sh` installs both plugins for that path when no record names it, and
+  the record lands in the shared `~/.claude`. Nobody has yet tried whether the host's record alone
+  loads them in the container (`asdlc-openspec-xw8z`).
 - On a Windows host, `gh` keeps its config in `%APPDATA%\GitHub CLI`, so that mount lands empty; set
   `GH_TOKEN` before launching VS Code and `devcontainer.json` passes it through. Your git identity
   does not come across — set `user.name` and `user.email` in the container once.

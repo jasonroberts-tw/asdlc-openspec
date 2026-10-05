@@ -1,14 +1,16 @@
 # The whole "new machine setup" of README.md, baked into an image.
 #
 # Everything a person would otherwise do by hand -- the toolchain `mise.toml` pins (Node, Python,
-# `bd`, `gh`, Vale, uv and graphify), Claude Code and the tracker's plugin marketplace -- is a layer
-# here rather than a devcontainer.json `feature` or `postCreateCommand`. That is deliberate: features
-# resolve at container-create time over the network and fail differently on every machine, and a
-# `postCreateCommand` re-runs on every rebuild. A layer is built once, cached, and identical for
-# everyone. devcontainer.json next to this file does little but point at it.
+# `bd`, `gh`, Vale, uv and graphify), Claude Code and the marketplaces of the two plugins
+# `.claude/settings.json` enables -- is a layer here rather than a devcontainer.json `feature` or
+# `postCreateCommand`. That is deliberate: features resolve at container-create time over the
+# network and fail differently on every machine, and a `postCreateCommand` re-runs on every
+# rebuild. A layer is built once, cached, and identical for everyone. devcontainer.json next to this
+# file does little but point at it.
 #
-# The only steps NOT in a layer are the three that need the repository itself, which is a bind mount
-# that does not exist at build time: `npm ci`, the git hooks, and hydrating the issue database.
+# The only steps NOT in a layer are the four that need the repository itself, which is a bind mount
+# that does not exist at build time: `npm ci`, the git hooks, hydrating the issue database, and
+# installing those two plugins, whose project-scope install record names the clone's path.
 # Those live in entrypoint.sh, which this file copies in and wires to ENTRYPOINT -- so the setup is
 # still owned by the image, and devcontainer.json still has no lifecycle command in it.
 #
@@ -73,10 +75,10 @@ RUN git config --system --add safe.directory '*' \
     && git config --system core.autocrlf input
 
 # --- workspace setup, deferred to container start ------------------------------------------------
-# npm ci, the git hooks and the issue database all read files that arrive only when the workspace is
-# mounted, so they cannot be layers. ENTRYPOINT is how they stay in the image anyway: the
-# devcontainer CLI replaces the container's *command* with a sleep, and leaves the image's
-# entrypoint alone.
+# npm ci, the git hooks, the issue database and the plugins' install records all need the workspace,
+# which arrives only when it is mounted, so they cannot be layers. ENTRYPOINT is how they stay in the
+# image anyway: the devcontainer CLI replaces the container's *command* with a sleep, and leaves the
+# image's entrypoint alone.
 COPY .devcontainer/entrypoint.sh /usr/local/bin/workspace-entrypoint
 RUN chmod 0755 /usr/local/bin/workspace-entrypoint
 
@@ -115,13 +117,16 @@ RUN MISE_TRUSTED_CONFIG_PATHS=/tmp/toolchain mise -C /tmp/toolchain install --lo
 RUN curl -fsSL https://claude.ai/install.sh | bash \
     && claude --version
 
-# .claude/settings.json (committed) enables `beads@beads-marketplace`, but the marketplace itself is
-# a per-user registration, and without it the beads skills do not show up. Non-fatal, and
-# belt-and-braces: an image build that cannot reach GitHub should still produce a working container,
-# and devcontainer.json's ~/.claude mount hides this copy whenever it is present. entrypoint.sh asks
-# `claude plugin marketplace list` at start and adds it if whatever ended up at ~/.claude does not
-# have it.
-RUN claude plugin marketplace add gastownhall/beads || true
+# .claude/settings.json (committed) enables `beads@beads-marketplace` and `vale@agent-tools`, and
+# each marketplace is a per-user registration, which this layer makes. Registration alone loads
+# neither plugin: Claude Code also needs an install record for each, and a project-scope record
+# names the clone's path, which does not exist at build time, so entrypoint.sh installs both at
+# start (asdlc-openspec-7us). Non-fatal, and belt-and-braces: an image build that cannot reach
+# GitHub should still produce a working container, and devcontainer.json's ~/.claude mount hides
+# this copy whenever it is present. entrypoint.sh asks `claude plugin marketplace list` at start and
+# adds each marketplace that whatever ended up at ~/.claude does not have.
+RUN claude plugin marketplace add gastownhall/beads || true; \
+    claude plugin marketplace add vale-cli/agent-tools || true
 
 ENTRYPOINT ["/usr/local/bin/workspace-entrypoint"]
 CMD ["sleep", "infinity"]
