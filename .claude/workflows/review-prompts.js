@@ -475,7 +475,7 @@ function reviewPrompt(g) {
     '',
     '## How to finish',
     '',
-    '- Account for every finding above by its key: each change names under finding the one it answers, and each finding you leave alone goes under notChanged with your reason.',
+    '- Account for every finding above by its key: each change names under finding the one it answers, and each finding you leave alone goes under notChanged only, with your reason; a consolidation, under consolidations only.',
     '- If nothing should change: edit nothing and commit nothing. Return the verdict unchanged.',
     '- If a file should change: make the edit, stage it with `git add`, run `mise run check:prompts` and `mise run citations:check`, fix what they report in your own files, and commit. Return the verdict changed, with each gate you ran and what it printed.',
     `- If your edit would take a file past its word budget, consolidate the file first, as ${CONSOLIDATED} says, commit that alone, and report it under consolidations.`,
@@ -630,6 +630,37 @@ function consolidationProblems(r, own, changed) {
   return problems
 }
 
+/**
+ * The entries of report `r`'s changes that are no edit, which go to no skeptic: one whose finding, of
+ * group `g`, the report also sets aside under notChanged, and one that states a consolidation of its
+ * file again, with that consolidation's net words, beside an entry with other words for its finding to
+ * that file. They are returned in the group's `notEdits`, and the report is held to the rules and
+ * judged as if they were absent, as an aside is. A finding set aside is then held with its agent's
+ * reason. A consolidation stated again is judged by its own skeptics, and its file's diff from the
+ * consolidation's commit by the other entry's. An entry with those words and no such other entry is
+ * still judged as an edit, since no other skeptic of its finding would read that diff.
+ *
+ * On 2026-10-04 (run wf_75f027e4-aad) a report set aside a finding of
+ * `.claude/worktree-CONTEXT.md.tmpl` and listed it under changes too, "No edit; see notChanged.", 0
+ * words. Its skeptic refuted the entry, and a group merges only when every change it carries is
+ * upheld, so one entry that changed nothing could keep every upheld edit of the group out. The same
+ * report stated each of its consolidations again under changes, at a skeptic each (asdlc-openspec-wzei).
+ *
+ * A set-aside entry goes to no skeptic even where it is the only entry naming its file, so an edit its
+ * branch makes there is read by no skeptic, as in any file a report lists and states no change to;
+ * that file's stored cases are still answered (asdlc-openspec-d078).
+ */
+function notEditsOf(g, r) {
+  const keys = new Set(g.findings.map((f) => f.key.trim()))
+  const aside = new Set(r.notChanged.map((n) => n.finding.trim()).filter((key) => keys.has(key)))
+  const net = (c) => {
+    const k = consolidationOf(r, c.file)
+    return k ? k.wordsAfter - k.wordsBefore : null
+  }
+  const beside = (c) => r.changes.some((o) => o.finding.trim() === c.finding.trim() && clean(o.file) === clean(c.file) && o.words !== c.words)
+  return r.changes.filter((c) => aside.has(c.finding.trim()) || (c.words === net(c) && beside(c)))
+}
+
 /** The problems with one agent's report, in the order the header states the rules. */
 function problemsOf(g, r) {
   const problems = []
@@ -696,10 +727,12 @@ const groups = A.groups.map((g, i) => {
   const r = reports[i]
   const base = { id: g.id, files: g.files.map(clean), findings: g.findings, runs: runsOf(g) }
   if (!r) return { ...base, status: 'died', problems: ['the agent returned nothing'] }
-  const problems = problemsOf(g, r)
+  const notEdits = notEditsOf(g, r)
+  const report = { ...r, changes: r.changes.filter((c) => !notEdits.includes(c)) }
+  const problems = problemsOf(g, report)
   const keys = new Set(g.findings.map((f) => f.key.trim()))
   const asides = r.notChanged.filter((n) => !keys.has(n.finding.trim()))
-  return { ...base, ...r, asides, status: problems.length ? 'refused' : r.verdict === 'changed' ? 'merge' : 'unchanged', problems }
+  return { ...base, ...report, notEdits, asides, status: problems.length ? 'refused' : r.verdict === 'changed' ? 'merge' : 'unchanged', problems }
 })
 
 const byBranch = new Map()
