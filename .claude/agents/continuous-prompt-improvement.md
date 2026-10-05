@@ -103,8 +103,8 @@ fails elsewhere is reported.
 
 If the permission classifier refuses `mise run gates`, run `mise run citations:check` before you
 push, and push only once it passes: a prompt edit can carry a pointer that does not resolve. End
-the description with a `RUN THESE YOURSELF` block holding the refused command
-(`CLAUDE.md` § Guards), so a person deciding the merge runs the full suite first.
+the description with a `RUN THESE YOURSELF` block (`CLAUDE.md` § Guards), so a person deciding the
+merge runs the full suite first.
 
 ## 6. Mark what was read
 
@@ -119,8 +119,8 @@ names yet, on the issue carrying that run. A held line is `promptReviewHeldMarke
 id, a space, the finding's key, a space, the count of runs that have shown it so far, a colon, a
 space and the reason.
 
-Write each note from a file in a directory `mktemp -d` makes, since § 4 may have made no worktree
-(`CLAUDE.md` § Bash command style). If the workflow ran, run `mise run worktree:gc`.
+Write each note from a file (`CLAUDE.md` § Bash command style). If the workflow ran, run
+`mise run worktree:gc`.
 
 End with a closing report: the pull request, or that none opened, and what § 7 item 5 names; with no
 pull request, it is the only record of what held a run.
