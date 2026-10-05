@@ -114,7 +114,11 @@
  * checks settle, and a red `main` or another pull request's conflict can hold the reviewer's merge
  * back after its verdict. Wrong, it lets a session close its issues and remove its worktree for a
  * pull request that never merged, or keeps one waiting on a head a conflict or a red `verify` has
- * sent back to it. It costs two of GitHub's API calls a read while the pull request is open.
+ * sent back to it. Since 2026-10-05 a verdict a person decides is a failure, so its head shows red
+ * until they merge it (asdlc-openspec-b83l, a stopgap until asdlc-openspec-owva.3); a conflict is a
+ * failure too, and `wait` tells the two apart by the description's prefix, or it would end every
+ * wait on a person as a conflict. It costs two of GitHub's API calls a read while the pull request
+ * is open.
  * `pr-review:check` holds the wiring; the selftest holds every decision above.
  *
  * NEEDS. `mark`, `wait`, `next` and `act` need `gh` with a token that can read pull requests and
@@ -209,6 +213,11 @@ const WORKFLOW_REFUSED_KEYS = ['defaults', 'env']
 /** A GitHub status description is cut at 140 characters; a comment at 65,536. */
 const STATUS_MAX = 140
 const COMMENT_MAX = 60000
+/**
+ * How a verdict a person decides begins its status's description. That status is a failure, as a
+ * conflict's is, so `waitOutcome` tells the two apart by this prefix (asdlc-openspec-b83l).
+ */
+const PERSON_DECIDES = 'A person decides: '
 /**
  * The most of the evidence a verdict prints, in bytes as JSON, so the decision and the approval
  * sentence are never cut; and so the `evidence` job's output, which reaches `act` as one environment
@@ -870,12 +879,16 @@ export function renderComment({ pr, sha, decision, floor, evidence }, policy) {
   return text.length > COMMENT_MAX ? `${text.slice(0, COMMENT_MAX)}\n\n…cut at ${COMMENT_MAX} characters.` : text
 }
 
-/** The status the reviewer sets for an outcome: success for a decision, error when there is none. */
+/**
+ * The status the reviewer sets for an outcome: success for a merge, failure for a verdict a person
+ * decides, so the head shows red until that person merges it, and error when there is no decision.
+ * The failure is a stopgap until asdlc-openspec-owva.3's check lands (asdlc-openspec-b83l).
+ */
 export function statusFor(decision) {
   const first = decision.reasons[0] ?? ''
   const clip = (text) => (text.length > STATUS_MAX ? `${text.slice(0, STATUS_MAX - 1)}…` : text)
   if (decision.outcome === 'merge') return { state: 'success', description: 'Off the high-risk floor; the reviewer merges it' }
-  if (decision.outcome === 'human') return { state: 'success', description: clip(`A person decides: ${first}`) }
+  if (decision.outcome === 'human') return { state: 'failure', description: clip(`${PERSON_DECIDES}${first}`) }
   return { state: 'error', description: clip(`The review did not complete: ${first}`) }
 }
 
@@ -900,14 +913,16 @@ export function markTarget(environment, { pull, current = null, repo }) {
 /**
  * Whether `wait` stops, and the one line it prints; null while it waits. `pull` is pull request `pr`
  * as GitHub returns it, and `status` the reviewer's status on its head, or null. An open head whose
- * status is a verdict, `statusFor`'s success, waits for the reviewer's merge or a person's. Any other
- * status ends the wait, since then the head moved, conflicts or failed its checks, and the session
- * acts on it as `.claude/skills/open-pr/SKILL.md` § 7 says.
+ * status is a verdict, `statusFor`'s success for a merge or its failure for a person, waits for the
+ * reviewer's merge or a person's. Any other status ends the wait, since then the head moved,
+ * conflicts or failed its checks, and the session acts on it as `.claude/skills/open-pr/SKILL.md`
+ * § 7 says; a conflict is a failure too, told apart by `PERSON_DECIDES`.
  */
 export function waitOutcome(pr, pull, status) {
   if (pull.merged_at) return { merged: true, line: `#${pr} merged at ${pull.merged_at} as ${short(pull.merge_commit_sha)}` }
   if (pull.state !== 'open') return { merged: false, line: `#${pr} was closed without a merge` }
   if (status?.state === 'success') return null
+  if (status?.state === 'failure' && status.description?.startsWith(PERSON_DECIDES)) return null
   const now = status ? `${status.state}: ${status.description}` : 'unset'
   return { merged: false, line: `#${pr} is open, and the reviewer's status on ${short(pull.head.sha)} is ${now}` }
 }
@@ -2217,12 +2232,12 @@ function helperCases(policy) {
       const out = chooseNext([pr(4), pr(9, { verdict: { outcome: 'human' } })], green, { force: 9 })
       return assertEqual([out.action, out.pr], ['review', 9], 'choice')
     }),
-    h('statuses: a decision passes the check, whoever merges; only a review that did not complete is red', () =>
+    h('statuses: a merge verdict passes the check, a person\'s verdict fails it, and a review that did not complete errors', () =>
       assertEqual(
         ['merge', 'human', 'error'].map((outcome) => statusFor({ outcome, reasons: ['why'] })),
         [
           { state: 'success', description: 'Off the high-risk floor; the reviewer merges it' },
-          { state: 'success', description: 'A person decides: why' },
+          { state: 'failure', description: 'A person decides: why' },
           { state: 'error', description: 'The review did not complete: why' },
         ],
         'statuses',
@@ -2291,7 +2306,7 @@ function helperCases(policy) {
       assertEqual(
         [
           waitOutcome('7', waited(), { state: 'success', description: statusFor({ outcome: 'merge', reasons: [] }).description }),
-          waitOutcome('7', waited(), { state: 'success', description: statusFor({ outcome: 'human', reasons: ['why'] }).description }),
+          waitOutcome('7', waited(), statusFor({ outcome: 'human', reasons: ['why'] })),
         ],
         [null, null],
         'outcomes',
