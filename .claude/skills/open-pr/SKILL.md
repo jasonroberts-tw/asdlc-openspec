@@ -36,9 +36,8 @@ A sentence saying what changed, ending with the id of each issue the branch carr
 parentheses and separated by commas. The branch review reads the issues from those parentheses and
 nowhere else, with `prReviewIssuePattern` in `tools/policy/pr-review.json` (`CLAUDE.md` § Git workflow).
 
-A pull request that carries no issue, such as a prompt review's, ends with no parentheses, and the
-reviewer decides it by the floor like any other (`docs/decisions.md` § D-37). Never cite an issue
-the branch does not carry.
+A pull request that carries no issue, such as a prompt review's, ends with no parentheses. Never
+cite an issue the branch does not carry.
 
 ## 4. The body
 
