@@ -423,6 +423,26 @@ through the real SDK to a refused loopback connection. Needs no key. Without it 
 finding under its threshold, or read a failed call as nothing held, and every count starts again.'''
 run = "node scripts/match-held-findings.mjs --selftest"
 
+["prompt-runs"]
+description = '''
+An operator command, never a gate: parses the prompt review's lines in the tracker, the one home of
+whose form is its header, and prints what is pending and whether a review is due, for
+`.claude/skills/close-prompt-run/SKILL.md` § 2; each held key, for the reviewer's § 2; and how many
+runs over the window loaded each prompt, with the candidates no analysed run loaded for a person to
+consider retiring and the load metric `count-index.md` § Rates and metrics defines. A line that does
+not parse fails it, naming its issue. It reads the tracker. Without it each reader parses the lines
+in prose its own way, and a prompt no run uses is never noticed.'''
+run = "node scripts/prompt-runs.mjs"
+
+["prompt-runs:selftest"]
+description = '''
+The prompt runs' parser and report, negative-tested over fixture exports and the live policy: the
+window, the floor, the table of prompts no analysed run loads, an analysis in the old form or from
+before the cut-off, a path with no budget row, the due check by count and by age, the not-viable
+share, each line that does not parse and each policy it refuses, by its reason. Needs no `bd`.
+Without it the report can name a candidate under the floor, or read a broken line as nothing.'''
+run = "node scripts/prompt-runs.mjs --selftest"
+
 ["prompts:incidents"]
 description = '''
 An advisory, never a gate: asks TypeSafe, one Noul per paragraph and one request per prompt, whether

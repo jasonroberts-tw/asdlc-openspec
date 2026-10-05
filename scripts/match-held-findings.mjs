@@ -6,8 +6,8 @@
  * that the reviewer's session runs before that workflow, never a gate.
  *
  * WHAT IT DOES. Code reads every held line from the tracker: each line of an issue's notes, in what
- * `bd export` prints, that opens with `promptReviewHeldMarker`, a space, a run id, a space, a key, a
- * space, a count, a colon and the reason (§ 6 of that agent writes them). For each finding of the
+ * `bd export` prints, that opens with `promptReviewHeldMarker`, in the form the header of
+ * `scripts/prompt-runs.mjs` gives (§ 6 of that agent writes them). For each finding of the
  * input it gathers the keys held about the finding's file, the part of a key before its `#`. Each is
  * one option, labelled by its key, its text the reason of its held line of the highest count (the
  * later on a tie); `promptReviewMatchNoneOption` is one more, labelled `none`. One Choice per finding,

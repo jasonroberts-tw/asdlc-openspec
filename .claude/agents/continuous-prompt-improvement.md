@@ -29,11 +29,9 @@ Print the trunk's prompt-review keys first, as one call; later steps apply them:
 
     gh api "repos/{owner}/{repo}/contents/tools/policy/agent-workflows.json?ref=main" -H "Accept: application/vnd.github.raw" --jq "with_entries(select((.key | startswith(\"promptReview\")) and (.key | endswith(\"Means\") | not)))"
 
-Find every pending analysis as the skill's § 2 says. If a review is not due by it, stop, editing
-nothing and writing nothing.
-
-Collect every held line too, its analysis pending or not, listed as the analyses are, with
-`promptReviewHeldMarker` as the marker.
+Run `mise run prompt-runs`, which prints what is pending, whether a review is due, what is held and
+each prompt's loads. If no review is due, or it fails on a line, stop, editing nothing and writing
+nothing, and report that line.
 
 Check each claim an analysis makes against the run's own evidence, its commits, its pull request
 and its issue, before building on it.
@@ -111,14 +109,13 @@ merge runs the full suite first.
 
 The runs read are those in the workflow's `runsRead`, less any § 5 held, and every run § 3 gave no
 group. In one tracker bracket (`CLAUDE.md` § The task store), append to the issue carrying each run
-read one line: `promptReviewReadMarker`, a space, the run id, a space, and the pull request's URL,
-or `no change` when you opened none.
+read a read line, naming the pull request's URL, or `no change` when you opened none.
 
 In the same bracket, append a held line for each finding § 3 held and each one the workflow's
 `findingsHeld` lists: one for each run in this batch that showed it and that no held line of its key
-names yet, on the issue carrying that run. A held line is `promptReviewHeldMarker`, a space, the run
-id, a space, the finding's key, a space, the count of runs that have shown it so far, a colon, a
-space and the reason.
+names yet, on the issue carrying that run, with the count of runs that have shown it so far. Each
+line's form is the header of `scripts/prompt-runs.mjs`; run it after the push, since a line it
+cannot parse fails every run's close.
 
 Write each note from a file (`CLAUDE.md` § Bash command style). For each branch in the workflow's
 `discard`, run `mise run worktree:gc --discard <branch>`, or a rejected group's worktree stays for
@@ -133,7 +130,9 @@ The description is the review, in this order. The section names are a default; t
 sections are the value.
 
 1. **The runs reviewed**: each run id, the issue carrying its analysis, the prompts it loaded and
-   the commit it read them at, and the pull request it produced.
+   the commit it read them at, and the pull request it produced. Then the loads `mise run prompt-runs`
+   prints, its metric and each candidate, for a person to retire or keep
+   (`.claude/skills/retire-asset/SKILL.md`).
 2. **What the earlier reviews' changes did in these runs.** Each change an earlier review's pull
    request made to a file of this review, and whether these runs show it working, not working, or
    not exercised.

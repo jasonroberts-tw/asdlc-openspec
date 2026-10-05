@@ -354,6 +354,20 @@ pre-push:
         - 'package.json'
         - 'package-lock.json'
       run: mise run prompt-review:match:selftest
+    # The prompt runs, `prompt-runs`, held to fixture exports and the live policy's records through
+    # `PROMPT_RUNS_ROOT`: no `bd`, no network, no token. The command itself reads the tracker and runs
+    # in no job. 0.49 s wall through `mise run` (`/usr/bin/time -p`, one run) on a macOS 26.7.1 laptop
+    # with Node 24.21.0, 2026-10-05. The glob is the script, the policy and launcher helpers it imports
+    # and the policy it reads.
+    - name: prompt-runs-selftest
+      glob:
+        - 'scripts/prompt-runs.mjs'
+        - 'tools/lib/**'
+        - 'tools/policy/**'
+        - 'tasks.toml'
+        - 'package.json'
+        - 'package-lock.json'
+      run: mise run prompt-runs:selftest
     # The worktree hooks and the guard, negative-tested: each case asserts the REASON a refusal
     # reports. Also loads every command `.claude/settings.json` registers from a subdirectory and
     # from outside the checkout, through a stand-in `node` that runs no hook, so the settings file is

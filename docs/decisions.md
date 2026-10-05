@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `mise run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-47 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43, D-44, D-45, D-46 and D-47 added 2026-10-05).**
+**Status: every decision from D-01 to D-48 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43, D-44, D-45, D-46, D-47 and D-48 added 2026-10-05).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-47` is checked by `mise run check:register`, which reads those headings, the table and each
+> `D-01 … D-48` is checked by `mise run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -103,6 +103,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-45** | A prompt's sentence on how Claude Code behaves names the version that verified it, or says none did, and each prompt review lists the stale ones | `CLAUDE.md` § Standing rules for prompts and gates; the tags in `CLAUDE.md`, `bead`, `open-pr`, `close-prompt-run`, `change-finalize`, `should-i-adopt`, `fan-out-work`, the branch reviewer and the prompt reviewer's agent, whose § 7 item 7 lists them; four of the prompts consolidated first; nine budgets in `tools/policy/prompt-budgets.json`; `README.md` § The guardrails |
 | **D-46** | The pull-request reviewer is one job that runs `next` then `act`, and its verdict prints no reach or co-change, which the branch review's brief carries | `.github/workflows/pr-review.yml`'s `queue` job; `scripts/pr-review.mjs` without the `evidence` subcommand, `evidenceFor`, `cutEvidence` or the verdict's evidence, and `runCheck`'s `JOB_SHAPES` keyed by the subcommands a job runs in order, held by `pr-review:check` and `pr-review:selftest`; two cases of `check:toolchain:selftest`; `open-pr` § 7 and its budget; D-24's, D-26's, D-31's and D-37's amendments; D-47's amendment, which replaced the `queue` job |
 | **D-47** | The pull-request reviewer sets one status per pushed head and merges nothing: GitHub's auto-merge merges under the trunk's ruleset, the approval label retires, and a hook refuses a workflow edit that could forge the status | `.github/workflows/pr-review.yml`'s one `review` job; `review`, `forgeProblems` and `wait` in `scripts/pr-review.mjs`, held by `pr-review:check` and `pr-review:selftest`; `scripts/hooks/guard-workflow-edit.mjs` and `guard-git.mjs`'s merge rule, held by `worktree:selftest`; `tools/policy/pr-review.json` without its labels; `CLAUDE.md`, `open-pr` and `change-finalize`, and their budgets; the ruleset and auto-merge on GitHub, a person's; D-07's, D-09's, D-21's, D-37's, D-46's and R-01's amendments |
+| **D-48** | The prompt review's tracker lines are parsed by one command, whose header is their one home, and it counts each prompt's loads and names those no analysed run loads for a person | `scripts/prompt-runs.mjs` as `prompt-runs`, held by `prompt-runs:selftest` at pre-push and in CI; five `promptReview*` keys in `tools/policy/agent-workflows.json`; `close-prompt-run` § 1 and § 2, the reviewer's § 2, § 6 and § 7, and `CLAUDE.md` § Prompt reviews; the load metric in `count-index.md`; three budgets; D-06's, D-17's and D-44's amendments |
 
 ## Risks
 
@@ -424,6 +425,8 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 > **Amended 2026-09-29 by D-17.** Item 5's second reader is unchanged, but the rule that an analysis ends with the counts is no longer in `CLAUDE.md` § Prompt reviews: `.claude/skills/close-prompt-run/SKILL.md` § 1. Write the analysis, or none, holds it.
 
 > **Amended 2026-10-02 by D-25.** Of the three tables of emitter-owned paths that "What changed" and the retirement checklist name, the drift hook's has gone with the hook. `scripts/assert-not-hand-edited.mjs`'s and `scripts/hooks/_shared.mjs`'s remain.
+
+> **Amended 2026-10-05 by D-48.** The fifth alternative, a tool that tabulates the pairs, still lost for the label pairs, which `bd count` gives. A tool now tabulates the prompt review's own lines in the tracker and how often each prompt is loaded, which no `bd` command gives: `scripts/prompt-runs.mjs`.
 
 ### D-07 · A reviewer merges each pull request that satisfies the issues it carries, one at a time
 
@@ -920,6 +923,8 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 **Figures.** Each word count is `node scripts/check-prompts.mjs --counts`, at `658d708` for the first figure and at this entry's commit for the second: `CLAUDE.md` 3,886 and 3,262; `.claude/agents/continuous-prompt-improvement.md` 2,516 and 2,161, through 2,069 at the consolidation's commit; `.claude/skills/bead/SKILL.md` 1,617 and 1,609; the new skill 672. The probe is workflow run `wf_d0754fca-d86`, whose record is outside this repository.
 
 > **Amended 2026-10-03 by D-32.** Item 4 had the reviewer make a worktree only when a group formed. It now makes one when a group formed or a finding settled by a source seeds a stored decision case, since `.claude/workflows/author-prompt-cases.js` runs from it; with neither, it still makes none.
+
+> **Amended 2026-10-05 by D-48.** The analysis note's form, where an analysis ends and what is pending are no longer `close-prompt-run`'s, and the held line's form is no longer the agent's: the header of `scripts/prompt-runs.mjs` holds them all, and the skill's due check and the reviewer's collection run that command. The skill keeps when a review starts and the launch, and the agent what a review does and leaves.
 
 ### D-18 · RTK is removed, with the ripgrep step it needed and the guard's reading of its prefix
 
@@ -2235,6 +2240,8 @@ Where it loses: an analysis no longer lists a user-level skill the run loaded, w
 
 **Figures.** `node scripts/check-prompts.mjs --counts` for `.claude/skills/close-prompt-run/SKILL.md`: 672 at `acd02ad`, 639 after the consolidation and 671 at this entry's commit. The skill's budget row's `means` gives the same steps.
 
+> **Amended 2026-10-05 by D-48.** The decision put the form in `.claude/skills/close-prompt-run/SKILL.md` § 1; the header of `scripts/prompt-runs.mjs` now holds it, and § 1 points there. An analysis whose run id's time is before D-44 reached the trunk, `promptReviewLoadedSince`, is read as prose whatever it holds.
+
 ### D-45 · A prompt's sentence on how Claude Code behaves names the version that verified it, or says none did, and each prompt review lists the stale ones
 
 **Recorded 2026-10-05**, carried by `asdlc-openspec-r6ha.4`, a child of `asdlc-openspec-r6ha`. On 2026-10-04 the maintainer chose to keep such sentences where they are read, each dated by the version that verified it (the parent's decision 4, with its loss). On 2026-10-05, at the claim, they chose item 2's second spelling for a sentence no session can verify, from a recommendation put with the case where it loses. The session that built it chose the inventory, each sentence's verdict and the evidence for it.
@@ -2362,6 +2369,46 @@ Where it loses:
 - 52 commits changed `verify.yml`: `git rev-list --count HEAD -- .github/workflows/verify.yml` at `79aa84f`.
 - `pr-review:selftest` 147 cases at this entry's commit, from a run of it. With `forgeProblems` returning nothing, in a copy run once at `e5aa9bc`, 140 of its 146 held, and the six that failed were the forge cases. With the branch review's two fixes undone, `forgeProblems` passing `pr-review.yml` whatever it runs on and `wait` waiting on a head with no status, 145 of 147 held, and the two that failed were theirs.
 - The prompts' counts: `node scripts/check-prompts.mjs --counts` at this entry's commit; each figure is in its `means` in `tools/policy/prompt-budgets.json`.
+
+### D-48 · The prompt review's tracker lines are parsed by one command, whose header is their one home, and it counts each prompt's loads and names those no analysed run loads for a person
+
+**Recorded 2026-10-05**, carried by `asdlc-openspec-r6ha.5`, a child of `asdlc-openspec-r6ha`. On 2026-10-04 the maintainer chose one parser command whose header becomes the one home of the lines' form, and a person, never the command, to decide a retirement (the parent's decision 2, with its loss). On 2026-10-05, at the claim, they chose items 2, 3 and 5's values, each from a recommendation put with the case where it loses: both callers run the command, the window is 30 days and the floor 100, and half unloaded is the value that means the project is not viable. The session that built it chose the cut-off, the table's rows and the report's sections.
+
+**Builds on / amends:** amends D-06, whose fifth alternative, a tool that tabulates the pairs, lost; D-17, which put the analysis note's form and what is pending in `close-prompt-run` and the held line's form in the reviewer's agent; and D-44, whose decision put the analysis's line form in `close-prompt-run` § 1. Builds on D-11 item 1, under which a check that reads the tracker runs in no job and its selftest stands in for it; on D-08 and D-10, whose markers and lines it parses; and on D-12, under which each prompt's budget moved to its count.
+
+**Decision.**
+
+1. **One parser, `scripts/prompt-runs.mjs`, as `mise run prompt-runs`**, an operator command and never a gate. Its header is the one home of the analysis's form, the read line's and the held line's, where an analysis ends and what is pending. A line that opens with a marker and does not parse fails it, naming its issue, and so does an analysis since the cut-off whose loaded prompts do not.
+2. **Both readers run it.** `.claude/skills/close-prompt-run/SKILL.md` § 2 runs it to learn whether a review is due, and stops on a failure; `.claude/agents/continuous-prompt-improvement.md` § 2 runs it for what is pending, due and held, § 6 points at its header for each line it writes and runs it after its push, and § 7 item 1 gives the loads.
+3. **The load count.** For each row of `tools/policy/prompt-budgets.json`, the analyses in D-44's form over the `promptReviewLoadWindowDays` (30) days before the newest analysis that loaded it, the window read from the analyses and never the clock. At or above `promptReviewLoadFloor` (100) such analyses it names each row none loaded as a candidate for a person to retire or keep (`.claude/skills/retire-asset/SKILL.md`), never one `promptReviewUnloadedPrompts` names with its reason; below the floor, the counts and no candidate.
+4. **The cut-off.** An analysis whose run id's time is before `promptReviewLoadedSince`, when D-44 reached the trunk, is prose, listed as not counted whatever it holds, since nine such analyses hold the heading's words as a prose label.
+5. **The metric.** `count-index.md` § Rates and metrics defines it: the share of rows, less the table's, no analysed run loaded over the window. Half or more, at or above the floor, means the project is not viable.
+
+**Why.** No script read the loop's lines: a run's close and the reviewer read them as prose, each its own way, and nothing counted how often a prompt was loaded, so a prompt no run used was never noticed. Hermes Agent counts every load and archives an agent-made skill unused for 30 days (`hermes_cli/config_defaults.py` at 667b232); here a person decides instead. Five alternatives lost, at the claim:
+
+- **The reviewer alone runs it.** Two readers of one rule could disagree: a close counting five pending launches a review that the command, counting four, stops as launched early.
+- **Neither runs it.** Each line's form would be taught in three places.
+- **A window of 14 days and a floor of 50.** A prompt only product work loads would be named after any fortnight without a product change.
+- **A window of the last 100 analyses.** In a quiet month the window reaches back months.
+- **A third, or two-thirds, as the not-viable value.** The first is crossed by a normal fortnight without product work; the second says nothing until most prompts are dead.
+
+Where it loses: one malformed hand-edited line anywhere in the tracker fails the command, and with it every run's due check, until a person fixes the line, where the model read past one. The first candidates come about two weeks after D-44 at today's pace. A stretch with no product work leaves the `change-*` skills and their workflows unloaded and moves the metric toward its not-viable value though nothing is wrong. And "loaded" is not "helped".
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound; D-06, D-17 and D-44 carry an amendment each.
+- **Added:** `scripts/prompt-runs.mjs`, with `--selftest` as `mise run prompt-runs:selftest` and `PROMPT_RUNS_ROOT` as its root override.
+- **The wiring:** the two tasks in `tasks.toml`; the `prompt-runs-selftest` job in `git-hooks.yml` and its step in `.github/workflows/verify.yml`; `prompt-runs` in `UNJOBBED_BY_KIND` of `scripts/check-jobs.mjs`.
+- **`tools/policy/agent-workflows.json`:** `promptReviewLoadedSince`, `promptReviewLoadWindowDays`, `promptReviewLoadFloor` and `promptReviewUnloadedPrompts`, each with its `Means`; the markers' and the heading's `Means`, `describes`, `gatedBy`, `whatItDoesNOTDo` and `provenance` point at the header.
+- **The prompts:** `.claude/skills/close-prompt-run/SKILL.md`'s opening, § 1 and § 2; `.claude/agents/continuous-prompt-improvement.md` § 2, § 6 and § 7 item 1; `CLAUDE.md` § Prompt reviews. **`tools/policy/prompt-budgets.json`:** their three rows and `provenance`.
+- **The rest:** the load metric's row in `count-index.md` § Rates and metrics, and a sentence of § Where each value comes from split for Vale; rows of `README.md` § The guardrails, § The tasks and § What runs automatically, `scripts/README.md` and `tools/policy/README.md`; the headers of `scripts/match-held-findings.mjs` and `.claude/workflows/review-prompts.js` point at the new home of the held line's form.
+
+**Figures.**
+
+- The tracker on 2026-10-05, `mise run prompt-runs`: 68 analyses, none in D-44's form, 65 read lines and 262 held lines under 157 keys; 3 analyses pending, no review due. Its first run, before the cut-off, failed on nine analyses written before D-44 that hold "Prompts loaded:" over prose bullets.
+- `mise run prompt-runs:selftest`: 36 of 36 checks, an undoctored control first. With each of 14 checks of the script broken in turn, one at a time, each break turned at least one case red.
+- The prompts' counts, each `node scripts/check-prompts.mjs --counts`, at `83bec1e` and at this entry's commit: `.claude/skills/close-prompt-run/SKILL.md` 686 and 642; `.claude/agents/continuous-prompt-improvement.md` 2,261 and 2,272; `CLAUDE.md` 3,339 and 3,337. Each budget row's `means` gives the same steps.
+- The pace behind the window and the floor: 68 analyses dated from 2026-09-26 to 2026-10-05 by their run ids, about 7 a day.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

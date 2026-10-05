@@ -287,9 +287,9 @@ After a prompt is executed from a file, the session that ran it closes the run w
 `close-prompt-run` skill, after its tracker push. One review, the `continuous-prompt-improvement`
 agent, reads every run's analysis no review has read yet, as a batch, and proposes its edits as one
 pull request, whose description is the review and which merges as any other does
-(`docs/decisions.md` § D-08, § D-17 and § D-37). The skill is the home of the markers, of what is
-pending and of the launch; the agent's file is the home of what a review leaves. A review is not a
-file in this repository, and a prompt carries no `Reviewed:` trailer.
+(`docs/decisions.md` § D-08, § D-17 and § D-37). The skill is the home of the launch, the header of
+`scripts/prompt-runs.mjs` of the lines' form, and the agent's file of what a review leaves. A
+review is not a file in this repository, and a prompt carries no `Reviewed:` trailer.
 
 ## A program proposes; only a person promotes
 
