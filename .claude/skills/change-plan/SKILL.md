@@ -108,5 +108,4 @@ Afterwards, `bd ready --parent <epic>` lists exactly the tasks that wait on noth
 ## 5. Report
 
 Report the epic, its acceptance criteria and whether this stage wrote them or the epic kept its own,
-each task's id with its kind and the IDs it covers, and the first ready task. The next stage is
-`change-build` (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
+each task's id with its kind and the IDs it covers, and the first ready task.
