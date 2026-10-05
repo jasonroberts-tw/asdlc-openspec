@@ -47,7 +47,9 @@ cited issues' criteria, and a title that cites no issue no longer leaves the mer
 (`docs/decisions.md` § D-37). Amended 2026-10-04 by `asdlc-openspec-e6v`: the last step of Propose
 and of Design, and Plan's stop for approval, run the `adversarial-verifier` agent on what the stage
 wrote first (`docs/decisions.md` § D-39), Design stops with the verifier's table, and Plan files
-the verifier's note with the tasks.
+the verifier's note with the tasks. Amended 2026-10-05 by `asdlc-openspec-6yt.3`: the Verify step
+that traces every scenario runs the clause check on a trace with no gap, outside the trace workflow,
+before the trace is written (`docs/decisions.md` § D-42).
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -315,7 +317,9 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
    `mise run tests:fresh`, and run each failing test once more, by name, as its own call; a test
    that fails and then passes is flaky and counts as failing. Trace every scenario to the tests the
    traceability record gives it, reading each rather than trusting its name, with
-   `.claude/workflows/verify-change-trace.js`, which takes each result from that run;
+   `.claude/workflows/verify-change-trace.js`, which takes each result from that run. On a trace
+   with no gap, `mise run trace:clauses` asks TypeSafe whether each row's tests assert each THEN
+   and AND, and the workflow's clause run sends a row with a doubted clause to its skeptics;
    `scripts/render-trace.mjs` writes the trace into `.scratch/<change>-trace.md`. Check traceability
    rules 1 to 3 against the epic's children, and write the verification report with
    `scripts/render-verify-report.mjs`. A manual verification is no proof. Decided by:

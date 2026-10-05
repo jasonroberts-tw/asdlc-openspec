@@ -512,7 +512,11 @@ pre-push:
     # (asdlc-openspec-j09.14); 0.63 s and 0.62 s on 2026-10-03 with the stored cases' suites, timed
     # by a script around `node --run` on the same laptop (asdlc-openspec-7c1); 1.62 s and 1.55 s on
     # 2026-10-04 with the readers' fixture repository, where the trunk's took 0.64 s and 0.66 s, each
-    # through `node` under `/usr/bin/time -p` on the same laptop (asdlc-openspec-jtrt).
+    # through `node` under `/usr/bin/time -p` on the same laptop (asdlc-openspec-jtrt). 1.64 s and
+    # 1.55 s on 2026-10-05 with the trace's clause run, on its own first run and over the plan of
+    # `scripts/judge-trace-clauses.mjs`, which it imports with the test reader and the TypeSafe client,
+    # through `node` under `/usr/bin/time -p` on a macOS 26.7.1 laptop with Node 26.8.1
+    # (asdlc-openspec-6yt.3); the client's SDK is why `package.json` and the lockfile are in the glob.
     - name: workflows-selftest
       glob:
         - '.claude/workflows/**'
@@ -522,7 +526,11 @@ pre-push:
         - '.claude/prompt-cases/**'
         - 'scripts/workflows.selftest.mjs'
         - 'scripts/prompt-case-texts.mjs'
+        - 'scripts/judge-trace-clauses.mjs'
+        - 'scripts/test-trace.mjs'
+        - 'scripts/lib/bin-path.mjs'
         - 'tools/lib/git-env.ts'
+        - 'tools/lib/typesafe.ts'
         - 'scripts/render-trace.mjs'
         - 'scripts/render-pr-body.mjs'
         - 'scripts/render-verify-report.mjs'
@@ -531,7 +539,28 @@ pre-push:
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
         - 'tasks.toml'
+        - 'package.json'
+        - 'package-lock.json'
       run: mise run workflows:selftest
+    # The trace's clause check, `scripts/judge-trace-clauses.mjs`, held to a fixture repository through
+    # its `--selftest` with a stubbed client, and once through the real SDK to a refused loopback
+    # connection: no key, no network beyond that. The check itself reads a token and a language model
+    # and runs in no job. 2.68 s and 2.72 s wall (`/usr/bin/time -p`, two runs) on a macOS 26.7.1
+    # laptop with Node 26.8.1, 2026-10-05, most of it the two child processes. The glob is the script,
+    # the trace reader and test reader it imports with their own imports, the client, the policy it
+    # reads and the SDK it loads.
+    - name: trace-clauses-selftest
+      glob:
+        - 'scripts/judge-trace-clauses.mjs'
+        - 'scripts/lib/trace.mjs'
+        - 'scripts/test-trace.mjs'
+        - 'scripts/lib/bin-path.mjs'
+        - 'tools/lib/**'
+        - 'tools/policy/**'
+        - 'tasks.toml'
+        - 'package.json'
+        - 'package-lock.json'
+      run: mise run trace:clauses:selftest
     # The pull-request reviewer's wiring: the policy's `prReview*` keys whole, and `pr-review.yml`,
     # `verify.yml` and the branch reviewer agreeing on labels, check and agent, each job of the
     # workflow held to what its allowlist lets it run, and no secret or OIDC token; and the floor

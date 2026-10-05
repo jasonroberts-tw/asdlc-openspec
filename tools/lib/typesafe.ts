@@ -2,10 +2,11 @@
  * The one TypeSafe client every tool in this repository shares, behind a narrow interface a selftest
  * can stub.
  *
- * WHAT IT DOES. `createJudge` returns a `TypeSafeJudge` -- one method, `choose`, that asks one Choice
- * question over some state and returns the label, its confidence and every label's probability -- or
- * a reason it returned none. A later question kind (a Noul, a Score) is a second method here, not a
- * second client in another tool.
+ * WHAT IT DOES. `createJudge` returns a `TypeSafeJudge`, or a reason it returned none. It has two
+ * methods: `choose` asks one Choice question over some state and returns the label, its confidence
+ * and every label's probability; `noul` asks several named yes/no questions over one state in one
+ * request and returns, under each name, the probability of yes, refusing an answer that carries none.
+ * A later question kind (a Score) is another method here, not a second client in another tool.
  *
  * THE FAILURE IT EXISTS TO PREVENT. Two opposite ones, and the wrong fix for either is the other.
  * A tool that treats a missing `TYPESAFE_API_KEY` as a failure is red on every fresh clone and at
@@ -45,9 +46,18 @@ export interface ChoiceQuestion {
   readonly criteria: Readonly<Record<string, string>>
 }
 
+/** Several yes/no questions over one state, asked in one request. */
+export interface NoulQuestions {
+  readonly state: EntryType
+  /** Name to the question asked; each answer comes back under the same name. */
+  readonly questions: Readonly<Record<string, string>>
+}
+
 /** What a caller depends on, so a selftest can hand it a stub. */
 export interface TypeSafeJudge {
   choose(question: ChoiceQuestion): Promise<ChoiceAnswer>
+  /** The probability of yes for each named question, from zero to one. */
+  noul(question: NoulQuestions): Promise<Readonly<Record<string, number>>>
 }
 
 /** A judge, or the reason there is none. A skip is not a failure and a failed call is not a skip. */
@@ -103,6 +113,23 @@ export async function createJudge(options: JudgeOptions): Promise<JudgeResult> {
           confidence: answer.confidence,
           probabilities: answer.probabilities,
         }
+      },
+      async noul(question) {
+        const names = Object.keys(question.questions)
+        const { answers } = await client.systemOne({
+          state: question.state,
+          questions: Object.fromEntries(names.map((name) => [name, sdk.noul(question.questions[name])])),
+          model: options.model,
+        })
+        const probabilities: Record<string, number> = {}
+        for (const name of names) {
+          const p = answers[name]?.noul
+          if (typeof p !== 'number' || !(p >= 0 && p <= 1)) {
+            throw new Error(`TypeSafe answered the question "${name}" with no probability from 0 to 1: ${JSON.stringify(answers[name])}`)
+          }
+          probabilities[name] = p
+        }
+        return probabilities
       },
     },
   }

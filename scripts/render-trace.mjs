@@ -2,7 +2,9 @@
  * Writes a change's scenario trace, `.scratch/<change>-trace.md`, from the result
  * `.claude/workflows/verify-change-trace.js` returned: one row per `#### Scenario:` in the change's
  * delta specs, in their order, then the design decisions checked, every gap with its skeptics'
- * votes, and every finding below a gap. Its first line names the commit the trace was taken at,
+ * votes, and every finding below a gap; and, under its verdict, whether the clause check of
+ * `scripts/judge-trace-clauses.mjs` ran, as the workflow's clause run records it, and how many rows it
+ * sent the skeptics as an `unasserted` gap. Its first line names the commit the trace was taken at,
  * which "Running again" in `.claude/skills/change-verify/SKILL.md` § 4. Every scenario is traced reads.
  * It refuses to write a trace whose rows are not one to each scenario of the delta specs.
  *

@@ -239,6 +239,7 @@ const UNJOBBED_BY_KIND = [
       'prompt-review:match',
       'prompts:incidents',
       'trace',
+      'trace:clauses',
       'worktree:gc',
     ],
   },

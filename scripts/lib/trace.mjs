@@ -177,6 +177,21 @@ const gapCell = (r) =>
   (r.gap ? `${r.gap.kind}, ${r.gap.outcome ?? 'not judged'}` : '') +
   (r.traced ? `${r.gap ? '; ' : ''}the skeptics' reading, where the tracer read ${r.traced.proofKind}: ${r.traced.proof}, exercises ${r.traced.exercises ? 'yes' : 'no'}` : '')
 
+const JUDGE = '`scripts/judge-trace-clauses.mjs`'
+
+/**
+ * Whether the clause check ran, as the result of the workflow's clause run records it: how many
+ * clauses TypeSafe judged, and how many rows it sent the skeptics as an `unasserted` gap.
+ */
+function clauseSentence(result, refutedEach) {
+  const c = result.clauses
+  if (!c) return `No clause was second-checked by TypeSafe: no clause run of ${JUDGE}'s answers followed the trace.`
+  const doubted = c.doubted
+    ? `, and sent the skeptics the ${c.doubted} row(s) with one under \`verifyTraceClauseThreshold\` (${c.threshold}) as an \`unasserted\` gap${refutedEach ? ', each refuted' : ''}`
+    : `, none under \`verifyTraceClauseThreshold\` (${c.threshold})`
+  return `TypeSafe \`${c.model}\` second-checked ${c.judged} clause(s) of ${c.rows} row(s) through ${JUDGE}${doubted}.`
+}
+
 /** The trace `.claude/skills/change-verify/SKILL.md` § 4 asks for, its first line naming the commit. */
 export function renderTrace(result, scenarios, dir) {
   const rows = inSpecOrder(result.rows, scenarios)
@@ -190,6 +205,8 @@ export function renderTrace(result, scenarios, dir) {
         : ''),
     '',
     `**Verdict: \`${result.stopped}\`.** ${result.why}`,
+    '',
+    clauseSentence(result, false),
     '',
     '| Capability | Requirement | Scenario | Proof | Exercises it | Result | Read at | Gap |',
     '|---|---|---|---|---|---|---|---|',
@@ -263,6 +280,7 @@ export function renderPrSection(result, scenarios) {
   const corrected = rows.filter((r) => r.traced).length
   if (corrected) sentences.push(`${corrected} row(s) carry the reading the skeptics established in place of the tracer's.`)
   if (kept) sentences.push(`${kept} row(s) kept their reading from the trace at \`${short(result.previous)}\`, and their proofs were run again.`)
+  sentences.push(clauseSentence(result, true))
   return [
     '## Scenario trace',
     '',

@@ -29,6 +29,10 @@
  * two-capability change built here and the policy's `verifyTrace*` keys, and its cases assert which
  * inputs it refuses, how it matches each tracer's rows to its scenarios, which gap it gives each
  * row, how many skeptics it sends each gap, how it tallies them, and what a run again keeps. Its
+ * clause run runs on the result of its own clean first run, with answers from the plan
+ * `scripts/judge-trace-clauses.mjs` makes of the fixture's specs and tests through a stubbed client,
+ * and those cases assert which row a clause under `verifyTraceClauseThreshold` sends to the skeptics,
+ * each outcome of their votes, and each refusal. Its
  * result then goes through `scripts/render-trace.mjs` and `scripts/render-pr-body.mjs`, over delta
  * specs written under the temporary directory, and their cases assert what each writes and what each
  * refuses. It holds every script to what the Workflow runtime accepts: a pure `meta`
@@ -81,7 +85,9 @@
  * another commit counted as traced, a row's gap taken from the tracer's words rather than its
  * reading, a gap nobody could verify counted refuted, a failed proof cleared by a skeptic's vote, a
  * dead lens's reading kept on a run again, and a trace or a pull-request body written with a
- * scenario missing, a gap open or a row that did not pass. Each costs millions
+ * scenario missing, a gap open or a row that did not pass; and since asdlc-openspec-6yt.3, a clause
+ * run that judges a clause at its threshold, judges a trace that had a gap, or loses a corrected
+ * row's tracer reading, each of the three seen failing with its guard removed. Each costs millions
  * of tokens, a wrong verdict, a rule lost from a prompt or a finding never reviewed,
  * before anyone sees it, and no other gate reads their logic: `check:prompts` counts only the words
  * of their string literals, and `openspec:check` reads only skills and agents.
@@ -112,7 +118,8 @@
  *
  * NEEDS only committed files: the workflows, the records under `tools/policy/` read through
  * `tools/lib/policy.ts`, the three tool-less agents under `.claude/agents/`, the stored cases under
- * `.claude/prompt-cases/`, and the trace renderers with `scripts/lib/trace.mjs`; each renderer runs
+ * `.claude/prompt-cases/`, the trace renderers with `scripts/lib/trace.mjs`, and the clause check's
+ * plan in `scripts/judge-trace-clauses.mjs` with the test reader it imports; each renderer runs
  * twice as a child process. It needs git too, for the readers' fixture repository, which it builds
  * and runs `scripts/prompt-case-texts.mjs` in with no `GIT_*` key, so a hook's `GIT_DIR` cannot
  * point either at this repository. It
@@ -163,7 +170,9 @@ const AGENT_TOOLS = {
 }
 const TOOLLESS_AGENTS = Object.keys(AGENT_TOOLS)
 const REVIEW_POLICY_KEYS = ['promptReviewRecurrenceCount', 'promptReviewMajorSeverities', 'promptReviewSkeptics', 'promptReviewCaseLenses', 'promptReviewCaseRepetitions', 'promptReviewMatchHeldMinProbability', 'promptReviewMatchNoneMinProbability']
-const VERIFY_POLICY_KEYS = ['verifyTraceMaxScenarios', 'verifyTraceDesignLenses', 'verifyTraceSkeptics']
+/** The key of the trace's clause run, a probability, as `CLAUSE_KEY` in `verify-change-trace.js` names it. */
+const CLAUSE_KEY_NAME = 'verifyTraceClauseThreshold'
+const VERIFY_POLICY_KEYS = ['verifyTraceMaxScenarios', 'verifyTraceDesignLenses', 'verifyTraceSkeptics', CLAUSE_KEY_NAME]
 const HEAD = 'export const meta = {'
 
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
@@ -3404,6 +3413,184 @@ function verifyCases(policy) {
   ]
 }
 
+/* ------------------------------------------------- verify-change-trace.js: the clause run ----- */
+
+/** The fixture change's tests as one file's source, each named for its scenario and asserting what `pass` gives it. */
+const CLAUSE_TESTS = [
+  "import assert from 'node:assert/strict'",
+  "import { test } from 'node:test'",
+  "import { run } from '../app.js'",
+  '',
+  ...Object.values(SPECS).flatMap((list) => list.map(([, scenario]) => `test('${scenario}', () => {\n  assert.equal(run('${scenario}'), 'done')\n})\n`)),
+].join('\n')
+
+/** A delta spec's text for `list`, in the form writeSpecs writes it: each scenario's WHEN and its one THEN. */
+const specOf = (list) => {
+  const lines = ['## ADDED Requirements', '']
+  let last = null
+  for (const [requirement, scenario] of list) {
+    if (requirement !== last) lines.push(`### Requirement: ${requirement}`, '', 'The system SHALL do it.', '')
+    last = requirement
+    lines.push(`#### Scenario: ${scenario}`, '', '- **WHEN** it happens', '- **THEN** it is done', '')
+  }
+  return lines.join('\n')
+}
+
+/**
+ * The trace workflow's clause run, on the result of its own clean first run: the clause judge of
+ * `scripts/judge-trace-clauses.mjs` planned over the fixture's specs and tests and asked through a
+ * stubbed client, a clause asserted and a clause missing; then each outcome of the skeptics, each
+ * refusal by its reason before any agent runs, and what the two renderers make of the result. The
+ * client's key missing and a call failing are the judge's own selftest's, since no answer reaches a
+ * clause run then.
+ */
+async function clauseResults(body, policy) {
+  const judgeScript = await import('./judge-trace-clauses.mjs')
+  const lib = await import('./lib/trace.mjs')
+  const t = policy.verifyTraceClauseThreshold
+  const n = policy.verifyTraceSkeptics
+  const base = verifyArgs(policy)
+  const first = (await run(body, base, verifyAnswer(base))).result
+  const corrected = (await run(body, base, verifyAnswer(base, { traces: { alpha: (g) => cleanTrace(g, (s) => (s === 'Two plus two' ? { exercises: false } : null)) }, verdict: () => PROVING }))).result
+  const plan = judgeScript.planClauses({
+    result: first,
+    specText: (capability) => (SPECS[capability] ? specOf(SPECS[capability]) : null),
+    fileText: (path) => (path === TEST_FILE ? CLAUSE_TESTS : null),
+    policy: judgeScript.clausePolicy(policy),
+  })
+  /** The judge's answers through a stub client giving each clause of `doubted` scenarios `low`, and every other 1. */
+  const judged = async (doubted = [], low = 0) => {
+    const stub = { noul: async (q) => Object.fromEntries(Object.keys(q.questions).map((name) => [name, doubted.some((s) => q.state.scenario.endsWith(` / ${s}`)) ? low : 1])) }
+    return { change: CHANGE, commit: COMMIT, model: 'jev-selftest', rows: await judgeScript.askClauses(plan.requests, stub), skipped: plan.skipped }
+  }
+  const clauseRun = async (clauses, scenario = {}, extra = {}) => {
+    const args = verifyArgs(policy, { first, clauses, ...extra })
+    return run(body, args, verifyAnswer(args, scenario))
+  }
+  const by = (out, scenario) => out.result?.rows.find((r) => r.scenario === scenario)
+  const problemsOf = (out) => (out.problems.length ? out.problems.join(' | ') : null)
+  const scenarios = Object.entries(SPECS).flatMap(([capability, list]) => list.map(([requirement, scenario]) => ({ capability, requirement, scenario })))
+
+  const asserted = await clauseRun(await judged())
+  const missing = await clauseRun(await judged(['Two plus two']))
+  const atThreshold = await clauseRun(await judged(['Two plus two'], t))
+  const refuted = await clauseRun(await judged(['Two plus two']), { verdict: () => PROVING })
+  const bare = await clauseRun(await judged(['Two plus two']), { verdict: () => reviewVote('refuted') })
+  const silent = await clauseRun(await judged(['Two plus two']), { verdict: () => null })
+  const again = await run(body, verifyArgs(policy, { first: corrected, clauses: await judged(['Two plus two']) }), verifyAnswer(base, { verdict: () => ({ ...PROVING, proof: 'test/alpha.test.js: Two plus two, its second assertion' }) }))
+
+  const cases = [
+    {
+      name: 'control: the judge plans one request per row over the specs and tests, and a clause run whose every clause is asserted runs no agent and stops no-gap with every row as the first run left it',
+      control: true,
+      detail: () => {
+        if (plan.problems.length || plan.requests.length !== 5) return `the plan came back ${JSON.stringify({ problems: plan.problems, requests: plan.requests.length })}`
+        if (problemsOf(asserted)) return problemsOf(asserted)
+        const r = asserted.result
+        if (asserted.calls.length) return `ran ${asserted.calls.join(', ')}`
+        if (r.stopped !== 'no-gap' || !/^a clause run: 5 clause\(s\) of 5 row\(s\) judged, 0 row\(s\) with one under /.test(r.why)) return `stopped ${r.stopped}: ${r.why}`
+        if (JSON.stringify(r.rows) !== JSON.stringify(first.rows)) return 'a row changed'
+        return r.clauses.judged === 5 && r.clauses.doubted === 0 && r.clauses.model === 'jev-selftest' ? null : `clauses came back ${JSON.stringify(r.clauses)}`
+      },
+    },
+    {
+      name: `a clause the judge's answer puts under ${CLAUSE_KEY_NAME} makes its row an unasserted gap, named with the clause and sent to the ${n} skeptic(s) the policy gives; upheld, it stops the run gaps and the row still exercises its scenario, as its tracer read it`,
+      detail: () => {
+        if (problemsOf(missing)) return problemsOf(missing)
+        const row = by(missing, 'Two plus two')
+        if (missing.calls.length !== n || skepticsFrom(missing.calls, 'alpha') !== n) return `ran ${missing.calls.join(', ')}`
+        if (missing.result.stopped !== 'gaps' || row.gap?.kind !== 'unasserted' || row.gap.outcome !== 'upheld' || row.exercises !== true) return `the row came back ${JSON.stringify(row)}`
+        const gap = missing.result.gaps.at(-1)
+        return /^Two plus two: its tests may not assert THEN it is done$/.test(gap.title) && /^jev-selftest: 0 for THEN it is done, under [\d.]+\. Read the test/.test(gap.evidence) ? null : `the gap reads ${gap.title} / ${gap.evidence}`
+      },
+    },
+    {
+      name: 'a clause exactly at the threshold is not under it: no gap, and no skeptic',
+      detail: () => problemsOf(atThreshold) ?? (atThreshold.calls.length || atThreshold.result.stopped !== 'no-gap' ? `ran ${atThreshold.calls.join(', ')}; stopped ${atThreshold.result.stopped}` : null),
+    },
+    {
+      name: "an unasserted gap a majority refutes with a proving reading leaves the run no-gap, the row carrying the skeptics' reading and its tracer's as traced",
+      detail: () => {
+        if (problemsOf(refuted)) return problemsOf(refuted)
+        const row = by(refuted, 'Two plus two')
+        if (refuted.result.stopped !== 'no-gap' || row.gap?.outcome !== 'refuted' || row.proof !== PROVING.proof) return `the row came back ${JSON.stringify(row)}`
+        return row.traced?.proof === first.rows[0].proof && refuted.result.counts.refuted === 1 ? null : `traced ${JSON.stringify(row.traced)}, counts ${JSON.stringify(refuted.result.counts)}`
+      },
+    },
+    {
+      name: 'a refutation with no reading whose proof exercises the scenario clears no unasserted gap, and skeptics that return nothing leave it unverified',
+      detail: () => {
+        for (const out of [bare, silent]) {
+          if (problemsOf(out)) return problemsOf(out)
+          const row = by(out, 'Two plus two')
+          if (out.result.stopped !== 'gaps' || row.gap?.outcome !== 'unverified') return `the row came back ${JSON.stringify(row)}`
+        }
+        return null
+      },
+    },
+    {
+      name: "a row the first run's skeptics corrected keeps its tracer's reading as traced through a second correction",
+      detail: () => {
+        if (problemsOf(again)) return problemsOf(again)
+        const row = by(again, 'Two plus two')
+        return again.result.stopped === 'no-gap' && row.traced?.exercises === false && /its second assertion$/.test(row.proof) ? null : `the row came back ${JSON.stringify(row)}`
+      },
+    },
+  ]
+  const refusals = [
+    ['a policy without the threshold', { policy: Object.fromEntries(Object.entries(verifyPolicy(policy)).filter(([k]) => k !== CLAUSE_KEY_NAME)) }, /^args\.policy `verifyTraceClauseThreshold` must be above 0 and at most 1/],
+    ['a first run that stopped with gaps', { first: { ...first, stopped: 'gaps' } }, /^args\.first stopped gaps, not no-gap in a first run/],
+    ["a first run that is a clause run's result", { first: asserted.result }, /^args\.first stopped no-gap in a clause run/],
+    ['a first run of another commit', { first: { ...first, commit: PREVIOUS } }, /^args\.first must be the result of a run at args\.commit/],
+    ['answers judged at another commit', { clauses: { ...(await judged()), commit: PREVIOUS } }, /^args\.clauses must be what scripts\/judge-trace-clauses\.mjs wrote at args\.commit/],
+    ['answers with no first run', { first: undefined }, /^args\.first must be the result of a run at args\.commit/],
+    ['answers for a scenario no row holds', { clauses: { ...(await judged()), rows: [{ capability: 'alpha', requirement: 'Adds', scenario: 'Two plus three', clauses: [{ clause: 'THEN it is done', p: 0 }] }] } }, /^args\.clauses\.rows\[0\] names no row of args\.first, once, whose proof exercises it/],
+    ['answers for one row twice', { clauses: { ...(await judged()), rows: [(await judged()).rows[0], (await judged()).rows[0]] } }, /^args\.clauses\.rows\[1\] names no row of args\.first, once/],
+    ['answers for a row whose proof does not exercise it', { first: { ...first, rows: first.rows.map((r, i) => (i ? r : { ...r, exercises: false })) } }, /^args\.clauses\.rows\[0\] names no row of args\.first, once, whose proof exercises it/],
+    ['an answer that is no probability', { clauses: { ...(await judged()), rows: [{ ...(await judged()).rows[0], clauses: [{ clause: 'THEN it is done', p: 1.5 }] }] } }, /^args\.clauses\.rows\[0\] must list \{ clause, p \}, p from 0 to 1/],
+  ]
+  for (const [what, extra, reason] of refusals) {
+    const args = verifyArgs(policy, { first, clauses: await judged(), ...extra })
+    const out = await run(body, args, verifyAnswer(args))
+    cases.push({
+      name: `refused: ${what}, before any agent runs`,
+      detail: () => problemsOf(out) ?? (out.result.stopped === 'refused' && reason.test(out.result.why) && !out.calls.length ? null : `stopped ${out.result.stopped} (${out.result.why}); ran ${out.calls.join(', ')}`),
+    })
+  }
+  cases.push(
+    {
+      file: 'scripts/render-trace.mjs',
+      name: "an unasserted gap renders in the trace with its clause and its votes, and the trace says what the clause check judged; a trace with no clause run says none ran",
+      detail: () => {
+        const text = lib.renderTrace(missing.result, scenarios, 'specs')
+        if (!text.includes('| unasserted, upheld |') || !/- \*\*upheld\*\* \([^)]*\): `unasserted` at alpha \/ Two plus two, `[^`]*`\. Two plus two: its tests may not assert THEN it is done/.test(text)) return `the trace reads ${text}`
+        if (!/TypeSafe `jev-selftest` second-checked 5 clause\(s\) of 5 row\(s\) through `scripts\/judge-trace-clauses\.mjs`, and sent the skeptics the 1 row\(s\) with one under `verifyTraceClauseThreshold`/.test(text)) return 'the trace does not say what the clause check judged'
+        return lib.renderTrace(first, scenarios, 'specs').includes('No clause was second-checked by TypeSafe') ? null : 'a trace with no clause run does not say so'
+      },
+    },
+    {
+      file: 'scripts/render-pr-body.mjs',
+      name: 'refuses a clause run whose unasserted gap no majority refuted, by its reason, and writes one whose every unasserted gap was refuted, saying so',
+      detail: () => {
+        const open = lib.prBodyProblems(missing.result).join(' | ')
+        if (!/the trace stopped `gaps`, not `no-gap`/.test(open) || !/1 row\(s\) have a gap no majority refuted: Two plus two/.test(open)) return `the problems were ${open}`
+        if (lib.prBodyProblems(refuted.result).length) return `the refuted run was refused: ${lib.prBodyProblems(refuted.result).join(' | ')}`
+        return /sent the skeptics the 1 row\(s\) with one under `verifyTraceClauseThreshold` \([\d.]+\) as an `unasserted` gap, each refuted\./.test(lib.renderPrSection(refuted.result, scenarios)) ? null : 'the body does not say the clause check ran and each gap was refuted'
+      },
+    },
+  )
+  const exercisable = t > 0 && t <= 1 ? null : `cannot be exercised: \`${CLAUSE_KEY_NAME}\` is ${t}, not a probability above 0`
+  return cases.map((c) => {
+    let detail
+    try {
+      detail = exercisable ?? c.detail()
+    } catch (error) {
+      detail = `threw: ${error.stack ?? error.message}`
+    }
+    return { file: c.file ?? VERIFY, name: c.name, control: Boolean(c.control), ok: detail === null, detail: detail ?? 'holds' }
+  })
+}
+
 /* ------------------------------------------------------------------------ the trace renderers ----- */
 
 /** Delta specs for the fixture change under `root`/`dir`, from `specs`. */
@@ -4101,6 +4288,12 @@ async function main() {
     process.exit(1)
   }
   results.push(...rendered)
+  const clauses = await clauseResults(suites[2].body, policy)
+  if (!clauses[0].ok) {
+    console.error(`workflows selftest: a clean clause run of ${VERIFY} does not pass, so none of its cases can be trusted: ${clauses[0].detail}`)
+    process.exit(1)
+  }
+  results.push(...clauses)
   for (const extra of [await bankResults(suites[3].body, suites[1].body, policy), await parityResults(suites[3].body, suites[1].body, policy), await readerResults(suites[3].body, suites[1].body, policy)]) {
     if (!extra[0].ok) {
       console.error(`workflows selftest: ${extra[0].name} fails, so its refusal cannot be trusted: ${extra[0].detail}`)

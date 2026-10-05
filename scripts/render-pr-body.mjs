@@ -4,9 +4,10 @@
  * scenario, rendered from the result `.claude/workflows/verify-change-trace.js` returned. It puts
  * the rest of the body, written by the session, before and after the section. It refuses to write
  * when the rows are not one to each scenario of the change's delta specs, when the trace has a gap
- * no majority of its skeptics refuted, when a row's proof is missing, does not exercise its scenario
- * or did not pass, or when a design lens was not read or kept: the section says every scenario is
- * proved, and no verdict may make it contradict its own table. After it comes the
+ * no majority of its skeptics refuted, an `unasserted` gap of the workflow's clause run among them
+ * (the section says whether that clause check ran), when a row's proof is missing, does not
+ * exercise its scenario or did not pass, or when a design lens was not read or kept: the section
+ * says every scenario is proved, and no verdict may make it contradict its own table. After it comes the
  * `## Verification report` section, which `scripts/lib/verify-report.mjs` renders from the fresh
  * run `scripts/fresh-run.mjs` wrote, as `scripts/render-verify-report.mjs` does for the epic's note;
  * it refuses too a run that is not a fresh run's, one for another change or another commit than the

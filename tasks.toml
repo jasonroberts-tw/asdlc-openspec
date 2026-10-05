@@ -580,6 +580,26 @@ that the baseline does not list, and holds the baseline itself, which may fall a
 Without it a scenario can land half-proved, or a test keep proving a scenario its change rewrote.'''
 run = "node tools/trace/trace.ts --check"
 
+["trace:clauses"]
+description = '''
+Change-verify's clause check, from a change's worktree once its scenario trace has stopped `no-gap`:
+it asks TypeSafe, one Noul per THEN, AND or BUT, whether each traced row's tests set up its scenario
+and assert that clause, given their bodies and the definitions they use, and writes
+`.scratch/<change>-clauses.json` for the trace workflow's clause run, which sends a row with a clause
+under `verifyTraceClauseThreshold` to the skeptics. It reads `TYPESAFE_API_KEY` and the network, so no
+job runs it; with no key it says why and writes nothing. Without it a test that asserts none of its
+scenario's THEN reaches the pull request as that scenario's proof once its tracer says it exercises it.'''
+run = "node scripts/judge-trace-clauses.mjs"
+
+["trace:clauses:selftest"]
+description = '''
+The clause check, negative-tested over a fixture repository and a stubbed client: what it asks of
+each row, a clause asserted and one missing, a clause at the threshold, a missing key that writes
+nothing and a failed call that fails, each refusal by its reason, and once through the real SDK to a
+refused loopback connection. Needs no key. Without it the check could judge a test body cut short, or
+read a failed call as no doubt.'''
+run = "node scripts/judge-trace-clauses.mjs --selftest"
+
 ["trace:selftest"]
 description = '''
 The trace gate, negative-tested: each refusal on a doctored copy of a fixture repository, its reason
@@ -641,9 +661,11 @@ output. For the change-verify trace, `verify-change-trace.js`: that it counts no
 returned short or read at another commit, gives each row its gap from its reading, never counts an
 unverified gap refuted, and never lets a skeptic's vote clear a proof that failed. It must keep on a
 run again only the readings it is given, of lenses that read, take each row's result from the fresh
-run, counting a flaky test as failing, and refuse a run of another commit. The trace and
-pull-request-body renderers must refuse a result with a scenario missing, a gap open or a row that
-did not pass. The verification report's two renderers must write one section from one stubbed run,
+run, counting a flaky test as failing, and refuse a run of another commit. Its clause run, over the
+answers `scripts/judge-trace-clauses.mjs` plans, must send a row with a clause under
+`verifyTraceClauseThreshold` to the skeptics, and no row at it, and refuse a trace that had a gap.
+The trace and pull-request-body renderers must refuse a result with a scenario missing, a gap open
+or a row that did not pass. The verification report's two renderers must write one section from one stubbed run,
 and reject on a flaky or failing test, an unmet obligation or a failed Commands' run. It also holds
 each file to what the Workflow runtime accepts, and refuses a workflow with no suite. Without it a
 wrong stop rule shows only in a real run, at millions of tokens.'''
