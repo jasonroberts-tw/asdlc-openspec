@@ -27,7 +27,7 @@ which of four things is true, citing file and line for each claim:
 
 Read that code as the trunk has it: this step runs in the primary checkout, whose `main` trails
 `origin/main` until someone pulls it. Run `git fetch origin main`, then read with
-`git show origin/main:<path>`. Where a fetch is not wanted yet, as in plan mode, `gh api "repos/{owner}/{repo}/contents/<path>?ref=main" -H "Accept: application/vnd.github.raw"`
+`git show origin/main:<path>`. Where a fetch is not wanted yet, `gh api "repos/{owner}/{repo}/contents/<path>?ref=main" -H "Accept: application/vnd.github.raw"`
 reads the same file without one. An agent sent to read the code reads the checkout's copy unless its
 brief says otherwise (not verified against the CLI), so say so.
 
@@ -40,8 +40,9 @@ fetch,
 the two that the trunk has changed since. Read the trunk's copy of each one it names, as above, and
 follow that copy from here on. A session given no such git status reads the trunk's copy of both.
 
-Name, too, any register entry an acceptance criterion implies. The pull request's body opens with
-it, so the person who reviews it reads it first (step 6).
+Name, too, any register entry an acceptance criterion implies or that names the issue
+(`git grep <id> origin/main -- docs/decisions.md`). The pull request's body opens with it, so the
+person who reviews it reads it first (step 6).
 
 An issue asking for a change to what the product does, stated as requirements, goes to
 `change-propose` (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
@@ -58,17 +59,16 @@ What happens next depends on who is listening:
   and move to the next one. Never close an issue on your own reading of its premise.
 - **Blocked:** with a live user, taking on the prerequisite is the user's call on scope. In an
   autonomous session, take it on only when no open issue carries it and the acceptance criteria
-  cannot be met without it: write its smallest form, and open the pull request's body with it
-  (step 6). Otherwise it is a premise that does not hold, handled as above.
+  cannot be met without it: write its smallest form. Otherwise it is a premise that does not hold,
+  handled as above.
 
 ## 2. Partition before claiming
 
 With several issues, decide before claiming any of them which can share a branch and which cannot,
 by the overlap kinds in `.claude/agents/fan-out-work.md` § 2. Two branches that each add a row
-beside the same anchor stay separate and conflict when the second merges; step 6 finds that. Two
-issues that describe one defect are one lane; where their acceptance criteria conflict, the choice
-and its reason go in the pull-request body and in both close reasons. Claim only what this session
-will finish.
+beside the same anchor stay separate and conflict when the second merges. Two issues that describe
+one defect are one lane; where their acceptance criteria conflict, the choice and its reason go in
+the pull-request body and in both close reasons. Claim only what this session will finish.
 
 Separate branches are worked one after another, never interleaved. Take one through step 6, its
 watcher running in the background, then leave its worktree with `ExitWorktree` (action `keep`) and
@@ -95,10 +95,12 @@ Make the change in every file restating what it alters, by value or by reference
 the old text alone misses some. A prompt it would take past its word budget
 (`node scripts/check-prompts.mjs --counts`) is consolidated first, as
 `.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated says, not once
-`check:prompts` refuses it at the gate. A defect's fix lands only after a test or selftest case
-that reproduces it has been seen to fail, and the pull request's body names that run: a test first
-run after its fix can pass without it. Regenerate every derived artifact the change touches only
-after the last edit to the emitter or its inputs: an emitter's own source is one of its inputs.
+`check:prompts` refuses it at the gate. This branch sets each changed prompt's budget to its count,
+so the room freed is not spent unseen (`docs/decisions.md` § D-12). A defect's fix lands only after
+a test or selftest case that reproduces it has been seen to fail, and the pull request's body names
+that run: a test first run after its fix can pass without it. Regenerate every derived artifact the
+change touches only after the last edit to the emitter or its inputs: an emitter's own source is one
+of its inputs.
 
 Stage every file the change adds (`git add`) before the gates run: a new file not yet added passes
 the citations and count-index gates unread. Run `mise run gates`, the build check here. There is no
@@ -108,8 +110,7 @@ list. A red gate is fixed or reported, never bypassed.
 A defect found on the way is fixed in this branch only when it sits in a file the issue already
 changes. One left unfixed is filed as its own issue, never folded in, and before the pull request
 opens, so the pull request's body names the new id. File it with `foundIssueCommand` in
-`tools/policy/vocabulary.json`, discovered from the issue worked here, with the labels `CLAUDE.md` §
-The task store names; here the found-at label is bead's.
+`tools/policy/vocabulary.json`; here the found-at label is bead's.
 
 Before filing this or any follow-up, search for it as `CLAUDE.md` § The task store says. From a
 worktree, Claude Code can refuse quoted text naming git or a shell (not verified against the CLI),
