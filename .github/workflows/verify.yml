@@ -12,9 +12,9 @@ on:
   pull_request:
   push:
     branches: ['main']
-  # The reviewer's merges (`.github/workflows/pr-review.yml`) are made with a workflow token, and an
-  # event that token causes starts no workflow run, so no push run follows them. The reviewer
-  # dispatches this workflow on `main` after each one instead, which keeps it binding on every push.
+  # By hand. Until D-47 the reviewer merged with a workflow token, whose events start no run, and
+  # dispatched this after each merge; GitHub's auto-merge now merges as the person who enabled it,
+  # and that push starts the run above (`docs/decisions.md` § D-47).
   workflow_dispatch:
 
 # A newer run for the same ref supersedes an older one: cancel it rather than queue behind it.
@@ -120,8 +120,9 @@ jobs:
       # in change-verify.
       - name: the trace's clause check, negative-tested over a stubbed client
         run: mise run trace:clauses:selftest
-      # Milliseconds: the reviewer's wiring and its decisions, with the policy's values. The reviewer
-      # itself reads a token and the network, and runs only as `pr-review.yml`.
+      # Milliseconds: the reviewer's wiring and its decisions, with the policy's values, and no other
+      # workflow able to forge its status. The reviewer itself reads a token and the network, and runs
+      # only as `pr-review.yml`.
       - name: the reviewer's workflow, agent and policy agree
         run: mise run pr-review:check
       - name: the reviewer's decisions, and its wiring gate, negative-tested

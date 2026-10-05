@@ -359,8 +359,11 @@ pre-push:
     # from outside the checkout, through a stand-in `node` that runs no hook, so the settings file is
     # in the glob, and renders the briefing template through a scratch copy of its renderer, so both
     # are in it too. It provisions twice through a scratch copy of `scripts/new-worktree.sh`, from a
-    # checkout that trails its remote, and the guard reads the approval label and the gc sweep its
-    # `worktreeGcMinAgeHours` from `tools/policy/`, so the policy is in the glob too. Its Vale case
+    # checkout that trails its remote, and the workflow-edit guard reads the status context and the gc
+    # sweep its `worktreeGcMinAgeHours` from `tools/policy/`, so the policy is in the glob too. That
+    # guard judges edits to this checkout's workflows through `forgeProblems` in
+    # `scripts/pr-review.mjs`, which imports `tools/lib/git-env.ts`, and parses them with the js-yaml
+    # the manifest and lockfile pin, so each of those is in it as well. Its Vale case
     # copies this checkout's own `.vale.ini` and `.gitignore` into a scratch checkout and reads the
     # StylesPath the first names, so both are in it as well. Over a hundred and twenty git spawns,
     # two bash runs, four renders and, on macOS, three `lsof` calls:
@@ -376,7 +379,10 @@ pre-push:
     # run's branch, four more runs of the script, and for the age rule, three more worktrees, moved
     # it less than the load did: 32.79-44.19 s wall without them and 28.49-40.80 s with them
     # (`/usr/bin/time -p` on `node`, two runs each, alternating, while other worktrees ran their
-    # gates), on the same laptop with Node 26.8.1, 2026-10-03.
+    # gates), on the same laptop with Node 26.8.1, 2026-10-03. With the workflow-edit guard's
+    # thirteen runs of that hook, and the merge rule's eleven runs of the guard in place of the
+    # approval label's eighteen: 34.84 s wall (`/usr/bin/time -p` on `node`, one run), on the same
+    # laptop with Node 26.8.1, 2026-10-05.
     - name: worktree-hooks
       glob:
         - 'scripts/hooks/**'
@@ -387,6 +393,11 @@ pre-push:
         - '.claude/settings.json'
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
+        - '.github/workflows/*.yml'
+        - 'scripts/pr-review.mjs'
+        - 'tools/lib/git-env.ts'
+        - 'package.json'
+        - 'package-lock.json'
         - '.vale.ini'
         - '.gitignore'
         - 'tasks.toml'
@@ -562,13 +573,13 @@ pre-push:
         - 'package-lock.json'
       run: mise run trace:clauses:selftest
     # The pull-request reviewer's wiring: the policy's `prReview*` keys whole, and `pr-review.yml`,
-    # `verify.yml` and the branch reviewer agreeing on labels, check and agent, each job of the
-    # workflow held to what its allowlist lets it run, and no secret or OIDC token; and the floor
-    # holding every file the gates `prReviewFloorTasks` names run and import, derived from `tasks.toml`
-    # and their imports, and the policy keys those files name. The reviewer itself reads a token and
-    # runs only as `pr-review.yml`. 0.13 s wall
+    # `verify.yml` and the branch reviewer agreeing on status, check and agent, the reviewer's one job
+    # held to what its allowlist lets it run and hold, no secret, and no other workflow able to forge
+    # its status; and the floor holding every file the gates `prReviewFloorTasks` names run and import,
+    # derived from `tasks.toml` and their imports, and the policy keys those files name. The reviewer
+    # itself reads a token and runs only as `pr-review.yml`. 0.10 s wall
     # (`/usr/bin/time -p node scripts/pr-review.mjs --check`, one run) on a macOS 26.7.1 laptop with
-    # Node 26.8.1, 2026-10-04. Its glob's `*.yml` reaches only the files
+    # Node 26.8.1, 2026-10-05. Its glob's `*.yml` reaches only the files
     # directly in `.github/workflows/`, which holds no subdirectory. The manifest and lockfile pin the
     # js-yaml and smol-toml it reads through; `scripts/**` and `tools/**` hold the script, its helpers,
     # the harness and the co-change map it imports for the brief's evidence, and every file a listed
@@ -588,10 +599,10 @@ pre-push:
     # among them, with an undoctored control. The same files decide its verdict, and the brief's
     # prompt counts are taken over a scratch repository by `scripts/check-prompts.mjs`, so the glob
     # takes `scripts/**` and `tools/**` whole, as the wiring gate's does, beside the manifest and
-    # lockfile that pin its js-yaml and smol-toml. 3.81 s wall
+    # lockfile that pin its js-yaml and smol-toml. 3.37 s wall
     # (`/usr/bin/time -p node scripts/pr-review.mjs --selftest`, one run) on a macOS 26.7.1 laptop
-    # with Node 26.8.1, 2026-10-04, over its 157 cases; copying the listed gates' files into each
-    # case's copy took it from 1.62 s.
+    # with Node 26.8.1, 2026-10-05, over its 146 cases; copying the listed gates' files into each
+    # case's copy took it from 1.62 s on 2026-10-04.
     - name: pr-review-selftest
       glob:
         - 'scripts/**'

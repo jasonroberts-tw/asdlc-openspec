@@ -166,7 +166,7 @@ Judge what breaks, for whom and how far, if the change is wrong, and how hard it
 
 The brief's floor alone decides who merges the branch, and nothing you report raises or lowers it.
 Report your own level anyway: a high one off the floor is the case a person would want named before
-the reviewer merges it. The brief's reach and co-change partners are places to look, never a finding
+GitHub merges it. The brief's reach and co-change partners are places to look, never a finding
 by themselves.
 
 ## What you report

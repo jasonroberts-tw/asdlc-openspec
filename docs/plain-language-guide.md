@@ -10,7 +10,9 @@ alone, and the review before an agent shares its work reads the change against i
 commands each check runs and the checks that hold the product (`docs/decisions.md` § D-38).
 Amended 2026-10-05 by `asdlc-openspec-m8hs`: which checks run a changed file, and what changes with
 it, are for the review before an agent shares its work, not the reviewer (`docs/decisions.md` §
-D-46).
+D-46). Amended 2026-10-05 by `asdlc-openspec-3cp3`: the automated reviewer only marks a change
+risky or not, and the shared server merges one it marks not risky; a person merges a risky one
+themselves (`docs/decisions.md` § D-47).
 
 **Which document wins.** This page simplifies. Where it and a technical document disagree, the
 technical document is right and this page needs correcting.
@@ -23,8 +25,8 @@ operator follows, step by step, is `docs/playbook.md`.
 
 AI agents do software work in this repository, under rules a person can check. Work goes in as an
 item on a shared to-do list, and comes out as a proposed change. A second agent reads it against
-what the item asked for before it is shared, and an automated reviewer merges it unless it is
-risky. People decide what the product should do, and approve anything risky.
+what the item asked for before it is shared, and it merges once an automated reviewer finds it is
+not risky. People decide what the product should do, and approve anything risky.
 
 ## What the repository is for
 
@@ -66,7 +68,7 @@ touch a file on a fixed list of risky things? The list holds the file of rules e
 first, the reviewer itself, the shared server's jobs, the recorded decisions, the tools' versions,
 the outside code the project uses, the list of commands each check runs, and the checks that hold
 the product to its specifications, with what they import and the settings they read. If it does, a
-person decides. If not, the reviewer merges it. Which checks run each changed file, and the files
+person decides. If not, the shared server merges it once its checks pass. Which checks run each changed file, and the files
 that often change with it, are for the second agent to read, before the work is shared.
 
 **The loop between them.** What the work turns up goes back on the list. Each new item a run files
@@ -75,7 +77,7 @@ shows what keeps going wrong. Each run also leaves a short account of itself. On
 have gathered, or the oldest has waited long enough, a review reads them together and proposes
 changes to the agents' instructions, as one proposed change. Other agents test each edit first. If
 the change touches a file on the list of risky things, as a change to the rules every agent reads
-first does, a person decides whether to accept it; if not, the reviewer merges it. That is the one
+first does, a person decides whether to accept it; if not, it merges by itself. That is the one
 way a program's lessons from its runs reach the agents without a person reading them first.
 
 ## Who decides what
@@ -84,11 +86,11 @@ way a program's lessons from its runs reach the agents without a person reading 
   plan, before any of it is built.
 - **A person answers what the files cannot.** An agent that needs a decision asks, and when it
   recommends an option it shows a case where that option gives the worse result.
-- **A person approves a high-risk change**, and the agents are forbidden to give that approval
-  themselves. A guard stops an agent's own command for it, but not every route to it
+- **A person merges a high-risk change**, and the agents are forbidden to do it themselves. A
+  guard stops an agent's own command for it, but not every route to it
   (`docs/decisions.md` § R-01).
 - **A person decides whether the agents' instructions change** when the change a review proposes
-  touches a file on the list of risky things; the reviewer merges any other.
+  touches a file on the list of risky things; any other merges by itself.
 - **A recorded decision is not argued again.** Changing one takes a new recorded decision, which
   says what it changes and why.
 

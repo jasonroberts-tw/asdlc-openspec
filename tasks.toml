@@ -366,41 +366,39 @@ run = "node scripts/check-openspec.mjs --selftest"
 
 ["pr-review:check"]
 description = '''
-Holds the pull-request reviewer's four files to each other, and its floor to this file and the
-files of the gates `prReviewFloorTasks` lists. The policy's `prReview*` keys must be
-whole, with a floor that covers the reviewer itself, the branch reviewer and the `open-pr` skill
-that runs it, this file, the approval-label guard with the helper it imports, and what the merging
-job imports. The floor must also cover every file a task `prReviewFloorTasks` lists runs or imports,
-which it derives from this file and their imports, and hold every policy key whose name such a file
-holds; a listed task this file lacks, or one that runs no file, is refused. `pr-review.yml` must
-queue rather than cancel, wake on `verify`'s runs and filter on the policy's approval label, and the
-branch reviewer must read only. The one job of `pr-review.yml` runs `next` and then `act`, and only
-what its allowlist names: its actions and their inputs, its commands, the variables each step sets
-and its tools from mise. So it refuses a language model, a package beside the token that merges, the
-evidence computed again, and a command or shell of a step's own. It refuses a secret however it is
-read, an OIDC token, `write-all` included, and an expression interpolated into a shell. It refuses a
-shallow history where the merge is made. It refuses a
-`verify.yml` without the required check or a dispatch trigger. Without it a renamed label or check
-leaves approvals and merges waiting on the schedule, and nothing says why, and a gate that holds the
-product can be weakened in the pull request it proves and merge without a person.'''
+Holds the pull-request reviewer's files to each other, and its floor to this file and the files of
+the gates `prReviewFloorTasks` lists. The policy's `prReview*` keys must be whole, with a floor
+that covers the reviewer itself, every workflow, the branch reviewer and the `open-pr` skill that
+runs it, this file, both guards with the helper they import, and what the reviewer's job imports.
+The floor must also cover every file a task `prReviewFloorTasks` lists runs or imports, which it
+derives from this file and their imports, and hold every policy key whose name such a file holds; a
+listed task this file lacks, or one that runs no file, is refused. `pr-review.yml` must run on
+`pull_request_target` alone, for each head pushed to a pull request against the trunk, with its run
+and its one job named by the pull request's number, and the branch reviewer must read only. That job
+holds `contents: read` and `statuses: write` and nothing else, and runs
+`node scripts/pr-review.mjs review` and only what its allowlist names: its actions and their
+inputs, the variables its step sets and its tools from mise. So it refuses a language model, a
+package beside the token that sets the status, and a command or shell of a step's own. It refuses a
+secret however it is read, any other grant, `write-all` and an OIDC token among them, an expression
+interpolated into a shell, and a shallow history. It refuses any other workflow that grants
+`statuses: write`, `checks: write` or `write-all`, or names a job for the status, and a
+`verify.yml` without the required check. Without it a workflow could set the status GitHub merges
+by, and a gate that holds the product can be weakened in the pull request it proves and merge
+without a person.'''
 run = "node scripts/pr-review.mjs --check"
 
 ["pr-review:selftest"]
 description = '''
 Every decision the reviewer makes, over fixtures built from the live policy, each case asserting its
-reason. It holds which changes the floor sends to a person and which merge, the floor read from git
-objects between two commits and by the trunk's policy, a floor that cannot be computed, which
-approvals count, and what the queue takes next. It holds that a merge goes by the floor recomputed
-when it is made, never by a comment, which another workflow could forge, and that a merge verdict
-that floor does not bear out is replaced by the floor's, so the queue stops choosing it. It holds
-that the verdict prints no reach or co-change, and that nothing in a path or a reason forges a
-verdict.
-It holds which heads `mark` sets pending when the session that opened the pull request, or a
-person, runs it. It holds the local brief's facts too: which other issues the cited issues and the
-body name, that the prompt counts come from the commit and not the working tree, when they are
-shown and that a failed count always is, how the commits read, and what `brief --local` refuses as
-its inputs. It also runs the wiring gate over doctored copies with an undoctored control. Without
-it a change to the decisions shows only in a merge nobody meant.'''
+reason. It holds which changes the floor sends to a person and which pass, the floor read from git
+objects between two commits and by the trunk's policy, a floor that cannot be computed, the status
+each outcome sets and the summary it writes, which prints no reach or co-change. It holds when
+`wait` waits and when it ends, and which workflows could forge the status. It holds the local
+brief's facts too: which other issues the cited issues and the body name, that the prompt counts
+come from the commit and not the working tree, when they are shown and that a failed count always
+is, how the commits read, and what `brief --local` refuses as its inputs. It also runs the wiring
+gate over doctored copies with an undoctored control. Without it a change to the decisions shows
+only in a merge nobody meant.'''
 run = "node scripts/pr-review.mjs --selftest"
 
 ["prompt-review:match"]
@@ -683,6 +681,7 @@ run = "node scripts/prune-worktree-branches.mjs --remote"
 
 ["worktree:selftest"]
 description = '''
-The worktree hooks, the git guard and the branch sweep, negative-tested against a scratch repository
-it builds, and the worktree briefing rendered from its template into a scratch directory.'''
+The worktree hooks, the git guard, the workflow-edit guard and the branch sweep, negative-tested
+against a scratch repository it builds or, for the workflow-edit guard, payloads it never writes,
+and the worktree briefing rendered from its template into a scratch directory.'''
 run = "node scripts/hooks/worktree-hooks.selftest.mjs"

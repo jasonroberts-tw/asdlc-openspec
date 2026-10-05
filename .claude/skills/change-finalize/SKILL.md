@@ -91,12 +91,12 @@ worktree and branch after it; a fix it asks for is made in the worktree.
 
 ## 7. Merge, through the reviewer
 
-The pull-request reviewer merges it off the high-risk floor (`docs/decisions.md` § D-07 and § D-37).
-On the floor, its comment names the changed path or key that puts it there: the user merges it, or
-applies the approval label for the reviewer to merge it. Never apply the label yourself
-(`CLAUDE.md` § Git workflow). Handed back unmerged, the epic stays open, and step 9 reports why.
+GitHub's auto-merge merges it once `verify` and the reviewer's `pr-review` status pass, off the
+high-risk floor (`docs/decisions.md` § D-47). On the floor, that status names the changed path or
+key that puts it there, and the user merges it. Handed back unmerged, the epic stays open, and step
+9 reports why.
 
-`scripts/hooks/guard-git.mjs` refuses a merge from a worktree.
+`scripts/hooks/guard-git.mjs` refuses a merge from a worktree but auto-merge.
 
 Always rebase, never squash. `mise run worktree:gc` can prove a rebase-merged branch is in the trunk,
 but it keeps a squash-merged one.
