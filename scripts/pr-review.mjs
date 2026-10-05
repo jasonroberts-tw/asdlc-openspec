@@ -215,7 +215,9 @@ const STATUS_MAX = 140
 const COMMENT_MAX = 60000
 /**
  * How a verdict a person decides begins its status's description. That status is a failure, as a
- * conflict's is, so `waitOutcome` tells the two apart by this prefix (asdlc-openspec-b83l).
+ * conflict's is, so `waitOutcome` tells the two apart by this prefix (asdlc-openspec-b83l), not by
+ * `prReviewLabels.human`: `setOutcomeLabel` runs only with a verdict, so the label from an earlier
+ * head stays through a push that then conflicts, and would read that conflict as a person's verdict.
  */
 const PERSON_DECIDES = 'A person decides: '
 /**
