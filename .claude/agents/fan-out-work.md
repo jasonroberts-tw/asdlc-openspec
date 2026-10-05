@@ -22,9 +22,9 @@ is red, stop and report the failing gate; do not dispatch.
 ## 2. Partition the ready work into lanes
 
 Read the queue (`bd ready --exclude-label spec-change`: a product change's tasks are worked in its
-own worktree by `change-build`, `docs/decisions.md` § D-02, and the label is `specChangeLabel` in
-`tools/policy/vocabulary.json`) and, for every pair of issues, decide
-the overlap by reading the files each will touch, not the titles:
+own worktree by `change-build`, and the label is `specChangeLabel` in `tools/policy/vocabulary.json`)
+and, for every pair of issues, decide the overlap by reading the files each will touch, not the
+titles:
 
 | Overlap kind | What it looks like | What to do |
 |---|---|---|
@@ -41,14 +41,13 @@ watching user would want to catch.
 
 ## 3. Pre-claim every issue in one tracker bracket
 
-Pull, claim every issue of every lane, push. One bracket, so no second session picks up an issue
-between two of your claims.
+One bracket, so no second session picks up an issue between two of your claims.
 
 ## 4. One fresh agent per lane, each in its own worktree
 
-Make each worktree with the one worktree script. Brief each lane with: its issues, its anchors, the
-base, the skill it follows (`.claude/skills/bead/SKILL.md`) and where it stops in it, and these
-three rules, stated in every brief word for word:
+Brief each lane with: its issues, its anchors, the base, the skill it follows
+(`.claude/skills/bead/SKILL.md`) and where it stops in it, and these three rules, stated in every
+brief word for word:
 
 1. **Never end a turn while a command runs.** A turn end kills the lane's background run or leaves
    it running unwatched.
@@ -63,21 +62,20 @@ its issues.
 
 ## 5. Integrate on your own branch
 
-As each lane reports green, cherry-pick its commits onto the dispatcher's branch, resolving any
-conflict there rather than in a merge commit, which the reviewer's rebase merge
-(`prReviewMergeMethod` in `tools/policy/pr-review.json`) cannot carry. Never rebase a branch that has
-been pushed. After each lane, regenerate every generated file more than one lane touched,
-renumber any register entry that collided, then run `mise run gates`.
+As each lane reports green, cherry-pick its commits onto your branch. Resolve any conflict there,
+not in a merge commit: the reviewer's rebase merge (`prReviewMergeMethod` in
+`tools/policy/pr-review.json`) cannot carry one. Never rebase a branch that has been pushed. After
+each lane, regenerate every generated file more than one lane touched, renumber any register entry
+that collided, then run `mise run gates`.
 
 ## 6. Open the pull request and watch its checks
 
-Open it with the `open-pr` skill. Its title ends with the id of every issue the lanes carried. When
-every check is green, close each of those issues as `.claude/skills/bead/SKILL.md` § 7 says.
+Open it with the `open-pr` skill. When every check is green, close each issue the lanes carried as
+`.claude/skills/bead/SKILL.md` § 7 says.
 
 ## 7. Report one table
 
 | Lane | Issues | Branch | Gates (as measured) | Merged | Follow-ups filed |
 |---|---|---|---|---|---|
 
-Then: issues not dispatched and why, and a `RUN THESE YOURSELF` block for any command that was
-refused (`CLAUDE.md` § Guards).
+Then: issues not dispatched and why, and the `RUN THESE YOURSELF` block of `CLAUDE.md` § Guards.
