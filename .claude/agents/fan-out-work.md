@@ -47,9 +47,9 @@ One bracket, so no second session picks up an issue between two of your claims.
 
 ## 4. One fresh agent per lane, each in its own worktree
 
-Brief each lane with: its issues, its anchors, the base, the skill it follows
-(`.claude/skills/bead/SKILL.md`) and where it stops in it, and these three rules, stated in every
-brief word for word:
+Make each worktree with the one worktree script. Brief each lane with: its issues, its anchors, the
+base, the skill it follows (`.claude/skills/bead/SKILL.md`) and where it stops in it, and these
+three rules, stated in every brief word for word:
 
 1. **Never end a turn while a command runs.** A turn end kills the lane's background run or leaves
    it running unwatched.
@@ -72,8 +72,8 @@ that collided, then run `mise run gates`.
 
 ## 6. Open the pull request and watch its checks
 
-Open it with the `open-pr` skill. When every check is green, close each issue the lanes carried as
-`.claude/skills/bead/SKILL.md` § 7 says.
+When every check is green, close each issue the lanes carried as `.claude/skills/bead/SKILL.md` § 7
+says.
 
 ## 7. Report one table
 
