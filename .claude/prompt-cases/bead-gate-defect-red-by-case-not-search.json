@@ -1,0 +1,27 @@
+{
+  "id": "bead-gate-defect-red-by-case-not-search",
+  "prompt": ".claude/skills/bead/SKILL.md",
+  "lens": "near-miss",
+  "source": {
+    "run": "asdlc-openspec-edvp@2026-10-05T02:11:10Z",
+    "point": 2,
+    "commit": "c0835e1"
+  },
+  "situation": "A session is working an issue with the bead skill. In step 1 it confirmed the premise against `origin/main`: the citations gate, a script under `scripts/` with a `--selftest` mode, matches a `<file>.md § <Heading>` pointer to a heading by prefix. As a result, `§ Rules` resolves against `## Rules for agents`, and a pointer to a heading that no longer exists passes. The session has claimed the issue and entered its worktree, and has not edited anything yet. The fix changes the match to compare whole headings, which is one line in the script. It also adds the same new sentence, \"a heading matches only as a whole\", to the script's header and to the script's row in `scripts/README.md`. Because the sentence is new, `git grep -n` for it over those two files prints nothing at the trunk and prints the new lines at the head. The session now has to decide what it will run, and when, as the defect's reproduction that the pull request's body names.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Make the fix, run `git grep -n` for the new sentence over the files the fix changes, at the trunk and at the head, and name that before-and-after in the pull request's body as the reproduction."
+    },
+    {
+      "id": "b",
+      "text": "Make the fix, add a selftest case whose fixture points `§ Rules` at a file with only `## Rules for agents` and expects an unresolved-heading refusal, see it pass along with `mise run gates`, and name that passing run in the body."
+    },
+    {
+      "id": "c",
+      "text": "Add a selftest case whose fixture points `§ Rules` at a file with only `## Rules for agents` and expects an unresolved-heading refusal, run the selftest against the unfixed script and see that case fail, then make the fix, and name that failing run in the body."
+    }
+  ],
+  "expected": "c",
+  "settledBy": "Settled by bead § 4 (Implement, regenerate, gate) at c0835e1, in its own sentence: a defect's fix lands only after a test or selftest case that reproduces it has been seen to fail, the pull request's body names that run, and a test first run after its fix can pass without it. The run's action in #145 used a search before and after only because no test or selftest reads prompt prose. This defect is in a gate's script, which has a selftest whose case can be seen to fail first. So a search that stands in for the failing case does not apply here, and running the case only after the fix is the failure that sentence names."
+}

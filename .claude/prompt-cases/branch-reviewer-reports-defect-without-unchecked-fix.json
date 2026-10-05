@@ -1,0 +1,27 @@
+{
+  "id": "branch-reviewer-reports-defect-without-unchecked-fix",
+  "prompt": ".claude/agents/branch-reviewer.md",
+  "lens": "near-miss",
+  "source": {
+    "run": "asdlc-openspec-6yt.3@2026-10-05T14:29:57Z",
+    "point": 6,
+    "commit": "158b73e"
+  },
+  "situation": "You are reviewing a branch before its pull request opens. Its workflow script takes a model's answer that matches a new finding to an existing held key. The script checks that the key exists, but it never checks the count the finding carries under that key. A session could therefore take the model's key and count only this batch's runs, and a recurring finding's count would start again from one. You judge this a major finding. The obvious remedy is to refuse any such match whose count equals the number of runs in this batch. Before you write that remedy, you read the prompt-review agent file that defines held lines. That file collects a key's held lines whether or not their run's analysis is still pending, and it writes held lines for a run it leaves pending. So every run a key's held lines name can belong to this batch, and in that case a count equal to this batch's runs is correct. The obvious remedy would refuse correct matches, and nothing in the fields the match carries at the head lets you tell a correct count from a wrong one. You have no remedy that holds. What goes in your report?",
+  "options": [
+    {
+      "id": "a",
+      "text": "Report the major finding as the defect alone. Give the file and line at the head where the key is checked and the count is not, and say what that lets through. Add that refusing a count equal to this batch's runs would also refuse correct matches."
+    },
+    {
+      "id": "b",
+      "text": "Report the major finding with the obvious remedy: refuse any held-key match whose count equals this batch's runs. Wrongly refusing a correct match is a safer error than a count that silently starts again from one."
+    },
+    {
+      "id": "c",
+      "text": "Leave the finding out. Without a remedy that holds, it is a doubt you cannot make concrete, and a finding should not be invented."
+    }
+  ],
+  "expected": "a",
+  "settledBy": "Settled by the section's own sentences in .claude/agents/branch-reviewer.md at 158b73e. The opening says to report what you find, because a pass you cannot support costs the trunk a defect and a reported doubt costs a person a minute. That rules out dropping a defect the head shows (option 3). § 2 says a finding names the file and states what is wrong and why. It asks for no remedy, and \"report none rather than invent one\" does not cover a real defect. The finding's settlement agrees: the session's check against the prompt reviewer's § 2 and § 6, and the different fix it made in 818ea3f, show that a remedy the review has not checked against the files defining the data is left out, and the finding gives the defect alone. That makes option 1 right and rules out the known-wrong remedy (option 2). This is the near-miss: a broadened rule saying 'drop a finding whose fix you cannot check' would wrongly suppress the defect itself."
+}

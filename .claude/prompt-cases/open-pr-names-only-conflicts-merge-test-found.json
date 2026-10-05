@@ -1,0 +1,27 @@
+{
+  "id": "open-pr-names-only-conflicts-merge-test-found",
+  "prompt": ".claude/skills/open-pr/SKILL.md",
+  "lens": "near-miss",
+  "source": {
+    "run": "asdlc-openspec-edvp@2026-10-05T02:11:10Z",
+    "point": 4,
+    "commit": "c0835e1"
+  },
+  "situation": "You are opening a pull request with the open-pr skill. Your agent branch changes one skill file and one row of tools/policy/prompt-budgets.json, and it has passed its gates before and after the rebase. `gh pr list --state open --json number,headRefName,files` returns no open pull request. You also know of a local branch from a fan-out sweep that has not been pushed. It exists only in this checkout, and it changes that same skill file and a different row of the same policy file. You ran `git merge-tree --write-tree --name-only <that sweep branch> HEAD`. It exited 0 and printed only a tree id, with no conflicted file listed. The caller named one register entry for the body to open with. You are now writing the body file under .scratch/.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Open the body with the register entry the caller named and write nothing about the sweep's branch, because the merge test against it found no conflict."
+    },
+    {
+      "id": "b",
+      "text": "Open the body with the register entry. Then add a line naming the sweep's branch and the two files both branches change, saying that whichever lands second must reconcile them."
+    },
+    {
+      "id": "c",
+      "text": "Hold the push until the sweep's branch is pushed and has its own pull request, then run the merge test again against origin/<its branch> before writing the body."
+    }
+  ],
+  "expected": "a",
+  "settledBy": "Two sentences in the section settle it: open-pr § 2 says a shared file is not a conflict and only a conflict the merge test reports is one, and § 4 says the body names each conflict step 2 found. The runs' action in #145 and #146 supports this. Each tested a local branch that was not yet pushed with git merge-tree, as it would an open pull request, did not wait for that branch to be pushed, and named in the body only the conflicts the test reported. Neither run met a sibling branch with no conflict, so the answer for that case comes from the section's sentences, not from what a run did."
+}

@@ -1,0 +1,27 @@
+{
+  "id": "fan-out-lane-makes-no-worktree-at-bead-3",
+  "prompt": ".claude/agents/fan-out-work.md",
+  "lens": "recorded",
+  "source": {
+    "run": "asdlc-openspec-sqpe@2026-10-05T02:42:17Z",
+    "point": 5,
+    "commit": "8ad97fb"
+  },
+  "situation": "You are the dispatcher of a sweep. The trunk pre-flight passed, you wrote the partition down (three lanes) and pre-claimed every issue in one tracker bracket. You are at step 4, launching the first lane with the Agent tool. It is set to start in a worktree of its own on its own agent/ branch, cut from origin/main by the one worktree script. You are writing its brief: its two issues, the anchor for the file it shares with a sibling lane, the rules § 4 has every brief state word for word, and the skill it follows, .claude/skills/bead/SKILL.md, stopping at the end of its § 5. Bead is written for a session that starts at the checkout root. Its § 3 has the session make its own worktree with EnterWorktree before it edits anything, and its later sections work in that worktree. A lane follows its skill section by section, doing what each one says unless its brief says otherwise. You now have to decide what the brief says about bead § 3.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Name bead as the lane's skill and the end of § 5 as where it stops, and leave § 3 to the lane, since the skill already says how its worktree is made."
+    },
+    {
+      "id": "b",
+      "text": "Tell the lane that it starts in its own worktree and makes none at bead § 3, and that it follows the rest of the skill there through § 5."
+    },
+    {
+      "id": "c",
+      "text": "Tell the lane to do bead § 3 by entering the worktree made for it, using that worktree's path, instead of making a new one."
+    }
+  ],
+  "expected": "b",
+  "settledBy": "The branch review's major finding F1 on #146 and its fix, commit 0fcf8cf (on the trunk as 9b6dee3): the dispatcher's brief tells each lane that it makes no worktree at bead § 3, since it starts in one. Option 1 is what the branch's rewritten § 4 still did before the review: the brief sent the lane to follow bead with § 3 unqualified. A lane following that would call EnterWorktree from inside its own worktree. Option 3 is entering a worktree by path, which the rewritten § 4 itself says can leave a lane that runs but writes nothing there."
+}
