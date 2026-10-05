@@ -99,6 +99,12 @@ An issue a run files `discovered-from` the issue or epic it ran on also carries,
 label for each kind of file it would change. Those pairs are what `bd count` reads across runs
 (`.claude/skills/change-finalize/SKILL.md` § 9. Report).
 
+Before filing an issue, search for it: titles with `bd search "<words>"` and descriptions with
+`bd list --all --desc-contains "<words>"`, closed issues included, each again in other words, since
+one string can miss. A match gets a note, not a second issue, and its count label
+(`seenLabelPrefix` in `tools/policy/vocabulary.json`) goes up by one, or nothing shows how often a
+cost recurs.
+
 ## Product work runs as OpenSpec-format changes
 
 A change to what the product does, stated as requirements, runs through the `change-*` skills in

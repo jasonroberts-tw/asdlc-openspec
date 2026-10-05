@@ -34,7 +34,8 @@ second phrasing, and `git log -S <name> --oneline origin/main`.
   behind each defect the entry cites; one trial (step 5) of the defect that weighed most, if the
   diff leaves it open. With nothing new, report the entry, what you checked and what would reopen
   it, and stop. Otherwise assess only what is new, and the brief names the entry it would amend.
-- **An open issue carries the question:** the brief becomes a note on it (`bd note`), not a new issue.
+- **An open issue carries the question:** the brief becomes a note on it, counted as `CLAUDE.md` §
+  The task store says, not a new issue.
 
 ## 3. Map what it would touch
 

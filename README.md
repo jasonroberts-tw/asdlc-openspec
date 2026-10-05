@@ -422,7 +422,9 @@ own to say here.
 A run leaves behind its commits and pull request, and an issue in `bd` for each defect it found
 outside its own files, linked `discovered-from` the issue or epic it ran on. Each of those issues
 carries one or more of the labels `assetLabels` in `tools/policy/vocabulary.json` lists, one per kind
-of file it would change, so `bd count --by-label` shows which kind keeps needing a fix after a run. It
+of file it would change, so `bd count --by-label` shows which kind keeps needing a fix after a run.
+A defect an issue already carries is not filed again: the run notes that issue and raises its count
+label, `seenLabelPrefix` in the same file, so how often a cost recurs shows on the issue itself. It
 also leaves its analysis of itself as a note on the issue it worked, and the prompts that ran are
 reviewed from those notes in batches, as `.claude/skills/close-prompt-run/SKILL.md` says. A program
 proposes, and only a person promotes (`CLAUDE.md` § A program proposes; only a person promotes).
