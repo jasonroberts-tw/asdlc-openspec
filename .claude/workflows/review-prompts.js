@@ -60,7 +60,12 @@ export const meta = {
  * `discard`, and pasted there it removes a fan-out lane's unmerged branch. Since asdlc-openspec-6yt.1
  * it would also let through a finding keyed by the session where the model's answer decided its key,
  * or by the model under a threshold, so that its key drifts from the one it is held under and the
- * next review counts it from one again, the loss `promptReviewHeldMarkerMeans` records.
+ * next review counts it from one again, the loss `promptReviewHeldMarkerMeans` records. It would let
+ * through, too, a held key the model gave whose count is this batch's runs alone, which counts the
+ * finding from one again under the right key: the branch review of 2026-10-05 found that the check
+ * compared the key and never the count, before any run did. The fix it proposed, refusing such a key
+ * whenever the count is this batch's runs, would refuse a right one, since every run a key's held
+ * lines name may be one of this batch (THE KEY, below).
  *
  * Wrong the other way, it refuses what it should pass. On 2026-09-28 (run wf_5aec3e94-07b) it refused
  * 3 of 4 groups, each with an edit whose gates passed, because each listed under `notChanged` a point
@@ -86,8 +91,8 @@ export const meta = {
  *                           lines name
  *                 runs      the run ids in this batch that showed it, each as its marker line gives it
  *                 evidence  what those runs showed
- *                 match     [{ run, by, choice, probability }], one for each of its runs: the entry
- *                           `scripts/match-held-findings.mjs` printed for that run's finding,
+ *                 match     [{ run, by, choice, probability, held? }], one for each of its runs: the
+ *                           entry `scripts/match-held-findings.mjs` printed for that run's finding,
  *                           unchanged, which names the answer that keyed it (THE KEY, below)
  *   policy    the `promptReview*` keys of `tools/policy/agent-workflows.json`, as the agent's § 2
  *             prints them; this script reads the six in POLICY_KEYS below and ignores the rest
@@ -109,9 +114,10 @@ export const meta = {
  * for one run of the finding, the answer that keyed it, and that script's header holds the routing:
  *
  *   model        the model's top label `choice` at `probability`: a held key at
- *                `promptReviewMatchHeldMinProbability` or more, which must be the finding's key, or
- *                `none` at `promptReviewMatchNoneMinProbability` or more, whose finding counts no
- *                held run (`count` is its runs)
+ *                `promptReviewMatchHeldMinProbability` or more, which must be the finding's key, with
+ *                `held`, the distinct runs that key's held lines name, and `count` the distinct runs
+ *                of `runs` and `held` together; or `none` at `promptReviewMatchNoneMinProbability` or
+ *                more, whose finding counts no held run (`count` is its runs)
  *   reviewer     the session, where the model's top label met neither threshold or no call was made
  *                (`choice` null); an entry whose answer met one is refused, since the model's
  *                answer decided that key
@@ -122,9 +128,13 @@ export const meta = {
  * so a review's key is the one the answer that decided it gave, and the session's own judgment
  * stands only where the model's answer was not decisive. A finding the session joined across runs
  * carries one entry for each, and they must agree: a run the model gave `none` cannot join a held
- * key. The script checks the record against the key and the count; that the session copied each
- * entry as the match script printed it, it takes on the session's word. Where it loses: a session that
- * copies an answer wrong is refused only when the copy contradicts the key or the count.
+ * key. A held key's count is held to `held` and not to `runs` alone, because the agent's § 2 collects
+ * held lines whether their analysis is pending or not and § 6 writes them for a run § 5 leaves
+ * pending, so every run a key's held lines name may be one of this batch, and its count is then
+ * rightly the number of its runs. The script checks the record against the key and the count; that the session
+ * copied each entry as the match script printed it, it takes on the session's word. Where it loses: a
+ * session that copies an answer wrong is refused only when the copy contradicts the key or the count,
+ * so one that drops a run from `held` and from `count` alike passes.
  *
  * WHAT IT RETURNS. { stopped, why, groups, merge, discard, discardDropped, runsRead, runsHeld, findingsHeld, cases, counts }. Every
  * count in it is computed here, never by an agent. `stopped` is one of:
@@ -470,9 +480,11 @@ function matchProblem(f) {
     return 'lacks a match per run'
   }
   const fresh = f.count === runs.size
+  /* A held key's count is its runs here and the runs its held lines name, counted once each: a run held while pending is in both. */
+  const counted = (held) => isTextList(held) && f.count === new Set([...f.runs, ...held]).size
   const bad = m.find((e) => {
     const met = isText(e.choice) && typeof e.probability === 'number' && e.probability >= A.policy[e.choice === NONE ? NONE_MIN : HELD_MIN]
-    if (e.by === MODEL) return !met || (e.choice === NONE ? !fresh : e.choice !== f.key.trim())
+    if (e.by === MODEL) return !met || (e.choice === NONE ? !fresh : e.choice !== f.key.trim() || !counted(e.held))
     if (e.by === REVIEWER) return met
     return e.choice !== null || e.probability !== null || !fresh
   })
