@@ -41,14 +41,13 @@ and its issue, before building on it.
 Sort every finding by the prompt file it concerns: `CLAUDE.md`, a skill, an agent or a workflow
 script. Two findings are one when they concern the same prompt file and describe the same failure,
 the same step done wrong or missing at the same place in the prompt, however each analysis words
-it. Run `mise run prompt-review:match` first, as its header says: it keys some findings, and each
-finding's `match` records which answer keyed it. Key the rest yourself: a finding that is one with
+it. Run `mise run prompt-review:match` first, as its header says: it keys some findings. Key the
+rest yourself: a finding that is one with
 an earlier held line takes that line's key; a new one gets a short `<file>#<name>`. Give each a
 severity, as `.claude/agents/branch-reviewer.md` § 2. Maintainability defines blocker, major and
 minor, and a count: the distinct runs that have shown it, in this batch and in its held lines.
 
-A finding meets the threshold when its count is `promptReviewRecurrenceCount` or more, or its
-severity is in `promptReviewMajorSeverities`. Hold every finding that does not, with the reason
+Hold every finding below the threshold the workflow's header gives, with the reason
 `below the threshold`: § 6 writes its held lines, and the next review counts them. A finding an
 earlier review held for any other reason goes to a group again only when a run in this batch shows
 it that none of its held lines names. It must still meet the threshold, because the workflow refuses
