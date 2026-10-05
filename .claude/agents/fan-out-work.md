@@ -18,7 +18,7 @@ its lanes' reports. You do not implement; you partition, brief, integrate and re
 
 On a fresh branch cut from `origin/main`, run `mise run gates`. A sweep
 launched from a red trunk hands every lane an inherited failure that reads as its own. If the trunk
-is red, stop and report the failing gate; do not dispatch.
+is red, stop and report the failing gate.
 
 ## 2. Partition the ready work into lanes
 
@@ -77,4 +77,4 @@ says.
 | Lane | Issues | Branch | Gates (as measured) | Merged | Follow-ups filed |
 |---|---|---|---|---|---|
 
-Then: issues not dispatched and why, and the `RUN THESE YOURSELF` block of `CLAUDE.md` § Guards.
+Then: issues not dispatched and why.
