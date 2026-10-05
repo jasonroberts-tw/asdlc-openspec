@@ -44,8 +44,8 @@ A review is due when `promptReviewDueCount` analyses or more are pending, or the
 in its run id, is older than `promptReviewDueAgeDays` days. None starts while a pull request from a
 branch `agent/review-prompts-*` is open (`gh pr list --state open --json headRefName`), or while
 `claude agents --json` lists a session whose name starts with `review-prompts` and whose `state` is
-`working`: the pending analyses wait for it. A finished one still listed holds up none. When no
-review is due, or none may start, stop here.
+`working` (verified against the CLI, 2.1.289): the pending analyses wait for it. A finished one
+still listed holds up none. When no review is due, or none may start, stop here.
 
 ## 3. Launch the review
 
@@ -54,14 +54,14 @@ them. It is the name of the review's session, of its worktree and, as `agent/<na
 and the only way a review tells itself from another that is working.
 
 Leave your worktree (`ExitWorktree`, action `keep`): a background session launched inside a linked
-worktree writes on that worktree's branch. From the primary checkout, launch the reviewer, with the
-name in both places:
+worktree writes on that worktree's branch (not verified against the CLI). From the primary
+checkout, launch the reviewer, with the name in both places:
 
     claude --bg --agent continuous-prompt-improvement --permission-mode auto --name <name> "Review the pending prompt-run analyses as <name>."
 
 A session launched so ignores the agent file's `permissionMode`: without the flag, unless the
-machine's default is `auto`, it would stop at its first permission prompt with nobody waiting.
-Neither wait for the reviewer nor relay what it finds.
+machine's default is `auto`, it would stop at its first permission prompt with nobody waiting
+(not verified against the CLI). Neither wait for the reviewer nor relay what it finds.
 
 ## 4. Report
 

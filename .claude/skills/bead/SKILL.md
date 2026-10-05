@@ -29,11 +29,12 @@ Read that code as the trunk has it: this step runs in the primary checkout, whos
 `origin/main` until someone pulls it. Run `git fetch origin main`, then read with
 `git show origin/main:<path>`. Where a fetch is not wanted yet, as in plan mode, `gh api "repos/{owner}/{repo}/contents/<path>?ref=main" -H "Accept: application/vnd.github.raw"`
 reads the same file without one. An agent sent to read the code reads the checkout's copy unless its
-brief says otherwise, so say so.
+brief says otherwise (not verified against the CLI), so say so.
 
-Claude Code read this skill and `CLAUDE.md` from that checkout too, so they can trail the trunk as
-well. Compare the trunk with the commit the session started from, the first of the recent commits in
-the git status Claude Code gave, and not with `HEAD`, which a later pull moves: after the fetch,
+Claude Code read this skill and `CLAUDE.md` from that checkout too
+(verified against the CLI, 2.1.289), so they can trail the trunk as well. Compare the trunk with the
+commit the session started from, the first of the recent commits in the git status Claude Code
+gave, and not with `HEAD`, which a later pull moves: after the fetch,
 `git diff --stat <that commit>...origin/main -- .claude/skills/bead/SKILL.md CLAUDE.md` names each of
 the two that the trunk has changed since. Read the trunk's copy of each one it names, as above, and
 follow that copy from here on. A session given no such git status reads the trunk's copy of both.
@@ -70,21 +71,22 @@ will finish.
 
 Separate branches are worked one after another, never interleaved. Take one through step 6, its
 watcher running in the background, then leave its worktree with `ExitWorktree` (action `keep`) and
-make the next with `EnterWorktree`, which creates no worktree from inside another. Step 7 closes
-each issue. Asked to sweep or parallelise ready work, follow `.claude/agents/fan-out-work.md` in
-this session instead.
+make the next with `EnterWorktree`, which creates no worktree from inside another
+(verified against the CLI, 2.1.289). Step 7 closes each issue. Asked to sweep or parallelise ready
+work, follow `.claude/agents/fan-out-work.md` in this session instead.
 
 ## 3. Claim, then work in a worktree
 
 Claim the issue in the tracker (`bd update <id> --claim`); with several, claim every one step 2
 kept, in one bracket, before the first worktree. Make the worktree with the one worktree script,
-never natively: `EnterWorktree`, whose hook runs `scripts/new-worktree.sh`. Read
-`.worktree/CONTEXT.md` there. Tracker writes that carry a body, such as step 1's re-scoping, are
-made from here. Work agreed in conversation has no issue to claim yet, so the order turns round:
-make the worktree, search for an issue that already carries the work as `CLAUDE.md` § The task
-store and step 4 say, then file it from here and claim it. Step 1 still applies, with what was
-agreed standing for the issue: each part of it is a premise, and a part that does not hold goes back
-to the user with its evidence before anything is filed, even a part the session proposed itself.
+never natively: `EnterWorktree`, whose hook runs `scripts/new-worktree.sh`
+(verified against the CLI, 2.1.289). Read `.worktree/CONTEXT.md` there. Tracker writes that carry a
+body, such as step 1's re-scoping, are made from here. Work agreed in conversation has no issue to
+claim yet, so the order turns round: make the worktree, search for an issue that already carries the
+work as `CLAUDE.md` § The task store and step 4 say, then file it from here and claim it. Step 1
+still applies, with what was agreed standing for the issue: each part of it is a premise, and a part
+that does not hold goes back to the user with its evidence before anything is filed, even a part the
+session proposed itself.
 
 ## 4. Implement, regenerate, gate
 
@@ -109,8 +111,9 @@ opens, so the pull request's body names the new id. File it with `foundIssueComm
 The task store names; here the found-at label is bead's.
 
 Before filing this or any follow-up, search for it as `CLAUDE.md` § The task store says. From a
-worktree, Claude Code can refuse quoted text naming git or a shell, so a title or search words
-leave the name out. A follow-up's body carries the sections `bd lint --help` lists for its type.
+worktree, Claude Code can refuse quoted text naming git or a shell (not verified against the CLI),
+so a title or search words leave the name out. A follow-up's body carries the sections
+`bd lint --help` lists for its type.
 
 ## 5. Rebase and gate again
 

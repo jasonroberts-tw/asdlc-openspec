@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `mise run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-44 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43 and D-44 added 2026-10-05).**
+**Status: every decision from D-01 to D-45 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43, D-44 and D-45 added 2026-10-05).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-44` is checked by `mise run check:register`, which reads those headings, the table and each
+> `D-01 … D-45` is checked by `mise run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -100,6 +100,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-42** | TypeSafe is a dependency; every call runs in a script a session runs, and an answer may only make an outcome stricter | `tools/lib/typesafe.ts`'s `noul`; `scripts/judge-trace-clauses.mjs` as `trace:clauses`, held by `trace:clauses:selftest` at pre-push and in CI; the clause run of `.claude/workflows/verify-change-trace.js`, held by `workflows:selftest`; `verifyTraceClauseThreshold` in `tools/policy/agent-workflows.json`; `change-verify` § 4 and the workflow, each consolidated first |
 | **D-43** | A run searches before it files an issue outside a change's epic, and a match is noted and counted with a label that is evidence for a person, never a rule | `CLAUDE.md` § The task store, consolidated first; `seenLabelPrefix` in `tools/policy/vocabulary.json`; `bead` § 3 and § 4 and `should-i-adopt` § 2 pointing at it, the latter consolidated first; three budgets in `tools/policy/prompt-budgets.json`; `docs/playbook.md`, `README.md` and `tools/policy/README.md` |
 | **D-44** | A run's analysis lists each of this repository's prompts it loaded on a line of its own, with its commit, and the version of Claude Code it met | `.claude/skills/close-prompt-run/SKILL.md` § 1, consolidated first; `promptReviewLoadedHeading` in `tools/policy/agent-workflows.json`; the skill's budget in `tools/policy/prompt-budgets.json`; D-08's amendment |
+| **D-45** | A prompt's sentence on how Claude Code behaves names the version that verified it, or says none did, and each prompt review lists the stale ones | `CLAUDE.md` § Standing rules for prompts and gates; the tags in `CLAUDE.md`, `bead`, `open-pr`, `close-prompt-run`, `change-finalize`, `should-i-adopt`, `fan-out-work` and the prompt reviewer's agent, whose § 7 item 7 lists them; three of the prompts consolidated first; eight budgets in `tools/policy/prompt-budgets.json`; `README.md` § The guardrails |
 
 ## Risks
 
@@ -2215,6 +2216,39 @@ Where it loses: an analysis no longer lists a user-level skill the run loaded, w
 - **`tools/policy/README.md`** and **`docs/playbook.md` § 4.5:** the rows that restate the analysis's contents.
 
 **Figures.** `node scripts/check-prompts.mjs --counts` for `.claude/skills/close-prompt-run/SKILL.md`: 672 at `acd02ad`, 639 after the consolidation and 671 at this entry's commit. The skill's budget row's `means` gives the same steps.
+
+### D-45 · A prompt's sentence on how Claude Code behaves names the version that verified it, or says none did, and each prompt review lists the stale ones
+
+**Recorded 2026-10-05**, carried by `asdlc-openspec-r6ha.4`, a child of `asdlc-openspec-r6ha`. On 2026-10-04 the maintainer chose to keep such sentences where they are read, each dated by the version that verified it (the parent's decision 4, with its loss). On 2026-10-05, at the claim, they chose item 2's second spelling for a sentence no session can verify, from a recommendation put with the case where it loses. The session that built it chose the inventory, each sentence's verdict and the evidence for it.
+
+**Builds on / amends:** builds on D-44, whose analysis records the version of Claude Code a run met; on D-08, whose reviewer lists the sentences; and on D-12, under which three of the prompts were consolidated first and the rest raised by a person. It amends nothing.
+
+**Decision.** `CLAUDE.md` § Standing rules for prompts and gates holds the rule.
+
+1. **A prompt's sentence that states how Claude Code behaves says "verified against the CLI, <version>"**, the `claude --version` it was checked on: in the session's own tool descriptions or context, in Claude Code's documentation, or by a probe the session ran. The phrase is the one the hooks' headers already use (`scripts/hooks/worktree-create.mjs`), kept on one line so `git grep` finds it.
+2. **A sentence no session could verify says "not verified against the CLI".** Most claim what the permission classifier refuses, a model's judgement no session can reproduce on demand.
+3. **Each prompt review lists both**: each sentence not verified, and each verified on a version older than the newest its runs record (`.claude/agents/continuous-prompt-improvement.md` § 7 item 7). No gate refuses a sentence with neither; a review or a person finds it by reading.
+
+**Why.** Claude Code is unpinned on purpose (`mise.toml`), and prompt reviews #74, #88 and #101 each wrote such a sentence, so an update can make one false and nothing notices. Two alternatives lost to item 2:
+
+- **Every sentence tagged with the current version**, on the grounds that each claims only what a run observed. The tag would claim a check that never ran, and after an update a review would list a classifier claim as one checked on the older version.
+- **Classifier claims exempt.** Those are the sentences reviews add most, and none would ever be re-checked.
+
+Where it loses: the tags cost words in prompts at their budgets, which a person raised; an update of Claude Code re-checks nothing until the next review lists the sentence; and a sentence not verified is listed in every review until someone verifies, rewrites or removes it.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound.
+- **`CLAUDE.md`:** consolidated first under D-12, in a commit of its own; then § Standing rules for prompts and gates' rule, and the tags in § Bash command style and § Guards.
+- **`.claude/skills/bead/SKILL.md`, `.claude/skills/open-pr/SKILL.md` and `.claude/skills/change-finalize/SKILL.md`:** consolidated first, then tagged.
+- **`.claude/skills/close-prompt-run/SKILL.md`, `.claude/skills/should-i-adopt/SKILL.md` and `.claude/agents/fan-out-work.md`:** tagged.
+- **`.claude/agents/continuous-prompt-improvement.md`:** § 7 item 7's list, and one tag.
+- **`tools/policy/prompt-budgets.json`:** eight rows and `provenance`. **`README.md` § The guardrails:** a row.
+
+**Figures.**
+
+- The inventory, at this entry's commit: 21 sentences carry a tag, 10 "verified against the CLI, 2.1.289" and 11 "not verified against the CLI". Each is listed, with what verified it or why none did, in the pull request that carried this entry. `git grep -n "against the CLI" -- CLAUDE.md ".claude/skills/*/SKILL.md" ".claude/agents/*.md"` prints 24 lines: the 21 tags, the rule's two spellings in `CLAUDE.md` § Standing rules for prompts and gates, and § 7 item 7's own command.
+- The prompts' counts, each `node scripts/check-prompts.mjs --counts`, at `d306687`, after the consolidations and at this entry's commit: `CLAUDE.md` 3,302, 3,284 and 3,339; `bead` 1,618, 1,609 and 1,634; `open-pr` 1,285, 1,277 and 1,287; `change-finalize` 1,422, 1,407 and 1,412; and, with nothing consolidated, `close-prompt-run` 671 and 686, `should-i-adopt` 1,586 and 1,596, `fan-out-work` 840 and 860, and the prompt reviewer's agent 2,222 and 2,258. Each budget row's `means` gives the same steps.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

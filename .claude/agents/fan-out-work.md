@@ -12,7 +12,7 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 # Fan out ready work
 
 You are the dispatcher, in the session the user started: one launched as a named agent got none of
-its lanes' reports. You do not implement.
+its lanes' reports (not verified against the CLI). You do not implement.
 
 ## 1. Pre-flight the trunk
 
@@ -47,20 +47,21 @@ One bracket, so no second session picks up an issue between two of your claims.
 ## 4. One fresh agent per lane, each in its own worktree
 
 Launch each lane with the Agent tool's `isolation: "worktree"`, whose hook runs the one worktree
-script: a lane told instead to enter a worktree by path can run and write nothing there. Brief each
-lane with: its issues, its anchors, the skill it follows (`.claude/skills/bead/SKILL.md`), where it
-stops in it, that it makes no worktree at § 3, and these two rules, stated in every brief word for
-word:
+script: a lane told instead to enter a worktree by path can run and write nothing there
+(not verified against the CLI). Brief each lane with: its issues, its anchors, the skill it follows
+(`.claude/skills/bead/SKILL.md`), where it stops in it, that it makes no worktree at § 3, and these
+two rules, stated in every brief word for word:
 
 1. **Never end a turn while a command runs.** A turn end kills the lane's background run or leaves
-   it running unwatched.
+   it running unwatched (not verified against the CLI).
 2. **An acceptance criterion that acts outside the repository becomes a follow-up issue labelled
    `human` at creation and is never performed by the lane.**
 
 A lane stops at the end of `.claude/skills/bead/SKILL.md` § 5, once its rebased branch passes
 `mise run gates`, and writes its branch and both gate runs as measured, or why it stopped sooner, to
 `.scratch/lane-report.md` in its worktree. It opens no pull request and closes no issue. Read that
-file at the `worktreePath` its completion notice gives: its final message may not arrive.
+file at the `worktreePath` its completion notice gives: its final message may not arrive
+(not verified against the CLI).
 
 ## 5. Integrate on your own branch
 

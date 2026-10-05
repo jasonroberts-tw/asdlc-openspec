@@ -44,7 +44,7 @@ the branch does not carry.
 
 It opens with any register entry or prerequisite the caller names, then each conflict step 2 found,
 with the pull request it is against. It ends with the attribution line Claude Code gives for pull
-requests.
+requests (verified against the CLI, 2.1.289).
 
 ## 5. Push, open, and mark it pending
 
@@ -82,8 +82,8 @@ Otherwise:
     gh pr checks <number> --watch
 
 Run it in the background, and no second watcher; end the turn to wait only if its exit wakes the
-session. If it exits at once with "no checks reported", nothing had registered yet: that is not a
-failing check, and starting it again is not a second watcher.
+session (verified against the CLI, 2.1.289). If it exits at once with "no checks reported", nothing
+had registered yet: that is not a failing check, and starting it again is not a second watcher.
 
 ## 7. Act on the outcome
 
