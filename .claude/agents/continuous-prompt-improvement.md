@@ -73,8 +73,7 @@ A finding that concerns no prompt is not this review's: the run that found it fi
 
 If § 3 formed no group and found no seed, make no worktree, skip this section and § 5, and go to
 § 6. Otherwise make your worktree with `EnterWorktree`, named by your review's name, and run `npm ci`
-there. Run each workflow below with the Workflow tool, `scriptPath` in that worktree and what § 2
-printed as `policy`; its header says what it takes, returns and refuses.
+there. Run each workflow below as its header says, with what § 2 printed as `policy`.
 
 With a seed, run `.claude/workflows/author-prompt-cases.js` with the seeds, and as `known` the ids
 under `.claude/prompt-cases/`. For each seed, choose one candidate or combine several, give it an
@@ -172,8 +171,7 @@ carry another branch's files.
 
 Look for what made a run slower or wrong: long-running steps, repeated cycles, incorrect statements
 or assumptions, and contradictions, within a prompt or between it and `CLAUDE.md`. Every finding a
-file's agent is given met the threshold of § 3, which makes it worth reading, not worth an edit. If
-nothing should change, change nothing.
+file's agent is given met the threshold of § 3, which makes it worth reading, not worth an edit.
 
 Every edit cites only files your own base holds. A file that only a reviewed branch holds is named
 in prose by its branch and its path, never as a pointer: in the description it sends a reader to a
