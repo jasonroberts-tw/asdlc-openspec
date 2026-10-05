@@ -146,5 +146,4 @@ Report these:
   - `bd count --by-label`: its `foundAtLabels` and `assetLabels` rows count the issues runs have
     filed, by where each was found and by what it would fix;
   - `bd count -l <label> --by-label`, once for each `foundAtLabels` label the previous command
-    lists: the `assetLabels` rows are the pairs, the recurrence signal;
-- a `RUN THESE YOURSELF` block for any command that was refused (`CLAUDE.md` § Guards).
+    lists: the `assetLabels` rows are the pairs, the recurrence signal.
