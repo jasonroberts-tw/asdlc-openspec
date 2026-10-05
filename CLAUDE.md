@@ -59,15 +59,15 @@ option agrees, answers the question for them.
 
 ## Bash command style
 
-Run each gate, test, or git command as a SEPARATE Bash call. Do not chain with `&&`, `;`, or `|`:
-a chain's failure does not say which step failed. Do not use heredocs to write files.
-Never `cd`, and never name a directory:
-every call starts at the checkout root, so name the file as an explicit repository-relative
-argument. Keep long prose out of the command line and pass it from a file under `.scratch/`, or,
-in a session with no worktree, in a directory `mktemp -d` makes, with `-F`, `--body-file` or the
-tool's equivalent. Prefer the Read, Edit and Write tools over `cat`,
-`head`, `sed -n` and shell redirection. Read anything outside the repository in its own call. Never
-let a secret-shaped read share a call with real work: a compound command is refused as a unit.
+Run each gate, test, or git command as a SEPARATE Bash call. Do not chain with `&&`, `;`, or `|`: a
+chain's failure does not say which step failed. Do not use heredocs to write files. Never `cd`, and
+never name a directory: every call starts at the checkout root (verified against the CLI, 2.1.289),
+so name the file as an explicit repository-relative argument. Keep long prose out of the command
+line and pass it from a file under `.scratch/`, or, in a session with no worktree, in a directory
+`mktemp -d` makes, with `-F`, `--body-file` or the tool's equivalent. Prefer the Read, Edit and
+Write tools over `cat`, `head`, `sed -n` and shell redirection. Read anything outside the repository
+in its own call. Never let a secret-shaped read share a call with real work: a compound command is
+refused as a unit (not verified against the CLI).
 
 ## Guards
 
@@ -77,9 +77,9 @@ report with the exact commands, in order.
 
 A command a subagent reports refused may be run once by the session that launched it, as its own
 single call, before that session hands it to the user: the classifier judges each call in its own
-context, so a subagent's refusal is not its parent's. If that call is refused too, the command goes
-in the block. The parent never tries again in pieces, through another tool, or through another
-subagent; each of those is a workaround.
+context, so a subagent's refusal is not its parent's (not verified against the CLI). If that call is
+refused too, the command goes in the block. The parent never tries again in pieces, through another
+tool, or through another subagent; each of those is a workaround.
 
 ## The task store
 
@@ -227,6 +227,9 @@ Each of these holds from the first file it applies to, and for every one after i
   `git log --format=%h origin/main -- <prompt>` lists the commits that changed it, and
   `gh api repos/{owner}/{repo}/commits/<commit>/pulls` names the pull request each one landed from.
   The header of a script, an emitter or a hook is not a prompt, and keeps its incident (below).
+- **A prompt's sentence on how Claude Code behaves says "verified against the CLI, <version>"**,
+  the `claude --version` that checked it, or, unchecked, "not verified against the CLI": Claude Code
+  is unpinned, so an update can make it false unseen.
 - **Every gate has a `--selftest` mode.** It copies the gate's inputs under the temporary directory,
   breaks exactly one thing per case, asserts the run fails **for that reason**, and keeps one
   undoctored control case that must pass, without which every other case could be failing on the

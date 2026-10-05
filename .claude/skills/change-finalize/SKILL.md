@@ -86,7 +86,8 @@ worktree and branch after it; a fix it asks for is made in the worktree.
 ## 6. Leave the worktree
 
 `open-pr` § 8 left it once the pull request merged. Handed back unmerged, call `ExitWorktree` with
-`keep`: the branch is not in the trunk yet, so `remove` would either refuse or discard it.
+`keep`: the branch is not in the trunk yet, so `remove` would either refuse or discard it
+(verified against the CLI, 2.1.289).
 
 ## 7. Merge, through the reviewer
 
