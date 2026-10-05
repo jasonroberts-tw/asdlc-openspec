@@ -20,6 +20,11 @@
  *                                       just opened it (the `open-pr` skill) or by a person: the head
  *                                       is read from GitHub, and one that already carries the
  *                                       reviewer's status is left alone. No job runs it.
+ *   PR=<n> node scripts/pr-review.mjs wait
+ *                                       read pull request <n> every `prReviewWaitPollSeconds` until it
+ *                                       has merged, has closed, or its head's status is no verdict;
+ *                                       print one line, and exit 0 only on the merge (`open-pr` § 8).
+ *                                       No job runs it.
  *   node scripts/pr-review.mjs next     choose this run's one action: review, merge or none
  *   node scripts/pr-review.mjs evidence the reach and co-change partners of one head, in a job whose
  *                                       token reads only
@@ -44,7 +49,7 @@
  *
  * The subcommands read their inputs from the environment the workflow sets (PR, SHA, ACTION, MORE,
  * EVIDENCE, EVIDENCE_RESULT, REVIEW_DIR, FORCE_PR, GH_TOKEN), never from the command line, so no
- * value from a pull request is ever interpolated into a shell. `mark` reads PR alone.
+ * value from a pull request is ever interpolated into a shell. `mark` and `wait` read PR alone.
  * The workflow's `mark` job set the status seconds after the create: 11 s on #47, created at
  * 21:27:59Z and marked at 21:28:10Z on 2026-09-25. Until a head is marked, `gh pr checks --watch` can
  * exit at once with "no checks reported". So the session that opens a pull request marks it itself.
@@ -105,11 +110,16 @@
  * on disk before the gate runs (asdlc-openspec-64wd). Wrong the other
  * way, a pull request waits forever: a pending status nobody clears, or a workflow label filter that
  * no longer spells the policy's approval label, so an approval waits for the schedule.
+ * `wait` exists because no `gh` command waits for a merge: `gh pr checks --watch` ends once the
+ * checks settle, and a red `main` or another pull request's conflict can hold the reviewer's merge
+ * back after its verdict. Wrong, it lets a session close its issues and remove its worktree for a
+ * pull request that never merged, or keeps one waiting on a head a conflict or a red `verify` has
+ * sent back to it. It costs two of GitHub's API calls a read while the pull request is open.
  * `pr-review:check` holds the wiring; the selftest holds every decision above.
  *
- * NEEDS. `mark`, `next` and `act` need `gh` with a token that can read pull requests and, for `act`,
- * write them, and for `mark`, `next` and `act`, write commit statuses; from a session, that is the
- * person's own `gh` login. `act` and `evidence` need git with `origin` fetchable and its whole
+ * NEEDS. `mark`, `wait`, `next` and `act` need `gh` with a token that can read pull requests and
+ * commit statuses and, for `act`, write pull requests, and for `mark`, `next` and `act`, write commit
+ * statuses; from a session, that is the person's own `gh` login. `act` and `evidence` need git with `origin` fetchable and its whole
  * history (`fetch-depth: 0`). `evidence` also needs the packages `tools/harness/harness.ts` imports,
  * `js-yaml` and `smol-toml`, which it loads only when it runs, so `act` needs none. `brief --local`
  * needs git, `bd` with the tracker cloned and those packages, and no `gh`. All of them need the
@@ -173,8 +183,8 @@ const TRUNK = 'main'
 const WORKFLOW_BOT = 'github-actions[bot]'
 /** The first line of a verdict comment: `<!-- pr-review:verdict {"sha":…,"outcome":…} -->`. */
 const MARKER_RE = /^<!-- pr-review:verdict (\{[^\n]*\}) -->$/
-const SUBCOMMANDS = ['mark', 'next', 'evidence', 'act', 'brief']
-/** The subcommands the workflow must run. Not `mark`, which a session or a person runs, nor `brief`, which is local. */
+const SUBCOMMANDS = ['mark', 'wait', 'next', 'evidence', 'act', 'brief']
+/** The subcommands the workflow must run. Not `mark` or `wait`, which a session or a person runs, nor `brief`, which is local. */
 const WORKFLOW_SUBCOMMANDS = ['next', 'evidence', 'act']
 /** Every tool the branch reviewer has: it reads and searches, and runs, writes and reaches nothing. */
 const AGENT_TOOLS = ['Read', 'Grep', 'Glob']
@@ -223,6 +233,7 @@ const POLICY_SHAPES = {
   prReviewHighRiskJsonKeys: 'jsonKeys',
   prReviewFloorTasks: 'reasons',
   prReviewMergeMethod: 'string',
+  prReviewWaitPollSeconds: 'seconds',
 }
 const LABEL_ROLES = ['approved', 'human']
 const PERMISSIONS = ['admin', 'maintain', 'write', 'triage', 'read']
@@ -254,6 +265,7 @@ export function policyProblems(policy) {
       }
     }
     if (shape === 'strings' && !isStrings(value)) bad('a non-empty list of strings')
+    if (shape === 'seconds' && !(Number.isInteger(value) && value >= 1)) bad('a whole number of seconds, at least 1')
     if (shape === 'labels') {
       if (!isRecord(value) || LABEL_ROLES.some((role) => typeof value[role] !== 'string' || !value[role])) {
         bad(`an object naming a label for each of ${LABEL_ROLES.join(', ')}`)
@@ -885,6 +897,21 @@ export function markTarget(environment, { pull, current = null, repo }) {
   return { sha: head.sha, mark: true, why: `${short(head.sha)} waits for its review` }
 }
 
+/**
+ * Whether `wait` stops, and the one line it prints; null while it waits. `pull` is pull request `pr`
+ * as GitHub returns it, and `status` the reviewer's status on its head, or null. An open head whose
+ * status is a verdict, `statusFor`'s success, waits for the reviewer's merge or a person's. Any other
+ * status ends the wait, since then the head moved, conflicts or failed its checks, and the session
+ * acts on it as `.claude/skills/open-pr/SKILL.md` § 7 says.
+ */
+export function waitOutcome(pr, pull, status) {
+  if (pull.merged_at) return { merged: true, line: `#${pr} merged at ${pull.merged_at} as ${short(pull.merge_commit_sha)}` }
+  if (pull.state !== 'open') return { merged: false, line: `#${pr} was closed without a merge` }
+  if (status?.state === 'success') return null
+  const now = status ? `${status.state}: ${status.description}` : 'unset'
+  return { merged: false, line: `#${pr} is open, and the reviewer's status on ${short(pull.head.sha)} is ${now}` }
+}
+
 /* -------------------------------------------------------------------------- the queue ----- */
 
 /**
@@ -1188,6 +1215,25 @@ function mark({ dryRun }) {
   console.log(target.why)
   if (!target.mark) return
   setStatus(dryRun, repo, target.sha, policy, 'pending', `Queued: reviewed once ${policy.prReviewRequiredCheck} passes at this head`)
+}
+
+/** Read pull request `PR` every `prReviewWaitPollSeconds` until `waitOutcome` ends the wait; exit 0 only on its merge. */
+function wait() {
+  const policy = readPolicy(ROOT)
+  const repo = repoName()
+  const pr = process.env.PR ?? ''
+  if (!/^[0-9]+$/.test(pr)) throw new Error(`PR is ${JSON.stringify(pr)}, not a pull request number: set PR to the number of the pull request to wait on`)
+  for (;;) {
+    const pull = ghJson(`repos/${repo}/pulls/${pr}`)
+    const status = pull.state === 'open' ? currentStatus(repo, pull.head.sha, policy.prReviewStatusContext) : null
+    const outcome = waitOutcome(pr, pull, status)
+    if (outcome) {
+      console.log(outcome.line)
+      if (!outcome.merged) process.exitCode = 1
+      return
+    }
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, policy.prReviewWaitPollSeconds * 1000)
+  }
 }
 
 function next({ dryRun }) {
@@ -1875,6 +1921,8 @@ function helperCases(policy) {
   const opened = (extra = {}) => ({ head: { sha: openedSha, repo: { full_name: REPO } }, base: { ref: TRUNK }, draft: false, ...extra })
   /** A mark that is refused, and refused for the reason `why` matches. */
   const because = (out, why) => (out.mark === false && why.test(out.why) ? null : `mark ${out.mark}, why ${JSON.stringify(out.why)}`)
+  /** The pull request `wait` reads, open and unmerged unless `extra` says otherwise. */
+  const waited = (extra = {}) => ({ ...opened(), state: 'open', merged_at: null, merge_commit_sha: null, ...extra })
   const sha = 'a'.repeat(40)
   const base = 'b'.repeat(40)
   const evidenceJson = (markdown, extra = {}) => JSON.stringify({ sha, base, markdown, ...extra })
@@ -2233,6 +2281,37 @@ function helperCases(policy) {
       because(markTarget({ PR: '7' }, { pull: opened({ head: { sha: openedSha, repo: null } }), repo: REPO }), /is a draft, from a fork, or not against main/)),
     h("mark: a head that already carries the reviewer's status is left alone, by its reason", () =>
       because(markTarget({ PR: '7' }, { pull: opened(), current: { state: 'success' }, repo: REPO }), /already carries the reviewer's status \(success\)/)),
+    h('wait, control: a merged pull request ends the wait, naming when and as which commit', () =>
+      assertEqual(
+        waitOutcome('7', waited({ state: 'closed', merged_at: '2026-10-05T15:00:00Z', merge_commit_sha: 'e'.repeat(40) }), null),
+        { merged: true, line: '#7 merged at 2026-10-05T15:00:00Z as eeeeeee' },
+        'outcome',
+      )),
+    h('wait: an open pull request whose head carries a verdict keeps the wait going', () =>
+      assertEqual(
+        [
+          waitOutcome('7', waited(), { state: 'success', description: statusFor({ outcome: 'merge', reasons: [] }).description }),
+          waitOutcome('7', waited(), { state: 'success', description: statusFor({ outcome: 'human', reasons: ['why'] }).description }),
+        ],
+        [null, null],
+        'outcomes',
+      )),
+    h('wait: a pull request closed without a merge ends the wait, by its reason', () =>
+      assertEqual(waitOutcome('7', waited({ state: 'closed' }), null), { merged: false, line: '#7 was closed without a merge' }, 'outcome')),
+    h('wait: an open head whose status is no verdict, a conflict, a red verify or none since a push, ends the wait, naming the status', () =>
+      assertEqual(
+        [
+          waitOutcome('7', waited(), { state: 'failure', description: `Conflicts with ${TRUNK}: rebase onto origin/${TRUNK} and push` }),
+          waitOutcome('7', waited(), { state: 'error', description: 'verify failed at fffffff; the review waits for a green run' }),
+          waitOutcome('7', waited(), null),
+        ],
+        [
+          { merged: false, line: `#7 is open, and the reviewer's status on fffffff is failure: Conflicts with ${TRUNK}: rebase onto origin/${TRUNK} and push` },
+          { merged: false, line: "#7 is open, and the reviewer's status on fffffff is error: verify failed at fffffff; the review waits for a green run" },
+          { merged: false, line: "#7 is open, and the reviewer's status on fffffff is unset" },
+        ],
+        'outcomes',
+      )),
   ]
 }
 
@@ -2252,6 +2331,7 @@ function wiringCases() {
     { name: 'a prReview key goes missing', doctor: editPolicy((p) => delete p.prReviewMergeMethod), expect: /`prReviewMergeMethod` is missing/ },
     { name: 'a prReview key loses its Means sibling', doctor: editPolicy((p) => delete p.prReviewLabelsMeans), expect: /`prReviewLabels` has no `prReviewLabelsMeans` sibling/ },
     { name: 'the labels lose the role a person decides by', doctor: editPolicy((p) => delete p.prReviewLabels.human), expect: /must be an object naming a label for each of approved, human/ },
+    { name: "wait's interval is no whole number of seconds", doctor: editPolicy((p) => { p.prReviewWaitPollSeconds = 0.5 }), expect: /`prReviewWaitPollSeconds` must be a whole number of seconds, at least 1/ },
     { name: "the floor stops covering the reviewer's own script", doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[SELF]), expect: /does not cover scripts\/pr-review\.mjs/ },
     { name: 'the floor stops covering the record of the prReview keys', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[POLICY]), expect: /does not cover tools\/policy\/pr-review\.json, the record of what the reviewer decides by/ },
     { name: 'the floor stops covering the word budgets', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[BUDGETS]), expect: /does not cover tools\/policy\/prompt-budgets\.json, the record of every prompt's word budget/ },
@@ -2519,7 +2599,7 @@ async function main() {
   const local = process.argv.includes('--local')
   if (process.argv.includes('--selftest')) return selftest()
   if (process.argv.includes('--check')) return check()
-  const commands = { mark, next, evidence, act, brief }
+  const commands = { mark, wait, next, evidence, act, brief }
   if (!commands[command] || (local && command !== 'brief')) {
     console.error(`usage: node ${SELF} <${SUBCOMMANDS.join('|')}> [--dry-run] | brief --local | --check | --selftest`)
     process.exit(2)
