@@ -99,8 +99,7 @@ A design says how, never what:
   it to the user. An entry the user accepts is written by a build task, not in this stage; until it
   exists, the design names it by its number with no `§` pointer, which the citations gate would
   refuse as unresolved.
-- **A design that relies on an existing decision** cites that decision's register entry by
-  section, as `CLAUDE.md` § Citations describes.
+- **A design that relies on an existing decision** cites that decision's register entry.
 
 ## 4. Settle each scenario's expected value
 
@@ -115,8 +114,8 @@ scenario states.
 ## 5. Commit it, and stop
 
 Stage the design and every file this stage revised with `git add`, then run `mise run openspec:check`
-and `mise run citations:check`. Stage first: the citations gate reads only tracked files, so a
-design not yet added passes without being read.
+and `mise run citations:check`. Stage first: a design not yet added passes the citations gate
+unread.
 
 Commit. Report what the design decides, each question step 4 put to the user with its answer, and
 what the design leaves open, then stop.
