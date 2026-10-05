@@ -53,10 +53,11 @@ before the trace is written (`docs/decisions.md` § D-42). Amended 2026-10-05 by
 `asdlc-openspec-duqj`: the pull request's last step waits for the merge with
 `scripts/pr-review.mjs wait` and then removes the worktree and branch, as
 `.claude/skills/open-pr/SKILL.md` § 8 now says, so the issue closes once its pull request has
-merged, and Finalize's cleanup is that step's. Amended 2026-10-05 by `asdlc-openspec-4myz`: the
-step for a defect found on the way raises a match's count label, and the crib sheet gains the
-command that does it, as `CLAUDE.md` § The task store now says (`docs/decisions.md` § D-43); the
-crib sheet's note names the policy files its placeholders' values are in since D-27.
+merged, and Finalize's cleanup is that step's. Amended 2026-10-05 by `asdlc-openspec-4myz`, as
+`CLAUDE.md` § The task store now says (`docs/decisions.md` § D-43). The step for a defect found on
+the way raises a match's count label. It files afresh a match closed as done whose defect is back.
+The crib sheet gains the command that raises the count, and its note names the policy files its
+placeholders' values are in since D-27.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -209,8 +210,9 @@ code back to its spec (`docs/decisions.md` § D-02, item 2).
    regenerate, gate, and `CLAUDE.md` § The script suffix contract.
 4. A defect found on the way is fixed here only when it sits in a file the issue already changes.
    One left unfixed is searched for (`bd search`, then `bd list --all --desc-contains`, each with a
-   second phrasing). On a match it is noted, and the match's count label raised by one; otherwise it
-   is filed as a found issue before the pull request opens. Decided by:
+   second phrasing). On a match it is noted, and the match's count label raised by one; a match
+   closed as done whose defect is back is filed afresh too, `related` to it. Otherwise it is filed as
+   a found issue before the pull request opens. Decided by:
    `.claude/skills/bead/SKILL.md` § 4. Implement, regenerate, gate, and `CLAUDE.md` § The task store
    for the search, the count and the labels.
 5. Stage every new file with `git add`, then run `mise run gates`. The citations and count-index

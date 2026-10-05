@@ -98,7 +98,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-40** | The task loader reads `tasks.toml` alone, and refuses a tree or a commit that has none | `tasksFrom` and `loadTasks` in `scripts/lib/tasks.mjs`, the refusal held by `check:jobs:selftest` for a tree and `tests:inventory:selftest` for a commit; each reader without its branch for a tree from before the move; D-36's amendment |
 | **D-41** | `beads:check` refuses an open found issue filed since D-06's issue was created with no found-at label | Rule 6 of `scripts/check-beads.mjs`, held by `beads:selftest` at pre-push and in CI; `foundAtLabelsSince` in `tools/policy/vocabulary.json`; D-11's amendment |
 | **D-42** | TypeSafe is a dependency; every call runs in a script a session runs, and an answer may only make an outcome stricter | `tools/lib/typesafe.ts`'s `noul`; `scripts/judge-trace-clauses.mjs` as `trace:clauses`, held by `trace:clauses:selftest` at pre-push and in CI; the clause run of `.claude/workflows/verify-change-trace.js`, held by `workflows:selftest`; `verifyTraceClauseThreshold` in `tools/policy/agent-workflows.json`; `change-verify` § 4 and the workflow, each consolidated first |
-| **D-43** | Every run searches before it files an issue, and a match is noted and counted with a label that is evidence for a person, never a rule | `CLAUDE.md` § The task store, consolidated first; `seenLabelPrefix` in `tools/policy/vocabulary.json`; `bead` § 4 and `should-i-adopt` § 2 pointing at it, the latter consolidated first; three budgets in `tools/policy/prompt-budgets.json`; `docs/playbook.md`, `README.md` and `tools/policy/README.md` |
+| **D-43** | A run searches before it files an issue outside a change's epic, and a match is noted and counted with a label that is evidence for a person, never a rule | `CLAUDE.md` § The task store, consolidated first; `seenLabelPrefix` in `tools/policy/vocabulary.json`; `bead` § 3 and § 4 and `should-i-adopt` § 2 pointing at it, the latter consolidated first; three budgets in `tools/policy/prompt-budgets.json`; `docs/playbook.md`, `README.md` and `tools/policy/README.md` |
 
 ## Risks
 
@@ -2136,40 +2136,46 @@ Where it loses:
 - The prompts' counts, each `node scripts/check-prompts.mjs --counts`: the literals of `.claude/workflows/verify-change-trace.js` 1,675 at `158b73e`, 1,592 after their consolidation and 1,692 at this entry's commit; `.claude/skills/change-verify/SKILL.md` 1,048, 1,028 and 1,047. Each budget row's `means` gives the same steps.
 - Measured in the lane that wrote this entry, at its commit `67a9fd6` on the trunk's `158b73e`, before the sweep integrated it with asdlc-openspec-6yt.1's `workflows:selftest` cases, so the counts below are that suite's and not the merged one's. `mise run workflows:selftest`: 273 of 273 cases at that commit, where the trunk held 255. With three guards of the clause run removed in one run, its threshold's strictness, its refusal of a trace that had a gap and a refuted row's `traced`, 270 of 273, each removal failing its own case. `mise run trace:clauses:selftest`: 29 of 29 checks. With its refusal of a trace that did not stop `no-gap` and its skipping of strings removed in one run, 26 of 29: the refusal's case and the two that read a test's body and its definitions.
 
-### D-43 · Every run searches before it files an issue, and a match is noted and counted with a label that is evidence for a person, never a rule
+### D-43 · A run searches before it files an issue outside a change's epic, and a match is noted and counted with a label that is evidence for a person, never a rule
 
-**Recorded 2026-10-05**, carried by `asdlc-openspec-4myz`. On 2026-10-05 the maintainer asked that a run which finds an issue already filed keep a count of those encounters, to use when prioritizing. They chose each part below from three questions, each put with the case where the recommended option loses, and took the recommendation each time.
+**Recorded 2026-10-05**, carried by `asdlc-openspec-4myz`. On 2026-10-05 the maintainer asked that a run which finds an issue already filed keep a count of those encounters, to use when prioritizing. They chose each part below from five questions, each put with the case where the recommended option loses, and took the recommendation each time: three before the work began, and two, the scope of item 1 and item 3, on a doubt the branch review left for a person.
 
 **Builds on / amends:** builds on D-06, whose labels on found issues show what recurs across runs, and which this entry extends to an issue a run meets again; on D-29, one of whose losses, that friction that recurs sinks, this entry makes visible without changing the rubric; on D-12, under which `CLAUDE.md` and `should-i-adopt` were consolidated before their edits; and on D-27, under which the label's spelling lives in `tools/policy/vocabulary.json`. It amends nothing.
 
 **Decision.**
 
-1. **Every run searches before it files an issue**, not only `bead`: titles with `bd search` and descriptions with `bd list --all --desc-contains`, closed issues included, each again in other words. `CLAUDE.md` § The task store holds the rule; `bead` § 4, which held it alone, and `should-i-adopt` § 2 point there.
-2. **A match gets a note and a count, not a second issue.** The count is a label, `seenLabelPrefix` and a whole number, swapped for the next number in one `bd update`. The run that filed an issue counts as the first, so an issue with no such label was found once, and a run counts an issue once however often it meets it. `seenLabelPrefixMeans` holds the convention.
-3. **The count is evidence, never a rule.** It moves no priority by itself: a person reads it, and a session that notes an issue still moves its priority only to the row of `issuePriorities` that fits (`CLAUDE.md` § The task store and § A program proposes; only a person promotes).
-4. **No issue is given a count after the fact.** A match before this entry was noted and not counted, and nothing recounts it from the notes.
+1. **Every run searches before it files an issue other than a change's epic or its tasks**: titles with `bd search` and descriptions with `bd list --all --desc-contains`, closed issues included, each again in other words. `CLAUDE.md` § The task store holds the rule; `bead` § 3 and § 4 and `should-i-adopt` § 2, which each stated the search, point there. A change's epic and the tasks `change-plan` and `change-verify` file under it are filed without one, as D-02's one epic per change needs.
+2. **A match gets a note and a count, not a second issue.** The count is a label, `seenLabelPrefix` and a whole number counting the runs that have found the issue, the run that filed it the first, so an issue with no such label was found once. An issue carries one such label at most. `seenLabelPrefixMeans` holds the convention.
+3. **A match closed as done whose defect is back is also filed afresh**, `related` to it, so the work reaches `bd ready`. A match closed without its work done is only noted and counted.
+4. **The count is evidence, never a rule.** It moves no priority by itself: a person reads it, and a session that notes an issue still moves its priority only to the row of `issuePriorities` that fits (`CLAUDE.md` § The task store and § A program proposes; only a person promotes).
+5. **No issue is given a count after the fact.** A match before this entry was noted and not counted, and nothing recounts it from the notes.
 
-**Why.** The search was a rule of `bead` alone, so `change-build` filed a found issue without one (`.claude/skills/change-build/SKILL.md` § 5), and a match left a note and nothing countable. D-29 records the cost: a cost every session pays stays at priority 3, below all planned work, however many sessions it slows. Four alternatives lost:
+**Why.** The search was stated in `bead` § 4 for any issue or follow-up and in `should-i-adopt` § 2 for a prior decision, and nowhere else, so `change-build` filed a found issue without one (`.claude/skills/change-build/SKILL.md` § 5), and a match left a note and nothing countable. D-29 records the cost: a cost every session pays stays at priority 3, below all planned work, however many sessions it slows. Seven alternatives lost:
 
 - **A metadata key,** set with `bd update --set-metadata`. It keeps the count out of `bd count --by-label`, but `bd list` does not show it and filters it only by an exact value.
 - **A count derived from the notes,** each match's note in a fixed form and a script counting them. No match is lost to two runs at once, but it needs a new tool, and nothing in `bd` filters or sorts by its count.
 - **A threshold row in `issuePriorities`,** an issue met some number of times taking priority 2. Recurring friction would rise with no one looking, but a broadly worded issue that unrelated defects match would climb above planned work unread, and no count existed yet to choose the number from.
 - **The rule in `bead` alone.** The smallest edit, leaving `CLAUDE.md` as it was; but a defect `change-build` meets again would still become a second issue, uncounted.
+- **The search for a change's own tasks too,** each still filed under the epic but linked to its match, whose count would rise. The build would see the task, and the match would be counted; but `CLAUDE.md` would grow for a case only `change-plan` and `change-verify` meet, and a count would rise for work that was planned, not met again.
+- **Reopening a closed match.** One issue, one count, back in `bd ready`; but any agent that met an issue a person closed as won't-do or obsolete would reopen it, undoing their decision.
+- **Counting a closed match and leaving it closed,** as `bead` § 4 had it. The fewest words; but a regression of a fixed defect would never reach `bd ready`.
 
 Where it loses:
 
 - **Two runs at once lose a count.** Each reads the same label and writes the next number, so one match goes uncounted; both notes record it, and a recount from them corrects it.
 - **Recurring friction still sinks until a person reads the count.** An issue six sessions meet keeps priority 3 until someone moves it.
-- **Every session loads the rule.** `CLAUDE.md` holds 11 words more than before, net of its consolidation, in sessions that file nothing too.
+- **A change's planned task can duplicate an issue in the general queue.** It is filed under the epic with no search, and the issue it duplicates is neither noted nor counted, so two sessions may work it unless a person sees the overlap.
+- **A regression splits one cost across two issues.** The issue filed afresh counts from 1, so its count reads lower than the recurrence unless a person follows the `related` link.
+- **Every session loads the rule.** `CLAUDE.md` holds 30 words more than before, net of its two consolidations, in sessions that file nothing too.
 - **No gate holds the label.** Nothing refuses an issue with two counts or one that skips a number.
 - **Counts start low.** A match before 2026-10-05 was noted, not counted.
 
 **What changed.**
 
 - **This register:** this entry, its table row, the status line and the bound.
-- **`CLAUDE.md`:** consolidated under D-12 in a commit of its own, then § The task store's paragraph on the search and the count.
-- **`.claude/skills/bead/SKILL.md` § 4:** the search, its second phrasing and the note on a match give way to a pointer to `CLAUDE.md` § The task store; the caution about quoted text from a worktree, which § 7 cites, stays.
-- **`.claude/skills/should-i-adopt/SKILL.md`:** consolidated under D-12 in a commit of its own, then § 2's note on an open issue that carries the question is counted.
+- **`CLAUDE.md`:** consolidated under D-12 in a commit of its own before each of the two edits, then § The task store's paragraph on the search, the count and a closed match.
+- **`.claude/skills/bead/SKILL.md`:** § 4's search, its second phrasing and the note on a match give way to a pointer to `CLAUDE.md` § The task store; the caution about quoted text from a worktree, which § 7 cites, stays. § 3's search points at that section as well as at § 4.
+- **`.claude/skills/should-i-adopt/SKILL.md`:** consolidated under D-12 in a commit of its own, then § 2's search names the tracker by that section where it named the two commands, and its note on an open issue that carries the question is counted.
 - **`tools/policy/vocabulary.json`:** `seenLabelPrefix` and its `Means`; `describes`, `gatedBy`, `whatItDoesNOTDo` and `provenance`. **`tools/policy/README.md`:** the record's row.
 - **`tools/policy/prompt-budgets.json`:** `CLAUDE.md`'s budget raised, bead's lowered and should-i-adopt's kept, each row's `means` with its figures, and `provenance`.
 - **The rest:** `README.md` § The work, and what its runs leave behind; `docs/playbook.md`'s step for a defect found on the way, its crib sheet and its Status line, the crib sheet's note now naming `tools/policy/vocabulary.json` and `tools/policy/agent-workflows.json`, where its placeholders' values have been since D-27.
@@ -2177,7 +2183,7 @@ Where it loses:
 **Figures.**
 
 - No issue carries a count label on 2026-10-05: `bd list --all --label-regex "^seen:" -n 0` lists none, of the 290 issues `bd count` counts.
-- The prompts' counts, each `node scripts/check-prompts.mjs --counts`: `CLAUDE.md` 3,272 at `acd02ad`, 3,222 after its consolidation and 3,283 at this entry's commit; `should-i-adopt` 1,586, 1,580 and 1,586; `bead` 1,647 and 1,612. Each budget row's `means` gives the same steps.
+- The prompts' counts, each `node scripts/check-prompts.mjs --counts`: `CLAUDE.md` 3,272 at `acd02ad`, 3,222 after its first consolidation, 3,283 after the first edit, 3,271 after its second consolidation and 3,302 after the branch review's fixes; `should-i-adopt` 1,586, 1,580 after its consolidation and 1,586; `bead` 1,647 and 1,618. Each budget row's `means` gives the same steps.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
