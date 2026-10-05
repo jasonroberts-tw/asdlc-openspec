@@ -162,12 +162,11 @@ Read each file as it stands on `origin/main`, where your worktree was cut. Then 
 reviews, the descriptions of the pull requests that changed it, found as `CLAUDE.md` § Standing
 rules for prompts and gates finds them. A point an earlier review set aside under *Deliberately not
 changed* is not raised again unless these runs show something that review did not have. Reviews
-written before `docs/decisions.md` § D-05 were files, and that entry says how to recover them.
+before `docs/decisions.md` § D-05 were files; it says how to recover them.
 
-A run often worked on a branch of its own, whose files are not on `origin/main`.
-Read them where they are, with `git show origin/<branch>:<path>`. Never stage or copy them into your
-own tree, not even so that a gate reads them: the pull request would then carry another branch's
-files.
+Read a file that only a run's own branch holds with `git show origin/<branch>:<path>`. Never stage
+or copy one into your own tree, not even so that a gate reads it: the pull request would then
+carry another branch's files.
 
 Look for what made a run slower or wrong: long-running steps, repeated cycles, incorrect statements
 or assumptions, and contradictions, within a prompt or between it and `CLAUDE.md`. Every finding a
