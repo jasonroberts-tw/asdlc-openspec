@@ -212,25 +212,26 @@ export const meta = {
  * session alike (asdlc-openspec-lzr). A worktree an agent leaves is not removed when it ends, changed
  * or not, and `mise run worktree:gc` proves no branch the review rejected or reworded contained in
  * `origin/main`, so on its own it keeps such a worktree for good (asdlc-openspec-dss). `discard` lists
- * each branch a group's report names, merged or not, with the `id` and `status` of the first group
- * that names it: the session removes each worktree and branch with
- * `mise run worktree:gc --discard <branch>` once it has merged `merge` into its own
- * (`.claude/agents/continuous-prompt-improvement.md` § 6), which carries a merged group's commits on.
- * A group whose agent died names no branch and is not listed.
+ * the group branches the session removes, merged or not, each with its group's `id` and `status`:
+ * the session removes each worktree and branch with `mise run worktree:gc --discard <branch>` once it
+ * has merged `merge` into its own (`.claude/agents/continuous-prompt-improvement.md` § 6), which
+ * carries a merged group's commits on. A group whose agent died names no branch and is not listed.
  *
  * The branch is the report's word. This script assigns no branch: `agent()` returns the report alone,
  * and Claude Code names the worktree. A report naming another lane's branch would have that lane
- * removed with no proof its work is anywhere, so a branch no file agent of this run could have been
- * given goes to `discardDropped` instead, with the same three fields and a `why`, and the log names
- * it. One is a branch not of a workflow agent's shape, `agent/wf_<run>-<n>`, as a fan-out lane's
- * `agent/agent-<hex>` or a change's is not; `docs/decisions.md` § D-08 records one such branch,
- * `agent/wf_55659cd9-cb4-1`. The other is one whose run part, `wf_` and what follows up to the first
- * dash, no more than half the branches of that shape share, since every file agent of one run is
- * given a branch of that run. Where it loses: a lone group naming another run's workflow agent branch
- * has nothing to be compared with, and that branch is discarded; and an honest group outvoted, or
- * tied one against one, keeps its worktree, which the sweep then keeps for good, as before
- * asdlc-openspec-dss. The branch review of the fan-out sweep of 2026-10-04 found the gap before any
- * run did.
+ * removed with no proof its work is anywhere, so a branch no file agent of this run could be shown to
+ * have been given goes to `discardDropped` instead, with the same three fields and a `why`, and the
+ * log names it. There are three. One is a branch not of a workflow agent's shape, `agent/wf_<run>-<n>`,
+ * as a fan-out lane's `agent/agent-<hex>` or a change's is not. One is a branch two groups report,
+ * which the script cannot give to either. The third is one whose run part, `wf_` and what follows up
+ * to the first dash, no more than half the branches of that shape share. The shape, and that one
+ * run's agents share their run part, rest on branch names seen in runs alone, no documented contract:
+ * `docs/decisions.md` § D-08 records `agent/wf_55659cd9-cb4-1` and `agent/wf_b5b546d9-f08-1`, one
+ * agent's branch in each of two runs. Where it loses: in a run of one group, a report naming another
+ * run's workflow agent branch has nothing to be compared with, and that branch is discarded; and an
+ * honest group outvoted, or tied one against one, or whose branch another group also reports, keeps
+ * its worktree, which the sweep then keeps for good, as before asdlc-openspec-dss. The branch review
+ * of the fan-out sweep of 2026-10-04 found the gap before any run did.
  *
  * The skeptics and the readers run where the session does, in the review worktree, and read each
  * branch there; the readers run that worktree's `scripts/prompt-case-texts.mjs`. The answers need the agent
@@ -1012,13 +1013,26 @@ const merge = groups.filter((g) => g.status === 'merge').map((g) => g.branch.tri
 /** Each branch a group's report names, the run part of a workflow agent's, and its group. */
 const named = groups.filter((g) => g.branch?.trim()).map((g) => ({ id: g.id, branch: g.branch.trim(), status: g.status, run: WORKFLOW_BRANCH.exec(g.branch.trim())?.[1] }))
 const shaped = named.filter((d) => d.run)
-/** The branches the session removes, merged or not, and those it must not, with why, as the header says. */
+/**
+ * The branches the session removes, merged or not, and those it must not, with why, as the header
+ * says. A branch is kept when it has a workflow agent's shape, no other group reports it, and more
+ * than half the branches of that shape share its run part. Where it loses: in a run of one group,
+ * its branch is a majority of one, so a report there naming another run's workflow agent branch has
+ * nothing to be compared with, and that branch is discarded, and that run's lane with it; and an
+ * honest group outvoted or tied keeps its worktree, which `discardDropped` and the log then name.
+ */
 const discard = []
 const discardDropped = []
 for (const d of named) {
-  if ([...discard, ...discardDropped].some((o) => o.branch === d.branch)) continue
+  const reporters = named.filter((o) => o.branch === d.branch).map((o) => o.id)
   const share = shaped.filter((o) => o.run === d.run).length
-  const why = !d.run ? "it is no workflow agent's branch" : share * 2 <= shaped.length ? `only ${share} of ${shaped.length} groups name ${d.run}` : null
+  const why = !d.run
+    ? "it is no workflow agent's branch"
+    : reporters.length > 1
+      ? `groups ${reporters.join(' and ')} report it`
+      : share * 2 <= shaped.length
+        ? `only ${share} of ${shaped.length} groups name ${d.run}`
+        : null
   const entry = { id: d.id, branch: d.branch, status: d.status }
   if (why) discardDropped.push({ ...entry, why })
   else discard.push(entry)
