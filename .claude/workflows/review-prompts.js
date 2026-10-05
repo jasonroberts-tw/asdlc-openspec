@@ -458,7 +458,7 @@ function findingBlock(f) {
 function reviewPrompt(g) {
   const files = g.files.map((f) => `- ${clean(f)}`).join('\n')
   return [
-    `You are one of ${A.groups.length} reviewers in a batched review of this repository's prompts (\`CLAUDE.md\` § Prompt reviews). You work in a git worktree of your own, on a branch of its own.`,
+    `You are one of ${A.groups.length} reviewers in a batched review of this repository's prompts (\`CLAUDE.md\` § Prompt reviews).`,
     '',
     'Rules for this run:',
     '- Change only the files listed under Your files. Create, delete and rename none.',
@@ -480,7 +480,7 @@ function reviewPrompt(g) {
     '- Account for every finding above by its key: each change names under finding the one it answers, and each finding you leave alone goes under notChanged only, with your reason; a consolidation, under consolidations only.',
     '- If nothing should change: edit nothing and commit nothing. Return the verdict unchanged.',
     '- If a file should change: make the edit, stage it with `git add`, run `mise run check:prompts` and `mise run citations:check`, fix what they report in your own files, and commit. Return the verdict changed, with each gate you ran and what it printed.',
-    `- If your edit would take a file past its word budget, consolidate the file first, as ${CONSOLIDATED} says, commit that alone, and report it under consolidations.`,
+    `- If your edit would take a file past its word budget, consolidate the file first, as ${CONSOLIDATED} says, and report it under consolidations.`,
     "- Each change states how often the situation arises (frequency) and what it costs when it does (cost), each figure citing a run, a label count or a pull request, and the net words the edit adds (words, negative when it removes more), counted from `git diff --word-diff=porcelain origin/main...HEAD` on its file.",
     "- After you finish, skeptics judge each change against your branch's diff. A branch merges only when a majority upholds every change on it, so leave out an edit you would not defend.",
     '- branch is what `git branch --show-current` prints, head what `git log -1 --format=%H` prints, and filesChanged what `git diff --name-only origin/main...HEAD` prints, one path each, after your last commit.',
