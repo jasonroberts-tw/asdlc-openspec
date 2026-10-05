@@ -38,7 +38,8 @@ export const meta = {
  * review, a task of a kind `buildRedFirstKinds` lists when a scenario the parent named has neither a
  * red record nor an already-green report. No incident yet: were that check wrong, a test first run
  * after the code that passes it, which may pass without that code, would reach review, where only the
- * honesty lens's mutants can catch it, and only for the mutations a reviewer thinks of.
+ * honesty lens's mutants can catch it: under apps/ those StrykerJS makes, and elsewhere only the
+ * mutations a reviewer thinks of (Mutants, below).
  *
  * Since asdlc-openspec-j09.11 (`docs/decisions.md` § D-13, items 12, 16 and 17) it runs the strategy's
  * three build roles (`docs/test-strategy.md` § Build Agents). The builder and the fixers are the
@@ -133,6 +134,26 @@ export const meta = {
  *   not-red; a scenario is matched by its text, trimmed, so a record for another scenario covers
  *   nothing. A task of another kind is asked for the same records and not held to them. The lenses
  *   that set `red` read the red records, and the spec lens holds each failure to its scenario's THEN.
+ *
+ *   Mutants (honesty). Under apps/ the honesty lens makes no mutant of its own: it runs
+ *   `thresholds:check` and `thresholds:commands:check` (the header of scripts/check-thresholds.mjs),
+ *   whose StrykerJS runs mutate the lines the branch changes, and judges each mutant they list as
+ *   undetected on a line this task changed, in a finding whose `mutant` is the gate's line and whose
+ *   `judgement` routes it here, whatever kind the lens gave: `detectable`, which a faithful test of
+ *   the text would detect, is a defect, for the fixer to add that test; `excuse`, equivalent or
+ *   changing only a message no scenario states, is a minor defect whose fix this script writes as
+ *   the `// Stryker disable next-line <mutator>: <reason>` comment the gate reads, above the line
+ *   the gate names, from the lens's reason, so a confirmed excuse is written and earns no round of
+ *   its own; and `spec-gap` keeps a kind of coverage-gap or spec-contradiction, and takes coverage-gap
+ *   for any other. Each takes the file the gate names. A finding whose `mutant` is not a line as the
+ *   gate prints it, that has no judgement, or that excuses with no reason, goes to the parent among
+ *   `unverified`, counted on its round, and to no skeptic. A mutant's finding is never merged: it is one mutant, and an excuse
+ *   merged into another would lose its comment. Outside apps/, a gate and its selftest among it,
+ *   StrykerJS mutates nothing, so there the lens copies the code under .scratch/ and mutates it by
+ *   hand, as before asdlc-openspec-4vo. Where it loses: nothing here holds the lens to judging every
+ *   mutant the gate lists, since the gate's output reaches this script only through the lens; one it
+ *   leaves unjudged the gate refuses below its minimum sample, at the push for a Routine and in CI
+ *   for a Command, and above it only counts against the score. asdlc-openspec-kbfo carries the check.
  *
  *   Stop order, after the build: a confirmed spec contradiction among the builder's findings stops the
  *   run, since a spec revision rebuilds the task anyway; then not-red, whose missing records the parent
@@ -234,6 +255,11 @@ const SEVERITIES = ['blocker', 'major', 'minor']
 const KINDS = ['defect', 'spec-contradiction', 'coverage-gap', 'out-of-scope', 'unplanned']
 const BUILDER_KINDS = ['spec-contradiction', 'coverage-gap', 'out-of-scope', 'unplanned']
 const CONFIRMED_KINDS = ['defect', 'spec-contradiction']
+/** How a reviewer judges a mutant the thresholds gate lists as undetected, and the kinds a spec gap may take (Mutants, in the header). */
+const JUDGEMENTS = ['detectable', 'excuse', 'spec-gap']
+const SPEC_GAPS = ['coverage-gap', 'spec-contradiction']
+/** A mutant as the gate prints it undetected: `<file>:<line>:<column> <mutator> "<replacement>" (<status>)`. */
+const MUTANT = /^\s*(?:undetected:\s*)?(\S+):(\d+):\d+ (\w+) "(?:[^"\\]|\\.)*" \(\w+\)\s*$/
 const POLICY_KEYS = [
   'buildReviewLenses', 'buildReviewSkeptics', 'buildReviewMaxRounds', 'buildReviewMajorSeverities', 'buildRedFirstKinds', 'assetLabels',
   'buildIndependentKinds', 'buildArchitectMaxRounds', 'independentInputs', 'independentTestDir', 'independentLayers', 'architectRunLayers', 'testTraceLayers',
@@ -275,9 +301,12 @@ const LENSES = {
     label: 'the proofs catch a wrong implementation',
     prompt: [
       "Try to make the task's proof pass while the code is wrong. Never edit the task's files: other reviewers are reading them.",
-      'Copy the code under test and the test or selftest that proves it into .scratch/mutants-<n>/, with its relative paths still working, make one mutation per copy, and run the proof against the copy.',
+      'For code under apps/, make no mutant of your own: run mise run thresholds:check and mise run thresholds:commands:check, and judge each mutant they list as undetected on a line this task changed, in a finding giving that line, verbatim, as its mutant, and one judgement:',
+      'detectable, where a faithful test of what the text states would detect it; excuse, where it is equivalent or changes only a message no scenario states, with that reason as its fix; or spec-gap, with its kind by the rule below.',
+      'Hold each mutant they list as excused to its reason.',
+      'For code outside apps/, such as a gate and its selftest, copy the code under test and the test or selftest that proves it into .scratch/mutants-<n>/, with its relative paths still working, make one mutation per copy, and run the proof against the copy.',
       'Mutate what the scenarios state: each condition, each boundary, each branch, each value written out. For a gate, break the gate and run its selftest: a case that still holds does not assert its reason.',
-      'Give each surviving mutant its kind by the rule below. A mutation that cannot change anything observable is equivalent, and not a finding.',
+      'Give each of your mutants that survives its kind by the rule below. A mutation that cannot change anything observable is equivalent, and not a finding.',
       'Also look for skipped, todo or only tests, assertions that can pass over an empty list, and helpers that swallow exceptions.',
       'Look too for a test whose assertions depend on the environment, and hold it to the rule for such a test in ' + ROUTES + '.',
     ].join(' '),
@@ -352,7 +381,7 @@ function settledBlock() {
 
 const STRINGS = { type: 'array', items: { type: 'string' } }
 
-function findingSchema(kinds) {
+function findingSchema(kinds, extra = {}) {
   return {
     type: 'object',
     properties: {
@@ -363,6 +392,7 @@ function findingSchema(kinds) {
       against: { type: 'string' },
       evidence: { type: 'string' },
       fix: { type: 'string' },
+      ...extra,
     },
     required: ['kind', 'severity', 'title', 'file', 'against', 'evidence', 'fix'],
   }
@@ -485,9 +515,10 @@ const BUILD_SCHEMA = {
   required: [...WORK_SCHEMA.required, 'red', 'alreadyGreen'],
 }
 
+/** A reviewer's finding, which may judge a mutant the thresholds gate lists as undetected (Mutants, in the header). */
 const REVIEW_SCHEMA = {
   type: 'object',
-  properties: { checked: STRINGS, findings: { type: 'array', items: findingSchema(KINDS) } },
+  properties: { checked: STRINGS, findings: { type: 'array', items: findingSchema(KINDS, { mutant: STRING, judgement: { type: 'string', enum: JUDGEMENTS } }) } },
   required: ['checked', 'findings'],
 }
 
@@ -726,6 +757,25 @@ const normalise = (file) =>
 
 const rank = (severity) => SEVERITIES.indexOf(severity)
 
+/** Text on one line, each run of whitespace one space. */
+const flat = (text) => String(text).replace(/\s+/g, ' ').trim()
+
+/**
+ * A reviewer's judgement of a mutant the thresholds gate lists as undetected, as the finding the run
+ * routes: its kind set by the judgement, on the file the gate names, and an excuse's fix the comment
+ * the gate reads. Null where its mutant is not a line as the gate prints it, it has no judgement, or
+ * it is an excuse with no reason, whose comment the gate would refuse.
+ */
+function mutantFinding(f) {
+  const m = MUTANT.exec(f.mutant)
+  if (!m || !JUDGEMENTS.includes(f.judgement) || (f.judgement === 'excuse' && !flat(f.fix))) return null
+  const [, file, line, mutator] = m
+  if (f.judgement === 'detectable') return { ...f, kind: 'defect', file }
+  if (f.judgement === 'spec-gap') return { ...f, kind: SPEC_GAPS.includes(f.kind) ? f.kind : 'coverage-gap', file }
+  const comment = `// Stryker disable next-line ${mutator}: ${flat(f.fix)}`
+  return { ...f, kind: 'defect', severity: 'minor', file, fix: `Put \`${comment}\` on the line above ${file}:${line}, or join it to the one already there.` }
+}
+
 /**
  * File every finding that is not confirmed where the parent will find it, count each kind on the
  * round, and return those that go to skeptics.
@@ -839,6 +889,7 @@ function skepticPrompt(f, i, n) {
     `Severity: ${f.severity}`,
     `Title: ${f.title}`,
     `File: ${f.file}`,
+    ...(f.mutant ? [`Mutant: ${f.mutant}`] : []),
     `Against: ${f.against}`,
     `Evidence: ${f.evidence}`,
     `Proposed fix: ${f.fix}`,
@@ -956,7 +1007,7 @@ function buildPrompt() {
 
 function fixPrompt(defects) {
   const list = defects
-    .map((f, i) => `${i + 1}. [${f.severity}] ${f.title} (${f.file})\n   Against: ${f.against}\n   Evidence: ${f.evidence}\n   Proposed fix: ${f.fix}`)
+    .map((f, i) => `${i + 1}. [${f.severity}] ${f.title} (${f.file})${f.mutant ? `\n   Mutant: ${f.mutant}` : ''}\n   Against: ${f.against}\n   Evidence: ${f.evidence}\n   Proposed fix: ${f.fix}`)
     .join('\n\n')
   return [
     rules(),
@@ -1355,13 +1406,24 @@ for (let round = 1; round <= maxRounds; round++) {
     return finish('agent-died', `every reviewer of round ${round} returned nothing, so ${round === 1 ? 'the build' : 'the last fix'} is unreviewed`)
   }
   const raw = []
+  const mutants = []
   reviews.forEach((r, i) => {
-    if (r) for (const f of r.findings) raw.push({ ...f, raisedBy: [lensKeys[i]] })
+    if (r) for (const f of r.findings) (isText(f.mutant) ? mutants : raw).push({ ...f, raisedBy: [lensKeys[i]] })
   })
-  record.raised = raw.length
+  record.raised = raw.length + mutants.length
+  // A mutant's finding is one mutant, merged with none: an excuse merged away would lose its comment.
   const merged = await merge(raw, round)
   record.merged = raw.length - merged.length
-  const toConfirm = route(merged, record, round, 'review')
+  const judgedMutants = []
+  for (const f of mutants) {
+    const j = mutantFinding(f)
+    if (j) judgedMutants.push(j)
+    else {
+      record.unverified += 1
+      S.unverified.push({ round, source: 'review', ...f, unrouted: 'its mutant is no line the gate prints, it has no judgement, or it excuses with no reason' })
+    }
+  }
+  const toConfirm = route([...merged, ...judgedMutants], record, round, 'review')
   const judged = toConfirm.length ? await judge(toConfirm, record, round) : []
   log(`Round ${round}: ${record.raised} raised, ${record.merged} merged away, ${toConfirm.length} to skeptics: ${record.confirmed} confirmed, ${record.refuted} refuted, ${record.unverified} unverified`)
 
@@ -1430,7 +1492,6 @@ const allowed = new Set([...I.ids, A.task.id])
 const env = { platform: '', node: '' }
 const levelOf = (f) => (/trace-defaults:[^\n]*\blevel=(\d)/.exec(f.content) || [])[1] || policy.testTraceLayers[f.layer] || 1
 const appLayers = Object.keys(policy.testTraceLayers).filter((l) => !policy.independentLayers.includes(l))
-const flat = (text) => text.replace(/\s+/g, ' ').trim()
 const specTexts = I.files.filter((x) => under(x.path, `openspec/changes/${A.change}`)).map((x) => flat(x.text))
 
 /** The architect's answer, held to what code can check; an answer that fails is untriaged. */
