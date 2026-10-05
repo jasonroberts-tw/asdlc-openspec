@@ -1,39 +1,44 @@
 /**
  * The task manifest, read in one place: the tasks a tree or a commit defines, each name with its
- * command, from `tasks.toml` where it has one and from `package.json`'s `scripts` otherwise. Every
- * gate and tool that reads which tasks exist, and `runTask` in `scripts/hooks/_shared.mjs`, which
- * launches one, read them through here, so moving the tasks to mise (asdlc-openspec-8juz.6) changes
- * the manifest and the job files' tokens, and no reader.
+ * command, from its `tasks.toml`, which holds them alone. Every gate and tool that reads which tasks
+ * exist, and `runTask` in `scripts/hooks/_shared.mjs`, which launches one, read them through here. A
+ * tree or a commit with no `tasks.toml` is refused, never read from `package.json`'s `scripts` in its
+ * place (`docs/decisions.md` § D-40); `parseTasks` still reads those, the two scripts npm keeps, for
+ * `check:jobs` to hold them apart from the tasks.
  *
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet; this is what it would let through if it were
- * wrong. A reader with its own copy of the read sees the wrong manifest across the move: one still
- * reading `package.json` finds no task, and one reading `tasks.toml` at a commit from before the move
- * finds none either. The test-inventory gate compares a branch's head with its merge base, so the
- * second would read no test patterns at the base and pass a test the move deleted. And a task with a
- * key mise reads and the readers do not, such as `depends`, `dir` or `env`, would run otherwise than
- * the command every reader sees, so any key but `run` and `description`, each a string, is refused;
- * and so is a template in either (`{{`, `{%` or `{#`), which mise renders, `exec()` included, before
- * the task runs. The near miss, on 2026-10-04: the session review of asdlc-openspec-8juz.6 showed
+ * wrong. A reader with its own copy of the read sees another manifest than the rest. A read that fell
+ * back to `package.json`'s `scripts` where a tree had no `tasks.toml`, as this one did until no open
+ * branch was cut before the move to mise (asdlc-openspec-8juz.7), would take a `tasks.toml` deleted by
+ * mistake for a tree from before the move, and pass on whatever `package.json` still held: the
+ * test-inventory gate, which compares a branch's head with its merge base, read every test of a head
+ * whose `tasks.toml` was gone and passed. And a task with a key mise reads and the readers do not,
+ * such as `depends`, `dir` or `env`, would run otherwise than the command every reader sees, so any
+ * key but `run` and `description`, each a string, is refused; and so is a template in either (`{{`,
+ * `{%` or `{#`), which mise renders, `exec()` included, before the task runs. The near miss, on 2026-10-04: the session review of asdlc-openspec-8juz.6 showed
  * `{{ exec(command='echo --selftest') }}` in `counts:check` turn the gate into its selftest under
  * mise, while this loader and `check:jobs` passed the command.
  *
  * Imported, never run:
  *
- *   loadTasks(root)          the tasks of the working tree at `root`: { file, tasks }, or null when
- *                            it has neither manifest
- *   tasksFrom(read)          the same from `read(path)`, a path's text or null: a commit's blobs, or
- *                            the files a tool has read
- *   parseTasks(file, text)   one manifest's text; throws naming the file and the task at fault
- *   launchFor(manifest, name, args)   the command, arguments and label that launch one task
- *   taskFiles(file, tasks)   a fixture's manifest in either shape, for the readers' selftests
+ *   loadTasks(root)          the tasks of the working tree at `root`: { file, tasks }, `file` being
+ *                            `tasks.toml`; throws, naming `root`, where it has none
+ *   tasksFrom(read, where)   the same from `read(path)`, a path's text or null: a commit's blobs, or
+ *                            the files a tool has read; the refusal names `where`
+ *   parseTasks(file, text)   one file's tasks, `tasks.toml`'s or `package.json`'s `scripts`; throws
+ *                            naming the file and the task at fault
+ *   launchFor(name, args)    the command, arguments and label that launch one task
+ *   taskFiles(file, tasks)   a fixture's manifest: a `tasks.toml`, or for a case the loader refuses,
+ *                            the `scripts` of a `package.json` from before the move
  *
  * Each refusal is held, in its words, by `check:jobs:selftest`, since the job gate reports a
- * manifest this refuses with its reason; the readers' selftests hold each reader in both shapes.
+ * manifest this refuses with its reason; the refusal of a commit with no `tasks.toml` by
+ * `tests:inventory:selftest` too.
  *
  * NEEDS `smol-toml` from this checkout's `node_modules`, only to read or write a `tasks.toml`. It is
- * required then, not when this file loads, so a hook loads this file in a checkout with no
- * `tasks.toml` or no `npm ci`, and so does the copy under the temporary directory that
- * `gate-summary:selftest` makes.
+ * required then, not when this file loads, so a hook loads this file in a checkout with no `npm ci`
+ * and reports why it cannot read the tasks there; the copy under the temporary directory that
+ * `gate-summary:selftest` makes links this checkout's `node_modules` for it.
  */
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -60,7 +65,10 @@ const TEMPLATE_OPENER = /\{\{|\{%|\{#/
 const toml = () => createRequire(import.meta.url)('smol-toml')
 const isTable = (value) => value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)
 
-/** Each task's command in the order `text` gives them; throws naming `file` and the task at fault. */
+/**
+ * Each command `text` names, in its order: the tasks of a `tasks.toml`, or the `scripts` of a
+ * `package.json`, which `check:jobs` reads beside it. Throws naming `file` and the task at fault.
+ */
 export function parseTasks(file, text) {
   if (file === PACKAGE_JSON) {
     let manifest
@@ -111,19 +119,26 @@ export function parseTasks(file, text) {
     }
     return tasks
   }
-  throw new Error(`${file} is not a task manifest: the tasks live in ${TASKS_TOML} or in ${PACKAGE_JSON}'s \`scripts\`.`)
+  throw new Error(`${file} names no command this reads: the tasks live in ${TASKS_TOML}, and ${PACKAGE_JSON} keeps two scripts beside it.`)
 }
 
-/** `{ file, tasks }` from the first manifest `read` finds, `tasks.toml` before `package.json`; null with neither. */
-export function tasksFrom(read) {
-  for (const file of [TASKS_TOML, PACKAGE_JSON]) {
-    const text = read(file)
-    if (typeof text === 'string') return { file, tasks: parseTasks(file, text) }
+/**
+ * `{ file, tasks }` from `read(TASKS_TOML)`, `file` being `tasks.toml`. Where it gives no text, throws
+ * naming `where`: `package.json` is not read in its place.
+ */
+export function tasksFrom(read, where = 'the tree read') {
+  const text = read(TASKS_TOML)
+  if (typeof text !== 'string') {
+    throw new Error(
+      `${where} has no ${TASKS_TOML}, so it defines no task: the tasks live there alone, and ${PACKAGE_JSON}'s` +
+        ' `scripts` are not read in its place (`docs/decisions.md` § D-40). Restore it, or rebase a branch cut' +
+        ' before the move to mise onto origin/main.',
+    )
   }
-  return null
+  return { file: TASKS_TOML, tasks: parseTasks(TASKS_TOML, text) }
 }
 
-/** The tasks of the working tree at `root`, as `tasksFrom` gives them. */
+/** The tasks of the working tree at `root`, as `tasksFrom` gives them; the refusal names `root`. */
 export function loadTasks(root) {
   return tasksFrom((file) => {
     try {
@@ -132,29 +147,23 @@ export function loadTasks(root) {
       if (error.code === 'ENOENT') return null
       throw error
     }
-  })
+  }, root)
 }
 
 /**
- * How the task `name` of `manifest`, as `tasksFrom` gives it, is launched with `args`, as
- * `{ command, args, label }`: `mise run --quiet` beside a `tasks.toml`, which hands the task the
- * arguments after its name and would take a `--` for itself (asdlc-openspec-8juz.1, question 3), and
- * in a tree from before the move `npm run --silent`, `npm.cmd` on Windows, with a `--` before them.
- * `runTask` in `scripts/hooks/_shared.mjs` and `scripts/fresh-run.mjs` both launch a task through here.
+ * How the task `name` is launched with `args`, as `{ command, args, label }`: `mise run --quiet`,
+ * which hands the task the arguments after its name and would take a `--` for itself
+ * (asdlc-openspec-8juz.1, question 3). `runTask` in `scripts/hooks/_shared.mjs` and
+ * `scripts/fresh-run.mjs` both launch a task through here.
  */
-export function launchFor(manifest, name, args = []) {
-  return manifest.file === TASKS_TOML
-    ? { command: 'mise', args: ['run', '--quiet', name, ...args], label: `mise run ${name}` }
-    : {
-        command: process.platform === 'win32' ? 'npm.cmd' : 'npm',
-        args: ['run', '--silent', name, ...(args.length > 0 ? ['--', ...args] : [])],
-        label: `npm run ${name}`,
-      }
+export function launchFor(name, args = []) {
+  return { command: 'mise', args: ['run', '--quiet', name, ...args], label: `mise run ${name}` }
 }
 
 /**
- * A fixture's manifest holding `tasks`, a name-to-command map, in the shape `file` names, as
- * `{ path: text }`. `pkg` is the rest of its `package.json`, which a `tasks.toml` fixture has too.
+ * A fixture's manifest holding `tasks`, a name-to-command map, as `{ path: text }`: with `file`
+ * `tasks.toml`, that file and a `package.json` whose rest is `pkg`; with `file` `package.json`, that
+ * file alone with `tasks` as its `scripts`, a tree from before the move, which the loader refuses.
  * @returns {Record<string, string>}
  */
 export function taskFiles(file, tasks, pkg = {}) {
@@ -163,5 +172,5 @@ export function taskFiles(file, tasks, pkg = {}) {
     const doc = Object.fromEntries(Object.entries(tasks).map(([name, run]) => [name, { run }]))
     return { [TASKS_TOML]: `${toml().stringify(doc)}\n`, [PACKAGE_JSON]: `${JSON.stringify(pkg, null, 2)}\n` }
   }
-  throw new Error(`${file} is not a task manifest: the tasks live in ${TASKS_TOML} or in ${PACKAGE_JSON}'s \`scripts\`.`)
+  throw new Error(`${file} names no command this reads: the tasks live in ${TASKS_TOML}, and ${PACKAGE_JSON} keeps two scripts beside it.`)
 }

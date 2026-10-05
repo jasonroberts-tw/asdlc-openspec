@@ -375,15 +375,15 @@ pre-push:
     # untracked file with a broken pointer turns its verdict to FAIL for that reason, an ignored one
     # does not, and `checkoutOf` places a linked worktree over scratch repositories; and a copy of the
     # hook in a scratch repository gates a linked worktree and reports what that worktree's own gate
-    # read; and `runTask` over scratch checkouts, launching npm or mise by each one's own manifest and
-    # refusing a task that manifest lacks; and a copy of the edit hook, `block-generated-edit.mjs`,
-    # refusing an edit to generated output in a linked worktree with the reason it gives in the primary
-    # checkout, over each path of this checkout's `git ls-files` that the redirect table in
-    # `scripts/hooks/_shared.mjs` assigns. The hook runs `check:jobs` over this checkout in four of its
-    # seven runs, so the glob carries that gate's inputs too, `tasks.toml`, `mise.toml` and the whole
-    # of `tools/`, `scripts/` and `apps/` among them. `scripts/**` and `tools/**` also hold the hook,
-    # the task loader and the citations gate it runs. The lockfile pins the `smol-toml` the loader
-    # requires to write a `tasks.toml` fixture.
+    # read; and `runTask` over scratch checkouts, launching mise by each one's own `tasks.toml` and
+    # refusing a task that file lacks and a checkout with none; and a copy of the edit hook,
+    # `block-generated-edit.mjs`, refusing an edit to generated output in a linked worktree with the
+    # reason it gives in the primary checkout, over each path of this checkout's `git ls-files` that
+    # the redirect table in `scripts/hooks/_shared.mjs` assigns. The hook runs `check:jobs` over this
+    # checkout in four of its seven runs, so the glob carries that gate's inputs too, `tasks.toml`,
+    # `mise.toml` and the whole of `tools/`, `scripts/` and `apps/` among them. `scripts/**` and
+    # `tools/**` also hold the hook, the task loader and the citations gate it runs. The lockfile pins
+    # the `smol-toml` the loader requires to write and read a `tasks.toml` fixture.
     # 3.35-3.43 s wall through `node --run` (`/usr/bin/time -p`, two runs, while other worktrees ran
     # their gates) on a macOS 26.7 laptop (Apple M3 Max) with Node 26.8.1, 2026-09-26: seven hook
     # runs, each two npm starts, three of them against stub gates. 3.60-3.61 s (two runs, the same
@@ -667,7 +667,7 @@ pre-push:
     # no remote and is removed, each refusal by its reason, the join to the record, the tasks'
     # partition and the one re-run by name. Reads the script and the files it copies into the fixture,
     # whose tasks it runs through `mise run` under `mise.toml`'s own task settings and `[task_config]`,
-    # and through npm in a commit from before the move; the manifest and lockfile pin the `smol-toml`
+    # and refuses a commit with no `tasks.toml`; the manifest and lockfile pin the `smol-toml`
     # the task loader requires for the fixture's `tasks.toml` and `mise.toml`.
     # 8.82-8.87 s wall through `node --run` (`/usr/bin/time -p`, two runs) on a macOS laptop (Apple M3
     # Max) with Node 26.8.1, 2026-09-29, most of it a clone, a test run and a trace check per case;
@@ -851,7 +851,7 @@ pre-push:
     # origin/main among them, with undoctored controls and one run of the CLI through
     # TEST_INVENTORY_ROOT. Reads the gate, the reader it imports and the helper that imports, the
     # helper that reads a script's `--dir`, the task loader and the `smol-toml` it requires for the
-    # fixtures that move the scripts to a `tasks.toml`, which the manifest and lockfile pin, the
+    # fixtures' `tasks.toml`, which the manifest and lockfile pin, the
     # helper that strips a hook's GIT_* keys, and the live policy's trailer key. 49 cases:
     # 2.31-2.33 s wall through `node --run` (`/usr/bin/time -p`, two runs) on the host above,
     # 2026-09-28; 51, with the two `--dir` cases: 2.71-2.77 s, 2026-09-29; 55, with the four that

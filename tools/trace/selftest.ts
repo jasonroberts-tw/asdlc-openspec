@@ -26,7 +26,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, write
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { PACKAGE_JSON, TASKS_TOML, taskFiles } from '../../scripts/lib/tasks.mjs'
+import { PACKAGE_JSON, TASKS_TOML, parseTasks, taskFiles } from '../../scripts/lib/tasks.mjs'
 import { hashRef, readTracePolicy } from '../../scripts/test-trace.mjs'
 import { SCRATCH_GIT_ENV, gitIn } from '../lib/git-env.ts'
 import { ROOT } from '../lib/paths.ts'
@@ -117,7 +117,7 @@ maintainers have asked for the greeting to notice.
 `
 
 const TREE: Record<string, string> = {
-  ...taskFiles(PACKAGE_JSON, { 'greeter:test': 'node scripts/run-tests.mjs "apps/greeter/test/*.test.js"' }, { type: 'module' }),
+  ...taskFiles(TASKS_TOML, { 'greeter:test': 'node scripts/run-tests.mjs "apps/greeter/test/*.test.js"' }, { type: 'module' }),
   'openspec/config.yaml': 'schema: spec-driven\n',
   [SPEC]: LIVING,
   [SURFACE]: '# Binding Surface\n\nThe greeter exports `greet(reader)`.\n',
@@ -161,10 +161,21 @@ function swap(from: string, to: string, source = TEST_SOURCE) {
   return source.replace(from, to)
 }
 
-/** The fixture's scripts moved from its package.json to a tasks.toml, as the move to mise moves them. */
-function toTasksToml(dir: string) {
-  const { scripts, ...rest } = JSON.parse(readFileSync(join(dir, PACKAGE_JSON), 'utf8'))
-  for (const [path, text] of Object.entries(taskFiles(TASKS_TOML, scripts, rest))) put(dir, path, text)
+/** The fixture's tasks moved back into its package.json's scripts and its tasks.toml deleted, as a tree from before the move to mise has them. */
+function toPackageJson(dir: string) {
+  const tasks = parseTasks(TASKS_TOML, readFileSync(join(dir, TASKS_TOML), 'utf8'))
+  const pkg = JSON.parse(readFileSync(join(dir, PACKAGE_JSON), 'utf8'))
+  for (const [path, text] of Object.entries(taskFiles(PACKAGE_JSON, tasks, pkg))) put(dir, path, text)
+  rmSync(join(dir, TASKS_TOML))
+}
+
+/** The fixture's tasks.toml with `tasks` changed through its parsed form, a name-to-command map. */
+function editTasks(dir: string, change: (tasks: Record<string, string>) => void) {
+  edit(dir, TASKS_TOML, (text) => {
+    const tasks = parseTasks(TASKS_TOML, text)
+    change(tasks)
+    return taskFiles(TASKS_TOML, tasks)[TASKS_TOML]
+  })
 }
 
 function commitAll(dir: string, subject: string) {
@@ -397,10 +408,8 @@ function cases(): Case[] {
         const policy = readTracePolicy(dir)
         const source = `import { test } from 'node:test'\n// trace-defaults: layer=contract level=1\n\n${negative}`
         put(dir, INDEPENDENT_TEST, source.replace(/@\{([^{}]+)\}/g, (_, ref) => `@${hashRef(dir, ref, policy)}`))
-        edit(dir, 'package.json', (text) => {
-          const manifest = JSON.parse(text)
-          manifest.scripts['greeter:test:independent'] = 'node scripts/run-tests.mjs --dir apps/greeter/test/independent'
-          return `${JSON.stringify(manifest, null, 2)}\n`
+        editTasks(dir, (tasks) => {
+          tasks['greeter:test:independent'] = 'node scripts/run-tests.mjs --dir apps/greeter/test/independent'
         })
         commitAll(dir, 'The passer-by test moves to the independent tests (asdlc-openspec-abc.3)')
         reemit(dir)
@@ -558,22 +567,15 @@ function cases(): Case[] {
       expect: /^record: it cannot be derived: tools\/policy\/vocabulary\.json has no list under `traceObligationLayers` of layers `testTraceLayers` declares/,
     },
     {
-      name: 'reader: no package script runs the test runner, so no test is read',
-      doctor: (dir) => edit(dir, 'package.json', (text) => text.replace('node scripts/run-tests.mjs', 'node --test')),
-      expect: /^reader: no script in package\.json runs `node scripts\/run-tests\.mjs` over a quoted pattern/,
-    },
-    {
-      name: 'reader: the scripts moved to a tasks.toml are read from it, and the fixture still passes',
-      doctor: toTasksToml,
-      expect: 'pass',
-    },
-    {
-      name: 'reader: no task in a tasks.toml runs the test runner, so no test is read',
-      doctor: (dir) => {
-        toTasksToml(dir)
-        edit(dir, TASKS_TOML, (text) => text.replace('node scripts/run-tests.mjs', 'node --test'))
-      },
+      name: 'reader: no task in the tasks.toml runs the test runner, so no test is read',
+      doctor: (dir) => edit(dir, TASKS_TOML, (text) => text.replace('node scripts/run-tests.mjs', 'node --test')),
       expect: /^reader: no script in tasks\.toml runs `node scripts\/run-tests\.mjs` over a quoted pattern/,
+    },
+    {
+      // Read from package.json in its place, every test would be read, and the fixture would pass.
+      name: "reader: a tree whose tasks are its package.json's scripts, with no tasks.toml, reads no test, for the loader's reason",
+      doctor: toPackageJson,
+      expect: /^reader: .+ has no tasks\.toml, so it defines no task: the tasks live there alone, and package\.json's `scripts` are not read in its place/,
     },
     {
       name: 'reader: metadata the reader refuses is refused here in its words',

@@ -30,10 +30,10 @@
  *      `origin/main`; then `npm ci --no-audit --no-fund`. Every child in the clone has mise trust the
  *      clone's `mise.toml` through `MISE_TRUSTED_CONFIG_PATHS` (`childEnv`, which says why).
  *   3. Every script that runs `scripts/run-tests.mjs` and neither `--selftest` nor `--name`, in
- *      code-point order, each with `--results`, read from the clone's own tasks through
- *      `scripts/lib/tasks.mjs` rather than named here, and launched as `runTask` launches one:
- *      `mise run`, or `npm run` in a commit from before the move to mise; a commit with neither
- *      manifest is refused. Today `calculator:test`, the test-builder's `build/` stage
+ *      code-point order, each with `--results`, read from the clone's own `tasks.toml` through
+ *      `scripts/lib/tasks.mjs` rather than named here, and launched as `runTask` launches one,
+ *      through `mise run`; a commit with no `tasks.toml` is refused with the loader's reason, its
+ *      `package.json` not read in its place. Today `calculator:test`, the test-builder's `build/` stage
  *      (`calculator:test:independent`) and its `verify/` stage (`calculator:test:verify`), which no
  *      job runs and which holds the E2E tests and the fitness functions deferred to Verify, so this
  *      run is where they run. Then `check()` of `tools/trace/trace.ts` in a child, and
@@ -338,13 +338,13 @@ const readJson = (path) => JSON.parse(readFileSync(path, 'utf8'))
 
 /**
  * Each test script in the clone, with its exit and its results; `manifest` is the clone's, as
- * `loadTasks` reads it, and each launches by it through `launchFor`, as `runTask` launches one.
+ * `loadTasks` reads it, and each launches through `launchFor`, as `runTask` launches one.
  */
 async function runScripts(clone, out, manifest) {
   const ran = []
   for (const script of testScripts(manifest.tasks)) {
     const file = join(out, `${script.replace(/[^a-z0-9]+/gi, '-')}.json`)
-    const { command, args, label } = launchFor(manifest, script, ['--results', file])
+    const { command, args, label } = launchFor(script, ['--results', file])
     const run = withinDeadline(await runChild(command, args, clone), label)
     const results = existsSync(file) ? readJson(file) : null
     ran.push({ script, status: run.status, ms: run.ms, results, output: results ? null : tail(run) })
@@ -369,7 +369,7 @@ async function traceCheck(clone) {
 /** The Commands' mutation run, as the gate prints it, or why it did not run; `manifest` is the clone's, as `loadTasks` reads it. */
 async function commandsCheck(clone, manifest) {
   if (!manifest.tasks[COMMANDS_CHECK]) return { script: COMMANDS_CHECK, skipped: `${manifest.file} at this commit has no \`${COMMANDS_CHECK}\`` }
-  const { command, args, label } = launchFor(manifest, COMMANDS_CHECK)
+  const { command, args, label } = launchFor(COMMANDS_CHECK)
   const run = withinDeadline(await runChild(command, args, clone), label)
   return { script: COMMANDS_CHECK, status: run.status, ms: run.ms, output: `${run.stdout}${run.stderr}`.replace(/\s+$/, '') }
 }
@@ -464,7 +464,6 @@ export async function freshRun(root, change, { tasks = [], tmp = tmpdir(), insta
     } catch (error) {
       refuse(`the commit's task manifest cannot be read, so no test script can be found: ${error.message}`)
     }
-    if (manifest === null) refuse(`the commit has neither ${TASKS_TOML} nor ${PACKAGE_JSON}, so it names no test script to run.`)
     const scripts = await runScripts(clone, out, manifest)
     const trace = await traceCheck(clone)
     const thresholds = await commandsCheck(clone, manifest)
@@ -769,7 +768,7 @@ function selftestCases() {
       // taken out of the fixture, so no stage before it can spend the deadline on a loaded machine,
       // and the refusal names it however late it starts. The clock still starts with the run.
       doctor: (dir) => {
-        for (const [path, text] of Object.entries(taskFiles(PACKAGE_JSON, { [COMMANDS_CHECK]: COMMANDS_STUB }, { type: 'module' }))) write(dir, path, text)
+        for (const [path, text] of Object.entries(taskFiles(TASKS_TOML, { [COMMANDS_CHECK]: COMMANDS_STUB }, { type: 'module' }))) write(dir, path, text)
         rmSync(join(dir, 'tools/trace/trace.ts'))
         fixtureGit(dir, ['commit', '--quiet', '-am', `Only the sleeping child runs (${TASK})`])
       },
@@ -789,8 +788,8 @@ function selftestCases() {
       },
     },
     {
-      // A commit from before the move to mise: its scripts run through npm, given their arguments after a `--`.
-      name: 'a commit whose tasks are package.json scripts runs them through npm, with the same results',
+      // A commit from before the move to mise, or one whose tasks.toml was deleted: package.json is not read in its place.
+      name: "a commit whose tasks are package.json's scripts, with no tasks.toml, is refused with the loader's reason",
       doctor: (dir) => {
         const tasks = parseTasks(TASKS_TOML, readFileSync(join(dir, TASKS_TOML), 'utf8'))
         rmSync(join(dir, TASKS_TOML))
@@ -798,22 +797,7 @@ function selftestCases() {
         fixtureGit(dir, ['add', '-A'])
         fixtureGit(dir, ['commit', '--quiet', '-m', `The tasks in package.json (${TASK})`])
       },
-      expect: ran(({ run }) => {
-        const got = run.tests.map((t) => `${t.name}|${t.status}|${t.script}`).sort().join(' ; ')
-        const want = [`${HAPPY}|pass|calculator:test`, `${HAPPY}|pass|calculator:test:verify`, `${NEGATIVE}|pass|calculator:test`, `${TASK_TEST}|pass|calculator:test`].sort().join(' ; ')
-        if (got !== want) return `the tests came back ${got}`
-        return run.thresholds.status === 0 && /as the stub prints it/.test(run.thresholds.output) ? null : `the thresholds came back ${JSON.stringify(run.thresholds)}`
-      }),
-    },
-    {
-      name: 'a commit with neither tasks.toml nor package.json is refused',
-      doctor: (dir) => {
-        rmSync(join(dir, TASKS_TOML))
-        rmSync(join(dir, PACKAGE_JSON))
-        fixtureGit(dir, ['add', '-A'])
-        fixtureGit(dir, ['commit', '--quiet', '-m', `No task manifest (${TASK})`])
-      },
-      expect: refusedFor(/^the commit has neither tasks\.toml nor package\.json, so it names no test script to run\./),
+      expect: refusedFor(/^the commit's task manifest cannot be read, so no test script can be found: .+ has no tasks\.toml, so it defines no task: the tasks live there alone, and package\.json's `scripts` are not read in its place/),
     },
     {
       name: 'a tree with a change no commit holds is refused',

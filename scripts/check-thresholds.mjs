@@ -198,7 +198,7 @@ import { fileURLToPath } from 'node:url'
 import { gitEnv } from '../tools/lib/git-env.ts'
 import { POLICY_DIR, copyPolicy, readPolicy as readConstants } from '../tools/lib/policy.ts'
 import { runTests } from './run-tests.mjs'
-import { PACKAGE_JSON, TASKS_TOML, loadTasks, taskFiles } from './lib/tasks.mjs'
+import { TASKS_TOML, loadTasks, taskFiles } from './lib/tasks.mjs'
 import { dirGlob, scriptDirs } from './lib/test-dirs.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -559,13 +559,12 @@ const STRYKER_DIRECTIVE = /^\s?Stryker (disable|restore)(?: (next-line))? ([a-zA
 /* --------------------------------------------------------------------------------- scope -------- */
 
 /**
- * The tree's tasks, read through `scripts/lib/tasks.mjs`. A tree with neither manifest throws, as a
- * missing `package.json` did before the loader: judged with no test patterns, it would pass.
+ * The tree's tasks, read through `scripts/lib/tasks.mjs` from its `tasks.toml`. A tree with none
+ * throws the loader's reason, its `package.json` not read in its place: judged with no test
+ * patterns, or with those a `package.json` still held, it would pass.
  */
 function tasksOf(root) {
-  const manifest = loadTasks(root)
-  if (manifest === null) throw new Error(`${root} has neither ${TASKS_TOML} nor ${PACKAGE_JSON}, so no test pattern can be read.`)
-  return manifest.tasks
+  return loadTasks(root).tasks
 }
 
 /** The quoted patterns of every task that runs the runner, as `tools/trace/trace.ts` reads them. */
@@ -1280,7 +1279,7 @@ function fixture(policy, hashLength) {
   }
   const legacyEntry = { file: 'apps/calculator/public/calc.js', mutator: 'EqualityOperator', replacement: 'x >= 5', code: 'x > 5', occurrence: 2 }
   const base = {
-    ...taskFiles(PACKAGE_JSON, { 'calculator:test': 'node scripts/run-tests.mjs "apps/calculator/test/*.test.js"' }, { type: 'module' }),
+    ...taskFiles(TASKS_TOML, { 'calculator:test': 'node scripts/run-tests.mjs "apps/calculator/test/*.test.js"' }, { type: 'module' }),
     'apps/calculator/public/calc.js': calc(olds),
     'apps/calculator/serve.js': serve(3),
     'apps/calculator/test/calc.test.js': calcTest(olds),
@@ -1336,10 +1335,10 @@ function cases(f, policy) {
   // The test-builder's directory for the fixture's one app, a directory per stage below it.
   const independent = policy.independent.replaceAll('{app}', 'calculator')
   const importOf = (path) => posixPath.relative(posixPath.dirname(path), 'apps/calculator/public/calc.js')
-  /** The calculator's test pattern and, for each task `dirs` names, a run of the runner over its `--dir`, in the manifest `file`. */
-  const dirTasks = (file, dirs) =>
+  /** The calculator's test pattern and, for each task `dirs` names, a run of the runner over its `--dir`, in a `tasks.toml`. */
+  const dirTasks = (dirs) =>
     taskFiles(
-      file,
+      TASKS_TOML,
       { 'calculator:test': 'node scripts/run-tests.mjs "apps/calculator/test/*.test.js"', ...Object.fromEntries(Object.entries(dirs).map(([task, dir]) => [task, `node scripts/run-tests.mjs --dir ${dir}`])) },
       { type: 'module' },
     )
@@ -1410,21 +1409,21 @@ function cases(f, policy) {
       expect: lineSample,
       printed: /uncovered: apps\/calculator\/public\/unloaded\.js:1, in a file no test loads/,
     },
-    ...[PACKAGE_JSON, TASKS_TOML].map((file) => ({
-      name: `a changed Routine that only a test under the --dir of the test-builder's ${buildStage} stage runs counts as covered, the tasks in ${file}`,
-      files: { ...withNew(g), ...dirTasks(file, { 'calculator:test:independent': `${independent}/${buildStage}` }), ...buildTest },
+    {
+      name: `a changed Routine that only a test under the --dir of the test-builder's ${buildStage} stage runs counts as covered`,
+      files: { ...withNew(g), ...dirTasks({ 'calculator:test:independent': `${independent}/${buildStage}` }), ...buildTest },
       stages: only.coverage,
       expect: 'pass',
-    })),
+    },
     {
       name: `a test under the --dir of the test-builder's Verify stage runs in neither the coverage run nor the Routines' mutation run, where the ${buildStage} stage's runs in both`,
-      files: { ...withNew(g), ...dirTasks(PACKAGE_JSON, { 'calculator:test:independent': `${independent}/${buildStage}`, 'calculator:test:verify': `${independent}/verify` }), ...buildTest, ...verifyTest },
+      files: { ...withNew(g), ...dirTasks({ 'calculator:test:independent': `${independent}/${buildStage}`, 'calculator:test:verify': `${independent}/verify` }), ...buildTest, ...verifyTest },
       expect: 'pass',
       printed: new RegExp(`^note: the --dir ${escapeRegExp(`${independent}/verify`)} is under the test-builder's \`${escapeRegExp(policy.independent)}\` and not its ${escapeRegExp(buildStage)} stage`),
     },
     {
       name: "a --dir holding every stage of the test-builder's directory, whose run would run the Verify stage's tests",
-      files: dirTasks(PACKAGE_JSON, { 'calculator:test:independent': independent }),
+      files: dirTasks({ 'calculator:test:independent': independent }),
       stages: only.none,
       expect: new RegExp(`^suite: the --dir ${escapeRegExp(independent)} holds every stage of the test-builder's \`${escapeRegExp(policy.independent)}\``),
     },

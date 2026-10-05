@@ -69,9 +69,9 @@
  * `CITATIONS_ROOT=<dir> node scripts/hooks/gate-summary.mjs`, which is how the selftest runs this
  * checkout's copy; it also runs a copy of the hook from a scratch repository with stub gates.
  *
- * Needs `git` on PATH, `npm ci` in the checkout it gates, and the launcher that checkout's own task
- * manifest calls for: `mise` where it has a `tasks.toml`, `npm` where it has not (`runTask` in
- * `_shared.mjs`, which refuses a gate that manifest does not define). Nothing outside it.
+ * Needs `git` and `mise` on PATH, `npm ci` in the checkout it gates, and a `tasks.toml` there
+ * (`runTask` in `_shared.mjs`, which refuses a gate that file does not define, and a checkout with
+ * none). Nothing outside it.
  */
 import { realpathSync } from 'node:fs'
 import { ROOT, checkoutOf, readHookInput, runTask } from './_shared.mjs'

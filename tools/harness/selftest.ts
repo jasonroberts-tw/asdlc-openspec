@@ -26,7 +26,7 @@ import { spawnSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { TASKS_TOML, taskFiles } from '../../scripts/lib/tasks.mjs'
+import { PACKAGE_JSON, TASKS_TOML, parseTasks, taskFiles } from '../../scripts/lib/tasks.mjs'
 import { SCRATCH_GIT_ENV, gitIn } from '../lib/git-env.ts'
 import { ROOT } from '../lib/paths.ts'
 import { CONFIG, assess, blobId, reach, serialise, type ReachRow, type Report } from './harness.ts'
@@ -96,22 +96,18 @@ jobs:
 
 /** The control: every input of every job in its glob, so it reports no finding and no lead. */
 const FILES: Record<string, string> = {
-  'package.json': JSON.stringify(
+  ...taskFiles(
+    TASKS_TOML,
     {
-      type: 'module',
-      scripts: {
-        'check:a': 'node scripts/check-a.mjs',
-        'check:b': 'node scripts/check-b.mjs',
-        gen: 'node tools/gen/gen.ts',
-        'gen:check': 'node tools/gen/gen.ts --check',
-        'local:only': 'node scripts/local.mjs',
-        op: 'node scripts/op.mjs',
-        slow: 'node scripts/slow.mjs',
-      },
-      devDependencies: { 'js-yaml': '4.1.0' },
+      'check:a': 'node scripts/check-a.mjs',
+      'check:b': 'node scripts/check-b.mjs',
+      gen: 'node tools/gen/gen.ts',
+      'gen:check': 'node tools/gen/gen.ts --check',
+      'local:only': 'node scripts/local.mjs',
+      op: 'node scripts/op.mjs',
+      slow: 'node scripts/slow.mjs',
     },
-    null,
-    2,
+    { type: 'module', devDependencies: { 'js-yaml': '4.1.0' } },
   ),
   'package-lock.json': '{}\n',
   'git-hooks.yml': HOOKS,
@@ -200,10 +196,14 @@ const FILES: Record<string, string> = {
 const scratch = mkdtempSync(join(tmpdir(), 'harness-selftest-'))
 let fixtureCount = 0
 
-/** A fixture repository: the control's files, each doctoring applied, the live config, all staged. */
-function fixture(doctor: (write: (path: string, body: string) => void, read: (path: string) => string) => void = () => {}): string {
+/** A fixture repository: the control's files, each doctoring applied (a null body removes the file), the live config, all staged. */
+function fixture(doctor: (write: (path: string, body: string | null) => void, read: (path: string) => string) => void = () => {}): string {
   const dir = join(scratch, `repo-${++fixtureCount}`)
-  const write = (path: string, body: string) => {
+  const write = (path: string, body: string | null) => {
+    if (body === null) {
+      rmSync(join(dir, path))
+      return
+    }
     mkdirSync(dirname(join(dir, path)), { recursive: true })
     writeFileSync(join(dir, path), body)
   }
@@ -242,7 +242,8 @@ try {
   check('control: in the map\'s sample, a hub row writes its rate', control.tables.hubs.some((h) => h.firesPerHundredPrs !== null), control.tables.hubs)
   check('control: no file is in enough globs to be listed as never changed', control.tables.neverChanged.length === 0, control.tables.neverChanged)
   check('control: the report names every file it read, by blob id', control.read.sources.some((s) => s.path === 'git-hooks.yml' && s.blob === blobId(FILES['git-hooks.yml'])), control.read.sources)
-  check('control: the report names package.json as the file the tasks came from', control.read.tasks === 'package.json', control.read.tasks)
+  check('control: the report names tasks.toml as the file the tasks came from', control.read.tasks === TASKS_TOML, control.read.tasks)
+  check('control: a script is wired to its file as declared in tasks.toml', control.wiring.some((w) => w.from === 'script:check:a' && w.relation === 'invokes' && w.declaredIn === TASKS_TOML), control.wiring.filter((w) => w.relation === 'invokes'))
   check('control: a file only the pairing table reads is among them', control.read.sources.some((s) => s.path === 'scripts/lint-z.mjs'), control.read.sources.map((s) => s.path))
   check('control: the report states each check\'s limits', ['glob/import', 'glob/read', 'reach', 'parity', 'observed', 'hubs'].every((k) => typeof control.limits[k] === 'string'), Object.keys(control.limits))
   check('control: a second run writes the same bytes', serialise(await assess(controlDir, DATE)) === serialise(control), 'the report changed')
@@ -320,18 +321,11 @@ try {
       expect: genLeads(/launches `gen`, by name,/),
     },
     {
-      // The manifest's other shape: were the job's `mise run` token not read, its script would be a
-      // parity finding, CI's alone.
-      name: 'the tasks moved to a tasks.toml, a job running one through `mise run --quiet`',
-      doctor: (w, r) => {
-        const { scripts, ...rest } = JSON.parse(r('package.json'))
-        for (const [path, body] of Object.entries(taskFiles(TASKS_TOML, scripts, rest))) w(path, body)
-        w('git-hooks.yml', r('git-hooks.yml').replace('run: node --run check:a', 'run: mise run --quiet check:a'))
-      },
+      // Were the job's `mise run` token not read, its script would be a parity finding, CI's alone.
+      name: 'a job running a task through `mise run --quiet`',
+      doctor: (w, r) => w('git-hooks.yml', r('git-hooks.yml').replace('run: node --run check:a', 'run: mise run --quiet check:a')),
       expect: {},
       also: (report) => [
-        ['the report names tasks.toml as the file the tasks came from', report.read.tasks === TASKS_TOML, report.read.tasks],
-        ['a script is wired to its file as declared in tasks.toml', report.wiring.some((w) => w.from === 'script:check:a' && w.relation === 'invokes' && w.declaredIn === TASKS_TOML), report.wiring.filter((w) => w.relation === 'invokes')],
         ['the job running it through mise is wired to it', report.wiring.some((w) => w.from === 'job:pre-push/check-a' && w.to === 'script:check:a' && w.relation === 'runs'), report.wiring.filter((w) => w.relation === 'runs')],
       ],
     },
@@ -455,13 +449,21 @@ try {
   check('comparison: another config is named', reconfigured.comparison.configChanged === true && reconfigured.comparison.scriptChanged === false, reconfigured.comparison)
 
   /* ---------------------------------------------------------------------------- the inputs ----- */
-  const refusals: [string, (w: (p: string, b: string) => void, r: (p: string) => string) => void, RegExp][] = [
+  const refusals: [string, (w: (p: string, b: string | null) => void, r: (p: string) => string) => void, RegExp][] = [
     ['a constant without its Means', (w, r) => w(CONFIG, JSON.stringify({ ...JSON.parse(r(CONFIG)), hubsTopMeans: undefined })), /config: .*`hubsTopMeans` is missing/],
     ['a constant of the wrong shape', (w, r) => w(CONFIG, JSON.stringify({ ...JSON.parse(r(CONFIG)), hubsTop: 0 })), /config: .*`hubsTop` is not a whole number of at least 1/],
     ['a preamble key missing', (w, r) => w(CONFIG, JSON.stringify({ ...JSON.parse(r(CONFIG)), provenance: undefined })), /config: .*`provenance` is missing/],
     ['a constant missing', (w, r) => w(CONFIG, JSON.stringify({ ...JSON.parse(r(CONFIG)), codeExtensions: undefined })), /config: .*`codeExtensions` is missing/],
     ['a policy key the config names missing', (w) => w('tools/policy/tool-settings.json', JSON.stringify({ couplingMinSampleUnits: 5 })), /input: `couplingClusterMinJaccardPermille` in tools\/policy\/tool-settings\.json/],
     ['a constant the config names unreadable', (w) => w('scripts/check-jobs.mjs', 'export {}\n'), /input: `PATH_ROOTS` in scripts\/check-jobs.mjs, which .* names, is not a list of string literals/],
+    [
+      "a checkout whose tasks are its package.json's scripts, with no tasks.toml",
+      (w, r) => {
+        for (const [path, body] of Object.entries(taskFiles(PACKAGE_JSON, parseTasks(TASKS_TOML, r(TASKS_TOML)), JSON.parse(r(PACKAGE_JSON))))) w(path, body)
+        w(TASKS_TOML, null)
+      },
+      /^input: .+ has no tasks\.toml, so it defines no task: the tasks live there alone, and package\.json's `scripts` are not read in its place/,
+    ],
   ]
   let noMeans = ''
   for (const [name, doctor, reason] of refusals) {

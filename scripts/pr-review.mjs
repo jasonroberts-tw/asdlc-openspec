@@ -387,14 +387,13 @@ export function filesOfTask(root, tasks, name, seen = new Set()) {
  * `scripts/lib/tasks.mjs`, imported here and never at the top of this file, so `act` does not load it.
  */
 export async function floorTaskProblems(root, policy) {
-  const { loadTasks, TASKS_TOML } = await import('./lib/tasks.mjs')
-  let manifest
+  const { loadTasks } = await import('./lib/tasks.mjs')
+  let tasks
   try {
-    manifest = loadTasks(root)
+    tasks = loadTasks(root).tasks
   } catch (error) {
     return [`${TASKS} cannot be read, so the gates \`prReviewFloorTasks\` lists cannot be held to the floor: ${error.message}`]
   }
-  const tasks = manifest?.file === TASKS_TOML ? manifest.tasks : {}
   const floor = Object.keys(policy.prReviewHighRiskPaths)
   const problems = []
   const reachedBy = new Map()

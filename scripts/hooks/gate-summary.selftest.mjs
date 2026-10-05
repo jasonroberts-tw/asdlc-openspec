@@ -17,11 +17,10 @@
  * (asdlc-openspec-wdt). Part 3 is what turns red for either.
  *
  * AND A GATE RUN FROM THE WRONG MANIFEST. The hook launches each gate through `runTask`, which reads
- * the gated checkout's own manifest: were it to pick `npm` or `mise` by anything else, every stop
- * would report FAIL while the primary checkout and a worktree sit on either side of the move to mise
- * (asdlc-openspec-8juz.6); and were it to launch a task that manifest lacks, mise would run the
- * definition of the checkout above it, against the wrong tree (asdlc-openspec-8juz.1, question 1).
- * Part 4 is what turns red for either.
+ * the gated checkout's own `tasks.toml`: were it to launch a task that file lacks, mise would run the
+ * definition of the checkout above it, against the wrong tree (asdlc-openspec-8juz.1, question 1);
+ * and a checkout with no `tasks.toml` is refused with the loader's reason, its `package.json` not
+ * read in its place (`docs/decisions.md` § D-40). Part 4 is what turns red for either.
  *
  * AND A GENERATED FILE EDITED IN A WORKTREE. Until 2026-10-03 the edit hook judged every path against
  * its own checkout, the primary one for a session in a worktree, so an edit to generated output in a
@@ -46,11 +45,11 @@
  *      copy's own checkout passes (the control); a `cwd` in a linked worktree, whose committed
  *      citations stub ignores `CITATIONS_UNTRACKED`, passes there with a verdict naming the worktree
  *      and saying tracked files only; and a stub that fails there fails the verdict there.
- *   4. `taskLaunch` and `runTask` over scratch checkouts: one with a `package.json` alone runs a task
- *      with `npm run --silent` (the control), one with a `tasks.toml` with `mise run --quiet`, each
- *      run for real; and a task its own manifest lacks is refused before any launcher starts, in a
- *      worktree whose enclosing checkout defines it and in a `package.json` checkout alike, as is
- *      every task of a checkout with neither manifest.
+ *   4. `taskLaunch` and `runTask` over scratch checkouts: one with a `tasks.toml` runs a task with
+ *      `mise run --quiet` (the control), run for real; one whose tasks are a `package.json`'s scripts
+ *      alone is refused with the loader's reason; and a task its own `tasks.toml` lacks is refused
+ *      before any launcher starts, in a worktree whose enclosing checkout defines it and in a
+ *      checkout of its own alike.
  *   5. A copy of the edit hook and `_shared.mjs` in a scratch repository with two linked worktrees,
  *      one where the worktree script makes one and one outside the checkout: each path of this
  *      checkout the redirect table assigns, and a file whose header carries a banner, refused in the
@@ -70,7 +69,7 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { delimiter, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { taskFiles } from '../lib/tasks.mjs'
 
@@ -234,30 +233,39 @@ try {
       "process.exit(existsSync('stub-fails') ? 1 : 0)",
       '',
     ].join('\n')
-  const scripts = { 'check:jobs': 'node stub-gate.mjs check:jobs', 'citations:check': 'node stub-gate.mjs citations:check' }
+  // This node by its path, since a bare `node` may be mise's shim, which pins no version in a scratch
+  // directory; and a string, since console.log colours a number when FORCE_COLOR is set.
+  const node = `"${process.execPath}"`
+  const scripts = { 'check:jobs': `${node} stub-gate.mjs check:jobs`, 'citations:check': `${node} stub-gate.mjs citations:check` }
   const home = repository('hook-home', {
     'scripts/hooks/gate-summary.mjs': readFileSync(HOOK, 'utf8'),
     'scripts/hooks/_shared.mjs': readFileSync(join(dirname(HOOK), '_shared.mjs'), 'utf8'),
     'scripts/lib/tasks.mjs': readFileSync(join(dirname(HOOK), '../lib/tasks.mjs'), 'utf8'),
-    ...taskFiles('package.json', scripts, { private: true }),
+    ...taskFiles('tasks.toml', scripts, { private: true }),
+    'mise.toml': '[task_config]\nincludes = ["tasks.toml"]\n',
+    '.gitignore': 'node_modules\n',
     'stub-gate.mjs': stubGate(true),
     'sub/keep.md': 'kept\n',
   })
+  // The copy's loader requires `smol-toml` to read a `tasks.toml`, from this checkout's packages.
+  symlinkSync(join(dirname(HOOK), '../../node_modules'), join(home, 'node_modules'), 'junction')
   const side = join(base, 'hook-side')
   git(home, 'worktree', 'add', '-q', '-b', 'side', side)
   writeTree(side, { 'stub-gate.mjs': stubGate(false) })
   commit(side, '-a', '-m', 'a citations gate cut before CITATIONS_UNTRACKED')
   const copy = join(home, 'scripts/hooks/gate-summary.mjs')
   const stopIn = (cwd) => JSON.stringify({ hook_event_name: 'Stop', stop_hook_active: false, cwd })
+  // A scratch directory shares no trust, so the hook's gates are given it, as a fresh clone's would be.
+  const trusted = { MISE_TRUSTED_CONFIG_PATHS: [home, side].join(delimiter) }
 
-  const own = spawnHook('copy-control', copy, stopIn(join(home, 'sub')))
+  const own = spawnHook('copy-control', copy, stopIn(join(home, 'sub')), trusted)
   check(
     "control: a cwd in the copy's own checkout is gated there, and the verdict says untracked files were read",
     own.code === 0 && own.verdict === 'gates: PASS (check:jobs, citations:check with untracked files)',
     `${own.verdict} ${own.detail.slice(0, 300)}`,
   )
   if (own.verdict.startsWith('gates: PASS')) {
-    const older = spawnHook('copy-worktree', copy, stopIn(join(side, 'sub')))
+    const older = spawnHook('copy-worktree', copy, stopIn(join(side, 'sub')), trusted)
     check(
       "a cwd in a linked worktree is gated there, and the verdict names what that worktree's own gate read",
       older.code === 0 &&
@@ -267,7 +275,7 @@ try {
     )
 
     writeTree(side, { 'stub-fails': '' })
-    const failing = spawnHook('copy-failing', copy, stopIn(join(side, 'sub')))
+    const failing = spawnHook('copy-failing', copy, stopIn(join(side, 'sub')), trusted)
     check(
       'a gate that fails in the linked worktree fails the verdict there, and its output says it ran there',
       failing.code === 0 &&
@@ -280,13 +288,8 @@ try {
     console.log('  (the copy\'s control does not pass, so its other cases are not run: none could be trusted)')
   }
 
-  console.log("runTask: the launcher each checkout's own manifest calls for, and a task it lacks refused")
-  const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm'
-  // This node by its path, since a bare `node` may be mise's shim, which pins no version in a scratch
-  // directory; and a string, since console.log colours a number when FORCE_COLOR is set.
-  const probe = `"${process.execPath}" -e "console.log('ran')"`
-  const npmSide = join(base, 'tasks-npm')
-  writeTree(npmSide, taskFiles('package.json', { 'probe:here': probe }, { private: true }))
+  console.log("runTask: each checkout's own tasks.toml launched through mise, and a checkout without one or a task it lacks refused")
+  const probe = `${node} -e "console.log('ran')"`
   const miseSide = join(base, 'tasks-mise')
   writeTree(miseSide, {
     ...taskFiles('tasks.toml', { 'probe:here': probe }, { private: true }),
@@ -295,31 +298,22 @@ try {
   // A worktree inside a checkout that defines a task its own manifest does not: what mise would borrow.
   const inner = join(miseSide, '.claude/worktrees/inner')
   writeTree(inner, taskFiles('tasks.toml', { 'probe:other': probe }, { private: true }))
+  // A checkout from before the move to mise, its tasks in package.json alone.
+  const npmSide = join(base, 'tasks-npm')
+  writeTree(npmSide, taskFiles('package.json', { 'probe:here': probe }, { private: true }))
 
-  const ran = await runTask('probe:here', { cwd: npmSide })
+  // A scratch directory shares no trust, so the run is given it, as a fresh clone's would be.
+  const ranMise = await runTask('probe:here', { cwd: miseSide, env: { MISE_TRUSTED_CONFIG_PATHS: miseSide } })
   check(
-    'control: a checkout with no tasks.toml runs the task with npm, returning its output and the line it ran',
-    ran.code === 0 && ran.out === 'ran' && ran.command === 'npm run probe:here',
-    JSON.stringify(ran),
-  )
-  const viaNpm = await taskLaunch('probe:here', npmSide)
-  check(
-    'a checkout with no tasks.toml launches `npm run --silent <task>`',
-    viaNpm.command === NPM && viaNpm.args.join(' ') === 'run --silent probe:here',
-    JSON.stringify(viaNpm),
+    'control: a checkout with a tasks.toml runs the task through mise, returning its output and the line it ran',
+    ranMise.code === 0 && ranMise.out === 'ran' && ranMise.command === 'mise run probe:here',
+    JSON.stringify(ranMise),
   )
   const viaMise = await taskLaunch('probe:here', miseSide)
   check(
     'a checkout with a tasks.toml launches `mise run --quiet <task>`',
     viaMise.command === 'mise' && viaMise.args.join(' ') === 'run --quiet probe:here' && viaMise.label === 'mise run probe:here',
     JSON.stringify(viaMise),
-  )
-  // A scratch directory shares no trust, so the run is given it, as a fresh clone's would be.
-  const ranMise = await runTask('probe:here', { cwd: miseSide, env: { MISE_TRUSTED_CONFIG_PATHS: miseSide } })
-  check(
-    'a checkout with a tasks.toml runs the task through mise, returning its output and the line it ran',
-    ranMise.code === 0 && ranMise.out === 'ran' && ranMise.command === 'mise run probe:here',
-    JSON.stringify(ranMise),
   )
   const borrowed = await runTask('probe:here', { cwd: inner })
   check(
@@ -329,19 +323,21 @@ try {
       borrowed.out.startsWith(`\`probe:here\` is not a task in ${inner}'s own tasks.toml, so it was not run`),
     JSON.stringify(borrowed),
   )
-  const absent = await runTask('probe:absent', { cwd: npmSide })
+  const absent = await runTask('probe:absent', { cwd: miseSide })
   check(
-    "a task a package.json checkout's scripts lack is refused unrun too",
-    absent.code === 127 && absent.out.startsWith(`\`probe:absent\` is not a task in ${npmSide}'s own package.json, so it was not run`),
+    "a task a checkout's own tasks.toml lacks is refused unrun too",
+    absent.code === 127 && absent.out.startsWith(`\`probe:absent\` is not a task in ${miseSide}'s own tasks.toml, so it was not run`),
     JSON.stringify(absent),
   )
-  const bare = join(base, 'tasks-none')
-  writeTree(bare, { 'README.md': 'no manifest\n' })
-  const none = await runTask('probe:here', { cwd: bare })
+  const npmOnly = await runTask('probe:here', { cwd: npmSide })
   check(
-    'a checkout with neither manifest is refused unrun, naming both',
-    none.code === 127 && none.out === `${bare} has neither tasks.toml nor package.json, so it defines no task \`probe:here\`.`,
-    JSON.stringify(none),
+    "a checkout whose tasks are its package.json's scripts, with no tasks.toml, is refused unrun with the loader's reason",
+    npmOnly.code === 127 &&
+      npmOnly.command === 'probe:here' &&
+      npmOnly.out.startsWith(
+        `the task manifest in ${npmSide} cannot be read: ${npmSide} has no tasks.toml, so it defines no task: the tasks live there alone, and package.json's \`scripts\` are not read in its place`,
+      ),
+    JSON.stringify(npmOnly),
   )
 
   console.log('block-generated-edit: an edit to generated output, refused in a linked worktree as in the primary checkout')
