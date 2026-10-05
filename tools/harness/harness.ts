@@ -75,9 +75,9 @@
  *
  * NEEDS git, `js-yaml`, Node's `path.matchesGlob`, `scripts/lib/tasks.mjs`, through which it reads the
  * tasks from the `tasks.toml` the checkout tracks (one that tracks none is an input it cannot read),
- * and the files `tools/harness/harness.config.json` names; the map's sample from `couplingMinSampleUnits` in
- * `tools/policy/tool-settings.json`. `reach` needs the commit's objects under `root` and the config
- * as that commit holds it. No network.
+ * and the files `tools/harness/harness.config.json` names; the map's sample from
+ * `couplingMinSampleUnits` in `tools/policy/tool-settings.json`. `reach` needs the commit's objects
+ * under `root` and the config as that commit holds it. No network.
  *
  * KIND: assessment; writes a local report, never a committed artifact. `reach` returns its rows and
  *   writes nothing.
@@ -416,7 +416,7 @@ class Repo {
   dirs: Set<string>
   read = new Map<string, string>()
   pathRoots: string[]
-  /** The tracked file the tasks were read from, `tasks.toml` or `package.json`; null with neither. */
+  /** The tracked file the tasks were read from, `tasks.toml`. */
   taskManifest: string
   scripts: Record<string, string>
   dependencies: Set<string>
@@ -424,7 +424,8 @@ class Repo {
   closures = new Map<string, Set<string>>()
   source: Source
 
-  constructor(root: string, cfg: Config, source: Source = worktreeSource(root)) {
+  /** `where` names what `source` reads, in the refusal of one with no `tasks.toml`. */
+  constructor(root: string, cfg: Config, source: Source = worktreeSource(root), where: string = root) {
     this.root = root
     this.cfg = cfg
     this.source = source
@@ -435,7 +436,7 @@ class Repo {
     this.pathRoots = this.constantList(cfg.pathRootsFrom)
     let tasks: { file: string; tasks: Record<string, string> }
     try {
-      tasks = tasksFrom((path: string) => this.text(path), root)
+      tasks = tasksFrom((path: string) => this.text(path), where)
     } catch (error) {
       throw new Error(`input: ${(error as Error).message}`)
     }
@@ -1023,7 +1024,7 @@ export function reach(root: string, rev: string, paths: string[]): { rev: string
   const source = commitSource(root, commit)
   if (!source.tracked.includes(CONFIG)) throw new Error(`config: ${CONFIG} cannot be read: it is not tracked at ${commit}.`)
   const cfg = parseConfig(source.read(CONFIG))
-  const repo = new Repo(root, cfg, source)
+  const repo = new Repo(root, cfg, source, `the commit ${commit.slice(0, 7)}`)
   const importsOf = (entries: string[]) => new Set(entries.flatMap((entry) => [...repo.closure(entry)]))
   const jobs = readJobs(repo)
     .filter((job) => job.event === cfg.prePushEvent)

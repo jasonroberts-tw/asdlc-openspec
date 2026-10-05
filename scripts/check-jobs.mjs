@@ -48,12 +48,11 @@
  *   1. an `npm run <name>`, `node --run <name>` or `mise run <name>` token in a `run:` of
  *      `git-hooks.yml` or `.github/workflows/verify.yml` whose <name> is not a script of the registry
  *      that launcher reads: `mise run`, the tasks of `tasks.toml`; `npm run` and `node --run`,
- *      `package.json` alone. So a job left on `node --run check:jobs`
- *      beside a `tasks.toml` fails here, not at the push. And a line that names a launcher in any
- *      other shape than one such token alone, `mise r`, `mise --quiet run`, a `:::` list or
- *      `npm run -s` among them, since a missing task behind it would pass unread. Comment lines are
- *      not read -- both files quote scripts they deliberately do NOT run -- and a multi-line `run: |`
- *      block is.
+ *      `package.json` alone. So a job left on `node --run check:jobs` fails here, not at the push.
+ *      And a line that names a launcher in any other shape than one such token alone, `mise r`,
+ *      `mise --quiet run`, a `:::` list or `npm run -s` among them, since a missing task behind it
+ *      would pass unread. Comment lines are not read -- both files quote scripts they deliberately do
+ *      NOT run -- and a multi-line `run: |` block is.
  *   2. a script with no `run:` token in either file that `UNJOBBED_BY_KIND` below
  *      does not declare. A gate-shaped one (`check:*`, `*:check`, `*:selftest`, `*:selfcheck`) is
  *      reported as "wire it, or name the exception with its reason"; anything else as "declare its
