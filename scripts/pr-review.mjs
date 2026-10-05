@@ -47,8 +47,8 @@
  *                                       and every file of a listed gate
  *
  * The subcommands read their inputs from the environment the workflow sets (PR, SHA, ACTION, MORE,
- * REVIEW_DIR, FORCE_PR, GH_TOKEN), never from the command line, so no
- * value from a pull request is ever interpolated into a shell. `mark` and `wait` read PR alone.
+ * REVIEW_DIR, FORCE_PR, GH_TOKEN), never from the command line, so no value from a pull request is
+ * ever interpolated into a shell. `mark` and `wait` read PR alone.
  * The workflow's `mark` job set the status seconds after the create: 11 s on #47, created at
  * 21:27:59Z and marked at 21:28:10Z on 2026-09-25. Until a head is marked, `gh pr checks --watch` can
  * exit at once with "no checks reported". So the session that opens a pull request marks it itself.
@@ -124,9 +124,10 @@
  * commit statuses and, for `act`, write pull requests, and for `mark`, `next` and `act`, write commit
  * statuses; from a session, that is the person's own `gh` login. `act` needs git with `origin`
  * fetchable and its whole history (`fetch-depth: 0`). `brief --local` needs git, `bd` with the
- * tracker cloned and the packages `tools/harness/harness.ts` imports, `js-yaml` and `smol-toml`,
- * which it loads only when it runs, so `next` and `act` need none; and no `gh`. All of them need the network, which is why none is a pre-push job or a `verify.yml` step
- * (`CLAUDE.md` § The gate ladder). `pr-review:check` and `pr-review:selftest` read only committed
+ * tracker cloned, and the packages `tools/harness/harness.ts` imports, `js-yaml` and `smol-toml`; it
+ * needs no `gh`. It loads those packages only when it runs, so `next` and `act` need none. All of
+ * them need the network, which is why none is a pre-push job or a `verify.yml` step (`CLAUDE.md` §
+ * The gate ladder). `pr-review:check` and `pr-review:selftest` read only committed
  * files, `js-yaml` and, through `scripts/lib/tasks.mjs`, `smol-toml`, and are both.
  */
 import { execFileSync } from 'node:child_process'
@@ -1656,7 +1657,9 @@ export async function runCheck(root) {
     for (const key of JOB_REFUSED_KEYS) {
       if (job?.[key] !== undefined) fail(`${WORKFLOW}'s \`${id}\` job sets \`${key}\`, which runs code or sets variables beyond its steps: a job runs only its steps.`)
     }
-    const roles = [...new Set(steps(id).flatMap(subcommandsOf))]
+    // Every subcommand each step runs, in order and not deduplicated, so a job that runs `act` twice,
+    // or `next` again after it, matches no shape.
+    const roles = steps(id).flatMap(subcommandsOf)
     if (roles.length === 0) {
       fail(`${WORKFLOW}'s \`${id}\` job runs none of the reviewer's subcommands: every job runs them, and nothing else.`)
       continue
@@ -2336,7 +2339,7 @@ function wiringCases() {
     { name: 'a key the reviewer reads is defined in two records', doctor: (dir) => writeFileSync(join(dir, 'tools/policy/other.json'), JSON.stringify({ prReviewMergeMethod: 'merge' })), expect: /cannot be read: `prReviewMergeMethod` is defined in both tools\/policy\/other\.json and tools\/policy\/pr-review\.json/ },
     { name: 'the approval label renamed in the policy only', doctor: editPolicy((p) => { p.prReviewLabels.approved = 'lgtm' }), expect: /filters on the label .* not on `prReviewLabels\.approved` \(`lgtm`\)/ },
     {
-      name: 'the select job no longer filters on the approval label, and a comment carries it',
+      name: 'the job that runs next no longer filters on the approval label, and a comment carries it',
       doctor: (dir) => {
         edit(WORKFLOW, "\n      || github.event.label.name == 'review:approved'", '')(dir)
         comment("#   github.event.label.name == 'review:approved'")(dir)
@@ -2420,6 +2423,11 @@ function wiringCases() {
         edit(WORKFLOW, 'run: node scripts/pr-review.mjs swapped', 'run: node scripts/pr-review.mjs act')(dir)
       },
       expect: /`queue` job runs `act` then `next`, which no job of the reviewer runs: a job runs `next` then `act`, or nothing/,
+    },
+    {
+      name: 'the job runs act twice',
+      doctor: edit(WORKFLOW, /^( {8})run: node scripts\/pr-review\.mjs act$/m, '$1run: node scripts/pr-review.mjs act\n      - run: node scripts/pr-review.mjs act'),
+      expect: /`queue` job runs `next` then `act` then `act`, which no job of the reviewer runs/,
     },
     {
       name: 'a job runs mark, which has no shape, and a model action beside it',

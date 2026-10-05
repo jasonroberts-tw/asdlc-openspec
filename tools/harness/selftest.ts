@@ -8,7 +8,7 @@
  * is what a person stops reading. So each case plants exactly one gap in a copy of an undoctored
  * control that reports no finding and no lead, and holds the run to the keys that gap adds, each
  * with its reason: a case that only saw "something was reported" would pass with the check deleted
- * whenever another one fired. `reach`, the rows the pull-request reviewer prints, is held to one
+ * whenever another one fired. `reach`, the rows the branch reviewer's brief prints, is held to one
  * exact row at a fixture's commit, and to that row again after the working tree is edited and with
  * the redirect table made to throw on import, each beside a run of the report that sees the change,
  * so a row that holds is not an edit the case failed to make.

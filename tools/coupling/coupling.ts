@@ -6,9 +6,9 @@
  * coupled issues out of parallel lanes (asdlc-openspec-gtjp); a person reads its clusters and hubs
  * for where a decomposition would cut. Why it is committed and pinned, where the code graph of
  * `docs/decisions.md` § D-20 is not, is `docs/decisions.md` § D-24. `partnersOf` names, for the
- * files a pull request changes, the partners it leaves alone: the pull-request reviewer derives a
- * map at the pull request's merge base and prints them in its verdict as evidence for a person,
- * deciding nothing by them (`docs/decisions.md` § D-37).
+ * files a pull request changes, the partners it leaves alone: `scripts/pr-review.mjs brief --local`
+ * derives a map at the branch's merge base and prints them in the branch reviewer's brief as
+ * evidence, deciding nothing by them (`docs/decisions.md` § D-37, as § D-46 amends it).
  *
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet; this is what it would let through if it were
  * wrong or absent. A map that splits one pull request in two, drops one, or credits a deleted file's

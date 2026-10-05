@@ -2270,7 +2270,7 @@ Where it loses: the tags cost words in prompts at their budgets, which a person 
 
 1. **The workflow has one job, `queue`.** It checks out the trunk with its whole history, installs Node and gh through `jdx/mise-action` and no npm package, runs `node scripts/pr-review.mjs next`, and then, when the action is not `none`, `node scripts/pr-review.mjs act`, each value passed through `env:` from `next`'s outputs. Its token is the one `act` held: contents, pull requests, issues, statuses and actions to write, and checks to read.
 2. **No job computes reach or co-change, and the verdict prints neither.** `scripts/pr-review.mjs` loses its `evidence` subcommand, `evidenceFor`, `cutEvidence` and `EVIDENCE_MAX`, and the verdict comment its evidence section. `evidenceOf` and `evidenceMarkdown` stay for `brief --local`, the one caller, so the branch reviewer reads both tables before every push (`.claude/agents/branch-reviewer.md` § 3).
-3. **`pr-review:check` holds a job to the subcommands it runs, in order.** `JOB_SHAPES` is keyed by them, `next act` its one key, and gives each `run:` the variables its step may set, so `next`'s step cannot hand `act` an action. A job that runs `evidence` is refused as running no subcommand of the script's, and one that runs `act` before `next` as running no shape. The refusal of a job that runs two subcommands, which kept the evidence's packages from the token that merges, goes with the evidence.
+3. **`pr-review:check` holds a job to the subcommands it runs, in order.** `JOB_SHAPES` is keyed by them, `next act` its one key, and gives each `run:` the variables its step may set, so `next`'s step cannot hand `act` an action. A job that runs `evidence` is refused as running no subcommand of the script's, and one that runs `act` before `next`, or either twice, as running no shape. The refusal of a job that runs two subcommands, which kept the evidence's packages from the token that merges, goes with the evidence.
 
 **Why.** The evidence's one reader was the branch reviewer, which `brief --local` already gave the same tables from the same `evidenceOf`; the verdict reprinted them for a person after the push. And once nothing needs computing between `next` and `act` with a token that only reads, nothing keeps them apart: `select`'s grants were a subset of `act`'s, both installed Node and gh alone and imported only files on the floor. Two alternatives lost:
 
@@ -2286,7 +2286,8 @@ Where it loses:
 
 - **This register:** this entry, its table row, the status line and the bound; the amendments under D-24, D-26, D-31 and D-37.
 - **`.github/workflows/pr-review.yml`:** the `select`, `evidence` and `act` jobs replaced by `queue`; the header.
-- **`scripts/pr-review.mjs`:** item 2's removals, item 3's `JOB_SHAPES` and `runCheck`; `brief`'s note that only it carries the tables; the selftest's four evidence cases removed, one holding that the verdict prints neither table added, the wiring cases moved to `queue`, the evidence job's three removed, two added for the order and a step's variables, and the one on the evidence in the job that merges rewritten to its refusal now; and the header.
+- **`scripts/pr-review.mjs`:** item 2's removals, item 3's `JOB_SHAPES` and `runCheck`; `brief`'s note that only it carries the tables; the selftest's four evidence cases removed, one holding that the verdict prints neither table added, the wiring cases moved to `queue`, the evidence job's three removed, three added for the order, a subcommand run twice and a step's variables, and the one on the evidence in the job that merges rewritten to its refusal now; and the header.
+- **`tools/harness/harness.ts`, `tools/harness/selftest.ts` and `tools/coupling/coupling.ts`:** their headers name the brief as the one reader of `reach` and `partnersOf`.
 - **`scripts/check-toolchain.mjs`:** its two selftest cases on the reviewer's workflow, moved to `queue`.
 - **`.claude/skills/open-pr/SKILL.md` § 7:** the sentence on the reach and co-change the comment prints, removed. **`tools/policy/prompt-budgets.json`:** its row.
 - **The rest:** `tools/policy/pr-review.json`'s `gatedBy` and `provenance`; `tools/policy/tool-settings.json`'s `couplingClusterMinJaccardPermilleMeans`; the descriptions of `pr-review:check` and `pr-review:selftest` in `tasks.toml`; a comment in `git-hooks.yml`; `docs/plain-language-guide.md`; and the rows of `README.md`, `scripts/README.md` and `.github/workflows/README.md`.
@@ -2294,7 +2295,7 @@ Where it loses:
 **Figures.**
 
 - The run that reviewed #154, 37360770831: `select` 19:04:54 to 19:05:11, `evidence` 19:05:23 to 19:05:36, `act` 19:05:45 to 19:05:59, so 65 s from the first start to the last end, 13 s of them `evidence` and 21 s the gaps between jobs (`gh run view 37360770831 --json jobs`).
-- `pr-review:selftest` 158 cases and `check:toolchain:selftest` 82, at this entry's commit, each from a run of it.
+- `pr-review:selftest` 159 cases and `check:toolchain:selftest` 82, at this entry's commit, each from a run of it.
 - `open-pr`'s count, `node scripts/check-prompts.mjs --counts`: 1,284 at `dbf088d` and 1,269 at this entry's commit; its budget row's `means` gives the same step.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
