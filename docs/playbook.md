@@ -410,8 +410,9 @@ for what that rule alone still holds).
    exercised; a criterion with no approved follow-up keeps it open. Decided by:
    `.claude/skills/change-finalize/SKILL.md` § 8. Check the epic's criteria, and close it.
 3. Write the run's analysis as a note on the issue it worked, from a file, inside a tracker bracket:
-   its marker line, the prompts the run loaded and the commit it read them at, what made the run
-   slower or wrong, and the counts across runs. Decided by:
+   its marker line, the prompts the run loaded, one to a line with the commit it read each at, the
+   version of Claude Code it ran on, what made the run slower or wrong, and the counts across runs.
+   Decided by:
    `.claude/skills/close-prompt-run/SKILL.md` § 1. Write the analysis, or none.
 4. Check whether a review of the pending analyses is due, and if one is, launch it in the
    background from the primary checkout, under a name of its own, without waiting for it. Decided
