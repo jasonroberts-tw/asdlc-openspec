@@ -77,7 +77,7 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 | the queue | What `bd ready` lists: the open issues nothing blocks (`CLAUDE.md` § The task store). |
 | tracker bracket | `bd dolt pull` before a run's first tracker write and `bd dolt push` after its last; a rejected push is reported, never forced (`CLAUDE.md` § The task store). |
 | premise | What an issue claims is true of the repository, checked against the trunk before any work (`.claude/skills/bead/SKILL.md` § 1. Verify the premise before any work). |
-| found issue | An issue a run files `discovered-from` the one it worked, carrying a `foundAtLabels` label and `assetLabels` labels from `tools/policy.json` (`CLAUDE.md` § The task store). |
+| found issue | An issue a run files `discovered-from` the one it worked, carrying a `foundAtLabels` label and `assetLabels` labels from `tools/policy/vocabulary.json` (`CLAUDE.md` § The task store). |
 | harness | Everything in this repository that runs the work: the rules, skills, agents, gates, hooks, tools and documents. A harness change takes the harness route (§ 4.2). |
 | product | What the work is done on: the demo calculator's code under `apps/` and its requirements under `openspec/` (`docs/decisions.md` § D-04). |
 | change | A product change: a change to what the product does, stated as requirements. One worktree, one pull request and one epic (`docs/decisions.md` § D-02). |
@@ -417,6 +417,7 @@ proposes; only a person promotes).
 | A rebase conflicts in a way you did not anticipate | Someone else's work landed on the same lines. | Stop and report it; do not resolve it creatively (`.claude/worktree-CONTEXT.md.tmpl`). |
 | ``<id>: no `repo:` label`` from `beads:check` | An open issue does not say where its work lands. | Add its `repo:` label (`CLAUDE.md` § The task store). |
 | ``<id>: filed `discovered-from` … and carries no label that `assetLabels` `` from `beads:check` | A found issue does not say what kind of file it would fix. | Add the `assetLabels` label that fits (`CLAUDE.md` § The task store). |
+| ``<id>: filed `discovered-from` … not before `foundAtLabelsSince` `` from `beads:check` | A found issue filed since D-06 does not say which stage found it. | Add the `foundAtLabels` label for the stage that was running (`CLAUDE.md` § The task store). |
 | `<path>: <count> words, over its budget of <budget>` from `check:prompts` | An edit took a prompt past its word budget. | Consolidate it first (`.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated); a raise is a person's to merge. |
 | `TBD - created by archiving change` refused by `openspec:check` | A new capability still has the archive's placeholder Purpose. | Write its Purpose (`.claude/skills/change-finalize/SKILL.md` § 4. Settle the living spec). |
 | `` `[<ID>]` heads 2 different scenarios `` or `` different NFR requirements `` from `openspec:check` | A reworded header kept its ID; a new header took an ID already in use; or two changes in flight took one ID, and this branch rebased onto the one that merged first. | Give the reworded or new header, and its tests, the next free ID the refusal names (the header of `scripts/check-openspec.mjs`). |
