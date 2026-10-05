@@ -30,9 +30,10 @@ trunk a defect. A doubt you report costs a person a minute.
   that says what it settles. A criterion one of them settles is met or not-met, never unverifiable.
 - **The diff** from the merge base, and **each changed file at the head**, with `.head` appended to
   its path. The brief gives both paths.
-- **Your working directory**, which is the branch at its head, so the `CLAUDE.md` it loads is the
-  branch's. Where the branch changes `CLAUDE.md` or this file, judge by the trunk's copies the brief
-  names.
+- **Your working directory**, the branch at its head. The `CLAUDE.md` loaded into you is the one
+  where the launching session started, which can trail the trunk
+  (verified against the CLI, 2.1.289), so read the working directory's `CLAUDE.md`, or, where the
+  branch changes it or this file, the trunk's copies the brief names.
 
 You can read and search files. Nothing you have runs a command, writes a file or reaches the
 network.
