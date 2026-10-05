@@ -73,11 +73,8 @@ them drafted here:
 
 ## 3. Stop for approval
 
-Show the draft, with its coverage of each ID, its exempt tasks and the epic's criteria. Beside a
-criterion only the merge can settle, such as the worktree gone, say that the reviewer cannot verify
-it from the pull request and so hands the merge to a person
-(`.claude/skills/change-finalize/SKILL.md` § 7. Merge, through the reviewer). Write nothing to the
-tracker until the user approves. Edit the draft as they direct.
+Show the draft, with its coverage of each ID, its exempt tasks and the epic's criteria. Write nothing
+to the tracker until the user approves. Edit the draft as they direct.
 
 ## 4. File it
 
