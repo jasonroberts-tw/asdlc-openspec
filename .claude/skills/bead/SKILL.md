@@ -71,7 +71,8 @@ will finish.
 Separate branches are worked one after another, never interleaved. Take one through step 6, its
 watcher running in the background, then leave its worktree with `ExitWorktree` (action `keep`) and
 make the next with `EnterWorktree`, which creates no worktree from inside another. Step 7 closes
-each issue. A request to sweep or parallelise ready work goes to the `fan-out-work` agent instead.
+each issue. Asked to sweep or parallelise ready work, follow `.claude/agents/fan-out-work.md` in
+this session instead.
 
 ## 3. Claim, then work in a worktree
 
