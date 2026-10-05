@@ -198,7 +198,7 @@ over fixtures runs in both.
 A legitimately absent input skips clean and prints why; a tool that is found and then fails is a
 failure, never a skip.
 
-**`mise run gates` is the forced full suite**, run through Git as a push runs it. Before opening or
+**`mise run gates` is the forced full suite.** Before opening or
 updating a pull request: regenerate every derived artifact, run `mise run gates`, fetch and rebase
 onto `origin/main`, and run it again.
 
@@ -276,8 +276,7 @@ reviewer merges a pull request off the high-risk floor (`prReviewHighRisk*` in
 `tools/policy/pr-review.json`). A person merges any other, or applies the approval label
 (`prReviewLabels`), after which the reviewer merges it. An agent never applies that label: the
 approval is a person's, and GitHub cannot tell a person from an agent holding their credentials
-(`docs/decisions.md` § R-01). An agent opens every pull request with the `open-pr` skill, which
-holds the steps from the push to the merge.
+(`docs/decisions.md` § R-01). An agent opens every pull request with the `open-pr` skill.
 
 ## Prompt reviews
 
