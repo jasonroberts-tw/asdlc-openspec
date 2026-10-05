@@ -43,10 +43,10 @@ and its issue, before building on it.
 Sort every finding by the prompt file it concerns: `CLAUDE.md`, a skill, an agent or a workflow
 script. Two findings are one when they concern the same prompt file and describe the same failure,
 the same step done wrong or missing at the same place in the prompt, however each analysis words
-it. A finding that is one with an earlier held line takes that line's key; a new one gets
-`<file>#<name>`: its file's path, `#`, and a short name in lower case letters, digits and dashes.
-Give each a severity, as `.claude/agents/branch-reviewer.md` § 2. Maintainability defines blocker,
-major and minor, and a count: the distinct runs that have shown it, in this batch and in its held lines.
+it. A finding that is one with an earlier held line takes that line's key; a new one gets a short
+`<file>#<name>`. Give each a severity, as `.claude/agents/branch-reviewer.md` § 2. Maintainability
+defines blocker, major and minor, and a count: the distinct runs that have shown it, in this batch
+and in its held lines.
 
 A finding meets the threshold when its count is `promptReviewRecurrenceCount` or more, or its
 severity is in `promptReviewMajorSeverities`. Hold every finding that does not, with the reason
@@ -55,20 +55,20 @@ earlier review held for any other reason, set aside by its file's agent or not u
 skeptics, goes to a group again only when a run in this batch shows it that none of its held lines
 names. It must still meet the threshold, because the workflow refuses a finding below it.
 
-A group is one file, or several when one finding concerns them together, such as two prompts that
-contradict each other. Its findings are those that met the threshold, in the fields the script's
-header gives `args.groups`. Add to that evidence the counts across runs, the same for every group:
-what the commands an analysis ends with (`.claude/skills/close-prompt-run/SKILL.md` § 1) print when
-you run them now, each with its command, since an analysis's own were measured when it was written.
+A group is one file, or several when one finding concerns them together. Its findings are those
+that met the threshold, in the fields the script's header gives `args.groups`. Add to that evidence
+the counts across runs, the same for every group: what the commands an analysis ends with
+(`.claude/skills/close-prompt-run/SKILL.md` § 1) print when you run them now, each with its command,
+since an analysis's own were measured when it was written.
 
 A finding whose right answer a source settles, the run's action, a reviewer's finding or a later
 commit, is also a seed for a stored decision case, held or not, unless a case under
 `.claude/prompt-cases/` already holds that decision. A seed is the fields
 `.claude/workflows/author-prompt-cases.js`'s header gives `args.seeds`.
 
-A finding that concerns no prompt, such as a gate or the product, is not this review's: the run that
-found it files it (`CLAUDE.md` § The task store). Name it in the description, or in the closing
-report when no pull request opens (§ 6).
+A finding that concerns no prompt is not this review's: the run that found it files it (`CLAUDE.md`
+§ The task store). Name it in the description, or in the closing report when no pull request opens
+(§ 6).
 
 ## 4. Run the workflow
 
