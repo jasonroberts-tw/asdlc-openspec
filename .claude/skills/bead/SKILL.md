@@ -108,12 +108,9 @@ opens, so the pull request's body names the new id. File it with `foundIssueComm
 `tools/policy/vocabulary.json`, discovered from the issue worked here, with the labels `CLAUDE.md` §
 The task store names; here the found-at label is bead's.
 
-Before filing this or any follow-up, search for it. `bd search "<words>"` matches titles only and
-`bd list --all --desc-contains "<words>"` matches descriptions; both include closed issues. Run
-both, then again with a second phrasing, because a string can miss. From a worktree, Claude Code
-can refuse quoted text naming git or a shell, so a title or search words leave the name out.
-A match gets a note (`bd note`), not a second issue. A follow-up's body carries the sections
-`bd lint --help` lists for its type.
+Before filing this or any follow-up, search for it as `CLAUDE.md` § The task store says. From a
+worktree, Claude Code can refuse quoted text naming git or a shell, so a title or search words
+leave the name out. A follow-up's body carries the sections `bd lint --help` lists for its type.
 
 ## 5. Rebase and gate again
 

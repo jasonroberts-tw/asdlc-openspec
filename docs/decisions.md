@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `mise run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-42 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42 added 2026-10-05).**
+**Status: every decision from D-01 to D-43 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42 and D-43 added 2026-10-05).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-42` is checked by `mise run check:register`, which reads those headings, the table and each
+> `D-01 … D-43` is checked by `mise run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -98,6 +98,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-40** | The task loader reads `tasks.toml` alone, and refuses a tree or a commit that has none | `tasksFrom` and `loadTasks` in `scripts/lib/tasks.mjs`, the refusal held by `check:jobs:selftest` for a tree and `tests:inventory:selftest` for a commit; each reader without its branch for a tree from before the move; D-36's amendment |
 | **D-41** | `beads:check` refuses an open found issue filed since D-06's issue was created with no found-at label | Rule 6 of `scripts/check-beads.mjs`, held by `beads:selftest` at pre-push and in CI; `foundAtLabelsSince` in `tools/policy/vocabulary.json`; D-11's amendment |
 | **D-42** | TypeSafe is a dependency; every call runs in a script a session runs, and an answer may only make an outcome stricter | `tools/lib/typesafe.ts`'s `noul`; `scripts/judge-trace-clauses.mjs` as `trace:clauses`, held by `trace:clauses:selftest` at pre-push and in CI; the clause run of `.claude/workflows/verify-change-trace.js`, held by `workflows:selftest`; `verifyTraceClauseThreshold` in `tools/policy/agent-workflows.json`; `change-verify` § 4 and the workflow, each consolidated first |
+| **D-43** | Every run searches before it files an issue, and a match is noted and counted with a label that is evidence for a person, never a rule | `CLAUDE.md` § The task store, consolidated first; `seenLabelPrefix` in `tools/policy/vocabulary.json`; `bead` § 4 and `should-i-adopt` § 2 pointing at it, the latter consolidated first; three budgets in `tools/policy/prompt-budgets.json`; `docs/playbook.md`, `README.md` and `tools/policy/README.md` |
 
 ## Risks
 
@@ -2134,6 +2135,49 @@ Where it loses:
 - The threshold's measurement is in `verifyTraceClauseThresholdMeans` in `tools/policy/agent-workflows.json`. A session's script took it on 2026-10-05 through `planClauses` and `askClauses` of `scripts/judge-trace-clauses.mjs`, over `artifacts/trace/record.json` and the living specs at `158b73e`. That script and its output are not tracked; the same steps measure it again.
 - The prompts' counts, each `node scripts/check-prompts.mjs --counts`: the literals of `.claude/workflows/verify-change-trace.js` 1,675 at `158b73e`, 1,592 after their consolidation and 1,692 at this entry's commit; `.claude/skills/change-verify/SKILL.md` 1,048, 1,028 and 1,047. Each budget row's `means` gives the same steps.
 - Measured in the lane that wrote this entry, at its commit `67a9fd6` on the trunk's `158b73e`, before the sweep integrated it with asdlc-openspec-6yt.1's `workflows:selftest` cases, so the counts below are that suite's and not the merged one's. `mise run workflows:selftest`: 273 of 273 cases at that commit, where the trunk held 255. With three guards of the clause run removed in one run, its threshold's strictness, its refusal of a trace that had a gap and a refuted row's `traced`, 270 of 273, each removal failing its own case. `mise run trace:clauses:selftest`: 29 of 29 checks. With its refusal of a trace that did not stop `no-gap` and its skipping of strings removed in one run, 26 of 29: the refusal's case and the two that read a test's body and its definitions.
+
+### D-43 · Every run searches before it files an issue, and a match is noted and counted with a label that is evidence for a person, never a rule
+
+**Recorded 2026-10-05**, carried by `asdlc-openspec-4myz`. On 2026-10-05 the maintainer asked that a run which finds an issue already filed keep a count of those encounters, to use when prioritizing. They chose each part below from three questions, each put with the case where the recommended option loses, and took the recommendation each time.
+
+**Builds on / amends:** builds on D-06, whose labels on found issues show what recurs across runs, and which this entry extends to an issue a run meets again; on D-29, one of whose losses, that friction that recurs sinks, this entry makes visible without changing the rubric; on D-12, under which `CLAUDE.md` and `should-i-adopt` were consolidated before their edits; and on D-27, under which the label's spelling lives in `tools/policy/vocabulary.json`. It amends nothing.
+
+**Decision.**
+
+1. **Every run searches before it files an issue**, not only `bead`: titles with `bd search` and descriptions with `bd list --all --desc-contains`, closed issues included, each again in other words. `CLAUDE.md` § The task store holds the rule; `bead` § 4, which held it alone, and `should-i-adopt` § 2 point there.
+2. **A match gets a note and a count, not a second issue.** The count is a label, `seenLabelPrefix` and a whole number, swapped for the next number in one `bd update`. The run that filed an issue counts as the first, so an issue with no such label was found once, and a run counts an issue once however often it meets it. `seenLabelPrefixMeans` holds the convention.
+3. **The count is evidence, never a rule.** It moves no priority by itself: a person reads it, and a session that notes an issue still moves its priority only to the row of `issuePriorities` that fits (`CLAUDE.md` § The task store and § A program proposes; only a person promotes).
+4. **No issue is given a count after the fact.** A match before this entry was noted and not counted, and nothing recounts it from the notes.
+
+**Why.** The search was a rule of `bead` alone, so `change-build` filed a found issue without one (`.claude/skills/change-build/SKILL.md` § 5), and a match left a note and nothing countable. D-29 records the cost: a cost every session pays stays at priority 3, below all planned work, however many sessions it slows. Four alternatives lost:
+
+- **A metadata key,** set with `bd update --set-metadata`. It keeps the count out of `bd count --by-label`, but `bd list` does not show it and filters it only by an exact value.
+- **A count derived from the notes,** each match's note in a fixed form and a script counting them. No match is lost to two runs at once, but it needs a new tool, and nothing in `bd` filters or sorts by its count.
+- **A threshold row in `issuePriorities`,** an issue met some number of times taking priority 2. Recurring friction would rise with no one looking, but a broadly worded issue that unrelated defects match would climb above planned work unread, and no count existed yet to choose the number from.
+- **The rule in `bead` alone.** The smallest edit, leaving `CLAUDE.md` as it was; but a defect `change-build` meets again would still become a second issue, uncounted.
+
+Where it loses:
+
+- **Two runs at once lose a count.** Each reads the same label and writes the next number, so one match goes uncounted; both notes record it, and a recount from them corrects it.
+- **Recurring friction still sinks until a person reads the count.** An issue six sessions meet keeps priority 3 until someone moves it.
+- **Every session loads the rule.** `CLAUDE.md` holds 11 words more than before, net of its consolidation, in sessions that file nothing too.
+- **No gate holds the label.** Nothing refuses an issue with two counts or one that skips a number.
+- **Counts start low.** A match before 2026-10-05 was noted, not counted.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound.
+- **`CLAUDE.md`:** consolidated under D-12 in a commit of its own, then § The task store's paragraph on the search and the count.
+- **`.claude/skills/bead/SKILL.md` § 4:** the search, its second phrasing and the note on a match give way to a pointer to `CLAUDE.md` § The task store; the caution about quoted text from a worktree, which § 7 cites, stays.
+- **`.claude/skills/should-i-adopt/SKILL.md`:** consolidated under D-12 in a commit of its own, then § 2's note on an open issue that carries the question is counted.
+- **`tools/policy/vocabulary.json`:** `seenLabelPrefix` and its `Means`; `describes`, `gatedBy`, `whatItDoesNOTDo` and `provenance`. **`tools/policy/README.md`:** the record's row.
+- **`tools/policy/prompt-budgets.json`:** `CLAUDE.md`'s budget raised, bead's lowered and should-i-adopt's kept, each row's `means` with its figures, and `provenance`.
+- **The rest:** `README.md` § The work, and what its runs leave behind; `docs/playbook.md`'s step for a defect found on the way, its crib sheet and its Status line, the crib sheet's note now naming `tools/policy/vocabulary.json` and `tools/policy/agent-workflows.json`, where its placeholders' values have been since D-27.
+
+**Figures.**
+
+- No issue carries a count label on 2026-10-05: `bd list --all --label-regex "^seen:" -n 0` lists none, of the 290 issues `bd count` counts.
+- The prompts' counts, each `node scripts/check-prompts.mjs --counts`: `CLAUDE.md` 3,272 at `acd02ad`, 3,222 after its consolidation and 3,283 at this entry's commit; `should-i-adopt` 1,586, 1,580 and 1,586; `bead` 1,647 and 1,612. Each budget row's `means` gives the same steps.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
