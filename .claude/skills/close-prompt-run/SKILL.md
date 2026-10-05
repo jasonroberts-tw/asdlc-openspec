@@ -33,7 +33,7 @@ quotes no secret.
 
 ## 2. Check whether a review is due
 
-After the tracker push, run `mise run prompt-runs -- --only pending`. It prints whether a review is
+After the tracker push, run `mise run prompt-runs --only pending`. It prints whether a review is
 due, by `promptReviewDueCount` and `promptReviewDueAgeDays`, and fails on a line in the tracker that
 does not parse, naming it: report that line and stop, since no review starts until a person fixes
 it.

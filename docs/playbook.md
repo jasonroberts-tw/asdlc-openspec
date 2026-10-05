@@ -484,7 +484,7 @@ env PR=<number> node scripts/pr-review.mjs wait      # wait for the merge, in th
 mise run worktree:gc --dry-run --finished <worktree>  # once merged, outside the worktree
 bd close <id> --reason-file <file>                   # once merged, naming the pull request
 bd note <id> --file .scratch/<analysis>.md           # leave the run's analysis note
-bd list --all --notes-contains "<marker>" --json -n 0   # is a prompt review due
+mise run prompt-runs --only pending                  # is a prompt review due
 bd dolt push                                         # sync tracker after the last write
 ```
 

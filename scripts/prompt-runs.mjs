@@ -6,8 +6,11 @@
  *
  * THE LINES, AND THIS HEADER AS THEIR ONE HOME. Every line below is a line of an issue's notes, as
  * `bd export` prints them, and opens at the start of the line with a value of
- * `tools/policy/agent-workflows.json`. A run id is an issue's id, `@`, and a UTC second spelled as
- * `date -u +%Y-%m-%dT%H:%M:%SZ` prints it.
+ * `tools/policy/agent-workflows.json`, its marker, and then one space. A line that opens with a
+ * marker's word followed by anything but a letter, digit, dash or underscore is a marker line, and
+ * fails the command unless it is in its form below: a colon, a tab or nothing after the word is a
+ * broken line, never prose. A run id is an issue's id, `@`, and a UTC second spelled as
+ * `date -u +%Y-%m-%dT%H:%M:%SZ` prints it: a second that exists, and none after now.
  *
  *   the analysis   `promptReviewAnalysisMarker`, a space and the run id, alone on its line. The
  *                  analysis runs from that line to the next line that opens with this marker,
@@ -15,7 +18,9 @@
  *                  Somewhere after its marker line comes a line holding `promptReviewLoadedHeading`
  *                  alone, then one line for each of this repository's prompts the run loaded: its
  *                  row's path in `tools/policy/prompt-budgets.json` (the worktree briefing's is its
- *                  template's), a space, and the commit it was read at, 7 to 40 hex digits. Then one
+ *                  template's), a space, and the commit it was read at, 7 to 40 hex digits of either
+ *                  case. A run id one analysis already opened opens no second: the later note is
+ *                  counted once, and the first line of the report says how many were. Then one
  *                  line holds what `claude --version` printed, opening with the version, such as
  *                  `2.1.289 (Claude Code)`. An analysis with no such heading, or whose run id's time
  *                  is before `promptReviewLoadedSince`, when D-44 reached the trunk, is in the form
@@ -26,16 +31,21 @@
  *                  run id.
  *   the held line  `promptReviewHeldMarker`, a space, the run id, a space, the finding's key, a space,
  *                  the count of runs that have shown it so far, a colon, a space and the reason. A key
- *                  is a prompt's path, `#`, and a name of lower-case letters, digits and dashes.
+ *                  is a prompt's path, `#`, and a name of lower-case letters, digits and dashes that
+ *                  opens with a letter or digit.
  *
  * WHAT IT PRINTS. Each section opens with a line that names it.
  *
- *   pending   each analysis no read line names, with its issue; and whether a review is due: when
- *             `promptReviewDueCount` analyses or more are pending, or the oldest, by the time in its
- *             run id, is older than `promptReviewDueAgeDays` days. Whether a review may start beside
- *             one under way is not read here: `close-prompt-run` § 2 checks that.
+ *   the first line  how many analyses, how many in D-44's form, how many since the cut-off are not,
+ *             which shrinks the sample unseen by a run that reads `--only pending`, and how many
+ *             notes opened a run id already counted.
+ *   pending   each analysis no read line names, with the issue whose notes hold it; and whether a
+ *             review is due: when `promptReviewDueCount` analyses or more are pending, or the oldest,
+ *             by the time in its run id, is older than `promptReviewDueAgeDays` days. Whether a
+ *             review may start beside one under way is not read here: `close-prompt-run` § 2 checks
+ *             that.
  *   held      each held key, with its file, the highest count its lines give, the runs they name and
- *             the reason of its line of the highest count, the later on a tie.
+ *             the reason of its line of the highest count, on a tie the line of the latest run.
  *   loads     the window, the `promptReviewLoadWindowDays` days before the newest analysis's time,
  *             the newest included. For each row of `promptWordBudgets`, the analyses in the window
  *             in D-44's form that loaded it. Then each analysis in the window not in that form, and
@@ -46,8 +56,9 @@
  *             it, the count and no candidate. The table names the prompts no analysed run loads by
  *             design, each with its reason. The command retires nothing.
  *   the metric  the share of rows, less the table's, that no analysis in the window loaded, as
- *             `count-index.md` § Rates and metrics defines it, and whether it is at the value that
- *             means the project is not viable. Below the floor, the counts and no share.
+ *             `count-index.md` § Rates and metrics defines it, and whether it is at or above
+ *             `promptReviewLoadNotViableShare`, the value that means the project is not viable.
+ *             Below the floor, the counts and no share.
  *
  * `--json` prints the same as one JSON object, for a session to read, and `--only <section>` prints
  * the first line and one section: `pending`, `held`, or `loads` with the candidates and the metric.
@@ -69,9 +80,9 @@
  * INVOCATION.
  *
  *   mise run prompt-runs                       the report, as text
- *   mise run prompt-runs -- --json             the same, as one JSON object
- *   mise run prompt-runs -- --only pending     one section: `pending`, `held` or `loads`
- *   mise run prompt-runs -- --now <time>       the due check at that UTC time, in the run-id spelling,
+ *   mise run prompt-runs --json                the same, as one JSON object
+ *   mise run prompt-runs --only pending        one section: `pending`, `held` or `loads`
+ *   mise run prompt-runs --now <time>          the due check at that UTC time, in the run-id spelling,
  *                                              where it is now by default; nothing else reads a clock
  *   mise run prompt-runs:selftest              the selftest (`--selftest`)
  *   PROMPT_RUNS_ROOT=<dir> mise run prompt-runs
@@ -85,7 +96,7 @@
  * override's export unreadable.
  *
  * NEEDS `bd` on PATH and the tracker's database, read through `tools/lib/bd-launcher.ts`, unless the
- * override names an export. No network and no token. `mise run prompt-runs -- --only pending` took
+ * override names an export. No network and no token. `mise run prompt-runs --only pending` took
  * 1.45 s wall over the tracker's 296 issues, `bd export` included, and the selftest 0.49 s, each
  * through `mise run` (`/usr/bin/time -p`, one run) on a macOS 26.7.1 laptop with Node 24.21.0,
  * 2026-10-05.
@@ -108,7 +119,11 @@ const DAY_MS = 24 * 60 * 60 * 1000
 /** A run id: an issue's id, `@`, and a UTC second. */
 const RUN_ID = /^(\S+)@(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)$/
 /** A loaded prompt's line, after the heading: a path, a space, a commit. */
-const LOADED = /^(\S+) ([0-9a-f]{7,40})$/
+const LOADED = /^(\S+) ([0-9a-fA-F]{7,40})$/
+/** What may follow a marker's word on a line that still opens with that word. */
+const WORD_GOES_ON = /[A-Za-z0-9_-]/
+/** A UTC second as a run id spells it, from a time. */
+const isoSecond = (ms) => new Date(ms).toISOString().replace('.000Z', 'Z')
 /** What `claude --version` prints: the version first. */
 const VERSION = /^(\d+\.\d+\.\d+)(?:\s.*)?$/
 
@@ -124,6 +139,7 @@ const KEYS = [
   ['promptReviewLoadWindowDays', 'count'],
   ['promptReviewLoadFloor', 'count'],
   ['promptReviewUnloadedPrompts', 'table'],
+  ['promptReviewLoadNotViableShare', 'share'],
   ['promptWordBudgets', 'budgets'],
 ]
 
@@ -147,6 +163,7 @@ export function loadPolicy(root) {
     if (kind === 'word' && !(typeof value === 'string' && /^\S+$/.test(value))) throw bad('one word')
     if (kind === 'text' && !(typeof value === 'string' && value.trim() !== '' && value === value.trim())) throw bad('text with no space at either end')
     if (kind === 'count' && !(Number.isInteger(value) && value >= 1)) throw bad('a whole number of at least 1')
+    if (kind === 'share' && !(typeof value === 'number' && value > 0 && value <= 1)) throw bad('a share above 0 and at most 1')
     if (kind === 'instant' && !(typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(value) && !Number.isNaN(Date.parse(value)))) throw bad('a UTC second in the run-id spelling, ending in Z')
     if (kind === 'table' && !(value && typeof value === 'object' && !Array.isArray(value))) throw bad('a table of paths, each with its reason')
     if (kind === 'budgets' && !(value && typeof value === 'object' && Object.keys(value).length > 0)) throw bad('the table of prompt budgets')
@@ -179,14 +196,18 @@ function parseExport(text, from) {
   })
 }
 
-/** Every issue in the tracker, from the override's export or from `bd export`; a thrown error when neither can be read. */
-export function readTracker(root, overridden) {
+/**
+ * Every issue in the tracker, from the override's export or from `bd export`; a thrown error when
+ * neither can be read. `envName` is the caller's override variable, which the error names;
+ * `scripts/match-held-findings.mjs` reads the tracker through this too.
+ */
+export function readTracker(root, overridden, envName = ROOT_ENV) {
   if (overridden) {
     let text
     try {
       text = readFileSync(join(root, OVERRIDE_EXPORT), 'utf8')
     } catch (error) {
-      throw new Error(`${ROOT_ENV} names ${root}, which holds no readable ${OVERRIDE_EXPORT} (${error.code ?? error.message}); this command never falls back to the live tracker`)
+      throw new Error(`${envName} names ${root}, which holds no readable ${OVERRIDE_EXPORT} (${error.code ?? error.message}); this command never falls back to the live tracker`)
     }
     return parseExport(text, join(root, OVERRIDE_EXPORT))
   }
@@ -203,12 +224,21 @@ export function readTracker(root, overridden) {
 
 /* ------------------------------------------------------------------------------- the parsing ----- */
 
-/** A run id's issue and time, or null when it is not one. */
+/** A run id's issue and time, or null when it is not one: its time must be a second that exists. */
 function runOf(text) {
   const m = RUN_ID.exec(text)
   if (!m) return null
   const at = Date.parse(m[2])
-  return Number.isNaN(at) ? null : { run: text, issue: m[1], at }
+  return Number.isNaN(at) || isoSecond(at) !== m[2] ? null : { run: text, issue: m[1], at }
+}
+
+/** The marker a line opens with, and what follows its one space, or `rest: null` when no space does. */
+function markerOf(line, markers) {
+  for (const m of markers) {
+    if (!line.startsWith(m) || WORD_GOES_ON.test(line[m.length] ?? '')) continue
+    return { marker: m, rest: line[m.length] === ' ' ? line.slice(m.length + 1).trimEnd() : null }
+  }
+  return null
 }
 
 /** An analysis's form, from the lines after its marker line: its loads and version, or a problem. */
@@ -229,18 +259,39 @@ function readAnalysisBody(lines, heading) {
   return { form: 'loaded', loads, version: version[1] }
 }
 
+/** A held line's run id, key, file, count and reason, or null when what follows its marker is not one. */
+export function parseHeldLine(rest) {
+  const m = rest === null ? null : /^(\S+) ((\S+)#[a-z0-9][a-z0-9-]*) (\d+): (.+)$/.exec(rest)
+  const run = m && runOf(m[1])
+  return run ? { run: run.run, at: run.at, key: m[2], file: m[3], count: Number(m[4]), reason: m[5].trim() } : null
+}
+
+/** What follows `marker` on `line`, when the line opens with that marker's word, else undefined; null when no one space follows it. */
+export function afterMarker(line, marker) {
+  const found = markerOf(line, [marker])
+  return found ? found.rest : undefined
+}
+
 /**
  * Every analysis, read line and held line in the issues' notes, and every line that opens with a
- * marker and does not parse, or an analysis whose loaded prompts do not, as a problem naming its
- * issue. The forms are this file's header's.
+ * marker and does not parse, an analysis whose loaded prompts do not, and a run id after `now`, as a
+ * problem naming its issue. An analysis whose run id an earlier note opened is counted once, in
+ * `duplicates`. The forms are this file's header's.
  */
-export function parseTracker(issues, policy) {
+export function parseTracker(issues, policy, now = Date.now()) {
   const { promptReviewAnalysisMarker: A, promptReviewReadMarker: R, promptReviewHeldMarker: H, promptReviewLoadedHeading: heading } = policy
   const since = Date.parse(policy.promptReviewLoadedSince)
   const analyses = []
   const reads = []
   const held = []
   const problems = []
+  const seen = new Set()
+  let duplicates = 0
+  const later = (run, id) => {
+    if (run.at <= now) return false
+    problems.push(`${id}: the run id ${run.run} is after now, ${isoSecond(now)}, so it cannot be a run's`)
+    return true
+  }
   for (const issue of issues) {
     const id = issue?.id ?? '(an issue with no id)'
     let open = null
@@ -248,36 +299,39 @@ export function parseTracker(issues, policy) {
       if (!open) return
       const body = open.at < since ? { form: 'prose' } : readAnalysisBody(open.lines, heading)
       if (body.problem) problems.push(`${id}: the analysis ${open.run} ${body.problem}`)
-      else analyses.push({ run: open.run, issue: open.issue, at: open.at, form: body.form, loads: body.loads ?? [], version: body.version ?? null })
+      else if (seen.has(open.run)) duplicates++
+      else {
+        seen.add(open.run)
+        analyses.push({ run: open.run, issue: id, at: open.at, form: body.form, loads: body.loads ?? [], version: body.version ?? null })
+      }
       open = null
     }
     for (const line of String(issue?.notes ?? '').split('\n')) {
-      const marker = [A, R, H].find((m) => line.startsWith(`${m} `))
-      if (!marker) {
+      const found = markerOf(line, [A, R, H])
+      if (!found) {
         if (open) open.lines.push(line)
         continue
       }
       close()
-      const rest = line.slice(marker.length + 1).trimEnd()
+      const { marker, rest } = found
       if (marker === A) {
-        const run = runOf(rest)
+        const run = rest === null ? null : runOf(rest)
         if (!run) problems.push(`${id}: the line ${JSON.stringify(line)} opens with \`${A}\` and is not "${A} <run id>"`)
-        else open = { ...run, lines: [] }
+        else if (!later(run, id)) open = { ...run, lines: [] }
       } else if (marker === R) {
-        const m = /^(\S+) (https:\/\/\S+|no change)$/.exec(rest)
+        const m = rest === null ? null : /^(\S+) (https:\/\/\S+|no change)$/.exec(rest)
         const run = m && runOf(m[1])
         if (!run) problems.push(`${id}: the line ${JSON.stringify(line)} opens with \`${R}\` and is not "${R} <run id> <pull request URL or no change>"`)
-        else reads.push({ run: run.run, issue: id, pr: m[2] })
+        else if (!later(run, id)) reads.push({ run: run.run, issue: id, pr: m[2] })
       } else {
-        const m = /^(\S+) ((\S+)#[a-z0-9][a-z0-9-]*) (\d+): (.+)$/.exec(rest)
-        const run = m && runOf(m[1])
-        if (!run) problems.push(`${id}: the line ${JSON.stringify(line)} opens with \`${H}\` and is not "${H} <run id> <file>#<name> <count>: <reason>"`)
-        else held.push({ run: run.run, issue: id, key: m[2], file: m[3], count: Number(m[4]), reason: m[5].trim() })
+        const line_ = parseHeldLine(rest)
+        if (!line_) problems.push(`${id}: the line ${JSON.stringify(line)} opens with \`${H}\` and is not "${H} <run id> <file>#<name> <count>: <reason>"`)
+        else if (!later(line_, id)) held.push({ ...line_, issue: id })
       }
     }
     close()
   }
-  return { analyses, reads, held, problems }
+  return { analyses, reads, held, problems, duplicates }
 }
 
 /* ------------------------------------------------------------------------------- the report ----- */
@@ -298,19 +352,24 @@ export function pendingOf(parsed, policy, now) {
   return { due: byCount || byAge, why, analyses: pending.map((a) => ({ run: a.run, issue: a.issue })) }
 }
 
-/** Each held key: its file, highest count, the runs its lines name and the reason of its line of the highest count. */
+/**
+ * Each held key: its file, highest count, the runs its lines name and the reason of its line of the
+ * highest count, on a tie the line of the latest run, whatever order the export gives the lines in.
+ */
 export function heldOf(parsed) {
   const keys = new Map()
   for (const line of parsed.held) {
-    const k = keys.get(line.key) ?? { key: line.key, file: line.file, count: 0, runs: new Set(), reason: '' }
-    if (line.count >= k.count) {
+    const k = keys.get(line.key) ?? { key: line.key, file: line.file, count: 0, runs: new Set(), reason: '', best: null }
+    const b = k.best
+    if (!b || line.count > b.count || (line.count === b.count && (line.at > b.at || (line.at === b.at && byCodePoint(line.reason, b.reason) > 0)))) {
+      k.best = line
       k.count = line.count
       k.reason = line.reason
     }
     k.runs.add(line.run)
     keys.set(line.key, k)
   }
-  return [...keys.values()].sort((a, b) => byCodePoint(a.key, b.key)).map((k) => ({ ...k, runs: [...k.runs].sort(byCodePoint) }))
+  return [...keys.values()].sort((a, b) => byCodePoint(a.key, b.key)).map(({ best, ...k }) => ({ ...k, runs: [...k.runs].sort(byCodePoint) }))
 }
 
 /** The loads over the window, the analyses not counted, the paths with no row, the candidates and the metric. */
@@ -343,7 +402,7 @@ export function loadsOf(parsed, policy) {
     notCounted: inWindow.filter((a) => a.form !== 'loaded').map((a) => a.run).sort(byCodePoint),
     noRow: [...noRow.entries()].sort((a, b) => byCodePoint(a[0], b[0])).map(([path, runs]) => ({ path, runs: runs.sort(byCodePoint) })),
     candidates: atFloor ? unloaded : [],
-    metric: atFloor ? { unloaded: unloaded.length, of: considered.length, notViable: unloaded.length * 2 >= considered.length } : null,
+    metric: atFloor ? { unloaded: unloaded.length, of: considered.length, notViable: unloaded.length >= policy.promptReviewLoadNotViableShare * considered.length } : null,
   }
 }
 
@@ -354,7 +413,9 @@ const SECTIONS = ['pending', 'held', 'loads']
 export function render(report, only = null) {
   const out = []
   const { pending, held, loads } = report
-  out.push(`${NAME}: ${report.analyses} analyses (${report.loadedForm} in D-44's form), ${report.reads} read lines, ${report.heldLines} held lines.`)
+  const since = report.proseSinceCutOff ? `, ${report.proseSinceCutOff} since the cut-off not in it` : ''
+  const twice = report.duplicates ? `; ${report.duplicates} more note(s) opened a run id already counted, and are counted once` : ''
+  out.push(`${NAME}: ${report.analyses} analyses (${report.loadedForm} in D-44's form${since}), ${report.reads} read lines, ${report.heldLines} held lines${twice}.`)
   if (!only || only === 'pending') {
     out.push('')
     out.push(`pending: ${pending.analyses.length}; a review is ${pending.due ? 'due' : 'not due'}: ${pending.why}.`)
@@ -384,7 +445,7 @@ export function render(report, only = null) {
   if (!loads.metric) out.push(`the metric: no share under the floor; the counts are above.`)
   else {
     const m = loads.metric
-    out.push(`the metric: ${m.unloaded} of ${m.of} prompts, less those no analysed run loads by design, loaded by no analysis in the window${m.notViable ? ': half or more, the value count-index.md § Rates and metrics gives as not viable' : ''}.`)
+    out.push(`the metric: ${m.unloaded} of ${m.of} prompts, less those no analysed run loads by design, loaded by no analysis in the window${m.notViable ? ': at or above `promptReviewLoadNotViableShare`, the value count-index.md § Rates and metrics gives as not viable' : ''}.`)
   }
   return out.join('\n')
 }
@@ -406,8 +467,9 @@ export function main(argv, deps = {}) {
     if (argv[i] === '--json') json = true
     else if (argv[i] === '--only' && SECTIONS.includes(argv[i + 1])) only = argv[++i]
     else if (argv[i] === '--now' && argv[i + 1] && !argv[i + 1].startsWith('--')) {
-      const at = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(argv[i + 1]) ? Date.parse(argv[++i]) : Number.NaN
-      if (Number.isNaN(at)) {
+      const text = argv[++i]
+      const at = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(text) ? Date.parse(text) : Number.NaN
+      if (Number.isNaN(at) || isoSecond(at) !== text) {
         err(`${NAME}: --now takes a UTC second in the run-id spelling, such as 2026-10-05T12:00:00Z.`)
         return 2
       }
@@ -422,7 +484,7 @@ export function main(argv, deps = {}) {
   let parsed
   try {
     policy = loadPolicy(root)
-    parsed = parseTracker(readTracker(root, overridden), policy)
+    parsed = parseTracker(readTracker(root, overridden), policy, now)
   } catch (error) {
     err(`${NAME} FAILED: ${error.message}`)
     return 1
@@ -435,6 +497,8 @@ export function main(argv, deps = {}) {
   const report = {
     analyses: parsed.analyses.length,
     loadedForm: parsed.analyses.filter((a) => a.form === 'loaded').length,
+    proseSinceCutOff: parsed.analyses.filter((a) => a.form === 'prose' && a.at >= Date.parse(policy.promptReviewLoadedSince)).length,
+    duplicates: parsed.duplicates,
     reads: parsed.reads.length,
     heldLines: parsed.held.length,
     pending: pendingOf(parsed, policy, now),
@@ -635,12 +699,6 @@ function selftest() {
       ok('the text says the sample is under the floor', new RegExp(`candidates: none named; ${FLOOR - 1} analyses in D-44's form in the window, under the floor of ${FLOOR}`).test(t.out), t.out)
     }
 
-    /* The table's prompt is never named, even when nothing loads it. */
-    {
-      const r = run(fixture('excluded', controlIssues()))
-      ok(`${EXCLUDED}, which the table names, loads 0 and is no candidate`, loadOf(r.report, EXCLUDED) === 0 && !r.report.loads.candidates.includes(EXCLUDED))
-    }
-
     /* Half or more unloaded is the not-viable value. */
     {
       const issues = controlIssues().map((i) => ({ ...i, notes: i.notes.split('\n').filter((l) => !LOADED_REST.some((p) => l.startsWith(`${p} `))).join('\n') }))
@@ -661,6 +719,84 @@ function selftest() {
       ok(`the oldest pending past \`promptReviewDueAgeDays\` is due, by age`, late.report?.pending.due === true && /past `promptReviewDueAgeDays`/.test(late.report.pending.why), late.report?.pending.why)
     }
 
+    /* A marker word not followed by one space is a broken line, never prose. */
+    broken('a marker followed by a colon', (is) => (is[0].notes = is[0].notes.replace(`${A} `, `${A}: `)), /example-0: the line .* opens with `[^`]+` and is not "\S+ <run id>"/)
+    broken('a held marker followed by a tab', (is) => (is[3].notes = is[3].notes.replace(`${H} `, `${H}\t`)), /example-3: the line .* opens with `[^`]+` and is not "\S+ <run id> <file>#<name> <count>: <reason>"/)
+    broken('a marker alone on its line', (is) => (is[0].notes = is[0].notes.replace(`${A} `, `${A}\n`)), /example-0: the line .* opens with `[^`]+` and is not "\S+ <run id>"/)
+
+    /* A run id's time is a real second, and none is after now. */
+    broken('a run id on a day no month has', (is) => (is[0].notes = is[0].notes.replace(/@\d{4}-\d{2}-\d{2}T/, '@2026-11-31T')), /example-0: the line .* opens with `[^`]+` and is not "\S+ <run id>"/)
+    broken('a run id after now', (is) => (is[0].notes = is[0].notes.replace(/@\d{4}-/, '@2062-')), /example-0: the run id \S+ is after now/)
+
+    /* A run noted twice is one analysis. */
+    {
+      const issues = controlIssues()
+      issues.push({ id: 'example-copy', notes: issues[0].notes })
+      const r = run(fixture('a run noted twice', issues))
+      ok(
+        'an analysis whose run id another note already opened is counted once, in pending, the sample and the loads, and the first line says so',
+        r.code === 0 && r.report.pending.analyses.length === 2 && r.report.loads.sample === FLOOR && loadOf(r.report, LOADED_ALWAYS) === FLOOR && r.report.duplicates === 1,
+        JSON.stringify({ pending: r.report?.pending.analyses, sample: r.report?.loads.sample, duplicates: r.report?.duplicates }),
+      )
+    }
+
+    /* Pending names the issue whose notes hold the analysis. */
+    {
+      const issues = controlIssues()
+      issues[0].id = 'example-holder'
+      const r = run(fixture('held on another issue', issues))
+      ok('pending names the issue that holds the analysis, not the one its run id names', r.report?.pending.analyses.some((a) => a.issue === 'example-holder' && a.run.startsWith('example-0@')), JSON.stringify(r.report?.pending.analyses))
+    }
+
+    /* On a tie, the held key's reason is its latest run's, whatever the export's order. */
+    {
+      const tie = (order) => {
+        const issues = controlIssues()
+        const later = `example-7@${iso(NEWEST - 7 * 3600000)}`
+        const earlier = `example-9@${iso(NEWEST - 9 * 3600000)}`
+        issues[7].notes += `\n${H} ${later} ${LOADED_ALWAYS}#a-tie 1: the later run's reason`
+        issues[9].notes += `\n${H} ${earlier} ${LOADED_ALWAYS}#a-tie 1: the earlier run's reason`
+        if (order === 'reversed') issues.reverse()
+        return run(fixture(`a tie, ${order}`, issues)).report?.held.find((k) => k.key === `${LOADED_ALWAYS}#a-tie`)?.reason
+      }
+      ok("a held key's reason on a tie is the latest run's, in either export order", tie('in order') === "the later run's reason" && tie('reversed') === "the later run's reason", `${tie('in order')} | ${tie('reversed')}`)
+    }
+
+    /* A commit in capitals is hex digits too. */
+    {
+      const issues = controlIssues()
+      issues[0].notes = issues[0].notes.replaceAll(' abc1234', ' ABC1234')
+      const r = run(fixture('a commit in capitals', issues))
+      ok('a commit of capital hex digits parses', r.code === 0 && r.report.loads.sample === FLOOR, r.err)
+    }
+
+    /* An analysis since the cut-off with no heading is counted in the first line as not in the form. */
+    {
+      const issues = controlIssues()
+      const first = issues[0].notes.split('\n')[0]
+      issues[0].notes = `${first}\n\nProse naming ${LOADED_ALWAYS}.`
+      const r = run(fixture('since the cut-off, no heading', issues))
+      const t = run(fixture('since the cut-off, no heading, text', issues), ['--only', 'pending', '--now', NOW])
+      ok(
+        'an analysis since the cut-off with no heading is counted apart, and the first line of every section says so',
+        r.report?.proseSinceCutOff === 1 && /1 since the cut-off not in it/.test(t.out.split('\n')[0]),
+        `${r.report?.proseSinceCutOff} ${t.out.split('\n')[0]}`,
+      )
+    }
+
+    /* The not-viable share is the policy's, not the command's. */
+    {
+      const issues = controlIssues().map((i) => ({ ...i, notes: i.notes.split('\n').filter((l) => !LOADED_REST.some((p) => l.startsWith(`${p} `))).join('\n') }))
+      const r = run(fixture('a share of nearly all', issues, (p) => (p.promptReviewLoadNotViableShare = 0.99)))
+      ok('with the share at 0.99, the same unloaded rows are not "not viable"', r.report?.loads.metric?.notViable === false, JSON.stringify(r.report?.loads.metric))
+    }
+
+    /* The table keeps a prompt it names out of the candidates. */
+    {
+      const r = run(fixture('the table names a candidate', controlIssues(), (p) => (p.promptReviewUnloadedPrompts = { ...p.promptReviewUnloadedPrompts, [NEVER]: 'a reason' })))
+      ok(`a prompt the table names, ${NEVER}, is no longer a candidate, and the other unloaded one still is`, JSON.stringify(r.report?.loads.candidates) === JSON.stringify([ALSO_NEVER]), JSON.stringify(r.report?.loads.candidates))
+    }
+
     /* The policy, and the export. */
     const policyCase = (name, change, expect) => {
       const r = run(fixture(name, controlIssues(), change))
@@ -670,6 +806,7 @@ function selftest() {
     policyCase('a window of 0 days', (p) => (p.promptReviewLoadWindowDays = 0), /`promptReviewLoadWindowDays` is 0, where it must be a whole number of at least 1/)
     policyCase('a table entry with no budget row', (p) => (p.promptReviewUnloadedPrompts = { ...p.promptReviewUnloadedPrompts, '.claude/skills/gone/SKILL.md': 'a reason' }), /names \.claude\/skills\/gone\/SKILL\.md, which has no row in `promptWordBudgets`/)
     policyCase('a heading that opens with a marker', (p) => (p.promptReviewLoadedHeading = `${A} loaded:`), /`promptReviewLoadedHeading` opens with a marker's word/)
+    policyCase('a share of 1.5', (p) => (p.promptReviewLoadNotViableShare = 1.5), /`promptReviewLoadNotViableShare` is 1\.5, where it must be a share above 0 and at most 1/)
     {
       const root = fixture('no export', null)
       const r = run(root)
