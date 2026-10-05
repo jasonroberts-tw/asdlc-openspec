@@ -29,8 +29,8 @@ Print the trunk's prompt-review keys first, as one call; later steps apply them:
 
     gh api "repos/{owner}/{repo}/contents/tools/policy/agent-workflows.json?ref=main" -H "Accept: application/vnd.github.raw" --jq "with_entries(select((.key | startswith(\"promptReview\")) and (.key | endswith(\"Means\") | not)))"
 
-Find every pending analysis as the skill's § 2 says. If a review is not due by it, the launch was
-early: stop, editing nothing and writing nothing.
+Find every pending analysis as the skill's § 2 says. If a review is not due by it, stop, editing
+nothing and writing nothing.
 
 Collect every held line too, its analysis pending or not, listed as the analyses are, with
 `promptReviewHeldMarker` as the marker.
@@ -52,9 +52,9 @@ minor, and a count: the distinct runs that have shown it, in this batch and in i
 A finding meets the threshold when its count is `promptReviewRecurrenceCount` or more, or its
 severity is in `promptReviewMajorSeverities`. Hold every finding that does not, with the reason
 `below the threshold`: § 6 writes its held lines, and the next review counts them. A finding an
-earlier review held for any other reason, set aside by its file's agent or not upheld by its
-skeptics, goes to a group again only when a run in this batch shows it that none of its held lines
-names. It must still meet the threshold, because the workflow refuses a finding below it.
+earlier review held for any other reason goes to a group again only when a run in this batch shows
+it that none of its held lines names. It must still meet the threshold, because the workflow refuses
+a finding below it.
 
 A group is one file, or several when one finding concerns them together. Its findings are those
 that met the threshold, in the fields the script's header gives `args.groups`. Add to that evidence
@@ -132,8 +132,8 @@ pull request, it is the only record of what held a run.
 The description is the review, in this order. The section names are a default; the two closing
 sections are the value.
 
-1. **The runs reviewed**, with identifiers a reader can verify: each run id, the issue carrying its
-   analysis, the prompts it loaded and the commit it read them at, and the pull request it produced.
+1. **The runs reviewed**: each run id, the issue carrying its analysis, the prompts it loaded and
+   the commit it read them at, and the pull request it produced.
 2. **What the earlier reviews' changes did in these runs.** Each change an earlier review's pull
    request made to a file of this review, and whether these runs show it working, not working, or
    not exercised.
@@ -181,11 +181,11 @@ marks a dated incident.
 
 ## How a prompt is consolidated
 
-An edit that would take a prompt past its word budget, a row in `tools/policy/prompt-budgets.json` that
-`node scripts/check-prompts.mjs --counts` prints beside the prompt's words, consolidates the prompt
-first. A review never raises a budget, and a file's agent may not edit `tools/policy/prompt-budgets.json`:
-an edit that still does not fit once the prompt is consolidated is left out, and its finding set aside
-with the words the edit needs, so that its held line brings the raise to a person.
+An edit that would take a prompt past its word budget (`node scripts/check-prompts.mjs --counts`)
+consolidates the prompt first. A review never raises a budget, and a file's agent may not edit
+`tools/policy/prompt-budgets.json`: an edit that still does not fit once the prompt is consolidated
+is left out, and its finding set aside with the words the edit needs, so that its held line brings
+the raise to a person.
 
 What loads the prompt decides what can go: `CLAUDE.md`, in every session and in every workflow
 agent, since only the built-in Explore and Plan agents skip it, and each file the prompt sends the
