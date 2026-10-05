@@ -905,7 +905,7 @@ const voteLine = (c) => `${c.upheld} upheld, ${c.refuted} refuted and ${c.skepti
 const badArgs = argsProblem()
 if (badArgs) {
   log(`Refused: ${badArgs}`)
-  return { stopped: 'refused', why: badArgs, groups: [], merge: [], discard: [], discardDropped: [], runsRead: [], runsHeld: [], findingsHeld: [], cases: [], counts: null }
+  return { stopped: 'refused', why: badArgs, groups: [], merge: [], discard: [], discardDropped: [], runsRead: [], runsHeld: [], findingsHeld: [], findingsCarried: [], cases: [], counts: null }
 }
 
 phase('Review')

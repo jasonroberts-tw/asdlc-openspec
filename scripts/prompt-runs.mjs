@@ -37,16 +37,20 @@
  *                  opens with a letter or digit.
  *   the closed line  `promptReviewClosedMarker`, a space, the run id, a space, the key, a space, how
  *                  it ended, a colon, a space and the reason. The run id is the latest run that
- *                  showed the finding. How it ended is one of three:
+ *                  showed the finding, and the key's path holds no `#`. How it ended is one of three:
  *                    `carried <pull request URL>`  a review's pull request carried an edit for it;
- *                    `issue <issue id>`   an issue owns it, for a finding no prompt owns, the key's
- *                                         path then the file it concerns;
+ *                                         the URL holds no `?` or `#`;
+ *                    `issue <issue id>`   an issue owns it, as one a run filed owns a finding no
+ *                                         prompt owns, whose key's path is then the file it concerns;
  *                    `aside`              a person set it aside, and the reason is theirs.
- *                  Of a key's closed lines, the one of the latest run decides, on a tie the one whose
- *                  reason sorts last. It closes the key, whatever held lines follow it, which record
- *                  only that a run showed the finding again; but a carried line closes it only once
- *                  its pull request has merged, and one whose pull request closed unmerged leaves the
- *                  key held, reopened.
+ *                  Of a key's closed lines, the one of the latest run decides; on a tie, the later in
+ *                  one issue's notes, since a line is appended, or else the one whose reason sorts
+ *                  last. It closes the key, whatever held lines follow it, which record only that a
+ *                  run showed the finding again; but a carried line closes it only once its pull
+ *                  request has merged, and one whose pull request closed unmerged leaves the key held,
+ *                  reopened. A key keeps its count, and `scripts/match-held-findings.mjs`, which reads
+ *                  held lines alone, offers it, only through its held lines, so a review writes them
+ *                  beside a closed line (`.claude/agents/continuous-prompt-improvement.md` § 6).
  *
  * WHAT IT PRINTS. Each section opens with a line that names it.
  *
@@ -156,7 +160,7 @@ const VERSION = /^(\d+\.\d+\.\d+)(?:\s.*)?$/
 /** A policy key whose value is a marker, as the header says. */
 const MARKER_KEY = /^promptReview[A-Za-z]+Marker$/
 /** What follows a closed line's marker: run id, key, file, how it ended (with its pull request's URL and number, or its issue), and reason. */
-const CLOSED = /^(\S+) ((\S+)#[a-z0-9][a-z0-9-]*) (carried (https:\/\/\S+\/pull\/(\d+))|issue (\S+)|aside): (.+)$/
+const CLOSED = /^(\S+) (([^\s#]+)#[a-z0-9][a-z0-9-]*) (carried (https:\/\/[^\s?#]+\/pull\/(\d+))|issue ([A-Za-z0-9][A-Za-z0-9._-]*)|aside): (.+)$/
 /** The states a pull request's carried line reads, as `gh pr view --json state` spells them. */
 const PR_STATES = ['OPEN', 'CLOSED', 'MERGED']
 
@@ -385,7 +389,9 @@ export function parseTracker(issues, policy, now = Date.now()) {
       }
       open = null
     }
+    let order = -1
     for (const line of String(issue?.notes ?? '').split('\n')) {
+      order++
       const found = markerOf(line, policy.markers)
       if (!found) {
         if (open) open.lines.push(line)
@@ -409,7 +415,7 @@ export function parseTracker(issues, policy, now = Date.now()) {
       } else if (marker === C) {
         const line_ = parseClosedLine(rest)
         if (!line_) problems.push(`${id}: the line ${JSON.stringify(line)} opens with \`${C}\` and is not "${C} <run id> <file>#<name> <carried <pull request URL>, issue <issue id> or aside>: <reason>"`)
-        else if (!later(line_, id)) closed.push({ ...line_, issue: id })
+        else if (!later(line_, id)) closed.push({ ...line_, issue: id, order })
       } else {
         problems.push(`${id}: the line ${JSON.stringify(line)} opens with \`${marker}\`, a marker of the policy that the header of scripts/prompt-runs.mjs gives no form`)
       }
@@ -454,7 +460,8 @@ function stateOf(decides, prs) {
  * Each key a held or closed line names: its file, highest count, the runs its held lines name and
  * the reason of its held line of the highest count, on a tie the line of the latest run, whatever
  * order the export gives the lines in; and its state, from the closed line of the latest run, on a tie
- * the one whose reason sorts last, and `prs`, each carried line's pull request URL to its state.
+ * the later in one issue's notes or else the one whose reason sorts last, and `prs`, each carried
+ * line's pull request URL to its state.
  */
 export function heldOf(parsed, prs = new Map()) {
   const keys = new Map()
@@ -473,7 +480,8 @@ export function heldOf(parsed, prs = new Map()) {
   for (const line of parsed.closed ?? []) {
     const k = entry(line)
     const d = k.decides
-    if (!d || line.at > d.at || (line.at === d.at && byCodePoint(line.reason, d.reason) > 0)) k.decides = line
+    const after = line.issue === d?.issue ? line.order > d.order : byCodePoint(line.reason, d?.reason ?? '') > 0
+    if (!d || line.at > d.at || (line.at === d.at && after)) k.decides = line
     keys.set(line.key, k)
   }
   return [...keys.values()]
@@ -978,6 +986,12 @@ function selftest() {
         ok("of two closed lines, the later run's decides, in either export order: here its pull request closed unmerged, so the key is reopened", a?.state === 'reopened' && a.closed.reason === "the later line's reason" && b?.state === 'reopened' && b.closed.reason === "the later line's reason", `${JSON.stringify(a)} | ${JSON.stringify(b)}`)
       }
       {
+        const issues = withClosed()
+        issues[5].notes += `\n${C} ${runAt(5)} ${LOADED_ALWAYS}#tie carried ${pull(9)}: zz an edit carried it\n${C} ${runAt(5)} ${LOADED_ALWAYS}#tie aside: a person set it aside after the pull request closed`
+        const k = run(fixture('a tie on one issue', issues, null, PRS)).report?.held.find((x) => x.key === `${LOADED_ALWAYS}#tie`)
+        ok("of two closed lines on one run and one issue, the later in the notes decides, whatever its reason sorts: a person's aside after a carried line closes the key", k?.state === 'closed' && k.closed.how === 'aside', JSON.stringify(k))
+      }
+      {
         const issues = controlIssues()
         const lines = issues[0].notes.split('\n')
         issues[0].notes = [lines[0], `${C} ${runAt(0)} ${LOADED_ALWAYS}#a-finding aside: closed mid-analysis`, ...lines.slice(1)].join('\n')
@@ -990,6 +1004,9 @@ function selftest() {
       }
       broken('a closed line naming a pull request by number, not URL', (is) => (is[3].notes += `\n${C} ${runAt(3)} ${LOADED_ALWAYS}#a-finding carried 93: an edit`), /example-3: the line .* opens with `[^`]+` and is not "\S+ <run id> <file>#<name> <carried <pull request URL>, issue <issue id> or aside>: <reason>"/)
       broken('a closed line ended some other way', (is) => (is[3].notes += `\n${C} ${runAt(3)} ${LOADED_ALWAYS}#a-finding fixed: by itself`), /example-3: the line .* opens with `[^`]+` and is not "\S+ <run id> <file>#<name> <carried/)
+      broken('a closed line whose issue id ends in a colon', (is) => (is[3].notes += `\n${C} ${runAt(3)} ${LOADED_ALWAYS}#a-finding issue example-1:: owned`), /example-3: the line .* opens with `[^`]+` and is not "\S+ <run id> <file>#<name> <carried/)
+      broken('a closed line whose file holds a #', (is) => (is[3].notes += `\n${C} ${runAt(3)} a#b#c aside: a reason`), /example-3: the line .* opens with `[^`]+` and is not "\S+ <run id> <file>#<name> <carried/)
+      broken('a carried line whose URL has a query', (is) => (is[3].notes += `\n${C} ${runAt(3)} ${LOADED_ALWAYS}#a-finding carried ${pull(12)}?x=/pull/3: an edit`), /example-3: the line .* opens with `[^`]+` and is not "\S+ <run id> <file>#<name> <carried/)
       {
         const issues = controlIssues()
         issues[3].notes += '\nprompt-run-other a line of a marker with no form'

@@ -1779,10 +1779,10 @@ function reviewCases(policy) {
       check: () => null,
     },
     {
-      name: 'refused: no groups',
+      name: 'refused: no groups, and the result still holds every list its header names, `findingsCarried` empty',
       args: reviewArgs(policy, []),
       expect: ['refused', /^args\.groups must be a non-empty list/],
-      check: () => null,
+      check: ({ result }) => (carriedKeys(result) === '' ? null : `findingsCarried is ${carriedKeys(result)}, not an empty list`),
     },
     {
       name: 'refused: a group with no findings',
