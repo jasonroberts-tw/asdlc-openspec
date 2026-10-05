@@ -41,8 +41,9 @@
  *     with every rate. The whole product's figures, every code line counted as changed, are printed
  *     on every run and never gated (D-13, item 8).
  *   - Mutation. StrykerJS 10 makes the mutants and the count, and the build workflow's honesty lens
- *     is to judge only the ones this gate lists as undetected (asdlc-openspec-j09.2's notes, answer
- *     2; asdlc-openspec-4vo changes the lens). A Command is a file whose code the tests reach by
+ *     judges only the ones this gate lists as undetected, making none of its own under `apps/`
+ *     (asdlc-openspec-j09.2's notes, answer 2; Mutants in the header of the workflow,
+ *     `.claude/workflows/build-change-task.js`). A Command is a file whose code the tests reach by
  *     spawning a process, each a key of `mutationCommands` with the test files its run runs; every
  *     other file counted is a Routine. The Routines' run uses the tap runner over every test file of
  *     the coverage run that no Command lists, since a test file that spawns a server leaves it

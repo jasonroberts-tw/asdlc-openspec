@@ -878,6 +878,122 @@ function buildCases(policy) {
       check: ({ calls }) => (calls.join() === 'setup' ? null : `ran ${calls.join(', ')}`),
     },
   )
+
+  /*
+   * The honesty lens's judgement of each mutant the thresholds gate lists as undetected (the
+   * header's Mutants paragraph, asdlc-openspec-4vo): routed by its judgement, not its kind, each
+   * way beside a control whose finding names no mutant. Were this wrong, a survivor judged
+   * detectable could be filed away as a coverage gap, an excuse could reach the fixer without the
+   * comment the gate reads, or merged away with it, and a judgement the run cannot read could be
+   * fixed on the lens's word.
+   */
+  const HONESTY = 'honesty'
+  const honest = [widest, ...kinds].find((kind) => policy.buildReviewLenses[kind].includes(HONESTY))
+  const MUTANT_LINE = 'undetected: apps/example.js:12:7 EqualityOperator "x >= 1" (Survived)'
+  const SECOND_MUTANT = 'undetected: apps/example.js:20:3 StringLiteral "\\"\\"" (NoCoverage)'
+  /** A reviewer's finding on a mutant, its file other than the gate's; `judgement` undefined leaves the field out, as an agent would. */
+  const survivor = (title, judgement, extra = {}) =>
+    finding(title, { mutant: MUTANT_LINE, ...(judgement === undefined ? {} : { judgement }), file: 'apps/elsewhere.js', ...extra })
+  const honestyRun = (findings) => ({ reviews: { 1: { [HONESTY]: findings } } })
+  const fixPromptOf = (options) => options.find((o) => o.label === 'fix r1')?.prompt ?? ''
+  const fixedOnce = ['nothing-major', /^round 1 confirmed no .*, and the \d+ it did confirm were fixed/]
+  if (honest === undefined) {
+    list.push(unexercised('a mutant the thresholds gate left undetected, judged each way', `no kind in tools/policy/agent-workflows.json \`buildReviewLenses\` runs the ${HONESTY} lens`))
+  } else {
+    list.push(
+      {
+        name: `control: an ${HONESTY} finding that names no mutant is routed by its own kind, as any reviewer's (${honest})`,
+        control: true,
+        args: args(honest),
+        scenario: honestyRun([finding('An untested branch of the parser', { kind: 'coverage-gap' })]),
+        expect: ['nothing-major', /^round 1 confirmed no /],
+        check: ({ result, calls }) => {
+          if (count(calls, /^skeptic |^fix /)) return 'a finding with nothing to confirm went to a skeptic or a fixer'
+          return result.followUps.some((f) => f.title === 'An untested branch of the parser' && f.kind === 'coverage-gap') ? null : 'the coverage gap is not returned for filing'
+        },
+      },
+      {
+        name: `the ${HONESTY} reviewer is sent to the thresholds gate's undetected mutants under apps/, with the three judgements, and mutates by hand only outside apps/`,
+        args: args(honest),
+        scenario: {},
+        expect: ['nothing-major', /^round 1 confirmed no /],
+        check: ({ options }) => {
+          const prompt = options.find((o) => o.label === `review ${HONESTY} r1`)?.prompt ?? ''
+          const wanted = ['mise run thresholds:check', 'mise run thresholds:commands:check', 'detectable', 'excuse', 'spec-gap', '.scratch/mutants-<n>/', 'outside apps/']
+          const missing = wanted.filter((text) => !prompt.includes(text))
+          return missing.length ? `the ${HONESTY} reviewer's prompt does not hold ${missing.join(', ')}` : null
+        },
+      },
+      {
+        name: 'a survivor judged detectable is confirmed and fixed as a defect, on the file the gate names, even where the lens called it a coverage gap',
+        args: args(honest),
+        scenario: honestyRun([survivor('A boundary no test pins', 'detectable', { kind: 'coverage-gap' })]),
+        expect: fixedOnce,
+        check: ({ result, calls, options }) => {
+          const f = result.confirmed.find((x) => x.title === 'A boundary no test pins')
+          if (!f || f.kind !== 'defect' || f.file !== 'apps/example.js' || f.fixed !== true) return `it came back as ${JSON.stringify(f ?? result.followUps)}`
+          if (skepticsFor(calls, 'A boundary no test pins') !== skeptics[f.severity]) return `it went to ${skepticsFor(calls, 'A boundary no test pins')} skeptic(s), not the ${skeptics[f.severity]} its severity gets`
+          return fixPromptOf(options).includes('A boundary no test pins') ? null : 'the fixer was not given it'
+        },
+      },
+      {
+        name: "a survivor judged an excuse reaches the fixer as the gate's Stryker comment with its reason, above the mutant's line, as a minor defect that earns no second round",
+        args: args(honest),
+        scenario: honestyRun([survivor('An equivalent comparison', 'excuse', { severity: major, fix: 'The two comparisons\n agree on every integer.' })]),
+        expect: majors.includes('minor') ? ['round-limit', /./] : fixedOnce,
+        check: ({ result, options }) => {
+          if (majors.includes('minor')) return 'cannot be exercised: `buildReviewMajorSeverities` lists minor, so an excuse earns another round'
+          const f = result.confirmed.find((x) => x.title === 'An equivalent comparison')
+          if (!f || f.severity !== 'minor' || f.fixed !== true) return `it came back as ${JSON.stringify(f ?? result.unverified)}`
+          const comment = '`// Stryker disable next-line EqualityOperator: The two comparisons agree on every integer.`'
+          const prompt = fixPromptOf(options)
+          return prompt.includes(comment) && prompt.includes('apps/example.js:12') ? null : `the fixer's prompt does not hold ${comment} above apps/example.js:12`
+        },
+      },
+      {
+        name: 'a survivor judged a spec gap goes back as the workflow routes a coverage gap, to no skeptic and no fixer, even where the lens called it a defect',
+        args: args(honest),
+        scenario: honestyRun([survivor('A rounding rule no scenario states', 'spec-gap', { severity: major })]),
+        expect: ['nothing-major', /^round 1 confirmed no /],
+        check: ({ result, calls }) => {
+          if (count(calls, /^skeptic |^fix /)) return 'it went to a skeptic or a fixer'
+          const f = result.followUps.find((x) => x.title === 'A rounding rule no scenario states')
+          return f && f.kind === 'coverage-gap' && f.file === 'apps/example.js' ? null : `it came back as ${JSON.stringify(f ?? result.confirmed)}`
+        },
+      },
+      {
+        name: 'a judgement whose mutant is not a line the gate prints, that gives no judgement, or that excuses with no reason goes back to the parent unverified, to no skeptic and no fixer',
+        args: args(honest),
+        scenario: honestyRun([
+          survivor('A mutant named in prose', 'detectable', { mutant: 'the comparison on line 12' }),
+          survivor('A mutant left unjudged', undefined),
+          survivor('An excuse with no reason', 'excuse', { fix: ' \n ' }),
+        ]),
+        expect: ['nothing-major', /^round 1 confirmed no /],
+        check: ({ result, calls }) => {
+          if (count(calls, /^skeptic |^fix /)) return 'it went to a skeptic or a fixer'
+          const back = titles(result.unverified)
+          const wanted = ['A mutant named in prose', 'A mutant left unjudged', 'An excuse with no reason']
+          if (wanted.some((t) => !back.includes(t))) return `unverified holds ${back.join(', ') || 'nothing'}, not ${wanted.join(', ')}`
+          const counted = result.rounds.reduce((n, r) => n + r.unverified, 0)
+          return counted === result.unverified.length ? null : `the rounds count ${counted} unverified, but ${result.unverified.length} are returned`
+        },
+      },
+      {
+        name: 'two survivors on one file are never merged, and each excuse reaches the fixer as its own comment',
+        args: args(honest),
+        scenario: honestyRun([survivor('Excuse the first', 'excuse', { fix: 'the first reason' }), survivor('Excuse the second', 'excuse', { mutant: SECOND_MUTANT, fix: 'the second reason' })]),
+        expect: majors.includes('minor') ? ['round-limit', /./] : fixedOnce,
+        check: ({ result, calls, options }) => {
+          if (count(calls, /^merge r1$/)) return 'the survivors went to the merge agent'
+          if (result.confirmed.length !== 2) return `confirmed ${titles(result.confirmed).join(', ') || 'nothing'}, not the two survivors`
+          const prompt = fixPromptOf(options)
+          const comments = ['// Stryker disable next-line EqualityOperator: the first reason', '// Stryker disable next-line StringLiteral: the second reason']
+          return comments.every((c) => prompt.includes(c)) && prompt.includes('apps/example.js:20') ? null : "the fixer's prompt does not hold both comments, each above its line"
+        },
+      },
+    )
+  }
   list.push(...independentCases(policy))
   return list
 }
