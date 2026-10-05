@@ -918,8 +918,9 @@ pre-push:
         - 'tasks.toml'
       run: mise run counts:selftest
     # The tracker's own pre-push hook, and the label, type and foreign-id rules over its open
-    # issues: a `repo:` label on every one, a label `assetLabels` in `tools/policy/vocabulary.json` lists on
-    # every one filed `discovered-from`, and a type a row of `issueTypes` there names on every one.
+    # issues: a `repo:` label on every one; on every one filed `discovered-from`, a label `assetLabels`
+    # in `tools/policy/vocabulary.json` lists and, if filed since `foundAtLabelsSince`, one
+    # `foundAtLabels` there lists; and a type a row of `issueTypes` there names on every one.
     # Neither carries a glob: both read the tracker's database, not the push.
     - name: beads
       env:
@@ -932,8 +933,8 @@ pre-push:
     # The gate's refusals over a fixture export and a copy of the committed policy it writes under the
     # temporary directory, read through `BEADS_CHECK_ROOT`, each asserting its reason, with one
     # undoctored control. It runs no `bd`, so it carries a glob: the gate, the policy it copies and
-    # the launcher the gate imports. 1.11-1.98 s wall through `node --run` (`/usr/bin/time -p`, two
-    # runs) on a macOS 26.7.1 laptop (Apple M3 Max) with Node 26.8.1, 2026-10-03.
+    # the launcher the gate imports. 1.52 s wall for `node scripts/check-beads.mjs --selftest`
+    # (`/usr/bin/time -p`, two runs) on a macOS 26.7.1 laptop (Apple M3 Max) with Node 26.8.1, 2026-10-04.
     - name: beads-selftest
       glob:
         - 'scripts/check-beads.mjs'
