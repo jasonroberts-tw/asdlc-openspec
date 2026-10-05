@@ -148,6 +148,10 @@ jobs:
       # here only as this selftest.
       - name: the prompt review's match of new findings to held ones, negative-tested over a stubbed judge
         run: mise run prompt-review:match:selftest
+      # The prompt runs over fixture exports. The command reads the tracker and runs here only as this
+      # selftest.
+      - name: the prompt runs' parser and report, negative-tested over fixture exports
+        run: mise run prompt-runs:selftest
       # Seconds (git-hooks.yml's `gate-summary-selftest` job has the measurement): the Stop hook over
       # scratch citation trees and scratch repositories under the temporary directory, and the
       # block-generated-edit hook over a scratch repository with two linked worktrees.

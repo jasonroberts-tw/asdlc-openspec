@@ -83,8 +83,8 @@ export const meta = {
  *                         about these files that met the threshold:
  *                 key       `<file>#<name>`: one of the group's files, `#`, and a name in lower case
  *                           letters, digits and dashes; one finding in the batch has it, and its
- *                           held lines spell it (`.claude/agents/continuous-prompt-improvement.md`
- *                           § 6. Mark what was read)
+ *                           held lines spell it (the header of `scripts/prompt-runs.mjs` gives
+ *                           their form)
  *                 title     the finding, in one line
  *                 severity  blocker, major or minor, as `.claude/agents/branch-reviewer.md` § 2. Maintainability defines them
  *                 count     how many distinct runs have shown it: those below and those its held

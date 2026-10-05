@@ -7,8 +7,10 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 # Close a prompt run
 
-This skill is the one home of the analysis's form, of the rule for what is pending, and of a
-review's name. The `promptReview*` keys below are `tools/policy/agent-workflows.json`'s.
+This skill is the one home of when a review starts and of a review's name. The form of each line a
+run or a review writes in the tracker, the analysis's among them, and what is pending, are the
+header of `scripts/prompt-runs.mjs`. The `promptReview*` keys below are
+`tools/policy/agent-workflows.json`'s.
 
 ## 1. Write the analysis, or none
 
@@ -18,14 +20,11 @@ unreviewed. Such a run stops here.
 
 Any other run writes one analysis, as a note on the issue or epic it worked
 (`bd note <id> --file <file>`). A run that worked several issues writes one, on the first one its
-pull request's title carries. Its first line is `promptReviewAnalysisMarker`, a space, and the run
-id: the issue's id, `@`, and the UTC second the note is written, as `date -u +%Y-%m-%dT%H:%M:%SZ`
-prints it. Next comes a line holding `promptReviewLoadedHeading`, then a line for each of this
-repository's prompts the run loaded, and no other: its row's path in
-`tools/policy/prompt-budgets.json` (for the worktree briefing, its template's), a space and the
-commit it was read at. Then one line
-holds what `claude --version` prints. Then comes the analysis: what made the run slower or wrong,
-each point with the prompt it concerns. It ends with the counts, so the reviewer can tell a finding
+pull request's title carries. It opens in the form the header of `scripts/prompt-runs.mjs` gives:
+the marker line, with the UTC second the note is written as `date -u +%Y-%m-%dT%H:%M:%SZ` prints
+it; each of this repository's prompts the run loaded, and no other, with its commit; and the line of
+`claude --version`. Then comes the analysis: what made the run slower or wrong, each point with the
+prompt it concerns. It ends with the counts, so the reviewer can tell a finding
 that recurs from one seen once:
 `bd count -t epic -l spec-change --by-label` (`specChangeLabel`), `bd count --by-label`, and
 `bd count -l <label> --by-label` for each `foundAtLabels` label the second lists
@@ -34,14 +33,12 @@ quotes no secret.
 
 ## 2. Check whether a review is due
 
-After the tracker push, list every issue carrying an analysis,
-`bd list --all --notes-contains "<analysis marker>" --json -n 0`. In an issue's notes, an analysis
-runs from its marker line to the next line that opens with `promptReviewAnalysisMarker`,
-`promptReviewReadMarker` or `promptReviewHeldMarker`, and it is pending while no line of
-`promptReviewReadMarker`, a space and its run id follows it.
+After the tracker push, run `mise run prompt-runs -- --only pending`. It prints whether a review is
+due, by `promptReviewDueCount` and `promptReviewDueAgeDays`, and fails on a line in the tracker that
+does not parse, naming it: report that line and stop, since no review starts until a person fixes
+it.
 
-A review is due when `promptReviewDueCount` analyses or more are pending, or the oldest, by the time
-in its run id, is older than `promptReviewDueAgeDays` days. None starts while a pull request from a
+None starts while a pull request from a
 branch `agent/review-prompts-*` is open (`gh pr list --state open --json headRefName`), or while
 `claude agents --json` lists a session whose name starts with `review-prompts` and whose `state` is
 `working` (verified against the CLI, 2.1.289): the pending analyses wait for it. A finished one
