@@ -99,7 +99,9 @@
  * pending for the next review.
  *
  * NEEDS `TYPESAFE_API_KEY` and the network to judge (`tools/lib/typesafe.ts`); `bd` on PATH and the
- * tracker's database, read through `tools/lib/bd-launcher.ts`, unless the override names an export;
+ * tracker's database, read through `scripts/prompt-runs.mjs`'s reader, which uses
+ * `tools/lib/bd-launcher.ts`, and its held lines parsed by that file's parser, unless the override
+ * names an export;
  * `npm ci`, for the SDK. One request per finding with a held key, at 143 to 302 ms each in the
  * 2026-09-29 experiment; 140 such requests, six at a time, took 5.6 s on 2026-10-05 over the
  * tracker's 234 held lines. Without the key it needs neither the network nor the SDK. The selftest
@@ -111,10 +113,10 @@ import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from '
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { describeLauncher, resolveBd, runBd } from '../tools/lib/bd-launcher.ts'
 import { gitEnv } from '../tools/lib/git-env.ts'
 import { copyPolicy, editPolicy, readPolicy } from '../tools/lib/policy.ts'
 import { createJudge } from '../tools/lib/typesafe.ts'
+import { afterMarker, parseHeldLine, readTracker as readTrackerThrough } from './prompt-runs.mjs'
 
 const SELF = fileURLToPath(import.meta.url)
 const REPO_ROOT = resolve(dirname(SELF), '..')
@@ -171,53 +173,26 @@ export function loadPolicy(root) {
 
 /* ------------------------------------------------------------------------------ the held lines ----- */
 
-/** One issue per non-empty line of an export, or a thrown error naming what is not one. */
-function parseExport(text, from) {
-  const lines = text.split('\n').filter((line) => line.trim() !== '')
-  return lines.map((line, i) => {
-    try {
-      return JSON.parse(line)
-    } catch {
-      throw new Error(`${from} line ${i + 1} is not JSON, so it is not what \`bd export\` prints`)
-    }
-  })
-}
-
-/** Every issue in the tracker, from the override's export or from `bd export`; a thrown error when neither can be read. */
+/** Every issue in the tracker, through the one reader `scripts/prompt-runs.mjs` keeps, naming this command's override. */
 export function readTracker(root, overridden) {
-  if (overridden) {
-    let text
-    try {
-      text = readFileSync(join(root, OVERRIDE_EXPORT), 'utf8')
-    } catch (error) {
-      throw new Error(`${ROOT_ENV} names ${root}, which holds no readable ${OVERRIDE_EXPORT} (${error.code ?? error.message}); this command never falls back to the live tracker`)
-    }
-    return parseExport(text, join(root, OVERRIDE_EXPORT))
-  }
-  const found = resolveBd()
-  if (!found.found) throw new Error(`\`bd\` was not found (${found.reason}), so the held lines cannot be read, and without them every finding would get a new key`)
-  if (!found.runnable) throw new Error(`\`bd\` was found and cannot be run: ${found.reason}`)
-  const run = runBd(found.launcher, ['export'], { cwd: REPO_ROOT })
-  const through = describeLauncher(found.launcher)
-  if (run.error || run.status !== 0) {
-    throw new Error(`\`bd export\` through ${through} ${run.error ? `could not start: ${run.error.message}` : `exited ${run.status}: ${run.stderr.trim().split('\n').at(-1) ?? ''}`}`)
-  }
-  return parseExport(run.stdout, `what \`bd export\` printed through ${through}`)
+  return readTrackerThrough(root, overridden, ROOT_ENV)
 }
 
 /**
- * The held lines in the issues' notes: each `{ run, key, file, count, reason }`, and each line that
+ * The held lines in the issues' notes: each `{ run, at, key, file, count, reason }`, parsed by
+ * `scripts/prompt-runs.mjs`, whose header is the one home of the line's form, and each line that
  * opens with the marker and does not parse, with its issue, so a broken one is named, not dropped.
+ * That command fails on such a line; this one lists it, since it reads the held lines alone.
  */
 export function heldLines(issues, marker) {
-  const shape = /^(\S+) (\S+)#([a-z0-9][a-z0-9-]*) (\d+): (.+)$/
   const lines = []
   const unparsed = []
   for (const issue of issues) {
     for (const line of String(issue?.notes ?? '').split('\n')) {
-      if (!line.startsWith(`${marker} `)) continue
-      const m = shape.exec(line.slice(marker.length + 1).trim())
-      if (m) lines.push({ run: m[1], key: `${m[2]}#${m[3]}`, file: m[2], count: Number(m[4]), reason: m[5].trim() })
+      const rest = afterMarker(line, marker)
+      if (rest === undefined) continue
+      const held = parseHeldLine(rest)
+      if (held) lines.push(held)
       else unparsed.push({ issue: issue.id ?? null, line })
     }
   }

@@ -344,10 +344,12 @@ pre-push:
     # beyond that. The command itself reads a token, the tracker and a language model and runs in no
     # job. 1.74 s wall through `mise run` (`/usr/bin/time -p`, one run, while other worktrees ran their
     # gates) on a macOS 26.7.1 laptop with Node 26.8.1, 2026-10-05. The glob is the script, the
-    # client, policy, launcher and git helpers it imports, the policy it reads and the SDK it loads.
+    # client, policy, launcher and git helpers it imports, `scripts/prompt-runs.mjs`, whose held-line
+    # parser and tracker reader it imports, the policy it reads and the SDK it loads.
     - name: prompt-review-match-selftest
       glob:
         - 'scripts/match-held-findings.mjs'
+        - 'scripts/prompt-runs.mjs'
         - 'tools/lib/**'
         - 'tools/policy/**'
         - 'tasks.toml'

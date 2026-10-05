@@ -114,8 +114,8 @@ read a read line, naming the pull request's URL, or `no change` when you opened 
 In the same bracket, append a held line for each finding § 3 held and each one the workflow's
 `findingsHeld` lists: one for each run in this batch that showed it and that no held line of its key
 names yet, on the issue carrying that run, with the count of runs that have shown it so far. Each
-line's form is the header of `scripts/prompt-runs.mjs`; run it after the push, since a line it
-cannot parse fails every run's close.
+line's form is the header of `scripts/prompt-runs.mjs`; run it after the push and correct a line it
+names, since one fails every run's close.
 
 Write each note from a file (`CLAUDE.md` § Bash command style). For each branch in the workflow's
 `discard`, run `mise run worktree:gc --discard <branch>`, or a rejected group's worktree stays for
