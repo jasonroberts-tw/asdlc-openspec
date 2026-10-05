@@ -34,7 +34,7 @@ at most 64 characters: it names the branch and the worktree too. It must not alr
 `openspec/changes/`, nor under `openspec/changes/archive/` with any date prefix. Ask the user to
 confirm it. It cannot change once the worktree exists.
 
-Before asking, read the worktree briefing's template as the trunk has it,
+Before asking, read the worktree briefing's template,
 `git show origin/main:.claude/worktree-CONTEXT.md.tmpl`. The briefing names things this repository
 does not contain. If the change needs one of them, put the conflict in the same question as the
 name, for the user to decide. If they go ahead, the proposal's `## Impact` names the template and
@@ -50,8 +50,8 @@ With `<change>` the confirmed name:
   acceptance criteria) to `.scratch/<change>-epic.md`, then
   `bd create "<change>: <what changes, in a line>" -t epic -l spec-change,<the repo: label open issues here carry> --spec-id openspec/changes/<change> --metadata '{"change":"<change>"}' --body-file .scratch/<change>-epic.md --silent`.
 
-The `spec-change` label keeps the epic and every child out of the general queue. The spelling's one
-home is `specChangeLabel` in `tools/policy/vocabulary.json`.
+The `spec-change` label (`specChangeLabel` in `tools/policy/vocabulary.json`) keeps the epic and
+every child out of the general queue.
 
 ## 4. Cut the worktree
 
@@ -114,8 +114,7 @@ Cite any other file by its full path from the repository root. A bare `spec.md` 
 - Stop, and report the name, the epic, the capabilities and each requirement with its scenarios.
 
 The user reviews the proposal and the specs before anything else happens. Revisions happen here, in
-this stage. The next stage is `change-design` (`CLAUDE.md` § Product work runs as OpenSpec-format
-changes).
+this stage.
 
 A later stage's change to a scenario or an NFR comes back here, as does a spec gap `change-verify`
 finds (`.claude/skills/change-verify/SKILL.md` § 6. Verdict). Label the epic for propose
