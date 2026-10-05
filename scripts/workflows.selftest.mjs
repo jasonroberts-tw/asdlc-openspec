@@ -9,8 +9,8 @@
  * builder's or fixer's prompt. It also holds `.claude/agents/test-builder.md` to a `tools:` line of
  * StructuredOutput alone, on the tracked file and on a copy given Bash; `review-prompts.js` runs
  * with groups of findings built here and the policy's `promptReview*` keys, and its cases assert
- * which findings it refuses as below the threshold, how many skeptics it sends each change and each
- * consolidation, which reports it refuses, which branches it lets the session merge, which analyses
+ * which findings it refuses as below the threshold, how many skeptics it sends each change, each
+ * consolidation and each unstated edit, which reports it refuses, which branches it lets the session merge, which analyses
  * it lets the session mark read and which findings it holds, and how it answers each stored decision
  * case of a changed file with the old text and the new and which outcome keeps a branch out.
  * `author-prompt-cases.js` runs with seeds and cases built here and the policy's `promptReviewCase*`
@@ -68,9 +68,11 @@
  * worktree, and three prompt reviews stopped with no case authored or answered (asdlc-openspec-jtrt).
  * Since then a reader's command that is not one plain run of the reader script, or that names git, is
  * refused, its case seen failing before its fix, and the readers run for real in a fixture
- * repository, the script's refusal of a climbing argument seen failing with its check removed. For
- * the trace (since asdlc-openspec-as9): a scenario left out of every group, a group a tracer returned
- * short or read at
+ * repository, the script's refusal of a climbing argument seen failing with its check removed. Since
+ * asdlc-openspec-d078 it refuses a review that merges a branch with an edit to a file its report lists
+ * as changed and names in no change it states, or only in an entry that is no edit, which no skeptic
+ * read; its three cases were seen failing before its fix. For the trace (since asdlc-openspec-as9):
+ * a scenario left out of every group, a group a tracer returned short or read at
  * another commit counted as traced, a row's gap taken from the tracer's words rather than its
  * reading, a gap nobody could verify counted refuted, a failed proof cleared by a skeptic's vote, a
  * dead lens's reading kept on a run again, and a trace or a pull-request body written with a
@@ -1875,6 +1877,67 @@ function reviewCases(policy) {
         }),
       /names the finding\(s\) \.claude\/skills\/bead\/SKILL\.md#never-given, which its group was not given/,
     ),
+    // asdlc-openspec-d078: a skeptic reads the diff of every file a report lists under filesChanged
+    // before its branch merges, though no change it states names the file. The three cases were seen
+    // failing against the script before the fix.
+    {
+      name: `a file the report lists as changed and names in no change, as one finding's edit across two files stated as one change, is not refused: its diff from the trunk goes to the ${skeptics.blocker} skeptic(s) of an unstated edit, with the changes the report states, and the branch merges once they uphold it`,
+      args: reviewArgs(policy, [
+        { id: 'bead', files: [BEAD, OTHER], findings: [reviewFinding(policy, BEAD, 'gates-before-staging', [RUN_A, RUN_B])] },
+        one('open-pr', OPEN_PR, 'second-watcher', [RUN_B, RUN_C]),
+      ]),
+      reports: { bead: (g) => changed(g, { filesChanged: [BEAD, OTHER] }) },
+      expect: ['done', /^1 to merge, 1 unchanged, 0 not upheld, 0 refused, 0 died; 1 of 1 change\(s\) upheld by \d+ skeptic\(s\); 1 of 1 unstated edit\(s\) upheld by \d+ skeptic\(s\); 3 of 3 run\(s\) read, 1 finding\(s\) held$/],
+      check: ({ result, options }) => {
+        const on = options.filter((o) => o.label.endsWith(`: unstated edit to ${OTHER}`))
+        if (on.length !== skeptics.blocker) return `sent ${on.length} skeptic(s) to the edit to ${OTHER}, not the blocker count ${skeptics.blocker}`
+        if (on.some((o) => o.isolation !== undefined || !o.prompt.includes(`git diff origin/main...agent/wf_example-bead -- ${OTHER}`))) return `a skeptic of the unstated edit does not read the diff of ${OTHER} from the trunk where the session runs`
+        if (on.some((o) => !o.prompt.includes(`A fix for ${BEAD_KEY}`))) return 'a skeptic of the unstated edit is not shown the change the report states'
+        const u = result.groups.find((g) => g.id === 'bead').unstated
+        if (u?.length !== 1 || u[0].file !== OTHER || u[0].outcome !== 'upheld' || u[0].votes.length !== skeptics.blocker) return `bead's unstated edits came back ${JSON.stringify(u)}`
+        return result.merge.join() === 'agent/wf_example-bead' ? null : `merge is ${result.merge.join(', ')}`
+      },
+    },
+    {
+      name: `a file named only by an entry of changes whose finding the report sets aside goes to the ${skeptics.blocker} skeptic(s) of an unstated edit, though the entry goes to none; their refutation keeps the branch out, and the upheld finding is held naming it`,
+      args: reviewArgs(policy, [
+        { id: 'bead', files: [BEAD, OTHER], findings: [reviewFinding(policy, BEAD, 'gates-before-staging', [RUN_A, RUN_B]), reviewFinding(policy, OTHER, 'left-alone', [RUN_A])] },
+        one('open-pr', OPEN_PR, 'second-watcher', [RUN_B, RUN_C]),
+      ]),
+      reports: {
+        bead: (g) =>
+          changed(g, {
+            changes: [change(g.findings[0]), { ...change(g.findings[1]), title: '(none: accounted under notChanged)', edit: 'No edit; see notChanged.', words: 0 }],
+            notChanged: [{ finding: g.findings[1].key, reason: 'Neither run reports a cost.' }],
+          }),
+      },
+      verdict: (key) => reviewVote(key === `unstated edit to ${OTHER}` ? 'refuted' : 'upheld'),
+      expect: ['done', /^0 to merge, 1 unchanged, 1 not upheld, 0 refused, 0 died; 1 of 1 change\(s\) upheld by \d+ skeptic\(s\); 0 of 1 unstated edit\(s\) upheld by \d+ skeptic\(s\); 3 of 3 run\(s\) read, 3 finding\(s\) held$/],
+      check: ({ result, calls }) => {
+        if (skepticsOn(calls, `${OTHER}#left-alone`)) return 'a skeptic judged, as an edit, the entry whose finding its agent set aside'
+        if (skepticsOn(calls, `unstated edit to ${OTHER}`) !== skeptics.blocker) return `sent ${skepticsOn(calls, `unstated edit to ${OTHER}`)} skeptic(s) to the edit to ${OTHER}, not ${skeptics.blocker}`
+        if (result.merge.length) return `merge is ${result.merge.join(', ')}, not empty`
+        const held = heldFinding(result, BEAD_KEY)
+        if (!held || !/^upheld, but its branch also carried the unstated edit to \.claude\/skills\/other\/SKILL\.md, which the skeptics did not uphold/.test(held.reason)) return `the upheld finding was held as ${JSON.stringify(held)}`
+        const aside = heldFinding(result, `${OTHER}#left-alone`)
+        return aside?.reason === "set aside by its file's agent: Neither run reports a cost." ? null : `the finding set aside was held as ${JSON.stringify(aside)}`
+      },
+    },
+    {
+      name: "a consolidated file no change names is an unstated edit, its diff read from the consolidation's commit to the branch, so what the branch does to it after the consolidation is read too",
+      args: reviewArgs(policy, [
+        { id: 'bead', files: [BEAD, OTHER], findings: [reviewFinding(policy, BEAD, 'gates-before-staging', [RUN_A, RUN_B])] },
+        one('open-pr', OPEN_PR, 'second-watcher', [RUN_B, RUN_C]),
+      ]),
+      reports: { bead: (g) => changed(g, { filesChanged: [BEAD, OTHER], consolidations: [consolidation(OTHER)] }) },
+      expect: ['done', /^1 to merge, 1 unchanged, 0 not upheld, 0 refused, 0 died; 1 of 1 change\(s\) upheld by \d+ skeptic\(s\); 1 of 1 consolidation\(s\) upheld by \d+ skeptic\(s\); 1 of 1 unstated edit\(s\) upheld by \d+ skeptic\(s\); 3 of 3 run\(s\) read, 1 finding\(s\) held$/],
+      check: ({ options }) => {
+        const on = options.filter((o) => o.label.endsWith(`: unstated edit to ${OTHER}`))
+        return on.length && on.every((o) => o.prompt.includes(`git diff ${CONSOLIDATION_COMMIT}...agent/wf_example-bead -- ${OTHER}`))
+          ? null
+          : `the edit to ${OTHER} after its consolidation was read by ${on.length} skeptic(s), not each from the consolidation's commit`
+      },
+    },
     {
       name: `a consolidation goes to the blocker count of skeptics (${skeptics.blocker}) whatever its finding's severity, its file's edit is read from the consolidation's commit, and the branch merges once both are upheld`,
       args: reviewArgs(policy),
