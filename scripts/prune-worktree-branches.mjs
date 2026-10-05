@@ -123,7 +123,8 @@
  * under `.claude/worktrees/` or by its path, and waives the age rule for that one alone; every other
  * condition above still holds. It is how a session removes the worktree of a change it has just
  * landed, or of a lane it ran, without waiting the threshold out. The report's `min age:` line names
- * the threshold and what was named; a name that matches no registered worktree is reported.
+ * the threshold and what was named; a name that matches no registered worktree is reported. A run
+ * given it neither reads nor changes the remote (ONLY A BARE RUN SWEEPS THE REMOTE, below).
  *
  * Where the age rule loses. An agent that works longer than `worktreeGcMinAgeHours` in one clean,
  * contained worktree without a commit, a checkout or a rebase, and with no command running there
@@ -189,13 +190,24 @@
  * on the network or deletes a remote branch. That is also why the remote read has no timeout: an
  * operator's run waits on a hung connection as long as git does. A missing trunk skips this sweep too.
  *
- * A run given `--discard` skips it as well, `--remote` or not, and its report says so. The callers
- * that pass `--discard` are the two orchestrators, `fan-out-work` and a prompt review's session, and
- * each is an agent, which pushes only when asked (CLAUDE.md § Git workflow); a remote deletion is a
- * push. Until 2026-10-04 the task's `--remote` reached their runs, so each `--discard` also deleted
- * origin's contained agent branches, an open pull request's head among them, while neither prompt
- * said the run wrote to origin; the branch review of the fan-out sweep of that day found it before
- * any run did. The remote sweep is a plain `mise run worktree:gc`'s, which a person runs.
+ * ONLY A BARE RUN SWEEPS THE REMOTE, and the defect that rule closes. A run given `--discard` or
+ * `--finished` skips this sweep, `--remote` or not, and its report names the flag. Their callers are
+ * agents, which push only when asked (CLAUDE.md § Git workflow), and a remote deletion is a push: the
+ * two orchestrators, `fan-out-work` and a prompt review's session, pass `--discard`, and
+ * `change-finalize` § 8 passes `--finished`. Until 2026-10-04 the task's `--remote` reached every such
+ * run, so each also deleted origin's contained agent branches, an open pull request's head among
+ * them, while no prompt said the run wrote to origin. The branch review of the fan-out sweep of that
+ * day found it for `--discard` before any run did, and the sweep skipped the remote for that flag
+ * alone. On 2026-10-05 the push security review of pull request #147 found the two agent paths that
+ * left. `change-finalize` § 8 makes the real run once its `--dry-run --finished <change>` names no
+ * worktree but its change's, and a "would delete N remote branch(es)" line names no worktree, so the
+ * real run pushed those deletions. A prompt review's session ran one `--discard` per branch of the
+ * workflow's `discard`, which can be empty, and a run with none is a bare one. So `--finished` skips
+ * the remote too, and `--discard` or `--finished` followed by a flag is refused, as one followed by
+ * nothing already was, where the flag had been read as the name. The empty list is the prompt's to
+ * hold (`.claude/agents/continuous-prompt-improvement.md` § 6), since a run with neither flag is the
+ * bare run this sweep is for: `mise run worktree:gc`, naming no worktree and no branch, which a person
+ * runs.
  *
  * Where the remote sweep loses. It deletes the head of an OPEN pull request whose commits are all in
  * the trunk, and GitHub then closes that pull request; no commit is lost, but the pull request's page
@@ -203,9 +215,11 @@
  * when every commit there is upstream. That session's next plain push recreates it, but its
  * `--force-with-lease` push with no expected value is refused as stale info while its clone's
  * tracking ref still names the deleted tip, until `git fetch --prune` drops that ref. It deletes
- * from whichever checkout runs it, a linked worktree included. And a person who runs
- * `mise run worktree:gc --discard <branch>` expecting the remote sweep too gets none, and has to run
- * `mise run worktree:gc` again without `--discard`.
+ * from whichever checkout runs it, a linked worktree included. An agent that runs a bare
+ * `mise run worktree:gc` on its own, which no prompt here asks of one, still pushes those deletions:
+ * the rule reads the flags, not who runs it. And a person who runs `mise run worktree:gc` with
+ * `--discard <branch>` or `--finished <worktree>` expecting the remote sweep too gets none, and has to
+ * run `mise run worktree:gc` again with neither.
  *
  * Deletions are logged to `<git-common-dir>/worktree-gc.log` as `<sha> <branch>` with a timestamp,
  * and the same restore command is printed. A deleted branch was provably contained in the trunk, so
@@ -244,27 +258,30 @@ const finishedArgs = []
 /** Each branch `--discard` named. */
 const discardArgs = []
 
+/**
+ * The name after `--finished` or `--discard` at `argv[i]`, or the run refused, `needs` saying what
+ * was wanted. A flag there is the name left out, never a name: a branch cannot begin with `-`
+ * (`git check-ref-format --branch`), and a run that read it so would be the run its caller did not
+ * ask for, a real one in place of `--dry-run` or a bare one that sweeps the remote.
+ */
+function nameAfter(i, needs) {
+  const value = argv[i]
+  if (!value || value.startsWith('-')) {
+    console.error(`prune-worktree-branches: ${argv[i - 1]} needs ${needs}${value ? `, and ${value} is a flag` : ''}`)
+    process.exit(1)
+  }
+  return value
+}
+
 for (let i = 0; i < argv.length; i += 1) {
   const arg = argv[i]
   if (arg === '--dry-run' || arg === '-n') dryRun = true
   else if (arg === '--remote') sweepRemote = true
   else if (arg === '--trunk') trunkArg = argv[(i += 1)]
   else if (arg === '--repo') repoArg = argv[(i += 1)]
-  else if (arg === '--finished') {
-    const value = argv[(i += 1)]
-    if (!value) {
-      console.error('prune-worktree-branches: --finished needs a worktree name or path')
-      process.exit(1)
-    }
-    finishedArgs.push(value)
-  } else if (arg === '--discard') {
-    const value = argv[(i += 1)]
-    if (!value) {
-      console.error('prune-worktree-branches: --discard needs a branch')
-      process.exit(1)
-    }
-    discardArgs.push(value)
-  } else if (arg === '--help' || arg === '-h') {
+  else if (arg === '--finished') finishedArgs.push(nameAfter((i += 1), 'a worktree name or path'))
+  else if (arg === '--discard') discardArgs.push(nameAfter((i += 1), 'a branch'))
+  else if (arg === '--help' || arg === '-h') {
     console.log(
       'usage: prune-worktree-branches.mjs [--dry-run] [--trunk <ref>] [--repo <path>] [--finished <worktree>]...\n' +
         '                                   [--discard <branch>]... [--remote]\n' +
@@ -278,9 +295,9 @@ for (let i = 0; i < argv.length; i += 1) {
         '  --discard   an agent branch the caller has taken what it wants from, merged, picked or\n' +
         '              rejected: its worktree removed and the branch deleted, contained in the trunk\n' +
         '              or not and without waiting, once every other condition holds; its tip is\n' +
-        '              logged; repeatable. A run given it deletes no remote branch, --remote or not\n' +
+        '              logged; repeatable\n' +
         "  --remote    also delete the trunk remote's agent branches the same proofs clear, in a run\n" +
-        '              given no --discard',
+        '              given neither --discard nor --finished: their callers are agents',
     )
     process.exit(0)
   } else {
@@ -952,8 +969,10 @@ if (sweepRemote) {
   const remote = slash > 0 ? TRUNK.slice(0, slash) : null
   let why = null
   let listing = null
-  // The orchestrators that pass `--discard` are agents, which write to a remote only when asked.
-  if (DISCARD.size > 0) why = '--discard was given; a run without it sweeps the remote'
+  // Only a bare run sweeps the remote: the callers that name a branch or a worktree are agents, which
+  // write to a remote only when asked (the header's REMOTE SWEEP names them).
+  const flag = DISCARD.size > 0 ? '--discard' : FINISHED.size > 0 ? '--finished' : null
+  if (flag !== null) why = `${flag} was given; only a run without --discard or --finished sweeps the remote`
   else if (trunkMissing) why = 'the trunk is missing'
   else if (remote === null) why = `trunk ${TRUNK} is not a remote branch`
   else if (!(gitOut(['remote']) ?? '').split('\n').includes(remote)) why = `no remote ${remote}`
