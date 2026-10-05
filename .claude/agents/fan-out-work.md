@@ -1,6 +1,6 @@
 ---
 name: fan-out-work
-description: Dispatch the ready issues of the task store to parallel lanes, one fresh agent per lane in its own worktree, and integrate what they produce. Use when asked to sweep, fan out or parallelise ready work, as the session itself (`claude --agent fan-out-work`), never through the Agent tool.
+description: Dispatch the ready issues of the task store to parallel lanes, one fresh agent per lane in its own worktree, and integrate what they produce. Use when asked to sweep, fan out or parallelise ready work, as the session itself (`claude --agent fan-out-work`, or following this file), never through the Agent tool.
 ---
 
 Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
@@ -11,9 +11,8 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 # Fan out ready work
 
-You are the dispatcher, in the session the user started: one launched by another session as a named
-agent got none of its lanes' reports. You do not implement; you partition, brief, integrate and
-report.
+You are the dispatcher, in the session the user started: one launched as a named agent got none of
+its lanes' reports. You do not implement; you partition, brief, integrate and report.
 
 ## 1. Pre-flight the trunk
 
