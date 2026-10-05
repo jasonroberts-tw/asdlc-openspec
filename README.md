@@ -217,6 +217,22 @@ does not apply to your platform is absent from its list, not marked optional.
    on every command without it) and `git config beads.role maintainer` (`contributor` on a fork;
    git config is per clone, so no tracked file can set it), then `bd bootstrap`. Never `bd init`:
    it creates a new tracker instead of hydrating this one, and takes over the git hooks directory.
+1. With Claude Code installed, register the marketplaces of the two plugins `.claude/settings.json`
+   enables, then install each plugin for this clone. Run these in the clone, after the steps above
+   have installed `bd` and Vale, because the beads plugin's hook runs `bd prime`:
+
+   ```sh
+   claude plugin marketplace add gastownhall/beads
+   claude plugin marketplace add vale-cli/agent-tools
+   claude plugin install beads@beads-marketplace --scope project
+   claude plugin install vale@agent-tools --scope project
+   ```
+
+   The marketplaces are declared in your own user settings, and each install record names this
+   clone's path. An enabled plugin loads only with both, and only `/plugin` says when one is
+   missing: the beads plugin's hooks, skills and agent, and the Vale plugin's hook, then never run.
+   Check that `claude plugin list` shows both plugins, enabled, at project scope. If `/plugin` later
+   reports a plugin "not cached", its install record is gone: run that plugin's install again.
 1. Run `mise run gates` and read a green suite before the first change. It refuses a clone whose
    hooks are not installed (`CLAUDE.md` § The gate ladder).
 
@@ -236,6 +252,8 @@ does not apply to your platform is absent from its list, not marked optional.
 1. Set `sync.remote` in `.beads/config.yaml` if it still holds a placeholder (`<protocol>` is
    `git+https` or `git+ssh`), run `git config beads.role maintainer` (`contributor` on a fork),
    then `bd bootstrap`. Never `bd init`.
+1. Register the two plugin marketplaces, install both plugins for this clone and check
+   `claude plugin list`, as step 7 of macOS and Linux says.
 1. Run `mise run gates` and read a green suite before the first change.
 
 A clone that is built on Windows is not also built from Linux (a container, WSL): `node_modules`
@@ -247,11 +265,15 @@ holds platform-native binaries. Use one clone per platform.
 1. Clone, open the folder in VS Code, and choose "Reopen in Container".
 1. Wait for the first build, which installs every tool `mise.toml` pins from `mise.lock`.
    `.devcontainer/entrypoint.sh` then runs the install, the git hooks and the tracker's hydration on
-   every start, and warns rather than fails; read its output once. If it warns that a tool
+   every start, registers each plugin marketplace and installs each plugin for the clone where one
+   is missing, and warns rather than fails; read its output once. If it warns that a tool
    `mise.toml` pins is missing from the image, rebuild the container.
 1. If it warned that Vale cannot load `.vale.ini`, run `vale sync` once in the container, then check
    that `vale ls-config` loads. The image carries every tool `mise.toml` pins; the styles land in the
    clone, so a rebuild keeps them.
+1. Check that `claude plugin list` in the container's clone shows both plugins, enabled, at project
+   scope. If the entrypoint warned that it could not add a marketplace or install a plugin, run the
+   command its warning names.
 1. Run `mise run gates` and read a green suite before the first change.
 
 `.devcontainer/README.md` has the reasons and the mounts.
@@ -433,7 +455,7 @@ hooks, and a session reads it once, at its start: restart the session after chan
 | `git commit`, `git checkout`, `git merge`, `git push` | `scripts/git-hooks.mjs` runs the event's jobs from `git-hooks.yml`, those whose globs match the staged or pushed files and every one with no glob, and prints one line per job, the jobs it skipped and a total. | the repository's config (`hook.asdlc-*`, from `mise run hooks:install`) |
 | A session is about to run a Bash command | `scripts/hooks/guard-git.mjs` refuses, from a linked worktree, a git command against a protected branch or the worktree registry; any git command in what a removed worktree leaves under `.claude/worktrees/`, where git would act on the primary checkout; and from any checkout, a `gh pr create` that does not name `main` as its base and a `gh` command that applies the reviewer's approval label. From any checkout it also refuses graphify's `update`, `watch`, `hook install` and `claude install`, which erode the local code graph or write graphify's advice to run `update` into `CLAUDE.md`. | `.claude/settings.json` (`PreToolUse`) |
 | A session is about to write or edit a file | `scripts/hooks/block-generated-edit.mjs` refuses an edit to generated output and names where the change belongs. | `.claude/settings.json` (`PreToolUse`) |
-| A session has written or edited a prose file | The `vale@agent-tools` plugin's hook runs Vale over the whole file and hands back its error-level alerts, the `Layout` style's among them. It is silent where `vale` is not installed. | `.claude/settings.json` (`enabledPlugins`) |
+| A session has written or edited a prose file | The `vale@agent-tools` plugin's hook runs Vale over the whole file and hands back its error-level alerts, the `Layout` style's among them. It is silent where `vale` is not installed, and where the plugin is not: `claude plugin list` shows whether it is. | `.claude/settings.json` (`enabledPlugins`) |
 | A session stops | `scripts/hooks/gate-summary.mjs` runs the fastest gates over the session's checkout, untracked files included, and prints one verdict line. It never blocks the stop. | `.claude/settings.json` (`Stop`) |
 | A subagent stops | The same hook, over the checkout the subagent worked in, with a verdict that says it is a subagent's. | `.claude/settings.json` (`SubagentStop`) |
 | Claude Code creates a worktree | `scripts/hooks/worktree-create.mjs` provisions it through `scripts/new-worktree.sh`: `agent/<name>` off `origin/main`, with a rendered briefing. | `.claude/settings.json` (`WorktreeCreate`) |

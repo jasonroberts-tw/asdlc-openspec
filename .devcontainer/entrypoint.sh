@@ -18,6 +18,10 @@
 # same reason: it depends on what those mounts actually brought in, which is a fact about the host
 # and unknown at build time.
 #
+# ...and the two Claude Code plugins .claude/settings.json enables, beads@beads-marketplace and
+# vale@agent-tools, for both reasons: the marketplaces they come from are registered in the mounted
+# ~/.claude, and a project-scope install record names the clone's path, a bind mount.
+#
 # Wired to ENTRYPOINT by the Dockerfile so that devcontainer.json needs no lifecycle command. Runs
 # on every container start, which is why every step below is idempotent and cheap when there is
 # nothing to do.
@@ -30,6 +34,9 @@ set -uo pipefail
 
 log() { printf '\033[36m[devcontainer]\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[devcontainer]\033[0m %s\n' "$*"; }
+
+# The clone, once setup() has found it; plugins() installs into it.
+workspace=''
 
 setup() {
   local repo="${REPO_WORKSPACE:-}"
@@ -55,6 +62,7 @@ setup() {
   fi
 
   cd "$repo" || return 0
+  workspace="$repo"
 
   # The image installed the toolchain from `mise.toml` and `mise.lock` when it was built (the
   # Dockerfile), so a pin moved since then is missing here, and mise would install it over the
@@ -139,14 +147,6 @@ credentials() {
     warn 'gh is not authenticated -- run `gh auth login`, or see the ~/.config/gh mount in devcontainer.json'
   fi
 
-  # The image registers the beads marketplace at build time, but a mounted ~/.claude hides the
-  # image's copy of it, so the answer depends on the host's state and has to be re-checked here.
-  # Missing it is the most common cause of "the beads skills aren't showing up".
-  if ! claude plugin marketplace list 2>/dev/null | grep -q 'beads-marketplace'; then
-    claude plugin marketplace add gastownhall/beads >/dev/null 2>&1 \
-      || warn 'could not add the beads plugin marketplace -- `claude plugin marketplace add gastownhall/beads`'
-  fi
-
   # ~/.gitconfig is container-local for the reason given above, so an identity set on the host does
   # not reach here, and a commit made without one is a commit nobody can attribute.
   if [ -z "$(git config --global user.email)" ]; then
@@ -154,8 +154,48 @@ credentials() {
   fi
 }
 
+# The two plugins .claude/settings.json enables. A plugin loads only when its marketplace is
+# registered *and* Claude Code holds an install record for it: on 2026-10-03 a host with the beads
+# marketplace registered and no record loaded none of the plugin's hooks, skills or agent, and only
+# /plugin said so (asdlc-openspec-7us). The image registers both marketplaces, but the mounted
+# ~/.claude hides that copy, and the record a project-scope install writes names the clone's path,
+# which the image never sees: so both are checked here against what ~/.claude holds, the record
+# against this clone's path. It runs after credentials(), which makes ~/.claude writable, and with
+# `bd` on PATH, which the beads plugin's hook runs (`bd prime`). No `-y`: an install that would run a
+# command it displays is refused without a terminal, and left to a person.
+plugins() {
+  if [ -z "$workspace" ] || ! cd "$workspace" 2>/dev/null; then
+    return 0
+  fi
+  # Listed once each, so a start with everything in place costs two calls. plugin() reads both.
+  local markets installed
+  markets="$(claude plugin marketplace list --json 2>/dev/null)"
+  installed="$(claude plugin list --json 2>/dev/null)"
+  plugin beads-marketplace gastownhall/beads beads@beads-marketplace
+  plugin agent-tools vale-cli/agent-tools vale@agent-tools
+}
+
+# plugin <marketplace> <its source> <plugin id>: register the marketplace when ~/.claude lacks it,
+# then install the plugin at project scope when no record names this clone.
+plugin() {
+  local market="$1" source="$2" id="$3"
+  if ! printf '%s' "$markets" | jq -e --arg m "$market" 'any(.[]; .name == $m)' >/dev/null 2>&1; then
+    if ! claude plugin marketplace add "$source" >/dev/null 2>&1; then
+      warn "could not add the $market plugin marketplace -- \`claude plugin marketplace add $source\`"
+      return 0
+    fi
+  fi
+  if ! printf '%s' "$installed" | jq -e --arg id "$id" --arg path "$PWD" \
+    'any(.[]; .id == $id and .scope == "project" and .projectPath == $path)' >/dev/null 2>&1; then
+    log "installing the $id plugin for this clone"
+    claude plugin install "$id" --scope project >/dev/null 2>&1 \
+      || warn "could not install the $id plugin -- run \`claude plugin install $id --scope project\` in $PWD"
+  fi
+}
+
 setup || true
 credentials || true
+plugins || true
 
 # Last, so that anything above it reads as a warning about a container that is otherwise ready.
 log 'ready: bd ready | mise run gates | claude'
