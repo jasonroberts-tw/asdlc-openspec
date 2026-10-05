@@ -46,7 +46,7 @@ floor alone and requests no changes, the branch review before the push is the on
 cited issues' criteria, and a title that cites no issue no longer leaves the merge to a person
 (`docs/decisions.md` § D-37). Amended 2026-10-04 by `asdlc-openspec-e6v`: the last step of Propose
 and of Design, and Plan's stop for approval, run the `adversarial-verifier` agent on what the stage
-wrote first (`docs/decisions.md` § D-39).
+wrote first (`docs/decisions.md` § D-39), and Plan files the verifier's note with the tasks.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -275,7 +275,8 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
    draft and write nothing to the tracker until the user approves it. Decided by:
    `.claude/skills/change-plan/SKILL.md` § 3. Stop for approval.
 3. File each task as a child of the epic with `bd create --parent`, and write the approved criteria
-   into the epic. Decided by: `.claude/skills/change-plan/SKILL.md` § 4. File it.
+   and the verifier's note into the epic. Decided by: `.claude/skills/change-plan/SKILL.md` § 4.
+   File it.
 
 #### Build
 

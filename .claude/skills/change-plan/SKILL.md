@@ -101,9 +101,11 @@ section holding the approved criteria as bullets. Then run
 `bd update <epic> --body-file .scratch/<change>-epic-description.md`, and read the epic back to
 check that it holds its earlier description and the criteria.
 
+In the same bracket, write the verifier's note, which § 3 held, on the epic.
+
 Afterwards, `bd ready --parent <epic>` lists exactly the tasks that wait on nothing.
 
 ## 5. Report
 
 Report the epic, its acceptance criteria and whether this stage wrote them or the epic kept its own,
-each task's id with its kind and the IDs it covers, and the first ready task.
+each task's id with its kind and the IDs it covers, the verifier's table, and the first ready task.
