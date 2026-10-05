@@ -371,7 +371,7 @@ const runsOf = (g) => [...new Set(g.findings.flatMap((f) => f.runs))]
 /** Why a path cannot be handed to an agent as its own, or null when it can. */
 function pathProblem(path) {
   if (!isText(path)) return 'is empty'
-  if (path.startsWith('/') || /^[A-Za-z]:/.test(path)) return 'is absolute; pass it relative to the repository'
+  if (path.startsWith('/') || /^[A-Za-z]:/.test(path)) return 'is absolute'
   if (clean(path).split('/').some((segment) => segment === '..' || segment === '')) return 'has an empty or `..` segment'
   return null
 }
@@ -431,7 +431,7 @@ function findingProblem(g, f, i, keys) {
 function argsProblem() {
   const badPolicy = policyProblem()
   if (badPolicy) return badPolicy
-  if (!Array.isArray(A.groups) || A.groups.length === 0) return 'args.groups must be a non-empty list of { id, files, findings }'
+  if (!Array.isArray(A.groups) || A.groups.length === 0) return 'args.groups must be a non-empty list'
   const ids = new Set()
   const owner = new Map()
   const keys = new Set()
