@@ -116,8 +116,8 @@ keep. An option a **blocks** answer rules out goes under "Ruled out" with that a
 ## 7. Recommend, and say where it loses
 
 Choose **adopt**, **adopt with conditions** (each condition is work an issue can carry), **not now**
-(name what would change the answer) or **do not adopt**, and give the case where it loses
-(`CLAUDE.md` § A question shows where its recommendation loses). The choice stays the person's.
+(name what would change the answer) or **do not adopt**. Give the case where it loses
+(`CLAUDE.md` § A question shows where its recommendation loses).
 
 ## 8. File the brief
 
