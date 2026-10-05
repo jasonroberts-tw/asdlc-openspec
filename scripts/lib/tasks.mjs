@@ -9,13 +9,14 @@
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet; this is what it would let through if it were
  * wrong. A reader with its own copy of the read sees another manifest than the rest. A read that fell
  * back to `package.json`'s `scripts` where a tree had no `tasks.toml`, as this one did until no open
- * branch was cut before the move to mise (asdlc-openspec-8juz.7), would take a `tasks.toml` deleted by
- * mistake for a tree from before the move, and pass on whatever `package.json` still held: the
- * test-inventory gate, which compares a branch's head with its merge base, read every test of a head
- * whose `tasks.toml` was gone and passed. And a task with a key mise reads and the readers do not,
- * such as `depends`, `dir` or `env`, would run otherwise than the command every reader sees, so any
- * key but `run` and `description`, each a string, is refused; and so is a template in either (`{{`,
- * `{%` or `{#`), which mise renders, `exec()` included, before the task runs. The near miss, on 2026-10-04: the session review of asdlc-openspec-8juz.6 showed
+ * pull request's merge base predated the move to mise (asdlc-openspec-8juz.7), takes a `tasks.toml`
+ * deleted by mistake for a tree from before the move, and passes on whatever `package.json` still
+ * holds: the test-inventory gate, which compares a branch's head with its merge base, read every test
+ * of a head whose `tasks.toml` was gone and passed. And a task with a key mise reads and the readers
+ * do not, such as `depends`, `dir` or `env`, would run otherwise than the command every reader sees,
+ * so any key but `run` and `description`, each a string, is refused; and so is a template in either
+ * (`{{`, `{%` or `{#`), which mise renders, `exec()` included, before the task runs. The near miss,
+ * on 2026-10-04: the session review of asdlc-openspec-8juz.6 showed
  * `{{ exec(command='echo --selftest') }}` in `counts:check` turn the gate into its selftest under
  * mise, while this loader and `check:jobs` passed the command.
  *
