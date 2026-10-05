@@ -360,9 +360,9 @@ function pathProblem(path) {
 /** Why the policy the session passed cannot drive a run, or null when it can. */
 function policyProblem() {
   const p = A.policy
-  if (!isPlainObject(p)) return 'args.policy must be the `promptReview*` keys of tools/policy/agent-workflows.json, as the agent\'s § 2 prints them'
+  if (!isPlainObject(p)) return 'args.policy must be the `promptReview*` keys of tools/policy/agent-workflows.json'
   const missing = POLICY_KEYS.filter((key) => p[key] === undefined || p[key] === null)
-  if (missing.length) return `args.policy has no ${missing.map((k) => `\`${k}\``).join(', ')}: pass the keys tools/policy/agent-workflows.json holds`
+  if (missing.length) return `args.policy has no ${missing.map((k) => `\`${k}\``).join(', ')}`
   if (!isWhole(p.promptReviewRecurrenceCount)) return 'args.policy `promptReviewRecurrenceCount` must be a whole number of at least 1'
   const majors = p.promptReviewMajorSeverities
   if (!Array.isArray(majors) || majors.some((s) => !SEVERITIES.includes(s))) {
@@ -403,7 +403,7 @@ function findingProblem(g, f, i, keys) {
   if (!isText(f.evidence)) return `group ${g.id}: the finding ${f.key} has no evidence`
   const { promptReviewRecurrenceCount: least, promptReviewMajorSeverities: majors } = A.policy
   if (f.count < least && !majors.includes(f.severity)) {
-    return `group ${g.id}: the finding ${f.key} was shown by ${f.count} run(s) at ${f.severity}, below the threshold (${least} runs, or ${majors.join(' or ')}); hold it (\`.claude/agents/continuous-prompt-improvement.md\` § 3) rather than pass it`
+    return `group ${g.id}: the finding ${f.key} was shown by ${f.count} run(s) at ${f.severity}, below the threshold (${least} runs, or ${majors.join(' or ')})`
   }
   return null
 }
