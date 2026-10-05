@@ -25,7 +25,7 @@ all cost.
 ## 2. Look for a prior decision
 
 Search for the candidate's name and for its kind, such as "hook runner" as well as the product:
-`docs/decisions.md`, `docs/retired/`, `bd search` and `bd list --all --desc-contains`, each with a
+`docs/decisions.md`, `docs/retired/`, the tracker (`CLAUDE.md` § The task store), each with a
 second phrasing, and `git log -S <name> --oneline origin/main`.
 
 - **An entry decided it, or an alternatives list ruled it out:** it is not re-argued (`CLAUDE.md` §
