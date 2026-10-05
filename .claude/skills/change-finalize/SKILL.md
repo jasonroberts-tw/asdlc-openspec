@@ -80,49 +80,34 @@ Write the body to `.scratch/<change>-pr.md`. It covers:
   (`via discovered-from`).
 
 Then open it with the `open-pr` skill, from the branch `agent/<change>`, with that body file and the
-title `<change>: <what changed> (<epic id>)`. The skill watches the checks to the reviewer's verdict,
-and a fix it asks for is made here, in the worktree.
+title `<change>: <what changed> (<epic id>)`. The skill sees it through to the merge and removes the
+worktree and branch after it; a fix it asks for is made in the worktree.
 
 ## 6. Leave the worktree
 
-Call `ExitWorktree` with `keep`. The branch is not in the trunk yet, so `remove` would either refuse
-or discard it. The session is back in the primary checkout.
+`open-pr` § 8 left it once the pull request merged. Handed back unmerged, call `ExitWorktree` with
+`keep`: the branch is not in the trunk yet, so `remove` would either refuse or discard it.
 
 ## 7. Merge, through the reviewer
 
 The pull-request reviewer merges it off the high-risk floor (`docs/decisions.md` § D-07 and § D-37).
-
-Step 5's `open-pr` skill watched the checks to the reviewer's verdict. Read
-`gh pr view <number> --json state,mergedAt,labels`:
-
-- **`MERGED`.** Carry on from the remote branch below, and then step 8.
-- **The review asks for a person.** Its comment names the changed path or key that puts it on the
-  high-risk floor. Tell the user. The user merges it, or applies the approval label for the reviewer
-  to merge it. Never apply the label yourself (`CLAUDE.md` § Git workflow). Wait for `MERGED` as
-  above.
+On the floor, its comment names the changed path or key that puts it there: the user merges it, or
+applies the approval label for the reviewer to merge it. Never apply the label yourself
+(`CLAUDE.md` § Git workflow). Handed back unmerged, the epic stays open, and step 9 reports why.
 
 `scripts/hooks/guard-git.mjs` refuses a merge from a worktree.
 
 Always rebase, never squash. `mise run worktree:gc` can prove a rebase-merged branch is in the trunk,
 but it keeps a squash-merged one.
 
-If the remote branch survives the merge (`git ls-remote --heads origin agent/<change>` prints it),
-run `git push origin --delete agent/<change>`.
+## 8. Check the epic's criteria, and close it
 
-## 8. Clean up, check the epic's criteria, and close it
-
-The cleanup comes first, because an epic's criteria can name its result, such as the worktree
+`open-pr` § 8 cleaned up first, since an epic's criteria can name its result, such as the worktree
 gone.
 
-1. Update the primary checkout: `git fetch origin`, then `git pull --rebase`.
-2. Run `mise run worktree:gc --dry-run --finished <change>` first. The sweep is not scoped to
-   this change: it removes every clean worktree under `.claude/worktrees/` whose branch it proves is
-   in `origin/main`, with that branch, unless its header's conditions keep it
-   (`scripts/prune-worktree-branches.mjs`). If the dry run names only this change's worktree, run it
-   again without `--dry-run`. If it names others, show the user the list, and run it only on their
-   word.
-3. Confirm with `git worktree list` that the worktree is gone.
-4. Check each of the epic's acceptance criteria. They are the bullets under `## Acceptance Criteria`
+1. Update the primary checkout: `git pull --rebase`.
+2. Confirm with `git worktree list` that the worktree is gone.
+3. Check each of the epic's acceptance criteria. They are the bullets under `## Acceptance Criteria`
    in its description, and its `acceptance_criteria` field, as `bd show <epic> --json` prints them.
    Give each one a line for the report: the criterion, its state, and the command you ran or the
    file you read that shows the state now. The state is one of three:
@@ -134,7 +119,7 @@ gone.
    The epic's own notes and a stage's report are not that evidence
    (`CLAUDE.md` § Verification before claiming). An epic with no criteria gets one line that says
    so.
-5. For each criterion that is unmet or not exercised, ask the user whether to file a follow-up that
+4. For each criterion that is unmet or not exercised, ask the user whether to file a follow-up that
    carries it. File each follow-up they approve `discovered-from` the epic, as
    `.claude/skills/change-build/SKILL.md` § 5. What the build turns up files an out-of-scope issue,
    with finalize's found-at label. A criterion with no approved follow-up blocks the close, and the

@@ -22,7 +22,7 @@ failure it prevents.
 - application development workflow (OpenSpec)
 - skills & agents - how agents operate, how they do work (not a complete list)
 	- fan-out-work: analyzes backlog, creates lanes where predicted changes don't overlap, dispatches in parallel
-	- open-pr: creates structured PR, runs the branch-reviewer before the push, and waits for the pull-request reviewer
+	- open-pr: creates structured PR, runs the branch-reviewer before the push, waits for the pull-request reviewer and then the merge, and removes the worktree and branch after it
 	- branch-reviewer: runs before each push, judges three dimensions (correctness, maintainability, blast radius)
 	- pull-request reviewer: runs in CI with no model; merges what is off the high-risk floor, and prints each changed file's reach and co-change partners as evidence
 - tools/policy/: conventions, definitions, configuration
@@ -315,7 +315,7 @@ lockfile change that lifts that version above the floor is refused on the push t
 | Add, rename or remove a task | the `add-task` skill | It keeps the task's `description`, § The tasks below, the hook runner and CI in step. |
 | Make a worktree by hand | `scripts/new-worktree.sh <task-ref> <slug>` | From the primary checkout. It cuts `agent/<name>` from `origin/main`; `npm ci` is the first command inside. |
 | Check your work before a pull request | `mise run gates` | Then fetch, rebase onto `origin/main`, and run it again. |
-| Open a pull request | the `open-pr` skill | Tests the merge against the open pull requests, ends the title with the ids of the issues carried, reviews the branch with the `branch-reviewer` agent before the push, sets the reviewer's `pr-review` status pending from the session, watches the checks with one watcher, and says what each outcome of `verify` and the reviewer asks. Every other skill and agent that opens a pull request opens it with this one. |
+| Open a pull request | the `open-pr` skill | Tests the merge against the open pull requests, ends the title with the ids of the issues carried, reviews the branch with the `branch-reviewer` agent before the push, sets the reviewer's `pr-review` status pending from the session, watches the checks with one watcher, and says what each outcome of `verify` and the reviewer asks. It then waits for the merge with `scripts/pr-review.mjs wait`, and removes the worktree and branch. Every other skill and agent that opens a pull request opens it with this one. |
 | Close a run of a prompt | the `close-prompt-run` skill | Leaves the run's analysis as a note in the tracker and, when enough are pending or the oldest is old enough, launches the reviewer in the background under a name of its own, without waiting for it. |
 | Improve a prompt after running it | the `continuous-prompt-improvement` agent | Launched by the `close-prompt-run` skill (`CLAUDE.md` § Prompt reviews). One review reads every pending analysis, one agent per prompt file; what they change is one pull request, whose description is the review. An edit that turns a stored decision case of its prompt from right to wrong stays out of it (`.claude/prompt-cases/README.md`). |
 | Get a pull request reviewed and merged | nothing: `.github/workflows/pr-review.yml` takes it once `verify` passes | It merges one off the high-risk floor (`prReviewHighRisk*` in `tools/policy/pr-review.json`) and leaves the rest to a person. `gh workflow run pr-review.yml -f pr=<number>` reviews a head again. |

@@ -49,7 +49,11 @@ and of Design, and Plan's stop for approval, run the `adversarial-verifier` agen
 wrote first (`docs/decisions.md` § D-39), Design stops with the verifier's table, and Plan files
 the verifier's note with the tasks. Amended 2026-10-05 by `asdlc-openspec-6yt.3`: the Verify step
 that traces every scenario runs the clause check on a trace with no gap, outside the trace workflow,
-before the trace is written (`docs/decisions.md` § D-42).
+before the trace is written (`docs/decisions.md` § D-42). Amended 2026-10-05 by
+`asdlc-openspec-duqj`: the pull request's last step waits for the merge with
+`scripts/pr-review.mjs wait` and then removes the worktree and branch, as
+`.claude/skills/open-pr/SKILL.md` § 8 now says, so the issue closes once its pull request has
+merged, and Finalize's cleanup is that step's.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -342,12 +346,12 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
    path the archive moved, run `mise run trace` and `mise run gates`, and commit. A test `trace:check`
    refuses, on an ID the change removed or modified, undoes the archive and sends the change back to
    `change-build`. Decided by: `.claude/skills/change-finalize/SKILL.md` § 4. Settle the living spec.
-4. Open the pull request (§ 4.4), titled `<change>: <what changed> (<epic id>)`, then leave the
-   worktree with `ExitWorktree`, keeping it. Decided by: `.claude/skills/change-finalize/SKILL.md`
+4. Open the pull request (§ 4.4), titled `<change>: <what changed> (<epic id>)`; it waits for the
+   merge and then removes the worktree. Decided by: `.claude/skills/change-finalize/SKILL.md`
    § 5. Open the pull request, and § 6. Leave the worktree.
-5. Once it has merged, clean up, check each of the epic's acceptance criteria against a command or
-   a file, and close the epic (§ 4.5). Decided by: `.claude/skills/change-finalize/SKILL.md` § 7.
-   Merge, through the reviewer, and § 8. Clean up, check the epic's criteria, and close it.
+5. Once it has merged, check each of the epic's acceptance criteria against a command or a file,
+   and close the epic (§ 4.5). Decided by: `.claude/skills/change-finalize/SKILL.md` § 7. Merge,
+   through the reviewer, and § 8. Check the epic's criteria, and close it.
 
 ### 4.4 The pull request
 
@@ -376,6 +380,11 @@ Every pull request is opened with the `open-pr` skill, whoever opens it.
    reviewer decides the head by the high-risk floor alone, and merges it or leaves it to a person.
    The table of what each status asks is `.claude/skills/open-pr/SKILL.md` § 7. Act on the outcome.
    Decided by: `scripts/pr-review.mjs`, under `docs/decisions.md` § D-07 as § D-37 amends it.
+7. Wait for the merge with `env PR=<number> node scripts/pr-review.mjs wait`, in the background, as
+   the one watcher. Once it has merged, leave the worktree and run
+   `mise run worktree:gc --dry-run --finished <worktree>`, then the real run once that names this
+   worktree alone, and delete a remote branch that survives. Decided by:
+   `.claude/skills/open-pr/SKILL.md` § 8. Wait for the merge, then clean up.
 
 A person decides the merge when a changed path or JSON key is on the floor:
 `prReviewHighRiskPaths` and `prReviewHighRiskJsonKeys` in `tools/policy/pr-review.json`. The person
@@ -385,15 +394,15 @@ for what that rule alone still holds).
 
 ### 4.5 Close and account
 
-1. When every check is green, close the issue with a reason naming the pull request, from a file:
-   `bd close <id> --reason-file <file>`. If a person decides the merge, an issue whose criterion
-   needs the merged change stays open, with a note naming the pull request, until it merges.
-   Whoever sees the merge closes it. An acceptance criterion that acts outside the repository is
-   not performed; it becomes a follow-up issue labelled `human`. Decided by:
-   `.claude/skills/bead/SKILL.md` § 7. Close on green, with a reason.
+1. Once the pull request has merged, close the issue with a reason naming the pull request, from a
+   file: `bd close <id> --reason-file <file>`. Handed back unmerged, the issue stays open, with a
+   note naming the pull request, until it merges. Whoever sees the merge closes it. An acceptance
+   criterion that acts outside the repository is not performed; it becomes a follow-up issue
+   labelled `human`. Decided by: `.claude/skills/bead/SKILL.md` § 7. Close on the merge, with a
+   reason.
 2. A change's epic closes only after the cleanup and a check of each criterion as met, unmet or not
    exercised; a criterion with no approved follow-up keeps it open. Decided by:
-   `.claude/skills/change-finalize/SKILL.md` § 8. Clean up, check the epic's criteria, and close it.
+   `.claude/skills/change-finalize/SKILL.md` § 8. Check the epic's criteria, and close it.
 3. Write the run's analysis as a note on the issue it worked, from a file, inside a tracker bracket:
    its marker line, the prompts the run loaded and the commit it read them at, what made the run
    slower or wrong, and the counts across runs. Decided by:
@@ -431,6 +440,7 @@ proposes; only a person promotes).
 | `change-verify` lists children that are not closed | The build has not finished. | Run `change-build` in a fresh session (`.claude/skills/change-verify/SKILL.md` § 2. Every task is closed). |
 | `gh pr checks --watch` exits at once with "no checks reported" | Nothing had registered yet. | Start the one watcher again; it is not a second one (`.claude/skills/open-pr/SKILL.md` § 6. Watch it with one watcher). |
 | `pr-review` fails, or says "A person decides" | The reviewer's verdict on this head. | The row for its words in `.claude/skills/open-pr/SKILL.md` § 7. Act on the outcome. |
+| `wait` exits 1: "is open, and the reviewer's status on … is …" | The head moved, conflicts with `main`, or failed `verify` after its verdict. | The row for that status in `.claude/skills/open-pr/SKILL.md` § 7. Act on the outcome, then wait again. |
 | `bd dolt push` is rejected | The tracker's remote moved, or refused the write. | Report the exact command and its error; never force it (`CLAUDE.md` § The task store). |
 
 ## 6. Crib sheet
@@ -460,7 +470,9 @@ gh pr create --base main --head agent/<name> --title "<what changed> (<id>)" --b
 env PR=<number> node scripts/pr-review.mjs mark      # set the review status pending
 gh pr checks <number> --watch                        # one watcher, in the background
 gh pr view <number> --comments                       # read the reviewer's verdict comment
-bd close <id> --reason-file .scratch/<reason>.md     # close, naming the pull request
+env PR=<number> node scripts/pr-review.mjs wait      # wait for the merge, in the background
+mise run worktree:gc --dry-run --finished <worktree>  # once merged, outside the worktree
+bd close <id> --reason-file <file>                   # once merged, naming the pull request
 bd note <id> --file .scratch/<analysis>.md           # leave the run's analysis note
 bd list --all --notes-contains "<marker>" --json -n 0   # is a prompt review due
 bd dolt push                                         # sync tracker after the last write
@@ -474,6 +486,5 @@ mise run openspec:check                               # validate and trial-archi
 bd ready --parent <epic> --json                      # the change's next ready task
 bd list --parent <epic> --status open,in_progress,blocked,deferred --json   # empty means the build finished
 OPENSPEC_TELEMETRY=0 node_modules/.bin/openspec archive <change> --yes   # merge deltas into living spec
-mise run worktree:gc --dry-run                     # what the sweep would remove
 bd count -t epic -l <specChangeLabel> --by-label     # changes, and their send-backs
 ```

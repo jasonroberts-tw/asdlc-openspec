@@ -1,6 +1,6 @@
 ---
 name: open-pr
-description: Open a pull request from an agent branch and see it through its checks - test the merge against the open pull requests, end the title with the ids of the issues it carries, pass the body from a file, set the reviewer's status pending from the session, watch with one watcher, and act on each outcome of verify and the pull-request reviewer. Use whenever a session opens a pull request - from the bead or change-finalize skill, the fan-out-work or prompt-review agent, or when asked to open one.
+description: Open a pull request from an agent branch and see it through to its merge - test the merge against the open pull requests, end the title with the ids of the issues it carries, pass the body from a file, set the reviewer's status pending from the session, watch with one watcher, act on each outcome of verify and the pull-request reviewer, wait for the merge, and remove the worktree and branch after it. Use whenever a session opens a pull request - from the bead or change-finalize skill, the fan-out-work or prompt-review agent, or when asked to open one.
 ---
 
 Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
@@ -13,8 +13,8 @@ A caller brings three things:
 - **the issues it carries**, by id, or none;
 - **the body**, in a file under `.scratch/`, holding what the caller says it holds.
 
-This skill does the rest, and hands back the pull request and the outcome its checks reached
-(step 7). What follows is the caller's.
+This skill does the rest, through the merge and the cleanup after it, and hands back the pull
+request and whether it merged (step 8). What follows is the caller's.
 
 ## 1. The branch is ready
 
@@ -95,8 +95,8 @@ descriptions below are the ones `scripts/pr-review.mjs` sets (`statusFor`, `choo
 |---|---|
 | `verify` fails, and `pr-review` says "verify failed at …; the review waits for a green run" | Read the failing job, then fix, gate and push on the same branch. |
 | `pr-review` fails: "Conflicts with main: rebase onto origin/main and push" | Fetch, rebase onto `origin/main`, gate, and push with `--force-with-lease`. |
-| `pr-review` passes: "Off the high-risk floor; the reviewer merges it" | The reviewer merges it. `gh pr view <number> --json state,mergedAt` shows `MERGED` once it has. |
-| `pr-review` passes: "A person decides: …" | It waits for a person, for the reason given; say so, and why. Never apply the approval label yourself (`CLAUDE.md` § Git workflow). |
+| `pr-review` passes: "Off the high-risk floor; the reviewer merges it" | The reviewer merges it: wait for that (step 8). |
+| `pr-review` passes: "A person decides: …" | It waits for a person, for the reason given; say so, and why, then wait for the merge (step 8). Never apply the approval label yourself (`CLAUDE.md` § Git workflow). |
 | `pr-review` errors: "The review did not complete: …" | Read the `act` job's log first: `gh run list --workflow pr-review.yml`, then `gh run view <run> --log-failed`. A cause in the reviewer's own workflow is not this branch's to fix: the caller files it as a defect found on the way, and the pull request waits on that issue. A cause that does not repeat, such as a network error, is run again once with the command the comment gives, `gh workflow run pr-review.yml -f pr=<number>`. |
 
 A push makes a new head with no status: review it first unless the push only rebased, mark it
@@ -104,4 +104,28 @@ A push makes a new head with no status: review it first unless the push only reb
 
 The reach and co-change partners the comment prints decide nothing, and no push answers them.
 
-Hand the caller the pull request's number and URL, and the outcome in the words of its status.
+## 8. Wait for the merge, then clean up
+
+Once the verdict is the reviewer's merge, or a person's with a user told why, run in the background,
+as the one watcher:
+
+    env PR=<number> node scripts/pr-review.mjs wait
+
+It prints one line, and exits 0 once the pull request has merged. It exits 1 once it has closed
+unmerged; once its head's status is no verdict, when step 7's row for that status applies; or on a
+failed read, after which starting it again is not a second watcher. With no user, a person's verdict
+is handed back unmerged, since nobody would tell the person it waits on.
+
+Once it has merged, clean up from the primary checkout. A session by then in another branch's
+worktree cleans up once it leaves that one, naming each merged worktree with its own `--finished`.
+
+1. Leave the worktree with `ExitWorktree`, action `keep`; the sweep below removes it.
+2. Run `git fetch origin`, then `mise run worktree:gc --dry-run --finished <worktree>`. The sweep is
+   not this worktree's alone (`scripts/prune-worktree-branches.mjs`). If the dry run names this
+   worktree alone, run it again without `--dry-run`; if it names others, only on the user's word,
+   and with no user, report them.
+3. If `git ls-remote --heads origin <branch>` prints the branch, run
+   `git push origin --delete <branch>`.
+
+Hand the caller the pull request's number and URL, whether it merged, in `wait`'s line or the words
+of its status, and what the cleanup removed.

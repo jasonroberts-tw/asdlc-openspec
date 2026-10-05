@@ -75,8 +75,8 @@ person should see it. Nothing else removes a lane whose pick needed a resolution
 
 ## 6. Open the pull request and watch its checks
 
-When every check is green, close each issue the lanes carried as `.claude/skills/bead/SKILL.md` § 7
-says.
+Once `open-pr` reports the merge, close each issue the lanes carried as
+`.claude/skills/bead/SKILL.md` § 7 says.
 
 ## 7. Report one table
 

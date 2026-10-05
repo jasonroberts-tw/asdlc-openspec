@@ -67,8 +67,8 @@ them drafted here:
   state of the worktree and branch after the merge. A criterion restates no scenario:
   `change-verify` already traces every scenario to its proof.
 - **Each one checkable** by a command or a file that shows whether it holds, as
-  `.claude/skills/change-finalize/SKILL.md` § 8. Clean up, check the epic's criteria, and close it
-  reports it.
+  `.claude/skills/change-finalize/SKILL.md` § 8. Check the epic's criteria, and close it reports
+  it.
 
 ## 3. Stop for approval
 
