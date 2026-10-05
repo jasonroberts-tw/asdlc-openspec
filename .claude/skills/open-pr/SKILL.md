@@ -18,8 +18,7 @@ This skill does the rest, and hands back the pull request and the outcome its ch
 
 ## 1. The branch is ready
 
-It has passed `mise run gates` twice, before and after a rebase onto `origin/main`
-(`CLAUDE.md` § The gate ladder). If it has not, do that first.
+It is gated and rebased as `CLAUDE.md` § The gate ladder says. If it is not, do that first.
 
 ## 2. Test the merge against the open pull requests
 
@@ -88,9 +87,8 @@ failing check, and starting it again is not a second watcher.
 
 ## 7. Act on the outcome
 
-The watcher ends once `verify` and the reviewer's `pr-review` check have both settled. `pr-review`
-stays pending until the reviewer has judged the head, which it does once `verify` passes there. The
-verdict is that status and a comment on the pull request (`gh pr view <number> --comments`). The
+The watcher ends once `verify` and the reviewer's `pr-review` check have both settled. The verdict
+is that status and a comment on the pull request (`gh pr view <number> --comments`). The
 descriptions below are the ones `scripts/pr-review.mjs` sets (`statusFor`, `chooseNext`).
 
 | What the checks show | What it asks |
@@ -104,7 +102,6 @@ descriptions below are the ones `scripts/pr-review.mjs` sets (`statusFor`, `choo
 A push makes a new head with no status: review it first unless the push only rebased, mark it
 (step 5), and watch it again (step 6).
 
-The comment also prints each changed file's reach and its co-change partners. They decide nothing,
-and no push answers them.
+The reach and co-change partners the comment prints decide nothing, and no push answers them.
 
 Hand the caller the pull request's number and URL, and the outcome in the words of its status.
