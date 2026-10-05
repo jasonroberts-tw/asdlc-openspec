@@ -92,7 +92,9 @@ export const meta = {
  *   done        every file agent ran, or some did; `groups` says which
  *
  * Each entry of `groups` is the agent's report with its `id`, its `files`, its `findings`, its
- * `runs`, its `asides` (below), a `status` and the `problems` found with it. The status is one of:
+ * `runs`, its `asides` (below), its `notEdits` (the entries of its report's `changes` that are no
+ * edit, which `notEditsOf` takes out of its `changes`), a `status` and the `problems` found with it.
+ * The status is one of:
  *
  *   merge       it changed its files, nothing below was wrong, and a majority of each change's
  *               skeptics upheld it: its branch is in `merge`
