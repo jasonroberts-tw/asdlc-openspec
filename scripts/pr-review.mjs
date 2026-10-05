@@ -4,7 +4,8 @@
  * it sets the `pr-review` commit status on that head and nothing else. The decision is the floor
  * alone. A pull request that adds, changes, deletes or renames a path `prReviewHighRiskPaths` names,
  * or changes a top-level key `prReviewHighRiskJsonKeys` names, fails the status, and a person merges
- * it; any other passes it, and GitHub's auto-merge merges it once `verify` passes too, under the
+ * it; any other passes it, and GitHub's auto-merge, which the session that opened it enables once
+ * `verify` passes too, merges it under the
  * trunk's ruleset (`docs/decisions.md` § D-47). The keys are those of `tools/policy/pr-review.json`,
  * read through `tools/lib/policy.ts`. No language model, no secret and no merge takes part. Whether a
  * pull request does what its issues ask is judged before its push, by the branch review
@@ -715,13 +716,13 @@ export function evidenceMarkdown({ base, reach, reachError, partners, partnersEr
 export function statusFor(decision) {
   const first = decision.reasons[0] ?? ''
   const clip = (text) => (text.length > STATUS_MAX ? `${text.slice(0, STATUS_MAX - 1)}…` : text)
-  if (decision.outcome === 'merge') return { state: 'success', description: `Off the high-risk floor: GitHub merges it once verify passes` }
+  if (decision.outcome === 'merge') return { state: 'success', description: `Off the high-risk floor: auto-merge can merge it once verify passes` }
   if (decision.outcome === 'human') return { state: 'failure', description: clip(`${PERSON_DECIDES}${first}`) }
   return { state: 'error', description: clip(`The review did not complete: ${first}`) }
 }
 
 const HEADLINE = {
-  merge: 'off the high-risk floor, so GitHub merges it once `verify` passes',
+  merge: 'off the high-risk floor, so auto-merge can merge it once `verify` passes',
   human: 'on the high-risk floor, so a person merges it',
   error: 'the review did not complete',
 }
@@ -738,7 +739,7 @@ export function summaryMarkdown({ pr, sha, decision, floor }) {
     lines.push(`${floor.files.length} changed file${floor.files.length === 1 ? '' : 's'}, ${high.length} on the floor (\`prReviewHighRiskPaths\` and \`prReviewHighRiskJsonKeys\` in \`${POLICY}\`).`, '')
   }
   if (decision.outcome === 'human') lines.push(`A person with write access merges it, with the ruleset's bypass. A push sets the status again.`)
-  else if (decision.outcome === 'merge') lines.push(`GitHub's auto-merge merges it once \`verify\` passes too. A push sets the status again.`)
+  else if (decision.outcome === 'merge') lines.push(`Once \`verify\` passes too, the session that opened it enables GitHub's auto-merge, which merges it. A push sets the status again.`)
   else lines.push('`gh run rerun <this run> --failed` runs the review again at this head; a push runs it at the new one.')
   return lines.join('\n')
 }
@@ -749,7 +750,8 @@ export function summaryMarkdown({ pr, sha, decision, floor }) {
  * the required check there, as `checkState` gives it. It waits while GitHub may still merge the head:
  * while a check is pending, while the reviewer's status passes and auto-merge is on, and on a verdict
  * a person decides, which they merge. It ends once nothing will: a failed `verify`, a conflict, a
- * status that is no verdict, or a passing head with auto-merge off. The session then acts on it as
+ * status that is no verdict, no status once `verify` has passed, or a passing head with auto-merge
+ * off. The session then acts on it as
  * `.claude/skills/open-pr/SKILL.md` § 7 says.
  */
 export function waitOutcome(pr, pull, status, verify, policy) {
@@ -762,6 +764,7 @@ export function waitOutcome(pr, pull, status, verify, policy) {
   if (status?.state === 'error' || (status?.state === 'failure' && !String(status.description ?? '').startsWith(PERSON_DECIDES))) {
     return ends(`the reviewer's status on ${head} is ${status.state}: ${status.description}`)
   }
+  if (status === null && verify === 'success') return ends(`the reviewer set no status on ${head}: read its \`review\` run`)
   if (status?.state === 'success' && verify === 'success' && !pull.auto_merge) {
     return ends(`auto-merge is off, so nothing merges ${head}: \`gh pr merge ${pr} --auto --${policy.prReviewMergeMethod}\``)
   }
@@ -1218,11 +1221,23 @@ function stringsIn(value) {
  * context gives its check run that name, which the ruleset may read as the check it requires. The
  * repository's default token reads only (`gh api repos/{owner}/{repo}/actions/permissions/workflow`
  * gave `"read"` on 2026-10-05), so a workflow that grants nothing writes neither. `pr-review.yml`
- * alone may write a status, and `runCheck` holds its job apart. A name an expression builds is not
- * read. `scripts/hooks/guard-workflow-edit.mjs` runs this over an edit before it lands.
+ * alone may write a status, and only on `pull_request_target`, where the trunk's copy runs: on any
+ * other event a branch's own copy runs with that grant, so it is refused here too, and `runCheck`
+ * holds the rest of its job. A name an expression builds is not read. `scripts/hooks/guard-workflow-edit.mjs` runs this over an edit before it lands.
  */
+/** The events a parsed workflow runs on, however its `on:` is spelt. */
+const eventsOf = (doc) => {
+  const on = doc?.on ?? doc?.[true] ?? {}
+  return typeof on === 'string' ? [on] : Array.isArray(on) ? on.map(String) : Object.keys(on)
+}
+
 export function forgeProblems(path, doc, context) {
-  if (path === WORKFLOW) return []
+  if (path === WORKFLOW) {
+    const other = eventsOf(doc).filter((event) => event !== REVIEW_EVENT)
+    return other.length === 0
+      ? []
+      : [`${WORKFLOW} runs on ${other.map((event) => `\`${event}\``).join(', ')}: on an event but \`${REVIEW_EVENT}\` a branch's own copy of it runs with \`statuses: write\` and sets \`${context}\` on its own head, so it runs on \`${REVIEW_EVENT}\` alone (docs/decisions.md § D-47).`]
+  }
   const problems = []
   const why = `only ${WORKFLOW} may write a commit status or a check run, since a workflow that can sets \`${context}\` green on its own head, and GitHub then merges a head the floor sends to a person (docs/decisions.md § D-47)`
   const grants = (permissions) =>
@@ -1296,7 +1311,7 @@ export async function runCheck(root) {
   // One event, a run per head. Until D-47 a schedule, a label, a dispatch and every `verify` run each
   // started a run holding a token that merged (asdlc-openspec-3cp3).
   const on = workflow?.on ?? workflow?.[true] ?? {}
-  const events = typeof on === 'string' ? [on] : Array.isArray(on) ? on.map(String) : Object.keys(on)
+  const events = eventsOf(workflow)
   if (events.length !== 1 || events[0] !== REVIEW_EVENT) {
     fail(`${WORKFLOW} runs on ${JSON.stringify(events)}: it runs on \`${REVIEW_EVENT}\` alone, once for each head a pull request is given, so no schedule, label, dispatch or other workflow starts it.`)
   } else {
@@ -1391,7 +1406,7 @@ export async function runCheck(root) {
     fail(`${WORKFLOW} reads an Actions secret: the reviewer needs nothing beyond the run's own token, and a secret is a credential the pull request's event could be led to spend.`)
   }
 
-  for (const [path, doc] of docs) failures.push(...forgeProblems(path, doc, context))
+  for (const [path, doc] of docs) if (path !== WORKFLOW) failures.push(...forgeProblems(path, doc, context))
 
   // The branch reviewer, the one judge of correctness and maintainability left: named as the floor
   // and the open-pr skill name it, and given only tools that read.
@@ -1739,7 +1754,7 @@ function helperCases(policy) {
       assertEqual(
         ['merge', 'human', 'error'].map((outcome) => statusFor({ outcome, reasons: ['why'] })),
         [
-          { state: 'success', description: 'Off the high-risk floor: GitHub merges it once verify passes' },
+          { state: 'success', description: 'Off the high-risk floor: auto-merge can merge it once verify passes' },
           { state: 'failure', description: 'A person decides: why' },
           { state: 'error', description: 'The review did not complete: why' },
         ],
@@ -1795,13 +1810,14 @@ function helperCases(policy) {
       )),
     h('wait: a pull request closed without a merge ends the wait, by its reason', () =>
       assertEqual(waitOutcome('7', waited({ state: 'closed' }), null, null, policy), { merged: false, line: '#7 was closed without a merge' }, 'outcome')),
-    h('wait: it ends once nothing will merge the head, naming why: a red verify, a conflict, an error, another failure, or auto-merge off', () =>
+    h('wait: it ends once nothing will merge the head, naming why: a red verify, a conflict, an error, another failure, no status once verify passed, or auto-merge off', () =>
       assertEqual(
         [
           waitOutcome('7', waited(), passes, 'failure', policy),
           waitOutcome('7', waited({ mergeable: false }), passes, 'success', policy),
           waitOutcome('7', waited(), { state: 'error', description: 'The review did not complete: boom' }, 'success', policy),
           waitOutcome('7', waited(), { state: 'failure', description: 'set by something else' }, 'pending', policy),
+          waitOutcome('7', waited(), null, 'success', policy),
           waitOutcome('7', waited({ auto_merge: null }), passes, 'success', policy),
         ].map((outcome) => outcome?.line),
         [
@@ -1809,6 +1825,7 @@ function helperCases(policy) {
           `#7 is open, and it conflicts with ${TRUNK}: rebase onto origin/${TRUNK} and push`,
           "#7 is open, and the reviewer's status on fffffff is error: The review did not complete: boom",
           "#7 is open, and the reviewer's status on fffffff is failure: set by something else",
+          '#7 is open, and the reviewer set no status on fffffff: read its `review` run',
           `#7 is open, and auto-merge is off, so nothing merges fffffff: \`gh pr merge 7 --auto --${policy.prReviewMergeMethod}\``,
         ],
         'lines',
@@ -1840,8 +1857,12 @@ function helperCases(policy) {
         'names',
       )
     }),
-    h('forge: the reviewer\'s own workflow may write the status, so it is held by the wiring gate instead', () =>
-      assertEqual(forged(flow({ permissions: { statuses: 'write' } }, { name: context }), WORKFLOW), [], 'problems')),
+    h("forge: the reviewer's own workflow may write the status on its one event, the rest of its job held by the wiring gate", () =>
+      assertEqual(forged(flow({ on: { [REVIEW_EVENT]: { types: REVIEW_TYPES } }, permissions: { statuses: 'write' } }, { name: context }), WORKFLOW), [], 'problems')),
+    h("forge: the reviewer's own workflow run on another event, where a branch's own copy runs, is refused by its reason", () => {
+      const problems = forged(flow({ on: { [REVIEW_EVENT]: {}, pull_request: {} } }), WORKFLOW)
+      return problems.length === 1 && problems[0].startsWith(`${WORKFLOW} runs on \`pull_request\`: on an event but \`${REVIEW_EVENT}\` a branch's own copy`) ? null : `problems ${JSON.stringify(problems)}`
+    }),
   ]
 }
 

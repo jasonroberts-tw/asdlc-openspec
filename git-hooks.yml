@@ -380,7 +380,7 @@ pre-push:
     # it less than the load did: 32.79-44.19 s wall without them and 28.49-40.80 s with them
     # (`/usr/bin/time -p` on `node`, two runs each, alternating, while other worktrees ran their
     # gates), on the same laptop with Node 26.8.1, 2026-10-03. With the workflow-edit guard's
-    # thirteen runs of that hook, and the merge rule's eleven runs of the guard in place of the
+    # fourteen runs of that hook, and the merge rule's eleven runs of the guard in place of the
     # approval label's eighteen: 34.84 s wall (`/usr/bin/time -p` on `node`, one run), on the same
     # laptop with Node 26.8.1, 2026-10-05.
     - name: worktree-hooks

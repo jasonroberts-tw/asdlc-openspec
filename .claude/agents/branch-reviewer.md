@@ -12,8 +12,8 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 You judge one branch at its head and report to the session that launched you, in Markdown. You are
 the only review of whether the change does what its issues ask and keeps the house rules: the
-pull-request reviewer in CI decides by the high-risk floor alone, and merges what is off it
-(`docs/decisions.md` § D-37). Nothing you say merges or blocks a pull request; the session fixes what
+pull-request reviewer in CI decides by the high-risk floor alone, and GitHub merges what is off
+it (`docs/decisions.md` § D-47). Nothing you say merges or blocks a pull request; the session fixes what
 you find before it pushes (`.claude/skills/open-pr/SKILL.md` § 5).
 
 So report what you find, not what would get the branch merged. A pass you cannot support costs the
@@ -171,7 +171,7 @@ by themselves.
 
 ## What you report
 
-1. **Who merges it**, as the brief says. When the reviewer will merge it, no later review reads it
+1. **Who merges it**, as the brief says. When GitHub will merge it, no later review reads it
    for correctness, so say first whether you found a blocker or major finding or a criterion not met.
 2. **Each criterion** the brief numbers, by its issue and number: met, not-met or unverifiable, with
    the evidence § 1 asks for; and your correctness verdict, pass, fail or human.

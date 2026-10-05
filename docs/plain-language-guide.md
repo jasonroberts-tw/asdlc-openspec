@@ -63,13 +63,14 @@ agent's session, when it saves its work, before it shares it, and on the shared 
 proposed change. A later moment never trusts an earlier one. Before an agent shares its work, a
 second agent, with no part in writing it, reads the change against what its item asked for, how
 easy it is to keep up and how far a mistake in it could reach, and the first agent fixes what it
-finds. Once the shared server's checks pass, an automated reviewer asks one thing: does the change
+finds. On the shared server, an automated reviewer asks one thing: does the change
 touch a file on a fixed list of risky things? The list holds the file of rules every agent reads
 first, the reviewer itself, the shared server's jobs, the recorded decisions, the tools' versions,
 the outside code the project uses, the list of commands each check runs, and the checks that hold
 the product to its specifications, with what they import and the settings they read. If it does, a
-person decides. If not, the shared server merges it once its checks pass. Which checks run each changed file, and the files
-that often change with it, are for the second agent to read, before the work is shared.
+person decides. If not, the shared server merges it once its checks pass. Which checks run each
+changed file, and the files that often change with it, are for the second agent to read, before the
+work is shared.
 
 **The loop between them.** What the work turns up goes back on the list. Each new item a run files
 is labelled with the stage that found it and the kind of thing it would fix, so over time the list
@@ -140,7 +141,7 @@ source when someone needs them, and are not copied onto this page.
 | standing description | What the product does now, one file per area of the product; the technical documents call it the living spec. |
 | check | An automatic test of the repository that refuses one kind of mistake; the technical documents call it a gate. |
 | proposed change | A pull request: a set of changes offered for merging into the shared version. |
-| reviewer | The automated reviewer that merges each proposed change, or leaves it to a person when it touches a file on the list of risky things. |
+| reviewer | The automated reviewer that lets each proposed change merge, or leaves it to a person when it touches a file on the list of risky things. |
 | recorded decision | An entry in `docs/decisions.md`, the register, which wins over every other document. |
 | instructions | The files that tell the agents how to work: `CLAUDE.md`, and the skills and agents under `.claude/`. |
 | key | A name such as `CNT-HOOKS`, standing for a count kept in `count-index.md`. |
