@@ -112,7 +112,8 @@ Cite any other file by its full path from the repository root. A bare `spec.md` 
 - Run `mise run openspec:check`. It validates every delta strictly and trial-archives the change
   against the living spec. Fix what it names.
 - Commit the change folder.
-- Stop, and report the name, the epic, the capabilities and each requirement with its scenarios.
+- Stop, and report the name, the epic, the capabilities, each requirement with its scenarios and
+  the verifier's table.
 
 The user reviews the proposal and the specs before anything else happens. Revisions happen here, in
 this stage.
