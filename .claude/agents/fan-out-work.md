@@ -22,10 +22,9 @@ is red, stop and report the failing gate.
 
 ## 2. Partition the ready work into lanes
 
-Read the queue (`bd ready --exclude-label spec-change`: a product change's tasks are worked in its
-own worktree by `change-build`, and the label is `specChangeLabel` in `tools/policy/vocabulary.json`)
-and, for every pair of issues, decide the overlap by reading the files each will touch, not the
-titles:
+Read the queue (`bd ready --exclude-label spec-change`, `specChangeLabel` in
+`tools/policy/vocabulary.json`; `change-build` works a product change's tasks) and, for every pair of
+issues, decide the overlap by reading the files each will touch, not the titles:
 
 | Overlap kind | What it looks like | What to do |
 |---|---|---|
@@ -69,7 +68,8 @@ As each lane reports green, cherry-pick its commits onto your branch. Resolve an
 not in a merge commit: GitHub's rebase merge (`prReviewMergeMethod` in
 `tools/policy/pr-review.json`) cannot carry one. Never rebase a branch that has been pushed. After
 each lane, regenerate every generated file more than one lane touched, renumber any register entry
-that collided, then run `mise run gates`.
+that collided, re-derive each figure a lane measured without the others' work, then run
+`mise run gates`.
 
 Then run `mise run worktree:gc --discard <lane's branch>`, and the same for a lane you drop unless a
 person should see it. Nothing else removes a lane whose pick needed a resolution.
