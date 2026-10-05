@@ -108,6 +108,8 @@ Cite any other file by its full path from the repository root. A bare `spec.md` 
 
 ## 7. Check it, commit it, and stop
 
+- Stage the change folder, and run the `adversarial-verifier` agent on the staged diff, as
+  `.claude/agents/adversarial-verifier.md` § From a change stage says.
 - Run `mise run openspec:check`. It validates every delta strictly and trial-archives the change
   against the living spec. Fix what it names.
 - Commit the change folder.

@@ -73,8 +73,10 @@ them drafted here:
 
 ## 3. Stop for approval
 
-Show the draft, with its coverage of each ID, its exempt tasks and the epic's criteria. Write nothing
-to the tracker until the user approves. Edit the draft as they direct.
+Run the `adversarial-verifier` agent on the draft (`.claude/agents/adversarial-verifier.md` § From a
+change stage), then show the draft, with its coverage of each ID, its exempt tasks and the epic's
+criteria. Write nothing to the tracker, the verifier's note included, until the user approves. Edit
+the draft as they direct.
 
 ## 4. File it
 
