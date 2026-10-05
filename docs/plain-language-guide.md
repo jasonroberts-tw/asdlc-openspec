@@ -8,6 +8,9 @@ Amended 2026-10-04 by `asdlc-openspec-qcqm`: the automated reviewer decides by a
 alone, and the review before an agent shares its work reads the change against its item
 (`docs/decisions.md` § D-37). Amended 2026-10-04 by `asdlc-openspec-ewyi`: that list holds the
 commands each check runs and the checks that hold the product (`docs/decisions.md` § D-38).
+Amended 2026-10-05 by `asdlc-openspec-m8hs`: which checks run a changed file, and what changes with
+it, are for the review before an agent shares its work, not the reviewer (`docs/decisions.md` §
+D-46).
 
 **Which document wins.** This page simplifies. Where it and a technical document disagree, the
 technical document is right and this page needs correcting.
@@ -63,8 +66,8 @@ touch a file on a fixed list of risky things? The list holds the file of rules e
 first, the reviewer itself, the shared server's jobs, the recorded decisions, the tools' versions,
 the outside code the project uses, the list of commands each check runs, and the checks that hold
 the product to its specifications, with what they import and the settings they read. If it does, a
-person decides. If not, the reviewer merges it. Beside its answer it lists which checks run each
-changed file, and the files that often change with it, for a person to read.
+person decides. If not, the reviewer merges it. Which checks run each changed file, and the files
+that often change with it, are for the second agent to read, before the work is shared.
 
 **The loop between them.** What the work turns up goes back on the list. Each new item a run files
 is labelled with the stage that found it and the kind of thing it would fix, so over time the list

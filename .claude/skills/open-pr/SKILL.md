@@ -101,8 +101,6 @@ descriptions below are the ones `scripts/pr-review.mjs` sets (`statusFor`, `choo
 A push makes a new head with no status: review it first unless the push only rebased, mark it
 (step 5), and watch it again (step 6).
 
-The reach and co-change partners the comment prints decide nothing, and no push answers them.
-
 ## 8. Wait for the merge, then clean up
 
 Once the verdict is the reviewer's merge, or a person's with a user told why, run in the background,

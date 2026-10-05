@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `mise run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-45 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43, D-44 and D-45 added 2026-10-05).**
+**Status: every decision from D-01 to D-46 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43, D-44, D-45 and D-46 added 2026-10-05).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-45` is checked by `mise run check:register`, which reads those headings, the table and each
+> `D-01 … D-46` is checked by `mise run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -101,6 +101,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-43** | A run searches before it files an issue outside a change's epic, and a match is noted and counted with a label that is evidence for a person, never a rule | `CLAUDE.md` § The task store, consolidated first; `seenLabelPrefix` in `tools/policy/vocabulary.json`; `bead` § 3 and § 4 and `should-i-adopt` § 2 pointing at it, the latter consolidated first; three budgets in `tools/policy/prompt-budgets.json`; `docs/playbook.md`, `README.md` and `tools/policy/README.md` |
 | **D-44** | A run's analysis lists each of this repository's prompts it loaded on a line of its own, with its commit, and the version of Claude Code it met | `.claude/skills/close-prompt-run/SKILL.md` § 1, consolidated first; `promptReviewLoadedHeading` in `tools/policy/agent-workflows.json`; the skill's budget in `tools/policy/prompt-budgets.json`; D-08's amendment |
 | **D-45** | A prompt's sentence on how Claude Code behaves names the version that verified it, or says none did, and each prompt review lists the stale ones | `CLAUDE.md` § Standing rules for prompts and gates; the tags in `CLAUDE.md`, `bead`, `open-pr`, `close-prompt-run`, `change-finalize`, `should-i-adopt`, `fan-out-work`, the branch reviewer and the prompt reviewer's agent, whose § 7 item 7 lists them; four of the prompts consolidated first; nine budgets in `tools/policy/prompt-budgets.json`; `README.md` § The guardrails |
+| **D-46** | The pull-request reviewer is one job that runs `next` then `act`, and its verdict prints no reach or co-change, which the branch review's brief carries | `.github/workflows/pr-review.yml`'s `queue` job; `scripts/pr-review.mjs` without the `evidence` subcommand, `evidenceFor`, `cutEvidence` or the verdict's evidence, and `runCheck`'s `JOB_SHAPES` keyed by the subcommands a job runs in order, held by `pr-review:check` and `pr-review:selftest`; two cases of `check:toolchain:selftest`; `open-pr` § 7 and its budget; D-24's, D-26's, D-31's and D-37's amendments |
 
 ## Risks
 
@@ -1278,6 +1279,8 @@ Where it loses:
 
 > **Amended 2026-10-04 by D-37.** Item 4 no longer holds as written: `scripts/pr-review.mjs` derives the map at a pull request's merge base, and prints in the reviewer's verdict and the branch reviewer's brief the files it pairs with a changed one that the pull request leaves alone. That steers nothing: it is evidence for a person, so `asdlc-openspec-gtjp`'s question, how a derived map may steer dispatch, stays open.
 
+> **Amended 2026-10-05 by D-46.** The reviewer's verdict no longer prints those files; the branch reviewer's brief alone does. It still steers nothing.
+
 ### D-25 · The emitter-drift hook is retired, its list of triggers empty
 
 **Recorded 2026-10-02**, carried by `asdlc-openspec-ehk5`. On 2026-10-02 the maintainer asked whether `scripts/hooks/check-emitted-drift.mjs` did anything with no triggers, and whether anything argued against retiring it. Shown that it did nothing and that nothing argued for it, they asked for it to be retired.
@@ -1384,6 +1387,8 @@ Where it loses:
 > **Amended 2026-10-04 by D-36.** Items 1 and 2's `npm run harness` and `npm run harness:graph` run as `mise run harness` and `mise run harness:graph`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
 
 > **Amended 2026-10-04 by D-37.** The core gains `reach`, which reads a commit's blobs alone and never runs `redirects()`, and the pull-request reviewer prints its rows as evidence. That makes the core no gate: item 3 and the Why's refusal of one stand.
+
+> **Amended 2026-10-05 by D-46.** The pull-request reviewer no longer prints `reach`'s rows; the branch reviewer's brief alone does. The core is still no gate.
 
 ### D-27 · The policy is split under `tools/policy/` by who may change each key and who reads it, read through one loader and held by a gate of its own
 
@@ -1642,6 +1647,8 @@ Where it loses:
 > **Amended 2026-10-04 by D-36.** Item 6's list of what `mise.toml` may hold gains three settings, `task.output`, `task.quiet` and `task.timings`, each admitted by name at its one value, as item 6's last clause allows a later setting, so five settings in all. The loss "A pin bump matches no job's glob but `check:toolchain`'s" names the forced suite as `mise run gates`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
 
 > **Amended 2026-10-04 by D-37.** Item 3's whole toolset in every job holds no longer for the reviewer's workflow. Each of its jobs installs through `jdx/mise-action`, locked, only the tools it runs, which `install_args` names and `pr-review:check` holds: Node and gh, or Node alone in the job that computes the evidence. So it takes no `bd`, which none of its jobs runs now. `.github/workflows/verify.yml` still takes the whole toolset.
+
+> **Amended 2026-10-05 by D-46.** The reviewer's workflow has one job, which installs Node and gh; no job computes the evidence, so none installs Node alone.
 
 ### D-32 · A prompt review answers each changed prompt's stored decision cases with its old text and its new, and a case that flips from right to wrong keeps the edit out
 
@@ -1934,6 +1941,8 @@ Retirement checklist for `.claude/agents/pr-reviewer.md`, the disposition *Move 
 - Selftests at this entry's commit: `pr-review:selftest` 129 cases, `coupling:selftest` 45, `harness:selftest` 99 in the core and 48 in the graph half, and `check:toolchain:selftest` 82, each from a run of it.
 
 > **Amended 2026-10-04 by D-38.** Item 4's floor gains `.claude/skills/open-pr/SKILL.md`, `tasks.toml`, and every file the gates `prReviewFloorTasks` lists run and import, with every policy key those files name, which `pr-review:check` derives. The last loss narrows: a change to one of those gates' files, or to a policy key they read, no longer merges without a person, and one that weakens any other gate still does. It narrows no further: `verify` runs, before those gates and in the same job, code of the pull request's that the floor does not hold, through which one can still be defeated (D-38's first loss). The first loss stands: CI still cannot tell whether the branch review ran, though no pull request can now drop the step that runs it without a person.
+
+> **Amended 2026-10-05 by D-46.** Item 3 no longer holds in CI: no job computes reach or co-change, the `evidence` job is gone, and the verdict prints neither; `brief --local` still carries both, for the branch reviewer. Item 2's allowlist now names the subcommands a job runs in their order, and the reviewer's one job runs `next` then `act`. The loss "The evidence computed in the job that merges" stands: nothing computes it there. Item 5's "prints the same evidence" now reads: prints the evidence, which the verdict no longer does.
 
 ### D-38 · The floor holds the `open-pr` skill, `tasks.toml`, and the files and policy keys of the gates that hold the product
 
@@ -2250,6 +2259,43 @@ Where it loses: the tags cost words in prompts at their budgets, which a person 
 
 - The inventory, at this entry's commit: 24 sentences carry a tag, 13 "verified against the CLI, 2.1.289" and 11 "not verified against the CLI". Each is listed, with what verified it or why none did, in the pull request that carried this entry. `git grep -n "against the CLI" -- CLAUDE.md .claude`, the command § 7 item 7 gives, prints 27 lines: the 24 tags, the rule's two spellings in `CLAUDE.md` § Standing rules for prompts and gates, and § 7 item 7's own command.
 - The prompts' counts, each `node scripts/check-prompts.mjs --counts`, at `d306687`, after the consolidations and at this entry's commit: `CLAUDE.md` 3,302, 3,284 and 3,339; `bead` 1,618, 1,609 and 1,639; `open-pr` 1,285, 1,277 and 1,287; `change-finalize` 1,422, 1,407 and 1,412; and, with nothing consolidated, `close-prompt-run` 671 and 686, `should-i-adopt` 1,586 and 1,601, `fan-out-work` 840 and 860, the prompt reviewer's agent 2,222 and 2,261, and the branch reviewer 1,929 and 1,947. Each budget row's `means` gives the same steps.
+
+### D-46 · The pull-request reviewer is one job that runs `next` then `act`, and its verdict prints no reach or co-change, which the branch review's brief carries
+
+**Recorded 2026-10-05**, carried by `asdlc-openspec-m8hs`. On 2026-10-05 the maintainer asked whether `pr-review.yml` still needs three jobs. Told that only the evidence kept `act` apart from the rest, and that the branch review's brief already carries the same tables, they answered that the review is the reader those tables are for, and asked for the change, the single job put to them with where it loses.
+
+**Builds on / amends:** amends D-37, whose item 3 put the evidence in a read-only job of CI and in the verdict, and whose item 2 had each job run one subcommand; D-31, whose amendment by D-37 names Node alone in the job that computes the evidence; and D-24 and D-26, whose amendments by D-37 have the verdict print the map's partners and the core's reach. Builds on D-21, whose brief carries the reach and co-change for the branch reviewer, and on D-12, under which `open-pr`'s budget falls to its count.
+
+**Decision.**
+
+1. **The workflow has one job, `queue`.** It checks out the trunk with its whole history, installs Node and gh through `jdx/mise-action` and no npm package, runs `node scripts/pr-review.mjs next`, and then, when the action is not `none`, `node scripts/pr-review.mjs act`, each value passed through `env:` from `next`'s outputs. Its token is the one `act` held: contents, pull requests, issues, statuses and actions to write, and checks to read.
+2. **No job computes reach or co-change, and the verdict prints neither.** `scripts/pr-review.mjs` loses its `evidence` subcommand, `evidenceFor`, `cutEvidence` and `EVIDENCE_MAX`, and the verdict comment its evidence section. `evidenceOf` and `evidenceMarkdown` stay for `brief --local`, the one caller, so the branch reviewer reads both tables before every push (`.claude/agents/branch-reviewer.md` § 3).
+3. **`pr-review:check` holds a job to the subcommands it runs, in order.** `JOB_SHAPES` is keyed by them, `next act` its one key, and gives each `run:` the variables its step may set, so `next`'s step cannot hand `act` an action. A job that runs `evidence` is refused as running no subcommand of the script's, and one that runs `act` before `next` as running no shape. The refusal of a job that runs two subcommands, which kept the evidence's packages from the token that merges, goes with the evidence.
+
+**Why.** The evidence's one reader was the branch reviewer, which `brief --local` already gave the same tables from the same `evidenceOf`; the verdict reprinted them for a person after the push. And once nothing needs computing between `next` and `act` with a token that only reads, nothing keeps them apart: `select`'s grants were a subset of `act`'s, both installed Node and gh alone and imported only files on the floor. Two alternatives lost:
+
+- **Keeping the evidence, in three jobs.** A person reading a verdict keeps the tables, but each review pays the evidence job and two gaps between jobs for what the branch review already read.
+- **Dropping the evidence, in two jobs, `select` and `act`.** A run that finds nothing to do would hold no token that merges, but each review pays a gap between jobs, and the one job's code is the same files on the floor either way.
+
+Where it loses:
+
+- **A pull request opened without `open-pr`, by a person, gets no reach or co-change anywhere**, since nothing runs a branch review on it.
+- **A run that finds nothing to do holds the token that merges**, as most of the 15-minute schedule's runs do, where `act`'s job used to be skipped on them.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound; the amendments under D-24, D-26, D-31 and D-37.
+- **`.github/workflows/pr-review.yml`:** the `select`, `evidence` and `act` jobs replaced by `queue`; the header.
+- **`scripts/pr-review.mjs`:** item 2's removals, item 3's `JOB_SHAPES` and `runCheck`; `brief`'s note that only it carries the tables; the selftest's four evidence cases removed, one holding that the verdict prints neither table added, the wiring cases moved to `queue`, the evidence job's three removed, two added for the order and a step's variables, and the one on the evidence in the job that merges rewritten to its refusal now; and the header.
+- **`scripts/check-toolchain.mjs`:** its two selftest cases on the reviewer's workflow, moved to `queue`.
+- **`.claude/skills/open-pr/SKILL.md` § 7:** the sentence on the reach and co-change the comment prints, removed. **`tools/policy/prompt-budgets.json`:** its row.
+- **The rest:** `tools/policy/pr-review.json`'s `gatedBy` and `provenance`; `tools/policy/tool-settings.json`'s `couplingClusterMinJaccardPermilleMeans`; the descriptions of `pr-review:check` and `pr-review:selftest` in `tasks.toml`; a comment in `git-hooks.yml`; `docs/plain-language-guide.md`; and the rows of `README.md`, `scripts/README.md` and `.github/workflows/README.md`.
+
+**Figures.**
+
+- The run that reviewed #154, 37360770831: `select` 19:04:54 to 19:05:11, `evidence` 19:05:23 to 19:05:36, `act` 19:05:45 to 19:05:59, so 65 s from the first start to the last end, 13 s of them `evidence` and 21 s the gaps between jobs (`gh run view 37360770831 --json jobs`).
+- `pr-review:selftest` 158 cases and `check:toolchain:selftest` 82, at this entry's commit, each from a run of it.
+- `open-pr`'s count, `node scripts/check-prompts.mjs --counts`: 1,284 at `dbf088d` and 1,269 at this entry's commit; its budget row's `means` gives the same step.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
