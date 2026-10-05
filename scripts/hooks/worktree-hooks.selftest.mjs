@@ -1163,7 +1163,8 @@ check(
  * a kept worktree, and `raced` moved on the remote to a tip this repository never fetched. A stub
  * `git` then reports `raced` at its old tip, as a push landing between the read and the deletion
  * leaves it, and the lease refuses the deletion. A run given --discard, as an orchestrator runs it
- * through the task that passes --remote, must delete no remote branch, `landed` included. The
+ * through the task that passes --remote, or --finished, as `change-finalize` runs it, must delete no
+ * remote branch, `landed` included, and either flag with no value after it must be refused. The
  * undoctored control is the run the `WorktreeRemove` hook makes, with no --remote, which must neither
  * read nor change the remote.
  * --------------------------------------------------------------------------------------------- */
@@ -1273,7 +1274,7 @@ check(
   rbPushed.every((b) => onRemote(b) !== null) &&
     onRemote('agent/landed') === rbLanded &&
     rbDiscardRun.includes(
-      '  remote origin: not read (--discard was given; a run without it sweeps the remote), so no remote branch is deleted\n',
+      '  remote origin: not read (--discard was given; only a run without --discard or --finished sweeps the remote), so no remote branch is deleted\n',
     ),
   rbDiscardRun.slice(0, 1500),
 )
@@ -1282,6 +1283,46 @@ check(
   rbDiscardRun.includes(`    agent/discarded  ${rbDiscarded.slice(0, 8)}  (named by --discard)\n`),
   rbDiscardRun.slice(0, 1500),
 )
+
+// THE FINISHED RUN, and the flags with no value (2026-10-05, the push security review of #147).
+// `change-finalize` § 8 runs `mise run worktree:gc --finished <change>` for real once its dry run
+// names only its own worktree, which a remote line does not contradict, so it too carries the task's
+// `--remote` from an agent: `landed` must survive it. `--discard` or `--finished` with nothing after
+// it, or with a flag after it, is the caller's name left out, so the run is refused rather than made
+// without it, a bare run that would sweep the remote, or with the flag swallowed as the name.
+const rbFinishedRun = rbRun('--finished', 'no-such-worktree', '--remote')
+check(
+  'a run given --finished deletes no remote branch, even with --remote, and says why',
+  rbPushed.every((b) => onRemote(b) !== null) &&
+    onRemote('agent/landed') === rbLanded &&
+    rbFinishedRun.includes(
+      '  remote origin: not read (--finished was given; only a run without --discard or --finished sweeps the remote), so no remote branch is deleted\n',
+    ),
+  rbFinishedRun.slice(0, 1500),
+)
+/** Every pushed branch's tip on the fixture remote, so a case can show its run changed none. */
+const rbTips = () => rbPushed.map(onRemote).join()
+for (const [label, extra, reason] of [
+  ['--discard with no branch after it', ['--remote', '--discard'], 'prune-worktree-branches: --discard needs a branch\n'],
+  [
+    '--discard with a flag where its branch goes',
+    ['--remote', '--discard', '--dry-run'],
+    'prune-worktree-branches: --discard needs a branch, and --dry-run is a flag\n',
+  ],
+  [
+    '--finished with a flag where its worktree goes',
+    ['--remote', '--finished', '--dry-run'],
+    'prune-worktree-branches: --finished needs a worktree name or path, and --dry-run is a flag\n',
+  ],
+]) {
+  const before = rbTips()
+  const refused = rbRun(...extra)
+  check(
+    `${label} is refused, by its reason, and the remote is unchanged`,
+    refused === `EXIT 1: ${reason}` && rbTips() === before,
+    refused.slice(0, 600),
+  )
+}
 
 const rbSwept = rbRun('--remote')
 check(

@@ -119,9 +119,9 @@ names yet, on the issue carrying that run. A held line is `promptReviewHeldMarke
 id, a space, the finding's key, a space, the count of runs that have shown it so far, a colon, a
 space and the reason.
 
-Write each note from a file (`CLAUDE.md` § Bash command style). If the review workflow ran, run
-`mise run worktree:gc` with `--discard <branch>` for each branch in its `discard`, or a rejected
-group's worktree stays for good.
+Write each note from a file (`CLAUDE.md` § Bash command style). For each branch in the workflow's
+`discard`, run `mise run worktree:gc --discard <branch>`, or a rejected group's worktree stays for
+good; bare runs prune origin's branches.
 
 End with a closing report: the pull request, or that none opened, and what § 7 item 5 names; with no
 pull request, it is the only record of what held a run.
