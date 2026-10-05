@@ -161,6 +161,7 @@ the rule. The third column wins over the first two.
 | A high-risk pull request merged without a person, or two merged at once | `.github/workflows/pr-review.yml`, one run at a time, deciding by the floor through `scripts/pr-review.mjs`; `pr-review:check` and `pr-review:selftest` hold its wiring and its decisions | `CLAUDE.md` § Git workflow |
 | A pull request merged without being held to the issue it carries | The `branch-reviewer` agent `open-pr` § 5 runs before each push; nothing in CI, which judges only the floor (`docs/decisions.md` § D-37) | `.claude/skills/open-pr/SKILL.md` § 5. Push, open, and mark it pending |
 | A program that rewrites its own instructions from what it observed | The prompt reviewer only opens a pull request; one that touches the high-risk floor, as a word budget does, waits for a person, and its skeptics and stored cases judge its edits first | `CLAUDE.md` § A program proposes; only a person promotes |
+| A recurring prompt-review finding counted from one again because a review keyed it under a new name | `prompt-review:match` asks TypeSafe whether each new finding is one a held line keys, and `review-prompts.js` refuses a finding whose key or count the answer that decided it does not bear out; `prompt-review:match:selftest` and `workflows:selftest` hold both. Nothing refuses a session that copies an answer wrong without contradicting the key or the count | the header of `scripts/match-held-findings.mjs`; `.claude/agents/continuous-prompt-improvement.md` § 3 |
 | A chained shell command whose failing step cannot be told apart, or a workaround for a refused command | Convention, and a `RUN THESE YOURSELF` block at the end of the agent's report | `CLAUDE.md` § Bash command style |
 | A local code graph whose document layer is eroded, or a partial one reported as built | `scripts/code-graph.mjs` builds with `graphify extract`, never `update`, stamps what a language model produced, and exits 1 on graphify's partial-extraction warnings; the `code-graph` skill tells a session never to run graphify's eroding commands, and `scripts/hooks/guard-git.mjs` refuses a session's `graphify update`, `watch`, `hook install` or `claude install`, from any checkout; nothing refuses graphify behind a launcher or a shell word such as `nohup`, its library called through `python -c`, `graphify install --project`, or anything outside a session | `docs/decisions.md` § D-20 |
 
@@ -386,6 +387,8 @@ does.
 | `openspec:selftest` | pre-push + CI |
 | `pr-review:check` | pre-push + CI |
 | `pr-review:selftest` | pre-push + CI |
+| `prompt-review:match` | |
+| `prompt-review:match:selftest` | pre-push + CI |
 | `prompts:incidents` | |
 | `prompts:incidents:selftest` | pre-push + CI |
 | `tests:fresh` | |
@@ -477,6 +480,7 @@ hooks, and a session reads it once, at its start: restart the session after chan
 | `git push` | `citations:check`: every line and section pointer in every tracked text file resolves. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes the citations gate, `tools/lib/`, `CLAUDE.md` or a prompt file | `citations:selftest`: the citations gate, negative-tested. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `tools/citations/`, `tools/lib/`, `tools/policy/`, `package.json` or `package-lock.json` | `citations:support:selftest`: the citation-support advisory over a stubbed judge. The advisory itself reads a token and the network, so it runs in no job. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `scripts/match-held-findings.mjs`, `tools/lib/`, `tools/policy/`, `tasks.toml`, `package.json` or `package-lock.json` | `prompt-review:match:selftest`: the prompt review's match of new findings to held ones, over a fixture export and a stubbed judge. The match itself reads a token, the tracker and the network, so it runs in no job. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes a hook, a worktree script, `.vale.ini` or `.gitignore` | `worktree:selftest`: the worktree hooks and the guard, negative-tested. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `.vale.ini`, `.vale-styles/Layout/` or its selftest | `vale:selftest`: the `Layout` style's rules over fixtures, and every styled section of `.vale.ini` applying it. It runs `vale`, which mise installs on the CI runner too, so it is a `.github/workflows/verify.yml` step as well. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes a hook, the citations gate, `tools/lib/` or what `check:jobs` reads | `gate-summary:selftest`: the Stop hook's verdict over untracked and ignored files, and the checkout it gates; and the checkout the edit hook places an edit in. | `git-hooks.yml` (`pre-push`) |
