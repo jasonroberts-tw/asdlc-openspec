@@ -66,7 +66,7 @@ file at the `worktreePath` its completion notice gives: its final message may no
 ## 5. Integrate on your own branch
 
 As each lane reports green, cherry-pick its commits onto your branch. Resolve any conflict there,
-not in a merge commit: the reviewer's rebase merge (`prReviewMergeMethod` in
+not in a merge commit: GitHub's rebase merge (`prReviewMergeMethod` in
 `tools/policy/pr-review.json`) cannot carry one. Never rebase a branch that has been pushed. After
 each lane, regenerate every generated file more than one lane touched, renumber any register entry
 that collided, then run `mise run gates`.

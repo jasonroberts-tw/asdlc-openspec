@@ -11,7 +11,7 @@
  * switching to or rewriting a protected branch from a worktree; the primary checkout is where a
  * person works, and what they commit or push there is theirs to decide. So the guard asks git
  * whether the command runs in a linked worktree and skips every git rule if not. The PR-base,
- * approval-label and graphify rules below are the exceptions and apply everywhere, because what they
+ * merge-bypass and graphify rules below are the exceptions and apply everywhere, because what they
  * guard is not worktree isolation. Where the command runs is the payload's `cwd`, never `CLAUDE_PROJECT_DIR`;
  * `commandDir` below says what reading the variable cost.
  *
@@ -39,27 +39,18 @@
  * inferred (CLAUDE.md § Git workflow). That has nothing to do with worktrees, so unlike the git
  * rules it is enforced in the primary checkout too.
  *
- * IT ALSO GUARDS THE APPROVAL LABEL, EVERYWHERE. It refuses a `gh` command that applies the
- * reviewer's approval label, `prReviewLabels.approved` in `tools/policy/pr-review.json`, in any
- * letter case, alone or in a comma-separated list: `gh pr edit` or `gh issue edit` with
- * `--add-label`, `gh pr create` with `--label`, and `gh api` writing an issue's labels with a
- * `labels` field. It also refuses a `gh api` label write whose body it cannot read (`--input`, a
- * `-F labels…=@file` field), and any label at all while it cannot read the policy. The reviewer
- * merges a high-risk pull request once that label is applied after its verdict by an account with
- * write access, and it cannot tell a person from an agent holding their credentials
- * (docs/decisions.md § R-01). No incident yet: were this rule wrong, an agent could apply the label,
- * and a pull request no person read would merge. It holds in the primary checkout too, because the
- * hook runs only on a session's Bash calls, and a person approves from the web UI or a terminal of
- * their own. It reads only the command line, so a label applied through the web UI, curl, a browser
- * tool, a GraphQL mutation (which names a label by its id) or a program the command starts passes
- * it. It reads the policy only when a command applies a label, through the loader
- * `tools/lib/policy.ts`, which it loads only then, so every other command costs nothing: importing
- * that TypeScript took a `node -e` start from 31 ms to 61 ms, the mean of 20 runs each (Node 26.8.1,
- * 2026-10-02). It reads the records of this file's own checkout, the one the session started in
- * (`.claude/README.md` § The hooks); `GUARD_GIT_ROOT` names another checkout, so a by-hand run or the
- * selftest can point it at a doctored copy. The rule needs nothing but those records:
+ * IT ALSO GUARDS THE MERGE PAST THE CHECKS, EVERYWHERE. It refuses `gh pr merge` with `--admin`,
+ * which merges with the maintainer's bypass of the checks the trunk's ruleset requires, `verify` and
+ * `pr-review` (docs/decisions.md § D-47): that is a person's merge of a head on the high-risk floor,
+ * and a session holding the maintainer's credentials could otherwise make it. From a worktree it lets
+ * `gh pr merge --auto` through, which only asks GitHub to merge once those checks pass, and refuses
+ * any other merge as the orchestrator's call. No incident yet: were this rule wrong, an agent could
+ * merge a pull request no person read. Until 2026-10-05 (asdlc-openspec-3cp3) it guarded the
+ * reviewer's approval label in the same place, which retired with the label. It reads only the
+ * command line, so a merge through `gh api`, curl, a browser tool or the web UI passes it
+ * (docs/decisions.md § R-01).
  *
- *   printf '%s' '{"tool_input":{"command":"gh pr edit 1 --add-label x"}}' | GUARD_GIT_ROOT=/tmp/copy node scripts/hooks/guard-git.mjs
+ *   printf '%s' '{"tool_input":{"command":"gh pr merge 1 --admin --rebase"}}' | node scripts/hooks/guard-git.mjs
  *
  * IT ALSO GUARDS THE LOCAL CODE GRAPH, EVERYWHERE. It refuses graphify's `update`, `watch`, `hook
  * install` and `claude install` (`GRAPHIFY_ERODING` below), run by name or as a Python module,
@@ -82,9 +73,8 @@
  */
 import { spawnSync } from 'node:child_process'
 import { realpathSync } from 'node:fs'
-import { createRequire } from 'node:module'
-import { basename, join } from 'node:path'
-import { readHookInput, ROOT } from './_shared.mjs'
+import { basename } from 'node:path'
+import { readHookInput } from './_shared.mjs'
 
 /* ============================================================================================= *
  * Are we in a linked worktree?
@@ -590,7 +580,13 @@ const PR_BASE =
   `a pull request must name \`${TRUNK}\` as its base: \`gh pr create --base ${TRUNK} ...\`. ` +
   `The base is typed, never inferred: with no \`--base\`, gh takes the repository's GitHub default ` +
   `branch, a setting outside this repository that need not be the trunk.`
-const PR_MERGE = `merging is the orchestrator's call, not a task agent's. Open the PR and stop.`
+const PR_MERGE =
+  `a merge now is the orchestrator's call, not a task agent's. From a worktree, ask GitHub to merge ` +
+  `once \`verify\` and \`pr-review\` pass: \`gh pr merge <number> --auto --rebase\` (open-pr § 5).`
+const PR_ADMIN =
+  `\`--admin\` merges past the checks the trunk's ruleset requires, with the maintainer's bypass: ` +
+  `that is a person's merge of a head on the high-risk floor, never an agent's (CLAUDE.md § Git ` +
+  `workflow). Enable auto-merge with \`--auto\`, and leave a head on the floor to a person.`
 
 /**
  * Does this `gh pr create` explicitly target the trunk?
@@ -610,151 +606,34 @@ function basesTrunk(rest) {
 }
 
 /* ============================================================================================= *
- * The approval label, then every `gh` rule together.
+ * Every `gh` rule together.
  * ============================================================================================= */
 
-/** The checkout whose records spell the approval label; `GUARD_GIT_ROOT` points a by-hand run at a doctored copy. */
-const POLICY_ROOT = process.env.GUARD_GIT_ROOT ?? ROOT
-/** Where those records are, for a refusal to name. */
-const POLICY = join(POLICY_ROOT, 'tools', 'policy')
-/** The loader, required synchronously and only when called (the header says what loading it costs). */
-const require = createRequire(import.meta.url)
-
 /**
- * `prReviewLabels.approved` from the policy, or `null` when the records cannot be read or do not
- * spell it. Read only once a command is found to apply a label, so every other command costs nothing.
+ * Whether `rest` sets the boolean flag `name`: `--name`, or `--name=<value>` with any value but
+ * `false`, as gh's flag parser reads it.
  */
-function approvalLabel() {
-  try {
-    const { readPolicy } = require('../../tools/lib/policy.ts')
-    const label = readPolicy(POLICY_ROOT)?.prReviewLabels?.approved
-    return typeof label === 'string' && label.trim() !== '' ? label : null
-  } catch {
-    return null
-  }
-}
+const flagSet = (rest, name) =>
+  rest.some((t) => t === name || (t.startsWith(`${name}=`) && t.slice(name.length + 1) !== 'false'))
 
 /**
- * Every value `rest` gives any of `names`: `--name value`, `--name=value`, and for a short flag
- * `-n value`, `-nvalue` and `-n=value`, as gh's flag parser reads them.
- */
-function flagValues(rest, names) {
-  const out = []
-  for (let i = 0; i < rest.length; i++) {
-    const t = rest[i]
-    for (const name of names) {
-      if (t === name) {
-        if (i + 1 < rest.length) out.push(rest[i + 1])
-      } else if (name.startsWith('--')) {
-        if (t.startsWith(`${name}=`)) out.push(t.slice(name.length + 1))
-      } else if (t.startsWith(name) && !t.startsWith('--')) {
-        out.push(t.slice(name.length).replace(/^=/, ''))
-      }
-    }
-  }
-  return out
-}
-
-/** Each label a list of values names, split at commas as `--add-label "a,b"` is. */
-const labelNames = (values) =>
-  values.flatMap((v) => v.split(',')).map((v) => v.trim()).filter((v) => v !== '')
-
-/** The body of a `gh api` label write is out of sight: this stands for "labels it cannot read". */
-const UNSEEN = Symbol('unseen')
-
-/**
- * An issue's own endpoint, or its labels: `repos/<owner>/<repo>/issues/<n>` and `…/labels`, with or
- * without a leading slash or the API's host. A pull request is an issue here, and both accept labels
- * by `POST`, `PUT` or `PATCH`.
- */
-const ISSUE_ENDPOINT = /(?:^|\/)repos\/[^/]+\/[^/]+\/issues\/[^/?]+(?:\/labels)?\/?(?:\?.*)?$/
-const LABEL_WRITES = new Set(['POST', 'PUT', 'PATCH'])
-
-/** The labels a `gh api` call writes to an issue, `UNSEEN`, or `null` if it writes none. */
-function apiLabels(endpoint, rest) {
-  if (!ISSUE_ENDPOINT.test(endpoint)) return null
-  const raw = flagValues(rest, ['-f', '--raw-field'])
-  const typed = flagValues(rest, ['-F', '--field'])
-  const input = flagValues(rest, ['--input'])
-  // gh's own default: GET, or POST once a field or a body is given.
-  const methods = flagValues(rest, ['-X', '--method'])
-  const method =
-    methods.length > 0
-      ? methods[methods.length - 1].toUpperCase()
-      : raw.length + typed.length + input.length > 0
-        ? 'POST'
-        : 'GET'
-  if (!LABEL_WRITES.has(method)) return null
-  const isLabels = (field) => /^labels(?:\[|=|$)/.test(field)
-  const value = (field) => field.slice(field.indexOf('=') + 1)
-  if (input.length > 0) return UNSEEN
-  if (typed.filter(isLabels).some((f) => value(f).startsWith('@'))) return UNSEEN
-  const names = labelNames([...raw, ...typed].filter(isLabels).map(value))
-  return names.length > 0 ? names : null
-}
-
-/** The labels this `gh` call applies, `UNSEEN`, or `null` if it applies none. */
-function labelsApplied({ group, sub, rest }) {
-  let names = []
-  if ((group === 'pr' || group === 'issue') && sub === 'edit') {
-    names = labelNames(flagValues(rest, ['--add-label']))
-  } else if (group === 'pr' && sub === 'create') {
-    names = labelNames(flagValues(rest, ['--label', '-l']))
-  } else if (group === 'api') {
-    return apiLabels(sub, rest)
-  }
-  return names.length > 0 ? names : null
-}
-
-const APPROVAL = (label) =>
-  `\`${label}\` is the reviewer's approval label (prReviewLabels.approved in tools/policy/pr-review.json), ` +
-  `and a person applies it, never an agent: the reviewer merges a high-risk pull request on it, and ` +
-  `cannot tell a person from an agent holding their credentials (CLAUDE.md § Git workflow, ` +
-  `docs/decisions.md § R-01). Leave the pull request waiting for a person, and say so in your report.`
-const LABEL_UNSEEN = (label) =>
-  `this writes an issue's labels from a body the guard cannot read (\`--input\`, or a ` +
-  `\`-F labels…=@file\` field), so it cannot tell whether it applies \`${label}\`, the reviewer's ` +
-  `approval label, which a person applies, never an agent (CLAUDE.md § Git workflow). Pass each ` +
-  `label as \`-f labels[]=<name>\`, or use \`gh pr edit --add-label\`.`
-const POLICY_UNREAD =
-  `this applies a label, and \`prReviewLabels.approved\` could not be read from the records under ` +
-  `${POLICY}/, so the guard cannot tell whether it is the reviewer's approval label, which a person ` +
-  `applies, never an agent (CLAUDE.md § Git workflow). It refuses every label until the policy reads.`
-
-/**
- * The reason to deny a `gh` call that applies the approval label, or `null` to allow it.
- *
- * Label names match in any letter case, because GitHub resolves them that way: `Review:Approved`
- * applies the label the policy spells in lower case, and the reviewer counts it.
- */
-function approvalDenial(call) {
-  const applied = labelsApplied(call)
-  if (applied === null) return null
-  const label = approvalLabel()
-  if (label === null) return POLICY_UNREAD
-  if (applied === UNSEEN) return LABEL_UNSEEN(label)
-  const wanted = label.toLowerCase()
-  return applied.some((name) => name.toLowerCase() === wanted) ? APPROVAL(label) : null
-}
-
-/**
- * The reason to deny this `gh` call, or `null` to allow it. The approval label is judged on every
- * call; otherwise only `gh pr` is.
+ * The reason to deny this `gh` call, or `null` to allow it. Only `gh pr` is judged.
  *
  * `linked` separates two different kinds of rule that happen to share a command. The BASE rule is
  * about where an omitted `--base` falls back to -- a default branch set on GitHub, not here -- so it
- * is just as true in the primary checkout and applies everywhere. The approval-label rule applies
- * everywhere too: this hook runs only on a session's commands, and the label is a person's to apply.
- * The MERGE rule is about worktree isolation: merging is the orchestrator's call, and in the primary
- * checkout the orchestrator is the person typing, so blocking them there would be wrong.
+ * is just as true in the primary checkout and applies everywhere. The ADMIN rule applies everywhere
+ * too: this hook runs only on a session's commands, and a merge past the required checks is a
+ * person's. The MERGE rule is about worktree isolation: a merge now is the orchestrator's call, and
+ * in the primary checkout the orchestrator is the person typing, so blocking them there would be
+ * wrong. Auto-merge, and turning it off, are not a merge now: GitHub merges once the checks pass.
  */
-function denialForGh(call, linked) {
-  const approval = approvalDenial(call)
-  if (approval !== null) return approval
-  const { group, sub, rest } = call
+function denialForGh({ group, sub, rest }, linked) {
   if (group !== 'pr') return null
   if (sub === 'create') return basesTrunk(rest) ? null : PR_BASE
-  if (sub === 'merge') return linked ? PR_MERGE : null
+  if (sub === 'merge') {
+    if (flagSet(rest, '--admin')) return PR_ADMIN
+    if (linked && !flagSet(rest, '--auto') && !flagSet(rest, '--disable-auto')) return PR_MERGE
+  }
   return null
 }
 

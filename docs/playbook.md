@@ -57,7 +57,10 @@ merged, and Finalize's cleanup is that step's. Amended 2026-10-05 by `asdlc-open
 `CLAUDE.md` § The task store now says (`docs/decisions.md` § D-43). The step for a defect found on
 the way raises a match's count label. It files afresh a match closed as done whose defect is back.
 The crib sheet gains the command that raises the count, and its note names the policy files its
-placeholders' values are in since D-27.
+placeholders' values are in since D-27. Amended 2026-10-05 by `asdlc-openspec-3cp3`: the reviewer
+sets the `pr-review` status on each pushed head and merges nothing, GitHub's auto-merge merges, the
+step that pushes enables it where it marked the status pending, and the approval label is gone
+(`docs/decisions.md` § D-47).
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -113,11 +116,10 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 | policy file | `tools/policy.json`: every constant a prompt or a tool reads, each beside a `Means` sibling saying what it decides (`docs/decisions.md` § D-03). |
 | count key | A `CNT-*` key in `count-index.md`, written where the numeral would go (`count-index.md` § How to use it). |
 | prompt | `CLAUDE.md`, `AGENTS.md`, a skill, an agent, a workflow script's literals or the worktree briefing template, each held to a word budget in the policy file (the `check:prompts` task's `description` in `tasks.toml`). |
-| pull-request reviewer | `.github/workflows/pr-review.yml`: it decides one pull request at a time by the high-risk floor, then merges it or leaves it to a person (`docs/decisions.md` § D-07 and § D-37). |
+| pull-request reviewer | `.github/workflows/pr-review.yml`: on each pushed head it sets the `pr-review` status by the high-risk floor, which GitHub's auto-merge waits for beside `verify`; a head on the floor a person merges (`docs/decisions.md` § D-47). |
 | branch review | The `branch-reviewer` agent, run before each push: it holds the branch to the cited issues' acceptance criteria and the house rubrics (`.claude/skills/open-pr/SKILL.md` § 5). |
-| approval label | What a person applies to approve a head the reviewer left to a person, `prReviewLabels` in `tools/policy.json`. An agent never applies it (`CLAUDE.md` § Git workflow). |
 | analysis | A run's account of itself, left as a note on the issue it worked, which a prompt review later reads (`.claude/skills/close-prompt-run/SKILL.md` § 1. Write the analysis, or none). |
-| prompt review | A background session that reads the pending analyses as one batch and proposes prompt edits as one pull request, which merges as any other does: by the reviewer off the high-risk floor, by a person on it (`CLAUDE.md` § Prompt reviews). |
+| prompt review | A background session that reads the pending analyses as one batch and proposes prompt edits as one pull request, which merges as any other does: by GitHub's auto-merge off the high-risk floor, by a person on it (`CLAUDE.md` § Prompt reviews). |
 | `.scratch/` | The gitignored directory for commit messages, pull-request bodies and tracker notes, each passed to its tool by file (`CLAUDE.md` § Bash command style). |
 | `RUN THESE YOURSELF` | The block ending a report, listing in order each command the permission classifier refused (`CLAUDE.md` § Guards). |
 
@@ -377,15 +379,15 @@ Every pull request is opened with the `open-pr` skill, whoever opens it.
 4. Review the branch first, in a context of its own: the `branch-reviewer` agent reads the brief
    `node scripts/pr-review.mjs brief --local` writes, and the session fixes each criterion it finds
    not met and each finding in a file the branch changes. Then push, open it with `--base main`
-   typed, and mark the reviewer's status pending with `env PR=<number> node scripts/pr-review.mjs
-   mark`. Decided by: `.claude/skills/open-pr/SKILL.md` § 5. Push, open, and mark it pending.
+   typed, and enable auto-merge with `gh pr merge <number> --auto --rebase`. Decided by:
+   `.claude/skills/open-pr/SKILL.md` § 5. Push, open, and enable auto-merge.
 5. Watch it with one watcher, `gh pr checks <number> --watch`, in the background, and end the turn
    to wait only if the watcher's exit wakes the session. Decided by:
    `.claude/skills/open-pr/SKILL.md` § 6. Watch it with one watcher.
-6. Act on the outcome. `verify` runs every gate that reads only committed files; once it passes, the
-   reviewer decides the head by the high-risk floor alone, and merges it or leaves it to a person.
-   The table of what each status asks is `.claude/skills/open-pr/SKILL.md` § 7. Act on the outcome.
-   Decided by: `scripts/pr-review.mjs`, under `docs/decisions.md` § D-07 as § D-37 amends it.
+6. Act on the outcome. `verify` runs every gate that reads only committed files; beside it, the
+   reviewer sets `pr-review` on the head by the high-risk floor alone, and GitHub merges a head
+   where both pass. The table of what each status asks is `.claude/skills/open-pr/SKILL.md` § 7. Act
+   on the outcome. Decided by: `scripts/pr-review.mjs`, under `docs/decisions.md` § D-47.
 7. Wait for the merge with `env PR=<number> node scripts/pr-review.mjs wait`, in the background, as
    the one watcher. Once it has merged, leave the worktree and run
    `mise run worktree:gc --dry-run --finished <worktree>`, then the real run once that names this
@@ -394,9 +396,8 @@ Every pull request is opened with the `open-pr` skill, whoever opens it.
 
 A person decides the merge when a changed path or JSON key is on the floor:
 `prReviewHighRiskPaths` and `prReviewHighRiskJsonKeys` in `tools/policy/pr-review.json`. The person
-merges it, or applies the approval label for the reviewer to merge
-it; an agent never applies that label (`CLAUDE.md` § Git workflow, and `docs/decisions.md` § R-01
-for what that rule alone still holds).
+merges it past the checks; an agent never does (`CLAUDE.md` § Git workflow, and `docs/decisions.md`
+§ R-01 for what that rule alone still holds).
 
 ### 4.5 Close and account
 
@@ -435,7 +436,7 @@ proposes; only a person promotes).
 | A gate fails on a missing binary in a new worktree | `npm ci` has not run there. | `npm ci`, then run the gate again (§ 3). |
 | `mise run gates` refuses: no `hook.asdlc-pre-push.command` | The clone's hooks are not installed: `npm ci` ran with install scripts blocked, or with `CI` set. | `mise run hooks:install`, then `mise run gates` again (`CLAUDE.md` § The gate ladder). |
 | The gates are green, yet a pointer in a new file is broken | The file was not staged, so the citations gate never read it. | `git add` it, then `mise run gates` again (§ 4.2, step 5). |
-| A hook refuses a git or `gh` command, or an edit | A guard caught a slip: a protected branch, the approval label, generated output. | Read the refusal, which names what to do instead; never retry a variation (`.claude/worktree-CONTEXT.md.tmpl`). |
+| A hook refuses a git or `gh` command, or an edit | A guard caught a slip: a protected branch, a merge past the checks, generated output, a workflow able to set the reviewer's status. | Read the refusal, which names what to do instead; never retry a variation (`.claude/worktree-CONTEXT.md.tmpl`). |
 | The permission classifier refuses a command | Its judgement of that call, not a rule of the repository. | Skip it, no workaround, and list it in `RUN THESE YOURSELF` (`CLAUDE.md` § Guards). |
 | A rebase conflicts in a way you did not anticipate | Someone else's work landed on the same lines. | Stop and report it; do not resolve it creatively (`.claude/worktree-CONTEXT.md.tmpl`). |
 | ``<id>: no `repo:` label`` from `beads:check` | An open issue does not say where its work lands. | Add its `repo:` label (`CLAUDE.md` § The task store). |
@@ -477,9 +478,8 @@ git rebase origin/main                               # rebase, never merge the t
 mise run gates                                        # gate again after the rebase
 git push -u origin agent/<name>                      # publish the agent branch once
 gh pr create --base main --head agent/<name> --title "<what changed> (<id>)" --body-file .scratch/<pr>.md   # open it, base typed
-env PR=<number> node scripts/pr-review.mjs mark      # set the review status pending
+gh pr merge <number> --auto --rebase                 # GitHub merges it once the checks pass
 gh pr checks <number> --watch                        # one watcher, in the background
-gh pr view <number> --comments                       # read the reviewer's verdict comment
 env PR=<number> node scripts/pr-review.mjs wait      # wait for the merge, in the background
 mise run worktree:gc --dry-run --finished <worktree>  # once merged, outside the worktree
 bd close <id> --reason-file <file>                   # once merged, naming the pull request

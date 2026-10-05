@@ -1,6 +1,6 @@
 ---
 name: open-pr
-description: Open a pull request from an agent branch and see it through to its merge - test the merge against the open pull requests, end the title with the ids of the issues it carries, pass the body from a file, set the reviewer's status pending from the session, watch with one watcher, act on each outcome of verify and the pull-request reviewer, wait for the merge, and remove the worktree and branch after it. Use whenever a session opens a pull request - from the bead or change-finalize skill, the fan-out-work or prompt-review agent, or when asked to open one.
+description: Open a pull request from an agent branch and see it through to its merge - test the merge against the open pull requests, end the title with the ids of the issues it carries, pass the body from a file, enable auto-merge, watch with one watcher, act on each outcome of verify and the pull-request reviewer, wait for the merge, and remove the worktree and branch after it. Use whenever a session opens a pull request - from the bead or change-finalize skill, the fan-out-work or prompt-review agent, or when asked to open one.
 ---
 
 Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
@@ -45,7 +45,7 @@ It opens with any register entry or prerequisite the caller names, then each con
 with the pull request it is against. It ends with the attribution line Claude Code gives for pull
 requests (verified against the CLI, 2.1.289).
 
-## 5. Push, open, and mark it pending
+## 5. Push, open, and enable auto-merge
 
 First review the branch in a context of its own, once before each push: off the high-risk floor,
 no later review reads it for correctness or maintainability (`docs/decisions.md` § D-37). Write the
@@ -65,12 +65,12 @@ Open it ready for review: the reviewer takes no draft, so `--draft` only when th
 draft. If the create fails, run `gh pr list --head <branch>` before retrying: a create can land
 after its client gives up.
 
-Then, at once, set the reviewer's status pending on the new head:
+Then have GitHub merge it once `verify` and the reviewer's `pr-review` pass:
 
-    env PR=<number> node scripts/pr-review.mjs mark
+    gh pr merge <number> --auto --rebase
 
-Until it is done, a watcher has no check to wait on. Nothing else here sets `pr-review` by hand:
-every verdict is the reviewer's workflow's.
+Never pass `--admin`, nor set `pr-review` yourself: either merges a head no person read
+(`CLAUDE.md` § Git workflow).
 
 ## 6. Watch it with one watcher
 
@@ -86,31 +86,31 @@ had registered yet: that is not a failing check, and starting it again is not a 
 
 ## 7. Act on the outcome
 
-The watcher ends once `verify` and the reviewer's `pr-review` check have both settled. The verdict
-is that status and a comment on the pull request (`gh pr view <number> --comments`). The
-descriptions below are the ones `scripts/pr-review.mjs` sets (`statusFor`, `chooseNext`).
+The watcher ends once `verify` and the reviewer's `pr-review` status have both settled. The
+descriptions below are the ones `scripts/pr-review.mjs` sets (`statusFor`); the run each links to
+gives every reason.
 
 | What the checks show | What it asks |
 |---|---|
-| `verify` fails, and `pr-review` says "verify failed at …; the review waits for a green run" | Read the failing job, then fix, gate and push on the same branch. |
-| `pr-review` fails: "Conflicts with main: rebase onto origin/main and push" | Fetch, rebase onto `origin/main`, gate, and push with `--force-with-lease`. |
-| `pr-review` passes: "Off the high-risk floor; the reviewer merges it" | The reviewer merges it: wait for that (step 8). |
-| `pr-review` fails: "A person decides: …", labelled `prReviewLabels.human` | It waits for a person, for the reason given; say so, and why, then wait for the merge (step 8). Red so a person notices, until asdlc-openspec-owva.3 replaces it. Never apply the approval label yourself (`CLAUDE.md` § Git workflow). |
-| `pr-review` errors: "The review did not complete: …" | Read the `queue` job's log first: `gh run list --workflow pr-review.yml`, then `gh run view <run> --log-failed`. A cause in the reviewer's own workflow is not this branch's to fix: the caller files it as a defect found on the way, and the pull request waits on that issue. A cause that does not repeat, such as a network error, is run again once with the command the comment gives, `gh workflow run pr-review.yml -f pr=<number>`. |
+| `verify` fails | Read the failing job, then fix, gate and push on the same branch. |
+| The pull request conflicts with `main` | Fetch, rebase onto `origin/main`, gate, and push with `--force-with-lease`. |
+| `pr-review` passes: "Off the high-risk floor: GitHub merges it once verify passes" | GitHub merges it: wait for that (step 8). |
+| `pr-review` fails: "A person decides: …" | It waits for a person, for the reason given; say so, and why, then wait for the merge (step 8). |
+| `pr-review` errors: "The review did not complete: …" | Read the run its status links to: `gh run view <run> --log-failed`. A cause in the reviewer's own workflow is not this branch's to fix: the caller files it as a defect found on the way, and the pull request waits on that issue. A cause that does not repeat, such as a network error, is run again once: `gh run rerun <run> --failed`. |
 
-A push makes a new head with no status: review it first unless the push only rebased, mark it
-(step 5), and watch it again (step 6).
+A push makes a new head, which the reviewer decides again: review it first unless the push only
+rebased, and watch it again (step 6).
 
 ## 8. Wait for the merge, then clean up
 
-Once the verdict is the reviewer's merge, or a person's with a user told why, run in the background,
-as the one watcher:
+Once `pr-review` passes, or a person decides with a user told why, run in the background, as the
+one watcher:
 
     env PR=<number> node scripts/pr-review.mjs wait
 
 It prints one line, and exits 0 once the pull request has merged. It exits 1 once it has closed
-unmerged; once its head's status is no verdict, when step 7's row for that status applies; or on a
-failed read, after which starting it again is not a second watcher. With no user, a person's verdict
+unmerged; once nothing will merge it, when step 7's row applies or the line gives the command; or on
+a failed read, after which starting it again is not a second watcher. With no user, a person's verdict
 is handed back unmerged, since nobody would tell the person it waits on.
 
 Once it has merged, clean up from the primary checkout. A session by then in another branch's
