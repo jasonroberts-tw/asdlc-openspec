@@ -10,9 +10,8 @@ Read this file first. It is the only home for a rule an agent must follow in thi
 ## Rules for agents live in tracked files, and nowhere else
 
 A rule an agent has to follow has exactly one home: this file, a skill under `.claude/skills/`, an
-agent under `.claude/agents/`, or the header of the tool or gate that enforces it. Change it there,
-through a pull request. A rule with two homes has one that is stale, and the stale one is the one a
-reader finds.
+agent under `.claude/agents/`, or the header of the tool or gate that enforces it. Change it there.
+A rule with two homes has one that is stale, and the stale one is the one a reader finds.
 
 The tracker's memory commands (in Beads, `remember`, `recall` and `memories`) are not used; do not
 write a memory and do not cite one from a tracked file. Claude Code's per-project memory directory under
@@ -69,8 +68,6 @@ in a session with no worktree, in a directory `mktemp -d` makes, with `-F`, `--b
 tool's equivalent. Prefer the Read, Edit and Write tools over `cat`,
 `head`, `sed -n` and shell redirection. Read anything outside the repository in its own call. Never
 let a secret-shaped read share a call with real work: a compound command is refused as a unit.
-
-When a call is refused anyway, follow Guards.
 
 ## Guards
 
