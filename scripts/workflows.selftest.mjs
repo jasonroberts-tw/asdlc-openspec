@@ -1617,6 +1617,8 @@ const statusOf = (result, id) => result.groups.find((g) => g.id === id)?.status
 const problemsOf = (result, id) => (result.groups.find((g) => g.id === id)?.problems ?? []).join('; ')
 const heldRuns = (result) => result.runsHeld.map((h) => h.run).join()
 const heldFinding = (result, key) => result.findingsHeld.find((h) => h.key === key)
+/** The keys `findingsCarried` lists, joined; a missing list reads as one, so a script that drops it fails every check below. */
+const carriedKeys = (result) => (Array.isArray(result.findingsCarried) ? result.findingsCarried.map((f) => f.key).join() : 'no findingsCarried')
 const changeOf = (result, id, key) => result.groups.find((g) => g.id === id)?.changes?.find((c) => c.finding === key)
 const skepticsOn = (calls, key) => calls.filter((label) => label.startsWith('skeptic ') && label.endsWith(`: ${key}`)).length
 
@@ -1682,6 +1684,10 @@ function reviewCases(policy) {
         if (result.merge.join() !== 'agent/wf_example-bead') return `merge is ${result.merge.join(', ')}`
         if (statusOf(result, 'bead') !== 'merge' || statusOf(result, 'open-pr') !== 'unchanged') return 'the statuses are not merge and unchanged'
         if (result.runsRead.join() !== [RUN_A, RUN_B, RUN_C].join() || result.runsHeld.length) return `read ${result.runsRead.join()}, held ${heldRuns(result)}`
+        if (carriedKeys(result) !== BEAD_KEY) return `findingsCarried is ${carriedKeys(result) || 'empty'}, not the merged finding ${BEAD_KEY} alone`
+        const given = reviewFinding(policy, BEAD, 'gates-before-staging', [RUN_A, RUN_B])
+        const carried = result.findingsCarried[0]
+        if (carried.runs.join() !== [RUN_A, RUN_B].join() || carried.count !== given.count) return `the carried finding came back ${JSON.stringify(carried)}, not its runs and count`
         const held = heldFinding(result, OPEN_PR_KEY)
         if (heldFinding(result, BEAD_KEY)) return 'the merged finding was held'
         return held && /^set aside by its file's agent: /.test(held.reason) && held.count === least && held.runs.join() === [RUN_B, RUN_C].join()
@@ -1707,6 +1713,19 @@ function reviewCases(policy) {
         if (got.join() !== want.join()) return `sent ${got.join(' and ')} skeptic(s), not ${want.join(' and ')}`
         const met = [changeOf(result, 'bead', `${BEAD}#counted`).met, changeOf(result, 'bead', `${BEAD}#severe`).met]
         return met.join() === 'recurrence,severity' ? null : `the changes say they met the threshold by ${met.join(' and ')}`
+      },
+    },
+    {
+      name: 'a merged group carries only the findings its changes name: one it set aside is held, never carried',
+      args: reviewArgs(policy, [
+        { id: 'bead', files: [BEAD], findings: [reviewFinding(policy, BEAD, 'carried-one', [RUN_A, RUN_B]), reviewFinding(policy, BEAD, 'set-aside-one', [RUN_A, RUN_B])] },
+        one('open-pr', OPEN_PR, 'second-watcher', [RUN_B, RUN_C]),
+      ]),
+      reports: { bead: (g) => changed(g, { changes: [change(g.findings[0])], notChanged: [{ finding: g.findings[1].key, reason: 'Another edit covers it.' }] }) },
+      check: ({ result }) => {
+        if (statusOf(result, 'bead') !== 'merge') return `bead is ${statusOf(result, 'bead')}, not merge`
+        if (carriedKeys(result) !== `${BEAD}#carried-one`) return `findingsCarried is ${carriedKeys(result)}, not the changed finding alone`
+        return heldFinding(result, `${BEAD}#set-aside-one`) ? null : 'the finding set aside was not held'
       },
     },
     least >= 2 && counted
@@ -2021,6 +2040,7 @@ function reviewCases(policy) {
       check: ({ result }) => {
         if (statusOf(result, 'bead') !== 'not-upheld') return `bead is ${statusOf(result, 'bead')}, not not-upheld`
         if (result.merge.length) return `merge is ${result.merge.join(', ')}, not empty`
+        if (carriedKeys(result) !== '') return `findingsCarried is ${carriedKeys(result)}, though no branch merged`
         const held = heldFinding(result, BEAD_KEY)
         return held && /^upheld, but its branch also carried the consolidation of \.claude\/skills\/bead\/SKILL\.md, which the skeptics did not uphold/.test(held.reason)
           ? null
@@ -2318,6 +2338,7 @@ function storedCaseCases(policy) {
   const regressedOn = (outcome, reason) => ({ result }) => {
     if (statusOf(result, 'bead') !== 'regressed') return `bead is ${statusOf(result, 'bead')}, not regressed`
     if (result.merge.length) return `merge is ${result.merge.join(', ')}, not empty`
+    if (carriedKeys(result) !== '') return `findingsCarried is ${carriedKeys(result)}, though the regressed branch did not merge`
     const c = caseOf(result, CASE)
     if (c?.outcome !== outcome) return `the case came back ${JSON.stringify(c)}, not ${outcome}`
     if (reason && !reason.test(c.why ?? '')) return `the case is ${outcome} for another reason: ${c.why}`

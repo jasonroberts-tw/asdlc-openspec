@@ -42,16 +42,17 @@ Sort every finding by the prompt file it concerns: `CLAUDE.md`, a skill, an agen
 script. Two findings are one when they concern the same prompt file and describe the same failure,
 the same step done wrong or missing at the same place in the prompt, however each analysis words
 it. Run `mise run prompt-review:match` first, as its header says: it keys some findings. Key the
-rest yourself: a finding that is one with
-an earlier held line takes that line's key; a new one gets a short `<file>#<name>`. Give each a
-severity, as `.claude/agents/branch-reviewer.md` § 2. Maintainability defines blocker, major and
-minor, and a count: the distinct runs that have shown it, in this batch and in its held lines.
+rest yourself: a finding that is one with an earlier held line takes that line's key; a new one
+gets a short `<file>#<name>`. Give each a severity, as `.claude/agents/branch-reviewer.md` § 2.
+Maintainability defines blocker, major and minor, and a count: the distinct runs that have shown
+it, in this batch and in its held lines.
 
 Hold every finding below the threshold the workflow's header gives, with the reason
 `below the threshold`: § 6 writes its held lines, and the next review counts them. A finding an
 earlier review held for any other reason goes to a group again only when a run in this batch shows
-it that none of its held lines names. It must still meet the threshold, because the workflow refuses
-a finding below it.
+it that none of its held lines names. A key `mise run prompt-runs` shows closed is held with its
+closed line's reason, unless a run in this batch shows what that reason does not cover. Each must
+still meet the threshold, because the workflow refuses a finding below it.
 
 A group is one file, or several when one finding concerns them together. Its findings are those
 that met the threshold, in the fields the script's header gives `args.groups`. Add to that evidence
@@ -65,8 +66,8 @@ commit, is also a seed for a stored decision case, held or not, unless a case un
 `.claude/workflows/author-prompt-cases.js`'s header gives `args.seeds`.
 
 A finding that concerns no prompt is not this review's: the run that found it files it (`CLAUDE.md`
-§ The task store). Name it in the description, or in the closing report when no pull request opens
-(§ 6).
+§ The task store), and § 6 closes its key, on the file it concerns, by that issue. Name one no run
+filed in the description, or in the closing report when no pull request opens (§ 6).
 
 ## 4. Run the workflow
 
@@ -78,9 +79,9 @@ With a seed, run `.claude/workflows/author-prompt-cases.js` with the seeds, and 
 under `.claude/prompt-cases/`. For each seed, choose one candidate or combine several, give it an
 id, and drop one whose answer no source settles. Run it again with those as `cases`.
 
-With a group, run `.claude/workflows/review-prompts.js` with the groups of § 3, anything already
-settled, and as `cases` every case whose `prompt` is a group's file, from `.claude/prompt-cases/` and
-those just validated.
+With a group, run `.claude/workflows/review-prompts.js` with the groups of § 3, as `settled` the
+closed keys' reasons, and as `cases` every case whose `prompt` is a group's file, from
+`.claude/prompt-cases/` and those just validated.
 
 ## 5. Merge, gate, and open one pull request
 
@@ -111,9 +112,11 @@ read a read line, naming the pull request's URL, or `no change` when you opened 
 
 In the same bracket, append a held line for each finding § 3 held and each one the workflow's
 `findingsHeld` lists: one for each run in this batch that showed it and that no held line of its key
-names yet, on the issue carrying that run, with the count of runs that have shown it so far. Each
-line's form is the header of `scripts/prompt-runs.mjs`; run it after the push and correct a line it
-names, since one fails every run's close.
+names yet, on the issue carrying that run, with the count of runs that have shown it so far. Append,
+too, a closed line for each finding in `findingsCarried`, less any § 5 held, and each key § 3
+closed by its issue, on the issue carrying its latest run. Each line's form is the header of
+`scripts/prompt-runs.mjs`; run it after the push and correct a line it names, since one fails every
+run's close.
 
 Write each note from a file (`CLAUDE.md` § Bash command style). For each branch in the workflow's
 `discard`, run `mise run worktree:gc --discard <branch>`, or a rejected group's worktree stays for
@@ -147,7 +150,9 @@ sections are the value.
    with the evidence.
 5. **What this review read and held.** The runs marked read; each run held with the group that held
    it and why, from the workflow's `runsHeld` and each group's `problems`; and each finding held,
-   with its count and reason, from § 3 and the workflow's `findingsHeld`.
+   with its count and reason, from § 3 and the workflow's `findingsHeld`. Then the closed lines
+   written, and each held key past the threshold no group took, with its reason, for a person to
+   close or keep.
 6. ***Deliberately not changed.*** What was considered and left alone, with the reason. This is the
    section that stops the same suggestion arriving three times. Include each entry of every group's
    asides in the workflow's result, with its reason.

@@ -1,20 +1,22 @@
 /**
  * Prompt runs: parses the prompt review's lines in the tracker and prints, for the two prompts that
- * read them and for a person, what is pending and whether a review is due, what is held, and how
- * often each prompt was loaded. An operator command that `.claude/skills/close-prompt-run/SKILL.md`
- * § 2 and `.claude/agents/continuous-prompt-improvement.md` § 2 run, never a gate.
+ * read them and for a person, what is pending and whether a review is due, what is held and what is
+ * closed, and how often each prompt was loaded. An operator command that
+ * `.claude/skills/close-prompt-run/SKILL.md` § 2 and `.claude/agents/continuous-prompt-improvement.md`
+ * § 2 run, never a gate.
  *
  * THE LINES, AND THIS HEADER AS THEIR ONE HOME. Every line below is a line of an issue's notes, as
  * `bd export` prints them, and opens at the start of the line with a value of
- * `tools/policy/agent-workflows.json`, its marker, and then one space. A line that opens with a
- * marker's word followed by anything but a letter, digit, dash or underscore is a marker line, and
- * fails the command unless it is in its form below: a colon, a tab or nothing after the word is a
- * broken line, never prose. A run id is an issue's id, `@`, and a UTC second spelled as
- * `date -u +%Y-%m-%dT%H:%M:%SZ` prints it: a second that exists, and none after now.
+ * `tools/policy/agent-workflows.json`, its marker, and then one space. A marker is the value of any
+ * key of that record spelt `promptReview…Marker`. A line that opens with a marker's word followed by
+ * anything but a letter, digit, dash or underscore is a marker line, and fails the command unless it
+ * is in its form below: a colon, a tab or nothing after the word is a broken line, never prose, and so
+ * is a line of a marker this header gives no form. A run id is an issue's id, `@`, and a UTC second
+ * spelled as `date -u +%Y-%m-%dT%H:%M:%SZ` prints it: a second that exists, and none after now.
  *
  *   the analysis   `promptReviewAnalysisMarker`, a space and the run id, alone on its line. The
- *                  analysis runs from that line to the next line that opens with this marker,
- *                  `promptReviewReadMarker` or `promptReviewHeldMarker`, or to the end of the notes.
+ *                  analysis runs from that line to the next marker line, of any marker, or to the
+ *                  end of the notes.
  *                  Somewhere after its marker line comes a line holding `promptReviewLoadedHeading`
  *                  alone, then one line for each of this repository's prompts the run loaded: its
  *                  row's path in `tools/policy/prompt-budgets.json` (the worktree briefing's is its
@@ -33,6 +35,18 @@
  *                  the count of runs that have shown it so far, a colon, a space and the reason. A key
  *                  is a prompt's path, `#`, and a name of lower-case letters, digits and dashes that
  *                  opens with a letter or digit.
+ *   the closed line  `promptReviewClosedMarker`, a space, the run id, a space, the key, a space, how
+ *                  it ended, a colon, a space and the reason. The run id is the latest run that
+ *                  showed the finding. How it ended is one of three:
+ *                    `carried <pull request URL>`  a review's pull request carried an edit for it;
+ *                    `issue <issue id>`   an issue owns it, for a finding no prompt owns, the key's
+ *                                         path then the file it concerns;
+ *                    `aside`              a person set it aside, and the reason is theirs.
+ *                  Of a key's closed lines, the one of the latest run decides, on a tie the one whose
+ *                  reason sorts last. It closes the key, whatever held lines follow it, which record
+ *                  only that a run showed the finding again; but a carried line closes it only once
+ *                  its pull request has merged, and one whose pull request closed unmerged leaves the
+ *                  key held, reopened.
  *
  * WHAT IT PRINTS. Each section opens with a line that names it.
  *
@@ -44,8 +58,11 @@
  *             by the time in its run id, is older than `promptReviewDueAgeDays` days. Whether a
  *             review may start beside one under way is not read here: `close-prompt-run` § 2 checks
  *             that.
- *   held      each held key, with its file, the highest count its lines give, the runs they name and
- *             the reason of its line of the highest count, on a tie the line of the latest run.
+ *   held      each key a held or closed line names, with its file, the highest count its held lines
+ *             give, the runs they name and the reason of its held line of the highest count, on a tie
+ *             the line of the latest run; and its state: `held`, `closed` with the closed line that
+ *             decides, `carried` while that line's pull request is open, or `reopened` once it closed
+ *             unmerged.
  *   loads     the window, the `promptReviewLoadWindowDays` days before the newest analysis's time,
  *             the newest included. For each row of `promptWordBudgets`, the analyses in the window
  *             in D-44's form that loaded it. Then each analysis in the window not in that form, and
@@ -70,7 +87,11 @@
  * edit broke, read as nothing pending or nothing held, so every count starts again; an analysis in
  * the old form counted as loading nothing, so every prompt reads as unused; a candidate named under
  * the floor, or one the table names, for a person to retire a prompt that runs need; and a window
- * read from the wall clock, so the same tracker gives two answers a day apart.
+ * read from the wall clock, so the same tracker gives two answers a day apart. Since
+ * asdlc-openspec-r6ha.6 it would also let through a closed key read as held, which every review then
+ * reads and holds again, as the keys of `asdlc-openspec-hpdd`'s notes were for want of the line; a
+ * key carried by a pull request that closed unmerged read as closed, so its finding is never raised
+ * again though nothing fixed it; and an analysis read past a closed line, holding it as prose.
  *
  * WHERE IT LOSES. One malformed line anywhere in the tracker fails it, exit 1, and with it the due
  * check of every run's close, until a person fixes the line; read as prose, the model read past one.
@@ -88,19 +109,24 @@
  *   PROMPT_RUNS_ROOT=<dir> mise run prompt-runs
  *                       the same over a doctored copy: a directory holding the policy's records under
  *                       `tools/policy/` and `export.jsonl`, one issue per line as `bd export` prints
- *                       it; it then runs no `bd`, and a copy with no export is a failure, never a fall
- *                       back to the live tracker
+ *                       it, and, when a carried line is read, `pull-requests.json`, each pull request
+ *                       URL to its state, `OPEN`, `CLOSED` or `MERGED`; it then runs no `bd` and no
+ *                       `gh`, and a copy with no export, or no state for a carried line, is a failure,
+ *                       never a fall back to the live tracker or GitHub
  *
  * EXIT. 0 with the report; 2 on a bad flag; 1 on a failure, each named: a line that does not parse,
  * with its issue; a policy key missing or wrong; a table entry with no budget row; the tracker or the
- * override's export unreadable.
+ * override's export unreadable; a carried line's pull request whose state cannot be read.
  *
  * NEEDS `bd` on PATH and the tracker's database, read through `tools/lib/bd-launcher.ts`, unless the
- * override names an export. No network and no token. `mise run prompt-runs --only pending` took
- * 1.45 s wall over the tracker's 296 issues, `bd export` included, and the selftest 0.49 s, each
- * through `mise run` (`/usr/bin/time -p`, one run) on a macOS 26.7.1 laptop with Node 24.21.0,
- * 2026-10-05.
+ * override names an export. For the held section, when a carried line names a pull request, `gh`,
+ * signed in, and the network: `gh pr view` gives each one's state. `--only pending` and
+ * `--only loads` read no pull request, so the due check of a run's close needs neither.
+ * `mise run prompt-runs --only pending` took 1.57 s wall over the tracker's 300 issues,
+ * `bd export` included, and the selftest 0.56 s, each through `mise run` (`/usr/bin/time -p`, one
+ * run) on a macOS 26.7.1 laptop with Node 24.21.0, 2026-10-05.
  */
+import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -113,6 +139,7 @@ const SELF = fileURLToPath(import.meta.url)
 const REPO_ROOT = resolve(dirname(SELF), '..')
 const ROOT_ENV = 'PROMPT_RUNS_ROOT'
 const OVERRIDE_EXPORT = 'export.jsonl'
+const OVERRIDE_PULL_REQUESTS = 'pull-requests.json'
 const NAME = 'prompt-runs'
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -126,12 +153,19 @@ const WORD_GOES_ON = /[A-Za-z0-9_-]/
 const isoSecond = (ms) => new Date(ms).toISOString().replace('.000Z', 'Z')
 /** What `claude --version` prints: the version first. */
 const VERSION = /^(\d+\.\d+\.\d+)(?:\s.*)?$/
+/** A policy key whose value is a marker, as the header says. */
+const MARKER_KEY = /^promptReview[A-Za-z]+Marker$/
+/** What follows a closed line's marker: run id, key, file, how it ended (with its pull request's URL and number, or its issue), and reason. */
+const CLOSED = /^(\S+) ((\S+)#[a-z0-9][a-z0-9-]*) (carried (https:\/\/\S+\/pull\/(\d+))|issue (\S+)|aside): (.+)$/
+/** The states a pull request's carried line reads, as `gh pr view --json state` spells them. */
+const PR_STATES = ['OPEN', 'CLOSED', 'MERGED']
 
 /** The policy keys this command reads, and what each must be. */
 const KEYS = [
   ['promptReviewAnalysisMarker', 'word'],
   ['promptReviewReadMarker', 'word'],
   ['promptReviewHeldMarker', 'word'],
+  ['promptReviewClosedMarker', 'word'],
   ['promptReviewLoadedHeading', 'text'],
   ['promptReviewLoadedSince', 'instant'],
   ['promptReviewDueCount', 'count'],
@@ -170,8 +204,13 @@ export function loadPolicy(root) {
     if (kind !== 'budgets' && typeof raw[`${key}Means`] !== 'string') throw new Error(`the policy has \`${key}\` and no \`${key}Means\` saying what it decides`)
   }
   const policy = Object.fromEntries(KEYS.map(([key]) => [key, raw[key]]))
-  const markers = [policy.promptReviewAnalysisMarker, policy.promptReviewReadMarker, policy.promptReviewHeldMarker]
-  if (new Set(markers).size !== 3) throw new Error(`the three markers must differ, and are ${JSON.stringify(markers)}`)
+  const markerKeys = Object.keys(raw).filter((key) => MARKER_KEY.test(key)).sort(byCodePoint)
+  for (const key of markerKeys) {
+    if (!(typeof raw[key] === 'string' && /^\S+$/.test(raw[key]))) throw new Error(`the policy's \`${key}\` is ${JSON.stringify(raw[key])}, where it must be one word`)
+  }
+  const markers = markerKeys.map((key) => raw[key])
+  if (new Set(markers).size !== markers.length) throw new Error(`the ${markers.length} markers must differ, and are ${JSON.stringify(markers)}`)
+  policy.markers = markers
   if (markers.some((m) => policy.promptReviewLoadedHeading.startsWith(m))) {
     throw new Error(`\`promptReviewLoadedHeading\` opens with a marker's word, so an analysis would end at it`)
   }
@@ -266,6 +305,45 @@ export function parseHeldLine(rest) {
   return run ? { run: run.run, at: run.at, key: m[2], file: m[3], count: Number(m[4]), reason: m[5].trim() } : null
 }
 
+/** A closed line's run id, key, file, how it ended and reason, or null when what follows its marker is not one. */
+export function parseClosedLine(rest) {
+  const m = rest === null ? null : CLOSED.exec(rest)
+  const run = m && runOf(m[1])
+  if (!run) return null
+  const how = m[4].split(' ')[0]
+  return { run: run.run, at: run.at, key: m[2], file: m[3], how, url: m[5] ?? null, owner: m[7] ?? null, reason: m[8].trim() }
+}
+
+/**
+ * Each pull request URL's state, from the override's `pull-requests.json` or from `gh pr view`; a
+ * thrown error naming the one that cannot be read. Only a carried line's URL is asked, and none when
+ * no carried line is read.
+ */
+export function readPullRequests(root, overridden, urls) {
+  const states = new Map()
+  if (!urls.length) return states
+  let file = null
+  if (overridden) {
+    try {
+      file = JSON.parse(readFileSync(join(root, OVERRIDE_PULL_REQUESTS), 'utf8'))
+    } catch (error) {
+      throw new Error(`${ROOT_ENV} names ${root}, which holds no readable ${OVERRIDE_PULL_REQUESTS} (${error.code ?? error.message}), and a carried line needs its pull request's state; this command never falls back to GitHub`)
+    }
+  }
+  for (const url of urls) {
+    let state
+    if (file) state = file[url]
+    else {
+      const run = spawnSync('gh', ['pr', 'view', url, '--json', 'state', '--jq', '.state'], { cwd: REPO_ROOT, encoding: 'utf8' })
+      if (run.error || run.status !== 0) throw new Error(`\`gh pr view ${url}\` ${run.error ? `could not start: ${run.error.message}` : `exited ${run.status}: ${run.stderr.trim().split('\n').at(-1) ?? ''}`}, so the carried line naming it cannot be read`)
+      state = run.stdout.trim()
+    }
+    if (!PR_STATES.includes(state)) throw new Error(`the pull request ${url}, which a carried line names, has the state ${JSON.stringify(state ?? null)}, not one of ${PR_STATES.join(', ')}`)
+    states.set(url, state)
+  }
+  return states
+}
+
 /** What follows `marker` on `line`, when the line opens with that marker's word, else undefined; null when no one space follows it. */
 export function afterMarker(line, marker) {
   const found = markerOf(line, [marker])
@@ -273,17 +351,18 @@ export function afterMarker(line, marker) {
 }
 
 /**
- * Every analysis, read line and held line in the issues' notes, and every line that opens with a
- * marker and does not parse, an analysis whose loaded prompts do not, and a run id after `now`, as a
- * problem naming its issue. An analysis whose run id an earlier note opened is counted once, in
- * `duplicates`. The forms are this file's header's.
+ * Every analysis, read line, held line and closed line in the issues' notes, and every line that
+ * opens with a marker and does not parse, an analysis whose loaded prompts do not, and a run id after
+ * `now`, as a problem naming its issue. An analysis whose run id an earlier note opened is counted
+ * once, in `duplicates`. The forms are this file's header's.
  */
 export function parseTracker(issues, policy, now = Date.now()) {
-  const { promptReviewAnalysisMarker: A, promptReviewReadMarker: R, promptReviewHeldMarker: H, promptReviewLoadedHeading: heading } = policy
+  const { promptReviewAnalysisMarker: A, promptReviewReadMarker: R, promptReviewHeldMarker: H, promptReviewClosedMarker: C, promptReviewLoadedHeading: heading } = policy
   const since = Date.parse(policy.promptReviewLoadedSince)
   const analyses = []
   const reads = []
   const held = []
+  const closed = []
   const problems = []
   const seen = new Set()
   let duplicates = 0
@@ -307,7 +386,7 @@ export function parseTracker(issues, policy, now = Date.now()) {
       open = null
     }
     for (const line of String(issue?.notes ?? '').split('\n')) {
-      const found = markerOf(line, [A, R, H])
+      const found = markerOf(line, policy.markers)
       if (!found) {
         if (open) open.lines.push(line)
         continue
@@ -323,15 +402,21 @@ export function parseTracker(issues, policy, now = Date.now()) {
         const run = m && runOf(m[1])
         if (!run) problems.push(`${id}: the line ${JSON.stringify(line)} opens with \`${R}\` and is not "${R} <run id> <pull request URL or no change>"`)
         else if (!later(run, id)) reads.push({ run: run.run, issue: id, pr: m[2] })
-      } else {
+      } else if (marker === H) {
         const line_ = parseHeldLine(rest)
         if (!line_) problems.push(`${id}: the line ${JSON.stringify(line)} opens with \`${H}\` and is not "${H} <run id> <file>#<name> <count>: <reason>"`)
         else if (!later(line_, id)) held.push({ ...line_, issue: id })
+      } else if (marker === C) {
+        const line_ = parseClosedLine(rest)
+        if (!line_) problems.push(`${id}: the line ${JSON.stringify(line)} opens with \`${C}\` and is not "${C} <run id> <file>#<name> <carried <pull request URL>, issue <issue id> or aside>: <reason>"`)
+        else if (!later(line_, id)) closed.push({ ...line_, issue: id })
+      } else {
+        problems.push(`${id}: the line ${JSON.stringify(line)} opens with \`${marker}\`, a marker of the policy that the header of scripts/prompt-runs.mjs gives no form`)
       }
     }
     close()
   }
-  return { analyses, reads, held, problems, duplicates }
+  return { analyses, reads, held, closed, problems, duplicates }
 }
 
 /* ------------------------------------------------------------------------------- the report ----- */
@@ -352,14 +437,30 @@ export function pendingOf(parsed, policy, now) {
   return { due: byCount || byAge, why, analyses: pending.map((a) => ({ run: a.run, issue: a.issue })) }
 }
 
+/** The carried lines' pull request URLs, each once, in code-point order: the ones whose state the held section reads. */
+export const carriedUrls = (parsed) => [...new Set(parsed.closed.filter((c) => c.how === 'carried').map((c) => c.url))].sort(byCodePoint)
+
+/** A key's state from the closed line that decides it, and its pull request's state when that line is carried. */
+function stateOf(decides, prs) {
+  if (!decides) return { state: 'held' }
+  const { run, how, url, owner, reason } = decides
+  const closed = { run, how, ...(url ? { url } : {}), ...(owner ? { issue: owner } : {}), reason }
+  if (how !== 'carried') return { state: 'closed', closed }
+  const pr = prs.get(url)
+  return { state: pr === 'MERGED' ? 'closed' : pr === 'OPEN' ? 'carried' : 'reopened', closed: { ...closed, pullRequest: pr } }
+}
+
 /**
- * Each held key: its file, highest count, the runs its lines name and the reason of its line of the
- * highest count, on a tie the line of the latest run, whatever order the export gives the lines in.
+ * Each key a held or closed line names: its file, highest count, the runs its held lines name and
+ * the reason of its held line of the highest count, on a tie the line of the latest run, whatever
+ * order the export gives the lines in; and its state, from the closed line of the latest run, on a tie
+ * the one whose reason sorts last, and `prs`, each carried line's pull request URL to its state.
  */
-export function heldOf(parsed) {
+export function heldOf(parsed, prs = new Map()) {
   const keys = new Map()
+  const entry = (line) => keys.get(line.key) ?? { key: line.key, file: line.file, count: 0, runs: new Set(), reason: '', best: null, decides: null }
   for (const line of parsed.held) {
-    const k = keys.get(line.key) ?? { key: line.key, file: line.file, count: 0, runs: new Set(), reason: '', best: null }
+    const k = entry(line)
     const b = k.best
     if (!b || line.count > b.count || (line.count === b.count && (line.at > b.at || (line.at === b.at && byCodePoint(line.reason, b.reason) > 0)))) {
       k.best = line
@@ -369,7 +470,15 @@ export function heldOf(parsed) {
     k.runs.add(line.run)
     keys.set(line.key, k)
   }
-  return [...keys.values()].sort((a, b) => byCodePoint(a.key, b.key)).map(({ best, ...k }) => ({ ...k, runs: [...k.runs].sort(byCodePoint) }))
+  for (const line of parsed.closed ?? []) {
+    const k = entry(line)
+    const d = k.decides
+    if (!d || line.at > d.at || (line.at === d.at && byCodePoint(line.reason, d.reason) > 0)) k.decides = line
+    keys.set(line.key, k)
+  }
+  return [...keys.values()]
+    .sort((a, b) => byCodePoint(a.key, b.key))
+    .map(({ best, decides, ...k }) => ({ ...k, runs: [...k.runs].sort(byCodePoint), ...stateOf(decides, prs) }))
 }
 
 /** The loads over the window, the analyses not counted, the paths with no row, the candidates and the metric. */
@@ -415,7 +524,7 @@ export function render(report, only = null) {
   const { pending, held, loads } = report
   const since = report.proseSinceCutOff ? `, ${report.proseSinceCutOff} since the cut-off not in it` : ''
   const twice = report.duplicates ? `; ${report.duplicates} more note(s) opened a run id already counted, and are counted once` : ''
-  out.push(`${NAME}: ${report.analyses} analyses (${report.loadedForm} in D-44's form${since}), ${report.reads} read lines, ${report.heldLines} held lines${twice}.`)
+  out.push(`${NAME}: ${report.analyses} analyses (${report.loadedForm} in D-44's form${since}), ${report.reads} read lines, ${report.heldLines} held lines, ${report.closedLines} closed lines${twice}.`)
   if (!only || only === 'pending') {
     out.push('')
     out.push(`pending: ${pending.analyses.length}; a review is ${pending.due ? 'due' : 'not due'}: ${pending.why}.`)
@@ -423,8 +532,13 @@ export function render(report, only = null) {
   }
   if (!only || only === 'held') {
     out.push('')
-    out.push(`held: ${held.length} key(s).`)
-    for (const k of held) out.push(`  ${k.key}  count ${k.count}, runs ${k.runs.join(' ')}: ${k.reason}`)
+    const closed = held.filter((k) => k.state === 'closed').length
+    out.push(`held: ${held.length} key(s), ${closed} of them closed.`)
+    const how = (c) => (c.how === 'carried' ? `carried by ${c.url}, ${c.pullRequest}` : c.how === 'issue' ? `owned by ${c.issue}` : 'set aside by a person')
+    for (const k of held) {
+      const lines = k.runs.length ? `count ${k.count}, runs ${k.runs.join(' ')}: ${k.reason}` : 'no held line'
+      out.push(k.state === 'held' ? `  ${k.key}  ${lines}` : `  ${k.key}  ${k.state}, ${how(k.closed)}, at ${k.closed.run}: ${k.closed.reason}; ${lines}`)
+    }
   }
   if (only && only !== 'loads') return out.join('\n')
   out.push('')
@@ -494,6 +608,15 @@ export function main(argv, deps = {}) {
     for (const p of parsed.problems) err(`  ${p}`)
     return 1
   }
+  let prs = new Map()
+  if (!only || only === 'held') {
+    try {
+      prs = (deps.pullRequests ?? ((urls) => readPullRequests(root, overridden, urls)))(carriedUrls(parsed))
+    } catch (error) {
+      err(`${NAME} FAILED: ${error.message}`)
+      return 1
+    }
+  }
   const report = {
     analyses: parsed.analyses.length,
     loadedForm: parsed.analyses.filter((a) => a.form === 'loaded').length,
@@ -501,8 +624,9 @@ export function main(argv, deps = {}) {
     duplicates: parsed.duplicates,
     reads: parsed.reads.length,
     heldLines: parsed.held.length,
+    closedLines: parsed.closed.length,
     pending: pendingOf(parsed, policy, now),
-    held: heldOf(parsed),
+    held: heldOf(parsed, prs),
     loads: loadsOf(parsed, policy),
   }
   if (only) for (const section of SECTIONS) if (section !== only) delete report[section]
@@ -571,11 +695,12 @@ function selftest() {
       issues.push({ id: 'example-old', notes: [analysis(old, [NEVER]), `${R} ${old} no change`].join('\n') })
       return issues
     }
-    const fixture = (name, issues, change) => {
+    const fixture = (name, issues, change, prs) => {
       const root = join(dir, name)
       copyPolicy(REPO_ROOT, root)
-      if (change) editPolicy(root, change)
+      if (change) editPolicy(root, change, 'tools/policy/agent-workflows.json')
       if (issues) writeFileSync(join(root, OVERRIDE_EXPORT), issues.map((i) => JSON.stringify(i)).join('\n') + '\n')
+      if (prs) writeFileSync(join(root, OVERRIDE_PULL_REQUESTS), JSON.stringify(prs))
       return root
     }
     const NOW = iso(NEWEST + 60 * 60 * 1000)
@@ -619,7 +744,7 @@ function selftest() {
     ok(
       'a held key gives its highest count, the runs its lines name and the reason of its line of the highest count',
       JSON.stringify(c.held) ===
-        JSON.stringify([{ key: `${LOADED_ALWAYS}#a-finding`, file: LOADED_ALWAYS, count: 2, runs: [`example-3@${iso(NEWEST - 3 * 3600000)}`, `example-5@${iso(NEWEST - 5 * 3600000)}`].sort(byCodePoint), reason: 'below the threshold, minor: a step was skipped 3' }]),
+        JSON.stringify([{ key: `${LOADED_ALWAYS}#a-finding`, file: LOADED_ALWAYS, count: 2, runs: [`example-3@${iso(NEWEST - 3 * 3600000)}`, `example-5@${iso(NEWEST - 5 * 3600000)}`].sort(byCodePoint), reason: 'below the threshold, minor: a step was skipped 3', state: 'held' }]),
       JSON.stringify(c.held),
     )
     const text = run(fixture('control-text', controlIssues()), ['--now', NOW])
@@ -797,6 +922,90 @@ function selftest() {
       ok(`a prompt the table names, ${NEVER}, is no longer a candidate, and the other unloaded one still is`, JSON.stringify(r.report?.loads.candidates) === JSON.stringify([ALSO_NEVER]), JSON.stringify(r.report?.loads.candidates))
     }
 
+    /* The closed line: each of its three forms, the state each gives a key, and a malformed one. */
+    {
+      const C = live.promptReviewClosedMarker
+      const runAt = (i) => `example-${i}@${iso(NEWEST - i * 3600000)}`
+      const pull = (n) => `https://example.com/owner/repo/pull/${n}`
+      const PRS = { [pull(7)]: 'MERGED', [pull(8)]: 'OPEN', [pull(9)]: 'CLOSED' }
+      const withClosed = () => {
+        const issues = controlIssues()
+        issues[3].notes += `\n${C} ${runAt(3)} ${LOADED_ALWAYS}#a-finding aside: the maintainer's reason`
+        issues[6].notes += `\n${C} ${runAt(6)} ${LOADED_SOME}#owned issue example-owner: no prompt's; a run filed it`
+        issues[7].notes += `\n${C} ${runAt(7)} ${LOADED_ALWAYS}#merged carried ${pull(7)}: an edit carried it`
+        issues[8].notes += `\n${C} ${runAt(8)} ${LOADED_ALWAYS}#open carried ${pull(8)}: an edit carried it`
+        issues[9].notes += `\n${H} ${runAt(9)} ${LOADED_ALWAYS}#unmerged 2: below the threshold, minor: the held reason\n${C} ${runAt(9)} ${LOADED_ALWAYS}#unmerged carried ${pull(9)}: an edit carried it`
+        return issues
+      }
+      const r = run(fixture('closed lines', withClosed(), null, PRS))
+      const keyOf = (name) => r.report?.held.find((k) => k.key === `${name.includes('#') ? '' : `${LOADED_ALWAYS}#`}${name}`)
+      ok('closed lines of each form parse, exit 0, and the first line counts them', r.code === 0 && r.report.closedLines === 5, `${r.code} ${r.err} ${r.report?.closedLines}`)
+      ok(
+        'set aside by a person: the key is closed, with the person\'s reason, and keeps its held lines\' count and runs',
+        keyOf('a-finding')?.state === 'closed' && keyOf('a-finding').closed.how === 'aside' && keyOf('a-finding').closed.reason === "the maintainer's reason" && keyOf('a-finding').count === 2 && keyOf('a-finding').runs.length === 2,
+        JSON.stringify(keyOf('a-finding')),
+      )
+      ok(
+        'owned by an issue: a key no held line names is listed, closed by its issue',
+        keyOf(`${LOADED_SOME}#owned`)?.state === 'closed' && keyOf(`${LOADED_SOME}#owned`).closed.issue === 'example-owner' && keyOf(`${LOADED_SOME}#owned`).runs.length === 0,
+        JSON.stringify(keyOf(`${LOADED_SOME}#owned`)),
+      )
+      ok("carried by a merged pull request: the key is closed, naming the pull request and its state", keyOf('merged')?.state === 'closed' && keyOf('merged').closed.url === pull(7) && keyOf('merged').closed.pullRequest === 'MERGED', JSON.stringify(keyOf('merged')))
+      ok('carried by an open pull request: the key is carried, not closed', keyOf('open')?.state === 'carried', JSON.stringify(keyOf('open')))
+      ok("carried by a pull request closed unmerged: the key is reopened, with its held line's reason", keyOf('unmerged')?.state === 'reopened' && keyOf('unmerged').reason === 'below the threshold, minor: the held reason', JSON.stringify(keyOf('unmerged')))
+      const t = run(fixture('closed lines, text', withClosed(), null, PRS), ['--only', 'held', '--now', NOW])
+      ok(
+        'the text names how many keys are closed, and each closed key with how it ended',
+        /\nheld: \d+ key\(s\), 3 of them closed\./.test(t.out) && t.out.includes(`#a-finding  closed, set aside by a person, at ${runAt(3)}: the maintainer's reason; count 2`) && t.out.includes('#owned  closed, owned by example-owner'),
+        t.out,
+      )
+      {
+        const issues = withClosed()
+        issues[2].notes += `\n${H} ${runAt(2)} ${LOADED_ALWAYS}#a-finding 3: below the threshold, minor: shown again`
+        const again = run(fixture('a held line after a closed one', issues, null, PRS))
+        const k = again.report?.held.find((x) => x.key === `${LOADED_ALWAYS}#a-finding`)
+        ok('a held line of a later run leaves a closed key closed, and counts the run', k?.state === 'closed' && k.count === 3 && k.runs.length === 3, JSON.stringify(k))
+      }
+      {
+        const decided = (order) => {
+          const issues = withClosed()
+          issues[6].notes += `\n${C} ${runAt(6)} ${LOADED_ALWAYS}#twice aside: the older line's reason`
+          issues[4].notes += `\n${C} ${runAt(4)} ${LOADED_ALWAYS}#twice carried ${pull(9)}: the later line's reason`
+          if (order === 'reversed') issues.reverse()
+          return run(fixture(`two closed lines, ${order}`, issues, null, PRS)).report?.held.find((x) => x.key === `${LOADED_ALWAYS}#twice`)
+        }
+        const [a, b] = [decided('in order'), decided('reversed')]
+        ok("of two closed lines, the later run's decides, in either export order: here its pull request closed unmerged, so the key is reopened", a?.state === 'reopened' && a.closed.reason === "the later line's reason" && b?.state === 'reopened' && b.closed.reason === "the later line's reason", `${JSON.stringify(a)} | ${JSON.stringify(b)}`)
+      }
+      {
+        const issues = controlIssues()
+        const lines = issues[0].notes.split('\n')
+        issues[0].notes = [lines[0], `${C} ${runAt(0)} ${LOADED_ALWAYS}#a-finding aside: closed mid-analysis`, ...lines.slice(1)].join('\n')
+        const cut = run(fixture('an analysis ends at a closed line', issues))
+        ok(
+          'an analysis ends at a closed line, so the heading after it is no part of it: the analysis is prose, out of the sample',
+          cut.code === 0 && cut.report.proseSinceCutOff === 1 && cut.report.loads.sample === FLOOR - 1,
+          `${cut.code} ${cut.err} ${cut.report?.proseSinceCutOff} ${cut.report?.loads.sample}`,
+        )
+      }
+      broken('a closed line naming a pull request by number, not URL', (is) => (is[3].notes += `\n${C} ${runAt(3)} ${LOADED_ALWAYS}#a-finding carried 93: an edit`), /example-3: the line .* opens with `[^`]+` and is not "\S+ <run id> <file>#<name> <carried <pull request URL>, issue <issue id> or aside>: <reason>"/)
+      broken('a closed line ended some other way', (is) => (is[3].notes += `\n${C} ${runAt(3)} ${LOADED_ALWAYS}#a-finding fixed: by itself`), /example-3: the line .* opens with `[^`]+` and is not "\S+ <run id> <file>#<name> <carried/)
+      {
+        const issues = controlIssues()
+        issues[3].notes += '\nprompt-run-other a line of a marker with no form'
+        const r2 = run(fixture('a marker with no form', issues, (p) => (p.promptReviewOtherMarker = 'prompt-run-other')))
+        ok('a line of a policy marker the header gives no form fails, by its reason', r2.code === 1 && /example-3: the line .* opens with `prompt-run-other`, a marker of the policy that the header of scripts\/prompt-runs\.mjs gives no form/.test(r2.err), r2.err)
+      }
+      {
+        const noFile = run(fixture('a carried line, no states', withClosed()))
+        ok('a carried line with no state to read fails, and never falls back to GitHub', noFile.code === 1 && /holds no readable pull-requests\.json .* never falls back to GitHub/.test(noFile.err), noFile.err)
+        const missing = run(fixture('a carried line, its state missing', withClosed(), null, { [pull(7)]: 'MERGED' }))
+        ok("a carried line whose pull request the states leave out fails, naming it", missing.code === 1 && new RegExp(`the pull request ${pull(8).replaceAll('.', '\\.')}, which a carried line names, has the state null`).test(missing.err), missing.err)
+        const pendingOnly = run(fixture('a carried line, pending only', withClosed()), ['--json', '--only', 'pending', '--now', NOW])
+        ok('`--only pending` reads no pull request, so it needs no state', pendingOnly.code === 0 && pendingOnly.report?.pending, pendingOnly.err)
+      }
+    }
+
     /* The policy, and the export. */
     const policyCase = (name, change, expect) => {
       const r = run(fixture(name, controlIssues(), change))
@@ -807,6 +1016,8 @@ function selftest() {
     policyCase('a table entry with no budget row', (p) => (p.promptReviewUnloadedPrompts = { ...p.promptReviewUnloadedPrompts, '.claude/skills/gone/SKILL.md': 'a reason' }), /names \.claude\/skills\/gone\/SKILL\.md, which has no row in `promptWordBudgets`/)
     policyCase('a heading that opens with a marker', (p) => (p.promptReviewLoadedHeading = `${A} loaded:`), /`promptReviewLoadedHeading` opens with a marker's word/)
     policyCase('a share of 1.5', (p) => (p.promptReviewLoadNotViableShare = 1.5), /`promptReviewLoadNotViableShare` is 1\.5, where it must be a share above 0 and at most 1/)
+    policyCase('a policy without the closed marker', (p) => delete p.promptReviewClosedMarker, /the policy has no `promptReviewClosedMarker`/)
+    policyCase('a closed marker spelt as the held one', (p) => (p.promptReviewClosedMarker = p.promptReviewHeldMarker), /the 4 markers must differ/)
     {
       const root = fixture('no export', null)
       const r = run(root)
