@@ -1,6 +1,6 @@
 export const meta = {
   name: 'review-prompts',
-  description: 'Review the prompt files a batch of prompt-run analyses concerns, one agent per file or group of files in a worktree of its own, have skeptics judge each edit, answer the stored decision cases of each changed file with its old text and its new, and return which branches to merge, which analyses were read and which findings were held',
+  description: 'Review the prompt files a batch of prompt-run analyses concerns, one agent per file or group of files in a worktree of its own, have skeptics judge each edit, and answer the stored decision cases of each changed file with its old text and its new',
   whenToUse: 'Step 4 of the continuous-prompt-improvement agent, once per review, from the review worktree',
   phases: [
     { title: 'Review', detail: 'one agent per file or group of files, each in its own worktree, changes its files or leaves them' },
@@ -784,7 +784,7 @@ function problemsOf(g, r) {
   const own = new Set(g.files.map(clean))
   const keys = new Set(g.findings.map((f) => f.key.trim()))
   if (!r.branch.trim().startsWith(PROVISIONED)) {
-    problems.push(`its branch ${r.branch.trim()} is not an ${PROVISIONED} branch, so the WorktreeCreate hook did not provision its worktree, and its base and briefing are unknown`)
+    problems.push(`its branch ${r.branch.trim()} is not an ${PROVISIONED} branch`)
   } else if (!BRANCH.test(r.branch.trim())) problems.push(`its branch ${JSON.stringify(r.branch.trim())} has a character outside A-Za-z0-9._/-`)
   const changed = r.filesChanged.map(clean).filter(Boolean)
   if (r.verdict === 'changed') {
@@ -1070,7 +1070,7 @@ if (discardDropped.length) log(`Not discarded: ${discardDropped.map((d) => `${d.
 const cases = caseResults
 
 if (counts.died === counts.groups) {
-  const why = 'every agent returned nothing, so no file was reviewed and every run stays pending'
+  const why = 'every agent returned nothing'
   log(`Stopped (agent-died): ${why}`)
   return { stopped: 'agent-died', why, groups, merge, discard, discardDropped, runsRead, runsHeld, findingsHeld, cases, counts }
 }
