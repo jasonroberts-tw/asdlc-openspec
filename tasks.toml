@@ -609,7 +609,8 @@ Removes a clean checkout with no process in it once HEAD there has been still fo
 `worktreeGcMinAgeHours`, or at once when `--finished <name>` names it. It deletes an agent branch
 here or on the trunk's remote, only on proof its content is in the trunk, a merged pull request's
 head among the proofs, or, here, when `--discard <branch>` names it, which removes its clean
-checkout at once, the tip logged; `--dry-run` prints what it would do.'''
+checkout at once, the tip logged, and leaves the remote alone in that run; `--dry-run` prints what
+it would do.'''
 run = "node scripts/prune-worktree-branches.mjs --remote"
 
 ["worktree:selftest"]
