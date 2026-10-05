@@ -96,7 +96,7 @@ descriptions below are the ones `scripts/pr-review.mjs` sets (`statusFor`, `choo
 | `verify` fails, and `pr-review` says "verify failed at …; the review waits for a green run" | Read the failing job, then fix, gate and push on the same branch. |
 | `pr-review` fails: "Conflicts with main: rebase onto origin/main and push" | Fetch, rebase onto `origin/main`, gate, and push with `--force-with-lease`. |
 | `pr-review` passes: "Off the high-risk floor; the reviewer merges it" | The reviewer merges it: wait for that (step 8). |
-| `pr-review` passes: "A person decides: …" | It waits for a person, for the reason given; say so, and why, then wait for the merge (step 8). Never apply the approval label yourself (`CLAUDE.md` § Git workflow). |
+| `pr-review` fails: "A person decides: …" | It waits for a person, for the reason given; say so, and why, then wait for the merge (step 8). Never apply the approval label yourself (`CLAUDE.md` § Git workflow). |
 | `pr-review` errors: "The review did not complete: …" | Read the `act` job's log first: `gh run list --workflow pr-review.yml`, then `gh run view <run> --log-failed`. A cause in the reviewer's own workflow is not this branch's to fix: the caller files it as a defect found on the way, and the pull request waits on that issue. A cause that does not repeat, such as a network error, is run again once with the command the comment gives, `gh workflow run pr-review.yml -f pr=<number>`. |
 
 A push makes a new head with no status: review it first unless the push only rebased, mark it
