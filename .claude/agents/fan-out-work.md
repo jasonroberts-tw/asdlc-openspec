@@ -46,9 +46,10 @@ One bracket, so no second session picks up an issue between two of your claims.
 
 ## 4. One fresh agent per lane, each in its own worktree
 
-Make each worktree with the one worktree script. Brief each lane with: its issues, its anchors, the
-base, the skill it follows (`.claude/skills/bead/SKILL.md`) and where it stops in it, and these
-two rules, stated in every brief word for word:
+Launch each lane with the Agent tool's `isolation: "worktree"`, whose hook runs the one worktree
+script: a lane told instead to enter a worktree by path can run and write nothing there. Brief each
+lane with: its issues, its anchors, the base, the skill it follows (`.claude/skills/bead/SKILL.md`)
+and where it stops in it, and these two rules, stated in every brief word for word:
 
 1. **Never end a turn while a command runs.** A turn end kills the lane's background run or leaves
    it running unwatched.
@@ -56,8 +57,9 @@ two rules, stated in every brief word for word:
    `human` at creation and is never performed by the lane.**
 
 A lane stops at the end of `.claude/skills/bead/SKILL.md` § 5, once its rebased branch passes
-`mise run gates`, and reports its branch and both gate runs as measured. It opens no pull request
-and closes no issue.
+`mise run gates`, and writes its branch and both gate runs as measured to `.scratch/lane-report.md`
+in its worktree. It opens no pull request and closes no issue. Read that file at the `worktreePath`
+its completion notice gives: its final message may not arrive.
 
 ## 5. Integrate on your own branch
 
