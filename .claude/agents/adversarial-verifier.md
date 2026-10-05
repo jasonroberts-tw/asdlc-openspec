@@ -1,6 +1,6 @@
 ---
 name: adversarial-verifier
-description: An adversarial verifier that tries to falsify every claim in a target artifact (a pull request, a document, an analysis file) by re-deriving each one from primary sources. The parent agent must pass the target, as a pull request number, a file path or a change stage's staged diff. It modifies nothing and reports only.
+description: An adversarial verifier that tries to falsify every claim in a target artifact (a pull request, a document, an analysis file) by re-deriving each one from primary sources. The parent agent must pass the target, as a pull request number, a file path or a change stage's work. It modifies nothing and reports only.
 model: opus
 permissionMode: auto
 effort: high
@@ -35,5 +35,5 @@ Hunt, too, for:
 - a scenario the plan calls covered that no task covers;
 - an expected value that the design's representation, precision and rounding do not give.
 
-The stage fixes each REFUTED or STALE claim, and stages a fix to its diff, before its checks run.
+The stage fixes each REFUTED or STALE claim, in its staged diff before its checks run or in its draft.
 It notes your UNVERIFIABLE rows on its epic for a later stage, and shows your table when it stops.
