@@ -403,6 +403,28 @@ its inputs. It also runs the wiring gate over doctored copies with an undoctored
 it a change to the decisions shows only in a merge nobody meant.'''
 run = "node scripts/pr-review.mjs --selftest"
 
+["prompt-review:match"]
+description = '''
+An operator command, never a gate: the prompt review's session runs it before `review-prompts.js`
+(`.claude/agents/continuous-prompt-improvement.md` § 3) to ask TypeSafe, with one Choice for each new
+finding, whether it is one an earlier review holds about the same prompt file, over the keys the
+tracker's held lines give that file and `none`. It prints which key each finding takes and which
+answer decided it, the model's at the `promptReviewMatch*` thresholds in
+`tools/policy/agent-workflows.json` or the session's, for the session to pass the workflow. It reads
+`TYPESAFE_API_KEY`, the tracker and the network; with no key it says so and leaves to the session
+every finding whose file holds a key, and a call that fails fails. Without it the session keys each finding freehand, and a
+recurring finding whose key drifts is counted from one at every review.'''
+run = "node scripts/match-held-findings.mjs"
+
+["prompt-review:match:selftest"]
+description = '''
+The prompt review's match, negative-tested over a fixture export and a stubbed judge: each routing
+at and under its threshold, the options it offers and their text, a missing key that leaves every
+finding to the session and a failed call that fails, a policy or an input it refuses, and once
+through the real SDK to a refused loopback connection. Needs no key. Without it the match can key a
+finding under its threshold, or read a failed call as nothing held, and every count starts again.'''
+run = "node scripts/match-held-findings.mjs --selftest"
+
 ["prompts:incidents"]
 description = '''
 An advisory, never a gate: asks TypeSafe, one Noul per paragraph and one request per prompt, whether
@@ -606,7 +628,8 @@ threshold, sends each edit the skeptics its severity is given and each consolida
 count, refuses a consolidation that does not say where each removed rule went, merges no branch a
 majority did not uphold, and returns every finding it read and did not carry, to be held. It also
 keeps out a branch that turns a stored decision case of a file it changes from right to wrong, or
-leaves one unanswered. For its cases, `author-prompt-cases.js`: that it sends one author per lens,
+leaves one unanswered, and refuses a finding whose key the TypeSafe match's answer, passed in as its
+`match`, does not bear out. For its cases, `author-prompt-cases.js`: that it sends one author per lens,
 shown its own seed alone, stores a case only when every answer chose its expected option, and
 refuses a reader's copy its checksum does not match or a path other than where its command writes.
 Every case under `.claude/prompt-cases/` must pass both workflows, which give one case one answer

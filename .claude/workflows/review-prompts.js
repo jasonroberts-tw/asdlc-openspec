@@ -57,7 +57,10 @@ export const meta = {
  * `agent/` prefix alone and the commit for being non-empty, and `WORKFLOW_BRANCH` unanchored, so a
  * report giving `agent/wf_abc-3 --discard agent/agent-a452486a3b8cc4f0b`, beside groups on
  * `agent/wf_abc-1` and `agent/wf_abc-2`, would have been merged and handed to the session in
- * `discard`, and pasted there it removes a fan-out lane's unmerged branch.
+ * `discard`, and pasted there it removes a fan-out lane's unmerged branch. Since asdlc-openspec-6yt.1
+ * it would also let through a finding keyed by the session where the model's answer decided its key,
+ * or by the model under a threshold, so that its key drifts from the one it is held under and the
+ * next review counts it from one again, the loss `promptReviewHeldMarkerMeans` records.
  *
  * Wrong the other way, it refuses what it should pass. On 2026-09-28 (run wf_5aec3e94-07b) it refused
  * 3 of 4 groups, each with an edit whose gates passed, because each listed under `notChanged` a point
@@ -71,8 +74,8 @@ export const meta = {
  *               id        a short name, lower case, digits and dashes: the agent's label
  *               files     the repository-relative paths this agent may change; each file is in one
  *                         group only
- *               findings  [{ key, title, severity, count, runs, evidence }], each finding about
- *                         these files that met the threshold:
+ *               findings  [{ key, title, severity, count, runs, evidence, match }], each finding
+ *                         about these files that met the threshold:
  *                 key       `<file>#<name>`: one of the group's files, `#`, and a name in lower case
  *                           letters, digits and dashes; one finding in the batch has it, and its
  *                           held lines spell it (`.claude/agents/continuous-prompt-improvement.md`
@@ -83,8 +86,11 @@ export const meta = {
  *                           lines name
  *                 runs      the run ids in this batch that showed it, each as its marker line gives it
  *                 evidence  what those runs showed
+ *                 match     [{ run, by, choice, probability }], one for each of its runs: the entry
+ *                           `scripts/match-held-findings.mjs` printed for that run's finding,
+ *                           unchanged, which names the answer that keyed it (THE KEY, below)
  *   policy    the `promptReview*` keys of `tools/policy/agent-workflows.json`, as the agent's § 2
- *             prints them; this script reads the four in POLICY_KEYS below and ignores the rest
+ *             prints them; this script reads the six in POLICY_KEYS below and ignores the rest
  *   settled   optional [string]: decided already, by the maintainer or an earlier review; no agent
  *             raises it again
  *   cases     optional [case]: every stored decision case, in the format
@@ -95,6 +101,30 @@ export const meta = {
  * `promptReviewRecurrenceCount` or its severity is in `promptReviewMajorSeverities`. The session holds
  * every finding that meets neither, so one that reaches this script refuses the run. Each change
  * returns `met`, the condition its finding met: `recurrence`, `severity`, or both.
+ *
+ * THE KEY, checked before any agent runs, and said by each finding's `match`. Whether a finding is
+ * one an earlier review holds is asked of TypeSafe by `scripts/match-held-findings.mjs`, which the
+ * session runs first (`.claude/agents/continuous-prompt-improvement.md` § 3): a workflow has no Node
+ * API, so it cannot read `TYPESAFE_API_KEY`, and the answers come in through `args`. Each entry names,
+ * for one run of the finding, the answer that keyed it, and that script's header holds the routing:
+ *
+ *   model        the model's top label `choice` at `probability`: a held key at
+ *                `promptReviewMatchHeldMinProbability` or more, which must be the finding's key, or
+ *                `none` at `promptReviewMatchNoneMinProbability` or more, whose finding counts no
+ *                held run (`count` is its runs)
+ *   reviewer     the session, where the model's top label met neither threshold or no call was made
+ *                (`choice` null); an entry whose answer met one is refused, since the model's
+ *                answer decided that key
+ *   no-held-key  no held line names a key of the finding's file, so no call was made: `choice` and
+ *                `probability` null, and the finding counts no held run
+ *
+ * A finding with no entry for each of its runs, or an entry these do not bear out, refuses the run,
+ * so a review's key is the one the answer that decided it gave, and the session's own judgment
+ * stands only where the model's answer was not decisive. A finding the session joined across runs
+ * carries one entry for each, and they must agree: a run the model gave `none` cannot join a held
+ * key. The script checks the record against the key and the count; that the session copied each
+ * entry as the match script printed it, it takes on the session's word. Where it loses: a session that
+ * copies an answer wrong is refused only when the copy contradicts the key or the count.
  *
  * WHAT IT RETURNS. { stopped, why, groups, merge, discard, discardDropped, runsRead, runsHeld, findingsHeld, cases, counts }. Every
  * count in it is computed here, never by an agent. `stopped` is one of:
@@ -120,7 +150,7 @@ export const meta = {
  *   refused     its report broke a rule below; its branch is not merged, and `problems` says why
  *   died        the agent returned nothing
  *
- * Each change a skeptic judged carries its finding's `severity`, `count` and `met`, the `outcome`
+ * Each change a skeptic judged carries its finding's `severity`, `count`, `met` and `match`, the `outcome`
  * (upheld, refuted or unverified), how many `skeptics` were sent, and each one's vote in `votes`.
  * Each consolidation a group reports (`.claude/agents/continuous-prompt-improvement.md` § How a prompt
  * is consolidated) carries its `file`, its `commit`, its `wordsBefore` and `wordsAfter`, its `removed`
@@ -215,8 +245,8 @@ export const meta = {
  *   when every group whose findings cite it is `merge`, `unchanged`, `not-upheld` or `regressed`; otherwise it is
  *   in `runsHeld`, with the groups that held it, and the session leaves it pending for the next
  *   review. `findingsHeld` lists each finding of a read group that no merged branch carries, set aside
- *   by its agent, not upheld, or upheld on a branch kept out, with its key, its runs, its count and
- *   the reason; the session appends a held line for each of its runs.
+ *   by its agent, not upheld, or upheld on a branch kept out, with its key, its runs, its count, its
+ *   `match` and the reason; the session appends a held line for each of its runs.
  *
  * LABELS. Each file agent is labelled `review <id>`, each skeptic of a change `skeptic <i>/<n> <id>:
  * <key>`, each skeptic of a consolidation `skeptic <i>/<n> <id>: consolidation of <file>`, each
@@ -273,7 +303,14 @@ const A = args || {}
 const VERDICTS = ['changed', 'unchanged']
 const OUTCOMES = ['working', 'not working', 'not exercised']
 const SEVERITIES = ['blocker', 'major', 'minor']
-const POLICY_KEYS = ['promptReviewRecurrenceCount', 'promptReviewMajorSeverities', 'promptReviewSkeptics', 'promptReviewCaseRepetitions']
+/** The thresholds a finding the model keyed is held to, as the header's THE KEY says. */
+const HELD_MIN = 'promptReviewMatchHeldMinProbability'
+const NONE_MIN = 'promptReviewMatchNoneMinProbability'
+const POLICY_KEYS = ['promptReviewRecurrenceCount', 'promptReviewMajorSeverities', 'promptReviewSkeptics', 'promptReviewCaseRepetitions', HELD_MIN, NONE_MIN]
+/** Who keyed a finding for one run, as `scripts/match-held-findings.mjs` prints a `match` entry's `by`, and the model's label for a new key. */
+const KEYED_BY = ['model', 'reviewer', 'no-held-key']
+const [MODEL, REVIEWER] = KEYED_BY
+const NONE = 'none'
 const ANSWERER = 'prompt-case-answerer'
 /** A case outcome that keeps its branch out, as the header says why. */
 const BLOCKING = ['flipped', 'unanswered']
@@ -420,7 +457,26 @@ function policyProblem() {
   if (!isPlainObject(skeptics) || SEVERITIES.some((s) => !isWhole(skeptics[s])) || Object.keys(skeptics).length !== SEVERITIES.length) {
     return `args.policy \`promptReviewSkeptics\` must give exactly ${SEVERITIES.join(', ')} each a whole number of at least 1`
   }
-  return isWhole(p.promptReviewCaseRepetitions) ? null : 'args.policy `promptReviewCaseRepetitions` must be a whole number of at least 1'
+  if (!isWhole(p.promptReviewCaseRepetitions)) return 'args.policy `promptReviewCaseRepetitions` must be a whole number of at least 1'
+  const loose = [HELD_MIN, NONE_MIN].find((k) => !(p[k] > 0.5 && p[k] <= 1))
+  return loose ? `args.policy \`${loose}\` must be above 0.5 and at most 1` : null
+}
+
+/** Why finding `f`'s `match` does not bear out its key and count, or null, as the header's THE KEY says. */
+function matchProblem(f) {
+  const runs = new Set(f.runs)
+  const m = f.match
+  if (!Array.isArray(m) || m.length !== runs.size || new Set(m.map((e) => e?.run)).size !== runs.size || !m.every((e) => isPlainObject(e) && runs.has(e.run) && KEYED_BY.includes(e.by))) {
+    return 'lacks a match per run'
+  }
+  const fresh = f.count === runs.size
+  const bad = m.find((e) => {
+    const met = isText(e.choice) && typeof e.probability === 'number' && e.probability >= A.policy[e.choice === NONE ? NONE_MIN : HELD_MIN]
+    if (e.by === MODEL) return !met || (e.choice === NONE ? !fresh : e.choice !== f.key.trim())
+    if (e.by === REVIEWER) return met
+    return e.choice !== null || e.probability !== null || !fresh
+  })
+  return bad ? `was keyed by the ${bad.by} for ${bad.run} against its match or count` : null
 }
 
 /** Why a stored case cannot be answered, or null; `owner` maps each group's files to it. */
@@ -453,7 +509,8 @@ function findingProblem(g, f, i, keys) {
   if (f.count < least && !majors.includes(f.severity)) {
     return `group ${g.id}: the finding ${f.key} was shown by ${f.count} run(s) at ${f.severity}, below the threshold (${least} runs, or ${majors.join(' or ')})`
   }
-  return null
+  const unkeyed = matchProblem(f)
+  return unkeyed ? `group ${g.id}: the finding ${f.key} ${unkeyed}` : null
 }
 
 /** Why the arguments cannot drive a run, or null when they can. Nothing has run yet. */
@@ -477,7 +534,7 @@ function argsProblem() {
       if (owner.has(path)) return `the file ${path} is in groups ${owner.get(path)} and ${g.id}; a file belongs to one group, and a finding across files puts them in one`
       owner.set(path, g.id)
     }
-    if (!Array.isArray(g.findings) || g.findings.length === 0) return `group ${g.id}: findings must be a non-empty list of { key, title, severity, count, runs, evidence }`
+    if (!Array.isArray(g.findings) || g.findings.length === 0) return `group ${g.id}: findings must be a non-empty list of { key, title, severity, count, runs, evidence, match }`
     for (const [j, f] of g.findings.entries()) {
       const problem = findingProblem(g, f, j, keys)
       if (problem) return problem
@@ -901,7 +958,7 @@ if (toJudge.length) {
   toJudge.forEach(({ k, c, f, u }, i) => {
     const t = judged[i] || { outcome: 'unverified', skeptics: 0, upheld: 0, refuted: 0, votes: ['the skeptics returned nothing'] }
     if (k || u) Object.assign(k || u, t)
-    else Object.assign(c, { severity: f.severity, count: f.count, met: metBy(f), ...t })
+    else Object.assign(c, { severity: f.severity, count: f.count, met: metBy(f), match: f.match, ...t })
   })
   for (const g of merging) {
     const lost = [
@@ -1004,7 +1061,7 @@ for (const g of groups.filter(read)) {
     } else if (g.status === 'regressed') {
       reason = `upheld, but its branch turned a stored case wrong or left one unanswered, so the branch was not merged: ${g.regressedBy.join('; ')}`
     }
-    if (reason) findingsHeld.push({ key, runs: f.runs, count: f.count, reason })
+    if (reason) findingsHeld.push({ key, runs: f.runs, count: f.count, match: f.match, reason })
   }
 }
 

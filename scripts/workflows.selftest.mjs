@@ -12,7 +12,9 @@
  * which findings it refuses as below the threshold, how many skeptics it sends each change, each
  * consolidation and each unstated edit, which reports it refuses, which branches it lets the session merge, which analyses
  * it lets the session mark read and which findings it holds, and how it answers each stored decision
- * case of a changed file with the old text and the new and which outcome keeps a branch out.
+ * case of a changed file with the old text and the new and which outcome keeps a branch out. Each
+ * finding it is passed carries a `match` as `scripts/match-held-findings.mjs` prints one, and its
+ * cases assert which answers the workflow runs on and which it refuses before any agent.
  * `author-prompt-cases.js` runs with seeds and cases built here and the policy's `promptReviewCase*`
  * keys, and its cases assert how many authors it sends each seed, what each is shown, which reader's
  * copy or path it refuses, and which case it stores. Each of the two runs once more with its reader
@@ -71,7 +73,10 @@
  * repository, the script's refusal of a climbing argument seen failing with its check removed. Since
  * asdlc-openspec-d078 it refuses a review that merges a branch with an edit to a file its report lists
  * as changed and names in no change it states, or only in an entry that is no edit, which no skeptic
- * read; its three cases were seen failing before its fix. For the trace (since asdlc-openspec-as9):
+ * read; its three cases were seen failing before its fix. Since asdlc-openspec-6yt.1 it refuses a
+ * review that runs a finding keyed by the model under a threshold or for another key, or by the
+ * session where the model's answer met one; each check of the match, deleted in a copy, turned its
+ * case red. For the trace (since asdlc-openspec-as9):
  * a scenario left out of every group, a group a tracer returned short or read at
  * another commit counted as traced, a row's gap taken from the tracer's words rather than its
  * reading, a gap nobody could verify counted refuted, a failed proof cleared by a skeptic's vote, a
@@ -157,7 +162,7 @@ const AGENT_TOOLS = {
   '.claude/agents/prompt-case-answerer.md': 'Read, StructuredOutput',
 }
 const TOOLLESS_AGENTS = Object.keys(AGENT_TOOLS)
-const REVIEW_POLICY_KEYS = ['promptReviewRecurrenceCount', 'promptReviewMajorSeverities', 'promptReviewSkeptics', 'promptReviewCaseLenses', 'promptReviewCaseRepetitions']
+const REVIEW_POLICY_KEYS = ['promptReviewRecurrenceCount', 'promptReviewMajorSeverities', 'promptReviewSkeptics', 'promptReviewCaseLenses', 'promptReviewCaseRepetitions', 'promptReviewMatchHeldMinProbability', 'promptReviewMatchNoneMinProbability']
 const VERIFY_POLICY_KEYS = ['verifyTraceMaxScenarios', 'verifyTraceDesignLenses', 'verifyTraceSkeptics']
 const HEAD = 'export const meta = {'
 
@@ -1398,16 +1403,31 @@ const promptPolicy = (policy) => Object.fromEntries(Object.entries(policy).filte
 const severitiesOf = (policy) => Object.keys(policy.promptReviewSkeptics)
 const countedSeverity = (policy) => severitiesOf(policy).find((s) => !policy.promptReviewMajorSeverities.includes(s))
 
-/** One finding on `file` shown by `runs`, at a counted severity and the count the threshold asks, unless `extra` says otherwise. */
-const reviewFinding = (policy, file, name, runs, extra = {}) => ({
-  key: `${file}#${name}`,
-  title: `The ${name} finding`,
-  severity: countedSeverity(policy) ?? severitiesOf(policy).at(-1),
-  count: Math.max(policy.promptReviewRecurrenceCount, runs.length),
-  runs,
-  evidence: `The runs ${runs.join(', ')} showed it.`,
-  ...extra,
-})
+/**
+ * One finding on `file` shown by `runs`, at a counted severity and the count the threshold asks, unless
+ * `extra` says otherwise. Its `match` is what `scripts/match-held-findings.mjs` prints for a key the
+ * model gave at its threshold: the held key where the count names a held run, `none` where it names
+ * none.
+ */
+const reviewFinding = (policy, file, name, runs, extra = {}) => {
+  const f = {
+    key: `${file}#${name}`,
+    title: `The ${name} finding`,
+    severity: countedSeverity(policy) ?? severitiesOf(policy).at(-1),
+    count: Math.max(policy.promptReviewRecurrenceCount, runs.length),
+    runs,
+    evidence: `The runs ${runs.join(', ')} showed it.`,
+    ...extra,
+  }
+  return 'match' in extra ? f : { ...f, match: modelMatch(policy, f) }
+}
+
+/** The `match` the model gives finding `f` at its threshold, one entry per run: its own key where its count names a held run, `none` where not. */
+const modelMatch = (policy, f) => {
+  const fresh = f.count === new Set(f.runs).size
+  const [choice, probability] = fresh ? ['none', policy.promptReviewMatchNoneMinProbability] : [f.key, policy.promptReviewMatchHeldMinProbability]
+  return [...new Set(f.runs)].map((run) => ({ run, by: 'model', choice, probability }))
+}
 
 const BEAD_KEY = `${BEAD}#gates-before-staging`
 const OPEN_PR_KEY = `${OPEN_PR}#second-watcher`
@@ -2133,6 +2153,7 @@ function reviewCases(policy) {
     },
     ...storedCaseCases(policy),
     ...discardCases(policy),
+    ...matchCases(policy),
   ]
   return list
 }
@@ -2437,6 +2458,91 @@ function storedCaseCases(policy) {
       name: 'refused: a policy without promptReviewCaseRepetitions',
       args: reviewArgs(policy, undefined, { policy: Object.fromEntries(Object.entries(promptPolicy(policy)).filter(([k]) => k !== 'promptReviewCaseRepetitions')) }),
       expect: ['refused', /^args\.policy has no `promptReviewCaseRepetitions`/],
+      check: ({ calls }) => (calls.length ? `ran ${calls.join(', ')} before refusing` : null),
+    },
+  ]
+}
+
+/**
+ * The review's cases for each finding's `match`, the answers `scripts/match-held-findings.mjs` gave
+ * the session, passed in through `args` since a workflow cannot call TypeSafe (asdlc-openspec-6yt.1).
+ * Each outcome the match script prints runs: a held key the model gave, `none` the model gave, a
+ * finding the session keyed where the model's answer met no threshold, the same with no key set, and
+ * a file with no held key. Each answer the key or the count does not bear out refuses the run before
+ * any agent, by its reason. That script's own selftest holds the call: its stubbed client, the key
+ * missing and a call that fails, which the workflow never sees, since the session stops there.
+ */
+function matchCases(policy) {
+  const heldMin = policy.promptReviewMatchHeldMinProbability
+  const noneMin = policy.promptReviewMatchNoneMinProbability
+  const under = (p) => Math.round((p - 0.01) * 100) / 100
+  const entry = (run, by, choice = null, probability = null) => ({ run, by, choice, probability })
+  const NONE = 'none'
+  /** The two default groups, bead's finding from runs A and B with its `match` and count from `extra`. */
+  const withBead = (extra) =>
+    reviewArgs(policy, [
+      { id: 'bead', files: [BEAD], findings: [reviewFinding(policy, BEAD, 'gates-before-staging', [RUN_A, RUN_B], extra)] },
+      { id: 'open-pr', files: [OPEN_PR], findings: [reviewFinding(policy, OPEN_PR, 'second-watcher', [RUN_B, RUN_C])] },
+    ])
+  /** A count naming one held run beside the two of this batch. */
+  const HELD = 3
+  const runs = (name, match, count = 2) => {
+    const args = withBead({ match, count })
+    return {
+      name,
+      args,
+      reports: {},
+      expect: ['done', /^1 to merge, 1 unchanged, 0 not upheld, 0 refused, 0 died;/],
+      check: ({ result }) => {
+        const c = changeOf(result, 'bead', BEAD_KEY)
+        if (JSON.stringify(c?.match) !== JSON.stringify(match)) return `bead's change carries the match ${JSON.stringify(c?.match)}`
+        const held = heldFinding(result, OPEN_PR_KEY)
+        const given = args.groups[1].findings[0].match
+        return JSON.stringify(held?.match) === JSON.stringify(given) ? null : `the finding held carries the match ${JSON.stringify(held?.match)}`
+      },
+    }
+  }
+  const keyedAgainst = (by, run) => new RegExp(`^group bead: the finding \\.claude/skills/bead/SKILL\\.md#gates-before-staging was keyed by the ${by} for ${run.replace(/[.]/g, '\\.')} against its match or count$`)
+  const refused = (name, match, reason, count = 2) => ({
+    name: `refused: ${name}, before any agent runs`,
+    args: withBead({ match, count }),
+    expect: ['refused', reason],
+    check: ({ calls }) => (calls.length ? `ran ${calls.join(', ')} before refusing` : null),
+  })
+  const lacking = /^group bead: the finding \.claude\/skills\/bead\/SKILL\.md#gates-before-staging lacks a match per run$/
+  const policyWithout = (key) => Object.fromEntries(Object.entries(promptPolicy(policy)).filter(([k]) => k !== key))
+  return [
+    runs(`same: a held key the model gave at ${heldMin}, its threshold, keys the finding, whose count names a held run; its change and the finding held beside it carry their match`, [entry(RUN_A, 'model', BEAD_KEY, heldMin), entry(RUN_B, 'model', BEAD_KEY, heldMin)], HELD),
+    runs(`none: none the model gave at ${noneMin}, its threshold, gives a new key that counts no held run`, [entry(RUN_A, 'model', NONE, noneMin), entry(RUN_B, 'model', NONE, noneMin)]),
+    runs("related: the session keys a finding where the model's top label met no threshold, its answer kept beside", [entry(RUN_A, 'reviewer', BEAD_KEY, under(heldMin)), entry(RUN_B, 'reviewer', NONE, under(noneMin))], HELD),
+    runs('key missing: the session keys a finding no call answered', [entry(RUN_A, 'reviewer'), entry(RUN_B, 'reviewer')], HELD),
+    runs('no held key: a finding of a file with no held key gets a new key with no call', [entry(RUN_A, 'no-held-key'), entry(RUN_B, 'no-held-key')]),
+    runs("a finding the session joined across runs, the model's none on one and its own on the other, runs", [entry(RUN_A, 'model', NONE, noneMin), entry(RUN_B, 'reviewer', NONE, under(noneMin))]),
+    refused('a held key the model gave a hair under its threshold', [entry(RUN_A, 'model', BEAD_KEY, under(heldMin)), entry(RUN_B, 'model', BEAD_KEY, heldMin)], keyedAgainst('model', RUN_A), HELD),
+    refused('none the model gave a hair under its threshold', [entry(RUN_A, 'model', NONE, noneMin), entry(RUN_B, 'model', NONE, under(noneMin))], keyedAgainst('model', RUN_B)),
+    refused("a held key the model gave that is not the finding's", [entry(RUN_A, 'model', `${BEAD}#another-finding`, heldMin), entry(RUN_B, 'model', BEAD_KEY, heldMin)], keyedAgainst('model', RUN_A), HELD),
+    refused('none the model gave on a finding whose count names a held run', [entry(RUN_A, 'model', NONE, noneMin), entry(RUN_B, 'model', NONE, noneMin)], keyedAgainst('model', RUN_A), HELD),
+    refused("the session's key where the model's held key met its threshold", [entry(RUN_A, 'reviewer', BEAD_KEY, heldMin), entry(RUN_B, 'model', BEAD_KEY, heldMin)], keyedAgainst('reviewer', RUN_A), HELD),
+    refused("the session's key where the model's none met its threshold", [entry(RUN_A, 'model', NONE, noneMin), entry(RUN_B, 'reviewer', NONE, noneMin)], keyedAgainst('reviewer', RUN_B)),
+    refused('no held key on a finding whose count names a held run', [entry(RUN_A, 'no-held-key'), entry(RUN_B, 'no-held-key')], keyedAgainst('no-held-key', RUN_A), HELD),
+    refused('no held key carrying an answer', [entry(RUN_A, 'no-held-key', NONE, noneMin), entry(RUN_B, 'no-held-key')], keyedAgainst('no-held-key', RUN_A)),
+    refused("a finding joined across runs, the model's none on one and its held key on the other", [entry(RUN_A, 'model', NONE, noneMin), entry(RUN_B, 'model', BEAD_KEY, heldMin)], keyedAgainst('model', RUN_A), HELD),
+    refused('a finding with no match', undefined, lacking),
+    refused("a match missing one run's entry", [entry(RUN_A, 'model', NONE, noneMin)], lacking),
+    refused('a match entry for a run the finding does not name', [entry(RUN_A, 'model', NONE, noneMin), entry(RUN_C, 'model', NONE, noneMin)], lacking),
+    refused('two match entries for one run', [entry(RUN_A, 'model', NONE, noneMin), entry(RUN_A, 'model', NONE, noneMin)], lacking),
+    refused("a second entry for one run beside the other run's", [entry(RUN_A, 'model', NONE, noneMin), entry(RUN_A, 'reviewer'), entry(RUN_B, 'model', NONE, noneMin)], lacking),
+    refused('a match entry keyed by none of the model, the reviewer and no held key', [entry(RUN_A, 'guess', NONE, noneMin), entry(RUN_B, 'model', NONE, noneMin)], lacking),
+    {
+      name: 'refused: a policy without promptReviewMatchHeldMinProbability, before any agent runs',
+      args: reviewArgs(policy, undefined, { policy: policyWithout('promptReviewMatchHeldMinProbability') }),
+      expect: ['refused', /^args\.policy has no `promptReviewMatchHeldMinProbability`/],
+      check: ({ calls }) => (calls.length ? `ran ${calls.join(', ')} before refusing` : null),
+    },
+    {
+      name: 'refused: a threshold of 0.5, at which two labels could meet it, before any agent runs',
+      args: reviewArgs(policy, undefined, { policy: { ...promptPolicy(policy), promptReviewMatchNoneMinProbability: 0.5 } }),
+      expect: ['refused', /^args\.policy `promptReviewMatchNoneMinProbability` must be above 0\.5 and at most 1$/],
       check: ({ calls }) => (calls.length ? `ran ${calls.join(', ')} before refusing` : null),
     },
   ]

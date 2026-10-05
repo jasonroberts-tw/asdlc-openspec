@@ -136,6 +136,11 @@ jobs:
       # network and runs here only as this selftest.
       - name: the citation-support advisory, negative-tested over a stubbed judge
         run: mise run citations:support:selftest
+      # The prompt review's match over a fixture export and a stubbed judge, and the real SDK against a
+      # refused loopback connection. The command reads a token, the tracker and the network and runs
+      # here only as this selftest.
+      - name: the prompt review's match of new findings to held ones, negative-tested over a stubbed judge
+        run: mise run prompt-review:match:selftest
       # Seconds (git-hooks.yml's `gate-summary-selftest` job has the measurement): the Stop hook over
       # scratch citation trees and scratch repositories under the temporary directory, and the
       # block-generated-edit hook over a scratch repository with two linked worktrees.
