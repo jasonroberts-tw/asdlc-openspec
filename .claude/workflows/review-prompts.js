@@ -136,7 +136,7 @@ export const meta = {
  * session that copies an answer wrong is refused only when the copy contradicts the key or the count,
  * so one that drops a run from `held` and from `count` alike passes.
  *
- * WHAT IT RETURNS. { stopped, why, groups, merge, discard, discardDropped, runsRead, runsHeld, findingsHeld, cases, counts }. Every
+ * WHAT IT RETURNS. { stopped, why, groups, merge, discard, discardDropped, runsRead, runsHeld, findingsHeld, findingsCarried, cases, counts }. Every
  * count in it is computed here, never by an agent. `stopped` is one of:
  *
  *   refused     an argument did not hold; `why` names it, and no agent ran
@@ -256,7 +256,12 @@ export const meta = {
  *   in `runsHeld`, with the groups that held it, and the session leaves it pending for the next
  *   review. `findingsHeld` lists each finding of a read group that no merged branch carries, set aside
  *   by its agent, not upheld, or upheld on a branch kept out, with its key, its runs, its count, its
- *   `match` and the reason; the session appends a held line for each of its runs.
+ *   `match` and the reason; the session appends a held line for each of its runs. `findingsCarried`
+ *   lists each finding a branch in `merge` carries, one that a change of its group names, every such
+ *   change upheld, with its key, its runs and its count; the session appends a closed line for each,
+ *   naming its pull request, which ends the key once that merges (the header of
+ *   `scripts/prompt-runs.mjs` gives the line, `docs/decisions.md` § D-49). A finding of a group not
+ *   upheld or regressed is never in it: its branch is not merged, so nothing carried it.
  *
  * LABELS. Each file agent is labelled `review <id>`, each skeptic of a change `skeptic <i>/<n> <id>:
  * <key>`, each skeptic of a consolidation `skeptic <i>/<n> <id>: consolidation of <file>`, each
@@ -1108,6 +1113,14 @@ const counts = {
   regressed: count('regressed'),
 }
 const merge = groups.filter((g) => g.status === 'merge').map((g) => g.branch.trim())
+/**
+ * Each finding a merged group carries: one a change of its group names. A group in `merge` had every
+ * change, consolidation and unstated edit upheld, so a change it states is an upheld one. It is read
+ * through `merge`, not by status, as the header says, so a group that is not merged carries nothing.
+ */
+const findingsCarried = groups
+  .filter((g) => g.branch && merge.includes(g.branch.trim()))
+  .flatMap((g) => g.findings.filter((f) => g.changes.some((c) => c.finding.trim() === f.key.trim())).map((f) => ({ key: f.key.trim(), runs: f.runs, count: f.count })))
 /** Each branch a group's report names, the run part of a workflow agent's, and its group. */
 const named = groups.filter((g) => g.branch?.trim()).map((g) => ({ id: g.id, branch: g.branch.trim(), status: g.status, run: WORKFLOW_BRANCH.exec(g.branch.trim())?.[1] }))
 const shaped = named.filter((d) => d.run)
@@ -1141,7 +1154,7 @@ const cases = caseResults
 if (counts.died === counts.groups) {
   const why = 'every agent returned nothing'
   log(`Stopped (agent-died): ${why}`)
-  return { stopped: 'agent-died', why, groups, merge, discard, discardDropped, runsRead, runsHeld, findingsHeld, cases, counts }
+  return { stopped: 'agent-died', why, groups, merge, discard, discardDropped, runsRead, runsHeld, findingsHeld, findingsCarried, cases, counts }
 }
 /** The clause of `why` for the `of` items of one kind the skeptics judged, or none where there were none. */
 const judgedClause = (upheld, of, what, skeptics) => (of ? `; ${upheld} of ${of} ${what} upheld by ${skeptics} skeptic(s)` : '')
@@ -1152,4 +1165,4 @@ const caseClause = counts.cases
   : ''
 const why = `${counts.merge} to merge, ${counts.unchanged} unchanged, ${counts.notUpheld} not upheld, ${counts.refused} refused, ${counts.died} died; ${counts.upheld} of ${counts.changes} change(s) upheld by ${counts.skeptics} skeptic(s)${consolidationClause}${unstatedClause}${caseClause}; ${counts.runsRead} of ${counts.runs} run(s) read, ${counts.findingsHeld} finding(s) held`
 log(`Stopped (done): ${why}`)
-return { stopped: 'done', why, groups, merge, discard, discardDropped, runsRead, runsHeld, findingsHeld, cases, counts }
+return { stopped: 'done', why, groups, merge, discard, discardDropped, runsRead, runsHeld, findingsHeld, findingsCarried, cases, counts }
