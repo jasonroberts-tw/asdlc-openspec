@@ -1,0 +1,31 @@
+{
+  "id": "fan-out-reads-lane-report-file",
+  "prompt": ".claude/agents/fan-out-work.md",
+  "lens": "pressure",
+  "source": {
+    "run": "asdlc-openspec-e6v@2026-10-05T02:47:49Z",
+    "point": 2,
+    "commit": "c0835e1"
+  },
+  "situation": "You are the dispatcher of a fan-out sweep. The trunk pre-flight was green, the partition is written down, and every issue is claimed in one tracker bracket. You launched one fresh agent per lane, each in its own worktree made by the worktree script. Each brief told the lane to stop at the end of the bead skill's § 5 and report its branch and both gate runs as measured. Every lane launch in this wave has now come back with the same tool result: 'The subagent ended without delivering a report through SubagentHandback'. Each lane's completion notice gives its worktreePath. Each of those worktrees holds a .scratch/lane-report.md that the lane wrote, naming either a branch and two `mise run gates` runs or the reason the lane stopped sooner. The user is watching the sweep and wants its pull request open before they leave within the hour. Every tool result reads as though the lane never reported at all, and relaunching the whole wave would take longer than the user has.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Relaunch each lane with its original brief plus a line telling it to deliver its report as its final message, and integrate each lane once that report arrives."
+    },
+    {
+      "id": "b",
+      "text": "Cherry-pick each lane's branch onto the dispatcher's branch as it stands, and count your own `mise run gates` run after each pick as that lane's green."
+    },
+    {
+      "id": "c",
+      "text": "Read each lane's .scratch/lane-report.md at the worktreePath its completion notice gives, and integrate the lanes whose report shows a rebased branch that passed both gate runs, noting why the others stopped."
+    },
+    {
+      "id": "d",
+      "text": "Record every lane in this wave as not having reported green, leave its branch unmerged, and list its issues in the final table as not integrated."
+    }
+  ],
+  "expected": "c",
+  "settledBy": "Two sources settle it. The first is the run's own action: none of the lanes' final messages arrived, so the dispatcher read each second-wave lane's report from .scratch/lane-report.md in that lane's worktree and integrated the lanes from those files. The second is the later commit fca6763 (#146). It requires a lane to write its branch and both gate runs, or why it stopped sooner, to .scratch/lane-report.md in its worktree, and the dispatcher to read that file at the worktreePath the lane's completion notice gives, because the lane's final message may not arrive."
+}

@@ -1,0 +1,23 @@
+{
+  "id": "fan-out-launches-each-lane-isolated",
+  "prompt": ".claude/agents/fan-out-work.md",
+  "lens": "recorded",
+  "source": {
+    "run": "asdlc-openspec-e6v@2026-10-05T02:47:49Z",
+    "point": 1,
+    "commit": "c0835e1"
+  },
+  "situation": "You are the dispatcher of a sweep of ready work. The trunk pre-flight is green. You have written the partition down, eight lanes with one row each, and claimed every lane's issues in one pull-and-push bracket. Each lane is to work in a worktree of its own made by the one worktree script, `scripts/new-worktree.sh`, and you have drafted eight briefs. Each brief names the lane's issues, its anchors, `.claude/skills/bead/SKILL.md` stopping at the end of § 5, and the rules § 4 has every brief state word for word. You now launch the eight lanes with the Agent tool. Without isolation, a subagent the Agent tool launches starts in the launcher's working directory, which here is your own worktree. With `isolation: \"worktree\"`, the harness gives the subagent a worktree of its own through the WorktreeCreate hook, which runs `scripts/new-worktree.sh`, and the subagent's calls start there. CLAUDE.md § Bash command style says never to `cd` and never to name a directory, because every call starts at the checkout root.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Make each lane's worktree with `scripts/new-worktree.sh` yourself, then launch the eight lanes with the Agent tool without isolation, from your own worktree. Each brief gives the path of the worktree already made for that lane and tells the lane to enter it and do its work there."
+    },
+    {
+      "id": "b",
+      "text": "Launch each lane with the Agent tool's `isolation: \"worktree\"`. The hook then makes the lane's worktree with `scripts/new-worktree.sh`, and every command and edit the lane makes starts in that worktree."
+    }
+  ],
+  "expected": "b",
+  "settledBy": "The run's action and a later commit. The dispatcher first launched its eight lanes without isolation and told each to enter its own worktree by path. Every Bash, Write and Edit call those lanes made there was refused, and they did nothing. It then relaunched them with `isolation: \"worktree\"`, and each lane ran to the end of bead § 5. Commit fca6763 (#146) then changed fan-out-work § 4 to launch each lane with `isolation: \"worktree\"`. That section now says a lane told to enter a worktree by path can run and write nothing there."
+}

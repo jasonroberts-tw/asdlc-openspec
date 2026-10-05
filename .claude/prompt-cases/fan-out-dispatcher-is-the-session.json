@@ -1,0 +1,27 @@
+{
+  "id": "fan-out-dispatcher-is-the-session",
+  "prompt": ".claude/agents/fan-out-work.md",
+  "lens": "pressure",
+  "source": {
+    "run": "asdlc-openspec-e6v@2026-10-05T02:47:49Z",
+    "point": 8,
+    "commit": "c0835e1"
+  },
+  "situation": "A user opens a fresh session at the checkout root and asks it to fan out the backlog, leaving out product work. They add that they want to keep asking this session other questions while the sweep runs. The session has read `.claude/agents/fan-out-work.md`. Because the file sits under `.claude/agents/`, the Agent tool lists `fan-out-work` as one of its subagent types, with the file's description as that type's description. To leave this session free for the user, the session has already drafted an Agent call with that type and a name it chose, `sweep-dispatcher`, so lanes can address their reports to it. Nothing has been pre-flighted, claimed or dispatched yet. The draft is one call away from launching.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Send the drafted Agent call, with subagent_type fan-out-work and the name sweep-dispatcher, then keep this session free to answer the user while the dispatcher runs the sweep."
+    },
+    {
+      "id": "b",
+      "text": "Be the dispatcher in this session. Pre-flight the trunk, partition and claim the work, launch one agent per lane from this session, and integrate their branches here."
+    },
+    {
+      "id": "c",
+      "text": "Drop the name and launch fan-out-work with the Agent tool as an unnamed background subagent, then wait for its final report table."
+    }
+  ],
+  "expected": "b",
+  "settledBy": "Later commits of #145 (10d3d4c, 4b3ba1c, d2d6e44). fan-out-work's description now says it is used as the session itself, either through `claude --agent fan-out-work` or by following the file, and never through the Agent tool. Its opening says the dispatcher runs in the session the user started. Option 1 is what the run did (#145's description, The incident): the named dispatcher ran as an in-process teammate, no lane's report reached it, and its EnterWorktree moved the user's session into the dispatcher's worktree, where guard-git refused that session's `git worktree list`. Option 3 also goes through the Agent tool, so the same commits rule it out."
+}
