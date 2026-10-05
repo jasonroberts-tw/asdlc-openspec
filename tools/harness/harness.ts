@@ -50,9 +50,10 @@
  * REACH, FOR THE REVIEWER. The export `reach(root, rev, paths)` gives each path's row: the pre-push
  * jobs whose globs match it and those whose imports reach it, the workflow lines whose task or named
  * entry imports it, and the session hooks whose entry does, all as the commit `rev` declares them.
- * Its one consumer is `scripts/pr-review.mjs`, whose verdict comment prints the rows as evidence for
- * a person and decides nothing on them; `docs/decisions.md` § D-26 still holds: this reports and
- * enforces nothing. Were it wrong, it would describe the wrong tree: read from the working tree, the
+ * Its one consumer is `scripts/pr-review.mjs brief --local`, whose brief prints the rows as evidence
+ * for the branch reviewer and decides nothing on them; the pull-request reviewer's verdict printed
+ * them too until `docs/decisions.md` § D-46. `docs/decisions.md` § D-26 still holds: this reports
+ * and enforces nothing. Were it wrong, it would describe the wrong tree: read from the working tree, the
  * branch under review rather than its base; and were it to import a file of the commit, as the
  * report imports the redirect table, the reviewer would run code it was asked only to read. So it
  * reads that commit's tree and blobs through git alone, and writes nothing. Its limits: a file read
