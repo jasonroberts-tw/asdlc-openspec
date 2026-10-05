@@ -37,15 +37,19 @@
  * the loss `promptReviewHeldMarkerMeans` records for a hand-edited line. Were this script wrong, it
  * would let through a model's answer taken under its threshold, a failed call or an unreadable
  * tracker read as "nothing held", so that every finding gets a new key and every count starts again,
- * and a key held about another file offered as an option.
+ * a key held about another file offered as an option, and a held key printed with `held` short of
+ * the runs its held lines name, so that the workflow holds the count to too few.
  *
  * WHERE IT LOSES. Two failures at one place in a prompt, worded alike, get two keys from a session
  * that reads them closely; the model may give the second the first's key at a threshold, and carry it
  * past `promptReviewRecurrenceCount` a run early, where its skeptics then judge an edit for it. A held
  * line a hand edit broke is not offered: it is listed in the output's `held.unparsed`, and the
  * session names it in the review's description. Within one batch, whether two new findings are one
- * is still the session's to decide. Both thresholds were set from a sample of 18 findings, and their
- * `Means` in `tools/policy/agent-workflows.json` say so.
+ * is still the session's to decide. `promptReviewMatchNoneMinProbability` is the value the 2026-09-29
+ * note on asdlc-openspec-6yt.1 proposed from its small sample of findings; the maintainer chose
+ * `promptReviewMatchHeldMinProbability` on 2026-10-05 from the larger measurement over the tracker's
+ * held lines. Each key's `Means` in `tools/policy/agent-workflows.json` gives its figures, and says it
+ * is provisional.
  *
  * INVOCATION.
  *
@@ -71,18 +75,22 @@
  *   { model, skip, held: { lines, keys, unparsed }, findings: [{ id, file, key, match, top }] }
  *     skip      null, or why no call was made
  *     key       the held key the model gave, or null for a new key or one the session decides
- *     match     { run, by, choice, probability }: `by` is `model`, `reviewer` or `no-held-key`,
+ *     match     { run, by, choice, probability, held? }: `by` is `model`, `reviewer` or `no-held-key`,
  *               `choice` the model's top label (a held key or `none`) and `probability` its
- *               probability, both null where no call was made. The session copies it, unchanged, into
- *               the finding it passes `review-prompts.js` (`args.groups` there), one entry for each run
- *               of that finding, and that script refuses one its key or count does not bear out.
+ *               probability, both null where no call was made. `held` is on an entry the model keyed
+ *               with a held key alone: the distinct run ids that key's held lines name, in code-point
+ *               order, which may name a run of this batch, held while its analysis stayed pending.
+ *               The session copies the entry, unchanged, into the finding it passes
+ *               `review-prompts.js` (`args.groups` there), one entry for each run of that finding,
+ *               and that script refuses one its key or count does not bear out.
  *     top       the model's three likeliest labels with their probabilities, for the session to read
  *               where it decides
  *
- * What the session does with each answer: `by: model` with a `key` takes it; `by: model` with no key,
- * or `by: no-held-key`, gets a new key; `by: reviewer` the session keys as § 3 says, and its `match`
- * entry keeps the model's answer beside the key the session gave. A finding the session then joins to
- * another of this batch carries one entry for each of its runs.
+ * What the session does with each answer: `by: model` with a `key` takes it, and its count is the
+ * distinct runs of its runs in this batch and its `held` together, as `review-prompts.js` requires;
+ * `by: model` with no key, or `by: no-held-key`, gets a new key; `by: reviewer` the session keys as
+ * § 3 says, and its `match` entry keeps the model's answer beside the key the session gave. A finding
+ * the session then joins to another of this batch carries one entry for each of its runs.
  *
  * EXIT. 0 with the match printed, the key set or not; 2 on a bad flag or a bad input, which the
  * session corrects and runs again; 1 on a failure: a policy key missing or wrong, the tracker or the
@@ -227,6 +235,11 @@ export function optionsFor(file, lines) {
   return [...best.keys()].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)).map((key) => ({ key, reason: best.get(key).reason }))
 }
 
+/** The distinct runs `key`'s held lines name, in code-point order: what a finding given that key counts beside its own runs. */
+export function heldRuns(key, lines) {
+  return [...new Set(lines.filter((line) => line.key === key).map((line) => line.run))].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+}
+
 /* --------------------------------------------------------------------------------- the input ----- */
 
 /** The findings of the input, or a thrown error whose `usage` is set, naming what is wrong. */
@@ -273,7 +286,7 @@ export async function matchAll(findings, lines, policy, judge) {
       id: f.id,
       file: f.file,
       key,
-      match: { run: f.run, by, choice: answer?.label ?? null, probability: answer?.probability ?? null },
+      match: { run: f.run, by, choice: answer?.label ?? null, probability: answer?.probability ?? null, ...(by === MODEL && key !== null ? { held: heldRuns(key, lines) } : {}) },
       top: answer ? answer.top : [],
     })
     if (!options.length) {
@@ -425,6 +438,8 @@ async function selftest() {
       },
       { id: 'example-3', notes: 'No held line here; it quotes one: ' + heldLine('x@y', STAGE, 9, 'not at the start of a line') },
     ]
+    /** The runs STAGE's held lines name, the line quoted mid-line not among them. */
+    const HELD_RUNS = ['example-1@2026-09-20T00:00:00Z', 'example-2@2026-09-21T00:00:00Z']
     const fixture = (name, change, issues = ISSUES) => {
       const root = join(dir, name)
       copyPolicy(REPO_ROOT, root)
@@ -494,8 +509,13 @@ async function selftest() {
     ok(
       `a held key at ${heldMin}, the threshold itself, keys the finding, by the model`,
       JSON.stringify(of(control.result, 'same')) ===
-        JSON.stringify({ id: 'same', file: BEAD, key: STAGE, match: { run: RUN, by: MODEL, choice: STAGE, probability: heldMin }, top: of(control.result, 'same').top }),
+        JSON.stringify({ id: 'same', file: BEAD, key: STAGE, match: { run: RUN, by: MODEL, choice: STAGE, probability: heldMin, held: HELD_RUNS }, top: of(control.result, 'same').top }),
       JSON.stringify(of(control.result, 'same')),
+    )
+    ok(
+      "the held key's match names in `held` the runs its held lines name, and no entry but a held key the model gave carries `held`",
+      JSON.stringify(of(control.result, 'same')?.match.held) === JSON.stringify(HELD_RUNS) && ['new', 'related', 'unheld'].every((id) => of(control.result, id) && !('held' in of(control.result, id).match)),
+      JSON.stringify(control.result.findings.map((f) => f.match)),
     )
     ok(
       `none at ${noneMin}, the threshold itself, gives a new key, by the model, with no held key`,
@@ -537,6 +557,16 @@ async function selftest() {
     )
     ok('the top labels are given, likeliest first', of(control.result, 'same').top[0].label === STAGE && of(control.result, 'same').top.length === TOP, JSON.stringify(of(control.result, 'same').top))
     ok('the model the policy pins is named, and no skip', control.result.model === live.typesafeModel && control.result.skip === null, JSON.stringify(control.result.model))
+
+    /* A run held again while its analysis stayed pending, and a held line read after a later run's. */
+    const again = ISSUES.map((i) => (i.id === 'example-2' ? { ...i, notes: `${i.notes}\n${heldLine(HELD_RUNS[1], STAGE, 2, 'held again while its analysis stayed pending')}` } : i))
+    again.push({ id: 'example-0', notes: heldLine('example-0@2026-09-19T00:00:00Z', STAGE, 1, 'below the threshold, minor: the first run that showed it') })
+    const repeated = await run(['--input', inputFile('repeated', [FINDINGS[0]])], { root: fixture('repeated', null, again) })
+    ok(
+      '`held` names each run once, however many of its held lines name it, in code-point order',
+      JSON.stringify(of(repeated.result, 'same')?.match.held) === JSON.stringify(['example-0@2026-09-19T00:00:00Z', ...HELD_RUNS]),
+      repeated.out + repeated.err,
+    )
 
     /* Each threshold, from the other side. */
     const underNone = await run(['--input', inputFile('under-none', [FINDINGS[1]])], { judge: stub([], (q) => answerFor(q, { [NONE]: Math.round((noneMin - 0.01) * 100) / 100 })) })

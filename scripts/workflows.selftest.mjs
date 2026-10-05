@@ -80,7 +80,10 @@
  * read; its three cases were seen failing before its fix. Since asdlc-openspec-6yt.1 it refuses a
  * review that runs a finding keyed by the model under a threshold or for another key, or by the
  * session where the model's answer met one; each check of the match, deleted in a copy, turned its
- * case red. For the trace (since asdlc-openspec-as9):
+ * case red. Since the branch review of 2026-10-05 it also refuses a held key the model gave whose
+ * count is not its runs and the runs that key's held lines name, counted once each, or that names no
+ * such runs; the three cases were seen failing before the fix, 297 of 300 cases holding. For the
+ * trace (since asdlc-openspec-as9):
  * a scenario left out of every group, a group a tracer returned short or read at
  * another commit counted as traced, a row's gap taken from the tracer's words rather than its
  * reading, a gap nobody could verify counted refuted, a failed proof cleared by a skeptic's vote, a
@@ -1431,11 +1434,16 @@ const reviewFinding = (policy, file, name, runs, extra = {}) => {
   return 'match' in extra ? f : { ...f, match: modelMatch(policy, f) }
 }
 
-/** The `match` the model gives finding `f` at its threshold, one entry per run: its own key where its count names a held run, `none` where not. */
+/**
+ * The `match` the model gives finding `f` at its threshold, one entry per run: its own key where its
+ * count names a held run, with `held` naming as many runs outside this batch as the count needs, and
+ * `none` where it names none.
+ */
 const modelMatch = (policy, f) => {
-  const fresh = f.count === new Set(f.runs).size
-  const [choice, probability] = fresh ? ['none', policy.promptReviewMatchNoneMinProbability] : [f.key, policy.promptReviewMatchHeldMinProbability]
-  return [...new Set(f.runs)].map((run) => ({ run, by: 'model', choice, probability }))
+  const runs = [...new Set(f.runs)]
+  if (f.count === runs.length) return runs.map((run) => ({ run, by: 'model', choice: 'none', probability: policy.promptReviewMatchNoneMinProbability }))
+  const held = Array.from({ length: f.count - runs.length }, (_, i) => `example-held-${i + 1}@2026-09-20T00:00:00Z`)
+  return runs.map((run) => ({ run, by: 'model', choice: f.key, probability: policy.promptReviewMatchHeldMinProbability, held }))
 }
 
 const BEAD_KEY = `${BEAD}#gates-before-staging`
@@ -2475,18 +2483,24 @@ function storedCaseCases(policy) {
 /**
  * The review's cases for each finding's `match`, the answers `scripts/match-held-findings.mjs` gave
  * the session, passed in through `args` since a workflow cannot call TypeSafe (asdlc-openspec-6yt.1).
- * Each outcome the match script prints runs: a held key the model gave, `none` the model gave, a
- * finding the session keyed where the model's answer met no threshold, the same with no key set, and
- * a file with no held key. Each answer the key or the count does not bear out refuses the run before
- * any agent, by its reason. That script's own selftest holds the call: its stubbed client, the key
- * missing and a call that fails, which the workflow never sees, since the session stops there.
+ * Each outcome the match script prints runs: a held key the model gave, its held lines naming a run
+ * outside this batch or only one in it, `none` the model gave, a finding the session keyed where the
+ * model's answer met no threshold, the same with no key set, and a file with no held key. Each answer
+ * the key or the count does not bear out refuses the run before any agent, by its reason, among them
+ * a held key whose count leaves out a run its `held` names, and one with no `held`. That script's
+ * own selftest holds the call: its stubbed client, the key missing and a call that fails, which the
+ * workflow never sees, since the session stops there.
  */
 function matchCases(policy) {
   const heldMin = policy.promptReviewMatchHeldMinProbability
   const noneMin = policy.promptReviewMatchNoneMinProbability
   const under = (p) => Math.round((p - 0.01) * 100) / 100
-  const entry = (run, by, choice = null, probability = null) => ({ run, by, choice, probability })
+  const entry = (run, by, choice = null, probability = null, held) => ({ run, by, choice, probability, ...(held === undefined ? {} : { held }) })
   const NONE = 'none'
+  /** A run outside this batch that the held key's held lines name. */
+  const RUN_HELD = 'example-0@2026-09-25T00:00:00Z'
+  /** The model's held key for `run` at its threshold, its held lines naming `held`. */
+  const heldKey = (run, held = [RUN_HELD]) => entry(run, 'model', BEAD_KEY, heldMin, held)
   /** The two default groups, bead's finding from runs A and B with its `match` and count from `extra`. */
   const withBead = (extra) =>
     reviewArgs(policy, [
@@ -2521,21 +2535,25 @@ function matchCases(policy) {
   const lacking = /^group bead: the finding \.claude\/skills\/bead\/SKILL\.md#gates-before-staging lacks a match per run$/
   const policyWithout = (key) => Object.fromEntries(Object.entries(promptPolicy(policy)).filter(([k]) => k !== key))
   return [
-    runs(`same: a held key the model gave at ${heldMin}, its threshold, keys the finding, whose count names a held run; its change and the finding held beside it carry their match`, [entry(RUN_A, 'model', BEAD_KEY, heldMin), entry(RUN_B, 'model', BEAD_KEY, heldMin)], HELD),
+    runs(`same: a held key the model gave at ${heldMin}, its threshold, keys the finding, whose count names the held run its held lines name; its change and the finding held beside it carry their match`, [heldKey(RUN_A), heldKey(RUN_B)], HELD),
+    runs("pending: a held key the model gave whose held lines name only a run of this batch, held while its analysis stayed pending, counts this batch's runs alone", [heldKey(RUN_A, [RUN_A]), heldKey(RUN_B, [RUN_A])]),
     runs(`none: none the model gave at ${noneMin}, its threshold, gives a new key that counts no held run`, [entry(RUN_A, 'model', NONE, noneMin), entry(RUN_B, 'model', NONE, noneMin)]),
     runs("related: the session keys a finding where the model's top label met no threshold, its answer kept beside", [entry(RUN_A, 'reviewer', BEAD_KEY, under(heldMin)), entry(RUN_B, 'reviewer', NONE, under(noneMin))], HELD),
     runs('key missing: the session keys a finding no call answered', [entry(RUN_A, 'reviewer'), entry(RUN_B, 'reviewer')], HELD),
     runs('no held key: a finding of a file with no held key gets a new key with no call', [entry(RUN_A, 'no-held-key'), entry(RUN_B, 'no-held-key')]),
     runs("a finding the session joined across runs, the model's none on one and its own on the other, runs", [entry(RUN_A, 'model', NONE, noneMin), entry(RUN_B, 'reviewer', NONE, under(noneMin))]),
-    refused('a held key the model gave a hair under its threshold', [entry(RUN_A, 'model', BEAD_KEY, under(heldMin)), entry(RUN_B, 'model', BEAD_KEY, heldMin)], keyedAgainst('model', RUN_A), HELD),
+    refused('a held key the model gave a hair under its threshold', [entry(RUN_A, 'model', BEAD_KEY, under(heldMin), [RUN_HELD]), heldKey(RUN_B)], keyedAgainst('model', RUN_A), HELD),
     refused('none the model gave a hair under its threshold', [entry(RUN_A, 'model', NONE, noneMin), entry(RUN_B, 'model', NONE, under(noneMin))], keyedAgainst('model', RUN_B)),
-    refused("a held key the model gave that is not the finding's", [entry(RUN_A, 'model', `${BEAD}#another-finding`, heldMin), entry(RUN_B, 'model', BEAD_KEY, heldMin)], keyedAgainst('model', RUN_A), HELD),
+    refused("a held key the model gave that is not the finding's", [entry(RUN_A, 'model', `${BEAD}#another-finding`, heldMin, [RUN_HELD]), heldKey(RUN_B)], keyedAgainst('model', RUN_A), HELD),
+    refused("a held key the model gave whose held lines name a run outside this batch, where the count is this batch's runs alone, so the finding drifts back to one", [heldKey(RUN_A), heldKey(RUN_B)], keyedAgainst('model', RUN_A)),
+    refused('a held key the model gave with no held runs beside it', [heldKey(RUN_A), entry(RUN_B, 'model', BEAD_KEY, heldMin)], keyedAgainst('model', RUN_B), HELD),
+    refused('a held key the model gave whose held runs hold a blank run id', [heldKey(RUN_A, [' ']), heldKey(RUN_B, [' '])], keyedAgainst('model', RUN_A), HELD),
     refused('none the model gave on a finding whose count names a held run', [entry(RUN_A, 'model', NONE, noneMin), entry(RUN_B, 'model', NONE, noneMin)], keyedAgainst('model', RUN_A), HELD),
-    refused("the session's key where the model's held key met its threshold", [entry(RUN_A, 'reviewer', BEAD_KEY, heldMin), entry(RUN_B, 'model', BEAD_KEY, heldMin)], keyedAgainst('reviewer', RUN_A), HELD),
+    refused("the session's key where the model's held key met its threshold", [entry(RUN_A, 'reviewer', BEAD_KEY, heldMin), heldKey(RUN_B)], keyedAgainst('reviewer', RUN_A), HELD),
     refused("the session's key where the model's none met its threshold", [entry(RUN_A, 'model', NONE, noneMin), entry(RUN_B, 'reviewer', NONE, noneMin)], keyedAgainst('reviewer', RUN_B)),
     refused('no held key on a finding whose count names a held run', [entry(RUN_A, 'no-held-key'), entry(RUN_B, 'no-held-key')], keyedAgainst('no-held-key', RUN_A), HELD),
     refused('no held key carrying an answer', [entry(RUN_A, 'no-held-key', NONE, noneMin), entry(RUN_B, 'no-held-key')], keyedAgainst('no-held-key', RUN_A)),
-    refused("a finding joined across runs, the model's none on one and its held key on the other", [entry(RUN_A, 'model', NONE, noneMin), entry(RUN_B, 'model', BEAD_KEY, heldMin)], keyedAgainst('model', RUN_A), HELD),
+    refused("a finding joined across runs, the model's none on one and its held key on the other", [entry(RUN_A, 'model', NONE, noneMin), heldKey(RUN_B)], keyedAgainst('model', RUN_A), HELD),
     refused('a finding with no match', undefined, lacking),
     refused("a match missing one run's entry", [entry(RUN_A, 'model', NONE, noneMin)], lacking),
     refused('a match entry for a run the finding does not name', [entry(RUN_A, 'model', NONE, noneMin), entry(RUN_C, 'model', NONE, noneMin)], lacking),
