@@ -201,8 +201,10 @@ Keep each condition that limits a kept rule or its failure clause, through any r
 it broadens what the prompt says. Keep every heading another file cites: `git grep` the prompt's
 path and its name.
 
-Commit the consolidation alone, before the edit. The pull request's description gives one row for
-each sentence or clause removed: kept, naming the file and section that state it and what loads that
+Write and measure the whole edit before consolidating, so one consolidation
+frees enough. Then set it aside to commit the consolidation alone, before the
+edit. The pull request's description gives one row for each sentence or clause
+removed: kept, naming the file and section that state it and what loads that
 file wherever this prompt is loaded; moved, naming the pull request that tells it; or deleted, saying
 why. A sentence whose row cannot name what loads its new home stays: a rule kept where the session
 never reads it is lost. Once the edit lands, the reviewer's session, not the file's agent, sets the
