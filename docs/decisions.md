@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `mise run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-40 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39 and D-40 added 2026-10-04).**
+**Status: every decision from D-01 to D-41 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-40` is checked by `mise run check:register`, which reads those headings, the table and each
+> `D-01 … D-41` is checked by `mise run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -66,7 +66,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-08** | A run leaves its analysis in the tracker, and one review reads every pending analysis as a batch | `CLAUDE.md` § Prompt reviews; the `continuous-prompt-improvement` agent and `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; the four `promptReview*` keys of `tools/policy.json`; `bead` § 8 |
 | **D-09** | An in-session guard refuses a `gh` command that applies the approval label, from any checkout | `scripts/hooks/guard-git.mjs`, held by `worktree:selftest`; the guard's rows in `.claude/README.md`, `scripts/hooks/README.md` and `README.md` |
 | **D-10** | A prompt review proposes an edit only for a finding that recurs or is severe, and carries it once skeptics uphold it | The threshold check and the skeptic step of `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; `promptReviewHeldMarker`, `promptReviewRecurrenceCount`, `promptReviewMajorSeverities` and `promptReviewSkeptics` in `tools/policy.json`; `CLAUDE.md` § Prompt reviews; the `continuous-prompt-improvement` agent |
-| **D-11** | `beads:check` refuses an open found issue with no asset label, as D-06 item 4 asked | Rule 4 of `scripts/check-beads.mjs`, held by `beads:selftest` at pre-push and in CI; `gatedBy` in `tools/policy.json` |
+| **D-11** | `beads:check` refuses an open found issue with no asset label, as D-06 item 4 asked | Rule 4 of `scripts/check-beads.mjs`, held by `beads:selftest` at pre-push and in CI; `gatedBy` in `tools/policy.json`; D-41's amendment, which gates `foundAtLabels` from `foundAtLabelsSince` |
 | **D-12** | A prompt that an edit would take past its word budget is consolidated first, and every rule it removes is accounted for | `.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated; the consolidations of `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; the refusal of `check:prompts`; `bead` consolidated and its budget lowered in `tools/policy.json` |
 | **D-13** | The agentic test strategy is adopted, and each of its rules lands in a home of its own | `docs/test-strategy.md` as the dated record; each rule's home, a gate's header, a skill or the build workflow, landed by the issue item 17's table names |
 | **D-14** | A build task sees each scenario's proof fail before the code that passes it, or reports it already green, and the build workflow stops a run that does neither | The `not-red` stop and red records of `.claude/workflows/build-change-task.js`, held by `workflows:selftest`; `buildRedFirstKinds` in `tools/policy.json`; `change-build` § 3; `bead` § 4 |
@@ -96,6 +96,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-38** | The floor holds the `open-pr` skill, `tasks.toml`, and the files and policy keys of the gates that hold the product | `prReviewFloorTasks`, nineteen paths and three records' keys in `tools/policy/pr-review.json`; `filesOfTask` and `floorTaskProblems` in `scripts/pr-review.mjs`, held by `pr-review:check` and `pr-review:selftest`; the two `pr-review` jobs' globs in `git-hooks.yml`; D-36's and D-37's amendments |
 | **D-39** | The first three change stages run the adversarial-verifier on what each wrote, before each stops for review | `.claude/agents/adversarial-verifier.md` § From a change stage; `change-propose` § 7, `change-design` § 5 and `change-plan` § 3, each consolidated first; the four prompts' budgets in `tools/policy/prompt-budgets.json`; the agent's row in `README.md` and the playbook's Propose, Design and Plan |
 | **D-40** | The task loader reads `tasks.toml` alone, and refuses a tree or a commit that has none | `tasksFrom` and `loadTasks` in `scripts/lib/tasks.mjs`, the refusal held by `check:jobs:selftest` for a tree and `tests:inventory:selftest` for a commit; each reader without its branch for a tree from before the move; D-36's amendment |
+| **D-41** | `beads:check` refuses an open found issue filed since D-06's issue was created with no found-at label | Rule 6 of `scripts/check-beads.mjs`, held by `beads:selftest` at pre-push and in CI; `foundAtLabelsSince` in `tools/policy/vocabulary.json`; D-11's amendment |
 
 ## Risks
 
@@ -639,6 +640,8 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 **Figures.** None: `npm run beads:check` names each open issue it refuses, and names none at the commit that added this entry.
 
 > **Amended 2026-10-04 by D-36.** The Decision's `npm run beads:check` and item 2's `npm run beads:selftest` run as `mise run beads:check` and `mise run beads:selftest`, since the tasks moved from `package.json` to `tasks.toml`, where `npm run` finds none of them.
+
+> **Amended 2026-10-04 by D-41.** Item 3's `foundAtLabels` is gated: `mise run beads:check` refuses an open issue filed `discovered-from` at or after the instant `foundAtLabelsSince` in `tools/policy/vocabulary.json` names that carries no label `foundAtLabels` lists. The maintainer chose that instant, the `created_at` of `asdlc-openspec-6dn`. `rerouteLabels` stays ungated.
 
 ### D-12 · A prompt that an edit would take past its word budget is consolidated first, and every rule it removes is accounted for
 
@@ -2046,6 +2049,44 @@ Where it loses:
 - No open pull request: `gh pr list --state open --json number,headRefName,baseRefName` printed `[]` on 2026-10-04. Eleven branches beside `main` on the remote, by `git ls-remote --heads origin`, each with a merge base with `origin/main` that `d0855db` is not an ancestor of (`git merge-base --is-ancestor`), and each the head of a merged pull request: #116, #119, #123 to #127, #129, #131, #132 and #136, by `gh pr list --state all`.
 - Seen failing first, over the loader as it was at `c0835e1`: `check:jobs:selftest` held 70 of 71, its case of a tree with its tasks back in `package.json` passing where it should be refused; `tests:inventory:selftest` held 51 of 54, its three new cases passing, each read from `package.json`. Over this entry's loader, 67 of 67 and 54 of 54.
 - Selftests at this entry's commit, each from a run of it: `check:jobs:selftest` 67 checks, 3 of the harness, the control and 63 doctored copies; `tests:inventory:selftest` 54 cases; `tests:fresh:selftest` 14; `thresholds:selftest` 40; `trace:selftest` 55; `harness:selftest` 99 in the core and 48 in the graph half.
+
+### D-41 · `beads:check` refuses an open found issue filed since D-06's issue was created with no found-at label
+
+**Recorded 2026-10-04**, carried by `asdlc-openspec-sbp`. D-11 item 3 left `foundAtLabels` ungated until the maintainer chose a cut-off. A fan-out lane built the rule and derived three candidate instants, each with where it loses, in the issue's notes; the maintainer chose the first on 2026-10-04.
+
+**Builds on / amends:** amends D-11, whose item 3 says `foundAtLabels` stays ungated until a cut-off is chosen. Builds on D-06, whose found-at labels the rule holds, and on D-27, under which `tools/policy/vocabulary.json` holds the cut-off beside the labels.
+
+**Decision.**
+
+1. **`mise run beads:check` refuses an open issue filed `discovered-from`, created at or after `foundAtLabelsSince`, that carries no label `foundAtLabels` lists**, naming the issue and both keys and spelling no value. An issue whose `created_at` cannot be read is held, not exempted.
+2. **The cut-off is `foundAtLabelsSince` in `tools/policy/vocabulary.json`, the `created_at` of `asdlc-openspec-6dn`**, the issue that carries D-06 and the first instant the tracker records D-06 at. The gate refuses a policy without the key, without `foundAtLabels`, with an empty list, or with a cut-off that is not an instant in UTC ending in `Z`.
+3. **`mise run beads:selftest` holds each refusal**, asserting its reason; its control keeps an issue created a second before the cut-off with no found-at label.
+4. **`rerouteLabels` stays ungated**: a reroute label records that a change went back, so its absence is the normal case, and no presence rule can hold it.
+
+**Why.** Without the rule, a found issue with an asset label and no found-at label is counted by kind and never by stage, and `bd count -l <found-at label> --by-label` still reads as complete. A bare presence check would refuse every open found issue filed before D-06, which `foundAtLabelsMeans` exempts, so the rule needs a cut-off. Two cut-offs lost:
+
+- **The merge of D-06's pull request, #27**, when D-06 reached the trunk. It would exempt `asdlc-openspec-dzi`, filed between the two instants by the session that wrote D-06 and knew the rule.
+- **D-06's recorded date, read as midnight UTC.** It would refuse `asdlc-openspec-0db`, filed half an hour before `asdlc-openspec-6dn` existed, whose text names no stage that found it, so its label could only be guessed, which `foundAtLabelsMeans` does not allow.
+
+Where the chosen cut-off loses:
+
+- **An issue filed after it but before #27 merged is held to a rule its filer's checkout did not yet state.** One exists, `asdlc-openspec-dzi`, and it is labelled.
+- **An issue filed before it stays exempt while it is open**: `asdlc-openspec-0db` is counted by kind and never by stage while the gate passes.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound; the amendment under D-11 and its Applied-as cell.
+- **`scripts/check-beads.mjs`:** rule 6, reading `foundAtLabels` and `foundAtLabelsSince` and spelling neither; seven `--selftest` cases; the header.
+- **`tools/policy/vocabulary.json`:** `foundAtLabelsSince` and its `Means`; `describes` and `gatedBy`.
+- **The rest:** `tasks.toml`'s `beads:check` description; rows of `README.md` § The guardrails and § What runs automatically, `scripts/README.md` and `tools/policy/README.md`; comments in `git-hooks.yml`; `docs/playbook.md` § 5 and its glossary row.
+
+**Figures.**
+
+- The cut-off is `asdlc-openspec-6dn`'s `created_at`, stated once, in `foundAtLabelsSince`: `bd show asdlc-openspec-6dn --json`.
+- #27 merged at `2026-09-25T12:21:51Z`: `gh pr view 27 --json mergedAt`.
+- `asdlc-openspec-0db`, open, created at `2026-09-24T22:53:47Z`, labelled `asset:environment` and no found-at label: `bd show asdlc-openspec-0db --json`.
+- `mise run beads:check` passes over 280 issues on 2026-10-04, refusing none.
+- `mise run beads:selftest`: 21 of 21 cases hold, the control and 20 doctored copies. Before the rule existed, 14 of 21 held, its seven new cases failing, as the message of the commit that added rule 6 records the lane's run.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
