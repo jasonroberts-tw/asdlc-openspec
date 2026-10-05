@@ -50,6 +50,14 @@ export const meta = {
  * an entry that is no edit, which no skeptic read: the report is its agent's own output, and chose
  * which of its edits were read. A temporary selftest case showed the first on 2026-10-04, while
  * asdlc-openspec-wzei was worked, and a security review of that issue's commit flagged the second.
+ * And it would let through a report's branch, or a consolidation's commit, that carries a space or a
+ * `;` into a command: the branch reaches each skeptic's `git diff`, the session's `git merge` and
+ * its `mise run worktree:gc --discard`, and the commit a skeptic's `git diff`, each pasted as text.
+ * On 2026-10-05 the push security review of pull request #147 found the branch checked for its
+ * `agent/` prefix alone and the commit for being non-empty, and `WORKFLOW_BRANCH` unanchored, so a
+ * report giving `agent/wf_abc-3 --discard agent/agent-a452486a3b8cc4f0b`, beside groups on
+ * `agent/wf_abc-1` and `agent/wf_abc-2`, would have been merged and handed to the session in
+ * `discard`, and pasted there it removes a fan-out lane's unmerged branch.
  *
  * Wrong the other way, it refuses what it should pass. On 2026-09-28 (run wf_5aec3e94-07b) it refused
  * 3 of 4 groups, each with an edit whose gates passed, because each listed under `notChanged` a point
@@ -123,13 +131,18 @@ export const meta = {
  *
  *   - its branch is an `agent/` branch, as the WorktreeCreate hook names one, where Claude Code's own
  *     fallback names it `worktree-<name>` (CLAUDE.md § Git workflow);
+ *   - its branch holds no character but a letter, a digit, `.`, `_`, `/` and `-` (`BRANCH`), as the
+ *     class `caseProblem` holds a case's prompt to: it is pasted into commands, so a space or a `;`
+ *     would make it a second argument or a second command;
  *   - no two groups report one branch;
  *   - a changed report lists the files its branch changes, every one of them its own, states at
  *     least one change, each to a file of its own that it lists, and ran gates that all passed: the
  *     stored cases a branch is answered on are those of the files it lists;
  *   - each consolidation it states is of a file of its own that its branch changes, one per file,
- *     names its commit, frees words, and lists what it removed, every row saying where its text went:
- *     a kept row names the place and what loads it, a moved row the pull request, a deleted row why;
+ *     names its commit as a hash of 7 to 40 lower-case hex digits (`COMMIT`), since a skeptic's
+ *     `git diff` takes it as text, frees words, and lists what it removed, every row saying where its
+ *     text went: a kept row names the place and what loads it, a moved row the pull request, a deleted
+ *     row why;
  *   - an unchanged report lists no changed file and states no change and no consolidation;
  *   - every change names a finding of its own group, and every finding of its group is changed or set
  *     aside.
@@ -150,6 +163,11 @@ export const meta = {
  *   These rules judge what each agent reports of its branch and its files, which a script that runs
  *   no git cannot check; the session checks each branch's diff against its group's files before it
  *   merges it (`.claude/agents/continuous-prompt-improvement.md` § 5).
+ *
+ *   Where the branch's characters lose: they are those of every branch seen in runs, not a contract
+ *   Claude Code documents. Were it to name a worktree's branch with another character, every honest
+ *   report would be refused by that rule, and the review would merge nothing; it fails loudly, each
+ *   group refused by the reason, never quietly.
  *
  * THE SKEPTICS. Each change of a group that broke no rule goes to `promptReviewSkeptics[severity]`
  * skeptics, the severity its finding's. Each reads the branch's diff and answers upheld, refuted or
@@ -190,7 +208,10 @@ export const meta = {
  * returned for the session to report. `cases` lists each case answered, with its group, its
  * `outcome`, its `old` and `new` counts of right answers of `of`, and each answer's option and why.
  *
- *   `merge` lists the merging groups' branches in the order of `args.groups`. A run is in `runsRead`
+ *   `merge` lists the merging groups' branches in the order of `args.groups`. Each branch in `merge`
+ *   or `discard` holds only `BRANCH`'s characters, by the rules above and `WORKFLOW_BRANCH`, so the
+ *   session may paste it into `git merge` and `mise run worktree:gc --discard`; one in
+ *   `discardDropped` may hold any, and is reported, never run. A run is in `runsRead`
  *   when every group whose findings cite it is `merge`, `unchanged`, `not-upheld` or `regressed`; otherwise it is
  *   in `runsHeld`, with the groups that held it, and the session leaves it pending for the next
  *   review. `findingsHeld` lists each finding of a read group that no merged branch carries, set aside
@@ -221,8 +242,12 @@ export const meta = {
  * and Claude Code names the worktree. A report naming another lane's branch would have that lane
  * removed with no proof its work is anywhere, so a branch no file agent of this run could be shown to
  * have been given goes to `discardDropped` instead, with the same three fields and a `why`, and the
- * log names it. There are three. One is a branch not of a workflow agent's shape, `agent/wf_<run>-<n>`,
- * as a fan-out lane's `agent/agent-<hex>` or a change's is not. One is a branch two groups report,
+ * log names it. There are three. One is a branch not wholly of a workflow agent's shape,
+ * `agent/wf_<run>-<n>` with each part of `BRANCH`'s characters and nothing after (`WORKFLOW_BRANCH`),
+ * as a fan-out lane's `agent/agent-<hex>` or a change's is not, nor a branch the rules above refuse
+ * for a space or a `;`: a refused group's branch is otherwise discarded like any other, so the shape's
+ * end anchor is what keeps `agent/wf_abc-3 --discard <a lane's branch>` out of `discard` where most
+ * groups name `wf_abc`. One is a branch two groups report,
  * which the script cannot give to either. The third is one whose run part, `wf_` and what follows up
  * to the first dash, no more than half the branches of that shape share. The shape, and that one
  * run's agents share their run part, rest on branch names seen in runs alone, no documented contract:
@@ -258,8 +283,12 @@ const CONSOLIDATION_SEVERITY = 'blocker'
 /** The severity whose skeptic count judges an unstated edit: a consolidation's, as the header says why. */
 const UNSTATED_SEVERITY = CONSOLIDATION_SEVERITY
 const PROVISIONED = 'agent/'
-/** A workflow agent's branch, `agent/wf_<run>-<n>`, its first group the run part `wf_<run>`, as the header's NEEDS gives it. */
-const WORKFLOW_BRANCH = /^agent\/(wf_[^-/]+)-./
+/** A report's branch, of the characters a provisioned one holds and no shell reads, as the header's rules say why. */
+const BRANCH = /^agent\/[A-Za-z0-9._\/-]+$/
+/** A consolidation's commit: a hash, abbreviated or whole, which a skeptic's `git diff` takes, as the header's rules say why. */
+const COMMIT = /^[0-9a-f]{7,40}$/
+/** A workflow agent's branch, `agent/wf_<run>-<n>`, whole and of BRANCH's characters, its first group the run part `wf_<run>`, as the header's NEEDS gives it. */
+const WORKFLOW_BRANCH = /^agent\/(wf_[A-Za-z0-9._]+)-[A-Za-z0-9._-]+$/
 const JUDGED = '`.claude/agents/continuous-prompt-improvement.md` § How a file is judged'
 const CONSOLIDATED = '`.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated'
 const KEY = /^(.+)#([a-z0-9][a-z0-9-]*)$/
@@ -696,7 +725,7 @@ function consolidationProblems(r, own, changed) {
     if (!changed.includes(file)) problems.push(`it states a consolidation of ${file}, which its branch does not change`)
     if (seen.has(file)) problems.push(`it states two consolidations of ${file}`)
     seen.add(file)
-    if (!isText(k.commit)) problems.push(`its consolidation of ${file} names no commit`)
+    if (!isText(k.commit) || !COMMIT.test(k.commit.trim())) problems.push(`its consolidation of ${file} names no commit hash`)
     if (!(k.wordsAfter < k.wordsBefore)) problems.push(`its consolidation of ${file} frees no words: ${k.wordsBefore} before, ${k.wordsAfter} after`)
     if (!k.removed.length) problems.push(`its consolidation of ${file} lists nothing it removed`)
     const unplaced = k.removed.filter((row) => !placed(row)).length
@@ -756,7 +785,7 @@ function problemsOf(g, r) {
   const keys = new Set(g.findings.map((f) => f.key.trim()))
   if (!r.branch.trim().startsWith(PROVISIONED)) {
     problems.push(`its branch ${r.branch.trim()} is not an ${PROVISIONED} branch, so the WorktreeCreate hook did not provision its worktree, and its base and briefing are unknown`)
-  }
+  } else if (!BRANCH.test(r.branch.trim())) problems.push(`its branch ${JSON.stringify(r.branch.trim())} has a character outside A-Za-z0-9._/-`)
   const changed = r.filesChanged.map(clean).filter(Boolean)
   if (r.verdict === 'changed') {
     if (!changed.length) problems.push('it reports a change, but its branch changes no file')

@@ -1484,6 +1484,9 @@ const unchanged = (group, extra = {}) => ({
 
 const reviewVote = (verdict) => ({ verdict, reason: `the skeptic's ${verdict} reason` })
 
+/** A fan-out lane's branch, which an injected report names after its own as a second `--discard`. */
+const INJECTED_LANE = 'agent/agent-a452486a3b8cc4f0b'
+
 /* --------------------------------------------------------------- the stored cases: fixtures ----- */
 
 /** The merge base the review's reader stub prints, and the commit a stored case's run read its prompt at. */
@@ -1736,6 +1739,20 @@ function reviewCases(policy) {
       'a branch the WorktreeCreate hook did not provision is not merged, and its runs are held',
       (g) => changed(g, { branch: 'worktree-wf_example-bead' }),
       /is not an agent\/ branch/,
+    ),
+    // A report is its agent's own output, and its branch reaches a skeptic's `git diff` and the
+    // session's `git merge` and `mise run worktree:gc --discard` (the push security review of #147).
+    refusedBead(
+      policy,
+      'a branch holding a space and a flag after it, as an injected report gives one, is refused before any command takes it',
+      (g) => changed(g, { branch: `agent/wf_example-bead --discard ${INJECTED_LANE}` }),
+      /its branch "agent\/wf_example-bead --discard agent\/agent-a452486a3b8cc4f0b" has a character outside A-Za-z0-9\._\/-/,
+    ),
+    refusedBead(
+      policy,
+      'a branch holding a `;` is refused before any command takes it',
+      (g) => changed(g, { branch: 'agent/wf_example-bead;touch .scratch/pwned' }),
+      /its branch "agent\/wf_example-bead;touch \.scratch\/pwned" has a character outside A-Za-z0-9\._\/-/,
     ),
     refusedBead(
       policy,
@@ -2010,6 +2027,12 @@ function reviewCases(policy) {
     ),
     refusedBead(
       policy,
+      'a consolidation naming something other than a commit hash, which a skeptic\'s `git diff` would run, is not merged',
+      (g) => changed(g, { consolidations: [consolidation(BEAD, { commit: 'HEAD;touch .scratch/pwned' })] }),
+      /its consolidation of \.claude\/skills\/bead\/SKILL\.md names no commit hash/,
+    ),
+    refusedBead(
+      policy,
       'a consolidation that frees no words is not merged',
       (g) => changed(g, { consolidations: [consolidation(BEAD, { wordsAfter: 100 })] }),
       /its consolidation of \.claude\/skills\/bead\/SKILL\.md frees no words: 100 before, 100 after/,
@@ -2121,7 +2144,8 @@ function reviewCases(policy) {
  * The branch is the report's word, and the script assigns none, so a branch no workflow agent of this
  * run could have been given is held out in `discardDropped`, with why: one of no workflow agent's
  * shape, as a fan-out lane's is, one two groups report, and one of a run that more than half the
- * groups' workflow agent branches do not share.
+ * groups' workflow agent branches do not share. A branch that a character outside a branch's own
+ * makes a second argument, as an injected report would give one, is none of that shape either.
  */
 function discardCases(policy) {
   const listed = (result) => JSON.stringify(result.discard)
@@ -2132,6 +2156,8 @@ function discardCases(policy) {
     { id: 'other', files: [OTHER], findings: [reviewFinding(policy, OTHER, 'third-finding', [RUN_C])] },
   ])
   const LANE = 'agent/agent-a8900798095a74b2f'
+  /** What an injected report gives as its branch: this run's next, and a lane's, which `--discard` pasted after it would remove. */
+  const INJECTED = `agent/wf_abc-3 --discard ${INJECTED_LANE}`
   return [
     {
       name: "a report naming a fan-out lane's branch, which no workflow agent is given, keeps it out of discard, saying why, and the others' go",
@@ -2172,6 +2198,30 @@ function discardCases(policy) {
               ])
             ? null
             : `discardDropped is ${dropped(result)}`,
+    },
+    {
+      name: "an injected report naming this run's next branch and a lane's after it is refused, and is in neither discard nor merge, where the others' go",
+      args: three,
+      reports: {
+        bead: (g) => changed(g, { branch: 'agent/wf_abc-1' }),
+        'open-pr': (g) => unchanged(g, { branch: 'agent/wf_abc-2' }),
+        other: (g) => changed(g, { branch: INJECTED }),
+      },
+      expect: ['done', /^1 to merge, 1 unchanged, 0 not upheld, 1 refused, 0 died;/],
+      check: ({ result }) => {
+        if (statusOf(result, 'other') !== 'refused' || !/its branch ".*" has a character outside A-Za-z0-9\._\/-/.test(problemsOf(result, 'other'))) {
+          return `other is ${statusOf(result, 'other')}: ${problemsOf(result, 'other')}`
+        }
+        if (JSON.stringify(result.merge) !== JSON.stringify(['agent/wf_abc-1'])) return `merge is ${JSON.stringify(result.merge)}`
+        const honest = [
+          { id: 'bead', branch: 'agent/wf_abc-1', status: 'merge' },
+          { id: 'open-pr', branch: 'agent/wf_abc-2', status: 'unchanged' },
+        ]
+        if (listed(result) !== JSON.stringify(honest)) return `discard is ${listed(result)}`
+        return dropped(result) === JSON.stringify([{ id: 'other', branch: INJECTED, status: 'refused', why: "it is no workflow agent's branch" }])
+          ? null
+          : `discardDropped is ${dropped(result)}`
+      },
     },
     {
       name: 'one branch two groups report is kept out of discard for both, saying why',
