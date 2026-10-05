@@ -42,8 +42,7 @@ This refusal writes nothing: no trace, no note and no label.
 **The fresh run.** `mise run tests:fresh <change> --tasks <ids>`, given the task ids and the Bash
 timeout the header of `scripts/fresh-run.mjs` names, runs what it names in a clone of HEAD and writes
 `.scratch/<change>-verify.json`. For each failing test it prints a
-command: run each once, as its own Bash call, and never again, since an unasked retry hides a flaky
-test. A test that fails and then passes is flaky, and counts as failing.
+command: run each once, and never again, since an unasked retry hides a flaky test.
 
 **The trace.** Write it to `.scratch/<change>-trace.md`, one row per `#### Scenario:` in every delta
 spec. Take it with `.claude/workflows/verify-change-trace.js`, through the Workflow tool, passing the
@@ -69,10 +68,10 @@ a new child labels the epic for plan and for build (`CLAUDE.md` § Product work 
 OpenSpec-format changes), and a follow-up carries the labels `CLAUDE.md` § The task store names,
 with verify's found-at label.
 
-**Traceability rules 1 to 3**, which read the epic's children and no gate holds: every scenario ID
-of every delta is named by a task (rule 1); every NFR is in the `nfrIds` of a fitness record under
-`apps/<app>/fitness/`, or named by a task whose proof is a test that references it (rule 2); every
-child labelled `asset:product` names a scenario or NFR ID (rule 3). A miss is a gap.
+**Traceability rules 1 to 3** read the epic's children, and no gate holds them. Rule 1: a task names
+every scenario ID of every delta. Rule 2: every NFR is in the `nfrIds` of a fitness record under
+`apps/<app>/fitness/`, or a task whose proof is a test that references it names it. Rule 3: every
+child labelled `asset:product` names a scenario or NFR ID. A miss is a gap.
 
 **The report.** `node scripts/render-verify-report.mjs <change>` writes it, `.scratch/<change>-verify.md`,
 from the run, as the header of `scripts/lib/verify-report.mjs` derives it. It is never committed.
