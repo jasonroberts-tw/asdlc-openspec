@@ -2120,8 +2120,8 @@ function reviewCases(policy) {
  * every group whose report names a branch, merged or not, each with its status as the reason it goes.
  * The branch is the report's word, and the script assigns none, so a branch no workflow agent of this
  * run could have been given is held out in `discardDropped`, with why: one of no workflow agent's
- * shape, as a fan-out lane's is, and one of a run that more than half the groups' workflow agent
- * branches do not share. One branch two groups report is handed over once.
+ * shape, as a fan-out lane's is, one two groups report, and one of a run that more than half the
+ * groups' workflow agent branches do not share.
  */
 function discardCases(policy) {
   const listed = (result) => JSON.stringify(result.discard)
@@ -2174,12 +2174,16 @@ function discardCases(policy) {
             : `discardDropped is ${dropped(result)}`,
     },
     {
-      name: 'one branch two groups report is handed to remove once',
+      name: 'one branch two groups report is kept out of discard for both, saying why',
       args: reviewArgs(policy),
       reports: { bead: (g) => changed(g, { branch: 'agent/wf_example-same' }), 'open-pr': (g) => unchanged(g, { branch: 'agent/wf_example-same' }) },
       expect: ['done', /^0 to merge, 0 unchanged, 0 not upheld, 2 refused, 0 died;/],
       check: ({ result }) =>
-        listed(result) === JSON.stringify([{ id: 'bead', branch: 'agent/wf_example-same', status: 'refused' }]) && dropped(result) === '[]'
+        listed(result) === '[]' &&
+        dropped(result) ===
+          JSON.stringify(
+            ['bead', 'open-pr'].map((id) => ({ id, branch: 'agent/wf_example-same', status: 'refused', why: 'groups bead and open-pr report it' })),
+          )
           ? null
           : `discard is ${listed(result)} and discardDropped ${dropped(result)}`,
     },
