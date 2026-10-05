@@ -62,9 +62,9 @@ user before the push, or, with no user, into the body. Do not review those fixes
     git push -u origin <branch>
     gh pr create --base main --head <branch> --title "<title>" --body-file <file>
 
-The base is typed (`CLAUDE.md` § Git workflow). Open it ready for review: the reviewer takes no
-draft, so `--draft` only when the request says draft. If the create fails, run
-`gh pr list --head <branch>` before retrying: a create can land after its client gives up.
+Open it ready for review: the reviewer takes no draft, so `--draft` only when the request says
+draft. If the create fails, run `gh pr list --head <branch>` before retrying: a create can land
+after its client gives up.
 
 Then, at once, set the reviewer's status pending on the new head:
 

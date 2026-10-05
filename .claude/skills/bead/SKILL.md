@@ -131,11 +131,10 @@ with a note naming the pull request and the issue that carries the cause.
 ## 7. Close on the merge, with a reason
 
 Once `open-pr` reports the merge, close the issue with a reason that names the pull request, passed
-with `bd close <id> --reason-file <file>`: Claude Code can refuse an inline `--reason` (step 4).
-Handed back unmerged, the issue stays open, with a note naming the pull request, until it merges:
-closed sooner, it claims an unmet criterion. Whoever sees the merge closes it. An acceptance
-criterion that acts outside the repository is not performed: it becomes a follow-up issue labelled
-`human`, created with its label at creation.
+with `bd close <id> --reason-file <file>`. Handed back unmerged, the issue stays open, with a note
+naming the pull request, until it merges: closed sooner, it claims an unmet criterion. Whoever sees
+the merge closes it. An acceptance criterion that acts outside the repository is not performed: it
+becomes a follow-up issue labelled `human`, created with its label at creation.
 
 ## 8. Report
 
