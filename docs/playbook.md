@@ -159,7 +159,8 @@ with any long prose passed from a file under `.scratch/` (`CLAUDE.md` § Bash co
    opening paragraph.
 2. With several issues, partition them before claiming any: two branches that add rows beside the
    same anchor stay separate, and two issues describing one defect are one lane. A sweep of the
-   queue goes to the `fan-out-work` agent instead. Decided by: `.claude/skills/bead/SKILL.md`
+   queue is dispatched by the session itself, following `.claude/agents/fan-out-work.md`, never by
+   an agent it launches. Decided by: `.claude/skills/bead/SKILL.md`
    § 2. Partition before claiming, and `.claude/agents/fan-out-work.md` § 2. Partition the ready
    work into lanes.
 3. Read the issue with `bd show <id>`, then the code it talks about as the trunk has it:
