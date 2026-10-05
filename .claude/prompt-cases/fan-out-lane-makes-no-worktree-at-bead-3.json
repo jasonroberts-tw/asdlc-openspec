@@ -23,5 +23,5 @@
     }
   ],
   "expected": "b",
-  "settledBy": "The branch review's major finding F1 on #146 and its fix, commit 0fcf8cf (on the trunk as 9b6dee3): the dispatcher's brief tells each lane that it makes no worktree at bead § 3, since it starts in one. Option 1 is what the branch's rewritten § 4 still did before the review: the brief sent the lane to follow bead with § 3 unqualified. A lane following that would call EnterWorktree from inside its own worktree. Option 3 is entering a worktree by path, which the rewritten § 4 itself says can leave a lane that runs but writes nothing there."
+  "settledBy": "The branch review's major finding F1 on #146 and its fix, commit 0fcf8cf (on the trunk as 9b6dee3): the dispatcher's brief tells each lane that it makes no worktree at bead § 3, since it starts in one. Option a is what the branch's rewritten § 4 still did before the review: the brief sent the lane to follow bead with § 3 unqualified. A lane following that would call EnterWorktree from inside its own worktree. Option c is entering a worktree by path, which the rewritten § 4 itself says can leave a lane that runs but writes nothing there."
 }
