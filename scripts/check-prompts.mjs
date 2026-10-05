@@ -25,6 +25,18 @@
  * goes with it. Until D-27 each budget was a key of `tools/policy.json` whose name this gate built
  * from the path, `.claude/skills/open-pr/SKILL.md` as `promptWordBudgetSkillOpenPr`.
  *
+ * THE INCIDENT LIST, a flag and not a check: it refuses nothing. CLAUDE.md § Standing rules for
+ * prompts and gates says a prompt carries no incident, and `--incidents` lists each line that holds
+ * the marks of a dated one, for a person or a prompt review to read: an ISO date, alone or in a
+ * timestamp; a tracker id, in the shape `prReviewIssuePattern` in `tools/policy/pr-review.json`
+ * gives; a pull request number, `#` and digits; or a Workflow tool run id, `wf_`, eight hex digits,
+ * a dash and three. A markdown prompt is read line by line, frontmatter included. A workflow is read
+ * only in its string and template literals, cooked, each line of a literal numbered by the source
+ * line it starts on, so a dated incident in its header comment, where CLAUDE.md keeps a script's
+ * incident, is not listed. Each row is `  <path>:<line>  dated: <marks>`, the form
+ * `scripts/prompt-incidents.mjs` prints its rows in, `undated:` and a probability, for the paragraphs
+ * a language model judges to tell an incident with none of these marks: the two read as one list.
+ *
  * THE FAILURE IT EXISTS TO PREVENT, one incident for each check.
  *
  * The opening line. On 2026-09-23 six of the fifteen skills and agents tracked at commit fad7da8
@@ -46,12 +58,26 @@
  * this gate read only a prompt's first line. Each figure is `git show <commit>:<path>` split on
  * whitespace.
  *
+ * The incident list has no incident yet: on 2026-10-05, at 158b73e, `git grep` for a date, a
+ * tracker id or a `#` and two digits over `CLAUDE.md`, the skills, the agents and the briefing found
+ * none (asdlc-openspec-r6ha.3), and the list guards against a prompt review's edit bringing one back
+ * unseen. Were it wrong, it would let through an incident told in a form it does not match: one with
+ * no date, id or number, which `scripts/prompt-incidents.mjs` judges; a date spelled out, or "pull
+ * request 147"; and a tracker id of another shape once the tracker's prefix moves and the policy key
+ * does not. It would list, too, a line that holds such a mark for another reason, such as an example
+ * of an id's form, which a reader sets aside.
+ *
  * INVOCATION.
  *
  *   mise run check:prompts                     the gate
  *   mise run check:prompts:selftest            its fixtures -- every refusal exercised on a doctored copy
  *   node scripts/check-prompts.mjs --counts   every prompt's words and its budget, in code-point
  *                                             order of path; it refuses nothing
+ *   node scripts/check-prompts.mjs --incidents
+ *                                             each prompt line holding a date, a tracker id, a
+ *                                             pull request number or a workflow run id, as
+ *                                             `<path>:<line>`, in code-point order of path; it
+ *                                             refuses nothing, and exits 0
  *
  * NO EXEMPTION. `CLAUDE.md` asks the line of every *substantial* prompt. This gate asks it of every
  * skill and agent, because the line costs one line and deciding what is substantial is how six were
@@ -77,17 +103,21 @@
  * review is what holds that.
  *
  * NEGATIVE TESTING. `--selftest` builds a fixture tree under `os.tmpdir()`, doctors ONE thing per
- * case and asserts the run fails FOR THAT REASON, plus an undoctored control that must pass. By
+ * case and asserts the run fails FOR THAT REASON, plus an undoctored control that must pass and
+ * that `--incidents` must list nothing in. An incident case asserts the exact rows `--incidents`
+ * lists, one mark or one place it must not look per case, and one runs it as a process. By
  * hand, point `PROMPTS_CHECK_ROOT` at a doctored copy:
  *
  *   PROMPTS_CHECK_ROOT=/tmp/doctored node scripts/check-prompts.mjs
  *
  * NEEDS only committed files: `CLAUDE.md`, the prompts and the records under `tools/policy/`, read
- * through `tools/lib/policy.ts`. No tool, no network.
+ * through `tools/lib/policy.ts`, `--incidents` reading `prReviewIssuePattern` there and saying so
+ * when it cannot. No tool, no network.
  * 0.08 s wall for the gate and 0.15 s for its selftest through `node --run` (`/usr/bin/time -p`,
  * two runs each, both alike) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-26.
  */
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -148,7 +178,7 @@ function prompts(root) {
 }
 
 /** Every prompt the budget covers under `root`: the skills and agents, the workflows, and the single files. */
-function budgeted(root) {
+export function budgeted(root) {
   const found = prompts(root)
   const workflows = join(root, WORKFLOWS_DIR)
   if (existsSync(workflows)) {
@@ -188,10 +218,27 @@ const SIMPLE_ESCAPES = { n: '\n', r: '\r', t: '\t', b: '\b', f: '\f', v: '\v', 0
  * it: one entry per quoted string, and one per stretch of a template literal between its
  * substitutions. Comments and regular expressions are skipped. A heuristic, as the header says.
  */
-export function literalTexts(source) {
+export const literalTexts = (source) => literalSpans(source).map((span) => span.text)
+
+/**
+ * `literalTexts` with where each character came from: `{ text, at }`, where `at[k]` is the offset in
+ * `source` of the character, or the escape, that cooked to `text[k]`.
+ */
+export function literalSpans(source) {
   const texts = []
   const n = source.length
   let i = 0
+  let at = []
+
+  /** Append `cooked`, which began at `from` in the source. */
+  const add = (text, cooked, from) => {
+    for (let k = 0; k < cooked.length; k++) at.push(from)
+    return text + cooked
+  }
+  const push = (text) => {
+    texts.push({ text, at })
+    at = []
+  }
 
   const escape = () => {
     const c = source[i + 1]
@@ -221,27 +268,29 @@ export function literalTexts(source) {
     let text = ''
     i++
     while (i < n && source[i] !== quote && source[i] !== '\n') {
-      if (source[i] === '\\') text += escape()
-      else text += source[i++]
+      const from = i
+      text = add(text, source[i] === '\\' ? escape() : source[i++], from)
     }
     i++
-    texts.push(text)
+    push(text)
   }
 
   const template = () => {
     let text = ''
     i++
     while (i < n && source[i] !== '`') {
-      if (source[i] === '\\') text += escape()
-      else if (source[i] === '$' && source[i + 1] === '{') {
-        texts.push(text)
+      if (source[i] === '$' && source[i + 1] === '{') {
+        push(text)
         text = ''
         i += 2
         code(true)
-      } else text += source[i++]
+      } else {
+        const from = i
+        text = add(text, source[i] === '\\' ? escape() : source[i++], from)
+      }
     }
     i++
-    texts.push(text)
+    push(text)
   }
 
   const regex = () => {
@@ -310,6 +359,92 @@ export function literalTexts(source) {
 function countWords(root, path) {
   const text = readFileSync(join(root, path), 'utf8')
   return path.startsWith(`${WORKFLOWS_DIR}/`) ? words(literalTexts(text).join('\n')) : words(text)
+}
+
+/* ------------------------------------------------------------------------------ the lines ----- */
+
+/** The 1-based line of `source` that holds offset `offset`, from the offsets each line starts at. */
+function lineAt(starts, offset) {
+  let low = 0
+  let high = starts.length - 1
+  while (low < high) {
+    const mid = (low + high + 1) >> 1
+    if (starts[mid] <= offset) low = mid
+    else high = mid - 1
+  }
+  return low + 1
+}
+
+/**
+ * The lines of the prompt at `path` as its agents read them, each `{ line, text, literal }`: every
+ * line of a markdown prompt, frontmatter included, all of `literal` -1; and every line of each string
+ * and template literal of a workflow, cooked, numbered by the source line its first character comes
+ * from and carrying the literal's index, so a reader keeps two literals apart. A workflow's comments
+ * and code give none. A line of a literal that is empty has `line` null, since no character places it.
+ */
+export function promptLines(root, path) {
+  const source = readFileSync(join(root, path), 'utf8')
+  if (!path.startsWith(`${WORKFLOWS_DIR}/`)) {
+    return source.split(/\r?\n/).map((text, i) => ({ line: i + 1, text, literal: -1 }))
+  }
+  const starts = [0]
+  for (let i = 0; i < source.length; i++) if (source[i] === '\n') starts.push(i + 1)
+  const lines = []
+  literalSpans(source).forEach(({ text, at }, literal) => {
+    let from = 0
+    for (const piece of text.split('\n')) {
+      lines.push({ line: piece === '' ? null : lineAt(starts, at[from]), text: piece, literal })
+      from += piece.length + 1
+    }
+  })
+  return lines
+}
+
+/* ------------------------------------------------------------------------- the incidents ----- */
+
+/** The key, in `tools/policy/pr-review.json`, whose value is the shape of a tracker id. */
+const ISSUE_PATTERN_KEY = 'prReviewIssuePattern'
+
+/** The marks of a dated incident beside the tracker id: an ISO date, a pull request number, a run id. */
+const DATED_MARKS = ['\\b\\d{4}-\\d{2}-\\d{2}\\b', '(?<![\\w&])#\\d+\\b', '\\bwf_[0-9a-f]{8}-[0-9a-f]{3}\\b']
+
+/** The tracker id's shape from the policy under `root`, or why it could not be read. */
+function trackerPattern(root) {
+  try {
+    const pattern = readPolicy(root)[ISSUE_PATTERN_KEY]
+    if (typeof pattern !== 'string' || pattern === '') throw new Error(`\`${ISSUE_PATTERN_KEY}\` is ${pattern === undefined ? 'missing' : 'not a pattern'}`)
+    new RegExp(pattern)
+    return { pattern, unreadable: null }
+  } catch (error) {
+    return { pattern: null, unreadable: error.message }
+  }
+}
+
+/** One row of the incident list, in the form both halves print it: `--incidents` here, `dated:`. */
+export const incidentRow = (path, line, what) => `  ${path}:${line}  ${what}`
+
+/**
+ * Every line of every prompt under `root` that holds a mark of a dated incident, as
+ * `{ path, line, marks }` in code-point order of path and then by line, two literals on one source
+ * line giving one row; the count of prompts read; and why the tracker id's shape could not be read,
+ * or null, in which case no tracker id is listed and every other mark still is.
+ */
+export function listIncidents(root) {
+  const { pattern, unreadable } = trackerPattern(root)
+  const marker = new RegExp([...DATED_MARKS, ...(pattern === null ? [] : [`(?:${pattern})`])].join('|'), 'g')
+  const rows = []
+  const paths = budgeted(root)
+  for (const path of paths) {
+    for (const { line, text } of promptLines(root, path)) {
+      const marks = text.match(marker)
+      if (marks === null) continue
+      const last = rows.at(-1)
+      if (last?.path === path && last.line === line) last.marks.push(...marks)
+      else rows.push({ path, line, marks: [...marks] })
+    }
+  }
+  for (const row of rows) row.marks = [...new Set(row.marks)]
+  return { rows, prompts: paths.length, unreadable }
 }
 
 /**
@@ -461,6 +596,23 @@ function printCounts() {
   )
 }
 
+/** The list `--incidents` prints, from what `listIncidents` found. */
+export function incidentReport({ rows, prompts, unreadable }) {
+  const lines = []
+  if (unreadable !== null) {
+    lines.push(`prompts --incidents: ${POLICY_DIR}/ gives no tracker id's shape (${unreadable}), so no tracker id is listed.`)
+  }
+  const held = new Set(rows.map((row) => row.path)).size
+  lines.push(
+    `prompts --incidents: ${rows.length} line(s) in ${held} of ${prompts} prompt(s) hold a date, a tracker id, a pull ` +
+      `request number or a workflow run id, the marks of an incident ${RULE_HOME} keeps out of a prompt. ` +
+      'It refuses nothing.',
+  )
+  if (rows.length > 0) lines.push('')
+  for (const { path, line, marks } of rows) lines.push(incidentRow(path, line, `dated: ${marks.join(', ')}`))
+  return lines.join('\n')
+}
+
 /* --------------------------------------------------------------------------------- selftest ----- */
 
 const LINE = 'Read the rules first. Everything below is subordinate to them.'
@@ -525,6 +677,11 @@ const FIXTURE_RECORD = {
   [`${TABLE}Means`]: 'The fixture budgets.',
 }
 const OTHER_RECORD = 'tools/policy/other.json'
+/** The fixture's tracker id shape, its own prefix, so a case can tell the policy's shape from a spelled one. */
+const OTHER_CONSTANTS = {
+  otherKey: 'a key of another tool, which the gate leaves alone',
+  [ISSUE_PATTERN_KEY]: 'fixture-[a-z0-9]+(?:\\.[0-9]+)*',
+}
 
 const FIXTURE = {
   'CLAUDE.md': RULES,
@@ -536,31 +693,44 @@ const FIXTURE = {
   '.claude/agents/gamma.md': `---\nname: gamma\ndescription: third\n---\n\n${LINE}\n\nBe gamma.\n`,
   '.claude/workflows/delta.js': WORKFLOW,
   [BUDGETS]: `${JSON.stringify(FIXTURE_RECORD, null, 2)}\n`,
-  [OTHER_RECORD]: `${JSON.stringify({ otherKey: 'a key of another tool, which the gate leaves alone' }, null, 2)}\n`,
+  [OTHER_RECORD]: `${JSON.stringify(OTHER_CONSTANTS, null, 2)}\n`,
 }
 
 function selftest() {
   const base = mkdtempSync(join(tmpdir(), 'check-prompts-'))
   const results = []
   try {
-    for (const { name, doctor, expect } of cases()) {
+    for (const { name, doctor, expect, listed, says, run } of cases()) {
       const dir = join(base, name.replace(/[^a-z0-9]+/gi, '-'))
       writeTree(dir, FIXTURE)
       doctor(dir)
-      const { failures } = runCheck(dir)
-      let ok
-      let detail
-      if (expect === 'pass') {
-        ok = failures.length === 0
-        detail = ok ? 'passes' : `unexpected failure(s): ${failures.join(' | ')}`
-      } else {
-        ok = failures.some((failure) => expect.test(failure))
-        detail = ok
-          ? `fails for that reason (${failures.length} failure(s))`
-          : failures.length === 0
-            ? 'PASSED, but should have failed'
-            : `failed, but not for that reason: ${failures.join(' | ')}`
+      const held = []
+      const problems = []
+      if (expect !== undefined) {
+        const { failures } = runCheck(dir)
+        if (expect === 'pass') {
+          if (failures.length === 0) held.push('passes')
+          else problems.push(`unexpected failure(s): ${failures.join(' | ')}`)
+        } else if (failures.some((failure) => expect.test(failure))) {
+          held.push(`fails for that reason (${failures.length} failure(s))`)
+        } else {
+          problems.push(failures.length === 0 ? 'PASSED, but should have failed' : `failed, but not for that reason: ${failures.join(' | ')}`)
+        }
       }
+      if (listed !== undefined) {
+        const report = incidentReport(listIncidents(dir))
+        const rows = report.split('\n').filter((line) => line.startsWith('  '))
+        if (JSON.stringify(rows) === JSON.stringify(listed)) held.push(`lists ${rows.length === 0 ? 'nothing' : rows.map((row) => row.trim()).join(' | ')}`)
+        else problems.push(`--incidents listed ${JSON.stringify(rows)}, not ${JSON.stringify(listed)}`)
+        if (says !== undefined && !says.test(report)) problems.push(`--incidents does not say ${says}: ${JSON.stringify(report)}`)
+      }
+      if (run !== undefined) {
+        const problem = run(dir)
+        if (problem === null) held.push('as a process too')
+        else problems.push(problem)
+      }
+      const ok = problems.length === 0 && held.length > 0
+      const detail = ok ? held.join('; ') : problems.join('; ') || 'the case asserts nothing'
       results.push({ name, ok, detail })
       if (name.startsWith('control') && !ok) {
         console.error(`selftest: the undoctored fixture does not pass, so no case can be trusted: ${detail}`)
@@ -618,9 +788,11 @@ function cases() {
   const refusedOpening = (path) => new RegExp(`^${escaped(path)}: its first line after the frontmatter is `)
   return [
     {
-      name: 'control: the undoctored fixture passes',
+      name: 'control: the undoctored fixture passes, and --incidents lists nothing',
       doctor: () => {},
       expect: 'pass',
+      listed: [],
+      says: /^prompts --incidents: 0 line\(s\) in 0 of 8 prompt\(s\) hold a date, a tracker id, a pull request number or a workflow run id/,
     },
     {
       name: 'a skill without the line',
@@ -759,9 +931,94 @@ function cases() {
       doctor: (dir) => writeTree(dir, { [OTHER_RECORD]: `${JSON.stringify({ [TABLE]: {} })}\n` }),
       expect: /^tools\/policy\/ under .* could not be read \(`promptWordBudgets` is defined in both tools\/policy\/other\.json and tools\/policy\/prompt-budgets\.json/,
     },
+    // --incidents: one mark, or one place it must not look, per case. Each row is matched whole.
+    {
+      name: 'a date in a skill is listed by its line, and the gate, which it does not touch, still passes',
+      doctor: (dir) => edit(dir, alpha, (t) => t.replace('Do alpha.', 'Done 2026-09-23.')),
+      expect: 'pass',
+      listed: [`  ${alpha}:8  dated: 2026-09-23`],
+      says: /^prompts --incidents: 1 line\(s\) in 1 of 8 prompt\(s\) hold a date/,
+    },
+    {
+      name: "a tracker id in an agent, a child's dotted suffix and all, in the policy's shape",
+      doctor: (dir) => edit(dir, gamma, (t) => t.replace('Be gamma.', 'Be fixture-r6ha.3.')),
+      listed: [`  ${gamma}:8  dated: fixture-r6ha.3`],
+    },
+    {
+      name: "an id in another tracker's shape is not listed: the shape is the policy's, not spelled here",
+      doctor: (dir) => edit(dir, gamma, (t) => t.replace('Be gamma.', 'Be asdlc-openspec-44p.')),
+      listed: [],
+    },
+    {
+      name: 'a pull request number in CLAUDE.md, beside a heading whose # is no number',
+      doctor: (dir) => edit(dir, 'CLAUDE.md', (t) => t.replace('# Rules', '# Rules, since #147')),
+      listed: ['  CLAUDE.md:1  dated: #147'],
+    },
+    {
+      name: 'an HTML entity and a fragment after a name are not pull request numbers',
+      doctor: (dir) => edit(dir, PRIME, (t) => `${t}See &#169; and notes.md#12.\n`),
+      listed: [],
+    },
+    {
+      name: "a frontmatter line is read, as the skill's description loads",
+      doctor: (dir) => edit(dir, beta, (t) => t.replace('description: second', 'description: second, since 2026-09-23')),
+      listed: [`  ${beta}:3  dated: 2026-09-23`],
+    },
+    {
+      name: "a workflow run id in a workflow's string literal",
+      doctor: (dir) => edit(dir, delta, (t) => t.replace("'Read the rule first.'", "'Read the rule first, as wf_5aec3e94-07b did.'")),
+      listed: [`  ${delta}:11  dated: wf_5aec3e94-07b`],
+    },
+    {
+      name: "a date on a template literal's second line is listed by that line, not the line its stretch opens on",
+      doctor: (dir) => edit(dir, delta, (t) => t.replace("in ${'the worktree'}", "in 2026-09-29 ${'the worktree'}")),
+      listed: [`  ${delta}:18  dated: 2026-09-29`],
+    },
+    {
+      name: 'two literals on one source line give one row, holding both marks',
+      doctor: (dir) => edit(dir, delta, (t) => t.replace("'Report ' + RULE + ' then stop.'", "'Report #12' + RULE + ' then stop 2026-01-01.'")),
+      listed: [`  ${delta}:19  dated: #12, 2026-01-01`],
+    },
+    {
+      name: "a dated incident in a workflow's header comment is not listed, and is not counted",
+      doctor: (dir) => edit(dir, delta, (t) => t.replace(' * The header:', ' * The header, from 2026-09-28 (fixture-44p, #147, wf_5aec3e94-07b):')),
+      expect: 'pass',
+      listed: [],
+    },
+    {
+      name: 'a policy with no tracker id shape: --incidents says so, and still lists the date',
+      doctor: (dir) => {
+        const { [ISSUE_PATTERN_KEY]: _dropped, ...rest } = OTHER_CONSTANTS
+        writeTree(dir, { [OTHER_RECORD]: `${JSON.stringify(rest, null, 2)}\n` })
+        edit(dir, alpha, (t) => t.replace('Do alpha.', 'Done 2026-09-23, fixture-44p.'))
+      },
+      listed: [`  ${alpha}:8  dated: 2026-09-23`],
+      says: /^prompts --incidents: tools\/policy\/ gives no tracker id's shape \(`prReviewIssuePattern` is missing\), so no tracker id is listed\./,
+    },
+    {
+      name: '--incidents run as a process prints its rows and exits 0, where the gate would refuse',
+      doctor: (dir) => edit(dir, alpha, (t) => t.replace('Do alpha.', 'Done on 2026-09-23 by fixture-44p, #147.')),
+      expect: refusedOver(alpha, 22, 18),
+      run: (dir) => {
+        const child = spawnSync(process.execPath, [fileURLToPath(import.meta.url), '--incidents'], {
+          env: { ...process.env, PROMPTS_CHECK_ROOT: dir },
+          encoding: 'utf8',
+        })
+        const row = `  ${alpha}:8  dated: 2026-09-23, fixture-44p, #147`
+        if (child.status !== 0) return `--incidents as a process exited ${child.status}: ${child.stderr}`
+        return child.stdout.split('\n').includes(row) ? null : `--incidents as a process did not print ${JSON.stringify(row)}: ${child.stdout}`
+      },
+    },
   ]
 }
 
-if (process.argv.includes('--selftest')) selftest()
-else if (process.argv.includes('--counts')) printCounts()
-else main()
+// Run only as the entry point: `scripts/prompt-incidents.mjs` imports the lines and the list. Both
+// sides are real paths, since a copy run from the temporary directory, behind a symlink on macOS,
+// that read as an import would exit 0 having checked nothing.
+const entry = process.argv[1] === undefined ? null : realpathSync(resolve(process.argv[1]))
+if (entry !== null && realpathSync(fileURLToPath(import.meta.url)) === entry) {
+  if (process.argv.includes('--selftest')) selftest()
+  else if (process.argv.includes('--counts')) printCounts()
+  else if (process.argv.includes('--incidents')) console.log(incidentReport(listIncidents(ROOT)))
+  else main()
+}

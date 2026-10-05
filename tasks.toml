@@ -124,12 +124,15 @@ budget, or with none: every skill and agent, `CLAUDE.md`, `AGENTS.md`, the workt
 template, `.beads/PRIME.md` and the string literals of each workflow, each against its row, by path,
 in `tools/policy/prompt-budgets.json`. Without it a prompt copied in or written fresh loses the
 line, and a prompt grows with every review, and nothing says so.
-`node scripts/check-prompts.mjs --counts` prints each prompt's words beside its budget.'''
+`node scripts/check-prompts.mjs --counts` prints each prompt's words beside its budget, and
+`--incidents` lists each prompt line holding a date, a tracker id, a pull request number or a
+workflow run id; neither refuses anything.'''
 run = "node scripts/check-prompts.mjs"
 
 ["check:prompts:selftest"]
 description = '''
-The prompt gate, negative-tested against a fixture tree it builds.'''
+The prompt gate, negative-tested against a fixture tree it builds, and the rows its `--incidents`
+list prints there.'''
 run = "node scripts/check-prompts.mjs --selftest"
 
 ["check:register"]

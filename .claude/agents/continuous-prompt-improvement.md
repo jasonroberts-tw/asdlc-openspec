@@ -175,7 +175,8 @@ nothing should change, change nothing.
 
 Every edit cites only files your own base holds. A file that only a reviewed branch holds is named
 in prose by its branch and its path, never as a pointer: in the description it sends a reader to a
-file the trunk lacks.
+file the trunk lacks. An edit adds no line `node scripts/check-prompts.mjs --incidents` lists: each
+marks a dated incident.
 
 ## How a prompt is consolidated
 
