@@ -14,7 +14,7 @@ Target: the pull request number, document path or analysis file the parent passe
 
 Procedure:
 1. Extract every falsifiable claim into a numbered list: counts, percentages, 'X is unused/obsolete', 'all gates pass', 'this is pre-existing', performance figures, file existence, API behavior.
-2. For EACH claim, independently re-derive it from primary sources. Do not reuse the author's commands or reasoning. Re-run the generators, re-count with your own scripts, grep the actual source. Never accept an issue/bead title as evidence of repo state.
+2. For EACH claim, independently re-derive it from primary sources. Do not reuse the author's commands or reasoning. Re-run the generators, re-count with your own scripts, grep the actual source.
 3. Actively hunt for these known failure modes: figures that were correct at write-time but are now stale; claims derived from documentation rather than code; 'unused' claims that miss a dynamic/reflection/config-driven caller; 'all tests pass' where only a subset ran; 'pre-existing failure' that isn't actually red on the base branch.
 4. Where a claim is empirically testable, TEST it — write a throwaway script, run the A/B, capture output. Throwaway scripts live outside the repository (a temporary directory), never in it.
 5. Produce a verdict table: claim # | status (CONFIRMED / REFUTED / UNVERIFIABLE / STALE) | evidence (file:line or command + output excerpt) | corrected value if wrong.
