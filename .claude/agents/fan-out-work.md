@@ -48,13 +48,12 @@ One bracket, so no second session picks up an issue between two of your claims.
 
 Make each worktree with the one worktree script. Brief each lane with: its issues, its anchors, the
 base, the skill it follows (`.claude/skills/bead/SKILL.md`) and where it stops in it, and these
-three rules, stated in every brief word for word:
+two rules, stated in every brief word for word:
 
 1. **Never end a turn while a command runs.** A turn end kills the lane's background run or leaves
    it running unwatched.
-2. **Label every issue the lane creates at creation**, with the label naming where its work lands.
-3. **An acceptance criterion that acts outside the repository becomes a follow-up issue labelled
-   `human` and is never performed by the lane.**
+2. **An acceptance criterion that acts outside the repository becomes a follow-up issue labelled
+   `human` at creation and is never performed by the lane.**
 
 A lane stops at the end of `.claude/skills/bead/SKILL.md` § 5, once its rebased branch passes
 `mise run gates`, and reports its branch and both gate runs as measured. It opens no pull request
