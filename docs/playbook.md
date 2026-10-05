@@ -44,7 +44,9 @@ and the "where to look" table now send a reader, and `README.md` § The tasks gi
 Amended 2026-10-04 by `asdlc-openspec-qcqm`: the pull-request reviewer decides by the high-risk
 floor alone and requests no changes, the branch review before the push is the one review of the
 cited issues' criteria, and a title that cites no issue no longer leaves the merge to a person
-(`docs/decisions.md` § D-37).
+(`docs/decisions.md` § D-37). Amended 2026-10-04 by `asdlc-openspec-e6v`: the last step of Propose
+and of Design, and Plan's stop for approval, run the `adversarial-verifier` agent on what the stage
+wrote first (`docs/decisions.md` § D-39).
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -238,9 +240,11 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
    `.claude/skills/change-propose/SKILL.md` § 5. Write the proposal.
 5. Write one delta spec per capability the proposal lists, in the exact grammar the archive merges.
    Decided by: `.claude/skills/change-propose/SKILL.md` § 6. Write one delta spec per capability.
-6. Run `mise run openspec:check`, commit, and stop: the user reviews the proposal and the specs
-   before anything else happens. Decided by: `.claude/skills/change-propose/SKILL.md` § 7. Check it,
-   commit it, and stop.
+6. Stage, have the `adversarial-verifier` agent check the claims the staged diff makes about the
+   repository as it stands, fix each it refutes, run `mise run openspec:check`, commit, and stop:
+   the user reviews the proposal and the specs, with the verifier's table, before anything else
+   happens. Decided by: `.claude/skills/change-propose/SKILL.md` § 7. Check it, commit it, and stop,
+   and `.claude/agents/adversarial-verifier.md` § From a change stage.
 
 #### Design
 
@@ -256,7 +260,8 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
 3. Work out every scenario's expected value from the design, and put any that depends on an
    unmade choice to the user now. Decided by: `.claude/skills/change-design/SKILL.md` § 4. Settle
    each scenario's expected value.
-4. Stage, run `mise run openspec:check` and `mise run citations:check`, commit, and stop for the
+4. Stage, have the `adversarial-verifier` agent check the staged diff and fix each claim it
+   refutes, run `mise run openspec:check` and `mise run citations:check`, commit, and stop for the
    user's review. Decided by: `.claude/skills/change-design/SKILL.md` § 5. Commit it, and stop.
 
 #### Plan
@@ -266,7 +271,8 @@ that option loses (`CLAUDE.md` § A question shows where its recommendation lose
    acceptance criteria. The draft holds traceability rules 1 to 3, lists every task that is not
    `asset:product` as exempt from rule 3, and proves no scenario by hand. Decided by:
    `.claude/skills/change-plan/SKILL.md` § 2. Draft the tasks and the epic's criteria.
-2. Show the draft and write nothing to the tracker until the user approves it. Decided by:
+2. Have the `adversarial-verifier` agent check the draft, fix each claim it refutes, then show the
+   draft and write nothing to the tracker until the user approves it. Decided by:
    `.claude/skills/change-plan/SKILL.md` § 3. Stop for approval.
 3. File each task as a child of the epic with `bd create --parent`, and write the approved criteria
    into the epic. Decided by: `.claude/skills/change-plan/SKILL.md` § 4. File it.

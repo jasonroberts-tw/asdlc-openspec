@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `mise run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-38 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37 and D-38 added 2026-10-04).**
+**Status: every decision from D-01 to D-39 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38 and D-39 added 2026-10-04).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-38` is checked by `mise run check:register`, which reads those headings, the table and each
+> `D-01 … D-39` is checked by `mise run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -94,6 +94,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-36** | mise is the task runner: every task moves from `package.json` to `tasks.toml`, but `prepare` and `calculator:serve` | `tasks.toml`, the loader refusing a template in it; `mise.toml`'s `[task_config]` and three `task.*` settings, admitted by `check:toolchain` at their values; `package.json` with two scripts; `mise run` in every hook job, CI step, launcher and prompt; `check:jobs` holding the launchers, their spelling and the one registry; `scripts/fresh-run.mjs` trusting its clone; the `add-npm-script` skill moved to `add-task`; `README.md` § The tasks; D-02's, D-03's, D-04's, D-11's, D-19's, D-20's, D-22's, D-23's, D-24's, D-26's, D-28's, D-29's and D-31's amendments; D-38's amendment, which puts `tasks.toml` on the floor |
 | **D-37** | The pull-request reviewer decides by the high-risk floor alone, runs no model, and prints reach and co-change as evidence | `scripts/pr-review.mjs`'s `decide`, `floorOf` and `evidence`, held by `pr-review:check` and `pr-review:selftest`; `.github/workflows/pr-review.yml` with no model or secret; `reach` in `tools/harness/harness.ts` and `partnersOf` in `tools/coupling/coupling.ts`; four paths on the floor in `tools/policy/pr-review.json`; the rubric in `.claude/agents/branch-reviewer.md`, and `pr-reviewer.md` moved to `docs/retired/`; `CLAUDE.md`, `open-pr`, `bead` and `change-finalize`; D-05's, D-07's, D-08's, D-10's, D-16's, D-21's, D-24's, D-26's, D-27's and D-31's amendments; D-38's amendment, which widens the floor to the `open-pr` skill, `tasks.toml` and the gates that hold the product |
 | **D-38** | The floor holds the `open-pr` skill, `tasks.toml`, and the files and policy keys of the gates that hold the product | `prReviewFloorTasks`, nineteen paths and three records' keys in `tools/policy/pr-review.json`; `filesOfTask` and `floorTaskProblems` in `scripts/pr-review.mjs`, held by `pr-review:check` and `pr-review:selftest`; the two `pr-review` jobs' globs in `git-hooks.yml`; D-36's and D-37's amendments |
+| **D-39** | The first three change stages run the adversarial-verifier on what each wrote, before each stops for review | `.claude/agents/adversarial-verifier.md` § From a change stage; `change-propose` § 7, `change-design` § 5 and `change-plan` § 3, each consolidated first; the four prompts' budgets in `tools/policy/prompt-budgets.json`; the agent's row in `README.md` and the playbook's Propose, Design and Plan |
 
 ## Risks
 
@@ -1968,6 +1969,41 @@ Where it loses:
 - `pr-review:selftest` 157 cases, where D-37 records 129, each from a run of it. Seen failing first: a copy of this entry's `scripts/pr-review.mjs` with the first derivation's import expression, its command paths unnormalised and no refusal of a launch it cannot follow held 152 of 157, the five failing being the query, backtick and `createRequire` imports, the `mise -q run` launch and the `./` path; this entry's held 157.
 - `pr-review:check` 0.13 s and `pr-review:selftest` 3.81 s wall, one run each, on a macOS 26.7.1 laptop with Node 26.8.1.
 - No commit on any ref has tracked a `node_modules` path or a Stryker config: `git log --all --format=%h --name-only -- "*node_modules*" "*stryker.conf*" "*stryker.config*"`, empty on 2026-10-04.
+
+### D-39 · The first three change stages run the adversarial-verifier on what each wrote, before each stops for review
+
+**Recorded 2026-10-04**, carried by `asdlc-openspec-e6v`. The issue, filed on 2026-09-26, set what to build, items 1 to 3, the case where it loses and its criteria. The session that built it, a lane of a sweep that no person directed, chose the rest: the staged diff as what a stage passes (item 1), and the agent's own file as the home of what a stage does with the table (item 4).
+
+**Builds on / amends:** builds on D-02, whose first three stages each gain a step and whose shape this leaves alone; on D-12, under which the four prompts were consolidated before their edits; and on D-21, whose branch review reads the claims a `bead` branch writes, the gap the issue named as its own. Builds on D-16 without amending it: D-16 bounds a review workflow a session writes itself, and this is a tracked agent each stage runs. It amends nothing.
+
+**Decision.**
+
+1. **The agent takes a change stage's work.** `.claude/agents/adversarial-verifier.md` § From a change stage holds it. The stage passes its staged diff (`git diff --cached`), or its plan draft, and the agent checks only the claims that adds about the repository as it stands: a requirement, a plan or a goal is future tense, which `change-verify` traces. Beside the failures its steps already hunt, a claim read from a document rather than the code among them, it hunts an `## Impact` that misses a caller or a consumer, a proof naming a task `tasks.toml` lacks or a test it says exists that does not, a scenario the plan calls covered that no task covers, and an expected value the design's representation, precision and rounding do not give.
+2. **Each of the first three stages runs it before it stops for review.** `.claude/skills/change-propose/SKILL.md` § 7 runs it on the staged proposal and delta specs, `.claude/skills/change-design/SKILL.md` § 5 on the staged design and what the stage revised, and `.claude/skills/change-plan/SKILL.md` § 3 on its draft before showing it. A stage that rules a design out runs none; a change sent back to propose or design runs it again on the revision.
+3. **The stage acts on the table.** It fixes each REFUTED or STALE claim, and stages a fix to its diff, before its checks run; it notes the UNVERIFIABLE rows on the epic, where a later stage in a fresh session reads them (`CLAUDE.md` § Product work runs as OpenSpec-format changes); and it shows the table when it stops. `change-plan` writes that note only once the user approves the draft, since its § 3 writes nothing to the tracker before.
+4. **What a stage does with the table lives in the agent's file**, which each stage cites, so the rule has one home where the three skills would have held three copies.
+
+**Why.** The first three stages write claims about the repository as it stands: a proposal's `## Why` and `## Impact`, a design's `## Context` and the premise of each decision, the expected values `change-design` § 4 settles, and a plan's named proofs and coverage. Until now the user's review, `openspec:check` and `citations:check` read them, and none of those re-derives a claim. A false premise costs least when it is caught first: `change-design` § 4 says the build encodes whichever expected value it meets. Later claims are already checked: a product task's by the record and wiring lenses (`buildReviewLenses` in `tools/policy/agent-workflows.json`), every scenario by `change-verify` § 4's trace to a proof run now, and a branch's by the branch review. Two alternatives lost:
+
+- **The whole change folder at each stage.** It is simpler to pass, and it would catch the second loss below, but it checks the proposal's claims again at design and at plan.
+- **The stages' handling of the table written in each of the three skills.** Each skill would read whole without a pointer, but the rule would have three homes (`CLAUDE.md` § Rules for agents live in tracked files, and nowhere else).
+
+Where it loses:
+
+- **Cost.** The agent runs at the model and effort its frontmatter sets, `opus` and `high`, up to three times per change, twice when a design is ruled out, and once more for each send-back to propose or design. No run of this step has been measured. The nearest measured precedent is in `buildReviewLensesMeans` in `tools/policy/agent-workflows.json`: one task's three review lenses spent 35 agents and 2,946,105 tokens to confirm 2 of the 9 findings they sent to skeptics, both minor.
+- **A claim a stage left alone, but which its change made false, is not checked.** At design the staged diff holds only what that stage wrote or revised, so a proposal's `## Impact` that a design decision makes incomplete is read by no verifier.
+- **A plan draft edited after the check is shown unchecked.** `change-plan` § 3 edits the draft as the user directs once the agent has run, and nothing runs it again.
+- **Claims written during the build are not its to see**: they do not exist when these stages run.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound.
+- **`.claude/agents/adversarial-verifier.md`:** consolidated first, then its description, its target line and § From a change stage. "Procedure:" became "Steps:", and "Do not modify the implementation." became "Change nothing.", clearing two Vale `Direct.Ease` errors the file carried; the second also holds for a stage's work, which has no implementation.
+- **`.claude/skills/change-propose/SKILL.md` § 7, `.claude/skills/change-design/SKILL.md` § 5 and `.claude/skills/change-plan/SKILL.md` § 3:** each skill consolidated first, then the step. `change-design` § 1's lead-in is reworded to clear a Vale `Direct.Ease` error. `change-plan` § 3 drops its sentence that the reviewer hands to a person a pull request whose criterion only the merge can settle, false since D-37 item 1 made the floor the reviewer's only input.
+- **`tools/policy/prompt-budgets.json`:** the four rows and the `provenance`.
+- **`README.md`:** the `adversarial-verifier` row of § Working here. **`docs/playbook.md`:** the steps where Propose, Design and Plan stop, and its Status line.
+
+**Figures.** Each is `node scripts/check-prompts.mjs --counts`, at `c0835e1`, after each consolidation's commit and at this entry's commit; the pull request names each commit. `.claude/agents/adversarial-verifier.md` 328, 318 and 485, its budget raised by the 157 the consolidation did not free. `.claude/skills/change-propose/SKILL.md` 1,179, 1,156 and 1,178. `.claude/skills/change-design/SKILL.md` 1,177, 1,163 and 1,176. `.claude/skills/change-plan/SKILL.md` 1,078, 1,065 and 1,044, of which the deleted sentence was 39 words (1,065 to 1,026). Each row's `means` gives the same steps. The precedent's 35 agents and 2,946,105 tokens are `buildReviewLensesMeans`'s, read from a workflow state file outside this repository, and are not re-derived here.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

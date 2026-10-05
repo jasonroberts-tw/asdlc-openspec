@@ -22,7 +22,7 @@ form `CLAUDE.md` § A question shows where its recommendation loses gives.
   label is `specChangeLabel` in `tools/policy/vocabulary.json`). If none or several come back, stop and
   say what was found.
 
-Read the following before writing anything:
+Read these before you write anything:
 
 - `openspec/changes/<change>/proposal.md`, and its `findings.md` where there is one;
 - every delta spec under the change's `specs/`;
@@ -113,9 +113,10 @@ scenario states.
 
 ## 5. Commit it, and stop
 
-Stage the design and every file this stage revised with `git add`, then run `mise run openspec:check`
-and `mise run citations:check`. Stage first: a design not yet added passes the citations gate
-unread.
+Stage the design and every file this stage revised with `git add`, then run the
+`adversarial-verifier` agent on the staged diff (`.claude/agents/adversarial-verifier.md` § From a
+change stage), `mise run openspec:check` and `mise run citations:check`. Stage first: a design not
+yet added passes the citations gate unread.
 
 Commit. Report what the design decides, each question step 4 put to the user with its answer, and
 what the design leaves open, then stop.
