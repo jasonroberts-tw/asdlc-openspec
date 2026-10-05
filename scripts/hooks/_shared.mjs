@@ -194,15 +194,14 @@ const WINDOWS = process.platform === 'win32'
 
 /**
  * How `runTask` launches the task `name` in the checkout at `cwd`, read from that checkout's own
- * manifest through `scripts/lib/tasks.mjs`: `{ command, args, label }`, or `{ refused }` with why.
- * A checkout with a `tasks.toml` runs it with `mise run --quiet`, and one without, cut before the
- * move to mise, with `npm run --silent`, so the primary checkout's copy of a hook runs a worktree's
- * gates on either side of the move (asdlc-openspec-8juz.6). A task that manifest lacks is refused,
- * never launched: mise resolves a name a checkout lacks from a checkout above it, so a worktree's
- * gate would run the primary checkout's definition there, and pass on the wrong tree
+ * `tasks.toml` through `scripts/lib/tasks.mjs`: `{ command, args, label }`, `mise run --quiet`, or
+ * `{ refused }` with why. A checkout with no `tasks.toml`, one cut before the move to mise among them,
+ * is refused with the loader's reason (`docs/decisions.md` § D-40). So is a task its `tasks.toml`
+ * lacks, never launched: mise resolves a name a checkout lacks from a checkout above it, so a
+ * worktree's gate would run the primary checkout's definition there, and pass on the wrong tree
  * (asdlc-openspec-8juz.1, question 1). The launch itself is `launchFor` in `scripts/lib/tasks.mjs`,
  * which `scripts/fresh-run.mjs` launches through too. Exported so `gate-summary.selftest.mjs` holds
- * the choice without starting either.
+ * the choice without starting a task.
  */
 export async function taskLaunch(name, cwd = ROOT) {
   let manifest
@@ -213,9 +212,6 @@ export async function taskLaunch(name, cwd = ROOT) {
   } catch (error) {
     return { refused: `the task manifest in ${cwd} cannot be read: ${error.message}` }
   }
-  if (manifest === null) {
-    return { refused: `${cwd} has neither ${lib.TASKS_TOML} nor ${lib.PACKAGE_JSON}, so it defines no task \`${name}\`.` }
-  }
   if (!Object.hasOwn(manifest.tasks, name)) {
     return {
       refused:
@@ -223,7 +219,7 @@ export async function taskLaunch(name, cwd = ROOT) {
         ' checkout that defines it, since mise would take a definition from a checkout above this one.',
     }
   }
-  return lib.launchFor(manifest, name)
+  return lib.launchFor(name)
 }
 
 /**

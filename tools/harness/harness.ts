@@ -74,8 +74,8 @@
  * an error opening `input: ` for a rev that names no commit.
  *
  * NEEDS git, `js-yaml`, Node's `path.matchesGlob`, `scripts/lib/tasks.mjs`, through which it reads the
- * tasks (`tasks.toml` where the checkout tracks one, `package.json`'s `scripts` otherwise), and the
- * files `tools/harness/harness.config.json` names; the map's sample from `couplingMinSampleUnits` in
+ * tasks from the `tasks.toml` the checkout tracks (one that tracks none is an input it cannot read),
+ * and the files `tools/harness/harness.config.json` names; the map's sample from `couplingMinSampleUnits` in
  * `tools/policy/tool-settings.json`. `reach` needs the commit's objects under `root` and the config
  * as that commit holds it. No network.
  *
@@ -417,7 +417,7 @@ class Repo {
   read = new Map<string, string>()
   pathRoots: string[]
   /** The tracked file the tasks were read from, `tasks.toml` or `package.json`; null with neither. */
-  taskManifest: string | null
+  taskManifest: string
   scripts: Record<string, string>
   dependencies: Set<string>
   scans = new Map<string, Scan>()
@@ -433,9 +433,14 @@ class Repo {
     this.dirs = new Set()
     for (const file of this.tracked) for (let dir = posix.dirname(file); dir !== '.'; dir = posix.dirname(dir)) this.dirs.add(dir)
     this.pathRoots = this.constantList(cfg.pathRootsFrom)
-    const tasks = tasksFrom((path: string) => this.text(path))
-    this.taskManifest = tasks?.file ?? null
-    this.scripts = tasks?.tasks ?? {}
+    let tasks: { file: string; tasks: Record<string, string> }
+    try {
+      tasks = tasksFrom((path: string) => this.text(path), root)
+    } catch (error) {
+      throw new Error(`input: ${(error as Error).message}`)
+    }
+    this.taskManifest = tasks.file
+    this.scripts = tasks.tasks
     const manifest = JSON.parse(this.text(cfg.dependencyManifest) ?? '{}')
     this.dependencies = new Set([...Object.keys(manifest.dependencies ?? {}), ...Object.keys(manifest.devDependencies ?? {})])
   }
@@ -576,7 +581,10 @@ class Repo {
     return sorted([...command.matchAll(re)].map((m) => m[1].replace(/[.,;:]+$/, '')).filter((p) => this.trackedSet.has(p)))
   }
 
-  /** The tasks a command runs: through `mise run`, or `npm run` or `node --run` in a tree from before the move to mise. */
+  /**
+   * The tasks a command runs: through `mise run`, or through `npm run` or `node --run`, which
+   * `check:jobs` refuses for a task of `tasks.toml` but which are read here, so such a launch is wired.
+   */
   scriptsIn(command: string): string[] {
     return sorted([...command.matchAll(/\b(?:(?:npm run|node --run) (?:--silent )?|mise run (?:-q |--quiet )?)([A-Za-z0-9][\w:.-]*)/g)].map((m) => m[1]).filter((s) => Object.hasOwn(this.scripts, s)))
   }
@@ -760,7 +768,7 @@ function registrations(repo: Repo, jobs: Job[], rows: RedirectRow[]): { entries:
   const wiring: Wire[] = []
   for (const [script, command] of Object.entries(repo.scripts)) {
     for (const path of repo.pathsIn(command)) {
-      wiring.push({ from: `script:${script}`, to: `file:${path}`, relation: 'invokes', declaredIn: repo.taskManifest! })
+      wiring.push({ from: `script:${script}`, to: `file:${path}`, relation: 'invokes', declaredIn: repo.taskManifest })
       if (repo.isCode(path)) entries.add(path)
     }
   }
@@ -1064,7 +1072,7 @@ export function blobId(text: string): string {
 export type Report = {
   _: string[]
   date: string
-  read: { script: string; config: string; tasks: string | null; cochangeThrough: string | null; sources: { path: string; blob: string }[] }
+  read: { script: string; config: string; tasks: string; cochangeThrough: string | null; sources: { path: string; blob: string }[] }
   limits: Record<string, string>
   summary: Record<string, number>
   findings: Finding[]

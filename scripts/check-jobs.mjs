@@ -38,17 +38,17 @@
  * ignores case on macOS, so it would pass `apps/Calculator/serve.js` at a Mac's push, and CI, which
  * runs on Linux, would then fail.
  *
- * WHICH SCRIPTS. The tree's tasks, read through `scripts/lib/tasks.mjs`: `tasks.toml` where the tree
- * has one, `package.json`'s `scripts` otherwise, as a tree from before the move to mise has them. A
- * manifest that loader refuses fails the job with its reason. Below, "script" means a task of either.
- * Beside a `tasks.toml`, `package.json` keeps the scripts `PACKAGE_SCRIPTS` names, and they are read
- * too, by the loader's own parser, for rules 1, 4, 5 and 6.
+ * WHICH SCRIPTS. The tree's tasks, read through `scripts/lib/tasks.mjs` from its `tasks.toml`. A
+ * manifest that loader refuses fails the job with its reason, a tree with no `tasks.toml` among them,
+ * whose `package.json` is not read in its place. Below, "script" means a task or a `package.json`
+ * script. Beside the `tasks.toml`, `package.json` keeps the scripts `PACKAGE_SCRIPTS` names, and they
+ * are read too, by the loader's own parser, for rules 1, 4, 5 and 6.
  *
  * WHAT FAILS THE JOB:
  *   1. an `npm run <name>`, `node --run <name>` or `mise run <name>` token in a `run:` of
  *      `git-hooks.yml` or `.github/workflows/verify.yml` whose <name> is not a script of the registry
- *      that launcher reads: `mise run`, the tasks of `tasks.toml`, and none in a tree without one;
- *      `npm run` and `node --run`, `package.json` alone. So a job left on `node --run check:jobs`
+ *      that launcher reads: `mise run`, the tasks of `tasks.toml`; `npm run` and `node --run`,
+ *      `package.json` alone. So a job left on `node --run check:jobs`
  *      beside a `tasks.toml` fails here, not at the push. And a line that names a launcher in any
  *      other shape than one such token alone, `mise r`, `mise --quiet run`, a `:::` list or
  *      `npm run -s` among them, since a missing task behind it would pass unread. Comment lines are
@@ -100,7 +100,8 @@
  * the real tree lacks. A case that needs a file the real tree lacks, such as a dotfile, doctors a
  * copy of the three roots instead. The control must read at least one `apps/` path and one glob, or
  * the apps cases have no passing twin. A case that moves the copy's tasks back into `package.json`,
- * and its jobs back onto `node --run` and `npm run`, holds the shape a tree from before the move has. By hand, point `CHECK_JOBS_ROOT` at a copy, as
+ * and its jobs back onto `node --run` and `npm run`, as a tree from before the move has them, holds
+ * the loader's refusal of it. By hand, point `CHECK_JOBS_ROOT` at a copy, as
  * `check-register-status.mjs` does with `CHECK_REGISTER_ROOT`.
  *
  * Reads only committed files, and lists the directories a path or a glob names; no `../sibling`
@@ -171,8 +172,7 @@ const LAUNCHER_MENTION_RE = /\bmise\b|\bnode --run\b|\bnpm\b(?! ci\b)/
 const LAUNCHER_LINE_RE = /^\s*(?:mise run(?: -q| --quiet)?|npm run(?: --silent)?|node --run) [A-Za-z0-9][A-Za-z0-9:._-]*\s*$/
 /**
  * The scripts `package.json` keeps beside a `tasks.toml`, and no others (assertion 6), each with the
- * reason it stays there and the reason no job runs it. In a tree with no `tasks.toml` they are among
- * the manifest's scripts, declared un-jobbed by these same reasons.
+ * reason it stays there and the reason no job runs it.
  */
 const PACKAGE_SCRIPTS = [
   {
@@ -397,33 +397,21 @@ export function runCheck(root, { pathsRoot = root } = {}) {
     fail(error.message)
     return { failures, report: null }
   }
-  if (manifest === null) {
-    fail(`${PACKAGE} is missing at ${join(root, PACKAGE)}, and there is no ${TASKS_TOML} either.`)
+  const { file, tasks: scripts } = manifest
+  const names = new Set(Object.keys(scripts))
+  // The scripts `npm run` and `node --run` read: `package.json`'s own, read by the loader's parser.
+  const text = readOr(join(root, PACKAGE))
+  let packageScripts
+  try {
+    packageScripts = text === null ? {} : parseTasks(PACKAGE, text)
+  } catch (error) {
+    fail(error.message)
     return { failures, report: null }
   }
-  const { file, tasks: scripts } = manifest
-  const moved = file === TASKS_TOML
-  const kindOf = moved ? 'task' : 'script'
-  const names = new Set(Object.keys(scripts))
-  // The scripts `npm run` and `node --run` read: the manifest itself in a tree from before the move,
-  // and beside a `tasks.toml`, `package.json`'s own, read by the loader's parser.
-  let packageScripts = scripts
-  if (moved) {
-    const text = readOr(join(root, PACKAGE))
-    try {
-      packageScripts = text === null ? {} : parseTasks(PACKAGE, text)
-    } catch (error) {
-      fail(error.message)
-      return { failures, report: null }
-    }
-  }
   const packageNames = new Set(Object.keys(packageScripts))
-  // mise reads its tasks from `tasks.toml` alone, never `package.json`, so in a tree without one a
-  // `mise run` token names no task.
+  // mise reads its tasks from `tasks.toml` alone, and npm and `node --run` from `package.json` alone.
   const registry = (launcher) =>
-    launcher === 'mise run'
-      ? { known: moved ? names : new Set(), label: `${TASKS_TOML} task` }
-      : { known: packageNames, label: `${PACKAGE} script` }
+    launcher === 'mise run' ? { known: names, label: `${TASKS_TOML} task` } : { known: packageNames, label: `${PACKAGE} script` }
 
   /* ------------------------------------------------- 1. every token resolves ------------------- */
 
@@ -473,14 +461,11 @@ export function runCheck(root, { pathsRoot = root } = {}) {
     unresolved++
     fail(
       `${token.where} invokes \`${token.launcher} ${token.name}\`, which is not a ${label}.` +
-        (moved && token.launcher !== 'mise run' && names.has(token.name)
+        (token.launcher !== 'mise run' && names.has(token.name)
           ? ` \`${token.launcher}\` reads ${PACKAGE} alone, and the task is in ${TASKS_TOML}, so the job` +
             ` fails on the next push; launch it with \`mise run ${token.name}\`.`
-          : !moved && token.launcher === 'mise run'
-            ? ` mise reads tasks from ${TASKS_TOML} alone, and this tree has none, so the job fails on the next` +
-              ` push; launch a ${PACKAGE} script with \`node --run\` here.`
-            : ' A job over a script that does not exist fails on the next push for a reason unrelated to' +
-              ' the push; rename the token or restore the script.'),
+          : ' A job over a script that does not exist fails on the next push for a reason unrelated to' +
+            ' the push; rename the token or restore the script.'),
     )
   }
   // A task a job names through the wrong launcher is refused above, once; read as un-jobbed too, it
@@ -513,7 +498,7 @@ export function runCheck(root, { pathsRoot = root } = {}) {
       declared.set(name, kind.kind)
       if (!names.has(name)) {
         fail(
-          `UNJOBBED_BY_KIND lists \`${name}\` (${kind.kind}) but ${file} has no such ${kindOf}. If` +
+          `UNJOBBED_BY_KIND lists \`${name}\` (${kind.kind}) but ${file} has no such task. If` +
             ` it was retired, remove the entry; the list must describe the tree.`,
         )
       } else if (jobbed.has(name)) {
@@ -561,8 +546,7 @@ export function runCheck(root, { pathsRoot = root } = {}) {
   let pathNaming = 0
   let appsPaths = 0
   let globs = 0
-  const commands = moved ? [...Object.entries(scripts), ...Object.entries(packageScripts)] : Object.entries(scripts)
-  for (const [name, command] of commands) {
+  for (const [name, command] of [...Object.entries(scripts), ...Object.entries(packageScripts)]) {
     const paths = [...command.matchAll(REPO_PATH_RE)]
       .filter(([, redirect]) => redirect === undefined)
       .map(([, , path]) => path)
@@ -598,46 +582,44 @@ export function runCheck(root, { pathsRoot = root } = {}) {
 
   /* ------------------------------------------------- 6. the tasks have one registry ------------ */
 
-  if (moved) {
-    const kept = PACKAGE_NAMES.map((name) => `\`${name}\``).join(' and ')
-    for (const name of [...packageNames].filter((n) => !PACKAGE_NAMES.includes(n))) {
+  const kept = PACKAGE_NAMES.map((name) => `\`${name}\``).join(' and ')
+  for (const name of [...packageNames].filter((n) => !PACKAGE_NAMES.includes(n))) {
+    fail(
+      `${PACKAGE} has the script \`${name}\`, and beside ${TASKS_TOML} it keeps ${kept} alone: no hook,` +
+        ` CI step or prompt launches a ${PACKAGE} script by \`mise run\`, so a second registry's name` +
+        ` is one nothing here reads. Move it to ${TASKS_TOML}.`,
+    )
+  }
+  for (const { name, why } of PACKAGE_SCRIPTS) {
+    if (!packageNames.has(name)) fail(`${PACKAGE} has no \`${name}\` script, which it keeps beside ${TASKS_TOML}: ${why}`)
+    if (names.has(name)) {
       fail(
-        `${PACKAGE} has the script \`${name}\`, and beside ${TASKS_TOML} it keeps ${kept} alone: no hook,` +
-          ` CI step or prompt launches a ${PACKAGE} script by \`mise run\`, so a second registry's name` +
-          ` is one nothing here reads. Move it to ${TASKS_TOML}.`,
+        `${TASKS_TOML} defines \`${name}\`, which ${PACKAGE} keeps: one name in two registries, which` +
+          ` \`npm run\` and \`mise run\` would each run as its own.`,
       )
     }
-    for (const { name, why } of PACKAGE_SCRIPTS) {
-      if (!packageNames.has(name)) fail(`${PACKAGE} has no \`${name}\` script, which it keeps beside ${TASKS_TOML}: ${why}`)
-      if (names.has(name)) {
-        fail(
-          `${TASKS_TOML} defines \`${name}\`, which ${PACKAGE} keeps: one name in two registries, which` +
-            ` \`npm run\` and \`mise run\` would each run as its own.`,
-        )
-      }
+  }
+  const miseText = readOr(join(root, MISE_TOML))
+  let mise = null
+  if (miseText === null) {
+    fail(`${MISE_TOML} is missing at ${join(root, MISE_TOML)}, so mise reads none of ${TASKS_TOML}'s tasks, which its \`[task_config]\` includes.`)
+  } else {
+    try {
+      mise = parseToml(miseText)
+    } catch (error) {
+      fail(`${MISE_TOML} does not parse as TOML (${String(error.message).split('\n')[0]}).`)
     }
-    const text = readOr(join(root, MISE_TOML))
-    let mise = null
-    if (text === null) {
-      fail(`${MISE_TOML} is missing at ${join(root, MISE_TOML)}, so mise reads none of ${TASKS_TOML}'s tasks, which its \`[task_config]\` includes.`)
-    } else {
-      try {
-        mise = parseToml(text)
-      } catch (error) {
-        fail(`${MISE_TOML} does not parse as TOML (${String(error.message).split('\n')[0]}).`)
-      }
+  }
+  if (mise !== null) {
+    for (const name of Object.keys(mise.tasks ?? {})) {
+      fail(
+        `${MISE_TOML} defines the task \`${name}\`: the tasks live in ${TASKS_TOML} alone, which every` +
+          ' reader of them reads, and a task here is one none of them sees.',
+      )
     }
-    if (mise !== null) {
-      for (const name of Object.keys(mise.tasks ?? {})) {
-        fail(
-          `${MISE_TOML} defines the task \`${name}\`: the tasks live in ${TASKS_TOML} alone, which every` +
-            ' reader of them reads, and a task here is one none of them sees.',
-        )
-      }
-      for (const [key, { value, why }] of Object.entries(TASK_CONFIG)) {
-        if (JSON.stringify(mise.task_config?.[key]) !== JSON.stringify(value)) {
-          fail(`${MISE_TOML}'s \`[task_config]\` does not hold \`${key} = ${JSON.stringify(value)}\`: ${why}`)
-        }
+    for (const [key, { value, why }] of Object.entries(TASK_CONFIG)) {
+      if (JSON.stringify(mise.task_config?.[key]) !== JSON.stringify(value)) {
+        fail(`${MISE_TOML}'s \`[task_config]\` does not hold \`${key} = ${JSON.stringify(value)}\`: ${why}`)
       }
     }
   }
@@ -649,7 +631,7 @@ export function runCheck(root, { pathsRoot = root } = {}) {
   const report = {
     file,
     scripts: names.size,
-    kept: moved ? packageNames.size : null,
+    kept: packageNames.size,
     tokens: tokens.length,
     distinct: new Set(tokens.map((t) => t.name)).size,
     unresolved,
@@ -670,7 +652,7 @@ function describe(report) {
     .map(([file, { carrying, blocks }]) => `${file} ${carrying} of ${blocks} run blocks`)
     .join(', ')
   const kinds = report.byKind.map(({ kind, count }) => `${count} ${kind}`).join('; ')
-  const kept = report.kept === null ? '' : `, beside ${report.kept} kept in ${PACKAGE}`
+  const kept = `, beside ${report.kept} kept in ${PACKAGE}`
   return [
     `jobs: ${files} carry a task token; ${report.tokens} tokens name ${report.distinct}` +
       ` distinct scripts, ${report.unresolved} unresolved.`,
@@ -853,8 +835,9 @@ function editTasks(dir, transform) {
 }
 
 /**
- * The copy's tasks moved back into package.json's scripts, and its jobs and steps back onto the
- * launchers that read them, `node --run` and `npm run`, as a tree from before the move has them.
+ * The copy's tasks moved back into package.json's scripts and its tasks.toml deleted, and its jobs and
+ * steps back onto the launchers that read them, `node --run` and `npm run`, as a tree from before the
+ * move has them: what the loader refuses, where it once read package.json in the tasks.toml's place.
  */
 function toPackageJson(dir) {
   const tasks = parseTasks(TASKS_TOML, readFileSync(join(dir, TASKS_TOML), 'utf8'))
@@ -945,19 +928,11 @@ function cases() {
       expect: 'pass',
     },
     {
-      // A tree from before the move, which the loader reads too: its launchers read package.json.
-      name: "the copy's tasks moved back into package.json pass, as a tree from before the move",
+      // The loader reads tasks.toml alone: a tree without one is refused, never read from package.json,
+      // so a tasks.toml deleted by mistake fails here as a tree from before the move does.
+      name: "the copy's tasks moved back into package.json and its tasks.toml deleted, as a tree from before the move",
       doctor: (dir) => toPackageJson(dir),
-      expect: 'pass',
-    },
-    {
-      // mise reads no package.json script, so a job left on it in such a tree finds no task.
-      name: 'a `mise run` job in a tree with no tasks.toml',
-      doctor: (dir) => {
-        toPackageJson(dir)
-        edit(dir, HOOK_JOBS, appendJob('doctored', 'mise run check:jobs'))
-      },
-      expect: /^git-hooks\.yml pre-push\/doctored invokes `mise run check:jobs`, which is not a tasks\.toml task\. mise reads tasks from tasks\.toml alone, and this tree has none/,
+      expect: /^.+ has no tasks\.toml, so it defines no task: the tasks live there alone, and package\.json's `scripts` are not read in its place/,
     },
     // A launcher spelled any way the token expression does not read: a missing task behind it would pass unread.
     ...[
@@ -983,15 +958,12 @@ function cases() {
       ['a task in the tasks.toml whose `run` holds a template comment', (t) => t.replace('run = "node scripts/check-count-index.mjs"\n', 'run = "node scripts/check-count-index.mjs {# a note #}"\n'), /^tasks\.toml: the task `counts:check` has a template in its `run` \(`\{#`\)\. mise renders it/],
       ['a task in the tasks.toml whose description holds a template expression', setDescription('check:jobs', '"{{ exec(command=\'date\') }}"'), /^tasks\.toml: the task `check:jobs` has a template in its `description` \(`\{\{`\)\. mise renders it/],
     ].map(([name, change, expect]) => ({ name, doctor: (dir) => edit(dir, TASKS_TOML, change), expect })),
-    // The same loader's refusals of a package.json, in a tree from before the move and beside a tasks.toml.
+    // The same loader's refusals of the package.json beside the tasks.toml, whose scripts this reads too.
     ...[
       ['a package.json that does not parse', (dir) => edit(dir, PACKAGE, (t) => `${t},`), /^package\.json cannot be read as JSON/],
       ["a package.json whose `scripts` is not an object", (dir) => edit(dir, PACKAGE, (t) => `${JSON.stringify({ ...JSON.parse(t), scripts: ['node scripts/check-jobs.mjs'] }, null, 2)}\n`), /^package\.json's `scripts` is not an object\./],
       ['a package.json script that is not a string', (dir) => editScripts(dir, (scripts) => { scripts.prepare = ['node', 'scripts/git-hooks.mjs'] }), /^package\.json's script `prepare` is not a string\./],
-    ].flatMap(([name, change, expect]) => [
-      { name: `${name}, beside a tasks.toml`, doctor: change, expect },
-      { name: `${name}, as a tree from before the move`, doctor: (dir) => { toPackageJson(dir); change(dir) }, expect },
-    ]),
+    ].map(([name, change, expect]) => ({ name: `${name}, beside a tasks.toml`, doctor: change, expect })),
     {
       // The runner runs a group's jobs as it runs the hook's own, so a token inside one is read too.
       name: "a job inside a hook group invokes a script that does not exist",

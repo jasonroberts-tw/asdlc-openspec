@@ -131,7 +131,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { findBin } from '../../scripts/lib/bin-path.mjs'
-import { PACKAGE_JSON, loadTasks } from '../../scripts/lib/tasks.mjs'
+import { loadTasks } from '../../scripts/lib/tasks.mjs'
 import { dirGlob, scriptDirs } from '../../scripts/lib/test-dirs.mjs'
 import { VOCABULARY, hashRef, readTests, readTracePolicy, specIndex } from '../../scripts/test-trace.mjs'
 import { firstDifference, readText } from '../lib/committed.ts'
@@ -337,12 +337,18 @@ function tracePolicyExtras(root: string): { layers: string[]; task: string } {
 /**
  * The test files: every file the quoted patterns of a script running the runner match, and every
  * file under a `--dir` of one, as `scripts/lib/test-dirs.mjs` expands it. The scripts are the tree's
- * tasks, read through `scripts/lib/tasks.mjs`.
+ * tasks, read through `scripts/lib/tasks.mjs` from its `tasks.toml`; a tree with none is a finding
+ * with the loader's reason, its `package.json` not read in its place.
  */
 function testFiles(root: string, findings: string[]): string[] {
-  const manifest = loadTasks(root)
-  const file = manifest?.file ?? PACKAGE_JSON
-  const scripts: Record<string, string> = manifest?.tasks ?? {}
+  let manifest: { file: string; tasks: Record<string, string> }
+  try {
+    manifest = loadTasks(root)
+  } catch (error) {
+    findings.push(`reader: ${(error as Error).message}`)
+    return []
+  }
+  const { file, tasks: scripts } = manifest
   const patterns: string[] = []
   const invocation = new RegExp(`node ${RUNNER.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}((?:\\s+"[^"]+")+)`, 'g')
   for (const command of Object.values(scripts)) {
