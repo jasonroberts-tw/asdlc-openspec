@@ -84,7 +84,7 @@ export const meta = {
  * every finding that meets neither, so one that reaches this script refuses the run. Each change
  * returns `met`, the condition its finding met: `recurrence`, `severity`, or both.
  *
- * WHAT IT RETURNS. { stopped, why, groups, merge, runsRead, runsHeld, findingsHeld, cases, counts }. Every
+ * WHAT IT RETURNS. { stopped, why, groups, merge, discard, runsRead, runsHeld, findingsHeld, cases, counts }. Every
  * count in it is computed here, never by an agent. `stopped` is one of:
  *
  *   refused     an argument did not hold; `why` names it, and no agent ran
@@ -188,7 +188,12 @@ export const meta = {
  * worktree from `origin/main`: on 2026-09-26 a workflow agent's `isolation: 'worktree'` landed on
  * `agent/wf_<run>-<n>` at `origin/main` with its briefing, from a session and from a `claude --bg`
  * session alike (asdlc-openspec-lzr). A worktree an agent leaves is not removed when it ends, changed
- * or not; `mise run worktree:gc` removes each once its branch is contained in `origin/main`. The
+ * or not, and `mise run worktree:gc` proves no branch the review rejected or reworded contained in
+ * `origin/main`, so on its own it keeps such a worktree for good (asdlc-openspec-dss). `discard` lists
+ * every group whose report names a branch, with its `id`, `branch` and `status`, merged or not: the
+ * session removes each worktree and branch with `mise run worktree:gc --discard <branch>` once it has
+ * merged `merge` into its own (`.claude/agents/continuous-prompt-improvement.md` § 6), which carries a
+ * merged group's commits on. A group whose agent died names no branch and is not listed. The
  * skeptics and the readers run where the session does, in the review worktree, and read each branch
  * there; the readers run that worktree's `scripts/prompt-case-texts.mjs`. The answers need the agent
  * `prompt-case-answerer` in the checkout the session started in, the primary checkout for a review
@@ -678,7 +683,7 @@ const voteLine = (c) => `${c.upheld} upheld, ${c.refuted} refuted and ${c.skepti
 const badArgs = argsProblem()
 if (badArgs) {
   log(`Refused: ${badArgs}`)
-  return { stopped: 'refused', why: badArgs, groups: [], merge: [], runsRead: [], runsHeld: [], findingsHeld: [], cases: [], counts: null }
+  return { stopped: 'refused', why: badArgs, groups: [], merge: [], discard: [], runsRead: [], runsHeld: [], findingsHeld: [], cases: [], counts: null }
 }
 
 phase('Review')
@@ -871,12 +876,14 @@ const counts = {
   regressed: count('regressed'),
 }
 const merge = groups.filter((g) => g.status === 'merge').map((g) => g.branch.trim())
+/** Every group's branch the session removes, merged or not, as the header says. */
+const discard = groups.filter((g) => g.branch?.trim()).map((g) => ({ id: g.id, branch: g.branch.trim(), status: g.status }))
 const cases = caseResults
 
 if (counts.died === counts.groups) {
   const why = 'every agent returned nothing, so no file was reviewed and every run stays pending'
   log(`Stopped (agent-died): ${why}`)
-  return { stopped: 'agent-died', why, groups, merge, runsRead, runsHeld, findingsHeld, cases, counts }
+  return { stopped: 'agent-died', why, groups, merge, discard, runsRead, runsHeld, findingsHeld, cases, counts }
 }
 const consolidationClause = counts.consolidations
   ? `; ${counts.consolidationsUpheld} of ${counts.consolidations} consolidation(s) upheld by ${counts.consolidationSkeptics} skeptic(s)`
@@ -886,4 +893,4 @@ const caseClause = counts.cases
   : ''
 const why = `${counts.merge} to merge, ${counts.unchanged} unchanged, ${counts.notUpheld} not upheld, ${counts.refused} refused, ${counts.died} died; ${counts.upheld} of ${counts.changes} change(s) upheld by ${counts.skeptics} skeptic(s)${consolidationClause}${caseClause}; ${counts.runsRead} of ${counts.runs} run(s) read, ${counts.findingsHeld} finding(s) held`
 log(`Stopped (done): ${why}`)
-return { stopped: 'done', why, groups, merge, runsRead, runsHeld, findingsHeld, cases, counts }
+return { stopped: 'done', why, groups, merge, discard, runsRead, runsHeld, findingsHeld, cases, counts }

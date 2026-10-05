@@ -1976,8 +1976,49 @@ function reviewCases(policy) {
         !result.runsRead.length && result.runsHeld.length === 3 && !result.merge.length && !result.findingsHeld.length ? null : 'a run was read, a finding held or a branch merged',
     },
     ...storedCaseCases(policy),
+    ...discardCases(policy),
   ]
   return list
+}
+
+/**
+ * The review's cases for the worktrees its groups leave (asdlc-openspec-dss). The script runs no git,
+ * so what it holds is `discard`, the list the session removes with `mise run worktree:gc --discard`:
+ * every group whose report names a branch, merged or not, each with its status as the reason it goes.
+ */
+function discardCases(policy) {
+  const listed = (result) => JSON.stringify(result.discard)
+  const want = (...entries) => JSON.stringify(entries.map(([id, status]) => ({ id, branch: `agent/wf_example-${id}`, status })))
+  return [
+    {
+      name: "a rejected group's worktree is handed to the session to remove, with not-upheld as its reason, beside the unchanged group's",
+      args: reviewArgs(policy),
+      reports: {},
+      verdict: () => reviewVote('refuted'),
+      expect: ['done', /^0 to merge, 1 unchanged, 1 not upheld, 0 refused, 0 died;/],
+      check: ({ result }) => (listed(result) === want(['bead', 'not-upheld'], ['open-pr', 'unchanged']) ? null : `discard is ${listed(result)}`),
+    },
+    {
+      name: "a merged group's worktree is handed to remove too, its commits carried by the merge the session makes first",
+      args: reviewArgs(policy),
+      reports: {},
+      expect: ['done', /^1 to merge, 1 unchanged, 0 not upheld, 0 refused, 0 died;/],
+      check: ({ result }) => (listed(result) === want(['bead', 'merge'], ['open-pr', 'unchanged']) ? null : `discard is ${listed(result)}`),
+    },
+    {
+      name: "a refused group's worktree is handed to remove with refused as its reason, and a group whose agent died, naming no branch, is not",
+      args: reviewArgs(policy),
+      reports: { bead: (g) => changed(g, { gates: [gateRun(false)] }), 'open-pr': null },
+      expect: ['done', /^0 to merge, 0 unchanged, 0 not upheld, 1 refused, 1 died;/],
+      check: ({ result }) => (listed(result) === want(['bead', 'refused']) ? null : `discard is ${listed(result)}`),
+    },
+    {
+      name: 'arguments refused before any agent runs leave nothing to remove',
+      args: reviewArgs(policy, []),
+      expect: ['refused', /^args\.groups must be a non-empty list/],
+      check: ({ result }) => (listed(result) === '[]' ? null : `discard is ${listed(result)}`),
+    },
+  ]
 }
 
 /** The review's cases for the stored decision cases (`docs/decisions.md` § D-32). */

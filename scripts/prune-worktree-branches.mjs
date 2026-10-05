@@ -4,8 +4,8 @@
  * `branch.<name>.remote` / `branch.<name>.merge` pair in `.git/config`.
  *
  *   node scripts/prune-worktree-branches.mjs [--dry-run] [--trunk <ref>] [--repo <path>]
- *                                            [--finished <worktree>]...
- *   mise run worktree:gc [--finished <worktree>]
+ *                                            [--finished <worktree>]... [--discard <branch>]...
+ *   mise run worktree:gc [--finished <worktree>] [--discard <branch>]
  *
  * THE TWO DEFECTS THIS PREVENTS.
  *
@@ -28,7 +28,8 @@
  * patch-id. REGISTERED IS NOT LIVE, and the worktree sweep below is what tells them apart.
  *
  * THE SAFETY RULE, and it is the whole design: a branch is deleted only when its content is already
- * in the trunk. Three independent proofs are accepted, in this order --
+ * in the trunk, or when its caller names it with `--discard` (below). Three independent proofs are
+ * accepted, in this order --
  *
  *   1. the branch is an ANCESTOR of the trunk (`merge-base --is-ancestor`), or
  *   2. its tip is the head of a pull request GitHub records as MERGED into the trunk's branch, or
@@ -76,9 +77,11 @@
  *     session `chdir`s into the worktree it enters, so a live session shows here, and so does a
  *     lingering MSBuild node for the minutes it takes to idle out -- conservative, and self-correcting
  *     on the next run;
- *   - its branch is contained in the trunk by one of the three proofs above;
+ *   - its branch is contained in the trunk by one of the three proofs above, unless `--discard`
+ *     names the branch;
  *   - HEAD there has not moved for `worktreeGcMinAgeHours` (`tools/policy/tool-settings.json`),
- *     unless the caller names the worktree with `--finished` (THE AGE RULE, below).
+ *     unless the caller names the worktree with `--finished` or its branch with `--discard` (THE AGE
+ *     RULE, below).
  *
  * THE LIVENESS CHECK, and the defect it closes. Until 2026-09-29 it read only `/proc/<pid>/cwd`, and
  * where `/proc` was absent it was skipped and the clean-and-contained proof stood alone. On
@@ -127,6 +130,25 @@
  * until the threshold passes, where the check before it removed it at once. And `--finished` is taken
  * at its word: a caller that names a worktree another agent still works in removes it.
  *
+ * `--discard <branch>`, and the defect it closes. An orchestrated run's lanes, a prompt review's
+ * groups and a fan-out sweep's lanes, reach the trunk rewritten or not at all: a group the skeptics
+ * reject never lands, and a lane whose cherry-pick needed a resolution lands with other patches. No
+ * proof above contains such a branch, so the sweep kept each one for good: on 2026-09-29, 12 of 25
+ * registered worktrees were dead lanes, each kept as "N of N commit(s) not in origin/main", and they
+ * were removed by hand (asdlc-openspec-dss). `--discard` is the caller's word that it has taken what
+ * it wants from that branch, by a merge or a pick or by rejecting it, and waives both the containment
+ * proof and the age rule for that branch alone; every other condition of a removal still holds. Its
+ * worktree is removed and the branch deleted, contained or not, and logged as every deletion is. A
+ * branch whose worktree is already gone is deleted too. The run is `mise run worktree:gc --discard
+ * <branch>`, which `scripts/hooks/guard-git.mjs` lets a session in a worktree run, where it refuses a
+ * `git worktree remove` typed there; both orchestrators run from a worktree.
+ *
+ * Where `--discard` loses. It is taken at its word: a caller that names the branch of a lane another
+ * agent still works in, clean and between two calls, removes the lane. A discarded branch's commits
+ * outlive it only as unreachable objects, which the log's restore command brings back until `git gc`
+ * prunes them, and its worktree's ignored files, `.scratch/` among them, go at once. And it confines
+ * nothing: the run sweeps every other worktree and branch as a run without it does.
+ *
  * A kept worktree keeps its branch with it, reported as `checked out by <path> (<reason>)`.
  *
  * Consequently a stale `origin/main` cannot cause data loss. It can only make fewer branches look
@@ -138,7 +160,7 @@
  * WHAT IT WILL NOT TOUCH, regardless of proof:
  *   - the primary checkout, the worktree it runs from, a locked worktree, a worktree outside
  *     `.claude/worktrees/`, any worktree with a change or a process in it, or one whose HEAD moved
- *     within `worktreeGcMinAgeHours` that no `--finished` names;
+ *     within `worktreeGcMinAgeHours` that no `--finished` or `--discard` names;
  *   - any branch a kept worktree has checked out;
  *   - `main`, `release`, and anything not named `agent/*` or `worktree-*`. Human branches are
  *     not this script's business and prefix is how it knows.
@@ -176,6 +198,8 @@ let trunkArg = null
 let repoArg = null
 /** What each `--finished` named, as given: a worktree's directory name or its path. */
 const finishedArgs = []
+/** Each branch `--discard` named. */
+const discardArgs = []
 
 for (let i = 0; i < argv.length; i += 1) {
   const arg = argv[i]
@@ -189,16 +213,28 @@ for (let i = 0; i < argv.length; i += 1) {
       process.exit(1)
     }
     finishedArgs.push(value)
+  } else if (arg === '--discard') {
+    const value = argv[(i += 1)]
+    if (!value) {
+      console.error('prune-worktree-branches: --discard needs a branch')
+      process.exit(1)
+    }
+    discardArgs.push(value)
   } else if (arg === '--help' || arg === '-h') {
     console.log(
       'usage: prune-worktree-branches.mjs [--dry-run] [--trunk <ref>] [--repo <path>] [--finished <worktree>]...\n' +
+        '                                   [--discard <branch>]...\n' +
         '\n' +
         '  --dry-run   report what would be removed and change nothing\n' +
         '  --trunk     the ref that proves containment (default origin/main, or $TRUNK_BRANCH)\n' +
         '  --repo      a path inside the repository to operate on (default: the cwd)\n' +
         '  --finished  a worktree the caller has finished with, by its name under .claude/worktrees/\n' +
         '              or its path: removed without waiting out worktreeGcMinAgeHours, once every\n' +
-        '              other condition holds; repeatable',
+        '              other condition holds; repeatable\n' +
+        '  --discard   an agent branch the caller has taken what it wants from, merged, picked or\n' +
+        '              rejected: its worktree removed and the branch deleted, contained in the trunk\n' +
+        '              or not and without waiting, once every other condition holds; its tip is\n' +
+        '              logged; repeatable',
     )
     process.exit(0)
   } else {
@@ -699,6 +735,8 @@ const FINISHED = new Map(
 )
 /** Every registered worktree's real path, read before the sweep removes any. */
 const REGISTERED = new Set(worktrees.map((wt) => realpath(wt.path)))
+/** The branches `--discard` names: removed with their worktrees, contained or not (the header says when). */
+const DISCARD = new Set(discardArgs)
 
 /** A worktree path as the report prints it: relative to the primary checkout where it is inside. */
 function shortPath(p) {
@@ -733,6 +771,8 @@ function worktreeVerdict(wt, index) {
     const shown = pids.slice(0, 3).join(', ') + (pids.length > 3 ? ', ...' : '')
     return { remove: false, reason: `in use by process ${shown}` }
   }
+  // The caller's word, past every condition above: neither containment nor the age rule is read.
+  if (DISCARD.has(wt.branch)) return { remove: true, proof: 'clean, named by --discard' }
   const verdict = containment(wt.branch)
   if (!verdict.contained) return { remove: false, reason: `branch ${wt.branch}: ${verdict.reason}` }
   if (FINISHED.has(real)) return { remove: true, proof: `clean, named by --finished, ${verdict.proof}` }
@@ -809,7 +849,7 @@ if (!trunkMissing) {
       })
       continue
     }
-    const verdict = containment(branch)
+    const verdict = DISCARD.has(branch) ? { contained: true, proof: 'named by --discard' } : containment(branch)
     if (!verdict.contained) {
       kept.push({ branch, reason: verdict.reason })
       continue
@@ -864,6 +904,9 @@ if (livenessCache !== null) {
 for (const [real, given] of FINISHED) {
   if (!REGISTERED.has(real)) console.log(`  --finished ${given}: no registered worktree at ${real}`)
 }
+for (const branch of DISCARD) {
+  if (!localBranches.has(branch)) console.log(`  --discard ${branch}: no local branch of that name`)
+}
 if (mergedCache !== null) {
   console.log(
     mergedCache.source !== null
@@ -885,7 +928,8 @@ if (removedWorktrees.length > 0) {
 }
 
 if (deleted.length > 0) {
-  console.log(`  ${verb} ${deleted.length} branch(es) whose work is already in ${TRUNK}:`)
+  const named = DISCARD.size > 0 ? ' or that --discard names' : ''
+  console.log(`  ${verb} ${deleted.length} branch(es) whose work is already in ${TRUNK}${named}:`)
   for (const { branch, sha, proof } of deleted) {
     console.log(`    ${branch}  ${sha.slice(0, 8)}  (${proof})`)
   }

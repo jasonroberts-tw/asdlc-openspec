@@ -744,6 +744,78 @@ check(
   report.slice(0, 400),
 )
 
+// AN ORCHESTRATED LANE NO PROOF CONTAINS (asdlc-openspec-dss): a prompt review's rejected group, or
+// a fan-out lane whose pick was rewritten, has a commit the trunk will never hold. `--discard` names
+// its branch once the run has taken what it wants from it, and the worktree and the branch go at
+// once, the tip logged. `rejected` is that lane, just committed; `discard-dirty` is the same with a
+// file left in it, kept by its reason, since `--discard` waives only containment and the age rule;
+// `agent/discard-bare` is a lane branch whose worktree is already gone. `inflight`, as uncontained
+// and named by nobody, is the control: it stays. The guard's two cases are the route's reason: from
+// a worktree a session has entered, `git worktree remove` typed there is refused, and the sweep is not.
+const lane = (name, { dirty = false } = {}) => {
+  const path = wt(name)
+  writeFileSync(join(path, `${name}.txt`), 'rejected\n')
+  git(path, 'add', `${name}.txt`)
+  git(path, ...AS, 'commit', '-qm', `work the run did not carry, in ${name}`)
+  if (dirty) writeFileSync(join(path, 'left.txt'), 'left\n')
+  return [path, git(path, 'rev-parse', 'HEAD').trim()]
+}
+const [rejected, rejectedTip] = lane('rejected')
+const [discardDirty] = lane('discard-dirty', { dirty: true })
+git(gcPrimary, 'branch', 'agent/discard-bare', 'agent/rejected')
+const discarded = runGc(
+  '--discard', 'agent/rejected',
+  '--discard', 'agent/discard-dirty',
+  '--discard', 'agent/discard-bare',
+  '--discard', 'agent/no-such-lane',
+)
+check(
+  'a lane named by --discard goes at once, its commit in no trunk, by that reason',
+  !existsSync(rejected) &&
+    !registered('rejected') &&
+    !branchExists('agent/rejected') &&
+    discarded.includes('.claude/worktrees/rejected  agent/rejected  (clean, named by --discard)'),
+  discarded.slice(0, 1500),
+)
+check(
+  'its branch is reported deleted by that reason, and its tip logged',
+  discarded.includes(`agent/rejected  ${rejectedTip.slice(0, 8)}  (named by --discard)`) &&
+    readFileSync(join(gcPrimary, '.git', 'worktree-gc.log'), 'utf8').includes(`${rejectedTip} agent/rejected\n`),
+  discarded.slice(0, 1500),
+)
+check(
+  'a lane branch whose worktree is already gone is deleted by that reason',
+  !branchExists('agent/discard-bare') && discarded.includes(`agent/discard-bare  ${rejectedTip.slice(0, 8)}  (named by --discard)`),
+  discarded.slice(0, 1500),
+)
+check(
+  'a dirty lane named by --discard is kept by its reason, with its branch',
+  discarded.includes('.claude/worktrees/discard-dirty  agent/discard-dirty  -- 1 uncommitted change(s)') &&
+    existsSync(discardDirty) &&
+    branchExists('agent/discard-dirty'),
+  discarded.slice(0, 1500),
+)
+check(
+  'a name matching no branch is reported',
+  discarded.includes('  --discard agent/no-such-lane: no local branch of that name'),
+  discarded.slice(0, 600),
+)
+check(
+  'control: an uncontained lane nobody names stays, by its reason',
+  existsSync(inflight) &&
+    branchExists('agent/inflight') &&
+    discarded.includes('.claude/worktrees/inflight  agent/inflight  -- branch agent/inflight: 1 of 1 commit(s) not in origin/main'),
+  discarded.slice(0, 1500),
+)
+const typedRemove = guardFrom(oursDir, { command: 'git worktree remove .claude/worktrees/rejected' })
+check(
+  'from a worktree, the guard refuses `git worktree remove` typed there, by its reason',
+  typedRemove.code === 2 && typedRemove.stderr.includes(WORKTREE_RULE),
+  why(typedRemove),
+)
+const discardRoute = guardFrom(oursDir, { command: 'mise run worktree:gc --discard agent/rejected' })
+check('and lets the sweep run with --discard', discardRoute.code === 0, why(discardRoute))
+
 // The worktree refusals, each by its reason. Survival alone would be VACUOUS for `dirty` and
 // `locked`: `git worktree remove` refuses both on its own, exactly as `git branch -D` refuses a
 // checked-out branch. The reason reported is the only evidence that the guard, not git, spared it.
