@@ -28,7 +28,7 @@ nothing here.
 Never state a count, a figure, a "resolved" status or a fact about the environment derived from
 titles, memory or inference. Re-derive every number in a document, an issue, a pull-request body or
 an analysis from the repository at the time of writing. Cite the source path inline. If you cannot
-verify a figure, say so. Do not estimate.
+verify a figure, say so.
 
 The same holds for a fact a session hands a subagent. A premise in a brief, such as whether an API
 exists, the version that added it, or a value computed from the code, is verified first and given
@@ -42,15 +42,13 @@ Every count describing the current measured state of what this repository measur
 `CNT-*` key in `count-index.md`, with its value and the command or file it re-derives
 from. Prose writes the backticked key where the numeral would go, never both. A key is admitted only
 for a count that moves when the source is re-measured **and** is restated in more than one
-hand-maintained file; a number used once stays inline. A quotation keeps its numeral. A frozen or
-historical figure gets no key. A string an emitter writes interpolates what it measured at emit
-time or carries no figure. When two denominators exist, name the one you mean. Update the table from
-what its check reports; never edit the check to agree with the table.
+hand-maintained file; a number used once stays inline. A quotation keeps its numeral. A string an
+emitter writes interpolates what it measured at emit time or carries no figure. When two
+denominators exist, name the one you mean.
 
 **Reporting honesty.** Any rate a report computes declares a sample size below which the report
-prints the count and no rate. Every metric is defined once, in `count-index.md` § Rates and metrics,
-as what is counted, who counts it, where it is recorded, and the value that would mean the project
-is not viable; every other file points at that row.
+prints the count and no rate. Every metric is defined once, in `count-index.md` § Rates and metrics;
+every other file points at that row.
 
 ## A question shows where its recommendation loses
 
