@@ -141,19 +141,33 @@ credentials() {
   fi
 
   # ~/.gitconfig is the container's own, which a rebuild discards, so a commit made here has no
-  # identity until one is set. The container's sessions act as the agents' GitHub App, so it commits
-  # as the App's bot account (`githubAppBot*`, through `scripts/github-app-token.mjs identity`), set
-  # whenever no user.email is; one already set, by a person or an earlier start, is left as it is.
+  # identity until one is set. The container's sessions act as the agents' GitHub App, so whenever
+  # ~/.gitconfig holds no user.email, this sets user.name and user.email to the App's bot account
+  # (`githubAppBot*`, through `scripts/github-app-token.mjs identity`); an email already there, set
+  # by a person or an earlier start, is left with its name. Only those two keys are taken from the
+  # helper's lines.
   if [ -z "$(git config --global user.email)" ]; then
     local identity key value
     if [ -n "$workspace" ] && identity="$(cd "$workspace" && node scripts/github-app-token.mjs identity)"; then
       while IFS='=' read -r key value; do
-        git config --global "$key" "$value" || warn "git config --global $key failed"
+        case "$key" in
+          user.name | user.email) git config --global "$key" "$value" || warn "git config --global $key failed" ;;
+        esac
       done <<<"$identity"
-      log "committing as $(git config --global user.name) <$(git config --global user.email)>"
+      if [ -n "$(git config --global user.email)" ]; then
+        log "committing as $(git config --global user.name) <$(git config --global user.email)>"
+      else
+        warn "git identity unset: scripts/github-app-token.mjs identity gave no user.email"
+      fi
     else
       warn "git identity unset, and the App's could not be read -- run \`node scripts/github-app-token.mjs identity\` in the clone to see why"
     fi
+  fi
+
+  # The clone's own .git/config outranks ~/.gitconfig, and the host shares it, so an email set there
+  # is the one the container's commits carry, whatever was set above.
+  if [ -n "$workspace" ] && [ -n "$(git -C "$workspace" config --local user.email)" ]; then
+    warn "the clone's own .git/config sets user.email, so commits here carry $(git -C "$workspace" config --local user.email), not the App's"
   fi
 }
 
