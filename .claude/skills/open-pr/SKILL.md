@@ -13,8 +13,7 @@ A caller brings three things:
 - **the issues it carries**, by id, or none;
 - **the body**, in a file under `.scratch/`, holding what the caller says it holds.
 
-This skill does the rest, through the merge and the cleanup after it, and hands back the pull
-request and whether it merged (step 8). What follows is the caller's.
+This skill does the rest, through step 8. What follows is the caller's.
 
 ## 1. The branch is ready
 
@@ -28,7 +27,7 @@ For each one that touches a file this branch touches, test the merge:
 
     git merge-tree --write-tree --name-only origin/<its branch> HEAD
 
-A shared file is not a conflict; a conflict this reports is. The body names each one (step 4).
+A shared file is not a conflict; a conflict this reports is.
 
 ## 3. The title
 
