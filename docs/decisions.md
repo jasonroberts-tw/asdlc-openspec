@@ -2617,7 +2617,7 @@ Where it loses:
 
 **Decision.** git cannot tell a worktree that was removed from one whose path the process cannot see, and `git worktree prune` takes both. So:
 
-1. **The WorktreeRemove hook prunes nothing.** For a path outside `.claude/worktrees/` it touches no record, and in its sandbox fallback it removes the admin directory the worktree's `.git` file names, not `.git/worktrees/<basename>`, which git numbers on a collision.
+1. **The WorktreeRemove hook prunes nothing.** For a path outside `.claude/worktrees/` it touches no record. In its sandbox fallback it removes the admin directory the worktree's `.git` file names, not `.git/worktrees/<basename>`, which git numbers on a collision, and only one whose own `gitdir` names the worktree back, since the `.git` file is the worktree's to rewrite.
 2. **The sweep, `scripts/prune-worktree-branches.mjs`, prunes only while no stale record's parent directory is missing too.** A removed worktree leaves its parent behind; a host record seen from a container does not. While one does not, each stale record is kept holding its branch, and the report's `prune refused:` line names them.
 3. **`scripts/hooks/guard-git.mjs` refuses a session's `git worktree prune` from any checkout**, the primary included, since a container session works there. A dry run passes, spelt from `-n`, `--dry-run`, `-v` and `--verbose` alone.
 4. **The dev container's image sets `gc.worktreePruneExpire` to `never`**, so `git gc` there keeps every record.
@@ -2642,14 +2642,14 @@ Where it loses:
 - **`scripts/hooks/worktree-remove.mjs`:** no prune, `owned` and `adminDirOf`, with the incident beside them.
 - **`scripts/prune-worktree-branches.mjs`:** THE PRUNE RULE in its header and in what it will not touch, the refused prune keeping each stale record with its branch, and the report's `prune refused:` line.
 - **`scripts/hooks/guard-git.mjs`:** `WORKTREE_PRUNE` and `isBarePrune`, its header's paragraph, and the rules it names as applying everywhere.
-- **`scripts/hooks/worktree-hooks.selftest.mjs`:** the guard's prune cases with their dry-run controls, the toggled pair among them; a section of a scratch repository with a live, a removed and an unseen worktree, through a copy of the hook and the sweep, with its control; the hook's fallback over a collided name; and the Dockerfile's setting.
+- **`scripts/hooks/worktree-hooks.selftest.mjs`:** the guard's prune cases with their dry-run controls, the toggled pair among them; a section of a scratch repository with a live, a removed and an unseen worktree, through a copy of the hook and the sweep, with its control; the hook's fallback over a collided name and over a rewritten `.git` file; and the Dockerfile's setting.
 - **`git-hooks.yml`:** the `worktree-hooks` job's glob takes `.devcontainer/Dockerfile`.
 - **`.devcontainer/Dockerfile` and `.devcontainer/README.md`:** the setting, and § The host's worktrees, seen from the container.
 - **`README.md`, `.claude/README.md`, `scripts/hooks/README.md` and `scripts/README.md`:** the rows of the guard, the hook, the sweep and the selftest, and a row in `README.md` § The guardrails.
 
 **Figures.**
 
-- `node scripts/hooks/worktree-hooks.selftest.mjs`, each new case first run against the code before its fix: 7 checks failed against `42d08ad`'s hook and sweep, 2 against that guard, 1 against the first `isBarePrune` for `--dry-run --no-dry-run`, 1 against `42d08ad`'s Dockerfile, and 2 against the hook's fallback by basename. Each passes at this entry's last commit.
+- `node scripts/hooks/worktree-hooks.selftest.mjs`, each new case first run against the code before its fix: 7 checks failed against `42d08ad`'s hook and sweep, 2 against that guard, 1 against the first `isBarePrune` for `--dry-run --no-dry-run`, 1 against `42d08ad`'s Dockerfile, 2 against the hook's fallback by basename, and 1 against its first `adminDirOf`, which trusted a rewritten `.git` file. Each passes at this entry's last commit.
 - `mise run gates`: 49 of 49 jobs at this entry's last commit.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request

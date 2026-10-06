@@ -44,7 +44,7 @@
  * over a failed removal buys nothing.
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, rmSync, unlinkSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync, rmSync, unlinkSync } from 'node:fs'
 import { dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -104,15 +104,20 @@ const OWNED_DIR = join(ROOT, '.claude', 'worktrees') + sep
 const owned = resolve(worktreePath).startsWith(OWNED_DIR)
 
 /**
- * The admin directory the worktree's `.git` file names, when it is one of ROOT's, or `null`. Not
- * `.git/worktrees/<basename>`: git adds a number to that name on a collision, so it can be another
- * worktree's record.
+ * The admin directory the worktree's `.git` file names, or `null`. Not `.git/worktrees/<basename>`:
+ * git adds a number to that name on a collision, so it can be another worktree's record. And not the
+ * `.git` file's word alone, which anything in the worktree can rewrite: the directory must sit
+ * directly under ROOT's `.git/worktrees/` and its own `gitdir` must name this worktree back, the
+ * two-way link git keeps.
  */
 function adminDirOf(path) {
   try {
     const match = /^gitdir: (.+)$/m.exec(readFileSync(join(path, '.git'), 'utf8'))
-    const admin = match === null ? null : resolve(path, match[1].trim())
-    return admin !== null && admin.startsWith(join(ROOT, '.git', 'worktrees') + sep) ? admin : null
+    if (match === null) return null
+    const admin = resolve(path, match[1].trim())
+    if (dirname(admin) !== join(ROOT, '.git', 'worktrees')) return null
+    const back = resolve(admin, readFileSync(join(admin, 'gitdir'), 'utf8').trim())
+    return realpathSync(back) === realpathSync(join(path, '.git')) ? admin : null
   } catch {
     return null
   }
