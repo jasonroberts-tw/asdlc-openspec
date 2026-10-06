@@ -34,8 +34,9 @@ function runEslint() {
     if (!bin) {
       fail(
         new Error(
-          'eslint not found in any ancestor node_modules/.bin. It is a devDependency of this ' +
-            'package; run `npm install` in the primary checkout.',
+          'eslint not found in any ancestor node_modules/.bin, and the ratchet needs it. If ' +
+            'package.json lists eslint, run `npm ci`. If it does not, no linter is chosen yet, and ' +
+            'the ratchet runs once one is and eslint is added there.',
         ),
       )
       return
