@@ -117,10 +117,7 @@ USER vscode
 # says "No version is set for shim: node" (asdlc-openspec-8juz.1, question 6). Every gate runs from
 # the clone, and a shim hands the real tool directories to what it starts, so no gate meets that; a
 # global default would be a second home for the pin.
-#
-# The App's `gh` wrapper, copied in above, stands ahead of the shims, so a bare `gh` is the App's;
-# `mise exec` puts the real one first, as the version check below needs.
-ENV PATH="/usr/local/lib/github-app/bin:/home/vscode/.local/share/mise/shims:/home/vscode/.local/bin:${PATH}"
+ENV PATH="/home/vscode/.local/share/mise/shims:/home/vscode/.local/bin:${PATH}"
 # `.mise/locks/` beside them: a `pypi:` tool's locked install reads its uv lock there (D-35).
 COPY --chown=vscode:vscode mise.toml mise.lock /tmp/toolchain/
 COPY --chown=vscode:vscode .mise/locks /tmp/toolchain/.mise/locks
@@ -147,6 +144,12 @@ RUN curl -fsSL https://claude.ai/install.sh | bash \
 # and adds each marketplace that whatever ended up at ~/.claude does not have.
 RUN claude plugin marketplace add gastownhall/beads || true; \
     claude plugin marketplace add vale-cli/agent-tools || true
+
+# The App's `gh` wrapper, copied in above, ahead of mise's shims, so a bare `gh` in the container is
+# the App's. Last, because the layers above run the real `gh` at build time, which has no App key:
+# `mise exec` does not put the real one ahead of a directory already first on PATH, and the
+# toolchain's version check failed through the wrapper when this stood with the shims' line.
+ENV PATH="/usr/local/lib/github-app/bin:${PATH}"
 
 ENTRYPOINT ["/usr/local/bin/workspace-entrypoint"]
 CMD ["sleep", "infinity"]
