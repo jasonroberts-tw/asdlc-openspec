@@ -46,8 +46,9 @@ warn() { printf '\033[33m[devcontainer]\033[0m %s\n' "$*"; }
 workspace=''
 
 # The copy of the policy record the Dockerfile puts in the image, which names the repository clone()
-# clones: the clone's own copy does not exist yet.
-policy=/usr/local/share/workspace-entrypoint/tool-settings.json
+# clones: the clone's own copy does not exist yet. WORKSPACE_ENTRYPOINT_POLICY names a doctored copy,
+# as scripts/github-app-token.mjs's selftest sets it.
+policy="${WORKSPACE_ENTRYPOINT_POLICY:-/usr/local/share/workspace-entrypoint/tool-settings.json}"
 
 # take_ownership <dir>: a volume Docker creates for a path the image lacks arrives root-owned, and
 # Claude Code or git then fails on a write it should have been able to make. `vscode` has
@@ -61,13 +62,22 @@ take_ownership() {
 
 # The first start clones the repository into REPO_WORKSPACE, the workspace volume, over HTTPS with
 # no token, since the repository is public; later pushes go through the App's credential helper,
-# which runs from this clone. A start that finds `.git` there leaves the clone as it is: a session
-# pulls. Fails, after a warning, only when the clone cannot be made, and setup() then stops, since
-# every step after it reads the clone.
+# which runs from this clone. A start that finds a clone there, with a commit checked out, leaves it
+# as it is: a session pulls. One that finds `.git` and no commit, a first start killed mid-clone,
+# says so, since every step after this would otherwise skip what the clone lacks without a word.
+# Fails, after a warning, when the clone cannot be made or is unfinished, and setup() then stops,
+# since every step after it reads the clone. scripts/github-app-token.mjs's selftest runs it.
 clone() {
   local repo="${REPO_WORKSPACE:-}" slug
-  if [ -z "$repo" ] || [ -e "$repo/.git" ]; then
+  if [ -z "$repo" ]; then
     return 0
+  fi
+  if [ -e "$repo/.git" ]; then
+    if git -C "$repo" rev-parse --verify --quiet HEAD >/dev/null; then
+      return 0
+    fi
+    warn "$repo holds an unfinished clone, with no commit checked out -- remove the workspace volume and start again"
+    return 1
   fi
   take_ownership "$repo"
   if ! slug="$(jq -er 'select((.githubAppRepositoryOwner | type) == "string" and (.githubAppTokenRepository | type) == "string") | "\(.githubAppRepositoryOwner)/\(.githubAppTokenRepository)"' "$policy" 2>/dev/null)"; then
@@ -207,8 +217,8 @@ commit_identity() {
     fi
   fi
 
-  # The clone's own .git/config outranks ~/.gitconfig, and the host shares it, so an email set there
-  # is the one the container's commits carry, whatever was set above.
+  # The clone's own .git/config outranks ~/.gitconfig, so an email set there, by a session or a person
+  # in the container, is the one the container's commits carry, whatever was set above.
   if [ -n "$workspace" ] && [ -n "$(git -C "$workspace" config --local user.email)" ]; then
     warn "the clone's own .git/config sets user.email, so commits here carry $(git -C "$workspace" config --local user.email), not the App's"
   fi
