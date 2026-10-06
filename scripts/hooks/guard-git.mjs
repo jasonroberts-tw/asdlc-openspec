@@ -11,8 +11,8 @@
  * switching to or rewriting a protected branch from a worktree; the primary checkout is where a
  * person works, and what they commit or push there is theirs to decide. So the guard asks git
  * whether the command runs in a linked worktree and skips every git rule if not. The PR-base,
- * merge-bypass and graphify rules below are the exceptions and apply everywhere, because what they
- * guard is not worktree isolation. Where the command runs is the payload's `cwd`, never `CLAUDE_PROJECT_DIR`;
+ * merge-bypass, worktree-prune and graphify rules below are the exceptions and apply everywhere,
+ * because what they guard is not worktree isolation. Where the command runs is the payload's `cwd`, never `CLAUDE_PROJECT_DIR`;
  * `commandDir` below says what reading the variable cost.
  *
  * IT FAILS CLOSED, unlike the three advisory hooks beside it. A guard that allows the command when
@@ -51,6 +51,14 @@
  * (docs/decisions.md § R-01).
  *
  *   printf '%s' '{"tool_input":{"command":"gh pr merge 1 --admin --rebase"}}' | node scripts/hooks/guard-git.mjs
+ *
+ * IT ALSO REFUSES A BARE `git worktree prune`, EVERYWHERE. git cannot tell a removed worktree from
+ * one whose path it cannot see, and in a dev container on a bind-mounted clone every worktree made on
+ * the host is the second kind. A session there works in the primary checkout, where the git rules
+ * are off, so a prune it typed would take every host worktree's record. On 2026-10-06 a prune run in
+ * such a container, by the WorktreeRemove hook through a pre-push selftest, left git with no record
+ * of any of the host's worktrees (asdlc-openspec-486e). Its `--dry-run` passes; the sweep,
+ * `scripts/prune-worktree-branches.mjs`, prunes by its own rule.
  *
  * IT ALSO GUARDS THE LOCAL CODE GRAPH, EVERYWHERE. It refuses graphify's `update`, `watch`, `hook
  * install` and `claude install` (`GRAPHIFY_ERODING` below), run by name or as a Python module,
@@ -525,6 +533,15 @@ const CHECKOUT = `you cannot switch to or rewrite a long-lived branch (${protect
 const MERGE = `rebase onto ${TRUNK_REMOTE} rather than merging ${TRUNK} into your branch.`
 const WORKTREE = 'worktree management belongs to the orchestrator, not to a task agent.'
 const OBJECTS = 'the object store is shared with sibling worktrees currently in use.'
+const WORKTREE_PRUNE =
+  '`git worktree prune` takes every record git reads as stale, and in a dev container on a ' +
+  "bind-mounted clone that is every worktree made on the host, whose path the container cannot see " +
+  '(asdlc-openspec-486e). `git worktree prune --dry-run` shows what it would take; the prune is a ' +
+  "person's, run where every record it names is really gone."
+
+/** A `git worktree prune` that would prune, not its `-n` / `--dry-run`, which only reports. */
+const isBarePrune = ({ sub, rest }) =>
+  sub === 'worktree' && nonOptions(rest)[0] === 'prune' && !rest.some((t) => t === '-n' || t === '--dry-run')
 
 /** Flags that create or reset a branch; the name that FOLLOWS one is the branch being written. */
 const BRANCH_CREATE = new Set(['-b', '-B', '-c', '-C'])
@@ -760,6 +777,7 @@ function inspect(command, linked, stray, depth = 0) {
 function inspectStatement(tokens, linked, stray, depth) {
   const call = gitCall(tokens)
   if (call !== null && stray !== null) return strayDenial(stray)
+  if (call !== null && isBarePrune(call)) return WORKTREE_PRUNE
   if (call !== null && linked) {
     const reason = denialFor(call)
     if (reason !== null) return reason
