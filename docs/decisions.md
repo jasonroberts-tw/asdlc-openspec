@@ -2606,7 +2606,7 @@ Where it loses:
 
 - The tracker on 2026-10-05, `mise run prompt-runs`: 1 fix, `.claude/skills/bead/SKILL.md#close-before-merge`, carried by #93, merged as `5b8d893`. It is awaiting review: 3 later runs read it, `asdlc-openspec-b83l`, `-m8hs` and `-3cp3`, and no review has read them. 0 exercised fixes is under the floor of 10, so no rate.
 - `mise run prompt-runs:selftest`: 93 of 93 checks, an undoctored control first. With each of 28 checks of the recurrence report broken in turn, one at a time, each break turned at least one case red.
-- The reviewer's agent, `node scripts/check-prompts.mjs --counts`: 2,440 at `9c33d95`, 2,422 at `0d6c15e`, which consolidated it, and 2,445 at this entry's last commit.
+- The reviewer's agent, `node scripts/check-prompts.mjs --counts`: 2,440 at `9c33d95`, 2,422 at `cd6f203`, which consolidated it, and 2,445 at this entry's last commit.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
