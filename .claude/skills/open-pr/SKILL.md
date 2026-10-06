@@ -13,8 +13,7 @@ A caller brings three things:
 - **the issues it carries**, by id, or none;
 - **the body**, in a file under `.scratch/`, holding what the caller says it holds.
 
-This skill does the rest, through the merge and the cleanup after it, and hands back the pull
-request and whether it merged (step 8). What follows is the caller's.
+This skill does the rest, through step 8. What follows is the caller's.
 
 ## 1. The branch is ready
 
@@ -28,7 +27,7 @@ For each one that touches a file this branch touches, test the merge:
 
     git merge-tree --write-tree --name-only origin/<its branch> HEAD
 
-A shared file is not a conflict; a conflict this reports is. The body names each one (step 4).
+A shared file is not a conflict; a conflict this reports is.
 
 ## 3. The title
 
@@ -112,7 +111,8 @@ is handed back unmerged, since nobody would tell the person it waits on.
 Once it has merged, clean up from the primary checkout. A session by then in another branch's
 worktree cleans up once it leaves that one, naming each merged worktree with its own `--finished`.
 
-1. Leave the worktree with `ExitWorktree`, action `keep`; the sweep below removes it.
+1. Leave the worktree with `ExitWorktree`, action `keep`. The sweep below keeps it while this
+   session or a process it started is there; a `--finished` run after the session ends removes it.
 2. Run `git fetch origin`, then `mise run worktree:gc --dry-run --finished <worktree>`. The sweep is
    not this worktree's alone (`scripts/prune-worktree-branches.mjs`). If the dry run names this
    worktree alone, run it again without `--dry-run`; if it names others, only on the user's word,
