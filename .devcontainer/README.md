@@ -11,6 +11,13 @@ devcontainer up --workspace-folder <repository>
 devcontainer exec --workspace-folder <repository> claude
 ```
 
+A clone that already has a container, from before agents acted as the App (`docs/decisions.md`
+§ D-51), starts it again with `--remove-existing-container`: `devcontainer up` starts an existing
+container as it was made, with the mounts of the `devcontainer.json` it was made from. One made from
+the old file still bind-mounts your `~/.config/gh`, `~/.claude` and `~/.claude.json`, and `gh` in it
+reads your login, as a container of 2026-09-25 did after the change merged. `docker ps --filter
+label=devcontainer.local_folder=<clone>` shows a clone's container and when it was made.
+
 The first build takes several minutes and is cached afterwards. You get the toolchain the root
 `mise.toml` pins (Node, Python, `bd`, `gh`, Vale, uv and graphify), Claude Code, and the two plugins
 `.claude/settings.json` enables, `beads@beads-marketplace` and `vale@agent-tools`. The image
@@ -21,7 +28,7 @@ registers their marketplaces, and `entrypoint.sh` installs each plugin for the c
 | `Dockerfile` | Every tool, as a layer. The base image's major tag is at the top; every other version is in the root `mise.toml`, installed through `mise.lock` by the mise the Dockerfile copies in (`docs/decisions.md` § D-31), and graphify's dependencies through its uv lock under `.mise/locks/` (§ D-35). After a pin moves, rebuild. It also makes `git` and `gh` act as the App, through the two files below, and keeps `git gc` from pruning the host's worktrees (§ The host's worktrees, seen from the container). |
 | `Dockerfile.dockerignore` | What the build may read from the repository's root, its context: `mise.toml`, `mise.lock`, the uv locks under `.mise/locks/`, `entrypoint.sh` and the two wrappers, and nothing else. |
 | `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, the App's key mounted read-only, a volume for Claude Code's state, and the variables that name the clone, the key's directory and that volume to what runs inside. |
-| `entrypoint.sh` | The three setup steps that read the repository, which is a bind mount and does not exist at build time; a warning while a tool `mise.toml` pins is missing from the image; a warning while Vale cannot load `.vale.ini`; a warning while the App cannot mint a token; and, where either is missing, each plugin's marketplace and its project-scope install for the clone. |
+| `entrypoint.sh` | The three setup steps that read the repository, which is a bind mount and does not exist at build time; a warning while a tool `mise.toml` pins is missing from the image; a warning while Vale cannot load `.vale.ini`; a warning while the App cannot mint a token; the App's bot account as git's commit identity, when none is set; and, where either is missing, each plugin's marketplace and its project-scope install for the clone. |
 | `gh` | `gh` as the App: ahead of mise's on PATH, it runs it with a token `scripts/github-app-token.mjs` mints, read for each command. |
 | `git-credential-github-app` | git's one credential helper for `https://github.com`, which hands git's request to `scripts/github-app-token.mjs`. |
 
@@ -73,8 +80,12 @@ What the container keeps of its own:
   keeps your login, history and plugins across a rebuild. Log in once, in the container: run
   `claude` and follow its login. No session in the container has logged in yet, so that a login
   there lasts across a rebuild is not yet seen. `docker volume rm` on the volume drops it.
-- **Your git identity** does not come across. Set `user.name` and `user.email` in the container once;
-  `entrypoint.sh` warns while they are unset.
+- **The commit identity is the App's bot account**, not yours, which does not come across. At each
+  start with no `user.email` set, `entrypoint.sh` sets `user.name` to `githubAppBotLogin` and
+  `user.email` to its noreply address, `<githubAppBotUserId>+<githubAppBotLogin>@users.noreply.github.com`,
+  the form GitHub documents, so GitHub attributes the container's commits to the App. It leaves an
+  identity already set, and a rebuild, which discards `~/.gitconfig`, gets it set again. The
+  commits carry no Verified badge, since nothing signs them.
 
 ## Giving it the App's key
 

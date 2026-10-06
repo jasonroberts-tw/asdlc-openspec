@@ -16,7 +16,8 @@
 #
 # ...and a check that the agents' GitHub App, as which the container's `git` and `gh` act, can mint
 # a token, which is here for the same reason: it depends on the key devcontainer.json mounts from
-# the host, which is unknown at build time.
+# the host, which is unknown at build time. With it, the App's bot account set as git's commit
+# identity when none is, read from the clone's policy, which the image cannot see either.
 #
 # ...and the two Claude Code plugins .claude/settings.json enables, beads@beads-marketplace and
 # vale@agent-tools, for both reasons: the marketplaces they come from are registered in the
@@ -139,10 +140,20 @@ credentials() {
     warn 'the GitHub App could not mint a token, so git and gh cannot reach GitHub -- .devcontainer/README.md says how to give the container its key'
   fi
 
-  # ~/.gitconfig is the container's own, so an identity set on the host does not reach here, and a
-  # commit made without one is a commit nobody can attribute.
+  # ~/.gitconfig is the container's own, which a rebuild discards, so a commit made here has no
+  # identity until one is set. The container's sessions act as the agents' GitHub App, so it commits
+  # as the App's bot account (`githubAppBot*`, through `scripts/github-app-token.mjs identity`), set
+  # whenever no user.email is; one already set, by a person or an earlier start, is left as it is.
   if [ -z "$(git config --global user.email)" ]; then
-    warn 'git identity unset: git config --global user.name "..." && git config --global user.email "you@example.com"'
+    local identity key value
+    if [ -n "$workspace" ] && identity="$(cd "$workspace" && node scripts/github-app-token.mjs identity)"; then
+      while IFS='=' read -r key value; do
+        git config --global "$key" "$value" || warn "git config --global $key failed"
+      done <<<"$identity"
+      log "committing as $(git config --global user.name) <$(git config --global user.email)>"
+    else
+      warn "git identity unset, and the App's could not be read -- run \`node scripts/github-app-token.mjs identity\` in the clone to see why"
+    fi
   fi
 }
 

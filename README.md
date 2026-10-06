@@ -288,11 +288,14 @@ An agent session in the container acts as the agents' GitHub App and holds none 
 1. Put the App's private key, alone, in `~/.asdlc-agent-j/` on the host, as
    `.devcontainer/README.md` § Giving it the App's key says. The directory must exist, even empty,
    or Docker does not start the container.
-1. Clone, then run `devcontainer up --workspace-folder <clone>`.
+1. Clone, then run `devcontainer up --workspace-folder <clone>`. For a clone that already has a
+   container from before the App, add `--remove-existing-container`: `devcontainer up` starts an
+   existing container with the mounts it was made with, your logins among them.
 1. Wait for the first build, which installs every tool `mise.toml` pins from `mise.lock`.
    `.devcontainer/entrypoint.sh` then runs the install, the git hooks and the tracker's hydration on
    every start, registers each plugin marketplace and installs each plugin for the clone where one
-   is missing, and warns rather than fails; read its output once (`docker logs` on the container
+   is missing, sets the App's bot account as git's commit identity where none is set, and warns
+   rather than fails; read its output once (`docker logs` on the container
    shows it). If it warns that a tool `mise.toml` pins is missing from the image, rebuild the
    container; if it warns that the GitHub App could not mint a token, fix the key and start again.
 1. Run `devcontainer exec --workspace-folder <clone> claude`, and log in once: Claude Code keeps its
@@ -545,7 +548,7 @@ hooks, and a session reads it once, at its start: restart the session after chan
 | `git push` that changes anything under `scripts/` or `tools/`, a workflow, the branch reviewer, `tasks.toml`, `package.json` or the lockfile | `pr-review:check`: the reviewer's workflow, agent and policy agree, no other workflow can set its status, and the floor covers every file the gates `prReviewFloorTasks` lists run and import and every policy key those files name, which it derives (`docs/decisions.md` § D-38); `pr-review:selftest`: its decisions over fixtures, and the check over doctored copies. | `git-hooks.yml` (`pre-push`) |
 | A pull request, or a push to `main`, a merge among them | Every gate that reads only committed files, cheapest first. It trusts none of the faster tiers. | `.github/workflows/verify.yml` |
 | A pull request against `main` opened, reopened, made ready for review or pushed to | The reviewer sets the `pr-review` status on that head from the floor alone, with a token that writes statuses and nothing else, and writes the reasons to the run's summary. GitHub's auto-merge merges a head whose status and `verify` pass. | `.github/workflows/pr-review.yml` |
-| The dev container starts | `npm ci` when the lockfile moved, the git hooks, and the tracker's hydration; each step warns and carries on. It warns, too, while a tool `mise.toml` pins is missing from the image, which it never installs; while Vale cannot load `.vale.ini`, though it runs no `vale sync`; and while the GitHub App cannot mint a token. | `.devcontainer/entrypoint.sh` |
+| The dev container starts | `npm ci` when the lockfile moved, the git hooks, the tracker's hydration, and the App's bot account as git's commit identity where none is set; each step warns and carries on. It warns, too, while a tool `mise.toml` pins is missing from the image, which it never installs; while Vale cannot load `.vale.ini`, though it runs no `vale sync`; and while the GitHub App cannot mint a token. | `.devcontainer/entrypoint.sh` |
 | `git` or `gh` reaches GitHub in the dev container | `scripts/github-app-token.mjs` hands it a token of the agents' GitHub App, minting a fresh one once the kept one has less than `githubAppTokenRefreshSeconds` left, through the image's git credential helper and its `gh` wrapper. | `.devcontainer/Dockerfile` |
 
 ## What is still a placeholder
