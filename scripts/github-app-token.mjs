@@ -29,10 +29,11 @@
  * kept token another user could read, or one answered for another host, would hand the App's
  * identity to them; and a key directory holding two keys would sign with whichever it read first,
  * and be refused whenever that one was revoked. A token asked for with no repository reached all 8
- * the installation covered on 2026-10-06, where this one alone was meant (asdlc-openspec-t4cz). So it
- * refuses a key directory without exactly one `.pem`, a policy without its four keys, and an answer
- * from GitHub without a token and its expiry, each by its reason, and never prints the key or the
- * token in a refusal.
+ * the installation covered on 2026-10-06, where this one alone was meant (asdlc-openspec-t4cz). A
+ * wrong `identity` would put another account's name or address on every commit the container makes.
+ * So it refuses a key directory without exactly one `.pem`, a policy without a key its subcommand
+ * reads, and an answer from GitHub without a token and its expiry, each by its reason, and never
+ * prints the key or the token in a refusal.
  *
  * INVOCATION.
  *
@@ -604,6 +605,11 @@ function cases() {
       name: '`identity` with a policy without `githubAppBotUserId` is refused, naming it',
       doctor: (root) => editPolicy(root, (policy) => delete policy.githubAppBotUserId),
       check: async (ctx) => refused(await helper(ctx, ['identity']), /`githubAppBotUserId` must be a whole number above 0/, ctx),
+    },
+    {
+      name: '`identity` with a policy without `githubAppBotLogin` is refused, naming it',
+      doctor: (root) => editPolicy(root, (policy) => delete policy.githubAppBotLogin),
+      check: async (ctx) => refused(await helper(ctx, ['identity']), /`githubAppBotLogin` must be a bot account's login, ending \[bot\], not null/, ctx),
     },
     {
       name: '`identity` with a `githubAppBotLogin` that is not a bot\'s login is refused, naming it',

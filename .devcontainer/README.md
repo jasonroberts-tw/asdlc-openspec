@@ -15,8 +15,11 @@ A clone that already has a container, from before agents acted as the App (`docs
 § D-51), starts it again with `--remove-existing-container`: `devcontainer up` starts an existing
 container as it was made, with the mounts of the `devcontainer.json` it was made from. One made from
 the old file still bind-mounts your `~/.config/gh`, `~/.claude` and `~/.claude.json`, and `gh` in it
-reads your login, as a container of 2026-09-25 did after the change merged. `docker ps --filter
-label=devcontainer.local_folder=<clone>` shows a clone's container and when it was made.
+reads your login, as a container of 2026-09-25 did after the change merged.
+`docker ps -a --filter label=devcontainer.local_folder=<the clone's absolute path>` shows a clone's
+container, stopped or running, and when it was made: `devcontainer up` starts a stopped one too.
+When in doubt, pass `--remove-existing-container`, which costs a container rebuilt and nothing
+else, since Claude Code's state lives in a volume.
 
 Start it on a clone of its own, with no linked worktrees, and not on the checkout your sessions on
 the host use. The container bind-mounts the clone, `.git` included, so a `git switch` there switches
@@ -90,8 +93,9 @@ What the container keeps of its own:
   start with no `user.email` set, `entrypoint.sh` sets `user.name` to `githubAppBotLogin` and
   `user.email` to its noreply address, `<githubAppBotUserId>+<githubAppBotLogin>@users.noreply.github.com`,
   the form GitHub documents, so GitHub attributes the container's commits to the App. It leaves an
-  identity already set, and a rebuild, which discards `~/.gitconfig`, gets it set again. The
-  commits carry no Verified badge, since nothing signs them.
+  email already set there, and a rebuild, which discards `~/.gitconfig`, gets it set again. An
+  email in the clone's own `.git/config`, which the host shares, outranks it, and the entrypoint
+  warns of one. The commits carry no Verified badge, since nothing signs them.
 
 ## Giving it the App's key
 
