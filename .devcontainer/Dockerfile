@@ -37,12 +37,19 @@ FROM mcr.microsoft.com/devcontainers/base:3-noble
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Observed on bd 1.2.2, and not re-measured on the release `mise.toml` now pins: bd sniffs terminal
-# capability by writing OSC 11 to the tty and exiting without reading the reply; the terminal's answer
-# lands in the shell's input queue and is executed as if typed (`11: command not found`). NO_COLOR
-# makes it skip the probe entirely. Same reason as the NO_COLOR on every bd job in git-hooks.yml --
-# CI=1 and BD_NO_COLOR=1 do not work.
-ENV NO_COLOR=1
+# Observed on bd 1.2.2: bd sniffs terminal capability by writing OSC 11 to the tty and exiting without
+# reading the reply; the terminal's answer lands in the shell's input queue and is executed as if
+# typed (`11: command not found`). bd 1.3.0 still writes the query, with a DA1 after it (seen under a
+# pseudo-terminal on 2026-10-06; whether it now reads the replies was not tested). NO_COLOR makes it
+# skip the probe entirely. Same reason as the NO_COLOR on every bd job in git-hooks.yml -- CI=1 and
+# BD_NO_COLOR=1 do not work.
+#
+# Set for bd alone, in the interactive shell, where a terminal answers: until 2026-10-06 this was an
+# `ENV NO_COLOR=1` for every process, and Claude Code turns its color off whenever NO_COLOR is set, so
+# the container's sessions had none (asdlc-openspec-ikr3). The gates and git hooks set it on their
+# own bd calls (git-hooks.yml, tools/lib/bd-launcher.ts). A `bd` run on a tty outside an interactive
+# bash, such as `devcontainer exec ... bd ready`, still probes.
+RUN printf '%s\n' "alias bd='NO_COLOR=1 bd'" >>/etc/bash.bashrc
 
 # --- base packages ------------------------------------------------------------------------------
 # build-essential: some npm dependencies still compile on install. curl: the Claude Code installer

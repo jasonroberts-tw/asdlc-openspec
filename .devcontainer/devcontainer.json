@@ -3,8 +3,8 @@
 // over the network when a container is created. If you are about to add a setup step here, add a
 // layer to the Dockerfile instead.
 //
-// The exception is the mounts below, which cannot be anywhere else: a bind mount names a path on
-// YOUR machine, and an image is shared by everyone.
+// The exceptions are the mounts and the terminal's COLORTERM below, which cannot be anywhere else: a
+// bind mount names a path on YOUR machine, COLORTERM your terminal, and an image is shared by everyone.
 {
   "name": "Development container",
   // The repository's root is the build context, so the image can install the toolchain from
@@ -50,6 +50,16 @@
     // Claude Code keeps `.claude.json` beside the rest of its state when this is set, so all of it
     // lands in the volume above rather than in the container's home, which a rebuild discards.
     "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+  },
+
+  // Your terminal's color support, which `docker exec` does not carry in: it gives a session
+  // TERM=xterm and no COLORTERM, which Claude Code reads as 16 colors. COLORTERM comes through as you
+  // have it, and empty when you have none. TERM does not: the image has no terminfo for many a
+  // terminal's own (xterm-ghostty among them), and `less` and `clear` fail on one it lacks.
+  // `remoteEnv`, not `containerEnv`, because it is read at each `devcontainer exec`, from the
+  // terminal that runs it.
+  "remoteEnv": {
+    "COLORTERM": "${localEnv:COLORTERM}"
   },
 
   "customizations": {

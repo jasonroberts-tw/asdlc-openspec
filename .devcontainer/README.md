@@ -38,10 +38,11 @@ registers their marketplaces, and `entrypoint.sh` installs each plugin for the c
 |---|---|
 | `Dockerfile` | Every tool, as a layer. The base image's major tag is at the top; every other version is in the root `mise.toml`, installed through `mise.lock` by the mise the Dockerfile copies in (`docs/decisions.md` § D-31), and graphify's dependencies through its uv lock under `.mise/locks/` (§ D-35). After a pin moves, rebuild. It also makes `git` and `gh` act as the App, through the two files below, and keeps `git gc` from pruning the host's worktrees (§ The host's worktrees, seen from the container). |
 | `Dockerfile.dockerignore` | What the build may read from the repository's root, its context: `mise.toml`, `mise.lock`, the uv locks under `.mise/locks/`, `entrypoint.sh` and the two wrappers, and nothing else. |
-| `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, the App's key mounted read-only, a volume for Claude Code's state, and the variables that name the clone, the key's directory and that volume to what runs inside. |
-| `entrypoint.sh` | The three setup steps that read the repository, which is a bind mount and does not exist at build time; a warning while a tool `mise.toml` pins is missing from the image; a warning while Vale cannot load `.vale.ini`; a warning while the App cannot mint a token; the App's bot account as git's commit identity, when none is set; and, where either is missing, each plugin's marketplace and its project-scope install for the clone. |
+| `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, the App's key mounted read-only, a volume for Claude Code's state, the variables that name the clone, the key's directory and that volume to what runs inside, and your terminal's `COLORTERM` (§ Color and the status line). |
+| `entrypoint.sh` | The three setup steps that read the repository, which is a bind mount and does not exist at build time; a warning while a tool `mise.toml` pins is missing from the image; a warning while Vale cannot load `.vale.ini`; a warning while the App cannot mint a token. Then the App's bot account as git's commit identity, when none is set; where either is missing, each plugin's marketplace and its project-scope install for the clone; and the status line, when Claude Code's settings set none. |
 | `gh` | `gh` as the App: ahead of mise's on PATH, it runs it with a token `scripts/github-app-token.mjs` mints, read for each command. |
 | `git-credential-github-app` | git's one credential helper for `https://github.com`, which hands git's request to `scripts/github-app-token.mjs`. |
+| `statusline.sh` | Claude Code's status line in the container: the project, its branch, the model, the effort, the context left, the cost and the tokens. Run from the clone, so an edit needs no rebuild. |
 
 ## Why the split is where it is
 
@@ -173,6 +174,23 @@ in it. The Dev Containers CLI brought none of them in: in a container it started
 `ssh-add -l` reached no agent, and git's only helper for github.com was the App's. Start the
 container an agent works in with the Dev Containers CLI, as above, and edit the clone on the host,
 where it is bind-mounted from.
+
+## Color and the status line
+
+**Color comes from your terminal.** `docker exec` gives a session `TERM=xterm` and nothing else,
+which Claude Code reads as 16 colors, so `devcontainer.json` passes your `COLORTERM` through
+(`truecolor` in most terminals that support it), read at each `devcontainer exec`. It does not pass
+`TERM`, since the image has no terminfo for many a terminal's own, `xterm-ghostty` among them. Until
+2026-10-06 the image set `NO_COLOR=1` for every process, and Claude Code shows no color at all while
+it is set (`asdlc-openspec-ikr3`). It is now set for `bd` alone, by an alias in the interactive
+shell, for the terminal probe the Dockerfile describes. The gates and git hooks set it on their own
+`bd` calls.
+
+**The status line is `statusline.sh`.** At each start, `entrypoint.sh` sets `statusLine` in the
+volume's `settings.json` to run it from the clone, but only while that file sets none. A status line
+you set in the container (`/statusline`, or `statusLine` in that file) stays. To have none, set
+`statusLine` to a command that prints nothing, such as `true`: one you delete comes back at the next
+start.
 
 ## The plugins
 

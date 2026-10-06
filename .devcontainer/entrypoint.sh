@@ -24,6 +24,9 @@
 # container's own ~/.claude, a volume, and a project-scope install record names the clone's path, a
 # bind mount.
 #
+# ...and Claude Code's status line, .devcontainer/statusline.sh, set in the settings in that volume
+# when they set none, for the first reason: a volume made before the image changed keeps what it held.
+#
 # Wired to ENTRYPOINT by the Dockerfile so that devcontainer.json needs no lifecycle command. Runs
 # on every container start, which is why every step below is idempotent and cheap when there is
 # nothing to do.
@@ -225,6 +228,31 @@ plugin() {
   fi
 }
 
+# Claude Code's status line, run from the clone so an edit to the script needs no rebuild, set as
+# `statusLine` in the volume's settings.json only while that file sets none: a status line a person
+# sets in the container stays, and one deleted comes back at the next start. A file jq cannot read
+# is left as it is. It runs after credentials(), which makes ~/.claude writable.
+statusline() {
+  local settings="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" current='{}' next
+  if [ -z "$workspace" ] || [ ! -f "$workspace/.devcontainer/statusline.sh" ]; then
+    return 0
+  fi
+  if [ -s "$settings" ]; then
+    current="$(cat "$settings")"
+  fi
+  if printf '%s' "$current" | jq -e 'has("statusLine")' >/dev/null 2>&1; then
+    return 0
+  fi
+  if next="$(printf '%s' "$current" | jq --arg command "sh '$workspace/.devcontainer/statusline.sh'" \
+    '. + {statusLine: {type: "command", command: $command}}' 2>/dev/null)" \
+    && printf '%s\n' "$next" >"$settings.tmp" && mv "$settings.tmp" "$settings"; then
+    log "status line set in $settings"
+  else
+    rm -f "$settings.tmp"
+    warn "could not set the status line in $settings -- is it valid JSON?"
+  fi
+}
+
 # Sourced with ENTRYPOINT_FUNCTIONS_ONLY=1, as scripts/github-app-token.mjs's selftest sources it to
 # run commit_identity, this file defines its functions and runs none of its steps.
 if [ "${ENTRYPOINT_FUNCTIONS_ONLY:-}" = 1 ]; then
@@ -234,6 +262,7 @@ fi
 setup || true
 credentials || true
 plugins || true
+statusline || true
 
 # Last, so that anything above it reads as a warning about a container that is otherwise ready.
 log 'ready: bd ready | mise run gates | claude'
