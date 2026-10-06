@@ -18,8 +18,8 @@
 # `mise.lock` (docs/decisions.md § D-31), graphify's dependencies through its uv lock under
 # `.mise/locks/` (§ D-35); this file states no tool's version. The build context is the repository's
 # root, so the image can read those files, and `Dockerfile.dockerignore` beside this file admits
-# them and the entrypoint and nothing else. After a pin moves, rebuild: entrypoint.sh warns while the
-# image's tools lag `mise.toml`.
+# them, the entrypoint and the App's two wrappers, and nothing else. After a pin moves, rebuild:
+# entrypoint.sh warns while the image's tools lag `mise.toml`.
 
 # The base image's major version, on its Ubuntu 24.04 codename tag. `3-noble` takes every 3.x
 # release devcontainers/images publishes and never crosses a major. The codename form is the tag that

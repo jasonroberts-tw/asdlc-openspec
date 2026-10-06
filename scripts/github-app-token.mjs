@@ -185,12 +185,15 @@ function keep(path, kept) {
   renameSync(scratch, path)
 }
 
-/** The kept token while more than the refresh margin of it is left, or else a fresh one, kept. */
+/**
+ * The kept token while it was minted for the repository the policy names and more than the refresh
+ * margin of it is left, or else a fresh one, kept with that repository beside it.
+ */
 async function token(config) {
   const path = keptPath(config.installationId)
   const kept = readKept(path)
-  if (kept && Date.parse(kept.expiresAt) - Date.now() > config.refreshSeconds * 1000) return kept
-  const fresh = await mint(config)
+  if (kept?.repository === config.repository && Date.parse(kept.expiresAt) - Date.now() > config.refreshSeconds * 1000) return kept
+  const fresh = { ...(await mint(config)), repository: config.repository }
   keep(path, fresh)
   return fresh
 }
@@ -420,6 +423,19 @@ function cases() {
         return first.stdout === 'ghs_stub1\n' && second.stdout === 'ghs_stub2\n' && ctx.stub.requests.length === 2 && readKept(ctx.kept)?.token === 'ghs_stub2'
           ? null
           : `${said(first)}; then ${said(second)}; ${ctx.stub.requests.length} calls`
+      },
+    },
+    {
+      name: 'a kept token minted for another repository, or before tokens named one, is replaced, though its hour has time left',
+      check: async (ctx) => {
+        const later = new Date(Date.now() + 3600_000).toISOString()
+        for (const [index, kept] of [{ token: 'ghs_other', expiresAt: later, repository: 'another-repository' }, { token: 'ghs_unnamed', expiresAt: later }].entries()) {
+          mkdirSync(dirname(ctx.kept), { recursive: true })
+          writeFileSync(ctx.kept, `${JSON.stringify(kept)}\n`, { mode: 0o600 })
+          const r = await tokenRun(ctx)
+          if (r.stdout !== `ghs_stub${index + 1}\n`) return `handed out ${kept.token} where a fresh token was due: ${said(r)}`
+        }
+        return ctx.stub.requests.length === 2 ? null : `${ctx.stub.requests.length} calls to GitHub, not 2`
       },
     },
     {
