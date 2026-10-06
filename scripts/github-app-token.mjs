@@ -1,9 +1,10 @@
 /**
  * The agents' GitHub App tokens, for `git` and `gh` in the dev container (`docs/decisions.md`
  * § D-51). It mints an installation access token for the App `githubAppId` names, on the
- * installation `githubAppInstallationId` names (`tools/policy/tool-settings.json`), signing the
- * request with the App's private key: the one `.pem` file in the directory `GITHUB_APP_KEY_DIR`
- * names, which `.devcontainer/devcontainer.json` mounts read-only. It keeps the token in a file only
+ * installation `githubAppInstallationId` names (`tools/policy/tool-settings.json`), for the one
+ * repository `githubAppTokenRepository` names, signing the request with the App's private key: the
+ * one `.pem` file in the directory `GITHUB_APP_KEY_DIR` names, which
+ * `.devcontainer/devcontainer.json` mounts read-only. It keeps the token in a file only
  * its user can read, and hands it out again until fewer than `githubAppTokenRefreshSeconds` of its
  * hour are left; then it mints a fresh one, so a session longer than the token's hour needs no
  * restart. It serves the token two ways:
@@ -23,9 +24,11 @@
  * push or `gh` call, which reads as a network or permission fault rather than an expired token; a
  * kept token another user could read, or one answered for another host, would hand the App's
  * identity to them; and a key directory holding two keys would sign with whichever it read first,
- * and be refused whenever that one was revoked. So it refuses a key directory without exactly one
- * `.pem`, a policy without its three keys, and an answer from GitHub without a token and its expiry,
- * each by its reason, and it never prints the key.
+ * and be refused whenever that one was revoked. A token asked for with no repository reached all 8
+ * the installation covered on 2026-10-06, where this one alone was meant (asdlc-openspec-t4cz). So it
+ * refuses a key directory without exactly one `.pem`, a policy without its four keys, and an answer
+ * from GitHub without a token and its expiry, each by its reason, and never prints the key or the
+ * token in a refusal.
  *
  * INVOCATION.
  *
@@ -59,7 +62,7 @@ const SELF = fileURLToPath(import.meta.url)
 const REPO_ROOT = resolve(dirname(SELF), '..')
 const ROOT = process.env.GITHUB_APP_TOKEN_ROOT ?? REPO_ROOT
 const API = (process.env.GITHUB_APP_API_URL ?? 'https://api.github.com').replace(/\/+$/, '')
-const KEYS = ['githubAppId', 'githubAppInstallationId', 'githubAppTokenRefreshSeconds']
+const NUMBER_KEYS = ['githubAppId', 'githubAppInstallationId', 'githubAppTokenRefreshSeconds']
 
 // GitHub's own bounds on the JSON Web Token that asks for an installation token: `iat` set 60 s in
 // the past against clock drift, and `exp` no more than ten minutes ahead, so `exp` is `iat` plus ten
@@ -75,14 +78,18 @@ class Refusal extends Error {}
 
 const nowSeconds = () => Math.floor(Date.now() / 1000)
 
-/** The three policy keys this reads, each a whole number above 0, or a refusal naming the ones that are not. */
+/** The four policy keys this reads: three whole numbers above 0 and a repository's bare name, or a refusal naming those that are not. */
 function settings(root) {
   const policy = readPolicy(root)
-  const bad = KEYS.filter((key) => !Number.isInteger(policy[key]) || policy[key] <= 0)
+  const bad = NUMBER_KEYS.filter((key) => !Number.isInteger(policy[key]) || policy[key] <= 0)
   if (bad.length > 0) {
     throw new Refusal(`${bad.map((key) => `\`${key}\``).join(', ')} must each be a whole number above 0 in tools/policy/ under ${root}`)
   }
-  return { appId: policy.githubAppId, installationId: policy.githubAppInstallationId, refreshSeconds: policy.githubAppTokenRefreshSeconds }
+  const repository = policy.githubAppTokenRepository
+  if (typeof repository !== 'string' || !/^[\w.-]+$/.test(repository)) {
+    throw new Refusal(`\`githubAppTokenRepository\` must be a repository's bare name in tools/policy/ under ${root}, not ${JSON.stringify(repository ?? null)}`)
+  }
+  return { appId: policy.githubAppId, installationId: policy.githubAppInstallationId, refreshSeconds: policy.githubAppTokenRefreshSeconds, repository }
 }
 
 /** The App's private key: the one `.pem` file in `GITHUB_APP_KEY_DIR`. Its contents never reach a message. */
@@ -118,18 +125,22 @@ function appJwt(key, appId) {
   return `${head}.${body}.${base64url(signature)}`
 }
 
-/** A fresh installation token from GitHub, with the instant it expires. */
-async function mint({ appId, installationId }) {
+/**
+ * A fresh installation token from GitHub, with the instant it expires, asked for the one repository
+ * the policy names: without a body, a token reaches every repository the installation covers.
+ */
+async function mint({ appId, installationId, repository }) {
   const url = `${API}/app/installations/${installationId}/access_tokens`
   const headers = {
     Authorization: `Bearer ${appJwt(readKey(), appId)}`,
     Accept: 'application/vnd.github+json',
+    'Content-Type': 'application/json',
     'X-GitHub-Api-Version': '2022-11-28',
     'User-Agent': 'asdlc-openspec/github-app-token',
   }
   let response
   try {
-    response = await fetch(url, { method: 'POST', headers })
+    response = await fetch(url, { method: 'POST', headers, body: JSON.stringify({ repositories: [repository] }) })
   } catch (error) {
     throw new Refusal(`could not reach ${url}: ${error.cause?.code ?? error.message}`)
   }
@@ -141,8 +152,10 @@ async function mint({ appId, installationId }) {
     // An answer that is not JSON is reported by its status and its first characters, below.
   }
   if (response.status !== 201) throw new Refusal(`GitHub answered ${response.status} to ${url}: ${body?.message ?? text.slice(0, 200)}`)
+  // Described, never echoed: an answer with a token and a bad expiry would print the token.
   if (typeof body?.token !== 'string' || body.token === '' || Number.isNaN(Date.parse(body?.expires_at))) {
-    throw new Refusal(`GitHub's answer from ${url} holds no token and expiry: ${text.slice(0, 200)}`)
+    const tokenSays = typeof body?.token === 'string' && body.token !== '' ? 'a token' : 'no token'
+    throw new Refusal(`GitHub's answer from ${url} holds no token and expiry: ${tokenSays}, and expires_at ${JSON.stringify(body?.expires_at ?? null)}`)
   }
   return { token: body.token, expiresAt: body.expires_at }
 }
@@ -248,15 +261,23 @@ async function main(argv) {
 function stubGitHub(publicKey, appId) {
   const state = { mode: 'ok', minted: 0, requests: [] }
   const server = createServer((request, response) => {
-    request.resume()
+    let sent = ''
+    request.on('data', (chunk) => (sent += chunk))
     request.on('end', () => {
-      state.requests.push({ method: request.method, url: request.url, accept: request.headers.accept, problems: jwtProblems(request.headers.authorization, publicKey, appId) })
+      let repositories = null
+      try {
+        repositories = JSON.parse(sent).repositories ?? null
+      } catch {
+        // No body, or one that is not JSON: recorded as asking for no repository.
+      }
+      state.requests.push({ method: request.method, url: request.url, accept: request.headers.accept, repositories, problems: jwtProblems(request.headers.authorization, publicKey, appId) })
       const send = (status, body) => {
         response.writeHead(status, { 'content-type': 'application/json' })
         response.end(JSON.stringify(body))
       }
       if (state.mode === 'refuse') return send(401, { message: 'A JSON web token could not be decoded' })
       if (state.mode === 'empty') return send(201, { expires_at: new Date(Date.now() + 3600_000).toISOString() })
+      if (state.mode === 'bad-expiry') return send(201, { token: 'ghs_STUB_SECRET', expires_at: 'not-a-date' })
       state.minted += 1
       const life = state.mode === 'short' ? 60_000 : 3600_000
       return send(201, { token: `ghs_stub${state.minted}`, expires_at: new Date(Date.now() + life).toISOString() })
@@ -306,6 +327,52 @@ function run(command, args, { env, input = '', cwd = REPO_ROOT }) {
 }
 
 const GITHUB = 'protocol=https\nhost=github.com\n\n'
+const DOCKERFILE = join(REPO_ROOT, '.devcontainer', 'Dockerfile')
+const IMAGE_BIN = '/usr/local/lib/github-app/bin/'
+
+/**
+ * The image's git config for github.com as the Dockerfile writes it: its `git config --system --add`
+ * lines for `credential.` and `url.` keys, and the `GIT_CONFIG_*` variables its ENV lines set, with
+ * the image's path of the wrappers read as this checkout's `.devcontainer/`, which the Dockerfile
+ * copies there. Read from the Dockerfile, so a case run over it fails once a line it holds changes.
+ */
+function imageGitConfig() {
+  const text = readFileSync(DOCKERFILE, 'utf8')
+  const local = `${join(REPO_ROOT, '.devcontainer')}/`
+  const unquote = (value) => value.replace(/^'(.*)'$/, '$1').replace(/^"(.*)"$/, '$1')
+  const system = [...text.matchAll(/git config --system --add (\S+) ('[^']*'|"[^"]*"|\S+)/g)]
+    .map(([, key, value]) => [key, unquote(value).replaceAll(IMAGE_BIN, local)])
+    .filter(([key]) => /^(credential|url)\./.test(key))
+  const env = {}
+  for (const [, block] of text.matchAll(/^ENV ((?:[^\n]*\\\n)*[^\n]*)$/gm)) {
+    for (const [, key, value] of block.replace(/\\\n/g, ' ').matchAll(/(GIT_CONFIG_\w+)=("[^"]*"|\S*)/g)) env[key] = unquote(value).replaceAll(IMAGE_BIN, local)
+  }
+  const copies = /^COPY \.devcontainer\/gh \.devcontainer\/git-credential-github-app \/usr\/local\/lib\/github-app\/bin\/$/m.test(text)
+  return { system, env, copies }
+}
+
+/**
+ * The environment of a git run under the image's config: its system lines as the system file, its
+ * variables as given, and a global file whose helper stands for one a later scope adds, as VS Code's
+ * does. That helper logs each action it is asked to a marker file, and answers `get` with the
+ * maintainer's credential. Returns the environment and the marker, or the problem that stops it.
+ */
+async function imageGitEnv(ctx) {
+  const { system, env, copies } = imageGitConfig()
+  if (!copies) return { problem: `.devcontainer/Dockerfile no longer copies the two wrappers to ${IMAGE_BIN}` }
+  if (system.length === 0 || env.GIT_CONFIG_COUNT === undefined) return { problem: `.devcontainer/Dockerfile holds ${system.length} git config line(s) for credential. or url., and ${env.GIT_CONFIG_COUNT === undefined ? 'no' : 'a'} GIT_CONFIG_COUNT` }
+  const systemFile = join(ctx.dir, 'gitconfig-system')
+  const globalFile = join(ctx.dir, 'gitconfig-global')
+  const marker = join(ctx.dir, 'later-helper.log')
+  writeFileSync(systemFile, '')
+  writeFileSync(globalFile, '')
+  const later = `!f() { echo "$1" >> '${marker}'; if [ "$1" = get ]; then printf 'username=maintainer\\npassword=MAINTAINER_PAT\\n'; fi; }; f`
+  for (const [file, key, value] of [...system.map(([key, value]) => [systemFile, key, value]), [globalFile, 'credential.helper', later]]) {
+    const r = await run('git', ['config', '--file', file, '--add', key, value], { env: SCRATCH_GIT_ENV, cwd: ctx.dir })
+    if (r.status !== 0) return { problem: `git config --file could not write ${key}: ${r.stderr.trim()}` }
+  }
+  return { env: { ...ctx.gitEnv, ...env, GIT_CONFIG_SYSTEM: systemFile, GIT_CONFIG_GLOBAL: globalFile, GITHUB_APP_WORKSPACE: REPO_ROOT, GIT_TERMINAL_PROMPT: '0' }, marker }
+}
 
 /**
  * The cases. Each gets a fresh kept-token path and the stub reset to `ok`, then runs its steps
@@ -328,6 +395,7 @@ function cases() {
         if (ctx.stub.requests.length !== 1) return `${ctx.stub.requests.length} calls to GitHub, not 1`
         if (call.method !== 'POST' || call.url !== `/app/installations/${ctx.installationId}/access_tokens`) return `called ${call.method} ${call.url}`
         if (!/application\/vnd\.github\+json/.test(call.accept ?? '')) return `asked for ${call.accept}`
+        if (JSON.stringify(call.repositories) !== JSON.stringify([ctx.repository])) return `asked for the repositories ${JSON.stringify(call.repositories)}, not [${JSON.stringify(ctx.repository)}] alone`
         if (call.problems.length > 0) return `GitHub would refuse its JSON Web Token: ${call.problems.join('; ')}`
         if (readKept(ctx.kept)?.token !== 'ghs_stub1') return 'kept no token'
         if (process.platform !== 'win32' && (statSync(ctx.kept).mode & 0o077) !== 0) return `kept it with mode ${(statSync(ctx.kept).mode & 0o777).toString(8)}`
@@ -418,6 +486,14 @@ function cases() {
       },
     },
     {
+      name: 'an answer from GitHub with a token and an expiry that does not parse is refused, without printing the token',
+      check: async (ctx) => {
+        ctx.stub.mode = 'bad-expiry'
+        const r = await tokenRun(ctx)
+        return r.stderr.includes('ghs_STUB_SECRET') ? `printed the token: ${r.stderr.trim()}` : refused(r, /holds no token and expiry: a token, and expires_at "not-a-date"/, ctx, 1)
+      },
+    },
+    {
       name: 'GitHub out of reach is refused, saying so',
       check: async (ctx) => refused(await tokenRun(ctx, { env: { GITHUB_APP_API_URL: ctx.closedUrl } }), /could not reach http:\/\/127\.0\.0\.1:\d+\/app\/installations\//, ctx),
     },
@@ -459,6 +535,11 @@ function cases() {
       check: async (ctx) => refused(await tokenRun(ctx), /^github-app-token: `githubAppId` must each be a whole number above 0 in tools\/policy\//, ctx),
     },
     {
+      name: 'a policy without `githubAppTokenRepository` is refused, naming it, rather than mint a token for every repository',
+      doctor: (root) => editPolicy(root, (policy) => delete policy.githubAppTokenRepository),
+      check: async (ctx) => refused(await tokenRun(ctx), /`githubAppTokenRepository` must be a repository's bare name in tools\/policy\/ under .*, not null/, ctx),
+    },
+    {
       name: 'a policy whose `githubAppTokenRefreshSeconds` is 0 is refused, naming it',
       doctor: (root) => editPolicy(root, (policy) => (policy.githubAppTokenRefreshSeconds = 0)),
       check: async (ctx) => refused(await tokenRun(ctx), /`githubAppTokenRefreshSeconds` must each be a whole number above 0/, ctx),
@@ -471,7 +552,59 @@ function cases() {
       },
     },
     {
-      name: "real git: `git credential fill` through the image's helper, .devcontainer/git-credential-github-app, gets the App's token for github.com",
+      name: "real git, under the image's config as the Dockerfile writes it: GitHub's two SSH address forms, the first the one Dolt runs git against for the tracker's remote, read as HTTPS",
+      wrapper: true,
+      check: async (ctx) => {
+        const image = await imageGitEnv(ctx)
+        if (image.problem) return image.problem
+        const urls = [
+          ['ssh://git@github.com/jasonroberts-tw/asdlc-openspec.git', 'https://github.com/jasonroberts-tw/asdlc-openspec.git'],
+          ['git@github.com:jasonroberts-tw/asdlc-openspec.git', 'https://github.com/jasonroberts-tw/asdlc-openspec.git'],
+        ]
+        for (const [from, to] of urls) {
+          const r = await run('git', ['ls-remote', '--get-url', from], { env: image.env, cwd: ctx.dir })
+          if (r.status !== 0 || r.stdout.trim() !== to) return `${from} read as ${said(r)}, not ${to}`
+        }
+        return null
+      },
+    },
+    {
+      name: "real git, under the image's config: `git credential fill` gets the App's token for github.com, and asks no helper a later scope adds",
+      wrapper: true,
+      check: async (ctx) => {
+        const image = await imageGitEnv(ctx)
+        if (image.problem) return image.problem
+        const r = await run('git', ['credential', 'fill'], { env: image.env, input: GITHUB, cwd: ctx.dir })
+        if (existsSync(image.marker)) return `asked the later scope's helper: ${readFileSync(image.marker, 'utf8').trim()}`
+        return r.status === 0 && /^password=ghs_stub1$/m.test(r.stdout) ? null : said(r)
+      },
+    },
+    {
+      name: "real git, under the image's config: with the App unable to mint, git gets no credential, where a helper a later scope adds would hand it the maintainer's",
+      wrapper: true,
+      check: async (ctx) => {
+        const image = await imageGitEnv(ctx)
+        if (image.problem) return image.problem
+        ctx.stub.mode = 'refuse'
+        const r = await run('git', ['credential', 'fill'], { env: image.env, input: GITHUB, cwd: ctx.dir })
+        if (r.stdout.includes('MAINTAINER_PAT')) return `git took the later scope's credential: ${said(r)}`
+        if (existsSync(image.marker)) return `asked the later scope's helper: ${readFileSync(image.marker, 'utf8').trim()}`
+        return r.status !== 0 ? null : said(r)
+      },
+    },
+    {
+      name: "real git, under the image's config: `git credential approve` hands the App's token to no helper a later scope adds",
+      wrapper: true,
+      check: async (ctx) => {
+        const image = await imageGitEnv(ctx)
+        if (image.problem) return image.problem
+        const r = await run('git', ['credential', 'approve'], { env: image.env, input: `${GITHUB.trimEnd()}\nusername=x-access-token\npassword=ghs_stub1\n\n`, cwd: ctx.dir })
+        if (existsSync(image.marker)) return `handed it to the later scope's helper, asked: ${readFileSync(image.marker, 'utf8').trim()}`
+        return r.status === 0 ? null : said(r)
+      },
+    },
+    {
+      name: '.devcontainer/git-credential-github-app, named as the one helper by real git, gets the App\'s token for github.com',
       wrapper: true,
       check: async (ctx) => {
         const r = await run('git', ['-c', 'credential.helper=', '-c', `credential.helper=!sh '${join(REPO_ROOT, '.devcontainer', 'git-credential-github-app')}'`, 'credential', 'fill'], {
@@ -483,7 +616,7 @@ function cases() {
       },
     },
     {
-      name: 'real git: the same helper gives another host nothing, so git has no password for it',
+      name: '.devcontainer/git-credential-github-app, named the same way, gives another host nothing, so git has no password for it',
       wrapper: true,
       check: async (ctx) => {
         const r = await run('git', ['-c', 'credential.helper=', '-c', `credential.helper=!sh '${join(REPO_ROOT, '.devcontainer', 'git-credential-github-app')}'`, 'credential', 'fill'], {
@@ -567,6 +700,7 @@ async function selftest() {
         stub: stub.state,
         closedUrl: closed,
         installationId: live.githubAppInstallationId,
+        repository: live.githubAppTokenRepository,
         env: { ...env, GITHUB_APP_TOKEN_ROOT: root, GITHUB_APP_API_URL: stub.url, GITHUB_APP_KEY_DIR: keyDir, GITHUB_APP_TOKEN_CACHE: kept },
         gitEnv: { ...env, GITHUB_APP_TOKEN_ROOT: root, GITHUB_APP_API_URL: stub.url, GITHUB_APP_KEY_DIR: keyDir, GITHUB_APP_TOKEN_CACHE: kept, HOME: dir },
         ghEnv: { GITHUB_APP_WORKSPACE: REPO_ROOT, GITHUB_APP_REAL_GH: fakeGh },

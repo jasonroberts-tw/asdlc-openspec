@@ -301,11 +301,12 @@ run = "node scripts/git-hooks.mjs --gates"
 ["github-app-token:selftest"]
 description = '''
 The dev container's GitHub App helper, over a stub of GitHub's endpoint on loopback and a key it
-makes: the token minted with a JSON Web Token GitHub would take, for the installation the policy
-names, kept where only its user reads it, handed out again and replaced once less than the policy's
-margin is left; git's credential protocol answered for https://github.com alone, through real git;
-`.devcontainer/gh` running `gh` with the token and running none without one; and each refusal by its
-reason. The helper itself reads the App's private key and GitHub's API, so this is the job and the
+makes: the token minted with a JSON Web Token GitHub would take, for the installation and the one
+repository the policy names, kept where only its user reads it, handed out again and replaced once
+less than the policy's margin is left; git's credential protocol answered for https://github.com
+alone, through real git, under the git config `.devcontainer/Dockerfile` writes, where no helper a
+later scope adds is asked; `.devcontainer/gh` running `gh` with the token and running none without
+one; and each refusal by its reason. The helper itself reads the App's private key and GitHub's API, so this is the job and the
 step in its place. Without it a session in the container could lose `git` and `gh` an hour in, or
 hand the App's token to another host, and nothing would say so before it did.'''
 run = "node scripts/github-app-token.mjs --selftest"
