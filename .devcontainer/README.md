@@ -1,11 +1,14 @@
 # `.devcontainer/` — the whole machine setup, as an image
 
-**The "new machine setup" half of the root `README.md`, baked into a container.** With Docker, VS
-Code and the Dev Containers extension, the only prerequisite is the clone:
+**The "new machine setup" half of the root `README.md`, baked into a container, in which an agent
+session acts as the agents' GitHub App and holds none of your logins.** With Docker and the Dev
+Containers CLI (`npm install -g @devcontainers/cli`), the prerequisites are the clone and the App's
+key (§ Giving it the App's key):
 
 ```bash
 git clone https://github.com/<owner>/<repository>.git
-code <repository>           # then: "Reopen in Container" when VS Code offers
+devcontainer up --workspace-folder <repository>
+devcontainer exec --workspace-folder <repository> claude
 ```
 
 The first build takes several minutes and is cached afterwards. You get the toolchain the root
@@ -15,10 +18,12 @@ registers their marketplaces, and `entrypoint.sh` installs each plugin for the c
 
 | File | What it holds |
 |---|---|
-| `Dockerfile` | Every tool, as a layer. The base image's major tag is at the top; every other version is in the root `mise.toml`, installed through `mise.lock` by the mise the Dockerfile copies in (`docs/decisions.md` § D-31), and graphify's dependencies through its uv lock under `.mise/locks/` (§ D-35). After a pin moves, rebuild. |
-| `Dockerfile.dockerignore` | What the build may read from the repository's root, its context: `mise.toml`, `mise.lock`, the uv locks under `.mise/locks/` and `entrypoint.sh`, and nothing else. |
-| `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, three bind mounts, one passthrough env var, and the one folder whose `mise.toml` mise trusts, the workspace's own. |
-| `entrypoint.sh` | The three setup steps that read the repository, which is a bind mount and does not exist at build time; a warning while a tool `mise.toml` pins is missing from the image; a warning while Vale cannot load `.vale.ini`; and, where either is missing, each plugin's marketplace and its project-scope install for the clone. |
+| `Dockerfile` | Every tool, as a layer. The base image's major tag is at the top; every other version is in the root `mise.toml`, installed through `mise.lock` by the mise the Dockerfile copies in (`docs/decisions.md` § D-31), and graphify's dependencies through its uv lock under `.mise/locks/` (§ D-35). After a pin moves, rebuild. It also makes `git` and `gh` act as the App, through the two files below. |
+| `Dockerfile.dockerignore` | What the build may read from the repository's root, its context: `mise.toml`, `mise.lock`, the uv locks under `.mise/locks/`, `entrypoint.sh` and the two wrappers, and nothing else. |
+| `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, the App's key mounted read-only, a volume for Claude Code's state, and the variables that name the clone, the key's directory and that volume to what runs inside. |
+| `entrypoint.sh` | The three setup steps that read the repository, which is a bind mount and does not exist at build time; a warning while a tool `mise.toml` pins is missing from the image; a warning while Vale cannot load `.vale.ini`; a warning while the App cannot mint a token; and, where either is missing, each plugin's marketplace and its project-scope install for the clone. |
+| `gh` | `gh` as the App: ahead of mise's on PATH, it runs it with a token `scripts/github-app-token.mjs` mints, read for each command. |
+| `git-credential-github-app` | git's one credential helper for `https://github.com`, which hands git's request to `scripts/github-app-token.mjs`. |
 
 ## Why the split is where it is
 
@@ -47,23 +52,83 @@ mount. Otherwise, run `vale sync` once in the container: it needs the network, a
 in the clone, so a rebuild keeps them. `entrypoint.sh` does not run it. It warns at start while
 `vale ls-config` cannot load `.vale.ini`.
 
-**The mounts are the one thing an image cannot bake**, because a login is yours and not the
-project's. `~/.claude`, `~/.claude.json` and `~/.config/gh` are bind-mounted from the host, so:
+## What the container no longer shares, and why
 
-- **Run `claude` and `gh` on the host once before you first open the container.** Docker answers a
-  bind mount whose source is missing by creating it as an empty root-owned *directory*, and
-  `~/.claude.json` then exists as a directory where a file belongs. `entrypoint.sh` detects both and
-  says so, but the fix is on the host.
-- Container sessions **share** your host's Claude Code state — history, projects, plugins. The mount
-  is read-write because Claude Code rewrites `.credentials.json` on token refresh.
-- A plugin's marketplace registration is shared with the host, but a project-scope install record
-  names the clone's path. The container mounts the clone under `/workspaces/<name>`, not at the
-  host's path, so `entrypoint.sh` installs both plugins for that path when no record names it, and
-  the record lands in the shared `~/.claude`. Nobody has yet tried whether the host's record alone
-  loads them in the container (`asdlc-openspec-xw8z`).
-- On a Windows host, `gh` keeps its config in `%APPDATA%\GitHub CLI`, so that mount lands empty; set
-  `GH_TOKEN` before launching VS Code and `devcontainer.json` passes it through. Your git identity
-  does not come across — set `user.name` and `user.email` in the container once.
+A session in the container acts as the agents' GitHub App, which GitHub tells apart from you, and as
+nobody else (`docs/decisions.md` § D-51). So `devcontainer.json` mounts none of your `~/.config/gh`,
+`~/.ssh`, `~/.claude` or `~/.claude.json`, and passes no `GH_TOKEN` through:
+
+- **Your `gh` login, or a `GH_TOKEN`**, would let a session merge past the trunk's ruleset with its
+  admin bypass, set the `pr-review` status that ruleset requires, or edit or delete the ruleset
+  (`docs/decisions.md` § R-02). The App holds no bypass and no permission to do any of the three.
+- **Your `~/.ssh`**, or an SSH agent, would let `git` push as you.
+- **Your `~/.claude`**, mounted read-write, would let a session write a hook into your
+  `settings.json` that your next session on the host runs, with your logins.
+
+What the container keeps of its own:
+
+- **Claude Code's state** lives in a volume of the container's own, `claude-code-<id>`, one per
+  clone, with `CLAUDE_CONFIG_DIR` pointing into it, so `.claude.json` lands there too. A new volume
+  starts as a copy of the image's `~/.claude`, which has both plugin marketplaces registered, and
+  keeps your login, history and plugins across a rebuild. Log in once, in the container: run
+  `claude` and follow its login. No session in the container has logged in yet, so that a login
+  there lasts across a rebuild is not yet seen. `docker volume rm` on the volume drops it.
+- **Your git identity** does not come across. Set `user.name` and `user.email` in the container once;
+  `entrypoint.sh` warns while they are unset.
+
+## Giving it the App's key
+
+The App's private key is the one credential the container holds. On the host:
+
+1. Generate a private key on the App's settings page on GitHub. Its id and installation are
+   `githubAppId` and `githubAppInstallationId` in `tools/policy/tool-settings.json`.
+2. Keep it in a directory of its own, `~/.asdlc-agent-j/`, of mode 700, holding that one `.pem`
+   file, of mode 600, outside `~/.config/gh`, `~/.claude` and the clone.
+3. Start the container. `devcontainer.json` mounts the directory read-only at
+   `/home/vscode/.github-app`. `scripts/github-app-token.mjs` refuses a directory holding no `.pem`,
+   or more than one, by its reason, and `entrypoint.sh` warns at start when no token mints.
+
+A key generated afresh replaces the old file in the directory; delete the old one on GitHub, and
+the next token minted is signed with the new one.
+
+## How `git` and `gh` act as the App
+
+`scripts/github-app-token.mjs` mints an installation token from the key, keeps it where only its
+user reads it, and mints a fresh one once fewer than `githubAppTokenRefreshSeconds` of its hour are
+left, so a session longer than an hour needs no restart. Its header says what it answers.
+
+- **`git`** asks `git-credential-github-app` for `https://github.com`, the one helper the image's
+  system config names, after an empty helper that drops any named before it. The same config reads
+  `ssh://git@github.com/` and `git@github.com:` as HTTPS, so the tracker's Dolt remote,
+  `git+ssh://git@github.com/...` in `.beads/config.yaml`, reaches GitHub through the helper too:
+  Dolt runs `git` for that remote.
+- **`gh`** is this directory's `gh`, ahead of mise's on PATH, which reads a token for each command and
+  runs mise's `gh` with it as `GH_TOKEN`.
+
+The App holds Actions: read, so a re-run of a review that did not complete is yours: `open-pr` § 7
+hands you the command. It holds no Workflows permission, so a commit that changes
+`.github/workflows/` is yours to push too (`docs/decisions.md` § D-51, which records that loss as
+unchecked). Neither refusal has yet been seen from the container.
+
+## Start it without VS Code
+
+VS Code's Dev Containers extension copies your `~/.gitconfig` into the container, shares the git
+credentials you have entered on the host with it, and forwards your SSH agent when one runs
+(https://code.visualstudio.com/remote/advancedcontainers/sharing-git-credentials, read 2026-10-06),
+and that page names no setting, in `devcontainer.json` or anywhere, that turns any of them off. A
+container VS Code attaches to therefore holds your logins while it is attached, for every process
+in it. The Dev Containers CLI brought none of them in: in a container it started on 2026-10-06,
+`ssh-add -l` reached no agent, and git's only helper for github.com was the App's. Start the container an
+agent works in with the Dev Containers CLI, as above, and edit the clone on the host, where it is
+bind-mounted from.
+
+## The plugins
+
+A plugin's marketplace registration and its install record live in the volume. The image registers
+both marketplaces, so a new volume starts with them, and `entrypoint.sh` installs both plugins for
+the clone's path, `/workspaces/<name>`, when no record names it. On 2026-10-06 a container built from
+this directory, with Claude Code 2.1.291, logged both installs at its first start, listed both
+plugins enabled at project scope, and logged no install at its second (`asdlc-openspec-owva.4`).
 
 The container is Linux, so the root `README.md` caveat applies: a clone used from the container
 should not also be built on Windows.
