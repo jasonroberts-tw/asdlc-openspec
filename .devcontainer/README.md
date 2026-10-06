@@ -1,9 +1,9 @@
 # `.devcontainer/` — the whole machine setup, as an image
 
-**The "new machine setup" half of the root `README.md`, baked into a container, in which an agent
-session acts as the agents' GitHub App and holds none of your logins.** With Docker and the Dev
-Containers CLI (`npm install -g @devcontainers/cli`), the prerequisites are the clone and the App's
-key (§ Giving it the App's key):
+**The "new machine setup" half of the root `README.md`, baked into a container that works in a clone
+of its own, in which an agent session acts as the agents' GitHub App and holds none of your
+logins.** With Docker and the Dev Containers CLI (`npm install -g @devcontainers/cli`), the
+prerequisites are a clone, for the configuration, and the App's key (§ Giving it the App's key):
 
 ```bash
 git clone https://github.com/<owner>/<repository>.git
@@ -11,23 +11,54 @@ devcontainer up --workspace-folder <repository>
 devcontainer exec --workspace-folder <repository> claude
 ```
 
-A clone that already has a container, from before agents acted as the App (`docs/decisions.md`
-§ D-51), starts it again with `--remove-existing-container`: `devcontainer up` starts an existing
-container as it was made, with the mounts of the `devcontainer.json` it was made from. One made from
-the old file still bind-mounts your `~/.config/gh`, `~/.claude` and `~/.claude.json`, and `gh` in it
-reads your login, as a container of 2026-09-25 did after the change merged.
+A clone that already has a container from before the container worked in a clone of its own
+(`docs/decisions.md` § D-54) starts it again with `--remove-existing-container`: `devcontainer up`
+starts an existing container as it was made, with the mounts of the `devcontainer.json` it was made
+from. One made before D-54 still bind-mounts the folder, with every harm § The container's clone
+names. One made before agents acted as the App (§ D-51) also bind-mounts your `~/.config/gh`,
+`~/.claude` and `~/.claude.json`, and `gh` in it reads your login, as a container of 2026-09-25 did
+after that change merged.
 `docker ps -a --filter label=devcontainer.local_folder=<the clone's absolute path>` shows a clone's
 container, stopped or running, and when it was made: `devcontainer up` starts a stopped one too.
 When in doubt, pass `--remove-existing-container`. It rebuilds the container, which discards its
-`~/.gitconfig` and its kept token, both of which the next start sets again. A container made since
-the App keeps Claude Code's state in its volume. One made before it kept that state in your host's
-`~/.claude`, so its new volume starts empty and asks for a login.
+`~/.gitconfig` and its kept token, both of which the next start sets again; the clone and Claude
+Code's state are in volumes, and stay. A container made since the App keeps Claude Code's state in
+its volume. One made before it kept that state in your host's `~/.claude`, so its new volume starts
+empty and asks for a login.
 
-Start it on a clone of its own, with no linked worktrees, and not on the checkout your sessions on
-the host use. The container bind-mounts the clone, `.git` included, so a `git switch` there switches
-the host's checkout too. It cannot see the host paths the clone's worktrees live at either. On
-2026-10-06 a container started on the primary checkout left git with no record of any of the
-worktrees under `.claude/worktrees/`, by a trigger not yet known (`asdlc-openspec-486e`).
+## The container's clone
+
+The container works in a clone of its own, in a volume, `workspace-<id>`, one per folder given to
+the CLI, and mounts no host checkout: `devcontainer.json` sets `workspaceMount` empty
+(`docs/decisions.md` § D-54). Until then the CLI bind-mounted that folder, `.git` and `.beads/`
+included. Through that mount, on 2026-10-06, a container started on the primary checkout:
+
+- unregistered every worktree under `.claude/worktrees/` (`asdlc-openspec-486e`);
+- corrupted the tracker's database, which it and the host wrote at once, since Docker's mount
+  carries neither side's lock to the other (`asdlc-openspec-9a2a`).
+
+Code a session wrote there was also code the host then ran (`asdlc-openspec-3901`). Now the folder
+given to the CLI supplies only this configuration and the build's context, so any clone will do,
+the one your sessions on the host use included. The build reads that folder's `mise.toml` and locks,
+so build from one near `main`: the entrypoint warns when the image lacks a tool the clone's
+`mise.toml` pins.
+
+- **The first start clones `main`** from GitHub over HTTPS with no token, since the repository is
+  public. The entrypoint takes the address from `githubAppRepositoryOwner` and
+  `githubAppTokenRepository` in the copy of `tools/policy/tool-settings.json` that the image carries.
+  Later starts leave the clone as it is: a session pulls.
+- **Work goes in and out through GitHub.** A session pushes its branch as the App, and you pull it
+  on the host. An edit you make on the host reaches a session only once you push it and the session
+  pulls. `devcontainer exec --workspace-folder <clone> bash` opens a shell in the container's clone.
+  A VS Code attach brings your logins in while it is attached (§ Start it without VS Code).
+- **The volume holds the only copy of what a session has not pushed.** `docker volume rm` on it, or
+  a reset of Docker or Rancher Desktop, deletes it.
+- **The tracker's database and `node_modules` are the clone's own.** The entrypoint makes them at the
+  first start, and the tracker syncs with the host's through its Dolt remote, as a second machine's
+  does. Two sides that change the same issue between pulls conflict. The second side's push is
+  refused, and its `bd dolt pull` stops with "merge conflicts in issues require operator
+  resolution", leaving its database as it was. That side resets its `main` to the remote's and makes
+  its change again (seen on 2026-10-06, asdlc-openspec-vvns).
 
 The first build takes several minutes and is cached afterwards. You get the toolchain the root
 `mise.toml` pins (Node, Python, `bd`, `gh`, Vale, uv and graphify), Claude Code, and the two plugins
@@ -36,10 +67,10 @@ registers their marketplaces, and `entrypoint.sh` installs each plugin for the c
 
 | File | What it holds |
 |---|---|
-| `Dockerfile` | Every tool, as a layer. The base image's major tag is at the top; every other version is in the root `mise.toml`, installed through `mise.lock` by the mise the Dockerfile copies in (`docs/decisions.md` § D-31), and graphify's dependencies through its uv lock under `.mise/locks/` (§ D-35). After a pin moves, rebuild. It also makes `git` and `gh` act as the App, through the two files below, and keeps `git gc` from pruning the host's worktrees (§ The host's worktrees, seen from the container). |
-| `Dockerfile.dockerignore` | What the build may read from the repository's root, its context: `mise.toml`, `mise.lock`, the uv locks under `.mise/locks/`, `entrypoint.sh` and the two wrappers, and nothing else. |
-| `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, the App's key mounted read-only, a volume for Claude Code's state, the variables that name the clone, the key's directory and that volume to what runs inside, and your terminal's `COLORTERM` (§ Color and the status line). |
-| `entrypoint.sh` | The three setup steps that read the repository, which is a bind mount and does not exist at build time; a warning while a tool `mise.toml` pins is missing from the image; a warning while Vale cannot load `.vale.ini`; a warning while the App cannot mint a token. Then the App's bot account as git's commit identity, when none is set; where either is missing, each plugin's marketplace and its project-scope install for the clone; and the status line, when Claude Code's settings set none. |
+| `Dockerfile` | Every tool, as a layer. The base image's major tag is at the top; every other version is in the root `mise.toml`, installed through `mise.lock` by the mise the Dockerfile copies in (`docs/decisions.md` § D-31), and graphify's dependencies through its uv lock under `.mise/locks/` (§ D-35). After a pin moves, rebuild. It also makes `git` and `gh` act as the App, through the two files below, keeps `git gc` from pruning the host's worktrees (§ The host's worktrees, seen from the container), and carries `tools/policy/tool-settings.json`, which names the repository the entrypoint clones. |
+| `Dockerfile.dockerignore` | What the build may read from the repository's root, its context: `mise.toml`, `mise.lock`, the uv locks under `.mise/locks/`, `entrypoint.sh`, the two wrappers and `tools/policy/tool-settings.json`, and nothing else. |
+| `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, and no workspace mount. It mounts the App's key read-only, a volume for Claude Code's state and one for the container's clone. Its variables name the clone, the key's directory and that volume to what runs inside, and pass your terminal's `COLORTERM` in (§ Color and the status line). |
+| `entrypoint.sh` | At the first start, the container's clone, made in its volume. Then the three setup steps that read the clone, which does not exist at build time, and the App's bot account as git's commit identity, when none is set. Where either is missing, each plugin's marketplace and its project-scope install for the clone; and the status line, when Claude Code's settings set none. It warns while a tool `mise.toml` pins is missing from the image, while Vale cannot load `.vale.ini`, and while the App cannot mint a token. |
 | `gh` | `gh` as the App: ahead of mise's on PATH, it runs it with a token `scripts/github-app-token.mjs` mints, read for each command. |
 | `git-credential-github-app` | git's one credential helper for `https://github.com`, which hands git's request to `scripts/github-app-token.mjs`. |
 | `statusline.sh` | Claude Code's status line in the container: the project, its branch, the model, the effort, the context left, the cost and the tokens. Run from the clone, so an edit needs no rebuild. |
@@ -56,20 +87,19 @@ itself; it warns while the image lags `mise.toml`, because a rebuild is how the 
 Until then a shim installs the moved pin over the network at its first use, the entrypoint's
 `npm ci` among them, and `mise run` installs every missing pin before any task, whatever it runs.
 
-`entrypoint.sh` holds only what cannot be an image layer — `npm ci` (whose `node_modules` carries
-native binaries and so belongs to the container's platform), installing the git
-hooks' config entries, and hydrating the Dolt issue database. It is wired to `ENTRYPOINT` so `devcontainer.json`
-needs no lifecycle command, runs on every start, and is idempotent. **Nothing in it may fail the
-container**: this is the process that starts the shell you would use to fix a setup problem, so
-every step warns and carries on.
+`entrypoint.sh` holds only what cannot be an image layer: the container's clone, `npm ci` (whose
+`node_modules` carries native binaries and so belongs to the container's platform), installing the
+git hooks' config entries, and hydrating the Dolt issue database. It is wired to `ENTRYPOINT` so
+`devcontainer.json` needs no lifecycle command, runs on every start, and is idempotent. **Nothing
+in it may fail the container**: this is the process that starts the shell you would use to fix a
+setup problem, so every step warns and carries on.
 
 **Vale's styles come from the clone, not the image.** The image carries `vale`, pinned in the root
 `mise.toml`. The packages `.vale.ini` names are what `vale sync` downloads into the clone, which
-the image cannot see at build time; `Layout`, the one style the clone tracks, comes with it. A clone
-synced on the host brings its styles in through the bind
-mount. Otherwise, run `vale sync` once in the container: it needs the network, and the styles land
-in the clone, so a rebuild keeps them. `entrypoint.sh` does not run it. It warns at start while
-`vale ls-config` cannot load `.vale.ini`.
+the image cannot see at build time; `Layout`, the one style the clone tracks, comes with it. Run
+`vale sync` once in the container, for each new workspace volume: it needs the network, and the
+styles land in the clone, so a rebuild keeps them. `entrypoint.sh` does not run it. It warns at
+start while `vale ls-config` cannot load `.vale.ini`.
 
 ## What the container no longer shares, and why
 
@@ -83,6 +113,10 @@ nobody else (`docs/decisions.md` § D-51). So `devcontainer.json` mounts none of
 - **Your `~/.ssh`**, or an SSH agent, would let `git` push as you.
 - **Your `~/.claude`**, mounted read-write, would let a session write a hook into your
   `settings.json` that your next session on the host runs, with your logins.
+- **Your checkout**, mounted read-write, would let a session write a git hook's command, a Claude
+  Code hook or a script those hooks run, which the host then runs with your logins
+  (`asdlc-openspec-3901`). It also shared the host's `.git` and tracker database, the harms
+  § The container's clone names. Since D-54 the container works in a clone of its own.
 
 What the container keeps of its own:
 
@@ -144,24 +178,21 @@ unchecked). Neither refusal has yet been seen from the container.
 
 ## The host's worktrees, seen from the container
 
-Each linked worktree made on the host is registered under its host path, which the container cannot
-see, so git in the container reads every one as stale (`git worktree list` marks it `prunable`). A
-prune there unregisters it on the host too, and git and bd stop working in it (asdlc-openspec-486e).
-Nothing this repository runs prunes such a record: `scripts/prune-worktree-branches.mjs` refuses
-while a stale record's parent directory is missing too, and the image sets `gc.worktreePruneExpire`
-to `never`, so `git gc` keeps them. So, on a clone with linked worktrees:
+It sees none. The container's clone is its own (§ The container's clone), so its `.git` holds no
+record of a worktree made on the host, and nothing git does there reaches the host's records.
 
-- **Start no container whose image lacks that setting.** `git config gc.worktreePruneExpire` in the
-  container prints `never`, the value git uses. If it prints nothing, rebuild first. If it prints
-  another value, a config the clone shares with the host overrides it: remove it there.
-- **Never run `git worktree prune` in the container.** `scripts/hooks/guard-git.mjs` refuses one a
-  Claude Code session types, and nothing refuses one you type.
+Until D-54 the container bind-mounted the host's checkout. Each linked worktree made on the host was
+then registered under a host path the container could not see, so git there read every one as
+stale. A prune there unregistered it on the host too, and git and bd stopped working in it
+(asdlc-openspec-486e). The defences D-53 records for that stay:
 
-Some routes stay open to a session there, and `asdlc-openspec-15gm` carries them:
-`git -c gc.worktreePruneExpire=now gc`, a value in the clone's `.git/config` that outranks the
-image's, a git alias, and `git worktree remove` naming a host path. **Until that issue closes, start
-a container on a clone with no linked worktrees** where you can, and on one with them only with the
-setting checked as above.
+- `scripts/prune-worktree-branches.mjs` refuses while a stale record's parent directory is missing
+  too;
+- `scripts/hooks/guard-git.mjs` refuses a session's `git worktree prune`;
+- the image sets `gc.worktreePruneExpire` to `never`.
+
+They matter for a container made before D-54, which keeps the bind mount until it is recreated with
+`--remove-existing-container`.
 
 ## Start it without VS Code
 
@@ -172,8 +203,9 @@ and that page names no setting, in `devcontainer.json` or anywhere, that turns a
 container VS Code attaches to therefore holds your logins while it is attached, for every process
 in it. The Dev Containers CLI brought none of them in: in a container it started on 2026-10-06,
 `ssh-add -l` reached no agent, and git's only helper for github.com was the App's. Start the
-container an agent works in with the Dev Containers CLI, as above, and edit the clone on the host,
-where it is bind-mounted from.
+container an agent works in with the Dev Containers CLI, as above. Its clone is in a volume, not on
+the host: reach it with `devcontainer exec`, and move work between it and your checkouts through
+GitHub (§ The container's clone).
 
 ## Color and the status line
 
@@ -196,9 +228,8 @@ delete comes back at the next start.
 
 A plugin's marketplace registration and its install record live in the volume. The image registers
 both marketplaces, so a new volume starts with them, and `entrypoint.sh` installs both plugins for
-the clone's path, `/workspaces/<name>`, when no record names it. On 2026-10-06 a container built from
-this directory, with Claude Code 2.1.291, logged both installs at its first start, listed both
-plugins enabled at project scope, and logged no install at its second (`asdlc-openspec-owva.4`).
-
-The container is Linux, so the root `README.md` caveat applies: a clone used from the container
-should not also be built on Windows.
+the clone's path, `/workspaces/asdlc-openspec`, when no record names it. On 2026-10-06 a container
+built from this directory, with Claude Code 2.1.291, logged both installs at its first start, listed
+both plugins enabled at project scope, and logged no install at its second (`asdlc-openspec-owva.4`).
+A container that cloned into its volume logged both installs at its first start too
+(`asdlc-openspec-vvns`).
