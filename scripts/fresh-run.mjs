@@ -585,12 +585,17 @@ const COMMANDS_STUB = 'node stub/commands.mjs'
 const OTHER_TASK = 'asdlc-openspec-fx.9'
 /**
  * The fixture's `mise.toml`: this checkout's own `[settings] task` and `[task_config]`, read from its
- * `mise.toml` so the fixture runs under them as they are, and no tool, so mise installs nothing.
+ * `mise.toml` so the fixture runs under them as they are, and of its tools only the node pin, which
+ * the toolchain installed, so mise installs nothing. The clone's tasks run `node`, which a clone of
+ * this repository resolves from that pin: with no tool, a machine whose `node` is a mise shim with no
+ * global version, as in the dev container, gave each task "No version is set for shim: node", and the
+ * control case got no tests back (asdlc-openspec-locj).
  */
 function fixtureMise() {
   const toml = createRequire(import.meta.url)('smol-toml')
   const live = toml.parse(readFileSync(join(REPO_ROOT, 'mise.toml'), 'utf8'))
-  return `${toml.stringify({ settings: { task: live.settings?.task ?? {} }, task_config: live.task_config ?? {} })}\n`
+  const tools = live.tools?.node ? { node: live.tools.node } : {}
+  return `${toml.stringify({ tools, settings: { task: live.settings?.task ?? {} }, task_config: live.task_config ?? {} })}\n`
 }
 const SPEC = `# calculator Specification
 
@@ -939,14 +944,30 @@ async function selftest() {
 const readdirList = (dir) => (existsSync(dir) ? readdirSync(dir) : [])
 const pause = (ms) => new Promise((done) => setTimeout(done, ms))
 
+/**
+ * Whether `pid` names a process that has not exited. A zombie has exited and waits on a parent to reap
+ * it, and `process.kill(pid, 0)` still finds it; where PID 1 reaps no orphan, as in the dev container,
+ * a killed child stays one, so on Linux its state in `/proc` decides (asdlc-openspec-c17k).
+ */
+function pidRuns(pid) {
+  try {
+    process.kill(pid, 0)
+  } catch {
+    return false
+  }
+  if (process.platform !== 'linux') return true
+  try {
+    const stat = readFileSync(`/proc/${pid}/stat`, 'utf8')
+    return stat[stat.lastIndexOf(')') + 2] !== 'Z'
+  } catch {
+    return false
+  }
+}
+
 /** Whether `pid` still runs after up to two seconds' grace, for a kill to land. */
 async function stillAlive(pid) {
   for (let i = 0; i < 20; i++) {
-    try {
-      process.kill(pid, 0)
-    } catch {
-      return false
-    }
+    if (!pidRuns(pid)) return false
     await pause(100)
   }
   return true
