@@ -127,8 +127,9 @@ Nothing this repository runs prunes such a record: `scripts/prune-worktree-branc
 while a stale record's parent directory is missing too, and the image sets `gc.worktreePruneExpire`
 to `never`, so `git gc` keeps them. So, on a clone with linked worktrees:
 
-- **Start no container whose image lacks that setting.** `git config --system gc.worktreePruneExpire`
-  in the container prints `never`; if it prints nothing, rebuild first.
+- **Start no container whose image lacks that setting.** `git config gc.worktreePruneExpire` in the
+  container prints `never`, the value git uses. If it prints nothing, rebuild first. If it prints
+  another value, a config the clone shares with the host overrides it: remove it there.
 - **Never run `git worktree prune` in the container.** `scripts/hooks/guard-git.mjs` refuses one a
   Claude Code session types, and nothing refuses one you type.
 

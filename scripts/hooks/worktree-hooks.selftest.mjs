@@ -1115,6 +1115,32 @@ check(
   prunedAfter.slice(0, 900),
 )
 check('and the live worktree keeps its record', unseenRegistered('lane'))
+// The fallback's own admin directory, for a path the hook owns. git names one after the worktree's
+// last path segment and adds a number on a collision, so `.git/worktrees/<basename>` can be another
+// worktree's. `elsewhere/lane` is registered first, as `lane`; the owned `lane` second, as `lane1`,
+// and locked, so `git worktree remove --force` refuses it, as the sandbox does, and the fallback runs.
+const twinPrimary = join(realpathSync(mkdtempSync(join(tmpdir(), 'wt-twin-'))), 'primary')
+execFileSync('git', ['init', '-q', '-b', 'main', twinPrimary], { env: GIT_ENV, encoding: 'utf8' })
+git(twinPrimary, ...AS, 'commit', '-q', '--allow-empty', '-m', 'base')
+git(twinPrimary, 'worktree', 'add', '-q', '-b', 'agent/elsewhere-lane', join(dirname(twinPrimary), 'elsewhere', 'lane'), 'main')
+const ownedLane = join(twinPrimary, '.claude', 'worktrees', 'lane')
+git(twinPrimary, 'worktree', 'add', '-q', '-b', 'agent/lane', ownedLane, 'main')
+git(twinPrimary, 'worktree', 'lock', ownedLane)
+const twinHook = join(twinPrimary, 'scripts', 'hooks', 'worktree-remove.mjs')
+mkdirSync(dirname(twinHook), { recursive: true })
+copyFileSync(REMOVE, twinHook)
+const ownedRun = spawnSync('node', [twinHook], {
+  input: JSON.stringify({ hook_event_name: 'WorktreeRemove', worktree_path: ownedLane }),
+  env: { ...GIT_ENV, WORKTREE_GC: '0' },
+  encoding: 'utf8',
+})
+const twinRecord = (id) => existsSync(join(twinPrimary, '.git', 'worktrees', id))
+check(
+  'the fallback removes an owned worktree and its own record',
+  ownedRun.stderr.includes('removing directly') && !existsSync(ownedLane) && !twinRecord('lane1'),
+  ownedRun.stderr,
+)
+check('and keeps the record of the worktree whose name its own collided with', twinRecord('lane'))
 // The image's half: `git gc` prunes a stale record once its index is older than
 // gc.worktreePruneExpire, so in the container it would take an old host worktree's. No selftest
 // builds the image, so this reads the Dockerfile's text; the trunk's before this case had no such line.

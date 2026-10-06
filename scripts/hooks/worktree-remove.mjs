@@ -44,8 +44,8 @@
  * over a failed removal buys nothing.
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, rmSync, unlinkSync } from 'node:fs'
-import { basename, dirname, join, resolve, sep } from 'node:path'
+import { existsSync, readFileSync, rmSync, unlinkSync } from 'node:fs'
+import { dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -103,6 +103,21 @@ try {
 const OWNED_DIR = join(ROOT, '.claude', 'worktrees') + sep
 const owned = resolve(worktreePath).startsWith(OWNED_DIR)
 
+/**
+ * The admin directory the worktree's `.git` file names, when it is one of ROOT's, or `null`. Not
+ * `.git/worktrees/<basename>`: git adds a number to that name on a collision, so it can be another
+ * worktree's record.
+ */
+function adminDirOf(path) {
+  try {
+    const match = /^gitdir: (.+)$/m.exec(readFileSync(join(path, '.git'), 'utf8'))
+    const admin = match === null ? null : resolve(path, match[1].trim())
+    return admin !== null && admin.startsWith(join(ROOT, '.git', 'worktrees') + sep) ? admin : null
+  } catch {
+    return null
+  }
+}
+
 // The ordinary path first. It is the only one that also tidies the admin directory by itself.
 let removed = git(['worktree', 'remove', '--force', worktreePath])
 
@@ -113,13 +128,9 @@ let removed = git(['worktree', 'remove', '--force', worktreePath])
 if (!removed) {
   console.error(`WorktreeRemove: git worktree remove failed for ${worktreePath}; removing directly`)
   try {
+    const admin = owned ? adminDirOf(worktreePath) : null
     rmSync(worktreePath, { recursive: true, force: true })
-    if (owned) {
-      rmSync(join(ROOT, '.git', 'worktrees', basename(worktreePath)), {
-        recursive: true,
-        force: true,
-      })
-    }
+    if (admin !== null) rmSync(admin, { recursive: true, force: true })
     removed = true
   } catch (err) {
     console.error(`WorktreeRemove: direct removal failed: ${err.message}`)
