@@ -56,7 +56,8 @@
  * selftest that sources `.devcontainer/entrypoint.sh` and reads the Dockerfile, it also holds the
  * rest of the container's start that needs no image: the entrypoint's `statusline`,
  * `.devcontainer/statusline.sh` through `sh`, and the Dockerfile's `NO_COLOR` for `bd` alone
- * (asdlc-openspec-ikr3, asdlc-openspec-07bm).
+ * (asdlc-openspec-ikr3, asdlc-openspec-07bm); and the entrypoint's `clone`, against a local
+ * repository git reads as GitHub's address (asdlc-openspec-vvns).
  */
 import { spawn } from 'node:child_process'
 import { createPrivateKey, createSign, createVerify, generateKeyPairSync } from 'node:crypto'
@@ -405,6 +406,39 @@ async function statusLine(ctx, content) {
   return { r, after: readFileSync(settings, 'utf8'), tmp: existsSync(`${settings}.tmp`) }
 }
 const STATUS_LINE = { type: 'command', command: `sh '${join(REPO_ROOT, '.devcontainer', 'statusline.sh')}'` }
+
+/**
+ * `.devcontainer/entrypoint.sh`'s `clone`, run under bash with the file sourced for its functions
+ * alone, into a workspace of the case's own, with the case's copy of the policy as the one the image
+ * carries. git reads `https://github.com/` as a directory of the case's, where a repository with one
+ * commit stands at the owner and name the policy gives, so no case reaches GitHub. `prepare` puts
+ * something in the workspace first. Returns the run and the workspace.
+ */
+async function cloneStep(ctx, { prepare } = {}) {
+  const policyFile = join(ctx.env.GITHUB_APP_TOKEN_ROOT, 'tools', 'policy', 'tool-settings.json')
+  const policy = JSON.parse(readFileSync(policyFile, 'utf8'))
+  const github = join(ctx.dir, 'github')
+  const source = join(github, String(policy.githubAppRepositoryOwner), `${policy.githubAppTokenRepository}.git`)
+  mkdirSync(source, { recursive: true })
+  await run('git', ['init', '-q'], { env: SCRATCH_GIT_ENV, cwd: source })
+  await run('git', ['-c', 'user.name=selftest', '-c', 'user.email=selftest@example.invalid', 'commit', '-q', '--allow-empty', '-m', 'the source'], { env: SCRATCH_GIT_ENV, cwd: source })
+  const workspace = join(ctx.dir, 'workspace')
+  mkdirSync(workspace)
+  if (prepare) await prepare(workspace)
+  const r = await run('bash', ['-c', 'ENTRYPOINT_FUNCTIONS_ONLY=1 . "$1" && clone', 'clone', ENTRYPOINT], {
+    env: {
+      ...ctx.gitEnv,
+      REPO_WORKSPACE: workspace,
+      WORKSPACE_ENTRYPOINT_POLICY: policyFile,
+      GIT_CONFIG_COUNT: '1',
+      GIT_CONFIG_KEY_0: `url.${github}/.insteadOf`,
+      GIT_CONFIG_VALUE_0: 'https://github.com/',
+    },
+    cwd: ctx.dir,
+  })
+  return { r, workspace }
+}
+const headOf = (dir) => run('git', ['rev-parse', '--verify', '--quiet', 'HEAD'], { env: SCRATCH_GIT_ENV, cwd: dir })
 const IMAGE_BIN = '/usr/local/lib/github-app/bin/'
 
 /**
@@ -812,6 +846,46 @@ function cases() {
         const content = '{"model": "opus",'
         const { r, after, tmp } = await statusLine(ctx, content)
         return after === content && !tmp && /could not set the status line in .*is it valid JSON/.test(r.stdout) ? null : `${said(r)}; left ${JSON.stringify(after)}`
+      },
+    },
+    {
+      name: "the entrypoint's clone clones the repository the policy names into an empty workspace, and logs it",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r, workspace } = await cloneStep(ctx)
+        const head = await headOf(workspace)
+        return r.status === 0 && head.status === 0 && /cloning https:\/\/github\.com\/\S+ into /.test(r.stdout) ? null : `${said(r)}; HEAD ${head.status === 0 ? 'verifies' : 'does not verify'}`
+      },
+    },
+    {
+      name: "the entrypoint's clone leaves a workspace holding a clone with a commit as it was, and logs nothing",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r, workspace } = await cloneStep(ctx, {
+          prepare: async (ws) => {
+            await run('git', ['init', '-q'], { env: SCRATCH_GIT_ENV, cwd: ws })
+            await run('git', ['-c', 'user.name=selftest', '-c', 'user.email=selftest@example.invalid', 'commit', '-q', '--allow-empty', '-m', 'a session'], { env: SCRATCH_GIT_ENV, cwd: ws })
+            writeFileSync(join(ws, 'unpushed'), 'work')
+          },
+        })
+        return r.status === 0 && r.stdout === '' && existsSync(join(workspace, 'unpushed')) ? null : said(r)
+      },
+    },
+    {
+      name: "the entrypoint's clone refuses a workspace whose .git holds no commit, a first start's clone left unfinished",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r } = await cloneStep(ctx, { prepare: (ws) => run('git', ['init', '-q'], { env: SCRATCH_GIT_ENV, cwd: ws }) })
+        return r.status === 1 && /holds an unfinished clone, with no commit checked out/.test(r.stdout) ? null : said(r)
+      },
+    },
+    {
+      name: "the entrypoint's clone, with a policy without `githubAppRepositoryOwner`, clones nothing, warns and fails",
+      wrapper: true,
+      doctor: (root) => editPolicy(root, (policy) => delete policy.githubAppRepositoryOwner),
+      check: async (ctx) => {
+        const { r, workspace } = await cloneStep(ctx)
+        return r.status === 1 && !existsSync(join(workspace, '.git')) && /cannot clone: .* names no githubAppRepositoryOwner and githubAppTokenRepository/.test(r.stdout) ? null : said(r)
       },
     },
     {

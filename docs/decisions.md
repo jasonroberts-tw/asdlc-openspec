@@ -109,7 +109,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-51** | Agent sessions are to act as a GitHub App, from a dev container that holds none of the maintainer's credentials, since the floor is meant to stop an agent working against the maintainer | This register: R-02, and D-38's, D-47's and R-01's amendments. Carried out by `asdlc-openspec-owva.2`, the App, `asdlc-openspec-owva.4`, the container, and `asdlc-openspec-64wd`, `verify`'s split, each open when this entry was recorded; D-54's amendment, under which item 3's container mounts no host checkout |
 | **D-52** | `prompt-runs` follows each fix a merged prompt review carried through later runs, and reports the fix-recurrence rate | `recurrenceOf` and the recurrence section of `scripts/prompt-runs.mjs`, held by `prompt-runs:selftest`; `promptReviewFixRecurrenceFloor` and `promptReviewFixRecurrenceNotViableShare` in `tools/policy/agent-workflows.json`; the fix-recurrence row of `count-index.md`; the reviewer's § 7 item 2 |
 | **D-53** | No prune this repository runs takes the record of a worktree its checkout cannot see, and the guard refuses a session's bare `git worktree prune` from any checkout | `scripts/hooks/worktree-remove.mjs` without its prune; the prune rule of `scripts/prune-worktree-branches.mjs`; `scripts/hooks/guard-git.mjs`'s prune rule; `gc.worktreePruneExpire` in `.devcontainer/Dockerfile`; all held by `worktree:selftest`; `.devcontainer/README.md` and the rows of the guard, the hook, the sweep and the selftest; D-54's amendment, under which a container sees no host record |
-| **D-54** | The dev container works in a clone of its own, in a volume, cloned at its first start, and mounts no host checkout | `workspaceMount`, `workspaceFolder`, the workspace volume and `REPO_WORKSPACE` in `.devcontainer/devcontainer.json`; `clone` and `take_ownership` in `.devcontainer/entrypoint.sh`; the policy record the Dockerfile copies in and its ignore file admits; `githubAppRepositoryOwner` in `tools/policy/tool-settings.json`; `.devcontainer/README.md` and `README.md`; D-51's and D-53's amendments |
+| **D-54** | The dev container works in a clone of its own, in a volume, cloned at its first start, and mounts no host checkout | `workspaceMount`, `workspaceFolder`, the workspace volume and `REPO_WORKSPACE` in `.devcontainer/devcontainer.json`; `clone` in `.devcontainer/entrypoint.sh`, held by `github-app-token:selftest`, and `take_ownership`; the policy record the Dockerfile copies in and its ignore file admits; `githubAppRepositoryOwner` in `tools/policy/tool-settings.json`; `.devcontainer/README.md` and `README.md`; D-51's and D-53's amendments |
 
 ## Risks
 
@@ -2690,7 +2690,8 @@ Where it loses:
 
 - **An edit the maintainer makes on the host reaches a container session only once it is pushed and pulled.** A VS Code attach gives a view of the clone, and brings the maintainer's logins in while attached (D-51).
 - **The volume holds the only copy of what a container session has not pushed.** `docker volume rm` on it, or a reset of Docker or Rancher Desktop, deletes it.
-- **The container's tracker database is a second one, synced through the Dolt remote.** When both sides change the same issue between pulls, the second side's push is refused, and its `bd dolt pull` stops with "merge conflicts in issues require operator resolution". That side resets its `main` to the remote's and makes its change again.
+- **The container's tracker database is a second one, synced through the Dolt remote.** When both sides change the same issue between pulls, the second side's push is refused, and its `bd dolt pull` stops with "merge conflicts in issues require operator resolution", leaving its database as it was. That side's tracker writes then wait on a person. A reset of its `main` to the remote's discards every commit the remote lacks, not the conflicting one alone. One did so on 2026-10-06 to two notes another session had written meanwhile, which were replayed from Dolt's reflog.
+- **The clone's `node_modules` is a second copy**, which the entrypoint installs at the first start beside each host checkout's own.
 - **The image's build reads the folder given to the CLI, while the clone is `main`.** A folder far behind `main` builds an image whose toolchain the clone's `mise.toml` disagrees with, which the entrypoint warns of.
 - **A changed `githubAppRepositoryOwner` reaches a container only once it is rebuilt**, and only one whose volume holds no clone yet.
 
@@ -2698,7 +2699,8 @@ Where it loses:
 
 - **This register:** this entry, its table row, the status line and the bound; the amendments under D-51 and D-53, and their table cells.
 - **`.devcontainer/devcontainer.json`:** `workspaceMount`, `workspaceFolder`, the workspace volume and `REPO_WORKSPACE`.
-- **`.devcontainer/entrypoint.sh`:** `clone`, run first by `setup`, and `take_ownership`, which `credentials` now uses for `~/.claude` too.
+- **`.devcontainer/entrypoint.sh`:** `clone`, run first by `setup`, which refuses a `.git` with no commit, an unfinished clone; `take_ownership`, which `credentials` now uses for `~/.claude` too; and `WORKSPACE_ENTRYPOINT_POLICY`, which names a doctored copy of the policy.
+- **`scripts/github-app-token.mjs`:** four cases of its selftest run `clone` against a local repository that git reads as GitHub's address: an empty workspace cloned, one holding a clone left alone, an unfinished one refused, and a policy without the owner refused. Their job's comment in `git-hooks.yml` and the task's description in `tasks.toml` name them.
 - **`.devcontainer/Dockerfile` and `Dockerfile.dockerignore`:** the copy of `tools/policy/tool-settings.json`, in the last layer, and the comments that named a bind mount.
 - **`tools/policy/tool-settings.json`:** `githubAppRepositoryOwner` and its `Means`, and the record's `describes` and `gatedBy`.
 - **`.devcontainer/README.md`:** § The container's clone, and every passage that assumed the bind mount.
@@ -2710,6 +2712,7 @@ Where it loses:
 - A probe container from Alpine, started from a linked worktree with `workspaceMount` naming a volume by `${devcontainerId}`, failed: the CLI, 0.89.0, passed the variable through, and Docker refused the name. With `workspaceMount` empty and the volume in `mounts`, `docker inspect` listed that volume as its one mount.
 - A container built from this entry's branch, with `--workspace-folder` naming the primary checkout: `docker inspect` listed the App's key directory, read-only, and two volumes. Its `/proc/self/mountinfo` placed the workspace on the VM's ext4 volume and named no host path but the key directory's. Its entrypoint logged the clone, `npm ci`, the hooks, the tracker's hydration and both plugins' installs, and no warning.
 - A note written to `asdlc-openspec-vvns` from that container and one from the host, in the same minute: the container's push completed, the host's was refused as non-fast-forward, and the host's `bd dolt pull` stopped on the merge conflict above, its database left as it was.
+- `github-app-token:selftest`: 49 of 49 cases at this entry's commit. With `clone`'s check for a commit taken out, the case for an unfinished clone failed, "exited 0", and the other 48 held.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

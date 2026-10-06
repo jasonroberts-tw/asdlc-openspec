@@ -47,8 +47,9 @@
     // container, its history and its plugins, kept across a rebuild and shared with no host.
     "source=claude-code-${devcontainerId},target=/home/vscode/.claude,type=volume",
     // The container's own clone, one per folder given to the CLI: the only copy of what a session
-    // here has not pushed, which `docker volume rm` on it, or a reset of Docker, deletes.
-    "source=workspace-${devcontainerId},target=/workspaces/asdlc-openspec,type=volume"
+    // here has not pushed, which `docker volume rm` on it, or a reset of Docker, deletes. Its target
+    // is `workspaceFolder`'s, which the CLI substitutes here (CLI 0.89.0, tried on 2026-10-06).
+    "source=workspace-${devcontainerId},target=${containerWorkspaceFolder},type=volume"
   ],
 
   "containerEnv": {

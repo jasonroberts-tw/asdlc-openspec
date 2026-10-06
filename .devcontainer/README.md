@@ -57,8 +57,11 @@ so build from one near `main`: the entrypoint warns when the image lacks a tool 
   first start, and the tracker syncs with the host's through its Dolt remote, as a second machine's
   does. Two sides that change the same issue between pulls conflict. The second side's push is
   refused, and its `bd dolt pull` stops with "merge conflicts in issues require operator
-  resolution", leaving its database as it was. That side resets its `main` to the remote's and makes
-  its change again (seen on 2026-10-06, asdlc-openspec-vvns).
+  resolution", leaving its database as it was, so its tracker writes wait on a person. `CLAUDE.md`
+  § The task store says what a session does with a refused push. Resetting that side's `main` to the
+  remote's discards every commit on it that the remote lacks, not the conflicting one alone. On
+  2026-10-06 such a reset took two notes another session had written meanwhile, which were then
+  replayed from Dolt's reflog (asdlc-openspec-vvns).
 
 The first build takes several minutes and is cached afterwards. You get the toolchain the root
 `mise.toml` pins (Node, Python, `bd`, `gh`, Vale, uv and graphify), Claude Code, and the two plugins
@@ -131,8 +134,8 @@ What the container keeps of its own:
   `user.email` to its noreply address, `<githubAppBotUserId>+<githubAppBotLogin>@users.noreply.github.com`,
   the form GitHub documents, so GitHub attributes the container's commits to the App. It leaves an
   email already set there, and a rebuild, which discards `~/.gitconfig`, gets it set again. An
-  email in the clone's own `.git/config`, which the host shares, outranks it, and the entrypoint
-  warns of one. The commits carry no Verified badge, since nothing signs them.
+  email in the clone's own `.git/config` outranks it, and the entrypoint warns of one. The commits
+  carry no Verified badge, since nothing signs them.
 
 ## Giving it the App's key
 
