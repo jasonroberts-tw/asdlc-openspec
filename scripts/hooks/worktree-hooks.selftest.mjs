@@ -1141,6 +1141,23 @@ check(
   ownedRun.stderr,
 )
 check('and keeps the record of the worktree whose name its own collided with', twinRecord('lane'))
+// Its `.git` file is the worktree's to write, so it is not trusted alone: one rewritten to name
+// another worktree's admin directory must not get that record deleted. The fallback takes only an
+// admin directory whose own `gitdir` names this worktree back, the link git itself keeps.
+const forged = join(twinPrimary, '.claude', 'worktrees', 'forged')
+git(twinPrimary, 'worktree', 'add', '-q', '-b', 'agent/forged', forged, 'main')
+git(twinPrimary, 'worktree', 'lock', forged)
+writeFileSync(join(forged, '.git'), `gitdir: ${join(twinPrimary, '.git', 'worktrees', 'lane')}\n`)
+const forgedRun = spawnSync('node', [twinHook], {
+  input: JSON.stringify({ hook_event_name: 'WorktreeRemove', worktree_path: forged }),
+  env: { ...GIT_ENV, WORKTREE_GC: '0' },
+  encoding: 'utf8',
+})
+check(
+  "a worktree whose .git file names another's admin directory leaves that record alone",
+  forgedRun.stderr.includes('removing directly') && !existsSync(forged) && twinRecord('lane'),
+  forgedRun.stderr,
+)
 // The image's half: `git gc` prunes a stale record once its index is older than
 // gc.worktreePruneExpire, so in the container it would take an old host worktree's. No selftest
 // builds the image, so this reads the Dockerfile's text; the trunk's before this case had no such line.
