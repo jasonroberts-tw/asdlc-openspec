@@ -23,9 +23,9 @@ Any other run writes one analysis, as a note on the issue or epic it worked
 pull request's title carries. It opens in the form the header of `scripts/prompt-runs.mjs` gives:
 the marker line, its time the second the note is written; each of this repository's prompts the run
 loaded, and no other, with its commit; and the line of `claude --version`. Then comes the analysis:
-what made the run slower or wrong, and each user correction, quoted, each point with the prompt it
-concerns. It ends with the counts, so the reviewer can tell a finding that recurs from one
-seen once:
+what made the run slower or wrong, and each user correction, quoted, since a paraphrase can explain
+it away, each point with the prompt it concerns. It ends with the counts, so the reviewer can tell
+a finding that recurs from one seen once:
 `bd count -t epic -l spec-change --by-label` (`specChangeLabel`), `bd count --by-label`, and
 `bd count -l <label> --by-label` for each `foundAtLabels` label the second lists
 (`.claude/skills/change-finalize/SKILL.md` § 9. Report). The tracker is public, so an analysis
