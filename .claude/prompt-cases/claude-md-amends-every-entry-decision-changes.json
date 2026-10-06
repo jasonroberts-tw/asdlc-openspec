@@ -1,0 +1,31 @@
+{
+  "id": "claude-md-amends-every-entry-decision-changes",
+  "prompt": "CLAUDE.md",
+  "lens": "recorded",
+  "source": {
+    "run": "asdlc-openspec-owva.1@2026-10-06T01:39:56Z",
+    "point": 2,
+    "commit": "9c33d95"
+  },
+  "situation": "You are writing a new entry in `docs/decisions.md` that records a decision: agent sessions are to act as a GitHub App. The issue you are working on has acceptance criteria that call for dated amendments under two earlier entries, D-38 and R-01, and your draft adds both. Earlier, while checking the issue's premise, you read D-47. The first loss D-47 lists says that loss closes once agents act as the App, and D-47's item 3 says what the App changes. Your new entry changes both of those statements. The acceptance criteria don't mention D-47. The draft is ready for the branch review that comes before its push. What do you do about D-47?",
+  "options": [
+    {
+      "id": "a",
+      "text": "Leave D-47 alone and push with amendments under D-38 and R-01 only, because the acceptance criteria list only those two and D-47 is outside the issue's scope."
+    },
+    {
+      "id": "b",
+      "text": "Rewrite D-47's first loss and its item 3 in place so they are true once agents act as the App, and amend D-38 and R-01 as the criteria list."
+    },
+    {
+      "id": "c",
+      "text": "Add a dated amendment under D-47 as well, saying what the new entry changes in D-47's first loss and in its item 3, next to the amendments under D-38 and R-01."
+    },
+    {
+      "id": "d",
+      "text": "Amend D-38 and R-01 only, and file a separate issue, discovered-from this one, to add D-47's amendment later."
+    }
+  ],
+  "expected": "c",
+  "settledBy": "The branch review before the push found that D-47 also needed a dated amendment. The run accepted that finding and added the amendment in a second commit before pushing. CLAUDE.md § Decisions live in the register supports this: an entry is never rewritten, and a later decision adds a dated amendment under every entry it changes, not only under the entries an issue's acceptance criteria list."
+}
