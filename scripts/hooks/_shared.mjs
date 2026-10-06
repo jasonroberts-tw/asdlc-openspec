@@ -269,11 +269,12 @@ export async function runTask(name, { timeoutMs = 120_000, cwd = ROOT, env = {} 
  * A hook inherits its session's environment, and an inherited `GIT_DIR` outranks `cwd`: with no
  * `GIT_WORK_TREE` git takes `cwd` for the top of the work tree, so `editedCheckout` would place an
  * edit to `artifacts/trace/record.json` in that file's own directory, where no redirect matches, and
- * pass it (a branch review of asdlc-openspec-d2qv found this before it merged). The same function is
- * `gitEnv` in `tools/lib/git-env.ts`; it is not imported, because this file imports Node's built-ins
- * only and the selftests run a copy of it alone.
+ * pass it (a branch review of asdlc-openspec-d2qv found this before it merged). `guard-git.mjs` runs
+ * its git through it too (asdlc-openspec-hn4x). The same function is `gitEnv` in
+ * `tools/lib/git-env.ts`; it is not imported, because this file imports Node's built-ins only and
+ * the selftests run a copy of it alone.
  */
-function gitEnv() {
+export function gitEnv() {
   const env = {}
   for (const [key, value] of Object.entries(process.env)) if (!key.startsWith('GIT_')) env[key] = value
   return env
