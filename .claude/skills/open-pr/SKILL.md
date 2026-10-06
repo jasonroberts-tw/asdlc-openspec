@@ -90,8 +90,8 @@ gives every reason.
 | `pr-review` fails: "A person decides: …" | It waits for a person, for the reason given; say so, and why, then wait for the merge (step 8). |
 | `pr-review` errors: "The review did not complete: …", or the `review #<number>` job fails with no `pr-review` | Read that run: `gh run view <run> --log-failed`. A cause in the reviewer's own workflow is not this branch's to fix: the caller files it as a defect found on the way, and the pull request waits on that issue. A cause that does not repeat, such as a network error, is the maintainer's: give them `gh run rerun <run> --failed`, and the pull request waits on it. |
 
-Never pass `--admin`, nor set `pr-review` yourself, nor ask GitHub to merge a head whose checks have
-not both passed: each merges a head no person read (`CLAUDE.md` § Git workflow).
+Never pass `--admin`, nor ask GitHub to merge a head whose checks have not both passed: each merges
+a head no person read (`CLAUDE.md` § Git workflow).
 
 A push makes a new head, which the reviewer decides again: review it first unless the push only
 rebased, and watch it again (step 6).
