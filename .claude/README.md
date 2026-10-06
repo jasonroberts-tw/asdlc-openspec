@@ -40,7 +40,7 @@ no git rule in any entered worktree until `asdlc-openspec-bvf`.
 | `PreToolUse` on Write and Edit | `guard-workflow-edit.mjs` | yes, on a workflow | Refuses an edit that would let a workflow other than `pr-review.yml` set the reviewer's `pr-review` status: a `statuses: write`, `checks: write` or `write-all` grant, or a job named for the status (`docs/decisions.md` § D-47). It finds the checkout as the edit hook above does. |
 | `Stop` and `SubagentStop` | `gate-summary.mjs` | never | Runs the fastest gates concurrently over the checkout the stopping agent worked in, untracked files included, and prints one verdict line into the transcript; a subagent's verdict says it is one. It never denies the stop: a hook people disable is a lie in version control. |
 | `WorktreeCreate` | `worktree-create.mjs` | yes | Provisions through `scripts/new-worktree.sh`: `agent/<name>` cut from `origin/main`, with a rendered briefing, never Claude Code's native fallback off the default branch. |
-| `WorktreeRemove` | `worktree-remove.mjs` | no | Removes the checkout, keeps the branch, and runs the branch sweep for paths under `.claude/worktrees/` only. |
+| `WorktreeRemove` | `worktree-remove.mjs` | no | Removes the checkout, keeps the branch, and runs the branch sweep for paths under `.claude/worktrees/` only. It prunes no record itself, and for any other path touches none. |
 
 **Hook configuration is snapshotted at session start.** A session that began before a hook was
 added never sees it and silently gets the native behaviour; restart the session after changing

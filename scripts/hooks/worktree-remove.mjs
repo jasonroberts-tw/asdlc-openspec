@@ -97,27 +97,43 @@ try {
   /* not fatal; the removal below may still succeed */
 }
 
+// Whether the path removed is one this repository provisions, inside `<ROOT>/.claude/worktrees/`.
+// A foreign path means this hook is being exercised rather than used, and nothing of this
+// repository's is touched for one: no admin directory and no sweep (`gcRefusal` below).
+const OWNED_DIR = join(ROOT, '.claude', 'worktrees') + sep
+const owned = resolve(worktreePath).startsWith(OWNED_DIR)
+
 // The ordinary path first. It is the only one that also tidies the admin directory by itself.
 let removed = git(['worktree', 'remove', '--force', worktreePath])
 
 // The sandbox path. `git worktree remove` refused because something holds `.git/worktrees/<name>`
-// open, so the checkout and the admin directory are removed directly and `prune` is left to
-// reconcile the registry. `rmSync` succeeds where git's own unlink loop gives up.
+// open, so the checkout and, for a path this repository owns, the admin directory are removed
+// directly; the sweep's prune reconciles any record left. `rmSync` succeeds where git's own unlink
+// loop gives up.
 if (!removed) {
   console.error(`WorktreeRemove: git worktree remove failed for ${worktreePath}; removing directly`)
   try {
     rmSync(worktreePath, { recursive: true, force: true })
-    rmSync(join(ROOT, '.git', 'worktrees', basename(worktreePath)), {
-      recursive: true,
-      force: true,
-    })
+    if (owned) {
+      rmSync(join(ROOT, '.git', 'worktrees', basename(worktreePath)), {
+        recursive: true,
+        force: true,
+      })
+    }
     removed = true
   } catch (err) {
     console.error(`WorktreeRemove: direct removal failed: ${err.message}`)
   }
 }
 
-git(['worktree', 'prune'])
+// NO `git worktree prune` HERE, and the incident that took it out. This hook ran one on `ROOT` on
+// every call, before the ownership check, so each run of `worktree:selftest`, a pre-push job, pruned
+// the real repository through that suite's foreign-path cases. On a host that took only records
+// whose worktree was gone. On 2026-10-06 a dev container on the bind-mounted primary checkout pushed,
+// and there every record names a host path the container cannot see: git read each as stale,
+// pruned them all, and git and bd stopped working in every linked worktree on the host
+// (asdlc-openspec-486e). The same suite's foreign path also named the admin directory of a live
+// worktree that shared its last name, hence `owned` above. Pruning is the sweep's, by its rule.
 
 /**
  * Whether the sweep may run at all, as a reason string, or `null` to proceed.
@@ -139,10 +155,7 @@ git(['worktree', 'prune'])
  */
 function gcRefusal() {
   if (process.env.WORKTREE_GC === '0') return 'WORKTREE_GC=0'
-  const owned = join(ROOT, '.claude', 'worktrees') + sep
-  if (!resolve(worktreePath).startsWith(owned)) {
-    return `${worktreePath} is not under ${owned}`
-  }
+  if (!owned) return `${worktreePath} is not under ${OWNED_DIR}`
   return null
 }
 
@@ -151,7 +164,8 @@ const refusal = gcRefusal()
 // Collect the config and branches left by worktrees whose work has landed. Best-effort and last:
 // a failure here has no bearing on whether the removal succeeded, which is the only thing the
 // harness judges this hook by, and the sweep is a no-op when there is nothing provably contained.
-// `prune` above has to come first, or the branch just torn down still reads as checked out.
+// The branch just torn down is free once its record is gone, which the removal above or the sweep's
+// own prune sees to.
 if (refusal !== null) {
   console.error(`WorktreeRemove: branch/config sweep skipped (${refusal})`)
 } else {

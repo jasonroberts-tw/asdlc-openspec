@@ -18,7 +18,7 @@ registers their marketplaces, and `entrypoint.sh` installs each plugin for the c
 
 | File | What it holds |
 |---|---|
-| `Dockerfile` | Every tool, as a layer. The base image's major tag is at the top; every other version is in the root `mise.toml`, installed through `mise.lock` by the mise the Dockerfile copies in (`docs/decisions.md` § D-31), and graphify's dependencies through its uv lock under `.mise/locks/` (§ D-35). After a pin moves, rebuild. It also makes `git` and `gh` act as the App, through the two files below. |
+| `Dockerfile` | Every tool, as a layer. The base image's major tag is at the top; every other version is in the root `mise.toml`, installed through `mise.lock` by the mise the Dockerfile copies in (`docs/decisions.md` § D-31), and graphify's dependencies through its uv lock under `.mise/locks/` (§ D-35). After a pin moves, rebuild. It also makes `git` and `gh` act as the App, through the two files below, and keeps `git gc` from pruning the host's worktrees (§ The host's worktrees, seen from the container). |
 | `Dockerfile.dockerignore` | What the build may read from the repository's root, its context: `mise.toml`, `mise.lock`, the uv locks under `.mise/locks/`, `entrypoint.sh` and the two wrappers, and nothing else. |
 | `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, the App's key mounted read-only, a volume for Claude Code's state, and the variables that name the clone, the key's directory and that volume to what runs inside. |
 | `entrypoint.sh` | The three setup steps that read the repository, which is a bind mount and does not exist at build time; a warning while a tool `mise.toml` pins is missing from the image; a warning while Vale cannot load `.vale.ini`; a warning while the App cannot mint a token; and, where either is missing, each plugin's marketplace and its project-scope install for the clone. |
@@ -118,6 +118,19 @@ hands you the command. It holds no Workflows permission, so a commit that change
 `.github/workflows/` is yours to push too (`docs/decisions.md` § D-51, which records that loss as
 unchecked). Neither refusal has yet been seen from the container.
 
+## The host's worktrees, seen from the container
+
+Each linked worktree made on the host is registered under its host path, which the container cannot
+see, so git in the container reads every one as stale (`git worktree list` marks it `prunable`). A
+prune there unregisters it on the host too, and git and bd stop working in it (asdlc-openspec-486e).
+Nothing this repository runs prunes such a record: `scripts/prune-worktree-branches.mjs` refuses
+while a stale record's parent directory is missing too, and the image sets `gc.worktreePruneExpire`
+to `never`, so `git gc` keeps them. So, on a clone with linked worktrees:
+
+- **Start no container whose image lacks that setting.** `git config --system gc.worktreePruneExpire`
+  in the container prints `never`; if it prints nothing, rebuild first.
+- **Never run `git worktree prune` in the container.** Nothing refuses one typed there.
+
 ## Start it without VS Code
 
 VS Code's Dev Containers extension copies your `~/.gitconfig` into the container, shares the git
@@ -126,9 +139,9 @@ credentials you have entered on the host with it, and forwards your SSH agent wh
 and that page names no setting, in `devcontainer.json` or anywhere, that turns any of them off. A
 container VS Code attaches to therefore holds your logins while it is attached, for every process
 in it. The Dev Containers CLI brought none of them in: in a container it started on 2026-10-06,
-`ssh-add -l` reached no agent, and git's only helper for github.com was the App's. Start the container an
-agent works in with the Dev Containers CLI, as above, and edit the clone on the host, where it is
-bind-mounted from.
+`ssh-add -l` reached no agent, and git's only helper for github.com was the App's. Start the
+container an agent works in with the Dev Containers CLI, as above, and edit the clone on the host,
+where it is bind-mounted from.
 
 ## The plugins
 

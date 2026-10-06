@@ -71,8 +71,13 @@ COPY --from=ghcr.io/jdx/mise:2026.10.0@sha256:5253aad873240675097e6229786dff87d5
 # without safe.directory git calls the whole repository untrusted and every hook fails.
 # core.autocrlf input backs .gitattributes' `eol=lf` -- scripts/*.sh must stay LF or bash dies on
 # an invisible carriage return.
+# gc.worktreePruneExpire never: here every record of a worktree made on the host names a host path,
+# so git reads each one as stale, and `git gc`, which a commit can start, prunes a stale record once
+# its index is older than this, three months by default. A prune here unregisters the worktree on
+# the host too (asdlc-openspec-486e). The host's own git still prunes the records that are stale there.
 RUN git config --system --add safe.directory '*' \
-    && git config --system core.autocrlf input
+    && git config --system core.autocrlf input \
+    && git config --system gc.worktreePruneExpire never
 
 # --- workspace setup, deferred to container start ------------------------------------------------
 # npm ci, the git hooks, the issue database and the plugins' install records all need the workspace,

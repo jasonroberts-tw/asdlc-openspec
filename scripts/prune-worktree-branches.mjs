@@ -154,6 +154,20 @@
  *
  * A kept worktree keeps its branch with it, reported as `checked out by <path> (<reason>)`.
  *
+ * THE PRUNE RULE, and the incident behind it. `git worktree prune` takes every record git reads as
+ * stale, and git cannot tell a worktree that was removed from one whose path this process cannot see.
+ * In a container on a bind-mounted clone, every record of a worktree made on the host names a host
+ * path, so every one reads as stale there. On 2026-10-06 a push from a dev container on the primary
+ * checkout ran `worktree:selftest`, whose calls made the WorktreeRemove hook run its own prune on the
+ * real repository, and it took every linked worktree's record on the host: git and bd stopped working
+ * in all of them (asdlc-openspec-486e). A removed worktree leaves its parent directory behind, as
+ * `.claude/worktrees/` stays when one lane goes; a host record seen from the container does not, since
+ * no part of the host's tree is there. So while any stale record's parent directory is missing too,
+ * nothing is pruned, each stale record is kept holding its branch, and the report's `prune refused:`
+ * line names them. Where the rule loses: a worktree deleted with its parent, or one a container made,
+ * whose `/workspaces/` path the host never has, keeps its record and every other stale one with it,
+ * until a person runs `git worktree prune` where every record it names is really gone.
+ *
  * Consequently a stale `origin/main` cannot cause data loss. It can only make fewer branches look
  * contained, which is why this is safe to run from the offline agent sandbox where `git fetch`
  * cannot reach the network, and where proof 2 falls through within its timeout. If the trunk ref is
@@ -164,6 +178,7 @@
  *   - the primary checkout, the worktree it runs from, a locked worktree, a worktree outside
  *     `.claude/worktrees/`, any worktree with a change or a process in it, or one whose HEAD moved
  *     within `worktreeGcMinAgeHours` that no `--finished` or `--discard` names;
+ *   - any stale worktree record while one of them has lost its parent directory too (THE PRUNE RULE);
  *   - any branch a kept worktree has checked out;
  *   - `main`, `release`, and anything not named `agent/*` or `worktree-*`. Human branches are
  *     not this script's business and prefix is how it knows.
@@ -235,6 +250,7 @@
 import { execFileSync } from 'node:child_process'
 import {
   appendFileSync,
+  existsSync,
   readFileSync,
   readdirSync,
   readlinkSync,
@@ -862,6 +878,8 @@ const keptWorktrees = []
 /** Branch name -> the kept worktree holding it, for the branch sweep's report. */
 const heldBy = new Map()
 let trunkMissing = false
+/** Why `git worktree prune` did not run (THE PRUNE RULE, in the header), or `null`. */
+let pruneRefusal = null
 
 if (gitOut(['rev-parse', '--verify', '--quiet', TRUNK]) === null) {
   // No trunk ref, no evidence, no deletions. The config sweep above still stands on its own.
@@ -869,10 +887,23 @@ if (gitOut(['rev-parse', '--verify', '--quiet', TRUNK]) === null) {
 } else {
   // A prunable entry is a registration whose directory is already gone. It holds no work and blocks
   // its branch for nothing; `prune` is git's own reconciliation and touches no checkout that exists.
-  if (!dryRun) gitOk(['worktree', 'prune'])
+  // Unless its parent directory is gone too: then it may be a worktree this checkout cannot see.
+  const unseen = worktrees.filter((wt) => wt.prunable && !existsSync(dirname(wt.path)))
+  if (unseen.length > 0) {
+    pruneRefusal = `${unseen.length} stale record(s) whose parent directory is missing too, so this checkout may not see them: ${unseen.map((wt) => wt.path).join(', ')}`
+  } else if (!dryRun) {
+    gitOk(['worktree', 'prune'])
+  }
 
   worktrees.forEach((wt, index) => {
-    if (wt.prunable) return
+    if (wt.prunable) {
+      if (pruneRefusal === null) return
+      // Kept, and holding its branch, since the worktree may be live where this checkout cannot look.
+      const reason = 'stale record, kept while prune is refused'
+      keptWorktrees.push({ wt, reason })
+      if (wt.branch !== null) heldBy.set(wt.branch, { wt, reason })
+      return
+    }
     const verdict = worktreeVerdict(wt, index)
     if (!verdict.remove) {
       if (index > 0) keptWorktrees.push({ wt, reason: verdict.reason })
@@ -1080,6 +1111,7 @@ console.log(`worktree gc: ${ROOT}`)
 console.log(
   `  trunk: ${TRUNK}${trunkMissing ? ' (MISSING -- worktree and branch sweeps skipped)' : ''}`,
 )
+if (pruneRefusal !== null) console.log(`  prune refused: ${pruneRefusal}`)
 if (livenessCache !== null) {
   console.log(
     livenessCache.method !== null
