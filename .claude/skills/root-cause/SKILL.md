@@ -16,8 +16,8 @@ check green and leave the cause in place, where the next run meets it with less 
 
 ## 1. Reproduce it alone
 
-Run the failing command as a call of its own, as `CLAUDE.md` § Bash command style says, and keep
-its whole output under `.scratch/`. A failure that does not reproduce is reported as not
+Run the failing command as a call of its own, as `CLAUDE.md` § Bash command style says: what it
+prints is what each later run is compared with. A failure that does not reproduce is reported as not
 reproduced, with the command and what it printed, never as fixed: nothing changed, so nothing was
 fixed.
 
@@ -40,7 +40,8 @@ Test it with the smallest probe that could, a command that reads rather than an 
 and test one at a time: two changed together cannot say which mattered.
 
 Record each hypothesis refuted, with its probe and what that showed, with `bd note` on the issue
-the work runs on, so no later session tests it again.
+the work runs on, or in the pull request's description where none does, so no later session tests
+it again.
 
 ## 4. The cause an issue states is a hypothesis too
 
@@ -52,7 +53,9 @@ building on it (`CLAUDE.md` § Verification before claiming).
 Once a hypothesis holds, write the test or selftest case that reproduces the failure and see it
 fail before the fix, as `.claude/skills/bead/SKILL.md` § 4 says; then fix the cause. Never change
 the check that reports it to agree, which bypasses it (the same section); when the cause is in the
-check itself, the check is the defect, and its selftest case is the one seen to fail.
+check itself, the check is the defect, and its selftest case is the one seen to fail. A cause
+outside the repository, such as a service's setting or the container's image, has no case to fail:
+its evidence goes where § 3 records a hypothesis, and its fix where it lives.
 
 ## 6. Stop after `rootCauseMaxFixes` fixes that failed
 
@@ -60,4 +63,4 @@ A fix failed when the failure is still there once it is made, or is gone and som
 After `rootCauseMaxFixes` of them (`tools/policy/agent-workflows.json`), make no further fix: report
 to the user each hypothesis tested, what refuted or confirmed it, and each fix made and what it
 did. Fixes that each uncover a new failure elsewhere say the design may be what is wrong, which
-is the user's call. With no user, the report is a note on the issue, which stays open.
+is the user's call. With no user, the report goes where § 3 records a hypothesis, and the issue stays open.
