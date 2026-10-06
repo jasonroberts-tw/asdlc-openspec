@@ -402,7 +402,8 @@ pre-push:
     # `scripts/pr-review.mjs`, which imports `tools/lib/git-env.ts`, and parses them with the js-yaml
     # the manifest and lockfile pin, so each of those is in it as well. Its Vale case
     # copies this checkout's own `.vale.ini` and `.gitignore` into a scratch checkout and reads the
-    # StylesPath the first names, so both are in it as well. Over a hundred and twenty git spawns,
+    # StylesPath the first names, so both are in it as well, and it reads the dev container's
+    # Dockerfile for the image's gc setting (asdlc-openspec-486e). Over a hundred and twenty git spawns,
     # two bash runs, four renders and, on macOS, three `lsof` calls:
     # 9.41 s wall through `node --run` (`/usr/bin/time -p`, one run, while other worktrees ran their
     # gates) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-29, with the guard's stray-directory
@@ -437,6 +438,7 @@ pre-push:
         - 'package-lock.json'
         - '.vale.ini'
         - '.gitignore'
+        - '.devcontainer/Dockerfile'
         - 'tasks.toml'
       run: mise run worktree:selftest
     # This repository's own Vale style, `.vale-styles/Layout/`: each rule over a control and one

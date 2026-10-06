@@ -539,9 +539,18 @@ const WORKTREE_PRUNE =
   '(asdlc-openspec-486e). `git worktree prune --dry-run` shows what it would take; the prune is a ' +
   "person's, run where every record it names is really gone."
 
-/** A `git worktree prune` that would prune, not its `-n` / `--dry-run`, which only reports. */
-const isBarePrune = ({ sub, rest }) =>
-  sub === 'worktree' && nonOptions(rest)[0] === 'prune' && !rest.some((t) => t === '-n' || t === '--dry-run')
+/**
+ * A `git worktree prune` that would prune. Only a dry run passes, and only one spelt from this list
+ * alone: git honours the last of `--dry-run --no-dry-run` and accepts an abbreviated option, so a
+ * guard that looked for `--dry-run` anywhere let a prune through.
+ */
+const DRY_RUN_ONLY = new Set(['-n', '--dry-run', '-v', '--verbose'])
+const isBarePrune = ({ sub, rest }) => {
+  if (sub !== 'worktree' || nonOptions(rest)[0] !== 'prune') return false
+  const flags = rest.slice(rest.indexOf('prune') + 1)
+  const dryRun = flags.every((t) => DRY_RUN_ONLY.has(t)) && flags.some((t) => t === '-n' || t === '--dry-run')
+  return !dryRun
+}
 
 /** Flags that create or reset a branch; the name that FOLLOWS one is the branch being written. */
 const BRANCH_CREATE = new Set(['-b', '-B', '-c', '-C'])
