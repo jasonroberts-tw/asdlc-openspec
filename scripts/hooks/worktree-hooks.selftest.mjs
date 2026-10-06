@@ -427,6 +427,22 @@ for (const [label, dir, command, env, reason] of [
   }
 }
 
+// A BARE `git worktree prune`, EVERYWHERE (asdlc-openspec-486e): in a dev container a session works
+// in the primary checkout, where the git rules are off, and a prune there takes every host worktree's
+// record. Refused by its own reason from the primary checkout and from a worktree; the control is its
+// dry run, which only reports.
+console.log('guard-git: a bare git worktree prune, from any checkout')
+const PRUNE_RULE = 'git worktree prune` takes every record git reads as stale'
+for (const [label, dir, command, reason] of [
+  ['git worktree prune, in the primary checkout', primary, 'git worktree prune', PRUNE_RULE],
+  ['git worktree prune -v, in a worktree', oursDir, 'git worktree prune -v', PRUNE_RULE],
+  ['control: git worktree prune --dry-run, in the primary checkout', primary, 'git worktree prune --dry-run', null],
+]) {
+  const r = guardFrom(dir, { command })
+  const verdict = reason === null ? 'allowed' : 'refused, by its reason'
+  check(`${label} is ${verdict}`, reason === null ? r.code === 0 : refusedFor(r, reason), why(r))
+}
+
 /* --------------------------------------------------------------------------------------------- *
  * guard-workflow-edit: an edit that would let a workflow forge the reviewer's status.
  *

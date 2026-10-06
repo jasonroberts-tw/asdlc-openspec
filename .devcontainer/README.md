@@ -129,7 +129,8 @@ to `never`, so `git gc` keeps them. So, on a clone with linked worktrees:
 
 - **Start no container whose image lacks that setting.** `git config --system gc.worktreePruneExpire`
   in the container prints `never`; if it prints nothing, rebuild first.
-- **Never run `git worktree prune` in the container.** Nothing refuses one typed there.
+- **Never run `git worktree prune` in the container.** `scripts/hooks/guard-git.mjs` refuses one a
+  Claude Code session types, and nothing refuses one you type.
 
 ## Start it without VS Code
 
