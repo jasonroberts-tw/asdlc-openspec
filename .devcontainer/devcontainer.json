@@ -27,8 +27,9 @@
   "mounts": [
     // The App's private key, read-only: the directory holding it and nothing else, which
     // scripts/github-app-token.mjs reads through GITHUB_APP_KEY_DIR below. A directory rather than
-    // the file, so a key generated afresh, under a new name, needs no edit here.
-    // .devcontainer/README.md says how to give the container the key.
+    // the file, so a key generated afresh, under a new name, needs no edit here. It must exist,
+    // even empty, or Docker refuses to start the container; .devcontainer/README.md says how to give
+    // the container the key.
     "source=${localEnv:HOME}${localEnv:USERPROFILE}/.asdlc-agent-j,target=/home/vscode/.github-app,type=bind,readonly",
     // Claude Code's state, in a volume of the container's own, one per clone: your login in the
     // container, its history and its plugins, kept across a rebuild and shared with no host.

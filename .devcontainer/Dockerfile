@@ -84,9 +84,9 @@ RUN chmod 0755 /usr/local/bin/workspace-entrypoint
 
 # --- the agents' GitHub App ---------------------------------------------------------------------
 # The container's `git` and `gh` act as the agents' GitHub App and as nobody else
-# (docs/decisions.md § D-51). git's system config makes `git-credential-github-app` its one helper
-# for github.com, after an empty helper that drops any set before it, and reads GitHub's two SSH
-# address forms as HTTPS, so the tracker's Dolt remote, which runs `git` against
+# (docs/decisions.md § D-51). git's system config names `git-credential-github-app` as its helper
+# for github.com, as the environment's config scope does again at the end of this file, and reads
+# GitHub's two SSH address forms as HTTPS, so the tracker's Dolt remote, which runs `git` against
 # `ssh://git@github.com/...`, reaches GitHub through the same helper with no SSH key. `gh` here
 # stands ahead of mise's on PATH (below) and runs it with the App's token. Both run
 # scripts/github-app-token.mjs from the clone, which a build cannot see, so a change to that script
@@ -150,6 +150,19 @@ RUN claude plugin marketplace add gastownhall/beads || true; \
 # `mise exec` does not put the real one ahead of a directory already first on PATH, and the
 # toolchain's version check failed through the wrapper when this stood with the shims' line.
 ENV PATH="/usr/local/lib/github-app/bin:${PATH}"
+
+# The App's helper again, with its empty reset before it, in the environment's config scope, which
+# git reads after every file: an empty helper drops only the helpers read before it, so in the
+# system file above it drops none from `~/.gitconfig` or the clone's `.git/config`. There, a helper
+# a later scope adds, such as the one VS Code writes when it attaches, would be asked once the App
+# could not mint, and handed the App's token to store; here none is. The system file keeps its copy
+# for a process that drops every `GIT_*` variable, as `tools/lib/git-env.ts` does for scratch
+# repositories. scripts/github-app-token.mjs's selftest runs git with these lines as written here.
+ENV GIT_CONFIG_COUNT=2 \
+    GIT_CONFIG_KEY_0=credential.https://github.com.helper \
+    GIT_CONFIG_VALUE_0="" \
+    GIT_CONFIG_KEY_1=credential.https://github.com.helper \
+    GIT_CONFIG_VALUE_1=/usr/local/lib/github-app/bin/git-credential-github-app
 
 ENTRYPOINT ["/usr/local/bin/workspace-entrypoint"]
 CMD ["sleep", "infinity"]

@@ -88,20 +88,28 @@ The App's private key is the one credential the container holds. On the host:
    `/home/vscode/.github-app`. `scripts/github-app-token.mjs` refuses a directory holding no `.pem`,
    or more than one, by its reason, and `entrypoint.sh` warns at start when no token mints.
 
+The directory must exist before the first start: Docker refuses to start a container whose bind
+mount names a source that does not exist ("bind source path does not exist", tried on 2026-10-06).
+Without the App's key, an empty directory starts the container, in which `git` and `gh` cannot
+reach GitHub and the entrypoint says so.
+
 A key generated afresh replaces the old file in the directory; delete the old one on GitHub, and
 the next token minted is signed with the new one.
 
 ## How `git` and `gh` act as the App
 
-`scripts/github-app-token.mjs` mints an installation token from the key, keeps it where only its
-user reads it, and mints a fresh one once fewer than `githubAppTokenRefreshSeconds` of its hour are
-left, so a session longer than an hour needs no restart. Its header says what it answers.
+`scripts/github-app-token.mjs` mints an installation token from the key, for this repository alone
+(`githubAppTokenRepository`), keeps it where only its user reads it, and mints a fresh one once
+fewer than `githubAppTokenRefreshSeconds` of its hour are left, so a session longer than an hour
+needs no restart. Its header says what it answers.
 
-- **`git`** asks `git-credential-github-app` for `https://github.com`, the one helper the image's
-  system config names, after an empty helper that drops any named before it. The same config reads
-  `ssh://git@github.com/` and `git@github.com:` as HTTPS, so the tracker's Dolt remote,
-  `git+ssh://git@github.com/...` in `.beads/config.yaml`, reaches GitHub through the helper too:
-  Dolt runs `git` for that remote.
+- **`git`** asks `git-credential-github-app` for `https://github.com`, the one helper it reaches:
+  the image names it in the environment's config scope, which git reads after every file, after an
+  empty helper that drops each helper a config file named before it, one a VS Code attach writes
+  among them. The image's system config reads `ssh://git@github.com/` and `git@github.com:` as
+  HTTPS, so the tracker's Dolt remote, `git+ssh://git@github.com/...` in `.beads/config.yaml`,
+  reaches GitHub through the helper too: Dolt drops the `git+` and runs `git` against
+  `ssh://git@github.com/...` (`GIT_TRACE` of `bd dolt pull`, bd 1.3.0, 2026-10-06).
 - **`gh`** is this directory's `gh`, ahead of mise's on PATH, which reads a token for each command and
   runs mise's `gh` with it as `GH_TOKEN`.
 

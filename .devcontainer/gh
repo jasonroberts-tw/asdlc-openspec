@@ -20,6 +20,7 @@ set -eu
 # From the clone, so mise's `node` shim finds its pin there; in a subshell, so `gh` still runs where
 # it was called.
 token=$(cd "$GITHUB_APP_WORKSPACE" && node scripts/github-app-token.mjs token) || exit
+[ -n "$token" ] || { echo 'gh: scripts/github-app-token.mjs printed no token, so gh is not run' >&2; exit 1; }
 GH_TOKEN=$token
 export GH_TOKEN
 exec "${GITHUB_APP_REAL_GH:-/home/vscode/.local/share/mise/shims/gh}" "$@"
