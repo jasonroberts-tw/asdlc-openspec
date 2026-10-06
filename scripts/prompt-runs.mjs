@@ -68,14 +68,20 @@
  *             decides, `carried` while that line's pull request is open, or `reopened` once it closed
  *             unmerged.
  *   recurrence  each fix a merged pull request carried, a carried closed line whose pull request
- *             merged, once for each key and URL, with its merge commit and what later runs show of it:
- *             `not exercised` when no analysis in D-44's form loaded the key's file at a commit that
- *             descends from the merge commit, or is it; `shown again` when one did and a held or
- *             closed line of the key names its run; `exercised` otherwise. A run whose commit git
- *             cannot place is listed as unresolved, and counts for nothing. Then the rate, the fixes
- *             shown again of those exercised, as `count-index.md` § Rates and metrics defines it, and
- *             whether it is at or above `promptReviewFixRecurrenceNotViableShare`; under
- *             `promptReviewFixRecurrenceFloor` exercised fixes, the counts and no rate.
+ *             merged, once for each key and URL, with its merge commit and what later runs show of it.
+ *             A later run is one whose analysis in D-44's form loaded the key's file at a commit that
+ *             descends from the merge commit, or is it, and it counts once a read line names it, or a
+ *             held or closed line of the key does: a review writes its held lines only after it reads
+ *             this section, so a run it has yet to read would count as holding whatever it showed.
+ *             The fix is `shown again` when a line of the key names a later run that counts;
+ *             `exercised` when one counts and none is named; `awaiting review` when every later run
+ *             awaits a read line; `not exercised` when there is none. A run whose commit git cannot
+ *             place, and a run later than the carried line that a line of the key names and no such
+ *             analysis places, are listed as unresolved, and count for nothing. Then the rate, the
+ *             fixes shown again of those exercised or shown again, as `count-index.md` § Rates and
+ *             metrics defines it, and whether it is at or above
+ *             `promptReviewFixRecurrenceNotViableShare`; under `promptReviewFixRecurrenceFloor` such
+ *             fixes, the counts and no rate.
  *   loads     the window, the `promptReviewLoadWindowDays` days before the newest analysis's time,
  *             the newest included. For each row of `promptWordBudgets`, the analyses in the window
  *             in D-44's form that loaded it. Then each analysis in the window not in that form, and
@@ -107,9 +113,9 @@
  * key carried by a pull request that closed unmerged read as closed, so its finding is never raised
  * again though nothing fixed it; and an analysis read past a closed line, holding it as prose. Since
  * asdlc-openspec-r6ha.8 it would also let through a fix counted as holding when a later run showed it
- * again, or exercised by a run that read the prompt before it merged, so the rate reads better than
- * the edits are; and a rate given over a handful of fixes, which one bad review moves by tens of
- * points.
+ * again, exercised by a run that read the prompt before it merged, or by one no review had read, whose
+ * showing it again no line yet records, so the rate reads better than the edits are; and a rate given
+ * over a handful of fixes, which one bad review moves by tens of points.
  *
  * WHERE IT LOSES. One malformed line anywhere in the tracker fails it, exit 1, and with it the due
  * check of every run's close, until a person fixes the line; read as prose, the model read past one.
@@ -129,25 +135,30 @@
  *                       `tools/policy/` and `export.jsonl`, one issue per line as `bd export` prints
  *                       it, and, when a carried line is read, `pull-requests.json`, each pull request
  *                       URL to its state, `OPEN`, `CLOSED` or `MERGED`, or to `{ state, mergeCommit }`,
- *                       and `descendants.json`, each merge commit to the commits that descend from it;
- *                       it then runs no `bd`, no `gh` and no `git`, and a copy with no export, no state
- *                       for a carried line, or no descendants for a fix, is a failure, never a fall
- *                       back to the live tracker, GitHub or git
+ *                       and `descendants.json`, each merge commit to the commits that descend from it,
+ *                       and under `unplaced` the commits git would not place, matched as git matches,
+ *                       by a prefix in either case, a merge commit descending from itself; it then
+ *                       runs no `bd`, no `gh` and no `git`, and a copy with no export, no state for a
+ *                       carried line, or no descendants for a fix, is a failure, never a fall back to
+ *                       the live tracker, GitHub or git
  *
  * EXIT. 0 with the report; 2 on a bad flag; 1 on a failure, each named: a line that does not parse,
  * with its issue; a policy key missing or wrong; a table entry with no budget row; the tracker or the
  * override's export unreadable; a carried line's pull request whose state cannot be read; a merged
- * one with no merge commit; a `git` that cannot run.
+ * one with no merge commit, or one this checkout or the override's descendants do not hold; a `git`
+ * that cannot run.
  *
  * NEEDS `bd` on PATH and the tracker's database, read through `tools/lib/bd-launcher.ts`, unless the
  * override names an export. For the held and recurrence sections, when a carried line names a pull
  * request, `gh`, signed in, and the network: `gh pr view` gives each one's state and merge commit.
  * For the recurrence section, `git` and a checkout holding the merge commits and the commits the
- * analyses name: `git merge-base --is-ancestor` says whether a run read the prompt after a fix.
+ * analyses name: `git merge-base --is-ancestor` says whether a run read the prompt after a fix, and
+ * the selftest asks git once of this checkout's `HEAD`.
  * `--only pending` and `--only loads` read neither, so the due check of a run's close needs neither.
  * `mise run prompt-runs --only pending` took 1.57 s wall over the tracker's 300 issues,
  * `bd export` included, and the selftest 0.56 s, each through `mise run` (`/usr/bin/time -p`, one
- * run) on a macOS 26.7.1 laptop with Node 24.21.0, 2026-10-05.
+ * run) on a macOS 26.7.1 laptop with Node 24.21.0, 2026-10-05; the whole report, one `gh pr view` and
+ * the git calls of one fix included, took 1.93 s the same way and day.
  */
 import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
@@ -373,28 +384,46 @@ export function readPullRequests(root, overridden, urls) {
 }
 
 /**
- * Whether `commit` descends from `mergeCommit`, or is it: true, false, or null when git cannot place
- * one of them. From the override's `descendants.json`, each merge commit to the commits that descend
- * from it, or from `git merge-base --is-ancestor`, which exits 0, 1, or else names a commit it does not
- * hold. A thrown error names an override with no answer for the merge commit, or a git that cannot run.
+ * What places a run's commit against a fix's merge commit. `missing(merge)` is null when the merge
+ * commit can be placed against, else why not; `descends(merge, commit)` is whether `commit` descends
+ * from it, or is it: true, false, or null when the commit cannot be placed. From git, `git cat-file -e`
+ * and `git merge-base --is-ancestor`, which exits 0, 1, or else names a commit it does not hold; or
+ * from the override's `descendants.json`, matched as git matches, by a prefix in either case, the merge
+ * commit descending from itself, with `unplaced` the commits git would not place. A thrown error names
+ * an override with no readable file, or a git that cannot run.
  */
-export function descendsFrom(root, overridden) {
-  let file = null
-  return (mergeCommit, commit) => {
-    if (overridden) {
-      if (!file) {
-        try {
-          file = JSON.parse(readFileSync(join(root, OVERRIDE_DESCENDANTS), 'utf8'))
-        } catch (error) {
-          throw new Error(`${ROOT_ENV} names ${root}, which holds no readable ${OVERRIDE_DESCENDANTS} (${error.code ?? error.message}), and a fix's recurrence needs to know which runs read the prompt after it; this command never falls back to git`)
-        }
-      }
-      if (!Array.isArray(file[mergeCommit])) throw new Error(`${OVERRIDE_DESCENDANTS} under ${root} lists no descendants of the merge commit ${mergeCommit}`)
-      return file[mergeCommit].includes(commit)
+export function placerOf(root, overridden) {
+  if (!overridden) {
+    const git = (args) => {
+      const run = spawnSync('git', args, { cwd: REPO_ROOT, encoding: 'utf8' })
+      if (run.error) throw new Error(`\`git ${args[0]}\` could not start: ${run.error.message}`)
+      return run.status
     }
-    const run = spawnSync('git', ['merge-base', '--is-ancestor', mergeCommit, commit], { cwd: REPO_ROOT, encoding: 'utf8' })
-    if (run.error) throw new Error(`\`git merge-base\` could not start: ${run.error.message}`)
-    return run.status === 0 ? true : run.status === 1 ? false : null
+    return {
+      missing: (merge) => (git(['cat-file', '-e', `${merge}^{commit}`]) === 0 ? null : 'this checkout does not hold it; `git fetch origin` may bring it'),
+      descends: (merge, commit) => {
+        const status = git(['merge-base', '--is-ancestor', merge, commit])
+        return status === 0 ? true : status === 1 ? false : null
+      },
+    }
+  }
+  let file = null
+  const read = () => {
+    if (file) return file
+    try {
+      file = JSON.parse(readFileSync(join(root, OVERRIDE_DESCENDANTS), 'utf8'))
+    } catch (error) {
+      throw new Error(`${ROOT_ENV} names ${root}, which holds no readable ${OVERRIDE_DESCENDANTS} (${error.code ?? error.message}), and a fix's recurrence needs to know which runs read the prompt after it; this command never falls back to git`)
+    }
+    return file
+  }
+  const same = (a, b) => {
+    const [x, y] = [a.toLowerCase(), b.toLowerCase()]
+    return x.startsWith(y) || y.startsWith(x)
+  }
+  return {
+    missing: (merge) => (Array.isArray(read()[merge]) ? null : `${OVERRIDE_DESCENDANTS} under ${root} lists no descendants of it`),
+    descends: (merge, commit) => ((read().unplaced ?? []).some((u) => same(u, commit)) ? null : same(merge, commit) || read()[merge].some((d) => same(d, commit))),
   }
 }
 
@@ -541,13 +570,19 @@ export function heldOf(parsed, prs = new Map()) {
 
 /**
  * Each fix a merged pull request carried, a carried closed line whose pull request merged, once for
- * each key and URL, and what later runs show of it: `not exercised` when no analysis in D-44's form
- * loaded the key's file at a commit that descends from the merge commit; `shown again` when one did
- * and a held or closed line of the key names its run; `exercised` otherwise. A run whose commit git
- * cannot place is listed under `unresolved` and counts for nothing. The rate is given only at or above
- * `promptReviewFixRecurrenceFloor` exercised fixes, as `count-index.md` § Rates and metrics defines it.
+ * each key and URL, and what later runs show of it, from the runs whose analysis in D-44's form loaded
+ * the key's file at a commit that descends from the merge commit, or is it. Of those, a run counts
+ * once a read line names it, or a held or closed line of the key does; one neither names is listed
+ * under `awaiting`, since a review writes its held lines only after it reads the command. The outcome
+ * is `shown again` when a line of the key names a run that counts, `exercised` when a run counts and
+ * none is named, `awaiting review` when only runs awaiting it read the fix, and `not exercised` when
+ * none did. A run whose commit git cannot place, or a later run a line of the key names and no such
+ * analysis places, is listed under `unresolved` and counts for nothing. The rate is given only at or
+ * above `promptReviewFixRecurrenceFloor` exercised fixes, as `count-index.md` § Rates and metrics
+ * defines it.
  */
-export function recurrenceOf(parsed, prs, descends, policy) {
+export function recurrenceOf(parsed, prs, placer, policy) {
+  const read = new Set(parsed.reads.map((r) => r.run))
   const fixes = []
   const seen = new Set()
   for (const c of parsed.closed) {
@@ -555,21 +590,34 @@ export function recurrenceOf(parsed, prs, descends, policy) {
     seen.add(`${c.key} ${c.url}`)
     const merge = prs.get(c.url).mergeCommit
     if (!merge) throw new Error(`the pull request ${c.url}, which carried ${c.key}, merged with no merge commit to read, so its fix cannot be followed`)
-    const exercisedBy = []
+    const missing = placer.missing(merge)
+    if (missing) throw new Error(`the pull request ${c.url}, which carried ${c.key}, merged as ${merge}, and ${missing}, so no run can be placed after it`)
+    const lines = [...parsed.held, ...parsed.closed].filter((l) => l.key === c.key)
+    const named = new Set(lines.map((l) => l.run))
+    const after = []
     const unresolved = []
+    const placed = new Set()
     for (const a of parsed.analyses) {
-      const commits = a.form === 'loaded' ? a.loads.filter((l) => l.path === c.file).map((l) => l.commit) : []
-      if (!commits.length) continue
-      const answers = commits.map((commit) => descends(merge, commit))
-      if (answers.includes(true)) exercisedBy.push(a.run)
+      if (a.form !== 'loaded') continue
+      const answers = a.loads.filter((l) => l.path === c.file).map((l) => placer.descends(merge, l.commit))
+      if (answers.includes(true)) after.push(a.run)
       else if (answers.includes(null)) unresolved.push(a.run)
+      else placed.add(a.run)
     }
-    const shownBy = [...new Set([...parsed.held, ...parsed.closed].filter((l) => l.key === c.key && exercisedBy.includes(l.run)).map((l) => l.run))]
-    const outcome = !exercisedBy.length ? 'not exercised' : shownBy.length ? 'shown again' : 'exercised'
-    fixes.push({ key: c.key, url: c.url, mergeCommit: merge, outcome, exercisedBy: exercisedBy.sort(byCodePoint), shownBy: shownBy.sort(byCodePoint), unresolved: unresolved.sort(byCodePoint) })
+    const exercisedBy = after.filter((run) => read.has(run) || named.has(run))
+    const awaiting = after.filter((run) => !exercisedBy.includes(run))
+    const shownBy = exercisedBy.filter((run) => named.has(run))
+    const known = new Set([...after, ...unresolved, ...placed])
+    for (const l of lines) {
+      if (l.at <= c.at || known.has(l.run)) continue
+      unresolved.push(l.run)
+      known.add(l.run)
+    }
+    const outcome = exercisedBy.length ? (shownBy.length ? 'shown again' : 'exercised') : awaiting.length ? 'awaiting review' : 'not exercised'
+    fixes.push({ key: c.key, url: c.url, mergeCommit: merge, outcome, exercisedBy: exercisedBy.sort(byCodePoint), shownBy: shownBy.sort(byCodePoint), awaiting: awaiting.sort(byCodePoint), unresolved: unresolved.sort(byCodePoint) })
   }
   fixes.sort((a, b) => byCodePoint(a.key, b.key) || byCodePoint(a.url, b.url))
-  const exercised = fixes.filter((f) => f.outcome !== 'not exercised').length
+  const exercised = fixes.filter((f) => f.outcome === 'exercised' || f.outcome === 'shown again').length
   const shownAgain = fixes.filter((f) => f.outcome === 'shown again').length
   const floor = policy.promptReviewFixRecurrenceFloor
   return {
@@ -646,11 +694,17 @@ export function render(report, only = null) {
   if (!only || only === 'recurrence') {
     const r = report.recurrence
     const unresolved = r.fixes.reduce((n, f) => n + f.unresolved.length, 0)
+    const awaiting = r.fixes.filter((f) => f.outcome === 'awaiting review').length
     out.push('')
-    out.push(`recurrence: ${r.fixes.length} fix(es) a merged pull request carried; ${r.exercised} exercised by a later run, ${r.shownAgain} of them shown again${unresolved ? `; ${unresolved} run(s) at a commit git cannot place, counted for nothing` : ''}.`)
+    out.push(`recurrence: ${r.fixes.length} fix(es) a merged pull request carried; ${r.exercised} exercised by a later run a review has read, ${r.shownAgain} of them shown again; ${awaiting} awaiting review${unresolved ? `; ${unresolved} run(s) the section cannot place, counted for nothing` : ''}.`)
     for (const f of r.fixes) {
-      const by = f.outcome === 'not exercised' ? '' : `, exercised by ${f.exercisedBy.join(' ')}${f.shownBy.length ? `, shown again by ${f.shownBy.join(' ')}` : ''}`
-      out.push(`  ${f.key}  ${f.outcome}, carried by ${f.url}, merged as ${f.mergeCommit.slice(0, 7)}${by}${f.unresolved.length ? `; unresolved ${f.unresolved.join(' ')}` : ''}`)
+      const by = [
+        f.exercisedBy.length ? `exercised by ${f.exercisedBy.join(' ')}` : '',
+        f.shownBy.length ? `shown again by ${f.shownBy.join(' ')}` : '',
+        f.awaiting.length ? `read after it by ${f.awaiting.join(' ')}, which no review has read` : '',
+        f.unresolved.length ? `unresolved ${f.unresolved.join(' ')}` : '',
+      ].filter(Boolean)
+      out.push(`  ${f.key}  ${f.outcome}, carried by ${f.url}, merged as ${f.mergeCommit.slice(0, 7)}${by.map((b) => `; ${b}`).join('')}`)
     }
     out.push(
       r.rate
@@ -730,7 +784,7 @@ export function main(argv, deps = {}) {
   let recurrence = null
   try {
     if (!only || READS_PULL_REQUESTS.includes(only)) prs = (deps.pullRequests ?? ((urls) => readPullRequests(root, overridden, urls)))(carriedUrls(parsed))
-    if (!only || READS_DESCENDANTS.includes(only)) recurrence = recurrenceOf(parsed, prs, deps.descends ?? descendsFrom(root, overridden), policy)
+    if (!only || READS_DESCENDANTS.includes(only)) recurrence = recurrenceOf(parsed, prs, deps.placer ?? placerOf(root, overridden), policy)
   } catch (error) {
     err(`${NAME} FAILED: ${error.message}`)
     return 1
@@ -759,7 +813,7 @@ export function main(argv, deps = {}) {
  * The selftest: the command run whole, in this process, over fixture directories under the temporary
  * directory, each holding the live policy's records and a fixture export, through `PROMPT_RUNS_ROOT`.
  * Each case breaks one thing and asserts the reason the run reports, and an undoctored control must
- * pass first. Needs no `bd`, no network and no token.
+ * pass first. Needs no `bd`, no network and no token; one case asks `git` of this checkout's `HEAD`.
  */
 function selftest() {
   let checks = 0
@@ -878,7 +932,7 @@ function selftest() {
     const text = run(fixture('control-text', controlIssues()), ['--now', NOW])
     ok('the text report names each section', text.code === 0 && ['pending:', 'held:', 'recurrence:', 'loads:', 'candidates:', 'the metric:'].every((s) => text.out.includes(`\n${s}`)), text.out.slice(0, 300))
     const onlyPending = run(fixture('only pending', controlIssues()), ['--only', 'pending', '--now', NOW])
-    ok('`--only pending` prints the pending section and no other', onlyPending.code === 0 && onlyPending.out.includes('\npending:') && !/\n(held|loads|candidates|the metric):/.test(onlyPending.out), onlyPending.out.slice(0, 300))
+    ok('`--only pending` prints the pending section and no other', onlyPending.code === 0 && onlyPending.out.includes('\npending:') && !/\n(held|recurrence|loads|candidates|the metric):/.test(onlyPending.out), onlyPending.out.slice(0, 300))
     const onlyHeld = run(fixture('only held', controlIssues()), ['--json', '--only', 'held', '--now', NOW])
     ok('`--json --only held` holds the held keys and no other section', onlyHeld.code === 0 && Array.isArray(onlyHeld.report?.held) && !('pending' in onlyHeld.report) && !('loads' in onlyHeld.report), JSON.stringify(Object.keys(onlyHeld.report ?? {})))
     const onlyBad = run(fixture('only a bad section', controlIssues()), ['--only', 'everything'])
@@ -1205,9 +1259,55 @@ function selftest() {
         `${JSON.stringify(notViable)} | ${JSON.stringify(viable)}`,
       )
       {
-        const unplaced = run(fixture('recurrence, a commit git cannot place', issuesOfThree(), null, prs, descendantsOfThree), ['--json', '--now', NOW], { descends: (_merge, commit) => (commit === AFTER ? null : false) })
+        const unplaced = run(fixture('recurrence, a commit git cannot place', issuesOfThree(), null, prs, { ...descendantsOfThree, unplaced: [AFTER] }))
         const c = unplaced.report?.recurrence?.fixes.find((f) => f.key === `${LOADED_ALWAYS}#fix-c`)
         ok("recurrence: a run whose commit git cannot place is listed as unresolved and exercises nothing", unplaced.code === 0 && c?.outcome === 'not exercised' && c.unresolved.join() === LATER, JSON.stringify(c))
+        const shownUnplaced = issuesOfThree()
+        const ELSEWHERE = `example-elsewhere@${iso(NEWEST - 30 * 60 * 1000)}`
+        shownUnplaced[0].notes += `\n${H} ${ELSEWHERE} ${LOADED_ALWAYS}#fix-c 3: a run with no analysis showed it`
+        shownUnplaced[0].notes += `\n${H} example-before@${iso(NEWEST - 20 * 3600000)} ${LOADED_ALWAYS}#fix-c 1: a run with no analysis, before the carried line, showed it`
+        const s = run(fixture('recurrence, a later show no analysis places', shownUnplaced, null, prs, descendantsOfThree)).report?.recurrence?.fixes.find((f) => f.key === `${LOADED_ALWAYS}#fix-c`)
+        ok('recurrence: a later held line of the key from a run no analysis places is listed as unresolved, not dropped, and an earlier one is not listed', s?.outcome === 'exercised' && s.unresolved.join() === ELSEWHERE, JSON.stringify(s))
+      }
+      {
+        /* A fix whose only later reader is a run no review has read: run 1, pending, reads LOADED_ALWAYS after the fix, and run 2 before it. */
+        const awaitingIssues = (shownByEarlierReview) => {
+          const issues = withFixes([['fix-p', 35]])
+          issues[2].notes = issues[2].notes.replace(`${LOADED_ALWAYS} ${AFTER}`, `${LOADED_ALWAYS} abc1234`)
+          issues[1].notes = issues[1].notes.replace(`${LOADED_ALWAYS} abc1234`, `${LOADED_ALWAYS} ${AFTER}`)
+          if (shownByEarlierReview) issues[1].notes += `\n${H} ${runAt(1)} ${LOADED_ALWAYS}#fix-p 3: held by an earlier review`
+          return issues
+        }
+        const w = run(fixture('recurrence, a pending reader', awaitingIssues(false), null, merged([['fix-p', 35]]), after([['fix-p', 35]])))
+        const p = w.report?.recurrence?.fixes[0]
+        ok(
+          'recurrence: a fix read after its merge only by a run no read line names is "awaiting review", counted for nothing, since its held lines are not yet written',
+          w.code === 0 && p?.outcome === 'awaiting review' && p.awaiting.join() === runAt(1) && p.exercisedBy.length === 0 && w.report.recurrence.exercised === 0,
+          `${w.err} ${JSON.stringify(w.report?.recurrence)}`,
+        )
+        const wt = run(fixture('recurrence, a pending reader, text', awaitingIssues(false), null, merged([['fix-p', 35]]), after([['fix-p', 35]])), ['--only', 'recurrence', '--now', NOW])
+        ok('recurrence: the text names a fix awaiting review and the runs it awaits', wt.code === 0 && wt.out.includes(`#fix-p  awaiting review, carried by ${pull(35)}`) && wt.out.includes(`read after it by ${runAt(1)}, which no review has read`) && /1 awaiting review/.test(wt.out), wt.out)
+        const e = run(fixture('recurrence, a pending reader an earlier review held', awaitingIssues(true), null, merged([['fix-p', 35]]), after([['fix-p', 35]]))).report?.recurrence?.fixes[0]
+        ok('recurrence: a pending run a held line of the key already names shows the fix again', e?.outcome === 'shown again' && e.shownBy.join() === runAt(1), JSON.stringify(e))
+      }
+      {
+        /* The override matches as git does: by a prefix, in either case, the merge commit descending from itself. */
+        const one = (name, n, commit, descendants) => {
+          const issues = withFixes([[name, n]])
+          issues[2].notes = issues[2].notes.replace(`${LOADED_ALWAYS} ${AFTER}`, `${LOADED_ALWAYS} ${commit}`)
+          return run(fixture(`recurrence, ${name}`, issues, null, merged([[name, n]]), descendants)).report?.recurrence?.fixes[0]
+        }
+        const self = one('fix-self', 253, mergeOf(253).toUpperCase(), { [mergeOf(253)]: [] })
+        ok('recurrence: in the override, a run at the merge commit itself, in capitals, exercises the fix, as git says', self?.outcome === 'exercised' && self.exercisedBy.join() === LATER, JSON.stringify(self))
+        const short = one('fix-short', 254, AFTER.toUpperCase(), { [mergeOf(254)]: [`${AFTER}${'0'.repeat(33)}`] })
+        ok('recurrence: in the override, a run at an abbreviation of a listed descendant exercises the fix, as git says', short?.outcome === 'exercised' && short.exercisedBy.join() === LATER, JSON.stringify(short))
+      }
+      {
+        const gone = run(fixture('recurrence, a merge commit the checkout lacks', issuesOfThree(), null, prs, descendantsOfThree), ['--only', 'recurrence', '--now', NOW], { placer: { missing: () => 'this checkout does not hold it', descends: () => true } })
+        ok('recurrence: a merge commit git does not hold fails, naming it, rather than blaming the runs', gone.code === 1 && new RegExp(`which carried \\S+#fix-a, merged as ${mergeOf(31)}, and this checkout does not hold it`).test(gone.err), gone.err)
+        const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: REPO_ROOT, encoding: 'utf8' }).stdout.trim()
+        const git = placerOf(REPO_ROOT, false)
+        ok("recurrence: git's placer holds this checkout's HEAD, which descends from itself, and lacks a commit of zeros", /^[0-9a-f]{40}$/.test(head) && git.missing(head) === null && git.descends(head, head) === true && git.missing('0'.repeat(40)) !== null, head)
       }
       {
         const root = fixture('recurrence, no descendants', issuesOfThree(), null, prs, descendantsOfThree)
@@ -1220,7 +1320,7 @@ function selftest() {
       {
         const { [mergeOf(33)]: _dropped, ...withoutC } = descendantsOfThree
         const r4 = run(fixture('recurrence, a merge commit with no descendants listed', issuesOfThree(), null, prs, withoutC), ['--only', 'recurrence', '--now', NOW])
-        ok('recurrence: an override whose descendants leave out a fix\'s merge commit fails, naming it', r4.code === 1 && new RegExp(`descendants\\.json under .* lists no descendants of the merge commit ${mergeOf(33)}`).test(r4.err), r4.err)
+        ok('recurrence: an override whose descendants leave out a fix\'s merge commit fails, naming it', r4.code === 1 && new RegExp(`merged as ${mergeOf(33)}, and descendants\\.json under .* lists no descendants of it`).test(r4.err), r4.err)
         const twice = issuesOfThree()
         twice[9].notes += `\n${C} ${NINE} ${LOADED_ALWAYS}#fix-a carried ${pull(31)}: the same line again`
         const r5 = run(fixture('recurrence, a carried line written twice', twice, null, prs, descendantsOfThree))

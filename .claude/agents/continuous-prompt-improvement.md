@@ -30,8 +30,8 @@ Print the trunk's prompt-review keys first, as one call; later steps apply them:
     gh api "repos/{owner}/{repo}/contents/tools/policy/agent-workflows.json?ref=main" -H "Accept: application/vnd.github.raw" --jq "with_entries(select((.key | startswith(\"promptReview\")) and (.key | endswith(\"Means\") | not)))"
 
 Run `mise run prompt-runs`, which prints what is pending, whether a review is due, what is held and
-each prompt's loads. If no review is due, or it fails on a line, stop, editing nothing and writing
-nothing, and report that line.
+each prompt's loads. If no review is due, or it fails, stop, editing nothing and writing nothing,
+and report why.
 
 Check each claim an analysis makes against the run's own evidence, its commits, its pull request
 and its issue, before building on it.
@@ -137,7 +137,9 @@ sections are the value.
    prints, its metric and each candidate, for a person to retire or keep
    (`.claude/skills/retire-asset/SKILL.md`).
 2. **What the earlier reviews' changes did in these runs.** The fixes `mise run prompt-runs` prints
-   under recurrence and their rate, the metric `count-index.md` § Rates and metrics defines.
+   under recurrence and their rate, the metric `count-index.md` § Rates and metrics defines. A run
+   awaiting review shows a fix again where § 3 gave one of its findings the fix's key: § 6 writes
+   its held lines only later.
 3. **What the runs cost that the prompts did not prevent**, as numbered findings grouped by file,
    each with its key, the runs that showed it, the condition of the threshold it met (`met`), how
    often the situation arises, what it costs when it does, the net words its edit adds, and its fix:
