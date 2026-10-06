@@ -1028,6 +1028,76 @@ check(
 )
 
 /* --------------------------------------------------------------------------------------------- *
+ * A worktree record this checkout cannot see (asdlc-openspec-486e).
+ *
+ * git cannot tell a worktree that was removed from one whose path it cannot see: both read as
+ * `prunable`, and `git worktree prune` deletes both records. In a container on a bind-mounted clone,
+ * every record of a worktree made on the host names a host path, so every one is the second kind. On
+ * 2026-10-06 a push from such a container ran this selftest, whose foreign-path cases above made the
+ * remove hook run `git worktree prune` on the real repository, and every linked worktree on the host
+ * lost its record. In a scratch repository of its own, `unseen` has that shape, its parent directory
+ * gone with it; `removed` was deleted from inside `.claude/worktrees/`, whose parent stays; `lane` is
+ * live. Given a path it does not own, the remove hook touches no record: not `lane`'s, which shares
+ * the foreign path's last name and so was deleted as its admin directory, and no stale one, which its
+ * own prune took. The sweep refuses `prune` while a stale record's parent is missing, and keeps that
+ * record holding its branch. The control is the same repository once `unseen`'s parent is back.
+ * --------------------------------------------------------------------------------------------- */
+console.log('a worktree record this checkout cannot see (asdlc-openspec-486e)')
+const unseenRepo = mkdtempSync(join(tmpdir(), 'wt-unseen-'))
+const unseenPrimary = join(unseenRepo, 'primary')
+execFileSync('git', ['init', '-q', '-b', 'main', unseenPrimary], { env: GIT_ENV, encoding: 'utf8' })
+git(unseenPrimary, ...AS, 'commit', '-q', '--allow-empty', '-m', 'base')
+git(unseenPrimary, 'update-ref', 'refs/remotes/origin/main', 'HEAD')
+const unseenWt = (path, name) =>
+  git(unseenPrimary, 'worktree', 'add', '-q', '-b', `agent/${name}`, path, 'main')
+unseenWt(join(unseenPrimary, '.claude', 'worktrees', 'lane'), 'lane')
+unseenWt(join(unseenPrimary, '.claude', 'worktrees', 'removed'), 'removed')
+const hostSide = join(unseenRepo, 'host')
+unseenWt(join(hostSide, 'worktrees', 'unseen'), 'unseen')
+rmSync(join(unseenPrimary, '.claude', 'worktrees', 'removed'), { recursive: true, force: true })
+rmSync(hostSide, { recursive: true, force: true })
+const unseenRegistered = (name) => existsSync(join(unseenPrimary, '.git', 'worktrees', name))
+
+// The hook works on the checkout it sits in, so a copy sits in the scratch one, run with no GIT_* key:
+// under a real push an inherited GIT_DIR would point its git at this repository.
+const unseenHook = join(unseenPrimary, 'scripts', 'hooks', 'worktree-remove.mjs')
+mkdirSync(dirname(unseenHook), { recursive: true })
+copyFileSync(REMOVE, unseenHook)
+const foreign = join(unseenRepo, 'foreign', 'lane')
+mkdirSync(foreign, { recursive: true })
+const foreignRun = spawnSync('node', [unseenHook], {
+  input: JSON.stringify({ hook_event_name: 'WorktreeRemove', worktree_path: foreign }),
+  env: GIT_ENV,
+  encoding: 'utf8',
+})
+check('the hook removes a foreign directory', foreignRun.status === 0 && !existsSync(foreign), foreignRun.stderr)
+check("a live worktree sharing the foreign path's last name keeps its record", unseenRegistered('lane'))
+check('a record this checkout cannot see keeps it', unseenRegistered('unseen'))
+check('a removed worktree keeps it too: the hook prunes nothing', unseenRegistered('removed'))
+
+const pruneRefused = runGcWith({ repo: unseenPrimary })
+check(
+  'the sweep refuses prune, by its reason',
+  pruneRefused.includes('  prune refused: 1 stale record(s) whose parent directory is missing too'),
+  pruneRefused.slice(0, 900),
+)
+check('and both stale records survive', unseenRegistered('unseen') && unseenRegistered('removed'))
+check(
+  'the unseen record keeps its branch, by its reason',
+  git(unseenPrimary, 'branch', '--list', 'agent/unseen').trim() !== '' &&
+    pruneRefused.includes('agent/unseen  -- stale record, kept while prune is refused'),
+  pruneRefused.slice(0, 1500),
+)
+mkdirSync(join(hostSide, 'worktrees'), { recursive: true })
+const prunedAfter = runGcWith({ repo: unseenPrimary })
+check(
+  "control: once the record's parent is back, both stale records are pruned",
+  !prunedAfter.includes('prune refused') && !unseenRegistered('unseen') && !unseenRegistered('removed'),
+  prunedAfter.slice(0, 900),
+)
+check('and the live worktree keeps its record', unseenRegistered('lane'))
+
+/* --------------------------------------------------------------------------------------------- *
  * prune-worktree-branches: containment after a rebase merge (asdlc-openspec-dxf).
  *
  * A rebase merge replays a branch's commits onto a trunk that has moved, and `git cherry`'s patch-id
