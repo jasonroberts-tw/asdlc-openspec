@@ -17,7 +17,7 @@ This skill does the rest, through step 8. What follows is the caller's.
 
 ## 1. The branch is ready
 
-It is gated and rebased as `CLAUDE.md` § The gate ladder says. If it is not, do that first.
+Gate and rebase it as `CLAUDE.md` § The gate ladder says.
 
 ## 2. Test the merge against the open pull requests
 
