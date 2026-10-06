@@ -307,7 +307,10 @@ less than the policy's margin is left; git's credential protocol answered for ht
 alone, through real git, under the git config `.devcontainer/Dockerfile` writes, where no helper a
 later scope adds is asked; `.devcontainer/gh` running `gh` with the token and running none without
 one; the App's bot account printed as git's commit identity, and set by the entrypoint's
-`commit_identity` under bash where no email is; and each refusal by its reason. The helper itself
+`commit_identity` under bash where no email is; and each refusal by its reason. Beside them, the
+rest of the container's start that needs no image: the entrypoint's `statusline` setting Claude
+Code's status line only where none is, `.devcontainer/statusline.sh` through `sh`, and the
+Dockerfile setting `NO_COLOR` for `bd` alone. The helper itself
 reads the App's private key and GitHub's API, so this is the job and the step in its place. Without
 it a session in the container could lose `git` and `gh` an hour in, or hand the App's token to
 another host, and nothing would say so before it did.'''

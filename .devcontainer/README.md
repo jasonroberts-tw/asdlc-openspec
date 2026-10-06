@@ -189,8 +189,8 @@ shell, for the terminal probe the Dockerfile describes. The gates and git hooks 
 **The status line is `statusline.sh`.** At each start, `entrypoint.sh` sets `statusLine` in the
 volume's `settings.json` to run it from the clone, but only while that file sets none. A status line
 you set in the container (`/statusline`, or `statusLine` in that file) stays. To have none, set
-`statusLine` to a command that prints nothing, such as `true`: one you delete comes back at the next
-start.
+`"statusLine": {"type": "command", "command": "true"}`, a command that prints nothing: one you
+delete comes back at the next start.
 
 ## The plugins
 
