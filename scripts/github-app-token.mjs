@@ -325,6 +325,13 @@ function run(command, args, { env, input = '', cwd = REPO_ROOT }) {
     child.stderr.on('data', (data) => (stderr += data))
     child.on('error', (error) => done({ status: null, stdout, stderr: `${stderr}${error.message}` }))
     child.on('close', (status) => done({ status, stdout, stderr }))
+    // A child that exits before reading its input, as `token` and a refused run do, closes the
+    // pipe: on Linux the write then fails with EPIPE, which threw and ended the whole run in CI
+    // (verify on #165). Its status and output still say what the case asks, so EPIPE is no
+    // problem; any other write error is reported with them.
+    child.stdin.on('error', (error) => {
+      if (error.code !== 'EPIPE') stderr += `stdin: ${error.message}`
+    })
     child.stdin.end(input)
   })
 }
