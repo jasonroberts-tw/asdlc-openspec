@@ -140,12 +140,17 @@ credentials() {
     warn 'the GitHub App could not mint a token, so git and gh cannot reach GitHub -- .devcontainer/README.md says how to give the container its key'
   fi
 
-  # ~/.gitconfig is the container's own, which a rebuild discards, so a commit made here has no
-  # identity until one is set. The container's sessions act as the agents' GitHub App, so whenever
-  # ~/.gitconfig holds no user.email, this sets user.name and user.email to the App's bot account
-  # (`githubAppBot*`, through `scripts/github-app-token.mjs identity`); an email already there, set
-  # by a person or an earlier start, is left with its name. Only those two keys are taken from the
-  # helper's lines.
+  commit_identity
+}
+
+# ~/.gitconfig is the container's own, which a rebuild discards, so a commit made here has no
+# identity until one is set. The container's sessions act as the agents' GitHub App, so whenever
+# ~/.gitconfig holds no user.email, this sets user.name and user.email to the App's bot account
+# (`githubAppBot*`, through `scripts/github-app-token.mjs identity`); an email already there, set by
+# a person or an earlier start, is left with its name. Only those two keys are taken from the
+# helper's lines. scripts/github-app-token.mjs's selftest runs this function, sourcing this file with
+# ENTRYPOINT_FUNCTIONS_ONLY=1 (the end of this file).
+commit_identity() {
   if [ -z "$(git config --global user.email)" ]; then
     local identity key value
     if [ -n "$workspace" ] && identity="$(cd "$workspace" && node scripts/github-app-token.mjs identity)"; then
@@ -219,6 +224,12 @@ plugin() {
       || warn "could not install the $id plugin -- run \`claude plugin install $id --scope project\` in $PWD"
   fi
 }
+
+# Sourced with ENTRYPOINT_FUNCTIONS_ONLY=1, as scripts/github-app-token.mjs's selftest sources it to
+# run commit_identity, this file defines its functions and runs none of its steps.
+if [ "${ENTRYPOINT_FUNCTIONS_ONLY:-}" = 1 ]; then
+  return 0
+fi
 
 setup || true
 credentials || true

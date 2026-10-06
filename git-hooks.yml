@@ -374,11 +374,11 @@ pre-push:
     # endpoint on loopback and a key it makes: no network, and no key of the App's. The helper itself
     # reads the App's private key and GitHub's API, and runs in no job. It runs real `git` and `sh`
     # through the image's two wrappers, `.devcontainer/gh` and `.devcontainer/git-credential-github-app`,
-    # and real `git` under the git config `.devcontainer/Dockerfile` writes, read from it, so all three
-    # are in the glob, with the policy it reads, the loader it reads it through and the git helper it
-    # imports. 3.96 s wall for its 30 cases (`/usr/bin/time -p` on `node`, one run) on a macOS 26.7.1
+    # and real `git` under the git config `.devcontainer/Dockerfile` writes, read from it, and sources
+    # `.devcontainer/entrypoint.sh` under bash to run its `commit_identity`, so all four are in the
+    # glob, with the policy it reads, the loader it reads it through and the git helper it imports. 3.96 s wall for its 30 cases (`/usr/bin/time -p` on `node`, one run) on a macOS 26.7.1
     # laptop with Node 24.21.0, 2026-10-06, most of it the child processes each case runs; 3.05 s for
-    # 24, before the cases under the image's config; 35 since the cases for a kept token of another
+    # 24, before the cases under the image's config; 39 since the cases for a kept token of another
     # repository and for the commit identity, not timed.
     - name: github-app-token-selftest
       glob:
@@ -386,6 +386,7 @@ pre-push:
         - '.devcontainer/gh'
         - '.devcontainer/git-credential-github-app'
         - '.devcontainer/Dockerfile'
+        - '.devcontainer/entrypoint.sh'
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'
         - 'tools/lib/git-env.ts'

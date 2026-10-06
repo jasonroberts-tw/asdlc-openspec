@@ -18,14 +18,16 @@ the old file still bind-mounts your `~/.config/gh`, `~/.claude` and `~/.claude.j
 reads your login, as a container of 2026-09-25 did after the change merged.
 `docker ps -a --filter label=devcontainer.local_folder=<the clone's absolute path>` shows a clone's
 container, stopped or running, and when it was made: `devcontainer up` starts a stopped one too.
-When in doubt, pass `--remove-existing-container`, which costs a container rebuilt and nothing
-else, since Claude Code's state lives in a volume.
+When in doubt, pass `--remove-existing-container`. It rebuilds the container, which discards its
+`~/.gitconfig` and its kept token, both of which the next start sets again. A container made since
+the App keeps Claude Code's state in its volume. One made before it kept that state in your host's
+`~/.claude`, so its new volume starts empty and asks for a login.
 
 Start it on a clone of its own, with no linked worktrees, and not on the checkout your sessions on
 the host use. The container bind-mounts the clone, `.git` included, so a `git switch` there switches
-the host's checkout too. Worse, it cannot see the host paths the clone's worktrees live at: on
+the host's checkout too. It cannot see the host paths the clone's worktrees live at either. On
 2026-10-06 a container started on the primary checkout left git with no record of any of the
-worktrees under `.claude/worktrees/` (`asdlc-openspec-486e`).
+worktrees under `.claude/worktrees/`, by a trigger not yet known (`asdlc-openspec-486e`).
 
 The first build takes several minutes and is cached afterwards. You get the toolchain the root
 `mise.toml` pins (Node, Python, `bd`, `gh`, Vale, uv and graphify), Claude Code, and the two plugins
