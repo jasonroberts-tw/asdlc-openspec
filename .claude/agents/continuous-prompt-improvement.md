@@ -137,9 +137,9 @@ sections are the value.
    the commit it read them at, and the pull request it produced. Then the loads `mise run prompt-runs`
    prints, its metric and each candidate, for a person to retire or keep
    (`.claude/skills/retire-asset/SKILL.md`).
-2. **What the earlier reviews' changes did in these runs.** Each change an earlier review's pull
-   request made to a file of this review, and whether these runs show it working, not working, or
-   not exercised.
+2. **What the earlier reviews' changes did in these runs.** The fixes `mise run prompt-runs` prints
+   under recurrence, each not exercised, exercised or shown again, and their rate, the metric
+   `count-index.md` § Rates and metrics defines.
 3. **What the runs cost that the prompts did not prevent**, as numbered findings grouped by file,
    each with its key, the runs that showed it, the condition of the threshold it met (`met`), how
    often the situation arises, what it costs when it does, the net words its edit adds, and its fix:
