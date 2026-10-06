@@ -1,15 +1,26 @@
 /**
  * The ratchet. Warning counts in the pre-existing code may FALL, never RISE.
  *
- *   node scripts/lint-ratchet.mjs            compare against eslint.baseline.json, exit 1 on any increase
- *   node scripts/lint-ratchet.mjs --update   rewrite the baseline to the current counts
- *
  * WHY THIS EXISTS instead of `--max-warnings 0`. A large tree written before any linter existed
  * carries thousands of warnings. Demanding zero warnings on day one forces a single enormous cleanup
  * commit that nobody reviews properly; demanding nothing lets the count drift up forever. A ratchet
  * gives such a tree a monotonic path to clean without either.
  *
  * ERRORS are never tolerated, in any area, at any count. Only warnings ratchet.
+ *
+ *   node scripts/lint-ratchet.mjs            compare against eslint.baseline.json, exit 1 on any increase
+ *   node scripts/lint-ratchet.mjs --update   rewrite the baseline to the current counts
+ *
+ * NEEDS these, and no network, token or environment variable:
+ * - eslint, at the first `node_modules/.bin/eslint` (`eslint.cmd` on Windows) found walking up
+ *   from the checkout root, the parent of `scripts/`, through `findBin` in
+ *   `scripts/lib/bin-path.mjs`; in a linked worktree that can be the primary checkout's. With
+ *   none, the run refuses before linting anything.
+ * - An ESLint config that eslint finds when the script runs `eslint . -f json` from the root.
+ *   The script reads no config itself; an eslint exit above 1, or output that is not JSON, fails
+ *   the run.
+ * - Without `--update`, `eslint.baseline.json` at the root, which `--update` writes and the run asks
+ *   you to commit. The comparison reads its `warnings` and refuses when the file is absent.
  */
 import { spawn } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
