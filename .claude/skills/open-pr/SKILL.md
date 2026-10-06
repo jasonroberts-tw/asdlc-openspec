@@ -1,6 +1,6 @@
 ---
 name: open-pr
-description: Open a pull request from an agent branch and see it through to its merge - test the merge against the open pull requests, end the title with the ids of the issues it carries, pass the body from a file, watch with one watcher, act on each outcome of verify and the pull-request reviewer, enable auto-merge once both pass, wait for the merge, and remove the worktree and branch after it. Use whenever a session opens a pull request - from the bead or change-finalize skill, the fan-out-work or prompt-review agent, or when asked to open one.
+description: Open a pull request from an agent branch and see it through to its merge - test the merge against the open pull requests, watch with one watcher, act on each outcome of verify and the pull-request reviewer, enable auto-merge once both pass, wait for the merge, and remove the worktree and branch after it. Use whenever a session opens a pull request - from the bead or change-finalize skill, the fan-out-work or prompt-review agent, or when asked to open one.
 ---
 
 Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
