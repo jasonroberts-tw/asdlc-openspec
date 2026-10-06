@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `mise run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-49 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43, D-44, D-45, D-46, D-47, D-48 and D-49 added 2026-10-05).**
+**Status: every decision from D-01 to D-50 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43, D-44, D-45, D-46, D-47, D-48, D-49 and D-50 added 2026-10-05).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-49` is checked by `mise run check:register`, which reads those headings, the table and each
+> `D-01 … D-50` is checked by `mise run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -105,6 +105,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-47** | The pull-request reviewer sets one status per pushed head and merges nothing: GitHub's auto-merge merges under the trunk's ruleset, the approval label retires, and a hook refuses a workflow edit that could forge the status | `.github/workflows/pr-review.yml`'s one `review` job; `review`, `forgeProblems` and `wait` in `scripts/pr-review.mjs`, held by `pr-review:check` and `pr-review:selftest`; `scripts/hooks/guard-workflow-edit.mjs` and `guard-git.mjs`'s merge rule, held by `worktree:selftest`; `tools/policy/pr-review.json` without its labels; `CLAUDE.md`, `open-pr` and `change-finalize`, and their budgets; the ruleset and auto-merge on GitHub, a person's; D-07's, D-09's, D-21's, D-37's, D-46's and R-01's amendments |
 | **D-48** | The prompt review's tracker lines are parsed by one command, whose header is their one home, and it counts each prompt's loads and names those no analysed run loads for a person | `scripts/prompt-runs.mjs` as `prompt-runs`, held by `prompt-runs:selftest` at pre-push and in CI; five `promptReview*` keys in `tools/policy/agent-workflows.json`; `close-prompt-run` § 1 and § 2, the reviewer's § 2, § 6 and § 7, and `CLAUDE.md` § Prompt reviews; the load metric in `count-index.md`; three budgets; D-06's, D-17's and D-44's amendments; D-49's amendment, where an analysis ends |
 | **D-49** | A key the prompt review holds ends with a closed line: carried by a merged pull request, owned by an issue, or set aside by a person | `promptReviewClosedMarker` in `tools/policy/agent-workflows.json`; the closed line's form and an analysis's end at any marker in the header of `scripts/prompt-runs.mjs`, held by `prompt-runs:selftest`; `findingsCarried` in `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; the reviewer's § 3, § 4, § 6 and § 7, consolidated first, and its budget; D-10's and D-48's amendments |
+| **D-50** | A run's analysis quotes each correction the user made, and one that states a rule can settle a stored decision case | `close-prompt-run` § 1, consolidated first; "the user's correction" in the reviewer's § 3, `prompt-case-author.md` and the `settledBy` row of `.claude/prompt-cases/README.md`; three budgets |
 
 ## Risks
 
@@ -2454,6 +2455,42 @@ Where it loses: the held section of `mise run prompt-runs` needs `gh` and the ne
 - `mise run prompt-runs:selftest`: 70 of 70 checks, an undoctored control first; `mise run workflows:selftest`: 301 of 301 cases. With each of 26 checks broken in turn, 22 of the command's and 4 of the workflow's, one at a time, each break turned at least one case red. The first run of those breaks left one green: a merged group carrying a finding its agent set aside, which no case held until one was added.
 - The reviews' defects were each seen red before their fix: the tie on one issue and the three malformed closed lines, 66 of 70 checks, and the refused result with no `findingsCarried`, 300 of 301 cases.
 - The reviewer's agent, `node scripts/check-prompts.mjs --counts`: 2,273 at `2f630f1`, where the prompt review of #150 had set it, 2,250 after its consolidation and 2,414 at this entry's commit; the same steps from `fb66108`, before the rebase onto #150's merge, gave 2,274, 2,251 and 2,415. Its budget row's `means` gives them.
+
+### D-50 · A run's analysis quotes each correction the user made, and one that states a rule can settle a stored decision case
+
+**Recorded 2026-10-05**, carried by `asdlc-openspec-r6ha.7`, a child of `asdlc-openspec-r6ha`. The issue's description set both halves and where it loses, and no question was put at the claim. The session that built it chose the words.
+
+**Builds on / amends:** builds on D-08 item 1, the analysis a run leaves as a note, which now quotes the user's corrections; and on D-32, whose stored cases a correction may now settle. It amends neither: D-32 lists no settling source, and D-08 item 1 gives the note's form, which the header of `scripts/prompt-runs.mjs` holds since D-48, not what its analysis says.
+
+**Decision.**
+
+1. **The analysis quotes each user correction.** `.claude/skills/close-prompt-run/SKILL.md` § 1 asks for what made the run slower or wrong and each user correction, quoted, each point with the prompt it concerns.
+2. **A correction that states a rule can settle a stored case.** A correction that states a rule, not a choice for that run alone, joins the run's action, a reviewer's finding, a later commit and the section's sentence among a case's settling sources. The list lives in three places, each of which now names "the user's correction": `.claude/agents/continuous-prompt-improvement.md` § 3; `.claude/agents/prompt-case-author.md`, which keeps its own copy because it reads only its own file; and the `settledBy` row of `.claude/prompt-cases/README.md`.
+3. **No code changes.** A correction is a point of the run's analysis, so its case's source stays `{ run, point, commit }`, and `.claude/workflows/author-prompt-cases.js` is unchanged.
+
+**Why.** The loop never heard what the user corrected: `close-prompt-run` § 1 asked for "what made the run slower or wrong", and no prompt of the loop named a user's correction. A correction is the most direct ground truth a run gets, and a session can explain away its own mistake where it cannot explain away the user's words. Hermes Agent's review prompt calls a correction of style or workflow a "FIRST-CLASS skill signal" (`agent/background_review.py` at 667b232). One alternative lost:
+
+- **Every correction a settling source.** A choice the user made for one run, such as which issue to take first, would become a case that holds every later run to it.
+
+Where it loses: a correction made in haste becomes a stored case that keeps out a sound edit, until a pull request of its own changes the case's expected answer (`.claude/prompt-cases/README.md` § How a case is made, stored and judged). And the analysis's quote is the session's copy of the user's words, which no gate checks against the conversation.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound.
+- **The prompts:**
+  - `.claude/skills/close-prompt-run/SKILL.md` § 1, consolidated first in a commit of its own;
+  - `.claude/agents/continuous-prompt-improvement.md` § 3;
+  - `.claude/agents/prompt-case-author.md`.
+- **`tools/policy/prompt-budgets.json`:** their three rows and `provenance`.
+- **`.claude/prompt-cases/README.md`:** the `settledBy` row.
+
+**Figures.** The prompts' counts, each `node scripts/check-prompts.mjs --counts`, at `aa159c9` and at this entry's commit:
+
+- `close-prompt-run`: 641, then 635 after its consolidation, and 640 at the end.
+- The prompt reviewer's agent: 2,414 and 2,428.
+- `prompt-case-author.md`: 385 and 399.
+
+Each budget row's `means` gives the same steps.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
