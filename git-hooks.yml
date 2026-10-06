@@ -370,6 +370,23 @@ pre-push:
         - 'package.json'
         - 'package-lock.json'
       run: mise run prompt-runs:selftest
+    # The dev container's GitHub App helper, `scripts/github-app-token.mjs`, over a stub of GitHub's
+    # endpoint on loopback and a key it makes: no network, and no key of the App's. The helper itself
+    # reads the App's private key and GitHub's API, and runs in no job. It runs real `git` and `sh`
+    # through the image's two wrappers, `.devcontainer/gh` and `.devcontainer/git-credential-github-app`,
+    # so both are in the glob, with the policy it reads, the loader it reads it through and the git
+    # helper it imports. 3.05 s wall for its 24 cases (`/usr/bin/time -p` on `node`, one run) on a
+    # macOS 26.7.1 laptop with Node 24.21.0, 2026-10-06, most of it the child processes each case runs.
+    - name: github-app-token-selftest
+      glob:
+        - 'scripts/github-app-token.mjs'
+        - '.devcontainer/gh'
+        - '.devcontainer/git-credential-github-app'
+        - 'tools/policy/**'
+        - 'tools/lib/policy.ts'
+        - 'tools/lib/git-env.ts'
+        - 'tasks.toml'
+      run: mise run github-app-token:selftest
     # The worktree hooks and the guard, negative-tested: each case asserts the REASON a refusal
     # reports. Also loads every command `.claude/settings.json` registers from a subdirectory and
     # from outside the checkout, through a stand-in `node` that runs no hook, so the settings file is

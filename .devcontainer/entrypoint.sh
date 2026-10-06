@@ -14,13 +14,14 @@
 # cannot load `.vale.ini`. Its styles are what `vale sync` downloads into the
 # repository, once, and a person runs it (.devcontainer/README.md): this script does not...
 #
-# ...and the wiring for the credential mounts declared in devcontainer.json, which is here for the
-# same reason: it depends on what those mounts actually brought in, which is a fact about the host
-# and unknown at build time.
+# ...and a check that the agents' GitHub App, as which the container's `git` and `gh` act, can mint
+# a token, which is here for the same reason: it depends on the key devcontainer.json mounts from
+# the host, which is unknown at build time.
 #
 # ...and the two Claude Code plugins .claude/settings.json enables, beads@beads-marketplace and
-# vale@agent-tools, for both reasons: the marketplaces they come from are registered in the mounted
-# ~/.claude, and a project-scope install record names the clone's path, a bind mount.
+# vale@agent-tools, for both reasons: the marketplaces they come from are registered in the
+# container's own ~/.claude, a volume, and a project-scope install record names the clone's path, a
+# bind mount.
 #
 # Wired to ENTRYPOINT by the Dockerfile so that devcontainer.json needs no lifecycle command. Runs
 # on every container start, which is why every step below is idempotent and cheap when there is
@@ -99,13 +100,13 @@ setup() {
   fi
 
   # The Dolt remote is already configured in .beads/config.yaml (refs/dolt/data on the GitHub
-  # remote), so hydrating needs credentials for that remote. Until `gh auth login` has been run it
-  # cannot work, which is a hint and not an error. Never `bd init` -- that creates a new tracker
-  # rather than joining this one.
+  # remote), so hydrating needs the App's token, which git reaches through the image's credential
+  # helper. Until the App's key is mounted it cannot work, which is a hint and not an error. Never
+  # `bd init` -- that creates a new tracker rather than joining this one.
   if [ ! -d .beads/embeddeddolt ]; then
     log 'hydrating the beads issue database'
     bd bootstrap >/dev/null 2>&1 \
-      || warn 'bd bootstrap failed -- run `gh auth login`, then `bd bootstrap` (never `bd init`)'
+      || warn 'bd bootstrap failed -- once the GitHub App mints a token (a warning below says so if it cannot), run `bd bootstrap` (never `bd init`)'
   fi
 
   # Vale's styles are downloaded into the clone by `vale sync`, which needs the network, so this
@@ -117,38 +118,29 @@ setup() {
 
 }
 
-# The mounts declared in devcontainer.json carry your host logins in; this makes them usable. Each
-# check exists because the corresponding failure is silent and looks like something else.
+# The container's `git` and `gh` act as the agents' GitHub App, through the wrappers the Dockerfile
+# installs (docs/decisions.md § D-51); this checks they can, at start, rather than at a session's
+# first push. Each check exists because the corresponding failure is silent and looks like something
+# else.
 credentials() {
-  # A bind mount whose source does not exist on the host is created by the daemon as an empty
-  # root-owned directory, and the tool that owns it then fails on a write it should have been able
-  # to make. `vscode` has passwordless sudo in this base image.
-  local path
-  for path in "$HOME/.claude" "$HOME/.config/gh"; do
-    if [ -d "$path" ] && [ ! -w "$path" ]; then
-      warn "taking ownership of $path (it arrived root-owned, so the host path was missing)"
-      sudo chown -R "$(id -u):$(id -g)" "$path" 2>/dev/null || warn "chown $path failed"
-    fi
-  done
-
-  # Same cause, worse symptom: Claude Code reads ~/.claude.json as a file, and a directory there is
-  # a parse error rather than a missing login.
-  if [ -d "$HOME/.claude.json" ]; then
-    warn '~/.claude.json is a directory -- your host has no ~/.claude.json for the mount to bind.'
-    warn 'Run `claude` once on the host, or drop that mount from .devcontainer/devcontainer.json.'
+  # A new volume takes the image's ~/.claude as it is, owned by `vscode`; one the daemon made before
+  # the image had that directory arrives root-owned, and Claude Code then fails on a write it should
+  # have been able to make. `vscode` has passwordless sudo in this base image.
+  if [ -d "$HOME/.claude" ] && [ ! -w "$HOME/.claude" ]; then
+    warn "taking ownership of $HOME/.claude (the volume arrived root-owned)"
+    sudo chown -R "$(id -u):$(id -g)" "$HOME/.claude" 2>/dev/null || warn "chown $HOME/.claude failed"
   fi
 
-  # Teaches git to use gh's token, which is what makes `git push` and `gh pr create --base main` work
-  # over https without a second credential. Idempotent; writes the container's own ~/.gitconfig,
-  # which is why that file is deliberately NOT mounted from the host.
-  if gh auth status >/dev/null 2>&1; then
-    gh auth setup-git >/dev/null 2>&1 || warn 'gh auth setup-git failed'
-  else
-    warn 'gh is not authenticated -- run `gh auth login`, or see the ~/.config/gh mount in devcontainer.json'
+  # The App's key comes from the host, and a missing one fails every push, `gh` call and tracker pull
+  # in a way that reads as a network fault. The helper's own message says which: no directory, no
+  # key, two keys, or GitHub's refusal. A token minted here is kept, so the session's first command
+  # does not wait for one.
+  if [ -n "$workspace" ] && ! (cd "$workspace" && node scripts/github-app-token.mjs token >/dev/null); then
+    warn 'the GitHub App could not mint a token, so git and gh cannot reach GitHub -- .devcontainer/README.md says how to give the container its key'
   fi
 
-  # ~/.gitconfig is container-local for the reason given above, so an identity set on the host does
-  # not reach here, and a commit made without one is a commit nobody can attribute.
+  # ~/.gitconfig is the container's own, so an identity set on the host does not reach here, and a
+  # commit made without one is a commit nobody can attribute.
   if [ -z "$(git config --global user.email)" ]; then
     warn 'git identity unset: git config --global user.name "..." && git config --global user.email "you@example.com"'
   fi
@@ -157,15 +149,16 @@ credentials() {
 # The two plugins .claude/settings.json enables. A plugin loads only when its marketplace is
 # registered *and* Claude Code holds an install record for it: on 2026-10-03 a host with the beads
 # marketplace registered and no record loaded none of the plugin's hooks, skills or agent, and only
-# /plugin said so (asdlc-openspec-7us). The image registers both marketplaces, but the mounted
-# ~/.claude hides that copy, and the record a project-scope install writes names the clone's path,
-# which the image never sees: so both are checked here against what ~/.claude holds, the record
-# against this clone's path. It runs after credentials(), which makes ~/.claude writable, and with
+# /plugin said so (asdlc-openspec-7us). The image registers both marketplaces in the ~/.claude a new
+# volume starts from, but a volume made earlier keeps what it held, and the record a project-scope
+# install writes names the clone's path, which the image never sees: so both are checked here
+# against what ~/.claude holds, the record against this clone's path. It runs after credentials(),
+# which makes ~/.claude writable, and with
 # `bd` on PATH, which the beads plugin's hook runs (`bd prime`). No `-y`, so that an install that
 # would run a command it displays is left to a person. That `claude plugin install` without `-y` and
 # without a terminal refuses such an install is NOT VERIFIED: the lane that wrote this function
 # (asdlc-openspec-7us) ran it against a stub `claude`, never a real one, and built no container.
-# asdlc-openspec-xw8z carries the check, in a built container with the host's ~/.claude mounted.
+# asdlc-openspec-xw8z carries the check, in a built container.
 plugins() {
   if [ -z "$workspace" ] || ! cd "$workspace" 2>/dev/null; then
     return 0
