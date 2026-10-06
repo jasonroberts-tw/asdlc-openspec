@@ -14,8 +14,20 @@
     "context": ".."
   },
   // The image already runs as this user; naming it keeps the CLI from falling back to root and
-  // leaving root-owned files in a bind-mounted clone.
+  // leaving root-owned files in the clone.
   "remoteUser": "vscode",
+
+  // No host checkout. The CLI bind-mounts the folder it is given unless this is set, and through that
+  // mount a container shared the host's `.git` and `.beads/` with it: it unregistered the host's
+  // worktrees (asdlc-openspec-486e), corrupted the tracker's database by writing it beside the host
+  // (asdlc-openspec-9a2a), and wrote code the host then ran (asdlc-openspec-3901). Empty, it mounts
+  // nothing; the container works in a clone of its own, in the workspace volume below, which
+  // entrypoint.sh clones at the first start (docs/decisions.md § D-54). The folder given to the CLI
+  // then supplies only this file and the build's context, so it may be any clone, the one your
+  // sessions use included. The volume is named in `mounts`, not here, because the CLI substitutes
+  // `${devcontainerId}` there and not in this property (CLI 0.89.0, tried on 2026-10-06).
+  "workspaceMount": "",
+  "workspaceFolder": "/workspaces/asdlc-openspec",
 
   // None of your logins. A session here acts as the agents' GitHub App, and as nobody else
   // (docs/decisions.md § D-51), so this mounts none of your `~/.config/gh`, `~/.ssh`, `~/.claude` or
@@ -33,7 +45,10 @@
     "source=${localEnv:HOME}${localEnv:USERPROFILE}/.asdlc-agent-j,target=/home/vscode/.github-app,type=bind,readonly",
     // Claude Code's state, in a volume of the container's own, one per clone: your login in the
     // container, its history and its plugins, kept across a rebuild and shared with no host.
-    "source=claude-code-${devcontainerId},target=/home/vscode/.claude,type=volume"
+    "source=claude-code-${devcontainerId},target=/home/vscode/.claude,type=volume",
+    // The container's own clone, one per folder given to the CLI: the only copy of what a session
+    // here has not pushed, which `docker volume rm` on it, or a reset of Docker, deletes.
+    "source=workspace-${devcontainerId},target=/workspaces/asdlc-openspec,type=volume"
   ],
 
   "containerEnv": {
@@ -43,6 +58,8 @@
     // it. Set on the container rather than in the image, because only the CLI knows the folder's
     // name.
     "MISE_TRUSTED_CONFIG_PATHS": "${containerWorkspaceFolder}",
+    // The clone entrypoint.sh makes at the first start and sets up at every start.
+    "REPO_WORKSPACE": "${containerWorkspaceFolder}",
     // The clone whose scripts/github-app-token.mjs the image's `gh` and git credential helper run,
     // and the directory the key is mounted at above.
     "GITHUB_APP_WORKSPACE": "${containerWorkspaceFolder}",

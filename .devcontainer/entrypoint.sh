@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# The three setup steps that cannot be image layers, because each one reads the repository and the
-# repository is a bind mount that does not exist at build time:
+# The container's own clone of the repository, made at the first start in the workspace volume
+# devcontainer.json mounts, since no host checkout is mounted (docs/decisions.md § D-54), and then
+# the three setup steps that cannot be image layers, because each one reads that clone and it does
+# not exist at build time:
 #
 #   1. `npm ci`                   -- node_modules holds native binaries, so it belongs to the
 #                                    container's platform, not the host's. This is also why
@@ -21,8 +23,8 @@
 #
 # ...and the two Claude Code plugins .claude/settings.json enables, beads@beads-marketplace and
 # vale@agent-tools, for both reasons: the marketplaces they come from are registered in the
-# container's own ~/.claude, a volume, and a project-scope install record names the clone's path, a
-# bind mount.
+# container's own ~/.claude, a volume, and a project-scope install record names the clone's path,
+# which the image never sees.
 #
 # ...and Claude Code's status line, .devcontainer/statusline.sh, set in the settings in that volume
 # when they set none, for the first reason: a volume made before the image changed keeps what it held.
@@ -43,7 +45,44 @@ warn() { printf '\033[33m[devcontainer]\033[0m %s\n' "$*"; }
 # The clone, once setup() has found it; plugins() installs into it.
 workspace=''
 
+# The copy of the policy record the Dockerfile puts in the image, which names the repository clone()
+# clones: the clone's own copy does not exist yet.
+policy=/usr/local/share/workspace-entrypoint/tool-settings.json
+
+# take_ownership <dir>: a volume Docker creates for a path the image lacks arrives root-owned, and
+# Claude Code or git then fails on a write it should have been able to make. `vscode` has
+# passwordless sudo in this base image.
+take_ownership() {
+  if [ -d "$1" ] && [ ! -w "$1" ]; then
+    warn "taking ownership of $1 (the volume arrived root-owned)"
+    sudo chown -R "$(id -u):$(id -g)" "$1" 2>/dev/null || warn "chown $1 failed"
+  fi
+}
+
+# The first start clones the repository into REPO_WORKSPACE, the workspace volume, over HTTPS with
+# no token, since the repository is public; later pushes go through the App's credential helper,
+# which runs from this clone. A start that finds `.git` there leaves the clone as it is: a session
+# pulls. Fails, after a warning, only when the clone cannot be made, and setup() then stops, since
+# every step after it reads the clone.
+clone() {
+  local repo="${REPO_WORKSPACE:-}" slug
+  if [ -z "$repo" ] || [ -e "$repo/.git" ]; then
+    return 0
+  fi
+  take_ownership "$repo"
+  if ! slug="$(jq -er 'select((.githubAppRepositoryOwner | type) == "string" and (.githubAppTokenRepository | type) == "string") | "\(.githubAppRepositoryOwner)/\(.githubAppTokenRepository)"' "$policy" 2>/dev/null)"; then
+    warn "cannot clone: $policy names no githubAppRepositoryOwner and githubAppTokenRepository -- rebuild the container"
+    return 1
+  fi
+  log "cloning https://github.com/$slug into $repo"
+  if ! git clone --quiet "https://github.com/$slug.git" "$repo"; then
+    warn "cloning https://github.com/$slug failed -- run \`git clone https://github.com/$slug.git $repo\` once the network is back"
+    return 1
+  fi
+}
+
 setup() {
+  clone || return 0
   local repo="${REPO_WORKSPACE:-}"
 
   # Which mounted directory is this repository? Named by package.json rather than by path, because
@@ -128,12 +167,8 @@ setup() {
 # else.
 credentials() {
   # A new volume takes the image's ~/.claude as it is, owned by `vscode`; one the daemon made before
-  # the image had that directory arrives root-owned, and Claude Code then fails on a write it should
-  # have been able to make. `vscode` has passwordless sudo in this base image.
-  if [ -d "$HOME/.claude" ] && [ ! -w "$HOME/.claude" ]; then
-    warn "taking ownership of $HOME/.claude (the volume arrived root-owned)"
-    sudo chown -R "$(id -u):$(id -g)" "$HOME/.claude" 2>/dev/null || warn "chown $HOME/.claude failed"
-  fi
+  # the image had that directory arrives root-owned.
+  take_ownership "$HOME/.claude"
 
   # The App's key comes from the host, and a missing one fails every push, `gh` call and tracker pull
   # in a way that reads as a network fault. The helper's own message says which: no directory, no

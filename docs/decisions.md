@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `mise run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-53 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43, D-44, D-45, D-46, D-47, D-48, D-49, D-50, D-51 and D-52 added 2026-10-05; D-53 added 2026-10-06).**
+**Status: every decision from D-01 to D-54 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43, D-44, D-45, D-46, D-47, D-48, D-49, D-50, D-51 and D-52 added 2026-10-05; D-53 and D-54 added 2026-10-06).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-53` is checked by `mise run check:register`, which reads those headings, the table and each
+> `D-01 … D-54` is checked by `mise run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -106,9 +106,10 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-48** | The prompt review's tracker lines are parsed by one command, whose header is their one home, and it counts each prompt's loads and names those no analysed run loads for a person | `scripts/prompt-runs.mjs` as `prompt-runs`, held by `prompt-runs:selftest` at pre-push and in CI; five `promptReview*` keys in `tools/policy/agent-workflows.json`; `close-prompt-run` § 1 and § 2, the reviewer's § 2, § 6 and § 7, and `CLAUDE.md` § Prompt reviews; the load metric in `count-index.md`; three budgets; D-06's, D-17's and D-44's amendments; D-49's amendment, where an analysis ends |
 | **D-49** | A key the prompt review holds ends with a closed line: carried by a merged pull request, owned by an issue, or set aside by a person | `promptReviewClosedMarker` in `tools/policy/agent-workflows.json`; the closed line's form and an analysis's end at any marker in the header of `scripts/prompt-runs.mjs`, held by `prompt-runs:selftest`; `findingsCarried` in `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; the reviewer's § 3, § 4, § 6 and § 7, consolidated first, and its budget; D-10's and D-48's amendments |
 | **D-50** | A run's analysis quotes each correction the user made, and one that states a rule can settle a stored decision case | `close-prompt-run` § 1, consolidated first; "the user's correction" in the reviewer's § 3, `prompt-case-author.md` and the `settledBy` row of `.claude/prompt-cases/README.md`; `docs/playbook.md` § 4.5; three budgets |
-| **D-51** | Agent sessions are to act as a GitHub App, from a dev container that holds none of the maintainer's credentials, since the floor is meant to stop an agent working against the maintainer | This register: R-02, and D-38's, D-47's and R-01's amendments. Carried out by `asdlc-openspec-owva.2`, the App, `asdlc-openspec-owva.4`, the container, and `asdlc-openspec-64wd`, `verify`'s split, each open when this entry was recorded |
+| **D-51** | Agent sessions are to act as a GitHub App, from a dev container that holds none of the maintainer's credentials, since the floor is meant to stop an agent working against the maintainer | This register: R-02, and D-38's, D-47's and R-01's amendments. Carried out by `asdlc-openspec-owva.2`, the App, `asdlc-openspec-owva.4`, the container, and `asdlc-openspec-64wd`, `verify`'s split, each open when this entry was recorded; D-54's amendment, under which item 3's container mounts no host checkout |
 | **D-52** | `prompt-runs` follows each fix a merged prompt review carried through later runs, and reports the fix-recurrence rate | `recurrenceOf` and the recurrence section of `scripts/prompt-runs.mjs`, held by `prompt-runs:selftest`; `promptReviewFixRecurrenceFloor` and `promptReviewFixRecurrenceNotViableShare` in `tools/policy/agent-workflows.json`; the fix-recurrence row of `count-index.md`; the reviewer's § 7 item 2 |
-| **D-53** | No prune this repository runs takes the record of a worktree its checkout cannot see, and the guard refuses a session's bare `git worktree prune` from any checkout | `scripts/hooks/worktree-remove.mjs` without its prune; the prune rule of `scripts/prune-worktree-branches.mjs`; `scripts/hooks/guard-git.mjs`'s prune rule; `gc.worktreePruneExpire` in `.devcontainer/Dockerfile`; all held by `worktree:selftest`; `.devcontainer/README.md` and the rows of the guard, the hook, the sweep and the selftest |
+| **D-53** | No prune this repository runs takes the record of a worktree its checkout cannot see, and the guard refuses a session's bare `git worktree prune` from any checkout | `scripts/hooks/worktree-remove.mjs` without its prune; the prune rule of `scripts/prune-worktree-branches.mjs`; `scripts/hooks/guard-git.mjs`'s prune rule; `gc.worktreePruneExpire` in `.devcontainer/Dockerfile`; all held by `worktree:selftest`; `.devcontainer/README.md` and the rows of the guard, the hook, the sweep and the selftest; D-54's amendment, under which a container sees no host record |
+| **D-54** | The dev container works in a clone of its own, in a volume, cloned at its first start, and mounts no host checkout | `workspaceMount`, `workspaceFolder`, the workspace volume and `REPO_WORKSPACE` in `.devcontainer/devcontainer.json`; `clone` and `take_ownership` in `.devcontainer/entrypoint.sh`; the policy record the Dockerfile copies in and its ignore file admits; `githubAppRepositoryOwner` in `tools/policy/tool-settings.json`; `.devcontainer/README.md` and `README.md`; D-51's and D-53's amendments |
 
 ## Risks
 
@@ -2548,6 +2549,8 @@ Where it loses:
 - `release` does not exist: `git ls-remote --heads origin main release` lists `main` alone.
 - Ruleset 24542312's values, R-02's Figures; the three GitHub pages, quoted inline above with their addresses.
 
+> **Amended 2026-10-06 by D-54.** Item 3's container mounts no host checkout. It works in a clone of its own, in a volume, so nothing a container session writes reaches a command the host runs (`asdlc-openspec-3901`, option 1). Until D-54 the clone was bind-mounted read-write from the host, and a git hook's command, a Claude Code hook or a script either runs, written there, ran on the host's next commit or session with the maintainer's credentials.
+
 ### D-52 · `prompt-runs` follows each fix a merged prompt review carried through later runs, and reports the fix-recurrence rate
 
 **Recorded 2026-10-05**, carried by `asdlc-openspec-r6ha.8`, a child of `asdlc-openspec-r6ha`. The maintainer chose to wait for `asdlc-openspec-6yt.1`, so the first figures rest on keys that do not drift between reviews (the parent's decision 3, with its loss). On 2026-10-05, before the claim, they answered the issue's three questions, each from options that showed where the recommended one loses, recorded in its notes:
@@ -2651,6 +2654,62 @@ Where it loses:
 
 - `node scripts/hooks/worktree-hooks.selftest.mjs`, each new case first run against the code before its fix: 7 checks failed against `42d08ad`'s hook and sweep, 2 against that guard, 1 against the first `isBarePrune` for `--dry-run --no-dry-run`, 1 against `42d08ad`'s Dockerfile, 2 against the hook's fallback by basename, and 1 against its first `adminDirOf`, which trusted a rewritten `.git` file. Each passes at this entry's last commit.
 - `mise run gates`: 49 of 49 jobs at this entry's last commit.
+
+> **Amended 2026-10-06 by D-54.** A container made since D-54 mounts no host checkout and works in a fresh clone, which holds none of another checkout's worktree records. So this entry's trigger, and the routes `asdlc-openspec-15gm` carries, no longer reach the host's records from it. Items 1 to 4 stay, for a container made before D-54 and not recreated, and for any other checkout whose records name paths it cannot see.
+
+### D-54 · The dev container works in a clone of its own, in a volume, cloned at its first start, and mounts no host checkout
+
+**Recorded 2026-10-06**, carried by `asdlc-openspec-vvns`. That day a dev container on the primary checkout and the host wrote the tracker's embedded database at once, and its journal was corrupted (`asdlc-openspec-9a2a`). It was the second harm that day through the container's bind mount, after `asdlc-openspec-486e`'s. The session put five options to the maintainer, each with the case it misses, and the maintainer chose `asdlc-openspec-3901`'s option 1 (its note of 2026-10-06).
+
+**Builds on / amends:** amends D-51, whose item 3's container now mounts no host checkout, and D-53, whose container case no longer arises from a container made since this entry. Builds on D-51's App, as which the clone pushes, and on D-07, which leaves a pull request that changes this register or `.devcontainer/**` to a person. Records `asdlc-openspec-3901`'s choice.
+
+**Decision.**
+
+1. **`devcontainer.json` sets `workspaceMount` empty**, so the Dev Containers CLI bind-mounts no folder, and mounts a named volume, `workspace-${devcontainerId}`, at `workspaceFolder`. The volume is named in `mounts`, because the CLI substitutes `${devcontainerId}` there and not in `workspaceMount`.
+2. **The entrypoint clones the repository into the volume at a start that finds no `.git` there**, over HTTPS with no token, since the repository is public. It leaves the clone as it is at every later start.
+3. **The repository's address comes from policy**: `githubAppRepositoryOwner`, new, and `githubAppTokenRepository`. The entrypoint reads them from the copy of `tools/policy/tool-settings.json` the Dockerfile puts in the image, since the clone that holds the record does not exist yet.
+4. **The folder given to the CLI supplies only the configuration and the build's context**, so any clone serves, the one the host's sessions use included.
+5. **D-53's defences stay**, for a container made before this entry, which keeps its bind mount until it is recreated.
+
+**Why.** Every harm found through the dev container on 2026-10-06 came through the bind mount:
+
+- the host's worktree records were unregistered (`asdlc-openspec-486e`), and routes to that stayed open (`asdlc-openspec-15gm`);
+- the tracker's journal was corrupted by two writers, since the mount carries neither side's file lock to the other's kernel (`asdlc-openspec-9a2a`);
+- code a container session wrote was code the host then ran (`asdlc-openspec-3901`).
+
+A clone of its own shares no file with the host, so nothing is left to enforce. Four alternatives lost, each by a case it misses:
+
+- **An `initializeCommand` refusing `devcontainer up`** on a folder without a marker set when a container's clone is made. `docker start` of a container made earlier never runs it.
+- **Refusing tracker writes at the container's start** without that marker. A session can run `bd` by its path, and git's routes to the host's worktrees stay open.
+- **A host-session hook refusing work in a checkout a running container has.** The maintainer's own terminal passes it, and an in-session hook never blocks (`CLAUDE.md` § The gate ladder).
+- **The container's tracker database alone in a volume.** The worktree routes, a branch switch that moves the host's checkout, and 3901's route stay open.
+
+Each of the four enforces a convention that an agent working against the maintainer can walk around, and D-51 item 1 says the floor is meant to stop that agent.
+
+Where it loses:
+
+- **An edit the maintainer makes on the host reaches a container session only once it is pushed and pulled.** A VS Code attach gives a view of the clone, and brings the maintainer's logins in while attached (D-51).
+- **The volume holds the only copy of what a container session has not pushed.** `docker volume rm` on it, or a reset of Docker or Rancher Desktop, deletes it.
+- **The container's tracker database is a second one, synced through the Dolt remote.** When both sides change the same issue between pulls, the second side's push is refused, and its `bd dolt pull` stops with "merge conflicts in issues require operator resolution". That side resets its `main` to the remote's and makes its change again.
+- **The image's build reads the folder given to the CLI, while the clone is `main`.** A folder far behind `main` builds an image whose toolchain the clone's `mise.toml` disagrees with, which the entrypoint warns of.
+- **A changed `githubAppRepositoryOwner` reaches a container only once it is rebuilt**, and only one whose volume holds no clone yet.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound; the amendments under D-51 and D-53, and their table cells.
+- **`.devcontainer/devcontainer.json`:** `workspaceMount`, `workspaceFolder`, the workspace volume and `REPO_WORKSPACE`.
+- **`.devcontainer/entrypoint.sh`:** `clone`, run first by `setup`, and `take_ownership`, which `credentials` now uses for `~/.claude` too.
+- **`.devcontainer/Dockerfile` and `Dockerfile.dockerignore`:** the copy of `tools/policy/tool-settings.json`, in the last layer, and the comments that named a bind mount.
+- **`tools/policy/tool-settings.json`:** `githubAppRepositoryOwner` and its `Means`, and the record's `describes` and `gatedBy`.
+- **`.devcontainer/README.md`:** § The container's clone, and every passage that assumed the bind mount.
+- **`README.md`:** the dev container's setup step, two rows of § The guardrails and the row for the container's start.
+
+**Figures.** Each from 2026-10-06:
+
+- `gh repo view --json nameWithOwner,visibility` gave `jasonroberts-tw/asdlc-openspec` and `PUBLIC`.
+- A probe container from Alpine, started from a linked worktree with `workspaceMount` naming a volume by `${devcontainerId}`, failed: the CLI, 0.89.0, passed the variable through, and Docker refused the name. With `workspaceMount` empty and the volume in `mounts`, `docker inspect` listed that volume as its one mount.
+- A container built from this entry's branch, with `--workspace-folder` naming the primary checkout: `docker inspect` listed the App's key directory, read-only, and two volumes. Its `/proc/self/mountinfo` placed the workspace on the VM's ext4 volume and named no host path but the key directory's. Its entrypoint logged the clone, `npm ci`, the hooks, the tracker's hydration and both plugins' installs, and no warning.
+- A note written to `asdlc-openspec-vvns` from that container and one from the host, in the same minute: the container's push completed, the host's was refused as non-fast-forward, and the host's `bd dolt pull` stopped on the merge conflict above, its database left as it was.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

@@ -8,11 +8,13 @@
 # rebuild. A layer is built once, cached, and identical for everyone. devcontainer.json next to this
 # file does little but point at it.
 #
-# The only steps NOT in a layer are those that need the repository itself, which is a bind mount
-# that does not exist at build time: `npm ci`, the git hooks, hydrating the issue database,
-# installing those two plugins, whose project-scope install record names the clone's path, the
-# App's commit identity, read from the clone's policy, and the status line, which runs a script in
-# the clone. Those live in entrypoint.sh, which this file copies in and wires to ENTRYPOINT -- so the setup is
+# The only steps NOT in a layer are those that need the repository itself, which does not exist at
+# build time: the container's own clone, in a volume, which entrypoint.sh makes at the first start
+# and no host checkout is mounted over (docs/decisions.md § D-54). They are `npm ci`, the git hooks,
+# hydrating the issue database, installing those two plugins, whose project-scope install record
+# names the clone's path, the App's commit identity, read from the clone's policy, and the status
+# line, which runs a script in the clone.
+# Those live in entrypoint.sh, which this file copies in and wires to ENTRYPOINT -- so the setup is
 # still owned by the image, and devcontainer.json still has no lifecycle command in it.
 #
 # Versions are the base tag below, and `mise.toml`, whose every tool installs here through
@@ -75,14 +77,17 @@ RUN apt-get update \
 COPY --from=ghcr.io/jdx/mise:2026.10.0@sha256:5253aad873240675097e6229786dff87d54a9ac9d52917e42903de37511f74b3 /usr/local/bin/mise /usr/local/bin/mise
 
 # --- git configuration --------------------------------------------------------------------------
-# The workspace is a bind mount owned by the host user, whose uid rarely matches the container's;
-# without safe.directory git calls the whole repository untrusted and every hook fails.
+# safe.directory: the workspace was a bind mount owned by the host user until D-54, and is now a
+# volume the entrypoint takes ownership of before it clones. It stays, so that git still trusts the
+# clone if that chown failed; otherwise git calls the whole repository untrusted and every hook fails.
 # core.autocrlf input backs .gitattributes' `eol=lf` -- scripts/*.sh must stay LF or bash dies on
 # an invisible carriage return.
-# gc.worktreePruneExpire never: here every record of a worktree made on the host names a host path,
-# so git reads each one as stale, and `git gc`, which a commit can start, prunes a stale record once
-# its index is older than this, three months by default. A prune here unregisters the worktree on
-# the host too (asdlc-openspec-486e). The host's own git still prunes the records that are stale there.
+# gc.worktreePruneExpire never: on a bind-mounted host checkout, every record of a worktree made on
+# the host names a host path, so git reads each one as stale, and `git gc`, which a commit can
+# start, prunes a stale record once its index is older than this, three months by default. A prune
+# there unregisters the worktree on the host too (asdlc-openspec-486e). Since D-54 the container's
+# clone is its own and holds no host record, but the setting stays, as D-53 records it, and
+# worktree:selftest holds it. The host's own git still prunes the records that are stale there.
 RUN git config --system --add safe.directory '*' \
     && git config --system core.autocrlf input \
     && git config --system gc.worktreePruneExpire never
@@ -116,8 +121,8 @@ USER vscode
 # --- the toolchain `mise.toml` pins ---------------------------------------------------------------
 # Every tool, as the user the container runs as, each verified against `mise.lock`: `--locked`
 # refuses a tool the lock does not cover for this platform. They install under that user's home,
-# which no mount covers (devcontainer.json mounts only the App's key directory and a volume at
-# `~/.claude`).
+# which no mount covers (devcontainer.json mounts only the App's key directory, a volume at
+# `~/.claude` and the workspace's volume under `/workspaces/`).
 #
 # The shims go on PATH through ENV, not `mise activate`, which is a shell function, as nvm is: it
 # exists only in an interactive shell, and every hook, the ENTRYPOINT and `docker exec` would miss
@@ -176,6 +181,12 @@ ENV GIT_CONFIG_COUNT=2 \
     GIT_CONFIG_VALUE_0="" \
     GIT_CONFIG_KEY_1=credential.https://github.com.helper \
     GIT_CONFIG_VALUE_1=/usr/local/lib/github-app/bin/git-credential-github-app
+
+# The policy record that names the repository the entrypoint clones at the first start
+# (`githubAppRepositoryOwner` and `githubAppTokenRepository`), read from here because the clone that
+# holds it does not exist yet. Last, because the record changes often and a layer above it would
+# rebuild the toolchain each time. A change reaches a container once it is rebuilt.
+COPY tools/policy/tool-settings.json /usr/local/share/workspace-entrypoint/tool-settings.json
 
 ENTRYPOINT ["/usr/local/bin/workspace-entrypoint"]
 CMD ["sleep", "infinity"]
