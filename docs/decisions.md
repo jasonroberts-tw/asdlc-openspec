@@ -2690,7 +2690,7 @@ Where it loses:
 
 - **An edit the maintainer makes on the host reaches a container session only once it is pushed and pulled.** A VS Code attach gives a view of the clone, and brings the maintainer's logins in while attached (D-51).
 - **The volume holds the only copy of what a container session has not pushed.** `docker volume rm` on it, or a reset of Docker or Rancher Desktop, deletes it.
-- **The container's tracker database is a second one, synced through the Dolt remote.** When both sides change the same issue between pulls, the second side's push is refused, and its `bd dolt pull` stops with "merge conflicts in issues require operator resolution", leaving its database as it was. That side's tracker writes then wait on a person. A reset of its `main` to the remote's discards every commit the remote lacks, not the conflicting one alone. One did so on 2026-10-06 to two notes another session had written meanwhile, which were replayed from Dolt's reflog.
+- **The container's tracker database is a second one, synced through the Dolt remote.** When both sides change the same issue between pulls, the second side's push is refused, and its `bd dolt pull` stops with "merge conflicts in issues require operator resolution", leaving its database as it was. That side's tracker writes then wait on a person, who recovers it with `bd dolt pull --strategy theirs`. That pull merges, keeping every commit on that side, and takes the remote's version of the conflicting issue alone, so that side's change to it is lost and made again. A reset of that side's `main` to the remote's discards every commit the remote lacks, and one did so on 2026-10-06 to two notes another session had written meanwhile, which were replayed from Dolt's reflog.
 - **The clone's `node_modules` is a second copy**, which the entrypoint installs at the first start beside each host checkout's own.
 - **The image's build reads the folder given to the CLI, while the clone is `main`.** A folder far behind `main` builds an image whose toolchain the clone's `mise.toml` disagrees with, which the entrypoint warns of.
 - **A changed `githubAppRepositoryOwner` reaches a container only once it is rebuilt**, and only one whose volume holds no clone yet.
@@ -2712,6 +2712,12 @@ Where it loses:
 - A probe container from Alpine, started from a linked worktree with `workspaceMount` naming a volume by `${devcontainerId}`, failed: the CLI, 0.89.0, passed the variable through, and Docker refused the name. With `workspaceMount` empty and the volume in `mounts`, `docker inspect` listed that volume as its one mount.
 - A container built from this entry's branch, with `--workspace-folder` naming the primary checkout: `docker inspect` listed the App's key directory, read-only, and two volumes. Its `/proc/self/mountinfo` placed the workspace on the VM's ext4 volume and named no host path but the key directory's. Its entrypoint logged the clone, `npm ci`, the hooks, the tracker's hydration and both plugins' installs, and no warning.
 - A note written to `asdlc-openspec-vvns` from that container and one from the host, in the same minute: the container's push completed, the host's was refused as non-fast-forward, and the host's `bd dolt pull` stopped on the merge conflict above, its database left as it was.
+- The recovery, from a container built from this entry's branch:
+  - The host wrote a note to `asdlc-openspec-9a2a`, then each side wrote one to `asdlc-openspec-vvns` in the same minute.
+  - The container's push completed. The host's push was refused, and its plain pull stopped on the conflict.
+  - `bd dolt pull --strategy theirs`, bd 1.3.0, then gave "Pull complete.": a merge commit, "Resolve merge conflicts using 'theirs' strategy", over the host's two commits and the remote's.
+  - `asdlc-openspec-vvns` kept the container's note, and `asdlc-openspec-9a2a` kept the host's.
+  - The host's push completed, and the container's next pull brought the host's note on `9a2a` in.
 - `github-app-token:selftest`: 49 of 49 cases at this entry's commit. With `clone`'s check for a commit taken out, the case for an unfinished clone failed, "exited 0", and the other 48 held.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request

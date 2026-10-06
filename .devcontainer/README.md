@@ -58,10 +58,12 @@ so build from one near `main`: the entrypoint warns when the image lacks a tool 
   does. Two sides that change the same issue between pulls conflict. The second side's push is
   refused, and its `bd dolt pull` stops with "merge conflicts in issues require operator
   resolution", leaving its database as it was, so its tracker writes wait on a person. `CLAUDE.md`
-  § The task store says what a session does with a refused push. Resetting that side's `main` to the
-  remote's discards every commit on it that the remote lacks, not the conflicting one alone. On
-  2026-10-06 such a reset took two notes another session had written meanwhile, which were then
-  replayed from Dolt's reflog (asdlc-openspec-vvns).
+  § The task store says what a session does with a refused push. A person recovers that side with
+  `bd dolt pull --strategy theirs`, then `bd dolt push`. The pull merges, keeping every commit on
+  that side, and takes the remote's version of the conflicting issue alone, so that side's change to
+  it is made again afterwards. A reset of that side's `main` to the remote's discards every commit
+  the remote lacks instead, as one did on 2026-10-06 to two notes another session had written
+  meanwhile. Both were seen on 2026-10-06 (asdlc-openspec-vvns).
 
 The first build takes several minutes and is cached afterwards. You get the toolchain the root
 `mise.toml` pins (Node, Python, `bd`, `gh`, Vale, uv and graphify), Claude Code, and the two plugins
