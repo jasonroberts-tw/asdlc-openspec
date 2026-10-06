@@ -82,13 +82,29 @@ RUN git config --system --add safe.directory '*' \
 COPY .devcontainer/entrypoint.sh /usr/local/bin/workspace-entrypoint
 RUN chmod 0755 /usr/local/bin/workspace-entrypoint
 
+# --- the agents' GitHub App ---------------------------------------------------------------------
+# The container's `git` and `gh` act as the agents' GitHub App and as nobody else
+# (docs/decisions.md § D-51). git's system config makes `git-credential-github-app` its one helper
+# for github.com, after an empty helper that drops any set before it, and reads GitHub's two SSH
+# address forms as HTTPS, so the tracker's Dolt remote, which runs `git` against
+# `ssh://git@github.com/...`, reaches GitHub through the same helper with no SSH key. `gh` here
+# stands ahead of mise's on PATH (below) and runs it with the App's token. Both run
+# scripts/github-app-token.mjs from the clone, which a build cannot see, so a change to that script
+# needs no rebuild and a change to either wrapper does.
+COPY .devcontainer/gh .devcontainer/git-credential-github-app /usr/local/lib/github-app/bin/
+RUN chmod 0755 /usr/local/lib/github-app/bin/gh /usr/local/lib/github-app/bin/git-credential-github-app \
+    && git config --system --add credential.https://github.com.helper '' \
+    && git config --system --add credential.https://github.com.helper /usr/local/lib/github-app/bin/git-credential-github-app \
+    && git config --system --add url.https://github.com/.insteadOf ssh://git@github.com/ \
+    && git config --system --add url.https://github.com/.insteadOf git@github.com:
+
 USER vscode
 
 # --- the toolchain `mise.toml` pins ---------------------------------------------------------------
 # Every tool, as the user the container runs as, each verified against `mise.lock`: `--locked`
 # refuses a tool the lock does not cover for this platform. They install under that user's home,
-# which no mount covers (devcontainer.json mounts only `~/.claude`, `~/.claude.json` and
-# `~/.config/gh`).
+# which no mount covers (devcontainer.json mounts only the App's key directory and a volume at
+# `~/.claude`).
 #
 # The shims go on PATH through ENV, not `mise activate`, which is a shell function, as nvm is: it
 # exists only in an interactive shell, and every hook, the ENTRYPOINT and `docker exec` would miss
@@ -101,7 +117,10 @@ USER vscode
 # says "No version is set for shim: node" (asdlc-openspec-8juz.1, question 6). Every gate runs from
 # the clone, and a shim hands the real tool directories to what it starts, so no gate meets that; a
 # global default would be a second home for the pin.
-ENV PATH="/home/vscode/.local/share/mise/shims:/home/vscode/.local/bin:${PATH}"
+#
+# The App's `gh` wrapper, copied in above, stands ahead of the shims, so a bare `gh` is the App's;
+# `mise exec` puts the real one first, as the version check below needs.
+ENV PATH="/usr/local/lib/github-app/bin:/home/vscode/.local/share/mise/shims:/home/vscode/.local/bin:${PATH}"
 # `.mise/locks/` beside them: a `pypi:` tool's locked install reads its uv lock there (D-35).
 COPY --chown=vscode:vscode mise.toml mise.lock /tmp/toolchain/
 COPY --chown=vscode:vscode .mise/locks /tmp/toolchain/.mise/locks
@@ -122,9 +141,10 @@ RUN curl -fsSL https://claude.ai/install.sh | bash \
 # neither plugin: Claude Code also needs an install record for each, and a project-scope record
 # names the clone's path, which does not exist at build time, so entrypoint.sh installs both at
 # start (asdlc-openspec-7us). Non-fatal, and belt-and-braces: an image build that cannot reach
-# GitHub should still produce a working container, and devcontainer.json's ~/.claude mount hides
-# this copy whenever it is present. entrypoint.sh asks `claude plugin marketplace list` at start and
-# adds each marketplace that whatever ended up at ~/.claude does not have.
+# GitHub should still produce a working container. devcontainer.json mounts a volume of the
+# container's own at ~/.claude, which Docker fills from this copy when the volume is new, and which
+# keeps what the container writes after. entrypoint.sh asks `claude plugin marketplace list` at start
+# and adds each marketplace that whatever ended up at ~/.claude does not have.
 RUN claude plugin marketplace add gastownhall/beads || true; \
     claude plugin marketplace add vale-cli/agent-tools || true
 

@@ -5,8 +5,12 @@
 # name. Docker reads this file, not a root .dockerignore, because its name is the Dockerfile's plus
 # `.dockerignore`. `.mise/locks/` holds the uv lock of each `pypi:` tool `mise.toml` pins, which
 # `mise install --locked` reads beside the two files and fails without (docs/decisions.md § D-35).
+# `gh` and `git-credential-github-app` are the wrappers through which the image's `gh` and `git`
+# act as the agents' GitHub App (docs/decisions.md § D-51).
 *
 !mise.toml
 !mise.lock
 !.mise/locks/**
 !.devcontainer/entrypoint.sh
+!.devcontainer/gh
+!.devcontainer/git-credential-github-app

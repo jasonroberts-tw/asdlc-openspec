@@ -152,6 +152,12 @@ jobs:
       # selftest.
       - name: the prompt runs' parser and report, negative-tested over fixture exports
         run: mise run prompt-runs:selftest
+      # Seconds (git-hooks.yml's `github-app-token-selftest` job has the measurement): the dev
+      # container's GitHub App helper over a stub of GitHub's endpoint on loopback, and the image's two
+      # wrappers through real git and sh. The helper itself reads the App's private key and GitHub's
+      # API, and runs only in the dev container.
+      - name: the dev container's GitHub App helper, negative-tested over a stubbed GitHub
+        run: mise run github-app-token:selftest
       # Seconds (git-hooks.yml's `gate-summary-selftest` job has the measurement): the Stop hook over
       # scratch citation trees and scratch repositories under the temporary directory, and the
       # block-generated-edit hook over a scratch repository with two linked worktrees.

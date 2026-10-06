@@ -17,41 +17,38 @@
   // leaving root-owned files in a bind-mounted clone.
   "remoteUser": "vscode",
 
-  // Your host logins, reused rather than repeated. These are the two things an image cannot bake,
-  // because they are yours and not the project's.
+  // None of your logins. A session here acts as the agents' GitHub App, and as nobody else
+  // (docs/decisions.md § D-51), so this mounts none of your `~/.config/gh`, `~/.ssh`, `~/.claude` or
+  // `~/.claude.json`, and passes no `GH_TOKEN` through: each would hand a session your identity, and
+  // a writable `~/.claude` a way to run code in your next session on the host, through its hooks.
   //
   // `${localEnv:HOME}${localEnv:USERPROFILE}` is one path, not two: exactly one of the pair is set
   // -- HOME on Linux and macOS, USERPROFILE on Windows -- so the empty one contributes nothing.
-  //
-  // If you have never run `claude` or `gh` on this machine, run each once first, or delete the
-  // mount you do not want: the daemon answers a bind mount whose source is missing by creating it,
-  // as an empty root-owned DIRECTORY, and `~/.claude.json` then exists as a directory where a file
-  // is expected. entrypoint.sh detects both cases and says so rather than letting them look like
-  // something else's bug.
-  //
-  // Read-write on purpose. Claude Code rewrites `.credentials.json` when its token refreshes, and a
-  // read-only mount would work until the token expired and then fail in a way nobody would connect
-  // to this line. The corollary is that container sessions share your host's Claude Code state --
-  // history, projects, plugins -- rather than keeping a second copy of it.
   "mounts": [
-    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.claude,target=/home/vscode/.claude,type=bind",
-    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.claude.json,target=/home/vscode/.claude.json,type=bind",
-    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.config/gh,target=/home/vscode/.config/gh,type=bind"
+    // The App's private key, read-only: the directory holding it and nothing else, which
+    // scripts/github-app-token.mjs reads through GITHUB_APP_KEY_DIR below. A directory rather than
+    // the file, so a key generated afresh, under a new name, needs no edit here.
+    // .devcontainer/README.md says how to give the container the key.
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.asdlc-agent-j,target=/home/vscode/.github-app,type=bind,readonly",
+    // Claude Code's state, in a volume of the container's own, one per clone: your login in the
+    // container, its history and its plugins, kept across a rebuild and shared with no host.
+    "source=claude-code-${devcontainerId},target=/home/vscode/.claude,type=volume"
   ],
 
-  // mise trusts the clone's `mise.toml`, which a shim, a git hook or the entrypoint reads with no one
-  // there to answer a prompt to trust it, and nothing else: a path wider than the workspace folder
-  // would trust any other repository's `mise.toml` cloned beside it, and its settings with it. Set on
-  // the container rather than in the image, because only the CLI knows the folder's name.
   "containerEnv": {
-    "MISE_TRUSTED_CONFIG_PATHS": "${containerWorkspaceFolder}"
-  },
-
-  "remoteEnv": {
-    // Windows keeps gh's config in %APPDATA%\GitHub CLI rather than ~/.config/gh, so on a Windows
-    // host the third mount above lands empty. `gh auth token > $env:GH_TOKEN` before launching VS
-    // Code covers that; an unset variable arrives empty and gh ignores it.
-    "GH_TOKEN": "${localEnv:GH_TOKEN}"
+    // mise trusts the clone's `mise.toml`, which a shim, a git hook or the entrypoint reads with no
+    // one there to answer a prompt to trust it, and nothing else: a path wider than the workspace
+    // folder would trust any other repository's `mise.toml` cloned beside it, and its settings with
+    // it. Set on the container rather than in the image, because only the CLI knows the folder's
+    // name.
+    "MISE_TRUSTED_CONFIG_PATHS": "${containerWorkspaceFolder}",
+    // The clone whose scripts/github-app-token.mjs the image's `gh` and git credential helper run,
+    // and the directory the key is mounted at above.
+    "GITHUB_APP_WORKSPACE": "${containerWorkspaceFolder}",
+    "GITHUB_APP_KEY_DIR": "/home/vscode/.github-app",
+    // Claude Code keeps `.claude.json` beside the rest of its state when this is set, so all of it
+    // lands in the volume above rather than in the container's home, which a rebuild discards.
+    "CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
   },
 
   "customizations": {
