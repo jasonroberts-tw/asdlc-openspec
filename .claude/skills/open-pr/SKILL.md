@@ -88,7 +88,7 @@ gives every reason.
 | The pull request conflicts with `main` | Fetch, rebase onto `origin/main`, gate, and push with `--force-with-lease`. |
 | `verify` and `pr-review` pass: "Off the high-risk floor: auto-merge can merge it once verify passes" | Have GitHub merge it, with `prReviewMergeMethod` (`tools/policy/pr-review.json`): `gh pr merge <number> --auto --rebase`. Then wait (step 8). |
 | `pr-review` fails: "A person decides: …" | It waits for a person, for the reason given; say so, and why, then wait for the merge (step 8). |
-| `pr-review` errors: "The review did not complete: …", or the `review #<number>` job fails with no `pr-review` | Read that run: `gh run view <run> --log-failed`. A cause in the reviewer's own workflow is not this branch's to fix: the caller files it as a defect found on the way, and the pull request waits on that issue. A cause that does not repeat, such as a network error, is the maintainer's: give them `gh run rerun <run> --failed`, and the pull request waits on it. |
+| `pr-review` errors: "The review did not complete: …", or the `review #<number>` job fails with no `pr-review` | Read that run: `gh run view <run> --log-failed`. A cause in the reviewer's own workflow is not this branch's to fix: the caller files it as a defect found on the way, and the pull request waits on that issue. A cause that does not repeat, such as a network error, is the maintainer's (`docs/decisions.md` § D-51): give them `gh run rerun <run> --failed`, and the pull request waits on it. |
 
 Never pass `--admin`, nor ask GitHub to merge a head whose checks have not both passed: each merges
 a head no person read (`CLAUDE.md` § Git workflow).

@@ -378,7 +378,8 @@ pre-push:
     # are in the glob, with the policy it reads, the loader it reads it through and the git helper it
     # imports. 3.96 s wall for its 30 cases (`/usr/bin/time -p` on `node`, one run) on a macOS 26.7.1
     # laptop with Node 24.21.0, 2026-10-06, most of it the child processes each case runs; 3.05 s for
-    # 24, before the cases under the image's config.
+    # 24, before the cases under the image's config; 31 since a case for a kept token of another
+    # repository, not timed.
     - name: github-app-token-selftest
       glob:
         - 'scripts/github-app-token.mjs'
