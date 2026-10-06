@@ -436,7 +436,10 @@ const PRUNE_RULE = 'git worktree prune` takes every record git reads as stale'
 for (const [label, dir, command, reason] of [
   ['git worktree prune, in the primary checkout', primary, 'git worktree prune', PRUNE_RULE],
   ['git worktree prune -v, in a worktree', oursDir, 'git worktree prune -v', PRUNE_RULE],
+  // git honours the last of the pair, so a guard that looked for `--dry-run` anywhere let this prune.
+  ['git worktree prune --dry-run --no-dry-run, in the primary checkout', primary, 'git worktree prune --dry-run --no-dry-run', PRUNE_RULE],
   ['control: git worktree prune --dry-run, in the primary checkout', primary, 'git worktree prune --dry-run', null],
+  ['control: git worktree prune -n -v, in the primary checkout', primary, 'git worktree prune -n -v', null],
 ]) {
   const r = guardFrom(dir, { command })
   const verdict = reason === null ? 'allowed' : 'refused, by its reason'
@@ -1112,6 +1115,15 @@ check(
   prunedAfter.slice(0, 900),
 )
 check('and the live worktree keeps its record', unseenRegistered('lane'))
+// The image's half: `git gc` prunes a stale record once its index is older than
+// gc.worktreePruneExpire, so in the container it would take an old host worktree's. No selftest
+// builds the image, so this reads the Dockerfile's text; the trunk's before this case had no such line.
+check(
+  "the dev container's image sets gc.worktreePruneExpire to never",
+  /^\s*(?:RUN|&&) git config --system gc\.worktreePruneExpire never\s*$/m.test(
+    readFileSync(join(POLICY_ROOT, '.devcontainer', 'Dockerfile'), 'utf8'),
+  ),
+)
 
 /* --------------------------------------------------------------------------------------------- *
  * prune-worktree-branches: containment after a rebase merge (asdlc-openspec-dxf).
