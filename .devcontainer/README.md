@@ -1,5 +1,6 @@
 # `.devcontainer/` — the whole machine setup, as an image
 
+
 **The "new machine setup" half of the root `README.md`, baked into a container, in which an agent
 session acts as the agents' GitHub App and holds none of your logins.** With Docker and the Dev
 Containers CLI (`npm install -g @devcontainers/cli`), the prerequisites are the clone and the App's
