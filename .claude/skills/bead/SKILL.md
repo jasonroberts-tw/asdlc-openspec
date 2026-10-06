@@ -105,7 +105,8 @@ of its inputs.
 Stage every file the change adds (`git add`) before the gates run: a new file not yet added passes
 the citations and count-index gates unread. Run `mise run gates`, the build check here. There is no
 `tsc` to run: the repository has no `tsconfig.json`. Run no task name `tasks.toml` does not
-list. A red gate is fixed or reported, never bypassed.
+list. A red gate is fixed or reported, never bypassed; where its cause is not yet known, the
+`root-cause` skill finds it first.
 
 A defect found on the way is fixed in this branch only when it sits in a file the issue already
 changes. One left unfixed is filed as its own issue, never folded in, and before the pull request

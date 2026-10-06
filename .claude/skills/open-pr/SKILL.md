@@ -84,7 +84,7 @@ gives every reason.
 
 | What the checks show | What it asks |
 |---|---|
-| `verify` fails | Read the failing job, then fix, gate and push on the same branch. |
+| `verify` fails | Read the failing job, find its cause with the `root-cause` skill where it is not yet known, then fix, gate and push on the same branch. |
 | The pull request conflicts with `main` | Fetch, rebase onto `origin/main`, gate, and push with `--force-with-lease`. |
 | `verify` and `pr-review` pass: "Off the high-risk floor: auto-merge can merge it once verify passes" | Have GitHub merge it, with `prReviewMergeMethod` (`tools/policy/pr-review.json`): `gh pr merge <number> --auto --rebase`. Then wait (step 8). |
 | `pr-review` fails: "A person decides: …" | It waits for a person, for the reason given; say so, and why, then wait for the merge (step 8). |

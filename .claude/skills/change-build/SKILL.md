@@ -45,10 +45,11 @@ it returns. Pass each as it says, reading `settled` from the task's notes and th
 Then act on what it returns:
 
 - **`stopped`.** `spec-contradiction` is a spec that is wrong (§ 5). `proof-failing`, `not-red`
-  and `agent-died`: find the cause, fix it or run the workflow again, and report it if neither works;
-  never commit around it. After `not-red`, keep the build: for each scenario `why` names, revert
-  the change under test, see its proof fail and restore the change before the workflow runs again;
-  a discarded build is paid for twice. `refused`: correct what `why` names and run it again.
+  and `agent-died`: find the cause with the `root-cause` skill, fix it or run the workflow again, and
+  report it if neither works; never commit around it. After `not-red`, keep the build: for each
+  scenario `why` names, revert the change under test, see its proof fail and restore the change
+  before the workflow runs again; a discarded build is paid for twice. `refused`: correct what `why`
+  names and run it again.
   `not-independent`: delete every uncommitted file under the app's `independentTestDir`, then as
   `agent-died`. `re-design`: a re-design pass (§ 5). `architect-failing`: never fix the code
   against a test you read, or the fix fits that test; run the workflow again with each route's ID
