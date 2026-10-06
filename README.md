@@ -287,9 +287,12 @@ An agent session in the container acts as the agents' GitHub App and holds none 
 1. Put the App's private key, alone, in `~/.asdlc-agent-j/` on the host, as
    `.devcontainer/README.md` § Giving it the App's key says. The directory must exist, even empty,
    or Docker does not start the container.
-1. Clone, then run `devcontainer up --workspace-folder <clone>`. For a clone that already has a
-   container from before the App, add `--remove-existing-container`: `devcontainer up` starts an
-   existing container with the mounts it was made with, your logins among them.
+1. Clone, then run `devcontainer up --workspace-folder <clone>`. Use a clone of its own, with no
+   linked worktrees, not the checkout your sessions on the host use: the container shares the
+   clone's `.git`, and one started on the primary checkout left git with no record of the host's
+   worktrees (`asdlc-openspec-486e`). For a clone that already has a container from before the App,
+   add `--remove-existing-container`: `devcontainer up` starts an existing container with the
+   mounts it was made with, your logins among them.
 1. Wait for the first build, which installs every tool `mise.toml` pins from `mise.lock`.
    `.devcontainer/entrypoint.sh` then runs the install, the git hooks and the tracker's hydration on
    every start, registers each plugin marketplace and installs each plugin for the clone where one

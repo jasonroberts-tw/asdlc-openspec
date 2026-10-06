@@ -18,6 +18,12 @@ the old file still bind-mounts your `~/.config/gh`, `~/.claude` and `~/.claude.j
 reads your login, as a container of 2026-09-25 did after the change merged. `docker ps --filter
 label=devcontainer.local_folder=<clone>` shows a clone's container and when it was made.
 
+Start it on a clone of its own, with no linked worktrees, and not on the checkout your sessions on
+the host use. The container bind-mounts the clone, `.git` included, so a `git switch` there switches
+the host's checkout too. Worse, it cannot see the host paths the clone's worktrees live at: on
+2026-10-06 a container started on the primary checkout left git with no record of any of the
+worktrees under `.claude/worktrees/` (`asdlc-openspec-486e`).
+
 The first build takes several minutes and is cached afterwards. You get the toolchain the root
 `mise.toml` pins (Node, Python, `bd`, `gh`, Vale, uv and graphify), Claude Code, and the two plugins
 `.claude/settings.json` enables, `beads@beads-marketplace` and `vale@agent-tools`. The image
