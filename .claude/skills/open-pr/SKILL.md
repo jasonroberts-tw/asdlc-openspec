@@ -112,7 +112,8 @@ Once it has merged, clean up from the primary checkout. A session by then in ano
 worktree cleans up once it leaves that one, naming each merged worktree with its own `--finished`.
 
 1. Leave the worktree with `ExitWorktree`, action `keep`. The sweep below keeps it while this
-   session or a process it started is there; a `--finished` run after the session ends removes it.
+   session or a process it started is there; a `--finished` run after the session ends removes it
+   (not verified against the CLI).
 2. Run `git fetch origin`, then `mise run worktree:gc --dry-run --finished <worktree>`. The sweep is
    not this worktree's alone (`scripts/prune-worktree-branches.mjs`). If the dry run names this
    worktree alone, run it again without `--dry-run`; if it names others, only on the user's word,
