@@ -52,14 +52,18 @@
  * which the dev container gives it. Its selftest needs neither, so it is a pre-push job and a
  * `verify.yml` step: it makes a key with `node:crypto`, serves GitHub's endpoint from a stub on
  * loopback, and runs `git credential fill` and `.devcontainer/gh` through real `git` and `sh`, which
- * it skips, saying why, on Windows, where the container's wrappers never run.
+ * it skips, saying why, on Windows, where the container's wrappers never run. Since it is the
+ * selftest that sources `.devcontainer/entrypoint.sh` and reads the Dockerfile, it also holds the
+ * rest of the container's start that needs no image: the entrypoint's `statusline`,
+ * `.devcontainer/statusline.sh` through `sh`, and the Dockerfile's `NO_COLOR` for `bd` alone
+ * (asdlc-openspec-ikr3, asdlc-openspec-07bm).
  */
 import { spawn } from 'node:child_process'
 import { createPrivateKey, createSign, createVerify, generateKeyPairSync } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { homedir, tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { SCRATCH_GIT_ENV } from '../tools/lib/git-env.ts'
 import { copyPolicy, editPolicy, readPolicy } from '../tools/lib/policy.ts'
@@ -383,6 +387,24 @@ async function commitIdentity(ctx, { workspace = REPO_ROOT, preset = [] } = {}) 
   })
   return { r, name: (await git(['--get', 'user.name'])).stdout.trim(), email: (await git(['--get', 'user.email'])).stdout.trim() }
 }
+
+/**
+ * `.devcontainer/entrypoint.sh`'s `statusline`, run under bash with the file sourced for its
+ * functions alone and this checkout as the clone, against a `settings.json` of the case's own that
+ * holds `content`. Returns the run, what the file holds after it, and whether a `.tmp` was left.
+ */
+async function statusLine(ctx, content) {
+  const config = join(ctx.dir, 'claude')
+  const settings = join(config, 'settings.json')
+  mkdirSync(config, { recursive: true })
+  writeFileSync(settings, content)
+  const r = await run('bash', ['-c', 'ENTRYPOINT_FUNCTIONS_ONLY=1 . "$1" && workspace="$2" && statusline', 'statusline', ENTRYPOINT, REPO_ROOT], {
+    env: { ...ctx.gitEnv, CLAUDE_CONFIG_DIR: config },
+    cwd: ctx.dir,
+  })
+  return { r, after: readFileSync(settings, 'utf8'), tmp: existsSync(`${settings}.tmp`) }
+}
+const STATUS_LINE = { type: 'command', command: `sh '${join(REPO_ROOT, '.devcontainer', 'statusline.sh')}'` }
 const IMAGE_BIN = '/usr/local/lib/github-app/bin/'
 
 /**
@@ -755,6 +777,69 @@ function cases() {
         symlinkSync(join(REPO_ROOT, 'scripts'), join(clone, 'scripts'))
         const { r, name } = await commitIdentity(ctx, { workspace: clone })
         return name === ctx.botLogin && /the clone's own \.git\/config sets user\.email, so commits here carry me@work\.example\.invalid, not the App's/.test(r.stdout) ? null : `${said(r)}; left the name ${name}`
+      },
+    },
+    {
+      name: "the entrypoint's statusline sets statusLine to the clone's .devcontainer/statusline.sh in a settings.json without one, and keeps its other keys",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r, after, tmp } = await statusLine(ctx, '{"model":"opus","theme":"dark"}')
+        const want = `${JSON.stringify({ model: 'opus', theme: 'dark', statusLine: STATUS_LINE }, null, 2)}\n`
+        return r.status === 0 && after === want && !tmp && /status line set in /.test(r.stdout) ? null : `${said(r)}; left ${JSON.stringify(after)}`
+      },
+    },
+    {
+      name: "the entrypoint's statusline sets statusLine in a settings.json of whitespace alone, rather than writing it empty",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r, after, tmp } = await statusLine(ctx, ' \n')
+        return r.status === 0 && after === `${JSON.stringify({ statusLine: STATUS_LINE }, null, 2)}\n` && !tmp ? null : `${said(r)}; left ${JSON.stringify(after)}`
+      },
+    },
+    {
+      name: "the entrypoint's statusline leaves a settings.json that sets statusLine as it was, and logs nothing",
+      wrapper: true,
+      check: async (ctx) => {
+        const content = '{"statusLine":{"type":"command","command":"true"},"model":"opus"}'
+        const { r, after, tmp } = await statusLine(ctx, content)
+        return r.status === 0 && after === content && !tmp && r.stdout === '' ? null : `${said(r)}; left ${JSON.stringify(after)}`
+      },
+    },
+    {
+      name: "the entrypoint's statusline leaves a settings.json jq cannot parse as it was, and warns",
+      wrapper: true,
+      check: async (ctx) => {
+        const content = '{"model": "opus",'
+        const { r, after, tmp } = await statusLine(ctx, content)
+        return after === content && !tmp && /could not set the status line in .*is it valid JSON/.test(r.stdout) ? null : `${said(r)}; left ${JSON.stringify(after)}`
+      },
+    },
+    {
+      name: '.devcontainer/statusline.sh prints every field of a session through sh, which leaves a backslash in its JSON as it was',
+      wrapper: true,
+      check: async (ctx) => {
+        // A newline inside a JSON string is the two characters `\n` in its text, which dash's `echo`,
+        // the image's `sh`, would turn into a newline jq refuses, leaving every field empty.
+        const session = {
+          transcript_path: '/tmp/a\nb.jsonl',
+          workspace: { project_dir: ctx.dir },
+          model: { display_name: 'Opus 5.5' },
+          effort: { level: 'high' },
+          context_window: { remaining_percentage: 72.6, total_input_tokens: 54321 },
+          cost: { total_cost_usd: 1.234 },
+        }
+        const r = await run('sh', [join(REPO_ROOT, '.devcontainer', 'statusline.sh')], { env: ctx.gitEnv, input: JSON.stringify(session), cwd: ctx.dir })
+        const want = `${basename(ctx.dir)} | Opus 5.5 | effort:high | ctx:73% left | $1.23 | 54321 tok`
+        return r.status === 0 && r.stdout === want ? null : `${said(r)}, not ${want}`
+      },
+    },
+    {
+      name: "the image sets NO_COLOR for no process but bd, by an alias in the interactive bash, since Claude Code shows no color while it is set",
+      check: async () => {
+        const text = readFileSync(DOCKERFILE, 'utf8')
+        const env = [...text.matchAll(/^ENV ((?:[^\n]*\\\n)*[^\n]*)$/gm)].filter(([block]) => /\bNO_COLOR=/.test(block))
+        const alias = /^RUN .*alias bd='NO_COLOR=1 bd'.*\/etc\/bash\.bashrc/m.test(text)
+        return env.length === 0 && alias ? null : `${env.length} ENV line(s) set NO_COLOR for every process${alias ? '' : ', and no RUN line adds the bd alias to /etc/bash.bashrc'}`
       },
     },
     {

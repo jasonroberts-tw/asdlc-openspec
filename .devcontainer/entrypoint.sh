@@ -231,20 +231,20 @@ plugin() {
 # Claude Code's status line, run from the clone so an edit to the script needs no rebuild, set as
 # `statusLine` in the volume's settings.json only while that file sets none: a status line a person
 # sets in the container stays, and one deleted comes back at the next start. A file jq cannot read
-# is left as it is. It runs after credentials(), which makes ~/.claude writable.
+# is left as it is; one missing, empty or of whitespace alone reads as `{}` through
+# `first(inputs) // {}`, where `.` would print nothing and the write would empty the file. It runs
+# after credentials(), which makes ~/.claude writable. scripts/github-app-token.mjs's selftest runs it.
 statusline() {
-  local settings="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" current='{}' next
+  local settings="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json" current next
   if [ -z "$workspace" ] || [ ! -f "$workspace/.devcontainer/statusline.sh" ]; then
     return 0
   fi
-  if [ -s "$settings" ]; then
-    current="$(cat "$settings")"
-  fi
+  current="$(cat "$settings" 2>/dev/null)"
   if printf '%s' "$current" | jq -e 'has("statusLine")' >/dev/null 2>&1; then
     return 0
   fi
-  if next="$(printf '%s' "$current" | jq --arg command "sh '$workspace/.devcontainer/statusline.sh'" \
-    '. + {statusLine: {type: "command", command: $command}}' 2>/dev/null)" \
+  if next="$(printf '%s' "$current" | jq -n --arg command "sh '$workspace/.devcontainer/statusline.sh'" \
+    'first(inputs) // {} | . + {statusLine: {type: "command", command: $command}}' 2>/dev/null)" \
     && printf '%s\n' "$next" >"$settings.tmp" && mv "$settings.tmp" "$settings"; then
     log "status line set in $settings"
   else
@@ -254,7 +254,7 @@ statusline() {
 }
 
 # Sourced with ENTRYPOINT_FUNCTIONS_ONLY=1, as scripts/github-app-token.mjs's selftest sources it to
-# run commit_identity, this file defines its functions and runs none of its steps.
+# run commit_identity and statusline, this file defines its functions and runs none of its steps.
 if [ "${ENTRYPOINT_FUNCTIONS_ONLY:-}" = 1 ]; then
   return 0
 fi

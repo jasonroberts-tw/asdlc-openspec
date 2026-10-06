@@ -8,10 +8,11 @@
 # rebuild. A layer is built once, cached, and identical for everyone. devcontainer.json next to this
 # file does little but point at it.
 #
-# The only steps NOT in a layer are the four that need the repository itself, which is a bind mount
-# that does not exist at build time: `npm ci`, the git hooks, hydrating the issue database, and
-# installing those two plugins, whose project-scope install record names the clone's path.
-# Those live in entrypoint.sh, which this file copies in and wires to ENTRYPOINT -- so the setup is
+# The only steps NOT in a layer are those that need the repository itself, which is a bind mount
+# that does not exist at build time: `npm ci`, the git hooks, hydrating the issue database,
+# installing those two plugins, whose project-scope install record names the clone's path, the
+# App's commit identity, read from the clone's policy, and the status line, which runs a script in
+# the clone. Those live in entrypoint.sh, which this file copies in and wires to ENTRYPOINT -- so the setup is
 # still owned by the image, and devcontainer.json still has no lifecycle command in it.
 #
 # Versions are the base tag below, and `mise.toml`, whose every tool installs here through
@@ -87,8 +88,8 @@ RUN git config --system --add safe.directory '*' \
     && git config --system gc.worktreePruneExpire never
 
 # --- workspace setup, deferred to container start ------------------------------------------------
-# npm ci, the git hooks, the issue database and the plugins' install records all need the workspace,
-# which arrives only when it is mounted, so they cannot be layers. ENTRYPOINT is how they stay in the
+# npm ci, the git hooks, the issue database, the plugins' install records, the commit identity and
+# the status line all need the workspace, which arrives only when it is mounted, so they cannot be layers. ENTRYPOINT is how they stay in the
 # image anyway: the devcontainer CLI replaces the container's *command* with a sleep, and leaves the
 # image's entrypoint alone.
 COPY .devcontainer/entrypoint.sh /usr/local/bin/workspace-entrypoint
