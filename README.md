@@ -151,6 +151,7 @@ the rule. The third column wins over the first two.
 | A tool version stated in a second place, a pin that is a range, a pin the lockfile does not verify, a second mise config, or CI and the dev container on two mise releases | `check:toolchain`, at push and in CI, holds `mise.toml` to `mise.lock`, the workflows and the Dockerfile, and `check:toolchain:selftest` holds each refusal. CI's locked install refuses a pin the lockfile does not hold | the header of `mise.toml`; `docs/decisions.md` § D-31 |
 | A Node floor below what a locked package accepts, or a locked range nothing reads | `check:node-floor`, at push and in CI, holds `package.json` `engines` to every range `package-lock.json` locks, and refuses a range form it cannot read; `check:node-floor:selftest` holds each form it reads and each refusal | `README.md` § The Node floor, on every platform; `docs/decisions.md` § D-34 |
 | An agent in a worktree pushing to, switching to or rewriting a protected branch | `scripts/hooks/guard-git.mjs`, and the worktree hooks that provision only through `scripts/new-worktree.sh` | `CLAUDE.md` § Git workflow |
+| A session in the dev container acting as the maintainer, whose credentials can merge past the trunk's ruleset, set the status it requires or edit it | `.devcontainer/devcontainer.json` mounts none of the host's logins and the GitHub App's key alone, and the image's `git` and `gh` act as the App through `scripts/github-app-token.mjs`, which `github-app-token:selftest` holds. Nothing for a session started on the host, which keeps the routes `docs/decisions.md` § R-02 carries, or in a container VS Code attaches to, which brings your git credentials and SSH agent in | `docs/decisions.md` § D-51; `.devcontainer/README.md` |
 | An agent merging past the checks the trunk's ruleset requires, which only a person does | `scripts/hooks/guard-git.mjs`, from any checkout, for `gh pr merge --admin`; nothing for `gh api`, curl, a browser tool or the web UI (`docs/decisions.md` § R-01) | `CLAUDE.md` § Git workflow |
 | A workflow other than the reviewer's able to set the `pr-review` status GitHub merges by | `pr-review:check`, at push and in CI, and `scripts/hooks/guard-workflow-edit.mjs` on a session's Write or Edit, each refusing a workflow that grants `statuses: write`, `checks: write` or `write-all`, or names a job for the status; nothing for a workflow written through Bash, or a job whose name an expression builds | `docs/decisions.md` § D-47 |
 | A figure restated from memory that has since moved | `counts:check` re-derives every keyed count from its source | `count-index.md` § How to use it |
@@ -278,13 +279,22 @@ holds platform-native binaries. Use one clone per platform.
 
 ### Dev container
 
-1. On the host, run `claude` and `gh` once each, so the files the container bind-mounts exist.
-1. Clone, open the folder in VS Code, and choose "Reopen in Container".
+An agent session in the container acts as the agents' GitHub App and holds none of your logins
+(`docs/decisions.md` § D-51).
+
+1. Install the Dev Containers CLI: `npm install -g @devcontainers/cli`. Start the container with it,
+   not with VS Code's "Reopen in Container", which brings your git credentials and SSH agent in.
+1. Put the App's private key, alone, in `~/.asdlc-agent-j/` on the host, as
+   `.devcontainer/README.md` § Giving it the App's key says.
+1. Clone, then run `devcontainer up --workspace-folder <clone>`.
 1. Wait for the first build, which installs every tool `mise.toml` pins from `mise.lock`.
    `.devcontainer/entrypoint.sh` then runs the install, the git hooks and the tracker's hydration on
    every start, registers each plugin marketplace and installs each plugin for the clone where one
-   is missing, and warns rather than fails; read its output once. If it warns that a tool
-   `mise.toml` pins is missing from the image, rebuild the container.
+   is missing, and warns rather than fails; read its output once (`docker logs` on the container
+   shows it). If it warns that a tool `mise.toml` pins is missing from the image, rebuild the
+   container; if it warns that the GitHub App could not mint a token, fix the key and start again.
+1. Run `devcontainer exec --workspace-folder <clone> claude`, and log in once: Claude Code keeps its
+   state in a volume of the container's own.
 1. If it warned that Vale cannot load `.vale.ini`, run `vale sync` once in the container, then check
    that `vale ls-config` loads. The image carries every tool `mise.toml` pins; the styles land in the
    clone, so a rebuild keeps them.
@@ -293,7 +303,8 @@ holds platform-native binaries. Use one clone per platform.
    command its warning names.
 1. Run `mise run gates` and read a green suite before the first change.
 
-`.devcontainer/README.md` has the reasons and the mounts.
+`.devcontainer/README.md` has the reasons, what the container no longer shares, and how `git` and
+`gh` act as the App.
 
 ### The Node floor, on every platform
 
@@ -332,7 +343,7 @@ lockfile change that lifts that version above the floor is refused on the push t
 | Open a pull request | the `open-pr` skill | Tests the merge against the open pull requests, ends the title with the ids of the issues carried, reviews the branch with the `branch-reviewer` agent before the push, watches the checks with one watcher, and says what each outcome of `verify` and the reviewer asks, enabling auto-merge once both pass. It then waits for the merge with `scripts/pr-review.mjs wait`, and removes the worktree and branch. Every other skill and agent that opens a pull request opens it with this one. |
 | Close a run of a prompt | the `close-prompt-run` skill | Leaves the run's analysis as a note in the tracker and, when enough are pending or the oldest is old enough, launches the reviewer in the background under a name of its own, without waiting for it. |
 | Improve a prompt after running it | the `continuous-prompt-improvement` agent | Launched by the `close-prompt-run` skill (`CLAUDE.md` § Prompt reviews). One review reads every pending analysis, one agent per prompt file; what they change is one pull request, whose description is the review. An edit that turns a stored decision case of its prompt from right to wrong stays out of it (`.claude/prompt-cases/README.md`). |
-| Get a pull request reviewed and merged | nothing: `.github/workflows/pr-review.yml` sets `pr-review` on each pushed head, and `open-pr` enables auto-merge once it and `verify` pass | GitHub merges one off the high-risk floor (`prReviewHighRisk*` in `tools/policy/pr-review.json`) once `verify` passes too. `gh run rerun <run> --failed` runs a review that did not complete again. |
+| Get a pull request reviewed and merged | nothing: `.github/workflows/pr-review.yml` sets `pr-review` on each pushed head, and `open-pr` enables auto-merge once it and `verify` pass | GitHub merges one off the high-risk floor (`prReviewHighRisk*` in `tools/policy/pr-review.json`) once `verify` passes too. A review that did not complete is run again by the maintainer, with the `gh run rerun <run> --failed` that `open-pr` hands them, since the App sessions act as cannot. |
 | Merge a pull request the reviewer left to a person | merge it with the ruleset's bypass | A person only, never an agent (`CLAUDE.md` § Git workflow). |
 | Check a pull request, report or analysis before trusting it | the `adversarial-verifier` agent | Pass it the pull request number or file path. Every claim is re-derived from source; it reports a verdict table and changes nothing. `change-propose`, `change-design` and `change-plan` run it on what each wrote, before each stops for review (`docs/decisions.md` § D-39). |
 | Ask how parts of the repository connect | the `code-graph` skill, through the `graphify` MCP server | Each person builds the graph: `mise install`, step 3 of § Setup, installs the graphify release `mise.toml` pins, with its MCP extra; then run `mise run code-graph` from any checkout. It builds into the primary checkout and registers the server for it and its worktrees. A first build sends every document to the model `graphifyClaudeCliModel` names, on your own Claude plan; later builds send only what changed (`docs/decisions.md` § D-20). |
@@ -393,6 +404,7 @@ does.
 | `coupling:update` | |
 | `gate-summary:selftest` | pre-push + CI |
 | `gates` | |
+| `github-app-token:selftest` | pre-push + CI |
 | `harness` | |
 | `harness:graph` | |
 | `harness:selftest` | pre-push + CI |
@@ -463,7 +475,7 @@ proposes, and only a person promotes (`CLAUDE.md` § A program proposes; only a 
 | `tools/README.md` | The emitters and multi-file checks, one row each. |
 | `apps/calculator/README.md` | The calculator demo app: what each file and directory holds, and which specs win over it. |
 | `.claude/README.md` | What Claude Code loads when a session starts here. |
-| `.devcontainer/README.md` | The dev container's mounts, each with its failure mode. |
+| `.devcontainer/README.md` | The dev container: what it shares with the host and what it no longer does, the App it acts as, and how to start it. |
 | `KIT-CHECKLIST.md` | What the kit laid down, and what is still to adapt. |
 
 ## What runs automatically
@@ -504,6 +516,7 @@ hooks, and a session reads it once, at its start: restart the session after chan
 | `git push` that changes `tools/citations/`, `tools/lib/`, `tools/policy/`, `package.json` or `package-lock.json` | `citations:support:selftest`: the citation-support advisory over a stubbed judge. The advisory itself reads a token and the network, so it runs in no job. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `scripts/match-held-findings.mjs`, `tools/lib/`, `tools/policy/`, `tasks.toml`, `package.json` or `package-lock.json` | `prompt-review:match:selftest`: the prompt review's match of new findings to held ones, over a fixture export and a stubbed judge. The match itself reads a token, the tracker and the network, so it runs in no job. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `scripts/prompt-runs.mjs`, `tools/lib/`, `tools/policy/`, `tasks.toml`, `package.json` or `package-lock.json` | `prompt-runs:selftest`: the parser of the prompt review's lines and its report, over fixture exports. The command itself reads the tracker, so it runs in no job. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `scripts/github-app-token.mjs`, `.devcontainer/gh`, `.devcontainer/git-credential-github-app`, `tools/policy/`, `tools/lib/policy.ts`, `tools/lib/git-env.ts` or `tasks.toml` | `github-app-token:selftest`: the dev container's GitHub App helper over a stub of GitHub's endpoint on loopback, and the image's two wrappers through real `git` and `sh`. The helper itself reads the App's key and GitHub's API, so it runs in no job. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes a hook, a worktree script, `.vale.ini` or `.gitignore` | `worktree:selftest`: the worktree hooks and the guard, negative-tested. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `.vale.ini`, `.vale-styles/Layout/` or its selftest | `vale:selftest`: the `Layout` style's rules over fixtures, and every styled section of `.vale.ini` applying it. It runs `vale`, which mise installs on the CI runner too, so it is a `.github/workflows/verify.yml` step as well. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes a hook, the citations gate, `tools/lib/` or what `check:jobs` reads | `gate-summary:selftest`: the Stop hook's verdict over untracked and ignored files, and the checkout it gates; and the checkout the edit hook places an edit in. | `git-hooks.yml` (`pre-push`) |
@@ -530,7 +543,8 @@ hooks, and a session reads it once, at its start: restart the session after chan
 | `git push` that changes anything under `scripts/` or `tools/`, a workflow, the branch reviewer, `tasks.toml`, `package.json` or the lockfile | `pr-review:check`: the reviewer's workflow, agent and policy agree, no other workflow can set its status, and the floor covers every file the gates `prReviewFloorTasks` lists run and import and every policy key those files name, which it derives (`docs/decisions.md` § D-38); `pr-review:selftest`: its decisions over fixtures, and the check over doctored copies. | `git-hooks.yml` (`pre-push`) |
 | A pull request, or a push to `main`, a merge among them | Every gate that reads only committed files, cheapest first. It trusts none of the faster tiers. | `.github/workflows/verify.yml` |
 | A pull request against `main` opened, reopened, made ready for review or pushed to | The reviewer sets the `pr-review` status on that head from the floor alone, with a token that writes statuses and nothing else, and writes the reasons to the run's summary. GitHub's auto-merge merges a head whose status and `verify` pass. | `.github/workflows/pr-review.yml` |
-| The dev container starts | `npm ci` when the lockfile moved, the git hooks, and the tracker's hydration; each step warns and carries on. It warns, too, while a tool `mise.toml` pins is missing from the image, which it never installs, and while Vale cannot load `.vale.ini`, and runs no `vale sync`. | `.devcontainer/entrypoint.sh` |
+| The dev container starts | `npm ci` when the lockfile moved, the git hooks, and the tracker's hydration; each step warns and carries on. It warns, too, while a tool `mise.toml` pins is missing from the image, which it never installs; while Vale cannot load `.vale.ini`, though it runs no `vale sync`; and while the GitHub App cannot mint a token. | `.devcontainer/entrypoint.sh` |
+| `git` or `gh` reaches GitHub in the dev container | `scripts/github-app-token.mjs` hands it a token of the agents' GitHub App, minting a fresh one once the kept one has less than `githubAppTokenRefreshSeconds` left, through the image's git credential helper and its `gh` wrapper. | `.devcontainer/Dockerfile` |
 
 ## What is still a placeholder
 
