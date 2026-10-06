@@ -715,6 +715,26 @@ async function main() {
 /* ---------------------------------------------------------------------------- selftest ----- */
 
 /**
+ * Whether `pid` names a process that has not exited. A zombie has exited and waits on a parent to reap
+ * it, and `process.kill(pid, 0)` still finds it; where PID 1 reaps no orphan, as in the dev container,
+ * a job the runner killed stays one, so on Linux its state in `/proc` decides (asdlc-openspec-c17k).
+ */
+function pidRuns(pid) {
+  try {
+    process.kill(pid, 0)
+  } catch {
+    return false
+  }
+  if (process.platform !== 'linux') return true
+  try {
+    const stat = readFileSync(`/proc/${pid}/stat`, 'utf8')
+    return stat[stat.lastIndexOf(')') + 2] !== 'Z'
+  } catch {
+    return false
+  }
+}
+
+/**
  * Every refusal over a doctored copy of the job file or the policy, asserting its reason, beside an
  * undoctored control over the real `git-hooks.yml`; then every path through real Git in scratch
  * repositories with a bare remote, each with a copy of this file, a fixture job file and
@@ -1296,12 +1316,8 @@ async function gitCases(base, env, record) {
     await exited
     let alive = true
     for (let i = 0; i < 40 && alive; i++) {
-      try {
-        process.kill(pid, 0)
-        await new Promise((r) => setTimeout(r, 50))
-      } catch {
-        alive = false
-      }
+      alive = pidRuns(pid)
+      if (alive) await new Promise((r) => setTimeout(r, 50))
     }
     if (alive) process.kill(pid, 'SIGKILL')
     expect(!alive, 'the job outlived the runner')
