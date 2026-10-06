@@ -768,9 +768,9 @@ function graphifyDenial(args) {
 /**
  * Walk every statement, descending into `bash -c` strings. Returns the first reason to deny.
  *
- * The git rules are worktree-only and are skipped entirely when `linked` is false; the `gh` rules
- * decide for themselves (see `denialForGh`), and the graphify rule applies everywhere
- * (`graphifyDenial`). In a stray worktree directory (`strayWorktreeDir`)
+ * The git rules are worktree-only and are skipped when `linked` is false, but for a bare
+ * `git worktree prune`, which is refused everywhere (`isBarePrune`); the `gh` rules decide for
+ * themselves (see `denialForGh`), and the graphify rule applies everywhere (`graphifyDenial`). In a stray worktree directory (`strayWorktreeDir`)
  * every git call is refused, whatever it is: git there answers for another checkout.
  */
 function inspect(command, linked, stray, depth = 0) {
