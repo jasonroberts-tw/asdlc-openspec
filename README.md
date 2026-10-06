@@ -201,7 +201,14 @@ does not apply to your platform is absent from its list, not marked optional.
    `~/.bash_profile` exists. Open a new terminal, and check that `sh -c 'command -v node'` prints a
    path under `~/.local/share/mise/shims`. Any other path means another directory still comes
    first. Git's hooks and Claude Code's hooks run a bare `node`. Without the shims they find another
-   Node or none, and Claude Code's guard hooks stop guarding in silence.
+   Node or none, and Claude Code's guard hooks stop guarding in silence. Then check that
+   `sh -c 'command -v mise'` prints a path as well. The shims hold the tools mise installs, not mise
+   itself, and Git's pre-push gates and Claude Code's Stop and SubagentStop hooks run
+   `mise run <task>`: with no `mise` on the `PATH`, each exits 127. If the check prints nothing, put
+   mise's own directory after the shims in the same line. `curl https://mise.run | sh` installs
+   mise in `~/.local/bin` and adds nothing to the `PATH`, so there the line reads
+   `export PATH="$HOME/.local/share/mise/shims:$HOME/.local/bin:$PATH"`, or
+   `$env:PATH = "$HOME/.local/share/mise/shims:$HOME/.local/bin:$env:PATH"` in PowerShell.
 1. Clone, then run `mise trust` and `mise install` in the clone. The trust is needed because
    `mise.toml` carries a setting, and a linked worktree shares it. The install fetches Node, Python
    3, `bd`, `gh`, Vale and uv from `mise.lock`, each download checked against its checksum, and
@@ -250,6 +257,10 @@ does not apply to your platform is absent from its list, not marked optional.
 1. Put `%LOCALAPPDATA%\mise\shims` first on your user `PATH`, in System Properties under
    Environment Variables. Open a new shell, and check that `Get-Command node` names a path in it.
    Git's hooks and Claude Code's hooks run a bare `node`, and mise's shims there are `.exe` files.
+   Then check that `Get-Command mise` names a path as well. The shims hold the tools mise installs,
+   not mise itself, and Git's pre-push gates and Claude Code's Stop and SubagentStop hooks run
+   `mise run <task>`. If the check names none, add the directory that holds `mise.exe` to the same
+   `PATH`, after the shims.
 1. Clone, then run `mise trust` and `mise install` in the clone, as step 3 of macOS and Linux says.
    Check that `node -v` and `bd --version` answer from the shell you will work in.
 1. Run `npm ci` in the clone. If install scripts are blocked, run `mise run hooks:install` once.
