@@ -548,7 +548,8 @@ const DRY_RUN_ONLY = new Set(['-n', '--dry-run', '-v', '--verbose'])
 const isBarePrune = ({ sub, rest }) => {
   if (sub !== 'worktree' || nonOptions(rest)[0] !== 'prune') return false
   const flags = rest.slice(rest.indexOf('prune') + 1)
-  const dryRun = flags.every((t) => DRY_RUN_ONLY.has(t)) && flags.some((t) => t === '-n' || t === '--dry-run')
+  const dryRun =
+    flags.every((t) => DRY_RUN_ONLY.has(t)) && flags.some((t) => t === '-n' || t === '--dry-run')
   return !dryRun
 }
 
@@ -770,8 +771,9 @@ function graphifyDenial(args) {
  *
  * The git rules are worktree-only and are skipped when `linked` is false, but for a bare
  * `git worktree prune`, which is refused everywhere (`isBarePrune`); the `gh` rules decide for
- * themselves (see `denialForGh`), and the graphify rule applies everywhere (`graphifyDenial`). In a stray worktree directory (`strayWorktreeDir`)
- * every git call is refused, whatever it is: git there answers for another checkout.
+ * themselves (see `denialForGh`), and the graphify rule applies everywhere (`graphifyDenial`). In a
+ * stray worktree directory (`strayWorktreeDir`) every git call is refused, whatever it is: git
+ * there answers for another checkout.
  */
 function inspect(command, linked, stray, depth = 0) {
   if (depth > 2) return null

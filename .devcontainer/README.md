@@ -133,6 +133,12 @@ to `never`, so `git gc` keeps them. So, on a clone with linked worktrees:
 - **Never run `git worktree prune` in the container.** `scripts/hooks/guard-git.mjs` refuses one a
   Claude Code session types, and nothing refuses one you type.
 
+Some routes stay open to a session there, and `asdlc-openspec-15gm` carries them:
+`git -c gc.worktreePruneExpire=now gc`, a value in the clone's `.git/config` that outranks the
+image's, a git alias, and `git worktree remove` naming a host path. **Until that issue closes, start
+a container on a clone with no linked worktrees** where you can, and on one with them only with the
+setting checked as above.
+
 ## Start it without VS Code
 
 VS Code's Dev Containers extension copies your `~/.gitconfig` into the container, shares the git
