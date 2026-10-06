@@ -74,7 +74,7 @@
 import { spawnSync } from 'node:child_process'
 import { realpathSync } from 'node:fs'
 import { basename } from 'node:path'
-import { readHookInput } from './_shared.mjs'
+import { gitEnv, readHookInput } from './_shared.mjs'
 
 /* ============================================================================================= *
  * Are we in a linked worktree?
@@ -113,9 +113,16 @@ function gitPath(dir, flag) {
  * Every caller treats `null` as "do not judge", so a missing git, a detached HEAD, an absent
  * `origin/main` or a `cwd` that no longer exists degrades to allowing the command rather than
  * blocking on a question git could not answer.
+ *
+ * WITH NO `GIT_*` VARIABLE, as `gitEnv` in `_shared.mjs` gives. An inherited `GIT_DIR` outranks
+ * `dir`, so until 2026-10-06 every git call here answered for the checkout it named: naming the
+ * shared `.git`, it let `git push origin main` and `gh pr merge` through from a linked worktree, and
+ * naming a worktree's git directory, as git exports it to a hook run there, it refused them in the
+ * primary checkout. 13 of 28 cases measured gave a wrong verdict (asdlc-openspec-vz5b,
+ * asdlc-openspec-hn4x).
  */
 function gitOut(dir, args) {
-  const r = spawnSync('git', args, { cwd: dir, encoding: 'utf8', windowsHide: true })
+  const r = spawnSync('git', args, { cwd: dir, env: gitEnv(), encoding: 'utf8', windowsHide: true })
   if (r.status !== 0 || typeof r.stdout !== 'string') return null
   const out = r.stdout.trim()
   return out === '' ? null : out

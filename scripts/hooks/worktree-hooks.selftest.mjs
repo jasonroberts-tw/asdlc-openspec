@@ -223,16 +223,17 @@ git(primary, 'worktree', 'add', '-q', '.claude/worktrees/ours', '-b', 'agent/our
  * in any worktree a session had entered (asdlc-openspec-bvf).
  *
  * `payloadDir` moves the payload's `cwd` away from the process's directory, for the cases that show
- * which of the two decides; `null` leaves it out of the payload.
+ * which of the two decides; `null` leaves it out of the payload. `env` is added to the guard's
+ * environment, for the cases an inherited `GIT_DIR` would mislead.
  */
-function guardFrom(dir, { command = 'echo hello', payloadDir = dir } = {}) {
+function guardFrom(dir, { command = 'echo hello', payloadDir = dir, env = {} } = {}) {
   const payload = { tool_input: { command } }
   if (payloadDir !== null) payload.cwd = payloadDir
   try {
     execFileSync('node', [GUARD], {
       input: JSON.stringify(payload),
       cwd: dir,
-      env: { ...GIT_ENV, CLAUDE_PROJECT_DIR: primary },
+      env: { ...GIT_ENV, CLAUDE_PROJECT_DIR: primary, ...env },
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
     })
@@ -403,6 +404,28 @@ check(
   refusedFor(grouped, 'you cannot push to a long-lived branch'),
   why(grouped),
 )
+
+// AN INHERITED GIT_DIR (asdlc-openspec-hn4x): one in the hook's environment outranks the payload's
+// cwd, so the guard judged the checkout it named. Each case runs with it and, as its control,
+// without any GIT_* key, and both must give the same verdict, by its reason: the unfixed guard
+// refused the push from a subdirectory by the stray rule's reason, so asserting the refusal alone
+// passed. The primary checkout's value is the one git exports to a hook run from that worktree.
+console.log('guard-git: an inherited GIT_DIR does not move the checkout judged')
+const PUSH_RULE = 'you cannot push to a long-lived branch'
+const SHARED_GIT_DIR = { GIT_DIR: join(primary, '.git') }
+const WORKTREE_GIT_DIR = { GIT_DIR: join(primary, '.git', 'worktrees', 'ours') }
+for (const [label, dir, command, env, reason] of [
+  ['a push to main from the worktree', oursDir, 'git push origin main', SHARED_GIT_DIR, PUSH_RULE],
+  ['a push to main from a subdirectory of it', join(oursDir, 'sub'), 'git push origin main', SHARED_GIT_DIR, PUSH_RULE],
+  ['a merge now from the worktree', oursDir, 'gh pr merge 1 --rebase', SHARED_GIT_DIR, MERGE_RULE],
+  ['a push to main from the primary checkout', primary, 'git push origin main', WORKTREE_GIT_DIR, null],
+]) {
+  for (const [how, extra] of [['with GIT_DIR', env], ['control, with no GIT_* key', {}]]) {
+    const r = guardFrom(dir, { command, env: extra })
+    const verdict = reason === null ? 'allowed' : 'refused, by its reason'
+    check(`${how}: ${label} is ${verdict}`, reason === null ? r.code === 0 : refusedFor(r, reason), why(r))
+  }
+}
 
 /* --------------------------------------------------------------------------------------------- *
  * guard-workflow-edit: an edit that would let a workflow forge the reviewer's status.
