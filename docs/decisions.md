@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `mise run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-51 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43, D-44, D-45, D-46, D-47, D-48, D-49, D-50 and D-51 added 2026-10-05).**
+**Status: every decision from D-01 to D-52 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43, D-44, D-45, D-46, D-47, D-48, D-49, D-50, D-51 and D-52 added 2026-10-05).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-51` is checked by `mise run check:register`, which reads those headings, the table and each
+> `D-01 … D-52` is checked by `mise run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -107,6 +107,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-49** | A key the prompt review holds ends with a closed line: carried by a merged pull request, owned by an issue, or set aside by a person | `promptReviewClosedMarker` in `tools/policy/agent-workflows.json`; the closed line's form and an analysis's end at any marker in the header of `scripts/prompt-runs.mjs`, held by `prompt-runs:selftest`; `findingsCarried` in `.claude/workflows/review-prompts.js`, held by `workflows:selftest`; the reviewer's § 3, § 4, § 6 and § 7, consolidated first, and its budget; D-10's and D-48's amendments |
 | **D-50** | A run's analysis quotes each correction the user made, and one that states a rule can settle a stored decision case | `close-prompt-run` § 1, consolidated first; "the user's correction" in the reviewer's § 3, `prompt-case-author.md` and the `settledBy` row of `.claude/prompt-cases/README.md`; `docs/playbook.md` § 4.5; three budgets |
 | **D-51** | Agent sessions are to act as a GitHub App, from a dev container that holds none of the maintainer's credentials, since the floor is meant to stop an agent working against the maintainer | This register: R-02, and D-38's, D-47's and R-01's amendments. Carried out by `asdlc-openspec-owva.2`, the App, `asdlc-openspec-owva.4`, the container, and `asdlc-openspec-64wd`, `verify`'s split, each open when this entry was recorded |
+| **D-52** | `prompt-runs` follows each fix a merged prompt review carried through later runs, and reports the fix-recurrence rate | `recurrenceOf` and the recurrence section of `scripts/prompt-runs.mjs`, held by `prompt-runs:selftest`; `promptReviewFixRecurrenceFloor` and `promptReviewFixRecurrenceNotViableShare` in `tools/policy/agent-workflows.json`; the fix-recurrence row of `count-index.md`; the reviewer's § 7 item 2 |
 
 ## Risks
 
@@ -2545,6 +2546,63 @@ Where it loses:
 - `SUBCOMMANDS` is `review`, `wait` and `brief`: `git grep -n "SUBCOMMANDS =" -- scripts/pr-review.mjs` at this entry's commit.
 - `release` does not exist: `git ls-remote --heads origin main release` lists `main` alone.
 - Ruleset 24542312's values, R-02's Figures; the three GitHub pages, quoted inline above with their addresses.
+
+### D-52 · `prompt-runs` follows each fix a merged prompt review carried through later runs, and reports the fix-recurrence rate
+
+**Recorded 2026-10-05**, carried by `asdlc-openspec-r6ha.8`, a child of `asdlc-openspec-r6ha`. The maintainer chose to wait for `asdlc-openspec-6yt.1`, so the first figures rest on keys that do not drift between reviews (the parent's decision 3, with its loss). On 2026-10-05, before the claim, they answered the issue's three questions, each from options that showed where the recommended one loses, recorded in its notes:
+
+- a finding shown again after its fix counts as usual, where the recommendation was at once;
+- the floor is 10 exercised fixes, over 5 and 20;
+- half or more shown again means the project is not viable, over a third.
+
+The session that built it chose the report's form, that a fix is each carried line rather than each key, and how a run that git cannot place is counted.
+
+**Builds on / amends:** builds on D-49, whose carried closed lines are the fixes it follows; on D-44, whose analyses name the commit each prompt was read at; on D-48, whose command and header it extends; and on D-10, whose threshold it leaves as it is, since a finding shown again counts as usual. It amends none: D-10 item 1 would have changed only had a finding shown again gone straight to a group.
+
+**Decision.**
+
+1. **The report.** `mise run prompt-runs` gains a section, `recurrence`. It lists each fix a merged pull request carried: a carried closed line whose pull request merged, once for each key and URL. For each one it reads the pull request's merge commit, and gives one of three outcomes:
+   - **not exercised:** no analysis in D-44's form loaded the key's file at a commit that descends from the merge commit;
+   - **shown again:** one did, and a held or closed line of the key names its run;
+   - **exercised:** otherwise.
+
+   A run whose commit git cannot place is listed as unresolved and counts for nothing. The header of `scripts/prompt-runs.mjs` holds the form.
+2. **What it reads.**
+   - The live run reads each merge commit through `gh pr view` and each descent through `git merge-base --is-ancestor`.
+   - Under `PROMPT_RUNS_ROOT`, `pull-requests.json` gives each merge commit and `descendants.json` each merge commit's descendants, and it runs neither tool.
+   - `--only pending`, every run's due check, reads neither.
+3. **The rate.** It is the fixes shown again of those exercised, given only at or above `promptReviewFixRecurrenceFloor` (10) exercised fixes. At or above `promptReviewFixRecurrenceNotViableShare` (half), `count-index.md` § Rates and metrics reads it as not viable. Below the floor, the counts are given and no rate.
+4. **The reviewer.** `.claude/agents/continuous-prompt-improvement.md` § 7 item 2 is this report, where it judged in prose whether an earlier review's change worked.
+
+**Why.** Nothing measured whether a prompt review's edit worked: § 7 item 2 judged it in prose, and the workflow asked its file agents for it in `earlierReviews` and checked none of it. Hermes Agent measures nothing either; its RFC #96704 says nothing in the tree measures the downstream task outcome. Once findings close as carried (D-49) and analyses record the commit each prompt was read at (D-44), recurrence after a fix is a join: `gh pr view 93 --json mergeCommit` gave `5b8d893`, which `git merge-base --is-ancestor` finds on `origin/main`. Three alternatives lost:
+
+- **A fix as each key, by its latest carried line.** A key carried, shown again and carried again would drop its first fix's failure once it was carried again, so the rate would read better than the edits were. Each carried line is a fix instead, and the floor counts fixes; for a key carried once, the two are the same.
+- **A finding shown again after its fix meeting the threshold at once,** the recommendation at the claim. The maintainer chose to count it as usual. Where that loses: a fix that did not hold fails one more run before a review can act on it.
+- **A floor of 5, or of 20.** At 5, one fix moves the rate by twenty points. At 20, carried lines starting with D-49 keep the rate hidden longer.
+
+Where it loses:
+
+- The recurrence section needs `gh`, the network and `git` with every merge commit and every run's commit in the checkout. A run whose commit the checkout lacks, such as a branch's commit a rebase replaced, counts for nothing.
+- A fix the review carried counts as one even when one pull request's edit covered several findings.
+- And "shown again" is a key's line, so a later run's different failure that a review keys to the same key reads as the fix failing.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound.
+- **`scripts/prompt-runs.mjs`:**
+  - its header's recurrence section, the override's `descendants.json` and the merge commit in `pull-requests.json`, what it needs and its failure modes;
+  - `readPullRequests`'s merge commit, `descendsFrom`, `recurrenceOf` and the section;
+  - the selftest's cases for each outcome, an open pull request, a sample under the floor and one at it on each side of the share, a run git cannot place, `--only recurrence`, an override with no descendants or none for one merge commit, a carried line written twice, a merged pull request with no merge commit, and two policy refusals.
+- **`tools/policy/agent-workflows.json`:** `promptReviewFixRecurrenceFloor` and `promptReviewFixRecurrenceNotViableShare`, each with its `Means`; `describes`, `gatedBy` and `provenance`.
+- **`count-index.md` § Rates and metrics:** the fix-recurrence row, with the maintainer's not-viable value and its date.
+- **The prompt:** `.claude/agents/continuous-prompt-improvement.md` § 7 item 2, in the same number of words.
+- **The rest:** rows of `scripts/README.md`, `tools/policy/README.md` and `README.md` § The guardrails.
+
+**Figures.**
+
+- The tracker on 2026-10-05, `mise run prompt-runs --only recurrence`: 1 fix, `.claude/skills/bead/SKILL.md#close-before-merge`, carried by #93, merged as `5b8d893`, exercised by 3 later runs and shown again by none. 1 exercised fix is under the floor of 10, so no rate.
+- `mise run prompt-runs:selftest`: 85 of 85 checks, an undoctored control first. With each of 14 checks of the recurrence report broken in turn, one at a time, each break turned at least one case red.
+- The reviewer's agent, `node scripts/check-prompts.mjs --counts`: 2,440 at `9c33d95` and at this entry's commit.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
