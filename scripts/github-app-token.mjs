@@ -56,7 +56,7 @@
  */
 import { spawn } from 'node:child_process'
 import { createPrivateKey, createSign, createVerify, generateKeyPairSync } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -364,6 +364,25 @@ function run(command, args, { env, input = '', cwd = REPO_ROOT }) {
 
 const GITHUB = 'protocol=https\nhost=github.com\n\n'
 const DOCKERFILE = join(REPO_ROOT, '.devcontainer', 'Dockerfile')
+const ENTRYPOINT = join(REPO_ROOT, '.devcontainer', 'entrypoint.sh')
+
+/**
+ * `.devcontainer/entrypoint.sh`'s `commit_identity`, run under bash with the file sourced for its
+ * functions alone, against a `~/.gitconfig` of the case's own: `preset` writes keys into it first,
+ * `workspace` is the clone the function runs the helper in. Returns the run, and the name and email
+ * the file holds after it.
+ */
+async function commitIdentity(ctx, { workspace = REPO_ROOT, preset = [] } = {}) {
+  const global = join(ctx.dir, 'gitconfig-identity')
+  writeFileSync(global, '')
+  const git = (args) => run('git', ['config', '--file', global, ...args], { env: SCRATCH_GIT_ENV, cwd: ctx.dir })
+  for (const [key, value] of preset) await git([key, value])
+  const r = await run('bash', ['-c', 'ENTRYPOINT_FUNCTIONS_ONLY=1 . "$1" && workspace="$2" && commit_identity', 'commit-identity', ENTRYPOINT, workspace], {
+    env: { ...ctx.gitEnv, GIT_CONFIG_GLOBAL: global },
+    cwd: ctx.dir,
+  })
+  return { r, name: (await git(['--get', 'user.name'])).stdout.trim(), email: (await git(['--get', 'user.email'])).stdout.trim() }
+}
 const IMAGE_BIN = '/usr/local/lib/github-app/bin/'
 
 /**
@@ -700,6 +719,45 @@ function cases() {
       },
     },
     {
+      name: "the entrypoint's commit_identity sets the App's bot account in a ~/.gitconfig with no email, through `identity` and the policy",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r, name, email } = await commitIdentity(ctx)
+        const want = `${ctx.botUserId}+${ctx.botLogin}@users.noreply.github.com`
+        return r.status === 0 && name === ctx.botLogin && email === want && r.stdout.includes(`committing as ${ctx.botLogin} <${want}>`) ? null : `${said(r)}; left ${name} <${email}>`
+      },
+    },
+    {
+      name: "the entrypoint's commit_identity leaves an email already in ~/.gitconfig, with its name, and logs nothing",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r, name, email } = await commitIdentity(ctx, { preset: [['user.name', 'A Person'], ['user.email', 'person@example.invalid']] })
+        return r.status === 0 && name === 'A Person' && email === 'person@example.invalid' && !r.stdout.includes('committing as') ? null : `${said(r)}; left ${name} <${email}>`
+      },
+    },
+    {
+      name: "the entrypoint's commit_identity sets nothing, and warns, when `identity` refuses",
+      wrapper: true,
+      doctor: (root) => editPolicy(root, (policy) => delete policy.githubAppBotUserId),
+      check: async (ctx) => {
+        const { r, name, email } = await commitIdentity(ctx)
+        return name === '' && email === '' && /git identity unset, and the App's could not be read/.test(r.stdout) ? null : `${said(r)}; left ${name} <${email}>`
+      },
+    },
+    {
+      name: "the entrypoint's commit_identity warns when the clone's own config sets user.email, which outranks ~/.gitconfig",
+      wrapper: true,
+      check: async (ctx) => {
+        const clone = join(ctx.dir, 'clone')
+        mkdirSync(clone)
+        await run('git', ['init', '-q'], { env: SCRATCH_GIT_ENV, cwd: clone })
+        await run('git', ['config', '--local', 'user.email', 'me@work.example.invalid'], { env: SCRATCH_GIT_ENV, cwd: clone })
+        symlinkSync(join(REPO_ROOT, 'scripts'), join(clone, 'scripts'))
+        const { r, name } = await commitIdentity(ctx, { workspace: clone })
+        return name === ctx.botLogin && /the clone's own \.git\/config sets user\.email, so commits here carry me@work\.example\.invalid, not the App's/.test(r.stdout) ? null : `${said(r)}; left the name ${name}`
+      },
+    },
+    {
       name: '.devcontainer/gh runs the real gh with the token as GH_TOKEN, in the directory it was called from, with its arguments',
       wrapper: true,
       check: async (ctx) => {
@@ -801,6 +859,15 @@ async function selftest() {
   return failed.length === 0 ? 0 : 1
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === SELF) {
+// By real path: Node gives this module the resolved path of a symlink it was run through, which
+// `process.argv[1]` keeps unresolved, and a match by name alone ran nothing, and exited 0, there.
+const runAsMain = () => {
+  try {
+    return Boolean(process.argv[1]) && realpathSync(process.argv[1]) === realpathSync(SELF)
+  } catch {
+    return false
+  }
+}
+if (runAsMain()) {
   process.exitCode = process.argv[2] === '--selftest' && process.argv.length === 3 ? await selftest() : await main(process.argv.slice(2))
 }
