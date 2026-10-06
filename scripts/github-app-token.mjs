@@ -19,6 +19,10 @@
  *     rewrites `ssh://git@github.com/` and `git@github.com:` to HTTPS, so the tracker's Dolt remote,
  *     which runs `git` against an SSH address, reaches GitHub through it too.
  *
+ * It also prints, with `identity`, the App's bot account as git's commit identity:
+ * `githubAppBotLogin` as `user.name`, and `<githubAppBotUserId>+<githubAppBotLogin>@users.noreply.github.com`
+ * as `user.email`, which `.devcontainer/entrypoint.sh` sets when none is. That needs no key or token.
+ *
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet: it came with the container that acts as the
  * App (asdlc-openspec-owva.4). Were it wrong, a session past its first hour would be refused its next
  * push or `gh` call, which reads as a network or permission fault rather than an expired token; a
@@ -35,6 +39,7 @@
  *   node scripts/github-app-token.mjs token                     prints a token
  *   node scripts/github-app-token.mjs git-credential <action>   git's credential helper: get, store
  *                                                               or erase, the attributes on stdin
+ *   node scripts/github-app-token.mjs identity                  prints `user.name=` and `user.email=`
  *   mise run github-app-token:selftest                          its cases, over a stubbed GitHub
  *   GITHUB_APP_TOKEN_ROOT=<dir>    reads the policy of a doctored copy
  *   GITHUB_APP_API_URL=<url>       another API than https://api.github.com, the selftest's stub
@@ -90,6 +95,22 @@ function settings(root) {
     throw new Refusal(`\`githubAppTokenRepository\` must be a repository's bare name in tools/policy/ under ${root}, not ${JSON.stringify(repository ?? null)}`)
   }
   return { appId: policy.githubAppId, installationId: policy.githubAppInstallationId, refreshSeconds: policy.githubAppTokenRefreshSeconds, repository }
+}
+
+/**
+ * The App's bot account as git's commit identity: `githubAppBotLogin` as `user.name`, and the
+ * noreply address GitHub gives an account, `<id>+<login>@users.noreply.github.com`, as `user.email`.
+ * It needs no key and no token.
+ */
+function identity(root) {
+  const policy = readPolicy(root)
+  const login = policy.githubAppBotLogin
+  const id = policy.githubAppBotUserId
+  if (typeof login !== 'string' || !/^[\w.-]+\[bot\]$/.test(login)) {
+    throw new Refusal(`\`githubAppBotLogin\` must be a bot account's login, ending [bot], not ${JSON.stringify(login ?? null)} in tools/policy/ under ${root}`)
+  }
+  if (!Number.isInteger(id) || id <= 0) throw new Refusal(`\`githubAppBotUserId\` must be a whole number above 0 in tools/policy/ under ${root}`)
+  return `user.name=${login}\nuser.email=${id}+${login}@users.noreply.github.com\n`
 }
 
 /** The App's private key: the one `.pem` file in `GITHUB_APP_KEY_DIR`. Its contents never reach a message. */
@@ -231,7 +252,7 @@ async function gitCredential(action) {
   return ''
 }
 
-const USAGE = 'usage: node scripts/github-app-token.mjs token | git-credential <get|store|erase> | --selftest'
+const USAGE = 'usage: node scripts/github-app-token.mjs token | git-credential <get|store|erase> | identity | --selftest'
 
 async function main(argv) {
   const [command, action] = argv
@@ -242,6 +263,10 @@ async function main(argv) {
     }
     if (command === 'git-credential' && action !== undefined && argv.length === 2) {
       process.stdout.write(await gitCredential(action))
+      return 0
+    }
+    if (command === 'identity' && argv.length === 1) {
+      process.stdout.write(identity(ROOT))
       return 0
     }
   } catch (error) {
@@ -568,6 +593,24 @@ function cases() {
       check: async (ctx) => refused(await tokenRun(ctx), /`githubAppTokenRefreshSeconds` must each be a whole number above 0/, ctx),
     },
     {
+      name: "`identity` prints the App's bot account as user.name and its noreply address as user.email, calling nobody and reading no key",
+      check: async (ctx) => {
+        const r = await helper(ctx, ['identity'], { env: { GITHUB_APP_KEY_DIR: join(ctx.dir, 'no-such-directory') } })
+        const want = `user.name=${ctx.botLogin}\nuser.email=${ctx.botUserId}+${ctx.botLogin}@users.noreply.github.com\n`
+        return r.status === 0 && r.stdout === want && ctx.stub.requests.length === 0 ? null : `${said(r)}, not ${JSON.stringify(want)}`
+      },
+    },
+    {
+      name: '`identity` with a policy without `githubAppBotUserId` is refused, naming it',
+      doctor: (root) => editPolicy(root, (policy) => delete policy.githubAppBotUserId),
+      check: async (ctx) => refused(await helper(ctx, ['identity']), /`githubAppBotUserId` must be a whole number above 0/, ctx),
+    },
+    {
+      name: '`identity` with a `githubAppBotLogin` that is not a bot\'s login is refused, naming it',
+      doctor: (root) => editPolicy(root, (policy) => (policy.githubAppBotLogin = 'asdlc-agent-j')),
+      check: async (ctx) => refused(await helper(ctx, ['identity']), /`githubAppBotLogin` must be a bot account's login, ending \[bot\], not "asdlc-agent-j"/, ctx),
+    },
+    {
       name: 'an unknown command prints the usage and exits 2',
       check: async (ctx) => {
         const r = await helper(ctx, ['mint'])
@@ -724,6 +767,8 @@ async function selftest() {
         closedUrl: closed,
         installationId: live.githubAppInstallationId,
         repository: live.githubAppTokenRepository,
+        botLogin: live.githubAppBotLogin,
+        botUserId: live.githubAppBotUserId,
         env: { ...env, GITHUB_APP_TOKEN_ROOT: root, GITHUB_APP_API_URL: stub.url, GITHUB_APP_KEY_DIR: keyDir, GITHUB_APP_TOKEN_CACHE: kept },
         gitEnv: { ...env, GITHUB_APP_TOKEN_ROOT: root, GITHUB_APP_API_URL: stub.url, GITHUB_APP_KEY_DIR: keyDir, GITHUB_APP_TOKEN_CACHE: kept, HOME: dir },
         ghEnv: { GITHUB_APP_WORKSPACE: REPO_ROOT, GITHUB_APP_REAL_GH: fakeGh },
