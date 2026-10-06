@@ -42,7 +42,7 @@ workflows, and refuses one whose name is not its `id`.
 | `situation` | The moment of the decision, in the session's terms. It quotes no sentence that decides it, and names no run, issue or test. |
 | `options` | Two to four `{ "id", "text" }`, ids `a` to `d`, each one thing a session could do there. Each answer sees them in an order turned by one place per repetition. |
 | `expected` | The id of the option the source settles. |
-| `settledBy` | What settles it: the run's action, a reviewer's finding, a later commit, the user's correction that states a rule, not a choice for that run alone, or the section's sentence. A correction is a point of the run's analysis, which quotes it, so its case's `source` is that point's. |
+| `settledBy` | What settles it: the run's action, a reviewer's finding, a later commit, the user's correction that states a rule, not a choice for that run alone, since a case holds every later run to it, or the section's sentence. A correction is a point of the run's analysis, which quotes it, so its case's `source` is that point's. |
 
 ## The cases
 

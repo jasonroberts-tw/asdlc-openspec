@@ -61,10 +61,10 @@ the counts across runs, the same for every group: what the commands an analysis 
 (`.claude/skills/close-prompt-run/SKILL.md` § 1) print when you run them now, each with its command,
 since an analysis's own were measured when it was written.
 
-A finding whose right answer a source settles, the run's action, a reviewer's finding, a later
-commit or the user's correction that states a rule, not a choice for that run alone, is also a seed
-for a stored decision case, held or not, unless a case under
-`.claude/prompt-cases/` already holds that decision. A seed is the fields
+A finding whose right answer a source settles is also a seed for a stored decision case, held or
+not, unless a case under `.claude/prompt-cases/` already holds that decision. The source is the
+run's action, a reviewer's finding, a later commit or the user's correction that states a rule, not
+a choice for that run alone, since a case holds every later run to it. A seed is the fields
 `.claude/workflows/author-prompt-cases.js`'s header gives `args.seeds`.
 
 A finding that concerns no prompt is not this review's: the run that found it files it (`CLAUDE.md`

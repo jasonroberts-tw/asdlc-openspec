@@ -60,7 +60,9 @@ The crib sheet gains the command that raises the count, and its note names the p
 placeholders' values are in since D-27. Amended 2026-10-05 by `asdlc-openspec-3cp3`: the reviewer
 sets the `pr-review` status on each pushed head and merges nothing, GitHub's auto-merge merges, the
 step that acts on the checks enables it once both pass, the step that pushes marks nothing, and the
-approval label is gone (`docs/decisions.md` § D-47).
+approval label is gone (`docs/decisions.md` § D-47). Amended 2026-10-05 by `asdlc-openspec-r6ha.7`:
+the step that writes the run's analysis quotes each correction the user made, as
+`.claude/skills/close-prompt-run/SKILL.md` § 1 now says (`docs/decisions.md` § D-50).
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -410,10 +412,10 @@ merges it past the checks; an agent never does (`CLAUDE.md` § Git workflow, and
 2. A change's epic closes only after the cleanup and a check of each criterion as met, unmet or not
    exercised; a criterion with no approved follow-up keeps it open. Decided by:
    `.claude/skills/change-finalize/SKILL.md` § 8. Check the epic's criteria, and close it.
-3. Write the run's analysis as a note on the issue it worked, from a file, inside a tracker bracket:
-   its marker line, the prompts the run loaded, one to a line with the commit it read each at, the
-   version of Claude Code it ran on, what made the run slower or wrong, and the counts across runs.
-   Decided by:
+3. Write the run's analysis as a note on the issue it worked, from a file, inside a tracker bracket.
+   It holds its marker line, the prompts the run loaded, one to a line with the commit it read each
+   at, the version of Claude Code it ran on, what made the run slower or wrong, each correction the
+   user made, quoted, and the counts across runs. Decided by:
    `.claude/skills/close-prompt-run/SKILL.md` § 1. Write the analysis, or none.
 4. Check whether a review of the pending analyses is due, and if one is, launch it in the
    background from the primary checkout, under a name of its own, without waiting for it. Decided
