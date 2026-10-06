@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `mise run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-52 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43, D-44, D-45, D-46, D-47, D-48, D-49, D-50, D-51 and D-52 added 2026-10-05).**
+**Status: every decision from D-01 to D-53 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43, D-44, D-45, D-46, D-47, D-48, D-49, D-50, D-51 and D-52 added 2026-10-05; D-53 added 2026-10-06).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-52` is checked by `mise run check:register`, which reads those headings, the table and each
+> `D-01 … D-53` is checked by `mise run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -108,6 +108,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-50** | A run's analysis quotes each correction the user made, and one that states a rule can settle a stored decision case | `close-prompt-run` § 1, consolidated first; "the user's correction" in the reviewer's § 3, `prompt-case-author.md` and the `settledBy` row of `.claude/prompt-cases/README.md`; `docs/playbook.md` § 4.5; three budgets |
 | **D-51** | Agent sessions are to act as a GitHub App, from a dev container that holds none of the maintainer's credentials, since the floor is meant to stop an agent working against the maintainer | This register: R-02, and D-38's, D-47's and R-01's amendments. Carried out by `asdlc-openspec-owva.2`, the App, `asdlc-openspec-owva.4`, the container, and `asdlc-openspec-64wd`, `verify`'s split, each open when this entry was recorded |
 | **D-52** | `prompt-runs` follows each fix a merged prompt review carried through later runs, and reports the fix-recurrence rate | `recurrenceOf` and the recurrence section of `scripts/prompt-runs.mjs`, held by `prompt-runs:selftest`; `promptReviewFixRecurrenceFloor` and `promptReviewFixRecurrenceNotViableShare` in `tools/policy/agent-workflows.json`; the fix-recurrence row of `count-index.md`; the reviewer's § 7 item 2 |
+| **D-53** | No prune this repository runs takes the record of a worktree its checkout cannot see, and the guard refuses a session's bare `git worktree prune` from any checkout | `scripts/hooks/worktree-remove.mjs` without its prune; the prune rule of `scripts/prune-worktree-branches.mjs`; `scripts/hooks/guard-git.mjs`'s prune rule; `gc.worktreePruneExpire` in `.devcontainer/Dockerfile`; all held by `worktree:selftest`; `.devcontainer/README.md` and the rows of the guard, the hook, the sweep and the selftest |
 
 ## Risks
 
@@ -2607,6 +2608,49 @@ Where it loses:
 - The tracker on 2026-10-05, `mise run prompt-runs`: 1 fix, `.claude/skills/bead/SKILL.md#close-before-merge`, carried by #93, merged as `5b8d893`. It is awaiting review: 3 later runs read it, `asdlc-openspec-b83l`, `-m8hs` and `-3cp3`, and no review has read them. 0 exercised fixes is under the floor of 10, so no rate.
 - `mise run prompt-runs:selftest`: 93 of 93 checks, an undoctored control first. With each of 28 checks of the recurrence report broken in turn, one at a time, each break turned at least one case red.
 - The reviewer's agent, `node scripts/check-prompts.mjs --counts`: 2,440 at `9c33d95`, 2,422 at `cd6f203`, which consolidated it, and 2,445 at this entry's last commit.
+
+### D-53 · No prune this repository runs takes the record of a worktree its checkout cannot see, and the guard refuses a session's bare `git worktree prune` from any checkout
+
+**Recorded 2026-10-06**, carried by `asdlc-openspec-486e`. That day a push from a dev container on the primary checkout ran `worktree:selftest`. Its calls made the WorktreeRemove hook prune the real repository, where every host worktree's path is one the container cannot see, so git took every record. The branch review of the fix asked whether the guard's new rule, from any checkout, needed an entry, as D-09's and D-23's had, and the maintainer chose one.
+
+**Builds on / amends:** builds on D-23, whose rule from any checkout this one follows, as D-23 followed D-09's; on D-51, whose dev container on a bind-mounted clone is where every host record reads as stale; and on D-07, which leaves a pull request that changes this register, `.devcontainer/**` or the guard to a person. Amends nothing: no entry states that the guard's git rules are worktree-only.
+
+**Decision.** git cannot tell a worktree that was removed from one whose path the process cannot see, and `git worktree prune` takes both. So:
+
+1. **The WorktreeRemove hook prunes nothing.** For a path outside `.claude/worktrees/` it touches no record, and in its sandbox fallback it removes the admin directory the worktree's `.git` file names, not `.git/worktrees/<basename>`, which git numbers on a collision.
+2. **The sweep, `scripts/prune-worktree-branches.mjs`, prunes only while no stale record's parent directory is missing too.** A removed worktree leaves its parent behind; a host record seen from a container does not. While one does not, each stale record is kept holding its branch, and the report's `prune refused:` line names them.
+3. **`scripts/hooks/guard-git.mjs` refuses a session's `git worktree prune` from any checkout**, the primary included, since a container session works there. A dry run passes, spelt from `-n`, `--dry-run`, `-v` and `--verbose` alone.
+4. **The dev container's image sets `gc.worktreePruneExpire` to `never`**, so `git gc` there keeps every record.
+5. **A prune a person types in the container is left to `.devcontainer/README.md`'s warning.**
+
+**Why.** The trigger was this repository's own prune, run where the records named paths it could not see, and only the host's view tells a gone worktree from an unseen one. Three alternatives lost:
+
+- **The container on a clone of its own**, with no host worktrees (`asdlc-openspec-3901`, option 1), which leaves nothing to take. 3901 is the maintainer's open decision on more than worktrees, and this fix did not wait on it.
+- **A `git` wrapper in the image**, refusing the prune for a person too. The maintainer chose the warning: the wrapper costs every git call in the container one more process, and `/usr/bin/git` passes it.
+- **Pruning only the records under the primary checkout.** `git worktree prune` takes no path, so that means writing git's reconciliation here, or locking other records around a prune.
+
+Where it loses:
+
+- **A worktree deleted with its parent directory, or one a container made**, whose `/workspaces/` path the host never has, keeps its record, and every other stale record with it, on the host as in the container. They stay until a person runs `git worktree prune` where every record it names is really gone.
+- **A person's `git worktree prune` in the container still takes every host record** (item 5).
+- **Other routes still pass from a container session in the primary checkout**: `git -c gc.worktreePruneExpire=now gc`, a value in the shared `.git/config`, a git alias, and `git worktree remove` naming a host path. `asdlc-openspec-15gm` carries them. git behind a launcher or a shell word passes too, as D-23 records for its rule.
+- **The image's setting reaches a container only once it is rebuilt**, and `worktree:selftest` reads it from the Dockerfile's text, not from a built image.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound.
+- **`scripts/hooks/worktree-remove.mjs`:** no prune, `owned` and `adminDirOf`, with the incident beside them.
+- **`scripts/prune-worktree-branches.mjs`:** THE PRUNE RULE in its header and in what it will not touch, the refused prune keeping each stale record with its branch, and the report's `prune refused:` line.
+- **`scripts/hooks/guard-git.mjs`:** `WORKTREE_PRUNE` and `isBarePrune`, its header's paragraph, and the rules it names as applying everywhere.
+- **`scripts/hooks/worktree-hooks.selftest.mjs`:** the guard's prune cases with their dry-run controls, the toggled pair among them; a section of a scratch repository with a live, a removed and an unseen worktree, through a copy of the hook and the sweep, with its control; the hook's fallback over a collided name; and the Dockerfile's setting.
+- **`git-hooks.yml`:** the `worktree-hooks` job's glob takes `.devcontainer/Dockerfile`.
+- **`.devcontainer/Dockerfile` and `.devcontainer/README.md`:** the setting, and § The host's worktrees, seen from the container.
+- **`README.md`, `.claude/README.md`, `scripts/hooks/README.md` and `scripts/README.md`:** the rows of the guard, the hook, the sweep and the selftest, and a row in `README.md` § The guardrails.
+
+**Figures.**
+
+- `node scripts/hooks/worktree-hooks.selftest.mjs`, each new case first run against the code before its fix: 7 checks failed against `42d08ad`'s hook and sweep, 2 against that guard, 1 against the first `isBarePrune` for `--dry-run --no-dry-run`, 1 against `42d08ad`'s Dockerfile, and 2 against the hook's fallback by basename. Each passes at this entry's last commit.
+- `mise run gates`: 49 of 49 jobs at this entry's last commit.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
