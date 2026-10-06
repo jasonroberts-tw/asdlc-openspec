@@ -40,8 +40,7 @@ subject, then go to step 6.
 
 Run `.claude/workflows/build-change-task.js` with the Workflow tool, once for the task, with
 `scriptPath` set to that file inside the worktree. Its header says what each argument means and what
-it returns. Pass each as it says, reading `settled` from the task's notes and the design, not from
-an earlier session's conversation.
+it returns. Pass each as it says, reading `settled` from the task's notes and the design.
 
 Then act on what it returns:
 
