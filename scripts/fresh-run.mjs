@@ -932,12 +932,13 @@ async function selftest() {
         return
       }
     }
+    results.push(await zombieCase())
   } finally {
     rmSync(base, { recursive: true, force: true })
   }
   const failed = results.filter((r) => !r.ok)
   for (const { name, ok, detail } of results) console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${name} -- ${detail}`)
-  console.log(`fresh-run selftest: ${results.length - failed.length}/${results.length} cases hold (control plus ${results.length - 1} doctored), in ${((performance.now() - started) / 1000).toFixed(1)} s.`)
+  console.log(`fresh-run selftest: ${results.length - failed.length}/${results.length} cases hold (control plus ${results.length - 2} doctored, and the reading of a zombie), in ${((performance.now() - started) / 1000).toFixed(1)} s.`)
   process.exitCode = failed.length ? 1 : 0
 }
 
@@ -947,20 +948,53 @@ const pause = (ms) => new Promise((done) => setTimeout(done, ms))
 /**
  * Whether `pid` names a process that has not exited. A zombie has exited and waits on a parent to reap
  * it, and `process.kill(pid, 0)` still finds it; where PID 1 reaps no orphan, as in the dev container,
- * a killed child stays one, so on Linux its state in `/proc` decides (asdlc-openspec-c17k).
+ * a killed child stays one, so on Linux its state in `/proc` decides (asdlc-openspec-c17k). A `/proc`
+ * it cannot read leaves the signal's answer, so a child that runs on is never read as gone.
+ * `scripts/git-hooks.mjs` holds the same reading for its signal case, and `alive` in
+ * `scripts/code-graph.mjs` still lacks it (asdlc-openspec-29nx).
  */
 function pidRuns(pid) {
-  try {
-    process.kill(pid, 0)
-  } catch {
-    return false
+  const signalled = () => {
+    try {
+      process.kill(pid, 0)
+      return true
+    } catch {
+      return false
+    }
   }
+  if (!signalled()) return false
   if (process.platform !== 'linux') return true
   try {
     const stat = readFileSync(`/proc/${pid}/stat`, 'utf8')
     return stat[stat.lastIndexOf(')') + 2] !== 'Z'
   } catch {
-    return false
+    return signalled()
+  }
+}
+
+/** The case that holds `stillAlive`'s reading of a zombie, made on purpose, wherever PID 1 reaps orphans too. */
+async function zombieCase() {
+  const name = 'a zombie reads as exited, and a process that runs as running'
+  if (process.platform !== 'linux') return { name, ok: true, detail: 'skipped off Linux: the reading is of /proc' }
+  // The exec'd sleep never reaps the child sh started in the background, which stays a zombie.
+  const parent = childSpawn('sh', ['-c', 'sleep 0 & echo $!; exec sleep 30'], { stdio: ['ignore', 'pipe', 'ignore'] })
+  try {
+    const zombie = await new Promise((done) => parent.stdout.once('data', (d) => done(Number(String(d).trim()))))
+    const state = () => {
+      try {
+        const stat = readFileSync(`/proc/${zombie}/stat`, 'utf8')
+        return stat[stat.lastIndexOf(')') + 2]
+      } catch {
+        return null
+      }
+    }
+    for (let i = 0; i < 40 && state() !== 'Z'; i++) await pause(50)
+    if (state() !== 'Z') return { name, ok: false, detail: `the child ${zombie} never became a zombie` }
+    if (await stillAlive(zombie)) return { name, ok: false, detail: `the zombie ${zombie} reads as running` }
+    if (!pidRuns(parent.pid)) return { name, ok: false, detail: `the sleeping parent ${parent.pid} reads as exited` }
+    return { name, ok: true, detail: 'the zombie reads as exited, the sleeping parent as running' }
+  } finally {
+    parent.kill('SIGKILL')
   }
 }
 
