@@ -23,10 +23,10 @@ lives, and overrides nothing here.
 
 ## Verification before claiming
 
-Never state a count, a figure, a "resolved" status or a fact about the environment derived from
-titles, memory or inference. Re-derive every number in a document, an issue, a pull-request body or
-an analysis from the repository at the time of writing. Cite the source path inline. If you cannot
-verify a figure, say so.
+Never state a count, a figure, a "resolved" status, an option's effect or a fact about the
+environment derived from titles, memory or inference. Re-derive every number you write, a message to
+the user included, from the repository at the time of writing. Cite the source path inline. If you
+cannot verify a figure, say so.
 
 The same holds for a fact a session hands a subagent. A premise in a brief is verified first and
 given with its source, or given as a question for the subagent to check. A subagent that finds a
@@ -71,13 +71,18 @@ refused as a unit (not verified against the CLI).
 
 If a command you need is refused by the permission classifier, do not attempt a workaround. Skip
 it, keep going with everything else, and give one `RUN THESE YOURSELF` code block at the end of the
-report with the exact commands, in order.
+report with the exact commands, in order. Hold back a command whose safety turns on an earlier one's
+output until the user reports that output: a pasted block runs whole.
 
 A command a subagent reports refused may be run once by the session that launched it, as its own
 single call, before that session hands it to the user: the classifier judges each call in its own
 context, so a subagent's refusal is not its parent's (not verified against the CLI). If that call is
 refused too, the command goes in the block. The parent never tries again in pieces, through another
 tool, or through another subagent; each of those is a workaround.
+
+A refusal saying you are isolated in a worktree is not the classifier's
+(verified against the CLI, 2.1.292): redo the work once in a form the isolation can check, or the
+work goes undone.
 
 ## The task store
 
