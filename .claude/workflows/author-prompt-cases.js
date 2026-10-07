@@ -1,11 +1,11 @@
 export const meta = {
   name: 'author-prompt-cases',
-  description: "Write candidate decision cases for the settled findings of a prompt review, one author per finding and lens, and validate the cases a session chose against the trunk's text of their prompts, storing only those every repetition answers as expected",
+  description: "Write candidate decision cases for the settled findings of a prompt review, one author per finding and lens, and validate the cases a session chose against the trunk's text of their prompts or the commit it names, storing only those every repetition answers as expected",
   whenToUse: 'Step 4 of the continuous-prompt-improvement agent, before review-prompts.js: once to write candidates, then once to validate the cases chosen from them; or any session that adds cases to the bank',
   phases: [
     { title: 'Read', detail: "one agent prints every prompt text the run needs, with a checksum this script re-derives" },
     { title: 'Author', detail: 'one author for each finding and lens, given that finding and that text alone' },
-    { title: 'Validate', detail: "each chosen case answered as many times as the policy says, with the trunk's text of its prompt" },
+    { title: 'Validate', detail: "each chosen case answered as many times as the policy says, with the trunk's text of its prompt or the text at `args.ref`" },
   ],
 }
 
@@ -18,9 +18,10 @@ export const meta = {
  * candidate cases. For each case, one the session chose from the candidates or combined from them, it
  * runs `promptReviewCaseRepetitions` answers by the agentType `prompt-case-answerer`, each given the
  * case and the trunk's text of its prompt, or the text at `args.ref`, and returns the case as
- * validated only when every one of them chose its expected option. A case is the format `.claude/prompt-cases/README.md` gives; the
- * session writes each validated case there, and `.claude/workflows/review-prompts.js` answers the
- * bank with the old text and the new of every prompt a review changes (`docs/decisions.md` § D-32).
+ * validated only when every one of them chose its expected option. A case is the format
+ * `.claude/prompt-cases/README.md` gives; the session writes each validated case there, and
+ * `.claude/workflows/review-prompts.js` answers the bank with the old text and the new of every
+ * prompt a review changes (`docs/decisions.md` § D-32).
  * It commits nothing. Its reader runs `scripts/prompt-case-texts.mjs`, which writes each text it needs
  * under `.scratch/prompt-case-texts/` where the session stands, and each author or answer reads its
  * own file there: a model that copied a text through its output would have to retype tens of

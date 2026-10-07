@@ -81,14 +81,16 @@ against the CLI), then take the first case that fits:
   not make it unneeded.
 - **Its form, not its effect.** The call broke § Bash command style, or a check could not parse it,
   and a form that section prescribes, or a dedicated tool, does the same work without what was
-  refused. Run that once; refused again, take the next case.
+  refused. Run that once, since form after form until one passes is the retry barred above; refused
+  again, take the next case.
 - **Later work needs it.** Finish the work that does not, then stop and give the exact command for
   the user to run as `! <command>`, which puts its output in the session (not verified against the
   CLI), and go on from that output, since a block at the end leaves that work undone.
 - **Nothing later needs it.** Keep going, and end the report with one `RUN THESE YOURSELF` code
   block of the commands still needed, in order, each with a comment above it saying why it should
-  run and one below it saying the result to expect. Hold back a command whose safety turns on an
-  earlier one's output until the user reports that output: a pasted block runs whole.
+  run and one below it saying the result to expect, or the user can neither judge it nor tell
+  whether it worked. Hold back a command whose safety turns on an earlier one's output until the
+  user reports that output: a pasted block runs whole.
 
 A command the user declined at a permission prompt is neither retried nor listed, since a block
 would hand back what they refused: the report says what it leaves undone and asks how to go on. A
