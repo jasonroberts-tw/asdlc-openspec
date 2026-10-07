@@ -17,8 +17,8 @@ export const meta = {
  * agentType `prompt-case-author` and given that seed and that prompt's text alone, and returns their
  * candidate cases. For each case, one the session chose from the candidates or combined from them, it
  * runs `promptReviewCaseRepetitions` answers by the agentType `prompt-case-answerer`, each given the
- * case and the trunk's text of its prompt, and returns the case as validated only when every one of
- * them chose its expected option. A case is the format `.claude/prompt-cases/README.md` gives; the
+ * case and the trunk's text of its prompt, or the text at `args.ref`, and returns the case as
+ * validated only when every one of them chose its expected option. A case is the format `.claude/prompt-cases/README.md` gives; the
  * session writes each validated case there, and `.claude/workflows/review-prompts.js` answers the
  * bank with the old text and the new of every prompt a review changes (`docs/decisions.md` § D-32).
  * It commits nothing. Its reader runs `scripts/prompt-case-texts.mjs`, which writes each text it needs
@@ -55,6 +55,12 @@ export const meta = {
  *           run or the section shows; settledBy what settles the right answer
  *   cases   optional [case]: the cases to validate, each as the README gives it
  *   known   optional [string]: the ids already in the bank, which a case to validate may not take
+ *   ref     optional: the hash of a commit whose text a section's seed is written from and every
+ *           case answered with, in place of the trunk's; a branch whose edit adds the rule a case
+ *           tests names its own head, since the trunk's text could not settle that case
+ *           (docs/decisions.md § D-56). A run's seed is still written from the commit the run read.
+ *           A case validated at a head is answered again at the branch's last head before its
+ *           push: an edit made after validation leaves it tested against text that will not land.
  *
  * At least one seed or case. A seed from a section gets no lens the library below marks as needing a
  * run, since nothing was recorded.
@@ -185,6 +191,7 @@ function argsProblem() {
   for (const key of ['seeds', 'cases', 'known']) {
     if (A[key] !== undefined && !Array.isArray(A[key])) return `args.${key} must be a list`
   }
+  if (A.ref !== undefined && !(isText(A.ref) && COMMIT.test(A.ref))) return 'args.ref must be the hash of the commit whose text the cases are written from and answered with'
   const seeds = A.seeds || []
   const cases = A.cases || []
   if (!seeds.length && !cases.length) return 'args holds no seed to write a case for and no case to validate'
@@ -271,7 +278,7 @@ function answerPrompt(c, path, r) {
 
 function authorPrompt(seed, lens, path, n) {
   const s = seed.source
-  const where = s.run ? `as the run ${s.run} read it, at ${s.commit}` : `as the trunk has it; the finding is drawn from ${s.section}`
+  const where = s.run ? `as the run ${s.run} read it, at ${s.commit}` : `${BASE === TRUNK ? 'as the trunk has it' : `at ${BASE}`}; the finding is drawn from ${s.section}`
   return [
     `You are one of ${n} authors writing a decision case for one finding about \`${seed.prompt}\`. Write through the ${lens} lens: ${LENSES[lens].text}`,
     '',
@@ -298,8 +305,10 @@ if (badArgs) {
 const seeds = A.seeds || []
 const cases = A.cases || []
 const n = A.policy.promptReviewCaseRepetitions
-const refOf = (s) => (s.run ? s.commit : TRUNK)
-const pairs = [...seeds.map((s) => [refOf(s.source), s.prompt]), ...cases.map((c) => [TRUNK, c.prompt])]
+/** The text a section's seed and every case are read at: the trunk's, or the commit `args.ref` names. */
+const BASE = A.ref ?? TRUNK
+const refOf = (s) => (s.run ? s.commit : BASE)
+const pairs = [...seeds.map((s) => [refOf(s.source), s.prompt]), ...cases.map((c) => [BASE, c.prompt])]
 const want = [...new Map(pairs.map((p) => [p.join(':'), p])).values()]
 let authorsRun = 0
 
@@ -339,10 +348,10 @@ async function authorSeed(seed) {
   })
 }
 
-/** One case's answers against the trunk's text, and whether every one chose its expected option. */
+/** One case's answers against the text at `BASE`, and whether every one chose its expected option. */
 async function validate(c) {
-  const path = pathOf(TRUNK, c.prompt)
-  if (path === null) return { case: c, right: 0, of: n, answers: [], problem: `git could not show ${c.prompt} at ${TRUNK}` }
+  const path = pathOf(BASE, c.prompt)
+  if (path === null) return { case: c, right: 0, of: n, answers: [], problem: `git could not show ${c.prompt} at ${BASE}` }
   const replies = await parallel(
     Array.from({ length: n }, (_, r) => () => agent(answerPrompt(c, path, r), { label: `answer ${r + 1}/${n} ${c.id}`, phase: 'Validate', schema: ANSWER_SCHEMA, agentType: ANSWERER })),
   )

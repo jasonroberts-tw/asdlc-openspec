@@ -16,7 +16,8 @@ this page and a header disagree, the header wins.
    a run, for a case written from the prompt's own rules. The reviewer chooses one candidate or
    combines several.
 2. **Validated.** The same workflow answers the chosen case `promptReviewCaseRepetitions` times with
-   the trunk's text. It is stored only if every answer chose its expected option: a case the text
+   the trunk's text, or, for a rule a branch adds, with that branch's head (`docs/decisions.md`
+   § D-56). It is stored only if every answer chose its expected option: a case the text
    already fails could never flip, and one it passes only sometimes would flip by noise.
 3. **Stored.** One file here, named `<id>.json`, and one row below, in the pull request that adds it.
 4. **Judged.** `.claude/workflows/review-prompts.js` answers every case of each file an upheld

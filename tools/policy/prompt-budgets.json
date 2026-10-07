@@ -111,7 +111,7 @@
     },
     ".claude/workflows/author-prompt-cases.js": {
       "words": 773,
-      "means": "The most words the string and template literals of `.claude/workflows/author-prompt-cases.js` may hold (`mise run check:prompts`): its lens texts, its prompts to the reader, the authors and the answers, its reader's command and its refusals. First set to its size at the commit it landed on, 773; a raise edits this value and says why here. Decided 2026-10-03 by D-32 (asdlc-openspec-7c1)."
+      "means": "The most words the string and template literals of `.claude/workflows/author-prompt-cases.js` may hold (`mise run check:prompts`): its lens texts, its prompts to the reader, the authors and the answers, its reader's command and its refusals. First set to its size at the commit it landed on, 773; a raise edits this value and says why here. Decided 2026-10-03 by D-32 (asdlc-openspec-7c1). Kept at 773 on 2026-10-07 by D-56 (asdlc-openspec-8qfr): `args.ref`'s refusal and a section seed's text at that commit added 20 words, spending the room left since later changes brought its count to 753 at 2f79665; nothing was consolidated, since the edit took it no further than its budget."
     },
     ".claude/workflows/build-change-task.js": {
       "words": 4114,
