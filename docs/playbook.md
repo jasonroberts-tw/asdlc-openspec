@@ -67,8 +67,7 @@ the step that writes the run's analysis quotes each correction the user made, as
 GitHub deletes it when the pull request merges, by the maintainer's setting, as
 `.claude/skills/open-pr/SKILL.md` § 8 now says. Amended 2026-10-07 by `asdlc-openspec-8qfr`: the
 step that reports, the `RUN THESE YOURSELF` row and § 5's row for a refused command follow
-`CLAUDE.md` § Guards' four cases, § 5 gains a row for a declined permission prompt, and the prompt
-review's row cites where its merge is now stated.
+`CLAUDE.md` § Guards' four cases, and § 5 gains a row for a declined permission prompt.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -127,7 +126,7 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 | pull-request reviewer | `.github/workflows/pr-review.yml`: on each pushed head it sets the `pr-review` status by the high-risk floor, which GitHub's auto-merge waits for beside `verify`; a head on the floor a person merges (`docs/decisions.md` § D-47). |
 | branch review | The `branch-reviewer` agent, run before each push: it holds the branch to the cited issues' acceptance criteria and the house rubrics (`.claude/skills/open-pr/SKILL.md` § 5). |
 | analysis | A run's account of itself, left as a note on the issue it worked, which a prompt review later reads (`.claude/skills/close-prompt-run/SKILL.md` § 1. Write the analysis, or none). |
-| prompt review | A background session that reads the pending analyses as one batch and proposes prompt edits as one pull request, which merges as any other does: by GitHub's auto-merge off the high-risk floor, by a person on it (`.claude/agents/continuous-prompt-improvement.md`, and `CLAUDE.md` § Git workflow). |
+| prompt review | A background session that reads the pending analyses as one batch and proposes prompt edits as one pull request, which merges as any other does: by GitHub's auto-merge off the high-risk floor, by a person on it (`CLAUDE.md` § Prompt reviews). |
 | `.scratch/` | The gitignored directory for commit messages, pull-request bodies and tracker notes, each passed to its tool by file (`CLAUDE.md` § Bash command style). |
 | `RUN THESE YOURSELF` | The block ending a report: in order, each refused command still needed on which no later work depended, with a comment above it saying why it should run and one below it saying the result to expect (`CLAUDE.md` § Guards). |
 

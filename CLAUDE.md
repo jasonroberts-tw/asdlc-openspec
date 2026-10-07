@@ -69,10 +69,10 @@ refused as a unit (not verified against the CLI).
 
 ## Guards
 
-A refused command is never retried in another shape that reaches the effect the refusal judged: in
-pieces, through another tool or subagent, or through an allow rule the session writes itself. Each
-of those gets past a judgement the session cannot overrule. Read the refusal's reason (not verified
-against the CLI), then take the first case that fits:
+A refused command or edit is never retried in another shape that reaches the effect the refusal
+judged: in pieces, through another tool or subagent, or through an allow rule the session writes
+itself. Each of those gets past a judgement the session cannot overrule. Read the refusal's reason
+(not verified against the CLI), then take the first case that fits:
 
 - **Wrong, or no longer needed.** The refusal shows the plan was wrong, or the command's effect is
   in place or no longer wanted. Do what the refusal says instead, and give the dropped command one
@@ -101,8 +101,7 @@ single call: the classifier judges each call in its own context, so a subagent's
 parent's (not verified against the CLI). Refused again, it takes the cases above.
 
 A refusal saying you are isolated in a worktree is not the classifier's
-(verified against the CLI, 2.1.292): redo the work once in a form the isolation can check, or the
-work goes undone.
+(verified against the CLI, 2.1.292): redo the work once in a form the isolation can check.
 
 ## The task store
 
