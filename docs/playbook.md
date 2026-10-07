@@ -62,7 +62,10 @@ sets the `pr-review` status on each pushed head and merges nothing, GitHub's aut
 step that acts on the checks enables it once both pass, the step that pushes marks nothing, and the
 approval label is gone (`docs/decisions.md` § D-47). Amended 2026-10-05 by `asdlc-openspec-r6ha.7`:
 the step that writes the run's analysis quotes each correction the user made, as
-`.claude/skills/close-prompt-run/SKILL.md` § 1 now says (`docs/decisions.md` § D-50).
+`.claude/skills/close-prompt-run/SKILL.md` § 1 now says (`docs/decisions.md` § D-50). Amended
+2026-10-07 by `asdlc-openspec-afwf`: the pull request's last step deletes no remote branch, since
+GitHub deletes it when the pull request merges, by the maintainer's setting, as
+`.claude/skills/open-pr/SKILL.md` § 8 now says.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -393,7 +396,7 @@ Every pull request is opened with the `open-pr` skill, whoever opens it.
 7. Wait for the merge with `env PR=<number> node scripts/pr-review.mjs wait`, in the background, as
    the one watcher. Once it has merged, leave the worktree and run
    `mise run worktree:gc --dry-run --finished <worktree>`, then the real run once that names this
-   worktree alone, and delete a remote branch that survives. Decided by:
+   worktree alone. GitHub deletes the remote branch itself. Decided by:
    `.claude/skills/open-pr/SKILL.md` § 8. Wait for the merge, then clean up.
 
 A person decides the merge when a changed path or JSON key is on the floor:
