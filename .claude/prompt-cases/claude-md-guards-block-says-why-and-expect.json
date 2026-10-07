@@ -25,5 +25,5 @@
     }
   ],
   "expected": "c",
-  "settledBy": "The maintainer's correction of 2026-10-07, stated as a rule for every such block rather than a choice for one run: each command in the block carries a comment above it saying why it should run and one below it saying the result to expect. CLAUDE.md § Guards at cd78452 states this in its case 'Nothing later needs it'. Its case 'Wrong, or no longer needed' says that a smaller check passing in the command's place does not make the command unneeded, which rules out dropping it. The brief's length limit comes from a launching session, and no agent's message can override CLAUDE.md."
+  "settledBy": "The maintainer's correction of 2026-10-07, stated as a rule for every such block rather than a choice for one run: each command in the block carries a comment above it saying why it should run and one below it saying the result to expect. CLAUDE.md § Guards states this in its case 'Nothing later needs it'. Its case 'Wrong, or no longer needed' says that a smaller check passing in the command's place does not make the command unneeded, which rules out dropping it."
 }
