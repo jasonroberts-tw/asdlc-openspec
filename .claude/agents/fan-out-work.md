@@ -23,14 +23,14 @@ is red, stop and report the failing gate.
 ## 2. Partition the ready work into lanes
 
 Read the queue (`bd ready --exclude-label spec-change`, `specChangeLabel` in
-`tools/policy/vocabulary.json`; `change-build` works a product change's tasks) and, for every pair of
-issues, decide the overlap by reading the files each will touch, not the titles:
+`tools/policy/vocabulary.json`) and, for every pair of issues, decide the overlap by reading the
+files each will touch, not the titles:
 
 | Overlap kind | What it looks like | What to do |
 |---|---|---|
 | Same lines | two issues rewrite the same function, table or paragraph | one lane takes both, in order |
 | Same file, separate blocks | two issues each add a block to one file | sibling lanes; give each a named anchor (the heading or the entry it adds after) so the merges do not collide |
-| Same generated file | two issues each change an input of one emitter | accept it: separate lanes, and regenerate that file after each merge rather than merging its bytes |
+| Same generated file | two issues each change an input of one emitter | accept it: separate lanes, and regenerate that file after each merge |
 | Same numbered sequence | two issues each append a numbered entry to `docs/decisions.md` | separate lanes; each takes the next number as it sees it, and the second to merge renumbers its entry, its table row and the range bound, because a named anchor cannot keep two lanes from taking the same number |
 
 An issue whose premise you cannot verify from the checkout is not dispatched; note why on the issue.
@@ -48,19 +48,18 @@ One bracket, so no second session picks up an issue between two of your claims.
 Launch each lane with the Agent tool's `isolation: "worktree"`, whose hook runs the one worktree
 script: a lane told instead to enter a worktree by path can run and write nothing there
 (not verified against the CLI). Brief each lane with: its issues, its anchors, the skill it follows
-(`.claude/skills/bead/SKILL.md`), where it stops in it, that it makes no worktree at § 3, and these
-two rules, stated in every brief word for word:
+(`.claude/skills/bead/SKILL.md`), where it stops in it, that it makes no worktree at § 3, that its
+anchors narrow nothing § 4 asks, and these two rules, stated in every brief word for word:
 
 1. **Never end a turn while a command runs.** A turn end kills the lane's background run or leaves
    it running unwatched (not verified against the CLI).
 2. **An acceptance criterion that acts outside the repository becomes a follow-up issue labelled
    `human` at creation and is never performed by the lane.**
 
-A lane stops at the end of `.claude/skills/bead/SKILL.md` § 5, once its rebased branch passes
-`mise run gates`, and writes its branch and both gate runs as measured, or why it stopped sooner, to
-`.scratch/lane-report.md` in its worktree. It opens no pull request and closes no issue. Read that
-file at the `worktreePath` its completion notice gives: its final message may not arrive
-(not verified against the CLI).
+A lane stops at the end of `.claude/skills/bead/SKILL.md` § 5 and writes its branch and both gate
+runs as measured, or why it stopped sooner, to `.scratch/lane-report.md` in its worktree. It opens
+no pull request and closes no issue. Read that file at the `worktreePath` its completion notice
+gives: its final message may not arrive (not verified against the CLI).
 
 ## 5. Integrate on your own branch
 
@@ -71,8 +70,9 @@ each lane, regenerate every generated file more than one lane touched, renumber 
 that collided, re-derive each figure a lane measured without the others' work, then run
 `mise run gates`.
 
-Then run `mise run worktree:gc --discard <lane's branch>`, and the same for a lane you drop unless a
-person should see it. Nothing else removes a lane whose pick needed a resolution.
+Then run `mise run worktree:gc --discard <lane's branch>`, dry run first as
+`.claude/skills/open-pr/SKILL.md` § 8 step 2 says, and the same for a lane you drop unless a person
+should see it. Nothing else removes a lane whose pick needed a resolution.
 
 ## 6. Open the pull request and watch its checks
 
