@@ -48,8 +48,8 @@ One bracket, so no second session picks up an issue between two of your claims.
 Launch each lane with the Agent tool's `isolation: "worktree"`, whose hook runs the one worktree
 script: a lane told instead to enter a worktree by path can run and write nothing there
 (not verified against the CLI). Brief each lane with: its issues, its anchors, the skill it follows
-(`.claude/skills/bead/SKILL.md`), where it stops in it, that it makes no worktree at § 3, and these
-two rules, stated in every brief word for word:
+(`.claude/skills/bead/SKILL.md`), where it stops in it, that it makes no worktree at § 3, that its
+anchors narrow nothing § 4 asks, and these two rules, stated in every brief word for word:
 
 1. **Never end a turn while a command runs.** A turn end kills the lane's background run or leaves
    it running unwatched (not verified against the CLI).
@@ -70,8 +70,9 @@ each lane, regenerate every generated file more than one lane touched, renumber 
 that collided, re-derive each figure a lane measured without the others' work, then run
 `mise run gates`.
 
-Then run `mise run worktree:gc --discard <lane's branch>`, and the same for a lane you drop unless a
-person should see it. Nothing else removes a lane whose pick needed a resolution.
+Then run `mise run worktree:gc --discard <lane's branch>`, dry run first as
+`.claude/skills/open-pr/SKILL.md` § 8 step 2 says, and the same for a lane you drop unless a person
+should see it. Nothing else removes a lane whose pick needed a resolution.
 
 ## 6. Open the pull request and watch its checks
 
