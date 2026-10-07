@@ -133,11 +133,12 @@ USER vscode
 #
 # No global default is set, so a bare `node` in a directory with no `mise.toml` above it fails and
 # says "No version is set for shim: node" (asdlc-openspec-8juz.1, question 6). Every gate runs from
-# the clone, and a shim hands the real tool directories to what it starts; a gate that runs tasks in
-# a fixture repository of its own gives the fixture's `mise.toml` the clone's node pin, as
-# `fixtureMise` in `scripts/fresh-run.mjs` does, since mise there resolves `node` from that config and
-# not from the PATH it was handed (asdlc-openspec-locj). A global default would be a second home for
-# the pin.
+# the clone, and a shim hands the real tool directories to what it starts. A selftest whose tasks run
+# in a fixture repository of its own, where mise resolves `node` from the fixture's `mise.toml` and
+# not from the PATH it was handed, takes one of two routes: it gives that `mise.toml` the clone's node
+# pin, as `fixtureMise` in `scripts/fresh-run.mjs` does (asdlc-openspec-locj), or it names node by
+# its path, as `scripts/hooks/gate-summary.selftest.mjs` does. A global default would be a second
+# home for the pin.
 ENV PATH="/home/vscode/.local/share/mise/shims:/home/vscode/.local/bin:${PATH}"
 # `.mise/locks/` beside them: a `pypi:` tool's locked install reads its uv lock there (D-35).
 COPY --chown=vscode:vscode mise.toml mise.lock /tmp/toolchain/

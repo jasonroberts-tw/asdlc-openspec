@@ -717,20 +717,27 @@ async function main() {
 /**
  * Whether `pid` names a process that has not exited. A zombie has exited and waits on a parent to reap
  * it, and `process.kill(pid, 0)` still finds it; where PID 1 reaps no orphan, as in the dev container,
- * a job the runner killed stays one, so on Linux its state in `/proc` decides (asdlc-openspec-c17k).
+ * a job the runner killed stays one, so on Linux its state in `/proc` decides (asdlc-openspec-c17k). A
+ * `/proc` it cannot read leaves the signal's answer, so a job that runs on is never read as gone.
+ * `scripts/fresh-run.mjs` holds the same reading for its selftest, and `alive` in
+ * `scripts/code-graph.mjs` still lacks it (asdlc-openspec-29nx).
  */
 function pidRuns(pid) {
-  try {
-    process.kill(pid, 0)
-  } catch {
-    return false
+  const signalled = () => {
+    try {
+      process.kill(pid, 0)
+      return true
+    } catch {
+      return false
+    }
   }
+  if (!signalled()) return false
   if (process.platform !== 'linux') return true
   try {
     const stat = readFileSync(`/proc/${pid}/stat`, 'utf8')
     return stat[stat.lastIndexOf(')') + 2] !== 'Z'
   } catch {
-    return false
+    return signalled()
   }
 }
 
@@ -1281,6 +1288,7 @@ async function gitCases(base, env, record) {
   if (process.platform === 'win32') {
     record('an older Git is refused, and nothing is written', true, 'skipped on Windows: the fake Git is a shell script')
     record('a signal kills every job', true, 'skipped on Windows: it sends a POSIX signal')
+    record('the signal case reads a zombie as exited, and a process that runs as running', true, 'skipped on Windows: the reading is of /proc')
     return
   }
 
@@ -1322,6 +1330,31 @@ async function gitCases(base, env, record) {
     if (alive) process.kill(pid, 'SIGKILL')
     expect(!alive, 'the job outlived the runner')
     return 'no job outlived it'
+  })
+
+  await check('the signal case reads a zombie as exited, and a process that runs as running', async () => {
+    if (process.platform !== 'linux') return 'skipped off Linux: the reading is of /proc'
+    // The exec'd sleep never reaps the child sh started in the background, which stays a zombie
+    // wherever PID 1 reaps orphans too.
+    const parent = spawn('sh', ['-c', 'sleep 0 & echo $!; exec sleep 30'], { stdio: ['ignore', 'pipe', 'ignore'] })
+    try {
+      const zombie = await new Promise((r) => parent.stdout.once('data', (d) => r(Number(String(d).trim()))))
+      const state = () => {
+        try {
+          const stat = readFileSync(`/proc/${zombie}/stat`, 'utf8')
+          return stat[stat.lastIndexOf(')') + 2]
+        } catch {
+          return null
+        }
+      }
+      for (let i = 0; i < 40 && state() !== 'Z'; i++) await new Promise((r) => setTimeout(r, 50))
+      expect(state() === 'Z', `the child ${zombie} never became a zombie`)
+      expect(!pidRuns(zombie), `the zombie ${zombie} reads as running`)
+      expect(pidRuns(parent.pid), `the sleeping parent ${parent.pid} reads as exited`)
+      return 'the zombie reads as exited, the sleeping parent as running'
+    } finally {
+      parent.kill('SIGKILL')
+    }
   })
 }
 
