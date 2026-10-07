@@ -109,7 +109,7 @@ a failed read, after which starting it again is not a second watcher. With no us
 is handed back unmerged, since nobody would tell the person it waits on.
 
 Once it has merged, clean up from the primary checkout. GitHub deletes the remote branch itself, by
-the maintainer's setting, which needs no check or mention. A session by then in another branch's
+the maintainer's setting; it needs no check or mention. A session by then in another branch's
 worktree cleans up once it leaves that one, naming each merged worktree with its own `--finished`.
 
 1. Leave the worktree with `ExitWorktree`, action `keep`. The sweep below keeps it while this
