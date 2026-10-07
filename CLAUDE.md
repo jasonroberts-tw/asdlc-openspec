@@ -18,9 +18,8 @@ write a memory and do not cite one from a tracked file. Claude Code's per-projec
 `~/.claude/projects/` is not used either. A fact worth keeping goes in a tracked file or, if it is work,
 in `bd`.
 
-`bd prime`, which the tracker's plugin runs at each session's start and compaction, prints
-`.beads/PRIME.md`: task-tracking guidance that states no rule, only where each lives, and overrides
-nothing here.
+`bd prime` prints `.beads/PRIME.md`: task-tracking guidance that states no rule, only where each
+lives, and overrides nothing here.
 
 ## Verification before claiming
 
@@ -29,11 +28,10 @@ titles, memory or inference. Re-derive every number in a document, an issue, a p
 an analysis from the repository at the time of writing. Cite the source path inline. If you cannot
 verify a figure, say so.
 
-The same holds for a fact a session hands a subagent. A premise in a brief, such as whether an API
-exists, the version that added it, or a value computed from the code, is verified first and given
-with its source, or given as a question for the subagent to check. A subagent that finds a premise
-false builds on what it found, not on the brief, and names the false premise in its report: what it
-builds on a premise it knows is false is work someone later replaces.
+The same holds for a fact a session hands a subagent. A premise in a brief is verified first and
+given with its source, or given as a question for the subagent to check. A subagent that finds a
+premise false builds on what it found, not on the brief, and names the false premise in its report:
+what it builds on a premise it knows is false is work someone later replaces.
 
 ## Stateful counts live in `count-index.md`, under a key
 
@@ -128,8 +126,7 @@ up from what the earlier stages wrote down:
 - **its worktree**, `.claude/worktrees/<change>` on the branch `agent/<change>`, and the change's
   folder there, `openspec/changes/<change>/`.
 
-What a later stage needs from an earlier one, such as the user's answer to a question or a decision
-to write no design, goes into one of these before the earlier stage ends.
+What a later stage needs from an earlier one goes into one of these before the earlier stage ends.
 
 When a later stage sends a change back, the epic gets the `rerouteLabels` label, from
 `tools/policy/vocabulary.json`, for each earlier stage whose work it reopens: the proposal or a delta
@@ -243,8 +240,8 @@ Each of these holds from the first file it applies to, and for every one after i
   checks; **the failure it exists to prevent**, as the incident that happened, dated, with the wrong
   fix tried first where there was one; the invocation with its flags; and what it needs (another
   checkout, a token, a network). On day one, with no incident yet, that paragraph says what the
-  script would let through if it were wrong, and the first incident replaces it. It is the paragraph
-  readers actually need, and the one to keep when cutting: a gate whose header says only what it
+  script would let through if it were wrong, and the first incident replaces it. It is the one to keep
+  when cutting: a gate whose header says only what it
   checks is the one the next person weakens to make a push go through. A measured cost lives there
   too, so "why is this not a pre-push job" is answerable from the file. An emitter's header adds
   four labelled lines: `KIND` (its lifecycle), `INVARIANTS` (what it never does), `RE-ENTRY`
@@ -288,8 +285,8 @@ After a prompt is executed from a file, the session that ran it closes the run w
 agent, reads every run's analysis no review has read yet, as a batch, and proposes its edits as one
 pull request, whose description is the review and which merges as any other does
 (`docs/decisions.md` § D-08, § D-17 and § D-37). The skill is the home of the launch, the header of
-`scripts/prompt-runs.mjs` of the lines' form, and the agent's file of what a review leaves. A
-review is not a file in this repository, and a prompt carries no `Reviewed:` trailer.
+`scripts/prompt-runs.mjs` of the lines' form, and the agent's file of what a review leaves. A prompt
+carries no `Reviewed:` trailer.
 
 ## A program proposes; only a person promotes
 
