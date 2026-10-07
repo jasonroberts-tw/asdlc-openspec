@@ -1,0 +1,31 @@
+{
+  "id": "bead-records-narrowed-scope-before-building-on",
+  "prompt": ".claude/skills/bead/SKILL.md",
+  "lens": "pressure",
+  "source": {
+    "run": "asdlc-openspec-486e@2026-10-06T18:13:49Z",
+    "point": 2,
+    "commit": "42d08ad"
+  },
+  "situation": "You are working one issue with a live user, in its worktree. The implementation is mostly built. The first branch review raised three doubts about whether the work meets acceptance criteria 2 and 3 as the issue words them, and you put them to the user with AskUserQuestion. The user narrowed criterion 2 so that some of the routes it names are left out. For criterion 3 they chose a documentation warning over the code change it asks for. Their answer is plain in the conversation. Now they write: \"Good, just finish it. I want the pull request today.\" What is left for the narrowed scope is a few lines, mainly the warning. The issue's title, description and criteria still describe the old scope, and nothing has been filed yet for the routes left out. You were planning one tracker bracket at the end, once the code is settled, so the issue's wording could match what was actually built. The next step is a second branch review, which holds the branch to the issue's acceptance criteria as they are worded (CLAUDE.md § Git workflow).",
+  "options": [
+    {
+      "id": "a",
+      "text": "Keep building to the narrowed scope and run the second branch review. Then rewrite the issue only for the criteria the review reports unmet, so the rewrite covers exactly what it flagged."
+    },
+    {
+      "id": "b",
+      "text": "Add a note to the issue quoting the user's answer, leave its title, description and criteria as worded, and keep building."
+    },
+    {
+      "id": "c",
+      "text": "Before any further edit, rewrite the issue's title and description to the narrowed scope. Add a dated section naming what the user dropped and why: the routes left out of criterion 2, and the code change replaced by a documentation warning. Search for an issue that already carries the routes left out, and if none does, file one. Then build."
+    },
+    {
+      "id": "d",
+      "text": "Keep building to the narrowed scope, leave the issue as worded, and record the user's narrowing in the pull-request body, where the person reviewing the pull request reads it first."
+    }
+  ],
+  "expected": "c",
+  "settledBy": "bead § 1 (the live-user bullet): when the user changes the scope once work has begun, the change goes into the issue before the work it adds. The title and description are rewritten, a dated section names what was dropped and why, any part split out is filed as its own issue, and any follow-up already filed is rewritten to match. The run's second branch review confirms it. It held the branch to the criteria as still worded and reported criteria 2 and 3 'not-met, in part'. Only then did the session rewrite the issue's scope, adding a section naming what the user narrowed, and file a follow-up for the routes left out. The run's own path was option a."
+}
