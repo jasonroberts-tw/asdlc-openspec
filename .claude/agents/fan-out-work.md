@@ -23,14 +23,14 @@ is red, stop and report the failing gate.
 ## 2. Partition the ready work into lanes
 
 Read the queue (`bd ready --exclude-label spec-change`, `specChangeLabel` in
-`tools/policy/vocabulary.json`; `change-build` works a product change's tasks) and, for every pair of
-issues, decide the overlap by reading the files each will touch, not the titles:
+`tools/policy/vocabulary.json`) and, for every pair of issues, decide the overlap by reading the
+files each will touch, not the titles:
 
 | Overlap kind | What it looks like | What to do |
 |---|---|---|
 | Same lines | two issues rewrite the same function, table or paragraph | one lane takes both, in order |
 | Same file, separate blocks | two issues each add a block to one file | sibling lanes; give each a named anchor (the heading or the entry it adds after) so the merges do not collide |
-| Same generated file | two issues each change an input of one emitter | accept it: separate lanes, and regenerate that file after each merge rather than merging its bytes |
+| Same generated file | two issues each change an input of one emitter | accept it: separate lanes, and regenerate that file after each merge |
 | Same numbered sequence | two issues each append a numbered entry to `docs/decisions.md` | separate lanes; each takes the next number as it sees it, and the second to merge renumbers its entry, its table row and the range bound, because a named anchor cannot keep two lanes from taking the same number |
 
 An issue whose premise you cannot verify from the checkout is not dispatched; note why on the issue.
@@ -56,11 +56,10 @@ two rules, stated in every brief word for word:
 2. **An acceptance criterion that acts outside the repository becomes a follow-up issue labelled
    `human` at creation and is never performed by the lane.**
 
-A lane stops at the end of `.claude/skills/bead/SKILL.md` § 5, once its rebased branch passes
-`mise run gates`, and writes its branch and both gate runs as measured, or why it stopped sooner, to
-`.scratch/lane-report.md` in its worktree. It opens no pull request and closes no issue. Read that
-file at the `worktreePath` its completion notice gives: its final message may not arrive
-(not verified against the CLI).
+A lane stops at the end of `.claude/skills/bead/SKILL.md` § 5 and writes its branch and both gate
+runs as measured, or why it stopped sooner, to `.scratch/lane-report.md` in its worktree. It opens
+no pull request and closes no issue. Read that file at the `worktreePath` its completion notice
+gives: its final message may not arrive (not verified against the CLI).
 
 ## 5. Integrate on your own branch
 
