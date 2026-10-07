@@ -2601,6 +2601,8 @@ function matchCases(policy) {
 /** The lenses the workflow's library marks as needing a run, which a seed from a section never gets. */
 const RUN_ONLY_LENSES = ['recorded']
 const TRUNK = 'origin/main'
+/** The head of a branch whose rule is not on the trunk yet, which `args.ref` names in place of it. */
+const BRANCH_HEAD = 'b'.repeat(7)
 
 const SEED_RUN = {
   key: `${BEAD}#stage-before-gates`,
@@ -2812,6 +2814,26 @@ function authorCases(policy) {
       name: "refused: a seed whose commit is no hash, so it never reaches the reader's command",
       args: authorArgs(policy, { seeds: [{ ...SEED_RUN, source: { ...SEED_RUN.source, commit: "x';rm -rf ." } }] }),
       expect: ['refused', /^seed \.claude\/skills\/bead\/SKILL\.md#stage-before-gates: its commit must be the hash the run read the prompt at$/],
+      check: beforeAnyAgent,
+    },
+    {
+      name: "with args.ref, a section's seed is written from, and the case answered with, the text at that commit, not the trunk's; a run's seed keeps its own commit",
+      args: authorArgs(policy, { ref: BRANCH_HEAD }),
+      expect: ['done', new RegExp(`^${authors} author\\(s\\) wrote ${authors} candidate\\(s\\) for 2 seed\\(s\\), 0 dropped; 1 of 1 case\\(s\\) validated by ${reps} answer\\(s\\), 0 turned away$`)],
+      check: ({ options }) => {
+        const read = labelled(options, 'read')
+        const want = [`${CASE_COMMIT}:${BEAD}`, `${BRANCH_HEAD}:${OPEN_PR}`, `${BRANCH_HEAD}:${BEAD}`]
+        if (read.length !== 1 || readerArgs(read[0].prompt).join() !== want.join()) return `the reader was asked for ${read.map((o) => readerArgs(o.prompt).join(' ')).join()}, not ${want.join(' ')}`
+        const section = labelled(options, 'author ').find((o) => o.label.endsWith(SEED_SECTION.key))
+        if (!section?.prompt.includes(pathAt(BRANCH_HEAD, OPEN_PR)) || !section.prompt.includes(`at ${BRANCH_HEAD}`)) return "a section's author was not sent to, and told of, the text at the ref"
+        const answers = labelled(options, 'answer ')
+        return answers.length === reps && answers.every((o) => o.prompt.includes(pathAt(BRANCH_HEAD, BEAD))) ? null : 'the case was not answered with the text at the ref'
+      },
+    },
+    {
+      name: "refused: a ref that is no commit hash, so it never reaches the reader's command",
+      args: authorArgs(policy, { ref: "main;rm -rf ." }),
+      expect: ['refused', /^args\.ref must be the hash of the commit whose text the cases are written from and answered with$/],
       check: beforeAnyAgent,
     },
     lenses.some((l) => RUN_ONLY_LENSES.includes(l))
