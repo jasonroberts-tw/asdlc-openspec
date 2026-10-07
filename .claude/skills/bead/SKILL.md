@@ -41,8 +41,7 @@ the two that the trunk has changed since. Read the trunk's copy of each one it n
 follow that copy from here on. A session given no such git status reads the trunk's copy of both.
 
 Name, too, any register entry an acceptance criterion implies or that names the issue
-(`git grep <id> origin/main -- docs/decisions.md`). The pull request's body opens with it, so the
-person who reviews it reads it first (step 6).
+(`git grep <id> origin/main -- docs/decisions.md`).
 
 An issue asking for a change to what the product does, stated as requirements, goes to
 `change-propose` (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
@@ -129,7 +128,7 @@ admits merges anyway off the high-risk floor. Fix one the body would disclose, o
 tree say what is true and file its follow-up (step 4). A criterion the work will not meet as worded
 is changed by the user before the push, as step 1 says.
 
-Open it with the `open-pr` skill. Its body names every issue filed in step 4.
+Open it with the `open-pr` skill.
 
 ## 7. Close on the merge, with a reason
 
