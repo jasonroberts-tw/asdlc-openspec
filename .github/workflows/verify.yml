@@ -1,6 +1,17 @@
 # Every gate, binding on every pull request and on every push to the trunk: the slowest tier of the
 # gate ladder (`CLAUDE.md` § The gate ladder), and the one that trusts none of the faster ones.
 #
+# Four jobs. Each runner is a fresh machine, so code one job runs cannot rewrite a file another job
+# reads or set the variables of its steps (`docs/decisions.md` § D-55):
+#   * `floor-gates`, the gates the floor holds (`prReviewFloorTasks` in tools/policy/pr-review.json)
+#     that read the product and its tests and run neither, after nothing the floor does not hold;
+#   * `product-gates`, the gates the floor holds that run the product's code
+#     (`prReviewFloorProductTasks`), which that code can defeat by design, after nothing else;
+#   * `gates`, every other gate;
+#   * `verify`, the check the trunk's ruleset requires (`prReviewRequiredCheck`), which passes only
+#     when the other three did.
+# `mise run pr-review:check` holds that split, each part by its reason.
+#
 # kit 1.6-5 · ADAPT: keep the order CHEAPEST FIRST, so the commonest failure is also the quickest
 # answer. A step belongs here when its check reads only committed files; a check that reads
 # something outside the repository (another checkout, a token, a network, a language model) belongs
@@ -27,7 +38,7 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  floor-gates:
     runs-on: ubuntu-latest
     # A hung step fails the run in minutes rather than holding a runner for the default six hours.
     timeout-minutes: 15
@@ -56,11 +67,115 @@ jobs:
           version: 2026.10.0
           sha256: 57ced973f968b8fbab07aa8e32bd7077d4a357e200a22356d98963c723c6de0a
       # npm's download cache, keyed by the lockfile, which the Node setup step mise replaced kept.
+      # It and mise's are shared with the other jobs, so a job that runs a pull request's code can
+      # save one this job restores on a later run, once the trunk's for the key is evicted: a loss
+      # `docs/decisions.md` § D-55 accepts.
       - uses: actions/cache@v4
         with:
           path: ~/.npm
           key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - run: npm ci
+      # No lifecycle script: `package.json`'s `scripts` are off the floor, and `prepare` would run
+      # here before every gate. It skips under `CI` anyway, and the one locked install script, the
+      # OpenSpec CLI's, is denied in `allowScripts` (`docs/decisions.md` § D-55).
+      - run: npm ci --ignore-scripts
+      # Under a second (git-hooks.yml's `tests-selftest` job has the measurement): fixture trees
+      # under the temporary directory, one Node process per fixture test file.
+      - name: the test runner, negative-tested
+        run: mise run tests:selftest
+      # Seconds (git-hooks.yml's `tests-fresh-selftest` job has the measurement): the verifier's fresh
+      # run over a fixture repository, its `npm ci` stubbed. `tests:fresh` itself reads the network
+      # and runs only in change-verify (docs/decisions.md § D-15, item 3).
+      - name: the verifier's fresh run, negative-tested
+        run: mise run tests:fresh:selftest
+      # Under a second (git-hooks.yml's `tests-trace-selftest` job has the measurement): doctored
+      # test sources, a fixture spec tree under the temporary directory, and one archive by the
+      # pinned OpenSpec CLI, with no network.
+      - name: the test-trace reader and its hash, negative-tested
+        run: mise run tests:trace:selftest
+      # Under a second (git-hooks.yml's `trace-check` job has the measurement): the traceability
+      # record re-derived and diffed, and every rule its header holds, over the branch's commits since
+      # its merge base with origin/main, which the whole-history checkout above provides.
+      - name: the traceability record is current, and every scenario, test, contract and task holds to it
+        run: mise run trace:check
+      # About ten seconds (git-hooks.yml's `trace-selftest` job has the measurement and the count of
+      # trial archives): fixture repositories under the temporary directory, and trial archives by
+      # the pinned CLI.
+      - name: the trace gate, negative-tested
+        run: mise run trace:selftest
+      # Under a second (git-hooks.yml's `tests-inventory` job has the measurement): the tests at HEAD
+      # against those at its merge base with origin/main, read from git. On a push to main HEAD is
+      # its own merge base, and it passes; on a pull request HEAD is the merge commit.
+      - name: no test removed, skipped or weakened without an architect decision
+        run: mise run tests:inventory:check
+      # Seconds (git-hooks.yml's `tests-inventory-selftest` job has the measurement): fixture
+      # repositories under the temporary directory.
+      - name: the test-inventory gate, negative-tested
+        run: mise run tests:inventory:selftest
+      # About twenty-five seconds (git-hooks.yml's `thresholds-selftest` job has the measurement): a fixture
+      # repository under the temporary directory, with StrykerJS's tap and command runners.
+      - name: the thresholds gate, negative-tested
+        run: mise run thresholds:selftest
+
+  product-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # The four setup steps of `floor-gates`, for the reasons given there.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
+        with:
+          version: 2026.10.0
+          sha256: 57ced973f968b8fbab07aa8e32bd7077d4a357e200a22356d98963c723c6de0a
+      - uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npm ci --ignore-scripts
+      # Seconds, more than the OpenSpec check and less than its selftest (the cost note on
+      # git-hooks.yml's `calculator-test` job has the measurement): Node's own test runner over
+      # `apps/calculator/test/`, each test named for the IDs it proves, its `// trace:` metadata read
+      # and held to what the runner reports, and no matched file without a test.
+      - name: the calculator's scenarios pass
+        run: mise run calculator:test
+      # Under a second while it holds no test (git-hooks.yml's `calculator-test-independent` job has the
+      # measurement): the test-builder's contract tests and build-time fitness functions under
+      # `apps/calculator/test/independent/build/`, held as the step above holds the rest. Its E2E
+      # tests and Verify-deferred fitness functions run at Verify, and no step here runs them.
+      - name: the calculator's independent tests pass
+        run: mise run calculator:test:independent
+      # Seconds, and more as more Routine lines change (git-hooks.yml's `thresholds-check` job has the
+      # measurement): the suite once with Node's own coverage, and StrykerJS's tap runner over the
+      # changed lines of the Routines, from the merge base with origin/main that the whole-history
+      # checkout above provides.
+      - name: the changed code is covered, and the changed Routines' mutants detected, to the policy's thresholds
+        run: mise run thresholds:check
+      # Last, as the slowest: up to minutes when a Command's code changed, and under a second
+      # otherwise. StrykerJS's command runner, one mutant at a time, over each Command's changed
+      # lines. It is no pre-push job, an exception to the gate ladder that `docs/decisions.md` § D-04
+      # records in its amendment of 2026-09-29, for the cost the header of
+      # scripts/check-thresholds.mjs gives; change-verify runs it too, in its fresh run (scripts/fresh-run.mjs).
+      - name: the changed Commands' mutants are detected, to the policy's threshold
+        run: mise run thresholds:commands:check
+
+  gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # The four setup steps of `floor-gates`, for the reasons given there.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
+        with:
+          version: 2026.10.0
+          sha256: 57ced973f968b8fbab07aa8e32bd7077d4a357e200a22356d98963c723c6de0a
+      - uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - run: npm ci --ignore-scripts
       # Milliseconds: three committed files held to each other.
       - name: every job names a script, and every unjobbed script is declared
         run: mise run check:jobs
@@ -176,47 +291,11 @@ jobs:
       # Seconds: the pinned OpenSpec CLI, one start per run plus one per active change; no network.
       - name: every living spec and active change is valid, and every change applies
         run: mise run openspec:check
-      # Seconds, more than the OpenSpec check and less than its selftest (the cost note on
-      # git-hooks.yml's `calculator-test` job has the measurement): Node's own test runner over
-      # `apps/calculator/test/`, each test named for the IDs it proves, its `// trace:` metadata read
-      # and held to what the runner reports, and no matched file without a test.
-      - name: the calculator's scenarios pass
-        run: mise run calculator:test
-      # Under a second while it holds no test (git-hooks.yml's `calculator-test-independent` job has the
-      # measurement): the test-builder's contract tests and build-time fitness functions under
-      # `apps/calculator/test/independent/build/`, held as the step above holds the rest. Its E2E
-      # tests and Verify-deferred fitness functions run at Verify, and no step here runs them.
-      - name: the calculator's independent tests pass
-        run: mise run calculator:test:independent
-      # Under a second (git-hooks.yml's `tests-selftest` job has the measurement): fixture trees
-      # under the temporary directory, one Node process per fixture test file.
-      - name: the test runner, negative-tested
-        run: mise run tests:selftest
-      # Seconds (git-hooks.yml's `tests-fresh-selftest` job has the measurement): the verifier's fresh
-      # run over a fixture repository, its `npm ci` stubbed. `tests:fresh` itself reads the network
-      # and runs only in change-verify (docs/decisions.md § D-15, item 3).
-      - name: the verifier's fresh run, negative-tested
-        run: mise run tests:fresh:selftest
       # Seconds (git-hooks.yml's `code-graph-selftest` job has the measurement): the code-graph
       # script over a fixture repository, graphify, its MCP server and claude stubbed. `code-graph`
       # itself reads a language model and the person's plan, so no step runs it.
       - name: the code-graph script, negative-tested over stub tools
         run: mise run code-graph:selftest
-      # Under a second (git-hooks.yml's `tests-trace-selftest` job has the measurement): doctored
-      # test sources, a fixture spec tree under the temporary directory, and one archive by the
-      # pinned OpenSpec CLI, with no network.
-      - name: the test-trace reader and its hash, negative-tested
-        run: mise run tests:trace:selftest
-      # Under a second (git-hooks.yml's `trace-check` job has the measurement): the traceability
-      # record re-derived and diffed, and every rule its header holds, over the branch's commits since
-      # its merge base with origin/main, which the whole-history checkout above provides.
-      - name: the traceability record is current, and every scenario, test, contract and task holds to it
-        run: mise run trace:check
-      # About ten seconds (git-hooks.yml's `trace-selftest` job has the measurement and the count of
-      # trial archives): fixture repositories under the temporary directory, and trial archives by
-      # the pinned CLI.
-      - name: the trace gate, negative-tested
-        run: mise run trace:selftest
       # Under a second (git-hooks.yml's `coupling-check` job has the measurement): the co-change map
       # re-derived through the trunk commit it records, which the whole-history checkout above holds,
       # and that commit held to origin/main.
@@ -232,34 +311,8 @@ jobs:
       # or read the local code graph, so no step runs them (docs/decisions.md § D-26).
       - name: the harness assessment, negative-tested over fixtures
         run: mise run harness:selftest
-      # Under a second (git-hooks.yml's `tests-inventory` job has the measurement): the tests at HEAD
-      # against those at its merge base with origin/main, read from git. On a push to main HEAD is
-      # its own merge base, and it passes; on a pull request HEAD is the merge commit.
-      - name: no test removed, skipped or weakened without an architect decision
-        run: mise run tests:inventory:check
-      # Seconds (git-hooks.yml's `tests-inventory-selftest` job has the measurement): fixture
-      # repositories under the temporary directory.
-      - name: the test-inventory gate, negative-tested
-        run: mise run tests:inventory:selftest
       - name: the OpenSpec gate, negative-tested
         run: mise run openspec:selftest
-      # About twenty-five seconds (git-hooks.yml's `thresholds-selftest` job has the measurement): a fixture
-      # repository under the temporary directory, with StrykerJS's tap and command runners.
-      - name: the thresholds gate, negative-tested
-        run: mise run thresholds:selftest
-      # Seconds, and more as more Routine lines change (git-hooks.yml's `thresholds-check` job has the
-      # measurement): the suite once with Node's own coverage, and StrykerJS's tap runner over the
-      # changed lines of the Routines, from the merge base with origin/main that the whole-history
-      # checkout above provides.
-      - name: the changed code is covered, and the changed Routines' mutants detected, to the policy's thresholds
-        run: mise run thresholds:check
-      # Last, as the slowest: up to minutes when a Command's code changed, and under a second
-      # otherwise. StrykerJS's command runner, one mutant at a time, over each Command's changed
-      # lines. It is no pre-push job, an exception to the gate ladder that `docs/decisions.md` § D-04
-      # records in its amendment of 2026-09-29, for the cost the header of
-      # scripts/check-thresholds.mjs gives; change-verify runs it too, in its fresh run (scripts/fresh-run.mjs).
-      - name: the changed Commands' mutants are detected, to the policy's threshold
-        run: mise run thresholds:commands:check
       #
       # DELIBERATELY ABSENT, each with its reason. Add to this list rather than deleting from it:
       #   * the tracker's checks, `beads:check` and the tracker's own pre-push hook: they read the
@@ -284,3 +337,18 @@ jobs:
       #     `docs/decisions.md` § D-15 retired the pipeline with `tools/pipeline/`, whose record never
       #     held a node but the kit's example, so a restored step fails on a missing script. An emitter
       #     that reads only committed files is held by its own `:check` twin, a step of its own.
+
+  # The check the trunk's ruleset requires: it passes only when every job above passed. A job whose
+  # need failed or was skipped is skipped, and GitHub reports a skipped job to a required check as
+  # passing; `!cancelled()` would skip this one on a cancel. `always()` runs it then too, and its step
+  # fails on any result but `success` (`docs/decisions.md` § D-55).
+  verify:
+    needs: [floor-gates, product-gates, gates]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: every job verify needs succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: 'echo "$RESULTS"; for result in $RESULTS; do test "$result" = success || exit 1; done'
