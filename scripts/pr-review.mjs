@@ -110,10 +110,10 @@
  * gates in one job, where it could rewrite a gate's file or set the variables of its step
  * (asdlc-openspec-64wd). `verifyProblems` now holds them to jobs of their own, and three ways stay
  * open (`docs/decisions.md` § D-55): the product's code defeats a gate that runs it, and in their
- * shared job one that runs after; a job that runs a pull request's code can save a cache a later run's
- * floor job restores, once the trunk's for the key is evicted; and a listed gate that runs the
- * product's code left off `prReviewFloorProductTasks` is taken for one that reads it. Wrong the other way, a pull request waits forever: a status never set, so
- * auto-merge never fires. `wait` exists because no `gh` command waits for a merge: `gh pr checks
+ * shared job one that runs after; a job that runs a pull request's code can save a cache a later
+ * run's floor job restores, once the trunk's for the key is evicted; and a listed gate that runs the
+ * product's code left off `prReviewFloorProductTasks` is taken for one that reads it. Wrong the other
+ * way, a pull request waits forever: a status never set, so auto-merge never fires. `wait` exists because no `gh` command waits for a merge: `gh pr checks
  * --watch` ends once the checks settle, and a verify failure, a conflict or auto-merge switched off
  * can leave a head unmerged after its status. Wrong, it lets a session close its issues and remove
  * its worktree for a pull request that never merged, or keeps one waiting on a head nothing will
@@ -216,6 +216,7 @@ const WORKFLOW_REFUSED_KEYS = ['defaults', 'env']
 const GATHER_IF = 'always()'
 const GATHER_ENV = { RESULTS: "${{ join(needs.*.result, ' ') }}" }
 const GATHER_RUN = 'echo "$RESULTS"; for result in $RESULTS; do test "$result" = success || exit 1; done'
+const GATHER_JOB_KEYS = ['if', 'name', 'needs', 'runs-on', 'steps', 'timeout-minutes']
 /** All a `verify.yml` job that runs a gate the floor holds may carry, use and run besides those gates. */
 const FLOOR_JOB_KEYS = ['name', 'runs-on', 'steps', 'timeout-minutes']
 const FLOOR_RUNNER = 'ubuntu-latest'
@@ -1458,11 +1459,15 @@ export async function runCheck(root) {
  * carrying the required check passes only when every other job did; every gate the floor holds runs,
  * each in a job where nothing runs first but checkout, mise, npm's cache, `npm ci --ignore-scripts`
  * and those gates; and one that runs the product's code shares no job with one that only reads it.
+ * No `env` or `defaults` reaches every job, and no job may fail without failing the run.
  */
 export function verifyProblems(verify, policy) {
   const problems = []
   const fail = (message) => problems.push(message)
   const jobs = isRecord(verify?.jobs) ? verify.jobs : {}
+  for (const key of WORKFLOW_REFUSED_KEYS) {
+    if (verify?.[key] !== undefined) fail(`${VERIFY} sets \`${key}\` for every job: it would reach the step of each gate the floor holds, and the \`verify\` job's, before it runs.`)
+  }
   const required = policy.prReviewRequiredCheck
   const gatherId = Object.keys(jobs).find((id) => (jobs[id]?.name ?? id) === required)
   if (gatherId === undefined) {
@@ -1470,6 +1475,9 @@ export function verifyProblems(verify, policy) {
   } else {
     const where = `${VERIFY}'s \`${gatherId}\` job`
     const gather = jobs[gatherId]
+    for (const key of Object.keys(gather ?? {})) {
+      if (!GATHER_JOB_KEYS.includes(key)) fail(`${where} sets \`${key}\`: it sets only ${GATHER_JOB_KEYS.map((k) => `\`${k}\``).join(', ')}, so its one step decides it as written.`)
+    }
     const needs = [].concat(gather?.needs ?? []).map(String)
     for (const id of Object.keys(jobs)) {
       if (id !== gatherId && !needs.includes(id)) fail(`${where} does not need \`${id}\`, so the check the trunk's ruleset requires passes while \`${id}\` fails.`)
@@ -1494,7 +1502,12 @@ export function verifyProblems(verify, policy) {
   for (const [id, job] of Object.entries(jobs)) {
     const steps = Array.isArray(job?.steps) ? job.steps : []
     const gates = steps.map(taskOf).filter((task) => floor.includes(task))
-    if (gates.length === 0) continue
+    if (gates.length === 0) {
+      if (id !== gatherId && job?.['continue-on-error'] !== undefined) {
+        fail(`${VERIFY}'s \`${id}\` job sets \`continue-on-error\`: a job that fails would not fail the run, which the \`${required}\` job reports.`)
+      }
+      continue
+    }
     for (const task of gates) ran.add(task)
     const where = `${VERIFY}'s \`${id}\` job`
     const lead = `${where} runs a gate the floor holds (\`${gates[0]}\`)`
@@ -2179,6 +2192,10 @@ function wiringCases() {
     { name: 'a floor job uses another action', doctor: edit(VERIFY, /^( {6}- run: npm ci --ignore-scripts\n)/m, '      - uses: actions/setup-node@v4\n$1'), expect: /`floor-gates` job runs a gate the floor holds .* and uses actions\/setup-node@v4/ },
     { name: 'a floor job checks out another ref', doctor: edit(VERIFY, /^( {10}fetch-depth: 0\n)/m, '$1          ref: main\n'), expect: /`floor-gates` job runs a gate the floor holds .* and gives actions\/checkout `ref`/ },
     { name: 'a gate that runs the product runs beside those that read it', doctor: edit(VERIFY, /^( {8}run: mise run tests:selftest\n)/m, '$1      - run: mise run calculator:test\n'), expect: /`floor-gates` job runs `calculator:test`, which runs the product's code \(`prReviewFloorProductTasks`\), beside `[\w:]+`, which does not/ },
+    { name: 'verify sets a variable for every job', doctor: edit(VERIFY, /^(permissions:\n {2}contents: read\n)/m, '$1\nenv:\n  NODE_OPTIONS: --require ./x.js\n'), expect: /^\.github\/workflows\/verify\.yml sets `env` for every job/ },
+    { name: 'verify picks a shell for every job', doctor: edit(VERIFY, /^(permissions:\n {2}contents: read\n)/m, '$1\ndefaults:\n  run:\n    shell: python {0}\n'), expect: /^\.github\/workflows\/verify\.yml sets `defaults` for every job/ },
+    { name: 'the verify job lets its step fail', doctor: edit(VERIFY, /^( {4}if: always\(\)\n)/m, '$1    continue-on-error: true\n'), expect: /`verify` job sets `continue-on-error`: it sets only/ },
+    { name: 'the job of the other gates may fail without failing the run', doctor: edit(VERIFY, /^( {2}gates:\n)/m, '$1    continue-on-error: true\n'), expect: /`gates` job sets `continue-on-error`: a job that fails would not fail the run/ },
   ]
 }
 
