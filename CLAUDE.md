@@ -304,6 +304,6 @@ one to raise it finds why.
 ## Worktree-local context
 
 The briefing below exists only in a linked worktree, where the worktree script renders it from
-`.claude/worktree-CONTEXT.md.tmpl`. It takes precedence where it conflicts with the guidance above.
+`.claude/worktree-CONTEXT.md.tmpl`.
 
 @.worktree/CONTEXT.md
