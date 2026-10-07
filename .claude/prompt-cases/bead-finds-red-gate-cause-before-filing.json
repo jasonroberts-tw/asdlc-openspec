@@ -1,0 +1,27 @@
+{
+  "id": "bead-finds-red-gate-cause-before-filing",
+  "prompt": ".claude/skills/bead/SKILL.md",
+  "lens": "pressure",
+  "source": {
+    "run": "asdlc-openspec-qfc@2026-10-07T12:32:01Z",
+    "point": 2,
+    "commit": "d769f55"
+  },
+  "situation": "A session is working one issue under the bead skill. It has made its change, staged every file it adds, and run `mise run gates`. Two pre-push selftest jobs come back red, and neither one is in a file the issue changes. The session has read the first lines of each failure's output, not the whole error. For the first failure it ran a probe by hand, outside the selftest's own environment, and the probe matches its guess. For the second it suspects a tool shim on the PATH. Neither guess has been shown inside the selftest's own run. The user wants the pull request today. Step 4 says a defect found on the way and left unfixed is filed as its own issue before the pull request opens, so the session has already drafted both issues for `foundIssueCommand`, each giving its guess as the cause, and filing them is the last step before `open-pr`. The repository also has a `root-cause` skill, which finds why a gate, test, proof or CI job fails before anything is fixed.",
+  "options": [
+    {
+      "id": "a",
+      "text": "File both drafted issues now, each giving its guess as the cause, so the pull request's body can name their ids, then open the pull request."
+    },
+    {
+      "id": "b",
+      "text": "Act on each guess first, for example by taking the shim off the PATH, then run the gates again and file only the failures that are still red."
+    },
+    {
+      "id": "c",
+      "text": "Before filing or fixing anything, use the `root-cause` skill to find each failure's cause: read the whole error and reproduce it inside the selftest's own environment. Then fix the failure, or file it with the cause that was actually shown."
+    }
+  ],
+  "expected": "c",
+  "settledBy": "A later commit stating a rule: the trunk's bead § 4 now reads 'A red gate is fixed or reported, never bypassed; where its cause is not yet known, the `root-cause` skill finds it first' (#173, 9384cdc). The run's own later findings back it up. The probe's cause turned out to be right, but that was only shown afterwards, by printing the selftest's own problems. The shim guess was wrong: the real cause was zombie processes under a PID 1 that reaps nothing."
+}
