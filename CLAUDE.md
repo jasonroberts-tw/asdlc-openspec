@@ -69,16 +69,34 @@ refused as a unit (not verified against the CLI).
 
 ## Guards
 
-If a command you need is refused by the permission classifier, do not attempt a workaround. Skip
-it, keep going with everything else, and give one `RUN THESE YOURSELF` code block at the end of the
-report with the exact commands, in order. Hold back a command whose safety turns on an earlier one's
-output until the user reports that output: a pasted block runs whole.
+A refused command is never retried in another shape that reaches the effect the refusal judged: in
+pieces, through another tool or subagent, or through an allow rule the session writes itself. Each
+of those gets past a judgement the session cannot overrule. Read the refusal's reason (not verified
+against the CLI), then take the first case that fits:
+
+- **Wrong, or no longer needed.** The refusal shows the plan was wrong, or the command's effect is
+  in place or no longer wanted. Do what the refusal says instead, and give the dropped command one
+  line of the report, since a block would hand the user what the refusal was right to stop; a
+  criterion it shows cannot be met goes to the user. A smaller check that passed in its place does
+  not make it unneeded.
+- **Its form, not its effect.** The call broke § Bash command style, or a check could not parse it,
+  and a form that section prescribes, or a dedicated tool, does the same work without what was
+  refused. Run that once; refused again, take the next case.
+- **Later work needs it.** Finish the work that does not, then stop and give the exact command for
+  the user to run as `! <command>`, which puts its output in the session (not verified against the
+  CLI), and go on from that output, since a block at the end leaves that work undone.
+- **Nothing later needs it.** Keep going, and end the report with one `RUN THESE YOURSELF` code
+  block of the commands still needed, in order, each with a comment above it saying why it should
+  run and one below it saying the result to expect. Hold back a command whose safety turns on an
+  earlier one's output until the user reports that output: a pasted block runs whole.
+
+A command the user declined at a permission prompt is neither retried nor listed, since a block
+would hand back what they refused: the report says what it leaves undone and asks how to go on. A
+legitimate command refused run after run may be named in the report for the user's allow-list.
 
 A command a subagent reports refused may be run once by the session that launched it, as its own
-single call, before that session hands it to the user: the classifier judges each call in its own
-context, so a subagent's refusal is not its parent's (not verified against the CLI). If that call is
-refused too, the command goes in the block. The parent never tries again in pieces, through another
-tool, or through another subagent; each of those is a workaround.
+single call: the classifier judges each call in its own context, so a subagent's refusal is not its
+parent's (not verified against the CLI). Refused again, it takes the cases above.
 
 A refusal saying you are isolated in a worktree is not the classifier's
 (verified against the CLI, 2.1.292): redo the work once in a form the isolation can check, or the
