@@ -41,8 +41,8 @@ the two that the trunk has changed since. Read the trunk's copy of each one it n
 follow that copy from here on. A session given no such git status reads the trunk's copy of both.
 
 Name, too, any register entry an acceptance criterion implies or that names the issue
-(`git grep <id> origin/main -- docs/decisions.md`). The pull request's body opens with it, so the
-person who reviews it reads it first (step 6).
+(`git grep <id> origin/main -- docs/decisions.md`), and each criterion this session cannot meet from
+where it runs.
 
 An issue asking for a change to what the product does, stated as requirements, goes to
 `change-propose` (`CLAUDE.md` § Product work runs as OpenSpec-format changes).
@@ -72,8 +72,8 @@ the pull-request body and in both close reasons. Claim only what this session wi
 
 Separate branches are worked one after another, never interleaved. Take one through step 6, its
 watcher running in the background, then leave its worktree with `ExitWorktree` (action `keep`) and
-make the next with `EnterWorktree`, which creates no worktree from inside another
-(verified against the CLI, 2.1.289). Step 7 closes each issue. Asked to sweep or parallelise ready
+make the next with `EnterWorktree`, which creates no worktree from inside one it entered
+(verified against the CLI, 2.1.292). Step 7 closes each issue. Asked to sweep or parallelise ready
 work, follow `.claude/agents/fan-out-work.md` in this session instead.
 
 ## 3. Claim, then work in a worktree
@@ -91,8 +91,9 @@ session proposed itself.
 
 ## 4. Implement, regenerate, gate
 
-Make the change in every file restating what it alters, by value or by reference: searching for
-the old text alone misses some. A prompt it would take past its word budget
+Make the change in every file restating what it alters, by value or by reference: search for each
+name of what it alters and for the criteria's own words, since the old text alone misses some. A
+prompt it would take past its word budget
 (`node scripts/check-prompts.mjs --counts`) is consolidated first, as
 `.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated says, not once
 `check:prompts` refuses it at the gate. This branch sets each changed prompt's budget to its count,
@@ -129,7 +130,7 @@ admits merges anyway off the high-risk floor. Fix one the body would disclose, o
 tree say what is true and file its follow-up (step 4). A criterion the work will not meet as worded
 is changed by the user before the push, as step 1 says.
 
-Open it with the `open-pr` skill. Its body names every issue filed in step 4.
+Open it with the `open-pr` skill.
 
 ## 7. Close on the merge, with a reason
 
