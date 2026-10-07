@@ -476,12 +476,13 @@ function forgeHook(toolInput, root = null) {
   return { code: r.status ?? 1, stderr: r.stderr ?? '' }
 }
 const GRANT = 'permissions:\n  contents: read\n'
-const STEPS = '    steps:\n'
+// The `gates` job's: since D-55 every job of verify.yml has a steps line.
+const STEPS = '  gates:\n    runs-on: ubuntu-latest\n    timeout-minutes: 15\n    steps:\n'
 const TRIGGER = '  pull_request_target:\n'
 const REVIEW_FILE = join(WORKFLOWS_DIR, 'pr-review.yml')
 const verifyText = readFileSync(VERIFY_FILE, 'utf8')
 check(
-  "the fixture: verify.yml holds the grant and the steps line, and pr-review.yml its trigger, that the edits below anchor on, once each",
+  "the fixture: verify.yml holds the grant and the `gates` job's steps line, and pr-review.yml its trigger, that the edits below anchor on, once each",
   verifyText.split(GRANT).length === 2 && verifyText.split(STEPS).length === 2 && readFileSync(REVIEW_FILE, 'utf8').split(TRIGGER).length === 2,
   'the anchors moved: re-anchor the edits below',
 )
