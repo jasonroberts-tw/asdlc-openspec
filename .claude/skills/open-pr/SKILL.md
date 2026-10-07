@@ -108,7 +108,8 @@ unmerged; once nothing will merge it, when step 7's row applies or the line give
 a failed read, after which starting it again is not a second watcher. With no user, a person's verdict
 is handed back unmerged, since nobody would tell the person it waits on.
 
-Once it has merged, clean up from the primary checkout. A session by then in another branch's
+Once it has merged, clean up from the primary checkout. GitHub deletes the remote branch itself, by
+the maintainer's setting, which needs no check or mention. A session by then in another branch's
 worktree cleans up once it leaves that one, naming each merged worktree with its own `--finished`.
 
 1. Leave the worktree with `ExitWorktree`, action `keep`. The sweep below keeps it while this
@@ -118,8 +119,6 @@ worktree cleans up once it leaves that one, naming each merged worktree with its
    not this worktree's alone (`scripts/prune-worktree-branches.mjs`). If the dry run names this
    worktree alone, run it again without `--dry-run`; if it names others, only on the user's word,
    and with no user, report them. One that keeps this worktree is reported with the reason it gives.
-3. If `git ls-remote --heads origin <branch>` prints the branch, run
-   `git push origin --delete <branch>`.
 
 Hand the caller the pull request's number and URL, whether it merged, in `wait`'s line or the words
 of its status, and what the cleanup removed.
