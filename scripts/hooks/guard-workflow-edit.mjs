@@ -1,21 +1,25 @@
 /**
  * PreToolUse hook on Write and Edit. Refuses an edit that would leave a workflow other than
- * `.github/workflows/pr-review.yml` able to set the reviewer's `pr-review` status green itself: a
- * grant of `statuses: write`, `checks: write` or `write-all`, to every job or to one, or a job whose
- * id or name is the status's context. The rule is `forgeProblems` in `scripts/pr-review.mjs`, which
- * `pr-review:check` also runs over every workflow at pre-push and in CI; this runs it over the file
- * as the edit would leave it, before the edit lands.
+ * `.github/workflows/pr-review.yml` able to approve a pull request itself, or to pass the check the
+ * trunk's ruleset requires on its own head: a grant of `pull-requests: write`, `statuses: write`,
+ * `checks: write` or `write-all`, to every job or to one, or, in any workflow but `verify.yml`, a
+ * job whose id or name is that check's. The rule is `forgeProblems` in `scripts/pr-review.mjs`,
+ * which `pr-review:check` also runs over every workflow at pre-push and in CI; this runs it over the
+ * file as the edit would leave it, before the edit lands.
  *
- * WHAT IT WOULD LET THROUGH IF IT WERE WRONG. No incident yet. Since 2026-10-05 (asdlc-openspec-3cp3,
- * docs/decisions.md § D-47) GitHub merges a pull request once `verify` and `pr-review` pass on its
- * head, so whatever sets `pr-review` green decides the merge. A branch whose workflow could set it
- * would turn it green on its own head after the reviewer set it red, and GitHub would merge a head
- * on the high-risk floor that no person read. `pr-review:check` refuses such a workflow, but `verify`
- * runs the branch's own copy of that check, which the same branch can weaken; this refuses the edit
- * in the session that makes it. Routine edits pass, such as a gate's step added to `verify.yml`,
- * which 52 commits had made by that day (`git rev-list --count HEAD -- .github/workflows/verify.yml`).
- * It sees Write and Edit alone: a workflow written through Bash passes it, and so does a job whose
- * name an expression builds.
+ * WHAT IT WOULD LET THROUGH IF IT WERE WRONG. No incident yet. Since 2026-10-08 (asdlc-openspec-t2ly,
+ * docs/decisions.md § D-57) GitHub merges a pull request once `verify` passes on its head and one
+ * approving review stands, so whatever approves, or passes `verify`, decides the merge. A branch
+ * whose workflow could write pull requests would approve its own after the reviewer left it to a
+ * person, and GitHub would merge a head on the high-risk floor that no person read; one that could
+ * write a check or a status, or named a job `verify`, would pass the check on a head `verify.yml`
+ * failed. `pr-review:check` refuses such a workflow, but `verify` runs the branch's own copy of that
+ * check, which the same branch can weaken; this refuses the edit in the session that makes it.
+ * Routine edits pass, such as a gate's step added to `verify.yml`, which 52 commits had made by
+ * 2026-10-05 (`git rev-list --count HEAD -- .github/workflows/verify.yml`). It sees Write and Edit
+ * alone: a workflow written through Bash passes it, and so does a job whose name an expression
+ * builds. From 2026-10-05 to that day the grant it refused was the `pr-review` status's, which the
+ * ruleset required (docs/decisions.md § D-47).
  *
  * Exit 2 blocks the edit, and stderr is the reason the agent reads. A Write is judged by its
  * `content`; an Edit by the file with its first `old_string`, or every one under `replace_all`,
@@ -25,7 +29,7 @@
  *   printf '%s' '{"tool_input":{"file_path":".github/workflows/x.yml","content":"permissions: write-all\n"}}' | node scripts/hooks/guard-workflow-edit.mjs
  *
  * Needs `git`, which places the path in its checkout (`editedCheckout`), and `js-yaml`, resolved
- * from this file's own checkout. It reads `prReviewStatusContext` from the policy of the checkout
+ * from this file's own checkout. It reads `prReviewRequiredCheck` from the policy of the checkout
  * the edit lands in, or of the one `GUARD_WORKFLOW_ROOT` names, so a by-hand run or the selftest can
  * point it at a doctored copy. Every path but a workflow exits 0 before any of that loads. On a
  * workflow it fails closed: a result that does not parse, or a policy or parser it cannot load,
@@ -71,13 +75,13 @@ try {
   const { load } = await import('js-yaml')
   const { readPolicy } = await import('../../tools/lib/policy.ts')
   const { forgeProblems } = await import('../pr-review.mjs')
-  const context = readPolicy(process.env.GUARD_WORKFLOW_ROOT ?? root)?.prReviewStatusContext
-  if (typeof context !== 'string' || context === '') throw new Error('`prReviewStatusContext` could not be read from tools/policy/')
-  problems = forgeProblems(rel, load(text), context)
+  const requiredCheck = readPolicy(process.env.GUARD_WORKFLOW_ROOT ?? root)?.prReviewRequiredCheck
+  if (typeof requiredCheck !== 'string' || requiredCheck === '') throw new Error('`prReviewRequiredCheck` could not be read from tools/policy/')
+  problems = forgeProblems(rel, load(text), requiredCheck)
 } catch (error) {
   refuse(
     `${rel} is a workflow, and this edit could not be judged: ${error.message}. A workflow other than ` +
-      `.github/workflows/pr-review.yml must not be able to set the reviewer's status (docs/decisions.md § D-47), ` +
+      `.github/workflows/pr-review.yml must not be able to approve a pull request or pass the required check (docs/decisions.md § D-57), ` +
       'so the edit waits until the file parses and the policy reads.',
   )
 }

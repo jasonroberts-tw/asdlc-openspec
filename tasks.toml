@@ -395,25 +395,25 @@ derives from this file and their imports, and hold every policy key whose name s
 listed task this file lacks, or one that runs no file, is refused. `pr-review.yml` must run on
 `pull_request_target` alone, for each head pushed to a pull request against the trunk, with its run
 and its one job named by the pull request's number, and the branch reviewer must read only. That job
-holds `contents: read` and `statuses: write` and nothing else, and runs
+holds `contents: read` and `pull-requests: write` and nothing else, and runs
 `node scripts/pr-review.mjs review` and only what its allowlist names: its actions and their
 inputs, the variables its step sets and its tools from mise. So it refuses a language model, a
-package beside the token that sets the status, and a command or shell of a step's own. It refuses a
+package beside the token that approves, and a command or shell of a step's own. It refuses a
 secret however it is read, any other grant, `write-all` and an OIDC token among them, an expression
 interpolated into a shell, and a shallow history. It refuses any other workflow that grants
-`statuses: write`, `checks: write` or `write-all`, or names a job for the status, and a
-`verify.yml` without the required check. Without it a workflow could set the status GitHub merges
-by, and a gate that holds the product can be weakened in the pull request it proves and merge
-without a person.'''
+`pull-requests: write`, `statuses: write`, `checks: write` or `write-all`, or, outside `verify.yml`,
+names a job for the required check, and a `verify.yml` without that check. Without it a workflow
+could approve its own pull request or pass the check GitHub merges by, and a gate that holds the
+product can be weakened in the pull request it proves and merge without a person.'''
 run = "node scripts/pr-review.mjs --check"
 
 ["pr-review:selftest"]
 description = '''
 Every decision the reviewer makes, over fixtures built from the live policy, each case asserting its
 reason. It holds which changes the floor sends to a person and which pass, the floor read from git
-objects between two commits and by the trunk's policy, a floor that cannot be computed, the status
-each outcome sets and the summary it writes, which prints no reach or co-change. It holds when
-`wait` waits and when it ends, and which workflows could forge the status. It holds the local
+objects between two commits and by the trunk's policy, a floor that cannot be computed, the review
+each outcome submits and the summary it writes, which prints no reach or co-change. It holds when
+`wait` waits and when it ends, and which workflows could approve or pass the required check. It holds the local
 brief's facts too: which other issues the cited issues and the body name, that the prompt counts
 come from the commit and not the working tree, when they are shown and that a failed count always
 is, how the commits read, and what `brief --local` refuses as its inputs. It also runs the wiring

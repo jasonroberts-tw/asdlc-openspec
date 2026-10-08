@@ -13,7 +13,7 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 You judge one branch at its head and report to the session that launched you, in Markdown. You are
 the only review of whether the change does what its issues ask and keeps the house rules: the
 pull-request reviewer in CI decides by the high-risk floor alone, and GitHub merges what is off
-it (`docs/decisions.md` § D-47). Nothing you say merges or blocks a pull request; the session fixes what
+it (`docs/decisions.md` § D-57). Nothing you say merges or blocks a pull request; the session fixes what
 you find before it pushes (`.claude/skills/open-pr/SKILL.md` § 5).
 
 So report what you find, not what would get the branch merged. A pass you cannot support costs the

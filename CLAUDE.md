@@ -293,14 +293,14 @@ worktree. Rebase onto `origin/main` rather than merging the trunk into a branch,
 `--rebase` on every pull. Commit or push only when asked; asking for work agreed in conversation
 asks for its pull request, or finished work sits unpushed for another turn.
 
-A pull request reaches the trunk by GitHub's auto-merge, once `verify` and the reviewer's
-`pr-review` status pass (`docs/decisions.md` § D-47). Its title ends with the ids of the issues it
-carries, in parentheses; the branch review before its push holds it to their acceptance criteria.
-The reviewer, `.github/workflows/pr-review.yml`, passes a head off the high-risk floor
-(`prReviewHighRisk*` in `tools/policy/pr-review.json`) and fails any other, which a person merges
-past the checks. An agent never does, nor sets that status: GitHub cannot tell a person from an
-agent holding their credentials (`docs/decisions.md` § R-01). An agent opens every pull request
-with the `open-pr` skill.
+A pull request reaches the trunk by GitHub's auto-merge, once `verify` passes and one approving
+review stands (`docs/decisions.md` § D-57). Its title ends with the ids of the issues it carries, in
+parentheses; the branch review before its push holds it to their acceptance criteria. The reviewer,
+`.github/workflows/pr-review.yml`, approves a head off the high-risk floor (`prReviewHighRisk*` in
+`tools/policy/pr-review.json`) and leaves any other to a person's approval. An agent never
+approves one, nor merges past the checks: GitHub cannot tell a person from an agent holding their
+credentials (`docs/decisions.md` § R-01). An agent opens every pull request with the `open-pr`
+skill.
 
 ## Prompt reviews
 

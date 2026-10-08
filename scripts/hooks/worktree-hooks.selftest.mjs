@@ -326,19 +326,21 @@ const strayEcho = guardFrom(strayRoot, { command: 'ls scripts' })
 check('control: a command that is not git is allowed there', strayEcho.code === 0, why(strayEcho))
 
 /* --------------------------------------------------------------------------------------------- *
- * guard-git: a merge past the checks, from any checkout.
+ * guard-git: an approval, and a merge past the checks, from any checkout.
  *
- * GitHub merges a pull request once `verify` and `pr-review` pass, and `gh pr merge --admin` merges
- * past them with the maintainer's bypass, which is a person's (docs/decisions.md § D-47). So the
- * guard refuses `--admin` everywhere, and from a worktree any merge but auto-merge. Each refusal is
- * asserted by its reason. The controls are the merge the primary checkout may make, auto-merge from a
- * worktree in each spelling, and the approval label, whose rule retired with the label: without them,
- * a guard that refused every `gh pr merge`, or still every label, would pass. The cases after these
- * hold the parser: a flag before `pr create` once hid a missing `--base`, as did gh's alias `pr new`,
- * and a brace inside a word once split the statement, which hid the endpoint of
- * `repos/{owner}/{repo}/…`.
+ * GitHub merges a pull request once `verify` passes and one approving review stands, which the
+ * reviewer gives off the high-risk floor and a person gives on it, and `gh pr merge --admin` merges
+ * past the checks with the maintainer's bypass, which is a person's (docs/decisions.md § D-57 and
+ * § D-47). So the guard refuses `gh pr review --approve` and `--admin` everywhere, and from a
+ * worktree any merge but auto-merge. Each refusal is asserted by its reason. The controls are the
+ * merge the primary checkout may make, auto-merge from a worktree in each spelling, a comment and a
+ * request for changes, and the approval label, whose rule retired with the label: without them, a
+ * guard that refused every `gh pr merge` or every `gh pr review`, or still every label, would pass.
+ * The cases after these hold the parser: a flag before `pr create` once hid a missing `--base`, as
+ * did gh's alias `pr new`, and a brace inside a word once split the statement, which hid the
+ * endpoint of `repos/{owner}/{repo}/…`.
  * --------------------------------------------------------------------------------------------- */
-console.log('guard-git: a merge past the checks, from any checkout')
+console.log('guard-git: an approval, and a merge past the checks, from any checkout')
 const POLICY_ROOT = resolve(HOOKS, '..', '..')
 
 /** guard-git on `command` typed from `dir`. */
@@ -353,6 +355,7 @@ function ghGuard(dir, command) {
 }
 const refusedFor = (r, reason) => r.code === 2 && r.stderr.includes(reason)
 const ADMIN_RULE = "merges past the checks the trunk's ruleset requires"
+const APPROVE_RULE = "an approval is the person's gate on a head on the high-risk floor"
 const MERGE_RULE = "a merge now is the orchestrator's call"
 
 for (const [label, dir, command] of [
@@ -361,6 +364,9 @@ for (const [label, dir, command] of [
   ['auto-merge spelt --auto=true, from a worktree', oursDir, 'gh pr merge 12 --auto=true --rebase'],
   ['auto-merge turned off from a worktree', oursDir, 'gh pr merge 12 --disable-auto'],
   ['the approval label, whose rule retired with it', oursDir, 'gh pr edit 12 --add-label review:approved'],
+  ['a comment review, which approves nothing', oursDir, 'gh pr review 12 --comment -b "read it"'],
+  ['a request for changes, which approves nothing', primary, 'gh pr review 12 --request-changes -b "no"'],
+  ['--approve=false, which gh reads as no approval', oursDir, 'gh pr review 12 --approve=false --comment -b "read it"'],
 ]) {
   const r = ghGuard(dir, command)
   check(`control: the guard allows ${label}`, r.code === 0, why(r))
@@ -373,6 +379,16 @@ for (const [label, dir, command] of [
 ]) {
   const r = ghGuard(dir, command)
   check(`${label} is refused, by its reason`, refusedFor(r, ADMIN_RULE), why(r))
+}
+for (const [label, dir, command] of [
+  ['an approval, in the primary checkout', primary, 'gh pr review 12 --approve'],
+  ['an approval spelt -a, in a worktree', oursDir, 'gh pr review 12 -a -b "looks fine"'],
+  ['--approve=true after a flag before the group', primary, 'gh --repo o/r pr review 12 --approve=true'],
+  ['an approval inside bash -c', oursDir, 'bash -c "gh pr review 12 --approve"'],
+  ['an approval after another statement', primary, 'git status; gh pr review 12 --approve'],
+]) {
+  const r = ghGuard(dir, command)
+  check(`${label} is refused, by its reason`, refusedFor(r, APPROVE_RULE), why(r))
 }
 for (const [label, command] of [
   ['a merge now, from a worktree', 'gh pr merge 12 --rebase'],
@@ -447,25 +463,26 @@ for (const [label, dir, command, reason] of [
 }
 
 /* --------------------------------------------------------------------------------------------- *
- * guard-workflow-edit: an edit that would let a workflow forge the reviewer's status.
+ * guard-workflow-edit: an edit that would let a workflow approve, or forge the required check.
  *
- * GitHub merges a head once `verify` and `pr-review` pass, so a workflow other than the reviewer's
- * that can write a status or a check, or names a job for the status, could pass it on its own head
- * (docs/decisions.md § D-47). Each payload names a file under this checkout's `.github/workflows/`,
+ * GitHub merges a head once `verify` passes and one approving review stands, so a workflow other
+ * than the reviewer's that can write pull requests could approve its own, and one that can write a
+ * status or a check, or names a job for the required check, could pass it on its own head
+ * (docs/decisions.md § D-57). Each payload names a file under this checkout's `.github/workflows/`,
  * and the hook only reads: an Edit is applied to the file in memory and a Write's content judged, so
  * nothing is written. Each refusal is asserted by its reason. The controls are a routine step added
  * to `verify.yml`, the reviewer's own workflow, the same grant outside the workflows, and an Edit
  * whose `old_string` the file does not hold: without them, a hook that refused every workflow edit
- * would pass. A doctored copy of the policy, with the context respelled, proves the hook reads it
+ * would pass. A doctored copy of the policy, with the check respelled, proves the hook reads it
  * from `tools/policy/` rather than writing it in.
  * --------------------------------------------------------------------------------------------- */
-console.log('guard-workflow-edit: an edit that would let a workflow forge the status')
+console.log('guard-workflow-edit: an edit that would let a workflow approve, or forge the required check')
 const FORGE_HOOK = join(HOOKS, 'guard-workflow-edit.mjs')
 const WORKFLOWS_DIR = join(POLICY_ROOT, '.github', 'workflows')
 const VERIFY_FILE = join(WORKFLOWS_DIR, 'verify.yml')
 const FORGE_FILE = join(WORKFLOWS_DIR, 'forge.yml')
-const CONTEXT = readPolicy(POLICY_ROOT).prReviewStatusContext
-const FORGE_RULE = 'may write a commit status or a check run'
+const CHECK = readPolicy(POLICY_ROOT).prReviewRequiredCheck
+const FORGE_RULE = 'may approve a pull request or write a check run or a commit status'
 
 /** guard-workflow-edit on one Write or Edit, reading the policy under `root` when one is given. */
 function forgeHook(toolInput, root = null) {
@@ -490,7 +507,7 @@ const jobNamed = (name) => `name: forge\non: pull_request\njobs:\n  ${name}:\n  
 
 for (const [label, toolInput] of [
   ['a step added to verify.yml', { file_path: VERIFY_FILE, old_string: STEPS, new_string: `${STEPS}      - run: mise run x:check\n` }],
-  ["the reviewer's own workflow, which may write the status", { file_path: REVIEW_FILE, content: readFileSync(REVIEW_FILE, 'utf8') }],
+  ["the reviewer's own workflow, which may write pull requests", { file_path: REVIEW_FILE, content: readFileSync(REVIEW_FILE, 'utf8') }],
   ['the same grant outside the workflows', { file_path: join(POLICY_ROOT, 'docs', 'forge.yml'), content: 'permissions: write-all\n' }],
   ['an Edit whose old_string the file does not hold, which lands nothing', { file_path: VERIFY_FILE, old_string: 'no such text\n', new_string: 'permissions: write-all\n' }],
   ['a new workflow that reads only', { file_path: FORGE_FILE, content: `permissions:\n  contents: read\n${jobNamed('x')}` }],
@@ -499,29 +516,30 @@ for (const [label, toolInput] of [
   check(`control: the hook allows ${label}`, r.code === 0, why(r))
 }
 for (const [label, toolInput, reason] of [
+  ['pull-requests: write granted in verify.yml, which could approve', { file_path: VERIFY_FILE, old_string: GRANT, new_string: `${GRANT}  pull-requests: write\n` }, `grants \`pull-requests: write\` to every job: only .github/workflows/pr-review.yml ${FORGE_RULE}`],
   ['statuses: write granted in verify.yml', { file_path: VERIFY_FILE, old_string: GRANT, new_string: `${GRANT}  statuses: write\n` }, `grants \`statuses: write\` to every job: only .github/workflows/pr-review.yml ${FORGE_RULE}`],
   ['checks: write granted in verify.yml under replace_all', { file_path: VERIFY_FILE, old_string: GRANT, new_string: `${GRANT}  checks: write\n`, replace_all: true }, 'grants `checks: write` to every job'],
   ['a new workflow granting write-all', { file_path: FORGE_FILE, content: `permissions: write-all\n${jobNamed('x')}` }, 'grants `write-all` to every job'],
-  ['a new workflow whose job is named for the status', { file_path: FORGE_FILE, content: jobNamed(CONTEXT) }, `job is named \`${CONTEXT}\`, so its check run carries \`${CONTEXT}\``],
+  ['a new workflow whose job is named for the required check', { file_path: FORGE_FILE, content: jobNamed(CHECK) }, `job is named \`${CHECK}\`, so its check run carries \`${CHECK}\``],
   ['a workflow that will not parse', { file_path: FORGE_FILE, content: 'jobs: [unclosed\n' }, 'is a workflow, and this edit could not be judged'],
   ["the reviewer's own workflow given an event where a branch's copy runs", { file_path: REVIEW_FILE, old_string: TRIGGER, new_string: `  pull_request:\n${TRIGGER}` }, "runs on `pull_request`: on an event but `pull_request_target` a branch's own copy"],
 ]) {
   const r = forgeHook(toolInput)
   check(`${label} is refused, by its reason`, refusedFor(r, reason), why(r))
 }
-const respelledContext = mkdtempSync(join(tmpdir(), 'forge-policy-'))
-copyPolicy(POLICY_ROOT, respelledContext)
-editPolicy(respelledContext, (policy) => {
-  policy.prReviewStatusContext = 'merge-gate'
+const respelledCheck = mkdtempSync(join(tmpdir(), 'forge-policy-'))
+copyPolicy(POLICY_ROOT, respelledCheck)
+editPolicy(respelledCheck, (policy) => {
+  policy.prReviewRequiredCheck = 'merge-gate'
 })
-const renamedJob = forgeHook({ file_path: FORGE_FILE, content: jobNamed('merge-gate') }, respelledContext)
+const renamedJob = forgeHook({ file_path: FORGE_FILE, content: jobNamed('merge-gate') }, respelledCheck)
 check(
-  "the policy's context is the one refused, by its reason",
+  "the policy's required check is the one refused, by its reason",
   refusedFor(renamedJob, 'job is named `merge-gate`'),
   why(renamedJob),
 )
-const oldContext = forgeHook({ file_path: FORGE_FILE, content: jobNamed(CONTEXT) }, respelledContext)
-check('and the old spelling is then allowed', oldContext.code === 0, why(oldContext))
+const oldCheck = forgeHook({ file_path: FORGE_FILE, content: jobNamed(CHECK) }, respelledCheck)
+check('and the old spelling is then allowed', oldCheck.code === 0, why(oldCheck))
 const noPolicyRoot2 = mkdtempSync(join(tmpdir(), 'forge-nopolicy-'))
 const unreadContext = forgeHook({ file_path: FORGE_FILE, content: jobNamed('x') }, noPolicyRoot2)
 check(

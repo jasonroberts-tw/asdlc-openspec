@@ -236,8 +236,8 @@ jobs:
       - name: the trace's clause check, negative-tested over a stubbed client
         run: mise run trace:clauses:selftest
       # Milliseconds: the reviewer's wiring and its decisions, with the policy's values, and no other
-      # workflow able to forge its status. The reviewer itself reads a token and the network, and runs
-      # only as `pr-review.yml`.
+      # workflow able to approve a pull request or pass `verify`. The reviewer itself reads a token and
+      # the network, and runs only as `pr-review.yml`.
       - name: the reviewer's workflow, agent and policy agree
         run: mise run pr-review:check
       - name: the reviewer's decisions, and its wiring gate, negative-tested

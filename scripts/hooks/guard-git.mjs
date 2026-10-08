@@ -39,17 +39,20 @@
  * inferred (CLAUDE.md § Git workflow). That has nothing to do with worktrees, so unlike the git
  * rules it is enforced in the primary checkout too.
  *
- * IT ALSO GUARDS THE MERGE PAST THE CHECKS, EVERYWHERE. It refuses `gh pr merge` with `--admin`,
- * which merges with the maintainer's bypass of the checks the trunk's ruleset requires, `verify` and
- * `pr-review` (docs/decisions.md § D-47): that is a person's merge of a head on the high-risk floor,
- * and a session holding the maintainer's credentials could otherwise make it. From a worktree it lets
- * `gh pr merge --auto` through, which only asks GitHub to merge once those checks pass, and refuses
- * any other merge as the orchestrator's call. No incident yet: were this rule wrong, an agent could
- * merge a pull request no person read. Until 2026-10-05 (asdlc-openspec-3cp3) it guarded the
- * reviewer's approval label in the same place, which retired with the label. It reads only the
- * command line, so a merge through `gh api`, curl, a browser tool or the web UI passes it
- * (docs/decisions.md § R-01).
+ * IT ALSO GUARDS THE APPROVAL AND THE MERGE PAST THE CHECKS, EVERYWHERE. It refuses `gh pr review`
+ * with `--approve`, since the trunk's ruleset merges a head once `verify` passes and one approving
+ * review stands, and the reviewer approves every head off the high-risk floor itself: an approval a
+ * session gives is a person's approval of a head on the floor, and a session holding any login with
+ * write could otherwise give it (docs/decisions.md § D-57). It refuses `gh pr merge` with `--admin`,
+ * which merges with the maintainer's bypass of the checks the ruleset requires, the same head's
+ * merge (docs/decisions.md § D-47). From a worktree it lets `gh pr merge --auto` through, which only
+ * asks GitHub to merge once the ruleset is met, and refuses any other merge as the orchestrator's
+ * call. No incident yet: were either rule wrong, an agent could merge a pull request no person read.
+ * Until 2026-10-05 (asdlc-openspec-3cp3) it guarded the reviewer's approval label in the same
+ * place, which retired with the label. It reads only the command line, so an approval or a merge
+ * through `gh api`, curl, a browser tool or the web UI passes it (docs/decisions.md § R-01).
  *
+ *   printf '%s' '{"tool_input":{"command":"gh pr review 1 --approve"}}' | node scripts/hooks/guard-git.mjs
  *   printf '%s' '{"tool_input":{"command":"gh pr merge 1 --admin --rebase"}}' | node scripts/hooks/guard-git.mjs
  *
  * IT ALSO REFUSES A BARE `git worktree prune`, EVERYWHERE. git cannot tell a removed worktree from
@@ -616,12 +619,17 @@ const PR_BASE =
   `branch, a setting outside this repository that need not be the trunk.`
 const PR_MERGE =
   `a merge now is the orchestrator's call, not a task agent's. From a worktree, ask GitHub to merge ` +
-  `once \`verify\` and \`pr-review\` have passed, with \`prReviewMergeMethod\` in tools/policy/pr-review.json: ` +
+  `once \`verify\` has passed and the reviewer has approved, with \`prReviewMergeMethod\` in tools/policy/pr-review.json: ` +
   `\`gh pr merge <number> --auto --rebase\` (open-pr § 7).`
 const PR_ADMIN =
   `\`--admin\` merges past the checks the trunk's ruleset requires, with the maintainer's bypass: ` +
   `that is a person's merge of a head on the high-risk floor, never an agent's (CLAUDE.md § Git ` +
   `workflow). Enable auto-merge with \`--auto\`, and leave a head on the floor to a person.`
+const PR_APPROVE =
+  `an approval is the person's gate on a head on the high-risk floor, never an agent's (CLAUDE.md ` +
+  `§ Git workflow): the trunk's ruleset merges once one approving review stands, and the reviewer ` +
+  `approves a head off the floor itself. Leave a head on the floor to a person; a comment or a ` +
+  `request for changes is not an approval.`
 
 /**
  * Does this `gh pr create` explicitly target the trunk?
@@ -656,15 +664,17 @@ const flagSet = (rest, name) =>
  *
  * `linked` separates two different kinds of rule that happen to share a command. The BASE rule is
  * about where an omitted `--base` falls back to -- a default branch set on GitHub, not here -- so it
- * is just as true in the primary checkout and applies everywhere. The ADMIN rule applies everywhere
- * too: this hook runs only on a session's commands, and a merge past the required checks is a
- * person's. The MERGE rule is about worktree isolation: a merge now is the orchestrator's call, and
- * in the primary checkout the orchestrator is the person typing, so blocking them there would be
- * wrong. Auto-merge, and turning it off, are not a merge now: GitHub merges once the checks pass.
+ * is just as true in the primary checkout and applies everywhere. The APPROVE and ADMIN rules apply
+ * everywhere too: this hook runs only on a session's commands, and an approval, or a merge past the
+ * required checks, is a person's. The MERGE rule is about worktree isolation: a merge now is the
+ * orchestrator's call, and in the primary checkout the orchestrator is the person typing, so
+ * blocking them there would be wrong. Auto-merge, and turning it off, are not a merge now: GitHub
+ * merges once the ruleset is met.
  */
 function denialForGh({ group, sub, rest }, linked) {
   if (group !== 'pr') return null
   if (sub === 'create') return basesTrunk(rest) ? null : PR_BASE
+  if (sub === 'review' && (flagSet(rest, '--approve') || rest.includes('-a'))) return PR_APPROVE
   if (sub === 'merge') {
     if (flagSet(rest, '--admin')) return PR_ADMIN
     if (linked && !flagSet(rest, '--auto') && !flagSet(rest, '--disable-auto')) return PR_MERGE
