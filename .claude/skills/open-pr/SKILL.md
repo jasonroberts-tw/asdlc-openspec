@@ -31,9 +31,9 @@ A shared file is not a conflict; a conflict this reports is.
 
 ## 3. The title
 
-A sentence saying what changed, ending with the id of each issue the branch carries, in
-parentheses and separated by commas. The branch review reads the issues from those parentheses and
-nowhere else, with `prReviewIssuePattern` in `tools/policy/pr-review.json` (`CLAUDE.md` § Git workflow).
+A sentence saying what changed, ending with the ids the branch carries as `CLAUDE.md` § Git
+workflow says, separated by commas. The branch review reads them from those parentheses and nowhere
+else, with `prReviewIssuePattern` in `tools/policy/pr-review.json`.
 
 A pull request that carries no issue, such as a prompt review's, ends with no parentheses. Never
 cite an issue the branch does not carry.
