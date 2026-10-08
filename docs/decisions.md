@@ -1696,6 +1696,8 @@ Where it loses:
 
 > **Amended 2026-10-05 by D-46.** The reviewer's workflow has one job, which installs Node and gh; no job computes the evidence, so none installs Node alone.
 
+> **Amended 2026-10-08 by asdlc-openspec-1iak.** The last loss's reason, "Every gate runs from the clone", does not hold for a selftest whose tasks run in a fixture repository of its own, where mise resolves `node` from the fixture's `mise.toml`: `tests:fresh:selftest` met the loss in the dev container (`asdlc-openspec-locj`). Such a selftest gives its fixture the clone's node pin, or runs node by its path (`docs/decisions/asdlc-openspec-1iak.md` § Decision). The image still sets no global default.
+
 ### D-32 · A prompt review answers each changed prompt's stored decision cases with its old text and its new, and a case that flips from right to wrong keeps the edit out
 
 **Recorded 2026-10-03**, carried by `asdlc-openspec-7c1`. The maintainer chose items 1 to 3 on 2026-09-26, item 3 their own proposal. On 2026-10-03 they confirmed item 3's shape, one author per lens in a workflow of its own, and chose items 4, 5 and 7, each the recommendation, from options put with the case where it loses. The session that built it chose items 6, 8 and 9.
@@ -2588,6 +2590,8 @@ Where it loses:
 
 > **Amended 2026-10-08 by D-57.** Item 7's ruleset changes: one approving review, dismissed on push, and `verify` from GitHub Actions as its one required check, with no bypass; `pr-review` is required no longer, since the reviewer sets no status. Item 6's Pull requests write, which the App holds, now lets a container session approve a head on the floor that the App did not open, through `gh api`, which R-02's amendment carries. Item 4's closing of D-47's first loss holds for a forged check, and for a forged approval, which an App without Workflows cannot push a workflow to give.
 
+> **Amended 2026-10-08 by asdlc-openspec-pu8m.** Item 7's pull request rule does not refuse a direct push of a commit already submitted in a pull request. The App's push of #167's head to `main` passed it, and the failing `pr-review` alone refused the push (rule suite 4390232975, 2026-10-06). So a head whose other rules pass can land by a push as well as by auto-merge (`docs/decisions/asdlc-openspec-pu8m.md` § Decision). The Why's route that D-47's ruleset closed, a fast-forward push, stayed closed for a head on the floor, whose `pr-review` failed. Under D-57's ruleset that is untried, and so is a push of a commit that is in no pull request.
+
 ### D-52 · `prompt-runs` follows each fix a merged prompt review carried through later runs, and reports the fix-recurrence rate
 
 **Recorded 2026-10-05**, carried by `asdlc-openspec-r6ha.8`, a child of `asdlc-openspec-r6ha`. The maintainer chose to wait for `asdlc-openspec-6yt.1`, so the first figures rest on keys that do not drift between reviews (the parent's decision 3, with its loss). On 2026-10-05, before the claim, they answered the issue's three questions, each from options that showed where the recommended one loses, recorded in its notes:
@@ -3027,3 +3031,5 @@ R-01's amendment by D-47 names the first two and the guard that refuses each in 
 - The container's three bind mounts and its `GH_TOKEN`: `.devcontainer/devcontainer.json` at this entry's commit.
 
 > **Amended 2026-10-08 by D-57.** The second route is no longer a status: ruleset 24542312 requires one approving review and `verify`, and `pr-review` is set by nothing. In its place, anything with write can approve a pull request on the floor that it did not open, and `ADMIN` is not needed for it: a session holding the maintainer's credentials, through `gh pr review --approve`, which `scripts/hooks/guard-git.mjs` refuses, or through `gh api`, which it does not see; and a container session acting as D-51's App, which holds Pull requests write, by either, on a pull request the App did not open. The first and third routes stand as written, the first with no bypass actor granted on 2026-10-08. The pin to integration 15368 holds `verify` alone now.
+
+> **Amended 2026-10-08 by asdlc-openspec-pu8m.** The risk's first sentence does not hold as worded. GitHub counts a commit already submitted in a pull request as meeting 24542312's pull request rule, so a direct push of an open pull request's head to `main` was refused by the required check alone (rule suite 4390232975, 2026-10-06, under the ruleset this entry's Figures give). Whether a pull request's approval counts toward such a push under D-57's ruleset is untried (`docs/decisions/asdlc-openspec-pu8m.md` § Decision).
