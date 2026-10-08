@@ -283,6 +283,14 @@ jobs:
         run: mise run check:register
       - name: the register gate, negative-tested
         run: mise run check:register:selftest
+      # Seconds (git-hooks.yml's `register-records` and `register-records-selftest` jobs have the
+      # measurements): each record under `docs/decisions/` held to its name, its skeleton and its
+      # amendments, and every pointer to one resolved; then the same over git work trees under the
+      # temporary directory, a control and a doctored copy per refusal.
+      - name: every register record is named, whole and amended as it says, and every pointer to one resolves
+        run: mise run check:register:records
+      - name: the records gate, negative-tested
+        run: mise run check:register:records:selftest
       # Under two seconds (git-hooks.yml's `beads-selftest` job has the measurement): a fixture export
       # and a copy of the policy under the temporary directory, read through `BEADS_CHECK_ROOT`,
       # with no `bd`. The gate it tests reads the tracker, so it is absent below.

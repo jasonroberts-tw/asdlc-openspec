@@ -146,6 +146,20 @@ description = '''
 The register gate, negative-tested.'''
 run = "node scripts/check-register-status.mjs --selftest"
 
+["check:register:records"]
+description = '''
+Holds each record under `docs/decisions/` to the id in its own heading, the entry skeleton, the
+entries it names and the blockquote of each amendment it makes, and refuses a pointer to a record
+that does not resolve, a bare path included. Without it, a record filed under the wrong name or
+missing a line, or an amendment whose entry never got its blockquote, lands unchecked.'''
+run = "node scripts/check-register-records.mjs"
+
+["check:register:records:selftest"]
+description = '''
+The records gate, negative-tested: a control and a doctored copy per refusal, each a git work tree
+under the temporary directory, each asserting its reason.'''
+run = "node scripts/check-register-records.mjs --selftest"
+
 ["check:toolchain"]
 description = '''
 Holds `mise.toml`, the one home of every tool version, to `mise.lock` and to every other place a
