@@ -326,7 +326,7 @@ const LENSES = {
     prompt: [
       "Read every line the task adds or changes, and hold it to the task's acceptance criteria, the delta specs and the design: everything they ask for is there, and nothing they do not ask for is.",
       'Hold it also to the rules for its kind of file: a register entry to how docs/decisions.md says an entry is written and changed; a README to what CLAUDE.md asks of a directory README; a prompt to what CLAUDE.md asks of a skill or an agent; a template to the placeholders its renderer fills.',
-      'Run the gate that holds the file, where one does (mise run check:register for the register, mise run check:prompts for a prompt), and report what it prints.',
+      'Run the gate that holds the file, where one does (mise run check:register for docs/decisions.md, mise run check:prompts for a prompt), and report what it prints.',
     ].join(' '),
   },
   record: {

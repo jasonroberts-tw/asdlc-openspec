@@ -45,8 +45,8 @@ rewritten. The alternatives lost:
   too, but the second of two branches still stops on 3 hunks, the status clause, the table row and
   the insertion point, and a person resolves them by hand (E4a2).
 - **Records with a committed, generated view** (the candidate as specified). The view conflicts as
-  the one file does (E4b). The emitter, its `:check` and a migration of 56 entries also cost more
-  than this layout's one gate.
+  the one file does (E4b). The emitter, its `:check` and a migration of every entry, 56 when w95h
+  split them at D-54 (E3), also cost more than this layout's one gate.
 - **A README row per record, kept in id order.** Two rows conflict when they land in the same gap
   (E7d). The maintainer chose the exemption: "use an exemption", "don't keep sorting".
 - **Freezing at D-54, where w95h measured**, by moving D-55 to D-59 into records. That rewrites five
@@ -85,7 +85,8 @@ Where it loses:
 - **Prompts that named the one file or the numbering:** `.claude/agents/fan-out-work.md`, without
   its "Same numbered sequence" row and its renumbering step; `.claude/agents/branch-reviewer.md`;
   the skills `bead`, `change-design`, `add-task`, `change-finalize`, `change-propose`, `explore`,
-  `retire-asset` and `should-i-adopt`; and the budget of each that moved, in
+  `retire-asset` and `should-i-adopt`; `.claude/workflows/build-change-task.js`'s record lens, whose
+  `check:register` holds `docs/decisions.md` alone; and the budget of each that moved, in
   `tools/policy/prompt-budgets.json`.
 - **Stored cases:** `bead-names-implied-register-entry.json`,
   `fan-out-integrates-without-merge-commits.json` and
@@ -107,6 +108,7 @@ Where it loses:
   lists, each body read in turn. The same command lists the same 13 commits at `d769f55`, where the
   brief ran, and at `e523fbf`, where this branch was cut.
 - 19 files changed by D-31's renumbering: `git show --shortstat e8919c3`.
-- The trials E4 to E8: `asdlc-openspec-w95h`'s notes, run in an image built at `d769f55`.
-- `CLAUDE.md` from 3,594 words to 3,562 after its consolidation, and to 3,616 after the edit, its new
+- The trials E3 to E8: `asdlc-openspec-w95h`'s notes, run in an image built at `d769f55`. E3 split
+  that commit's `docs/decisions.md` into 56 records, D-01 to D-54, R-01 and R-02.
+- `CLAUDE.md` from 3,594 words to 3,562 after its consolidation, and to 3,627 after the edit, its new
   budget: `node scripts/check-prompts.mjs --counts` at each commit.

@@ -5,11 +5,12 @@ written down is re-argued from the losing side the next time an agent meets it; 
 here is not re-litigated by any agent (`CLAUDE.md` § Decisions live in the register). **When a
 document and the register disagree, the register wins**, and the document is what needs correcting.
 
-**This file is frozen at D-59.** Every decision or risk after it is a file of its own under
-`docs/decisions/`, written as § How an entry is written says and cited as
-`` `docs/decisions/<id>.md` § Decision `` (`docs/decisions/README.md`). This file takes only the
-dated blockquote a later entry adds under one of its entries, as § How an entry changes says, and
-nothing else: no heading, table row, status clause or bound.
+**This file's entries are frozen at D-59.** Every decision or risk after it is a file of its own
+under `docs/decisions/`, cited as `` `docs/decisions/<id>.md` § Decision ``
+(`docs/decisions/README.md`). No entry is added here, and an entry here changes only by the dated
+blockquote a later entry adds under it: no heading, table row, status clause or bound moves. § How
+an entry is written and § How an entry changes are the rules for every entry, a record's included,
+and change as any rule does.
 
 <!-- kit 2.1-1 · ADAPT: the one entry below is true of any repository bootstrapped from the starter
      kit. It is dated 1970-01-01 because the kit cannot know the day you adopted it. Replace that
@@ -59,9 +60,11 @@ numbered one here opens with `### R-NN · <title>`.
 An entry is never rewritten. A later decision that changes it adds a dated blockquote under each
 entry it changes, in the form `> **Amended YYYY-MM-DD by <id>.** <what changed>`, where `<id>` is
 the later decision's own, and lists every entry it amended in its own body. Under an entry in this
-file the blockquote is the whole change: no table cell, status clause or bound moves with it. A superseded entry keeps its heading, marked superseded, so an id
-cited anywhere still resolves. A withdrawn risk keeps its id, which is never reused, and is never
-reported as closed or met: it was withdrawn, and the entry says why.
+file the blockquote is the whole change: no table cell, status clause or bound moves with it. A
+superseded entry keeps its heading, marked superseded, so an id cited anywhere still resolves; in
+this file, whose headings never change, the blockquote is the mark. A withdrawn risk keeps its id,
+which is never reused, and is never reported as closed or met: it was withdrawn, and the entry says
+why.
 
 ## Decisions — recorded and applied
 

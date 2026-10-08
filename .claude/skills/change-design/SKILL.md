@@ -96,7 +96,7 @@ A design says how, never what:
 - **A decision that binds the repository beyond this change**, such as a rule or a convention, is a
   register entry (`CLAUDE.md` § Decisions live in the register), not a line of this design. Propose
   it to the user. An entry the user accepts is written by a build task, not in this stage; until it
-  exists, the design names it with no `§` pointer, which the citations gate would refuse as
+  exists, the design describes it with no `§` pointer, which the citations gate would refuse as
   unresolved.
 - **A design that relies on an existing decision** cites that decision's register entry.
 
