@@ -31,7 +31,6 @@ files each will touch, not the titles:
 | Same lines | two issues rewrite the same function, table or paragraph | one lane takes both, in order |
 | Same file, separate blocks | two issues each add a block to one file | sibling lanes; give each a named anchor (the heading or the entry it adds after) so the merges do not collide |
 | Same generated file | two issues each change an input of one emitter | accept it: separate lanes, and regenerate that file after each merge |
-| Same numbered sequence | two issues each append a numbered entry to `docs/decisions.md` | separate lanes; each takes the next number as it sees it, and the second to merge renumbers its entry, its table row and the range bound, because a named anchor cannot keep two lanes from taking the same number |
 
 An issue whose premise you cannot verify from the checkout is not dispatched; note why on the issue.
 
@@ -66,8 +65,8 @@ gives: its final message may not arrive (not verified against the CLI).
 As each lane reports green, cherry-pick its commits onto your branch. Resolve any conflict there,
 not in a merge commit: GitHub's rebase merge (`prReviewMergeMethod` in
 `tools/policy/pr-review.json`) cannot carry one. Never rebase a branch that has been pushed. After
-each lane, regenerate every generated file more than one lane touched, renumber any register entry
-that collided, re-derive each figure a lane measured without the others' work, then run
+each lane, regenerate every generated file more than one lane touched, re-derive each figure a lane
+measured without the others' work, then run
 `mise run gates`.
 
 Then run `mise run worktree:gc --discard <lane's branch>`, dry run first as

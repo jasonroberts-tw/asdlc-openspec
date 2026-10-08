@@ -9,7 +9,7 @@ through the `bead` skill.
 
 **Which wins.**
 
-- The register (`docs/decisions.md`) wins over anything here.
+- The register (`docs/decisions.md` and `docs/decisions/`) wins over anything here.
 - The living spec under `specs/` states what the product does now, and wins over any archived change.
 - Within an open change, its delta specs win over its `design.md`, and the design wins over nothing
   the specs state.

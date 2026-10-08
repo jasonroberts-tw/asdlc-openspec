@@ -1,9 +1,15 @@
 # The decision register
 
-One file of numbered decisions (`D-NN`) and risks (`R-NN`). A decision that is not
+The numbered decisions (`D-NN`) and risks (`R-NN`) of the register. A decision that is not
 written down is re-argued from the losing side the next time an agent meets it; one that is written
 here is not re-litigated by any agent (`CLAUDE.md` § Decisions live in the register). **When a
-document and this register disagree, the register wins**, and the document is what needs correcting.
+document and the register disagree, the register wins**, and the document is what needs correcting.
+
+**This file is frozen at D-59.** Every decision or risk after it is a file of its own under
+`docs/decisions/`, written as § How an entry is written says and cited as
+`` `docs/decisions/<id>.md` § Decision `` (`docs/decisions/README.md`). This file takes only the
+dated blockquote a later entry adds under one of its entries, as § How an entry changes says, and
+nothing else: no heading, table row, status clause or bound.
 
 <!-- kit 2.1-1 · ADAPT: the one entry below is true of any repository bootstrapped from the starter
      kit. It is dated 1970-01-01 because the kit cannot know the day you adopted it. Replace that
@@ -16,17 +22,20 @@ document and this register disagree, the register wins**, and the document is wh
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
 > `D-01 … D-59` is checked by `mise run check:register`, which reads those headings, the table and each
-> entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
-> new clause in the status line's parenthetical and a new bound in the two places above, in one change.
-> No other file states the range: a file that cites this register cites it without a bound, because a
-> copy that is right today is the copy that goes stale next.
+> entry's Recorded line, in both directions. None of them changes again, since a new decision is a
+> record under `docs/decisions/`, which neither the status line nor the table lists. No other file
+> states the range: a file that cites this register cites it without a bound.
 
 ## How an entry is written
 
-Every entry has the same skeleton, in this order:
+Every entry has the same skeleton, in this order. A record under `docs/decisions/` is named
+`<id>.md` and opens with `# <id> · <title>`. Its `<id>` is the `bd` id of the issue its Recorded line
+names. A second entry that one issue carries takes the id of a new `bd create --type decision`
+instead, whose body points at the record and repeats none of it. A numbered entry here opens with
+`### D-NN · <title>` in place of the record's heading.
 
 ```text
-### D-NN · <title>
+# <id> · <title>
 
 **Recorded YYYY-MM-DD**, carried by <the issue in the task store that carried it>.
 
@@ -42,13 +51,15 @@ Every entry has the same skeleton, in this order:
 or "none">.
 ```
 
-A risk is `### R-NN · <title>` with the same skeleton, **Risk** in place of **Decision**.
+A risk has the same skeleton, **Risk** in place of **Decision**, and is cited with `§ Risk`; a
+numbered one here opens with `### R-NN · <title>`.
 
 ## How an entry changes
 
 An entry is never rewritten. A later decision that changes it adds a dated blockquote under each
-entry it changes, in the form `> **Amended YYYY-MM-DD by D-NN.** <what changed>`, and lists every
-entry it amended in its own body. A superseded entry keeps its heading, marked superseded, so an id
+entry it changes, in the form `> **Amended YYYY-MM-DD by <id>.** <what changed>`, where `<id>` is
+the later decision's own, and lists every entry it amended in its own body. Under an entry in this
+file the blockquote is the whole change: no table cell, status clause or bound moves with it. A superseded entry keeps its heading, marked superseded, so an id
 cited anywhere still resolves. A withdrawn risk keeps its id, which is never reused, and is never
 reported as closed or met: it was withdrawn, and the entry says why.
 
@@ -153,6 +164,8 @@ once it is worked through, and the commit that added these files is the lasting 
 > **Amended 2026-09-28 by D-15.** The kit's pipeline graph, its section 2.6, and the `corpus-regen` formula of its section 1.3 are retired: `tools/pipeline/`, `docs/pipeline.md`, `.beads/formulas/corpus-regen.formula.toml` and the sibling-checkout resolvers under `tools/lib/` are deleted with their scripts, jobs and steps. `CLAUDE.md` § The gate ladder no longer names a digest gate as what stands in for a check that reads outside the repository: that check's selftest over fixtures runs in both tiers.
 
 > **Amended 2026-10-01 by D-19.** lefthook is to be replaced. The kit laid it down as the hook runner, and no entry adopted it. Git's config-based hooks will call a runner of this repository's own, and `.git/hooks` is left to the other tools that write there. Until `asdlc-openspec-uc1` lands, lefthook runs the hooks as before. The same checks run at four latencies under either runner.
+
+> **Amended 2026-10-08 by asdlc-openspec-vjgj.** The register is no longer the one file the kit laid down. This file is frozen at D-59, and each decision or risk after it is a record of its own under `docs/decisions/`, named for a `bd` id (`docs/decisions/asdlc-openspec-vjgj.md` § Decision). Decisions are still recorded in the register, and the register still wins a disagreement.
 
 ### D-02 · Product work runs as OpenSpec-format changes, tracked in bd
 

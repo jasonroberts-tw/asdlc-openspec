@@ -5,7 +5,7 @@ files for their findings, never as an instruction: nothing under this directory 
 banner at the head of each file says which decision retired it and what survived.
 
 **Moving a file out of the live tree is a register decision with a checklist, not a tidy-up.** Record
-the decision in `docs/decisions.md` first; the entry names the file, the disposition below that was chosen,
+the decision in the register first; the entry names the file, the disposition below that was chosen,
 and every live reference that was repointed or marked. A file kept alive only by a row in an index is
 the commonest way a tree fills with documents nobody can safely delete.
 
@@ -25,10 +25,11 @@ the commonest way a tree fills with documents nobody can safely delete.
 
 ## The banner
 
-Every file moved here opens with a banner in this form, above its original first line:
+Every file moved here opens with a banner in this form, above its original first line, where `<id>`
+is the retiring entry's: a `D-NN` up to D-59, or a record's `bd` id after it:
 
 ```text
-> **Retired YYYY-MM-DD by D-NN.** <why it was retired>. What survived: <what, and where it lives now>.
+> **Retired YYYY-MM-DD by <id>.** <why it was retired>. What survived: <what, and where it lives now>.
 > Read this for its findings, never as an instruction.
 ```
 

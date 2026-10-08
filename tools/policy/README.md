@@ -14,7 +14,7 @@ without its `Means`, a key in two records, and a record this table does not name
 must be is held by the gates its record's `gatedBy` names.
 
 Each record's header is the authority on it. Where a row here and a record disagree, the record wins
-and the row is corrected; where a record and `docs/decisions.md` disagree, the register wins.
+and the row is corrected; where a record and the register disagree, the register wins.
 
 | Record | Who merges a change | What it holds |
 |---|---|---|

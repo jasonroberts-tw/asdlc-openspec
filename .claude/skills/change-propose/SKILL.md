@@ -37,7 +37,7 @@ Before asking, read the worktree briefing's template,
 `git show origin/main:.claude/worktree-CONTEXT.md.tmpl`. The briefing names things this repository
 does not contain. If the change needs one of them, put the conflict in the same question as the
 name, for the user to decide. If they go ahead, the proposal's `## Impact` names the template and
-the `docs/decisions.md` entry the reversal needs.
+the register entry the reversal needs.
 
 ## 3. Open the epic
 

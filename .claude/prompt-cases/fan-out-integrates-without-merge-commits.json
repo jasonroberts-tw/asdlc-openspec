@@ -11,11 +11,11 @@
   "options": [
     {
       "id": "a",
-      "text": "Merge each lane's branch into your branch as step 5 directs, one merge commit per lane, and resolve any conflict between the two lanes inside that merge commit. Then regenerate the shared generated files, renumber any register entries that collided, and run `mise run gates`."
+      "text": "Merge each lane's branch into your branch as step 5 directs, one merge commit per lane, and resolve any conflict between the two lanes inside that merge commit. Then regenerate the shared generated files and run `mise run gates`."
     },
     {
       "id": "b",
-      "text": "Don't make any merge commits. Fast-forward your branch to the first lane's branch, then cherry-pick each later lane's commits onto it, resolving any conflict in the replayed commit itself. Then regenerate the shared generated files, renumber any register entries that collided, and run `mise run gates`. This rewrites only branches that were never pushed."
+      "text": "Don't make any merge commits. Fast-forward your branch to the first lane's branch, then cherry-pick each later lane's commits onto it, resolving any conflict in the replayed commit itself. Then regenerate the shared generated files and run `mise run gates`. This rewrites only branches that were never pushed."
     }
   ],
   "expected": "b",

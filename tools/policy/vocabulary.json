@@ -37,7 +37,7 @@
     "asset:gate": "a gate, a hook, a test runner, or a job that runs one (git-hooks.yml, .github/workflows/verify.yml)",
     "asset:product": "the product's code and its tests, under apps/",
     "asset:prompt": "CLAUDE.md, a skill, an agent, or a workflow script a skill runs",
-    "asset:register": "docs/decisions.md",
+    "asset:register": "the register: docs/decisions.md, frozen at D-59, and the records under docs/decisions/",
     "asset:spec": "the living spec under openspec/specs/, or a change's proposal and delta specs",
     "asset:tool": "an emitter or a helper under tools/ or scripts/ that is not a gate"
   },

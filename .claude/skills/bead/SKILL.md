@@ -41,7 +41,7 @@ the two that the trunk has changed since. Read the trunk's copy of each one it n
 follow that copy from here on. A session given no such git status reads the trunk's copy of both.
 
 Name, too, any register entry an acceptance criterion implies or that names the issue
-(`git grep <id> origin/main -- docs/decisions.md`), and each criterion this session cannot meet from
+(`git grep <id> origin/main -- 'docs/decisions*'`), and each criterion this session cannot meet from
 where it runs.
 
 An issue asking for a change to what the product does, stated as requirements, goes to

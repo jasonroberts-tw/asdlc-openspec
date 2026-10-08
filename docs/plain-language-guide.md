@@ -12,7 +12,9 @@ Amended 2026-10-05 by `asdlc-openspec-m8hs`: which checks run a changed file, an
 it, are for the review before an agent shares its work, not the reviewer (`docs/decisions.md` §
 D-46). Amended 2026-10-05 by `asdlc-openspec-3cp3`: the automated reviewer only marks a change
 risky or not, and the shared server merges one it marks not risky; a person merges a risky one
-themselves (`docs/decisions.md` § D-47).
+themselves (`docs/decisions.md` § D-47). Amended 2026-10-08 by `asdlc-openspec-vjgj`: each recorded
+decision after D-59 is a file of its own under `docs/decisions/`, and `docs/decisions.md` keeps those
+before it unchanged (`docs/decisions/asdlc-openspec-vjgj.md` § Decision).
 
 **Which document wins.** This page simplifies. Where it and a technical document disagree, the
 technical document is right and this page needs correcting.
@@ -142,7 +144,7 @@ source when someone needs them, and are not copied onto this page.
 | check | An automatic test of the repository that refuses one kind of mistake; the technical documents call it a gate. |
 | proposed change | A pull request: a set of changes offered for merging into the shared version. |
 | reviewer | The automated reviewer that lets each proposed change merge, or leaves it to a person when it touches a file on the list of risky things. |
-| recorded decision | An entry in `docs/decisions.md`, the register, which wins over every other document. |
+| recorded decision | An entry in the register, which wins over every other document: one in `docs/decisions.md` up to D-59, and a file of its own under `docs/decisions/` after it. |
 | instructions | The files that tell the agents how to work: `CLAUDE.md`, and the skills and agents under `.claude/`. |
 | key | A name such as `CNT-HOOKS`, standing for a count kept in `count-index.md`. |
 
@@ -151,7 +153,7 @@ source when someone needs them, and are not copied onto this page.
 | If you want | Read |
 |---|---|
 | the route an operator follows | `docs/playbook.md` |
-| what was decided and why | `docs/decisions.md` |
+| what was decided and why | `docs/decisions.md` and `docs/decisions/` |
 | the rules every agent follows | `CLAUDE.md` |
 | why the repository exists, and how its parts fit | `README.md` |
 | what the demo calculator does | `openspec/specs/calculator/spec.md` |
