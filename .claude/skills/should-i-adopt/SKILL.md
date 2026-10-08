@@ -35,7 +35,7 @@ second phrasing, and `git log -S <name> --oneline origin/main`.
   diff leaves it open. With nothing new, report the entry, what you checked and what would reopen
   it, and stop. Otherwise assess only what is new, and the brief names the entry it would amend.
 - **An open issue carries the question:** the brief becomes a note on it, counted as `CLAUDE.md` §
-  The task store says, not a new issue.
+  The task store says.
 
 ## 3. Map what it would touch
 
@@ -56,13 +56,12 @@ that matters.
    tracked files, and nowhere else). A vendored prompt needs the opening line and a row in
    `tools/policy/prompt-budgets.json`.
 2. **What files it adds, and of which kind** (`CLAUDE.md` § Three kinds of file, and never a fourth).
-   Output a model writes, or that carries a timestamp or randomness, cannot be committed as
-   generated output.
+   Output a model writes cannot be committed as generated output.
 3. **What it reads, which decides its tier** (`CLAUDE.md` § The gate ladder). Measure its time
    against that tier's; a hook's budget is in `.claude/README.md` § The hooks.
 4. **What it writes outside its own files:** the shared `.git/hooks`, `core.hooksPath`, an install
    script that runs from whichever worktree runs `npm ci`, `~/.claude/`, global git or shell config.
-   Every checkout shares that state, and no tracked file can remove it.
+   Every checkout shares that state.
 5. **How it behaves in a linked worktree:** paths baked to one checkout, per-machine state, and
    `CLAUDE_PROJECT_DIR`, which names the directory a session started in and does not follow it
    into a worktree (`.claude/README.md` § The hooks; verified against the CLI, 2.1.289).
@@ -88,7 +87,7 @@ measure that would show it is not working, defined as `count-index.md` § Rates 
 ## 5. Try it in Docker, never on the host
 
 A trial runs only in a container: a bad install damages the host's `~/.claude/`, the shared
-`.git/hooks` and global config, and that outlives the trial. On the host a run only reads:
+`.git/hooks` and global config. On the host a run only reads:
 documentation, release notes, source, and calls to a service that change nothing there.
 
 - **Docker must answer** `docker info`; Rancher Desktop puts the binary in `~/.rd/bin`. If it does
@@ -138,7 +137,7 @@ adopting would change. The brief, in this order:
 9. **Open questions:** what no source or trial settled.
 10. **Acceptance Criteria:** the person chooses an option or none. Adopting becomes an entry under
     `docs/decisions.md` § How an entry is written, its work filed as issues; not adopting is the
-    close reason, so the next person to raise it finds why.
+    close reason.
 
 ## 9. Report
 
