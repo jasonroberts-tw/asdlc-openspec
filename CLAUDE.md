@@ -11,7 +11,7 @@ Read this file first. It is the only home for a rule an agent must follow in thi
 
 A rule an agent has to follow has exactly one home: this file, a skill under `.claude/skills/`, an
 agent under `.claude/agents/`, or the header of the tool or gate that enforces it. Change it there.
-A rule with two homes has one that is stale, and the stale one is the one a reader finds.
+A rule with two homes has one that is stale.
 
 The tracker's memory commands (in Beads, `remember`, `recall` and `memories`) are not used; do not
 write a memory and do not cite one from a tracked file. Claude Code's per-project memory directory under
@@ -163,8 +163,7 @@ commits inside the change and never becomes an issue, so without the label no co
 `docs/decisions.md` holds the numbered decisions (`D-NN`) and risks (`R-NN`) that no agent
 re-litigates. An entry is never rewritten. A later decision adds a dated amendment under each entry
 it changes. When a document and the register disagree, the register wins. Retiring a file is a
-register decision with a checklist, not a tidy-up. A retired file moves to `docs/retired/` under a
-banner naming the decision. Or it is deleted under an entry with `git show` as the recovery.
+register decision with a checklist, not a tidy-up: the `retire-asset` skill.
 
 ## Every directory and document says what it is, and who wins
 
