@@ -2,10 +2,21 @@
 
 Read this file first. It is the only home for a rule an agent must follow in this repository.
 
-## What this repository is
+## How to explain things to me
+Keep answers short by leaving things out, never by packing more into each sentence.
+This takes priority over any general instruction to be concise.
 
-<!-- kit 1.1-1 · WRITE: one paragraph on what this repository is, what it produces, and what it is
-     not. Name the files that decide the shape of the work, so a reader goes there rather than here. -->
+- One claim per sentence. If a sentence relates three or more things, split it.
+- Keep connecting words: because, so, which means, unless, before, after, instead of.
+  Don't replace them with commas, colons, arrows, slashes, or "=".
+- Use verbs for actions. Write "the refresh path builds the key without the tenant ID",
+  not "tenant-unscoped key derivation". No noun stacks longer than three words.
+- Repeat the subject instead of "it/this/that" when the referent is a sentence or more back.
+- Give causal chains in order, as numbered steps.
+- When three or more components interact, use a short list, table, or diagram.
+- No invented abbreviations.
+- Before sending, reread each sentence as someone who hasn't seen the code.
+  If it needs more than one reading, rewrite it.
 
 ## Rules for agents live in tracked files, and nowhere else
 
