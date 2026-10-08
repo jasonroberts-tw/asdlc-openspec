@@ -97,14 +97,17 @@ documentation, release notes, source, and calls to a service that change nothing
 - **Give the container the trunk, never a mount of a checkout or a home directory:**
   `git bundle create <dir>/trunk.bundle origin/main` in a directory `mktemp -d` made, mounted
   read-only. Inside, `git init`, then
-  `git fetch <bundle> refs/remotes/origin/main:refs/heads/trunk` and `git switch trunk`.
+  `git fetch <bundle> refs/remotes/origin/main:refs/heads/trunk` and `git switch trunk`. Start the
+  container with `MISE_TRUSTED_CONFIG_PATHS` naming the clone, or the dev image's tools refuse as if
+  the candidate failed.
 - **Use the image** `.devcontainer/Dockerfile` builds for what installs into the harness, and the
   candidate's own images for a server it runs; pin the candidate's version. A slim one lacks a
   compiler and the Git the hooks need, and npm exits 0 on a failed optional build.
 - **Number each trial** E1, E2 and on, keeping its commands and the output it rests on. A trial
   outranks a document where they disagree.
-- **A candidate no container can hold**, because it needs Claude Code's own settings, a GUI or a
-  paid account, is assessed from sources, and the brief names the claims no trial checked.
+- **A claim no container can test**, because it needs Claude Code's own settings, a GUI or a paid
+  account no recording mock on an `--internal` Docker network can stand in for, is assessed from
+  sources, and the brief names it as no trial checked.
 - **Remove only what the run made:** containers, images, networks and volumes absent from the first
   listing. Pulling an image already there makes nothing new, and removing it takes someone else's.
 
