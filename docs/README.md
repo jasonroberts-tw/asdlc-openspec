@@ -8,7 +8,8 @@ enforces it, and a document points at that home rather than restating it.
 
 | Document | What it is |
 |---|---|
-| `docs/decisions.md` | The register: the numbered decisions (`D-NN`) and risks (`R-NN`) that nobody re-litigates. An entry is never rewritten; a later decision adds a dated amendment under each entry it changes. |
+| `docs/decisions.md` | The register's numbered decisions (`D-NN`) and risks (`R-NN`), which nobody re-litigates, frozen at D-59. An entry is never rewritten; a later decision adds a dated amendment under each entry it changes. |
+| `docs/decisions/README.md` | The register's decisions and risks after D-59, a record each, named for its `bd` id, with no row per record: how one is written, cited and found. |
 | `docs/retired/README.md` | What has been retired, each file under a banner naming the decision that retired it. Kept as the evidence a decision was recorded from, never as guidance. |
 | `docs/playbook.md` | The route one issue takes to the trunk, by the harness route or the product route, with a glossary, a table of where the truth lives and a crib sheet. Dated, and a route rather than an authority: the file or command each step names wins a disagreement. |
 | `docs/plain-language-guide.md` | How work gets done here, for a reader who runs nothing: the parts, the loop between them, who decides what, and what has not happened yet. Dated; any technical document wins a disagreement. |
@@ -37,7 +38,7 @@ enforces it, and a document points at that home rather than restating it.
 - **Every document that can disagree with another says, in one sentence, which wins.** A route
   through the work says the file or command that decides each step wins; a guide for a reader who
   runs nothing says the technical document wins; a cache says its source wins.
-- When a document and the register (`docs/decisions.md`) disagree, the register wins: correct the document, and never re-argue the decision.
+- When a document and the register (`docs/decisions.md` and `docs/decisions/`) disagree, the register wins: correct the document, and never re-argue the decision.
 - **Numbers cite their source.** A figure is re-derived at the time of writing, with the path or
   command it came from beside it, or it is reported as not verified (`CLAUDE.md` § Verification
   before claiming).

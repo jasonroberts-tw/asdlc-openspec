@@ -75,7 +75,7 @@ Three kinds of criterion are judged in their own way:
   on the criterion it belongs to.
 
 Then give your correctness verdict. It is `fail` when the change is wrong for its issue in a way no
-one criterion shows, as when it goes against the living spec or a decision in `docs/decisions.md`.
+one criterion shows, as when it goes against the living spec or a recorded decision.
 It is `human` when a person must weigh a doubt; say what it is. Otherwise it is `pass`.
 
 When the brief says the title cites no issue, judge the branch by the rubrics alone, with no

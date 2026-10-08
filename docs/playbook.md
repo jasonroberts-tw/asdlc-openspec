@@ -71,11 +71,13 @@ step that reports, the `RUN THESE YOURSELF` row and § 5's row for a refused com
 2026-10-08 by `asdlc-openspec-t2ly`: the reviewer approves a head off the high-risk floor and
 comments that a person decides on one on it, in place of the `pr-review` status, and the trunk's
 ruleset requires that approval beside `verify`; a person approves and merges a head on the floor
-(`docs/decisions.md` § D-57).
+(`docs/decisions.md` § D-57). Amended 2026-10-08 by `asdlc-openspec-vjgj`: the register is
+`docs/decisions.md`, frozen at D-59, and a record of its own under `docs/decisions/` for each entry
+after it (`docs/decisions/asdlc-openspec-vjgj.md` § Decision).
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
-where it and the register (`docs/decisions.md`) disagree, the register wins.
+where it and the register (`docs/decisions.md` and `docs/decisions/`) disagree, the register wins.
 
 The unit of work here is one issue in `bd`. It takes one of two routes to the trunk:
 
@@ -123,7 +125,7 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 | gate | A check that refuses one thing. Its header names the failure it exists to prevent, and its `:selftest` proves it still refuses (`CLAUDE.md` § Standing rules for prompts and gates). |
 | gate ladder | The same checks in session, at commit, at push and in CI; a slower tier never trusts a faster one (`CLAUDE.md` § The gate ladder). |
 | `mise run gates` | The forced full pre-push suite, and the only way to run it by hand (`CLAUDE.md` § The gate ladder). |
-| register | `docs/decisions.md`: the decisions (`D-NN`) and risks (`R-NN`) no agent re-argues, amended and never rewritten (`CLAUDE.md` § Decisions live in the register). |
+| register | The decisions and risks no agent re-argues, amended and never rewritten: the numbered ones (`D-NN`, `R-NN`) in `docs/decisions.md`, frozen at D-59, and a record each under `docs/decisions/` after it (`CLAUDE.md` § Decisions live in the register). |
 | policy file | `tools/policy.json`: every constant a prompt or a tool reads, each beside a `Means` sibling saying what it decides (`docs/decisions.md` § D-03). |
 | count key | A `CNT-*` key in `count-index.md`, written where the numeral would go (`count-index.md` § How to use it). |
 | prompt | `CLAUDE.md`, `AGENTS.md`, a skill, an agent, a workflow script's literals or the worktree briefing template, each held to a word budget in the policy file (the `check:prompts` task's `description` in `tasks.toml`). |
@@ -141,7 +143,7 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 | what rule an agent must follow | `CLAUDE.md`, then the skill or agent it names |
 | what is ready to be worked | `bd ready` |
 | what an issue asks, and what it waits on | `bd show <id>` |
-| what was decided, and whether it still stands | `docs/decisions.md` |
+| what was decided, and whether it still stands | `docs/decisions.md` and `docs/decisions/` |
 | what the product does now | `openspec/specs/<capability>/spec.md` |
 | why the product does that | the `proposal.md` and `design.md` of the change that set it, under `openspec/changes/archive/` |
 | which changes are in flight | `bd list --label <specChangeLabel> --type epic --status open,in_progress,blocked --json`, and each one's `openspec/changes/<change>/` on its branch |

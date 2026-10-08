@@ -174,8 +174,8 @@ the rule. The third column wins over the first two.
 
 Every script opens with a header saying what it checks, **the failure it exists to prevent**, how
 to invoke it and what it needs, so read the header before weakening a gate that is in your way.
-Every decision nobody should re-argue is a numbered entry in `docs/decisions.md`, amended and never
-rewritten.
+Every decision nobody should re-argue is an entry in the register, amended and never rewritten: a
+numbered one in `docs/decisions.md`, frozen at D-59, or a record of its own under `docs/decisions/`.
 
 ## Setup
 
@@ -476,7 +476,8 @@ proposes, and only a person promotes (`CLAUDE.md` § A program proposes; only a 
 |---|---|
 | `CLAUDE.md` | Read first. The only home for a rule an agent must follow here. |
 | `docs/README.md` | The documentation index, and the conventions every document follows. |
-| `docs/decisions.md` | The register of numbered decisions and risks. It wins a disagreement with any document. |
+| `docs/decisions.md` | The register's numbered decisions and risks, frozen at D-59. The register wins a disagreement with any document. |
+| `docs/decisions/` | The register's decisions and risks after D-59, a record each. |
 | `docs/playbook.md` | The route one issue takes to the trunk, step by step, each step naming the file or command that decides it. |
 | `docs/plain-language-guide.md` | How work gets done here, for a reader who runs nothing. |
 | `docs/test-strategy.md` | The agentic test strategy the change process adopts, as supplied, with the register's amendments marked. |

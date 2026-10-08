@@ -48,7 +48,7 @@ When the user plans a change, work toward a shared view of it. When they just wa
 follow the talk.
 
 - **Look before you ask.** Before a factual question, read what bears on it: `openspec/specs/`, the
-  change's folder and epic if one is named, `docs/decisions.md`, and the source, tests and documents
+  change's folder and epic if one is named, the register, and the source, tests and documents
   it touches. Do not ask what you can check. Where evidence is missing or conflicting, say so, and ask
   only what you need.
 - **Follow dependencies.** Settle the outcome and scope before an interface or a data model, revisit
@@ -92,8 +92,8 @@ You:  [reads the code]
 Give each fact you state about the repository its source. Then the user can check it, and a brief
 can be committed as it stands (`CLAUDE.md` § Verification before claiming):
 
-- **A document** by section, `<file>.md § <Heading>` (`CLAUDE.md` § Citations). A decision is cited
-  by its heading's id, as in `docs/decisions.md` § D-13.
+- **A document** by section, `<file>.md § <Heading>` (`CLAUDE.md` § Citations), and a decision as
+  `CLAUDE.md` § Decisions live in the register says.
 - **Code** by its repository-relative path and the function, type or key it names: a line number rots
   with the next edit above it.
 - **An issue** by its id, **a commit** by its short hash, **a pull request** by its number.

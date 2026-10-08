@@ -6,8 +6,8 @@ description: use this skill when an asset or artifact is no longer needed and sh
 Read CLAUDE.md first. Everything below is subordinate to it and points at it rather than restating it.
 
 Retiring a file is a register decision with a checklist
-(`CLAUDE.md` § Decisions live in the register). Record it in `docs/decisions.md`;
-`docs/retired/README.md` says what the entry names.
+(`CLAUDE.md` § Decisions live in the register). `docs/retired/README.md` says what its entry
+names.
 
 1. **Choose the disposition** from `docs/retired/README.md` § The three dispositions, and name it
    in the entry. Moving the file under `docs/retired/` is one of the three, not the default.

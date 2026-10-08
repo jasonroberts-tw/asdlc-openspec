@@ -53,7 +53,7 @@ in step 2, so a refusal here means stop and read it.
   that now reads wrongly beside its neighbours. The living spec is hand-maintained source.
 - **Point the repository at the new paths.** `git grep -n "openspec/changes/<change>/"` lists every
   file that still names a path the archive moved. Point each at the living spec or the archive
-  path, except a `docs/decisions.md` entry, which stays as recorded (`CLAUDE.md` § Decisions live in
+  path, except a register entry, which stays as recorded (`CLAUDE.md` § Decisions live in
   the register). The citations gate does not catch these: a bare path is not a citation it checks.
 - **Then run `mise run trace`**, which rewrites the record the archive staled, **and `mise run gates`**.
   Among them, `trace:check` refuses a test that still cites an ID the change removed, or the old

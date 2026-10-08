@@ -7,7 +7,7 @@
     "point": 2,
     "commit": "9c33d95"
   },
-  "situation": "You are writing a new entry in `docs/decisions.md` that records a decision: agent sessions are to act as a GitHub App. The issue you are working on has acceptance criteria that call for dated amendments under two earlier entries, D-38 and R-01, and your draft adds both. Earlier, while checking the issue's premise, you read D-47. The first loss D-47 lists says that loss closes once agents act as the App, and D-47's item 3 says what the App changes. Your new entry changes both of those statements. The acceptance criteria don't mention D-47. The draft is ready for the branch review that comes before its push. What do you do about D-47?",
+  "situation": "You are writing a new register entry that records a decision: agent sessions are to act as a GitHub App. The issue you are working on has acceptance criteria that call for dated amendments under two earlier entries, D-38 and R-01, and your draft adds both. Earlier, while checking the issue's premise, you read D-47. The first loss D-47 lists says that loss closes once agents act as the App, and D-47's item 3 says what the App changes. Your new entry changes both of those statements. The acceptance criteria don't mention D-47. The draft is ready for the branch review that comes before its push. What do you do about D-47?",
   "options": [
     {
       "id": "a",
