@@ -25,7 +25,7 @@
             "type": "command",
             "command": "node \"$CLAUDE_PROJECT_DIR\"/scripts/hooks/guard-workflow-edit.mjs",
             "timeout": 15,
-            "statusMessage": "Checking a workflow edit cannot forge the reviewer's status"
+            "statusMessage": "Checking a workflow edit cannot approve a pull request or forge the required check"
           }
         ]
       }

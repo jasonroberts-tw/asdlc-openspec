@@ -367,6 +367,7 @@ for (const [label, dir, command] of [
   ['a comment review, which approves nothing', oursDir, 'gh pr review 12 --comment -b "read it"'],
   ['a request for changes, which approves nothing', primary, 'gh pr review 12 --request-changes -b "no"'],
   ['--approve=false, which gh reads as no approval', oursDir, 'gh pr review 12 --approve=false --comment -b "read it"'],
+  ['a comment whose body holds the letter, which is no flag', primary, 'gh pr review 12 --comment --body "a"'],
 ]) {
   const r = ghGuard(dir, command)
   check(`control: the guard allows ${label}`, r.code === 0, why(r))
@@ -386,6 +387,8 @@ for (const [label, dir, command] of [
   ['--approve=true after a flag before the group', primary, 'gh --repo o/r pr review 12 --approve=true'],
   ['an approval inside bash -c', oursDir, 'bash -c "gh pr review 12 --approve"'],
   ['an approval after another statement', primary, 'git status; gh pr review 12 --approve'],
+  ['an approval in a cluster of short flags, which gh reads as -a then -b', oursDir, 'gh pr review 12 -ab "looks fine"'],
+  ['an approval spelt -a=true', primary, 'gh pr review 12 -a=true'],
 ]) {
   const r = ghGuard(dir, command)
   check(`${label} is refused, by its reason`, refusedFor(r, APPROVE_RULE), why(r))

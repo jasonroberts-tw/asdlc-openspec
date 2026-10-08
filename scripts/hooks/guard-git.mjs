@@ -660,6 +660,15 @@ const flagSet = (rest, name) =>
   rest.some((t) => t === name || (t.startsWith(`${name}=`) && t.slice(name.length + 1) !== 'false'))
 
 /**
+ * Whether `rest` sets the short boolean flag `-<letter>`, alone, as `-a=true`, or inside a cluster
+ * of short flags (`-ab "body"`, which gh's parser reads as `-a` then `-b`). A cluster whose earlier
+ * letter takes a value, `-ba`, is read the same way and refused too: the guard fails closed where
+ * the parser's reading is in doubt.
+ */
+const shortFlagSet = (rest, letter) =>
+  rest.some((t) => /^-[A-Za-z]+(=.*)?$/.test(t) && t.slice(1).split('=')[0].includes(letter) && t.split('=')[1] !== 'false')
+
+/**
  * The reason to deny this `gh` call, or `null` to allow it. Only `gh pr` is judged.
  *
  * `linked` separates two different kinds of rule that happen to share a command. The BASE rule is
@@ -674,7 +683,7 @@ const flagSet = (rest, name) =>
 function denialForGh({ group, sub, rest }, linked) {
   if (group !== 'pr') return null
   if (sub === 'create') return basesTrunk(rest) ? null : PR_BASE
-  if (sub === 'review' && (flagSet(rest, '--approve') || rest.includes('-a'))) return PR_APPROVE
+  if (sub === 'review' && (flagSet(rest, '--approve') || shortFlagSet(rest, 'a'))) return PR_APPROVE
   if (sub === 'merge') {
     if (flagSet(rest, '--admin')) return PR_ADMIN
     if (linked && !flagSet(rest, '--auto') && !flagSet(rest, '--disable-auto')) return PR_MERGE
