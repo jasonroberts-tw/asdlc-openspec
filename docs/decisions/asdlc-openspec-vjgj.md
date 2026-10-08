@@ -112,3 +112,5 @@ Where it loses:
   that commit's `docs/decisions.md` into 56 records, D-01 to D-54, R-01 and R-02.
 - `CLAUDE.md` from 3,594 words to 3,562 after its consolidation, and to 3,627 after the edit, its new
   budget: `node scripts/check-prompts.mjs --counts` at each commit.
+
+> **Amended 2026-10-08 by asdlc-openspec-j69i.** The loss "No gate holds a record yet" no longer holds. `check:register:records` holds each record's name, skeleton and amendments, and refuses a bare path to a record that does not exist (`docs/decisions/asdlc-openspec-j69i.md` § Decision).

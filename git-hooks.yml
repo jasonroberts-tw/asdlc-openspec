@@ -509,6 +509,26 @@ pre-push:
         - 'scripts/check-register-status.mjs'
         - 'tasks.toml'
       run: mise run check:register:selftest
+    # The records under `docs/decisions/`, each held to the id in its heading, the entry skeleton,
+    # the entries it names and the blockquote of each amendment it makes. No glob: it reads every
+    # tracked text file for a pointer to a record, so any push can change its verdict. 0.18 s wall
+    # (`/usr/bin/time -p`, one run) on a macOS laptop with Node 24.21.0, 2026-10-08.
+    - name: register-records
+      run: mise run check:register:records
+    # The records gate over a control and a doctored copy per refusal, each a git work tree under the
+    # temporary directory built with two git calls: 5.04 s wall, the same host and run. The glob is
+    # what its fixtures copy and read, and the gate and what it imports.
+    - name: register-records-selftest
+      glob:
+        - 'docs/decisions.md'
+        - 'docs/decisions/**'
+        - 'CLAUDE.md'
+        - 'scripts/check-register-records.mjs'
+        - 'tools/lib/git-env.ts'
+        - 'tools/lib/policy.ts'
+        - 'tools/policy/**'
+        - 'tasks.toml'
+      run: mise run check:register:records:selftest
     # Every living spec and active change under `openspec/` validated strictly by the pinned CLI,
     # every active change trial-archived into a scratch copy, every scenario and NFR requirement held
     # to a unique ID with its capability's prefix from `tools/policy/vocabulary.json` that no archived

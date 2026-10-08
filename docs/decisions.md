@@ -55,6 +55,11 @@ or "none">.
 A risk has the same skeleton, **Risk** in place of **Decision**, and is cited with `§ Risk`; a
 numbered one here opens with `### R-NN · <title>`.
 
+A record's **Builds on / amends** line names the entries it amends in a sentence that opens with
+"amends", and no other id there; an entry it only builds on goes in another sentence.
+`check:register:records` reads that sentence as the record's list of amendments, and holds each
+entry in it to its blockquote.
+
 ## How an entry changes
 
 An entry is never rewritten. A later decision that changes it adds a dated blockquote under each
