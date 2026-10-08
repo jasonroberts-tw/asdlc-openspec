@@ -19,7 +19,7 @@
 # (`git log -- .github/workflows/pr-review.yml`). From then to 2026-10-08 (asdlc-openspec-t2ly) it
 # set the `pr-review` commit status, which the ruleset required: a head on the floor failed it, and
 # its one way onto the trunk was a person's merge past the checks with the ruleset's bypass, which
-# the maintainer made for #158 to #178, every one of the last 20, none with a review, and which the
+# the maintainer made for #158 to #178 but #167, the last 20, none with a review, and which the
 # ruleset read that day no longer granted anyone. So it reviews instead, and a person approves.
 #
 # WHAT ELSE IT WOULD LET THROUGH IF IT WERE WRONG. GitHub merges a head once `verify` passes and one

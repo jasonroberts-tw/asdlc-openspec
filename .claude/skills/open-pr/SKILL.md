@@ -121,4 +121,4 @@ worktree cleans up once it leaves that one, naming each merged worktree with its
    and with no user, report them. One that keeps this worktree is reported with the reason it gives.
 
 Hand the caller the pull request's number and URL, whether it merged, in `wait`'s line or the words
-of its status, and what the cleanup removed.
+of its review, and what the cleanup removed.
