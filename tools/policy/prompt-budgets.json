@@ -154,8 +154,8 @@
       "means": "The most words the string and template literals of `scripts/hooks/guard-git.mjs` may hold (`mise run check:prompts`): its refusals, which `CLAUDE.md` § Guards has a session read and act on, beside the git and gh words it matches. First set to its size on 2026-10-08, 638, by D-59 (asdlc-openspec-a7df), once that change had taken out of its refusal of a bare `git worktree prune` the tracker id `node scripts/check-prompts.mjs --incidents` listed on its first run over the hooks, which the guard's header keeps; a raise edits this value and says why here. `prReviewHighRiskPaths` holds the guard to a person whatever this row says."
     },
     "scripts/hooks/guard-unprovisioned-worktree.mjs": {
-      "words": 148,
-      "means": "The most words the string and template literals of `scripts/hooks/guard-unprovisioned-worktree.mjs` may hold (`mise run check:prompts`): its refusal of a worktree `scripts/new-worktree.sh` did not provision, moved from `guard-git.mjs` by D-58 (asdlc-openspec-82jn). First set to its size on 2026-10-08, 148, by D-59 (asdlc-openspec-a7df); a raise edits this value and says why here."
+      "words": 171,
+      "means": "The most words the string and template literals of `scripts/hooks/guard-unprovisioned-worktree.mjs` may hold (`mise run check:prompts`): its refusal of a worktree `scripts/new-worktree.sh` did not provision, moved from `guard-git.mjs` by D-58 (asdlc-openspec-82jn). First set to its size on 2026-10-08, 171, by D-59 (asdlc-openspec-a7df): 148 as moved, 8 more from #181's rewrite of the refusal (asdlc-openspec-gm86), which this branch carried in once rebased onto it, and 15 for the tags D-45 asks of its three clauses on how Claude Code behaves, now that a hook's text is a prompt; nothing was consolidated, since the row is new. A raise edits this value and says why here, and a person merges it."
     },
     "scripts/hooks/guard-workflow-edit.mjs": {
       "words": 67,
