@@ -5,8 +5,8 @@ inside a budget of a few hundred milliseconds.** A git pre-commit or pre-push jo
 `scripts/`, never here. A hook may be unsound, because a slower tier never trusts it
 (`CLAUDE.md` § The gate ladder); it may not be slow, and it never blocks a stop.
 
-A file here runs only when `.claude/settings.json` registers it, and a running session picks up an
-edit to that file with no restart (`.claude/README.md` § The hooks). Where this table and the
+A file here runs only when `.claude/settings.json` registers it, and a running session picks up a
+hook added to that file with no restart (`.claude/README.md` § The hooks). Where this table and the
 settings file disagree, the settings file wins.
 The settings file registers `CNT-HOOKS` hooks.
 Every hook carries the same four-part header as a gate (`CLAUDE.md` § Standing rules for prompts and

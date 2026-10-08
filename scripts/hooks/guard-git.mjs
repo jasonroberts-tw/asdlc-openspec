@@ -223,12 +223,12 @@ function strayDenial({ worktree, toplevel }) {
  * default branch is a GitHub setting outside this repository, `main` when checked on 2026-09-23,
  * which is the same reason the PR-base rule below will not infer it.
  *
- * Until asdlc-openspec-gm86 this header said Claude Code snapshots hook configuration at session
- * start, so that any session begun before the hook was added fell back. It does not: Claude Code
- * re-reads the settings file when it changes, and a WorktreeCreate hook added to it mid-session took
- * over `EnterWorktree` with no restart (verified against the CLI, 2.1.294). Its hooks documentation
- * says such an edit is "normally" picked up, which leaves an edit the file watcher missed as the
- * other way a session can lack the hook.
+ * Until 2026-10-08 (asdlc-openspec-gm86) this header said Claude Code snapshots hook configuration
+ * at session start, so that any session begun before the hook was added fell back. It does not: a
+ * WorktreeCreate hook added to the settings file mid-session took over `EnterWorktree` with no
+ * restart, and `.claude/README.md` § The hooks gives that test and the version it ran on. The hooks
+ * documentation says such an edit is "normally" picked up, which leaves an edit the file watcher
+ * missed as the other way a session can lack the hook.
  *
  * No incident here yet. Were this check wrong, it would let an agent do real work in a worktree with
  * no briefing, on a branch CLAUDE.md § Git workflow does not provide for, cut from a base no file in
@@ -874,7 +874,7 @@ if (unprovisioned !== null) {
       'renders no briefing. Do not work here; the checkout may not contain what you were sent to ' +
       "see, and nothing in it states this repository's rules. Leave with ExitWorktree (action: " +
       '"remove"), and re-enter once that settings file registers the hook: a running session ' +
-      'picks up an edit to it with no restart (verified against the CLI, 2.1.294), and a restart ' +
+      'picks up a hook added to it with no restart (.claude/README.md § The hooks), and a restart ' +
       're-reads it if the edit was missed.',
   )
 }
