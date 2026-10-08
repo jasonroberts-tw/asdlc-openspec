@@ -2879,7 +2879,7 @@ Where it loses:
 
 ### D-58 · The unprovisioned-worktree check is a hook of its own, off the high-risk floor
 
-**Recorded 2026-10-08**, carried by `asdlc-openspec-82jn`. The maintainer asked, in conversation, whether the floor could stop holding a person to a pull request that changes only comments in a script, with #181 as the example. The session showed #181 changes the check's message too, and recommended this split over that exemption, with the case where the split loses (#2 below); the maintainer chose it. The session chose which check moved, the hook's name and the trunk's one home.
+**Recorded 2026-10-08**, carried by `asdlc-openspec-82jn`. The maintainer asked, in conversation, whether the floor could stop holding a person to a pull request that changes only comments in a script, with #181 as the example. The session showed #181 changes the check's message too, and recommended this split over that exemption, with the case where the split loses (#2 below); the maintainer chose it. The branch review then found that D-59, in the same branch, holds to a person any change that moves this hook's word count, through its budget row; the maintainer kept both, with that loss recorded below. The session chose which check moved, the hook's name and the trunk's one home.
 
 **Builds on / amends:** builds on D-37, whose floor took `scripts/hooks/guard-git.mjs` for its rule on the approval label, D-57's rule on an approval since, and keeps that path whole; and on D-38, whose floor names no other hook. Amends nothing: no entry decided this check, which came onto the floor with the file.
 
@@ -2897,7 +2897,8 @@ Where it loses:
 
 Where it loses:
 
-- **A change that weakens the check merges without a person.** One that refused nothing would pass the floor; `worktree:selftest`, which runs the hook and asserts its reason, is what holds it.
+- **A change that moves the hook's message by a word still waits for a person**, through its row in `tools/policy/prompt-budgets.json`, which D-59 adds and the floor holds: a raise is a person's, and D-12 sets a changed prompt's row to its count. #181 is one: its rewrite adds 8 words to the message, taking `guard-git.mjs`'s literals from 772 words to 780, which rebased land on this hook's row. So the split frees only a change that keeps the count, to the hook's logic, its header or its selftest. Replayed over #1 to #181, the hook budgets would have sent no pull request to a person that the floor did not already: each of the 23 that moved a hook's words was on it.
+- **A change that weakens the check merges without a person.** One that refused nothing would pass the floor; `worktree:selftest`, which runs the hook and asserts its reason, is what holds it, and it is off the floor too.
 - **A reworded reason of the guard's own still waits for a person**, as #2's would: only this check left.
 - **Every Bash command starts one more Node process**, whose cost the hook's header gives.
 - **The hook repeats the guard's few lines of git plumbing** (`commandDir`, `gitOut`, `inLinkedWorktree`), so a later fix to the guard's could miss it. Its header points at the guard's reasons, and `worktree:selftest` runs it with an inherited `GIT_DIR` and with no `cwd`.
@@ -2936,6 +2937,7 @@ Where it loses:
 
 Where it loses:
 
+- **A change that moves a hook's words waits for a person**, through its row on the floor, though the hook itself is off it: `block-generated-edit.mjs`, `gate-summary.mjs`, `guard-unprovisioned-worktree.mjs`, `worktree-create.mjs` and `worktree-remove.mjs`. It undoes part of D-58, as that entry's first loss says. Replayed over #1 to #181, it would have sent none to a person that the floor did not: 28 changed a hook, 23 moved a hook's words, and each of those was on the floor already.
 - **A budget counts what no session reads**: an import's specifier, the git and gh words a guard matches. So a hook's budget can rise for a change that adds no text a session reads.
 - **`prompts:incidents` sends runtime messages to the model**, which `asdlc-openspec-6nhx` found it reads as past events; that issue's decision on runtime messages covers the hooks too, as its note of this day says.
 - **A hook's refusal that says how Claude Code behaves falls under D-45's rule.** The one there is, in `guard-unprovisioned-worktree.mjs`'s refusal, says a session snapshots its hooks at its start, which #181 (`asdlc-openspec-gm86`) rewrites; this entry leaves that sentence to it.
@@ -2955,7 +2957,8 @@ Where it loses:
 - Each hook's words, `node scripts/check-prompts.mjs --counts`: `_shared.mjs` 226, `block-generated-edit.mjs` 86, `gate-summary.mjs` 49, `guard-git.mjs` 638 (639 before the tracker id went), `guard-unprovisioned-worktree.mjs` 148, `guard-workflow-edit.mjs` 67, `worktree-create.mjs` 75 and `worktree-remove.mjs` 86. `@babel/parser`'s parse of the same literals gave the same eight counts.
 - `node scripts/check-prompts.mjs --incidents`: 1 line before the change to the guard, its refusal of a bare prune; none after.
 - `check:prompts:selftest`, `mise run check:prompts:selftest`: 45 of 45 cases hold. A copy of the gate doctored to skip the hooks fails at its control, by the fixture's row for the hook naming no prompt.
-- The replay, as D-58's figures say.
+- The hook budgets replayed over #1 to #181: 28 changed a hook but a selftest, 23 moved some hook's literal words as `literalTexts` in `scripts/check-prompts.mjs` counts them at the merge base and at the head, and none of the 23 was off the floor of 2026-10-08; #181 took `guard-git.mjs`'s from 772 to 780. The same script as D-58's figures, over the same heads.
+- The import rule's bound, at most #2, #120 and #181 of the 126: the same replay, with each floor JavaScript or TypeScript file's syntax tree compared at the merge base and the head after its comments, and every string, template or `+` chain of them holding three spaces or more, were blanked.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

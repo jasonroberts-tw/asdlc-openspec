@@ -187,8 +187,8 @@ jobs:
       # runner refuses a Git older than 2.54.0; the runner image's was 2.55.0 (its image 20260920).
       - name: the git hook runner, negative-tested
         run: mise run hooks:selftest
-      # Milliseconds: CLAUDE.md, the prompts, the workflows' string literals and the word budgets in
-      # tools/policy/prompt-budgets.json.
+      # Milliseconds: CLAUDE.md, the prompts, the workflows' and the hooks' string literals and the word
+      # budgets in tools/policy/prompt-budgets.json.
       - name: every skill and agent opens with the line CLAUDE.md requires, and every prompt is within its word budget
         run: mise run check:prompts
       - name: the prompt gate, negative-tested

@@ -723,7 +723,7 @@ run = "node scripts/prune-worktree-branches.mjs --remote"
 ["worktree:selftest"]
 description = '''
 The worktree hooks, the git guard, the unprovisioned-worktree guard, the workflow-edit guard and
-the branch sweep, negative-tested
-against a scratch repository it builds or, for the workflow-edit guard, payloads it never writes,
-and the worktree briefing rendered from its template into a scratch directory.'''
+the branch sweep, negative-tested against a scratch repository it builds or, for the workflow-edit
+guard, payloads it never writes, and the worktree briefing rendered from its template into a
+scratch directory.'''
 run = "node scripts/hooks/worktree-hooks.selftest.mjs"
