@@ -162,20 +162,20 @@ commits inside the change and never becomes an issue, so without the label no co
 
 The register holds the decisions and risks that no agent re-litigates. Each one after D-59 is a file
 of its own, `docs/decisions/<id>.md` (`docs/decisions.md` § How an entry is written), cited with
-`§ Decision`, since a bare path goes unchecked. Only a pointer to a numbered entry, `D-NN` or
-`R-NN`, names `docs/decisions.md`, which is frozen. An entry is never rewritten. A later decision
-adds a dated amendment under each entry it changes. When a document and the register disagree, the
-register wins. Retiring a file is a
-register decision with a checklist, not a tidy-up: the `retire-asset` skill.
+`§ Decision`, since a bare path goes unchecked. `docs/decisions.md` is frozen, and only a pointer to
+a numbered entry, `D-NN` or `R-NN`, or to its rules for writing and changing an entry names it. An
+entry is never rewritten. A later decision adds a dated amendment under each entry it changes. When
+a document and the register disagree, the register wins. Retiring a file is a register decision
+with a checklist, not a tidy-up: the `retire-asset` skill.
 
 ## Every directory and document says what it is, and who wins
 
 A directory that holds more than one file of one kind has a `README.md`: a bolded one-sentence
 thesis of the directory's role, then a table with one row per file saying what it is or, for a
 gate, what it refuses. The row lands in the same change as the file. `docs/decisions/` alone has no
-table, since a row every entry appends conflicts. Every dated document opens
-with a `**Written:**` line and, once something amends it, a `**Status:**` line naming what did; it
-stays true about its date and is superseded rather than refreshed. Every document that can
+table, since a row every entry appends conflicts. Every dated document opens with a `**Written:**`
+line and, once something amends it, a `**Status:**` line naming what did; it stays true about its
+date and is superseded rather than refreshed. Every document that can
 disagree with another says, in one sentence, which wins. The documentation index and its
 conventions are `docs/README.md` § Conventions.
 
