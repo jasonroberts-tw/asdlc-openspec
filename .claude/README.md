@@ -42,7 +42,11 @@ no git rule in any entered worktree until `asdlc-openspec-bvf`.
 | `WorktreeCreate` | `worktree-create.mjs` | yes | Provisions through `scripts/new-worktree.sh`: `agent/<name>` cut from `origin/main`, with a rendered briefing, never Claude Code's native fallback off the default branch. |
 | `WorktreeRemove` | `worktree-remove.mjs` | no | Removes the checkout, keeps the branch, and runs the branch sweep for paths under `.claude/worktrees/` only. It prunes no record itself, and for any other path touches none. |
 
-**Hook configuration is snapshotted at session start.** A session that began before a hook was
-added never sees it and silently gets the native behaviour; restart the session after changing
-`settings.json`. The hook budget is a few hundred milliseconds: an in-session hook may be unsound
-(a cached lint is) but must be fast, and a slower tier of the gate ladder never trusts a faster one.
+**A running session picks up an edit to the settings file it loaded, with no restart.** Claude
+Code re-reads the file when it changes. A hook added to it mid-session fired on the session's next
+matching tool call, in a headless session and an interactive one, and a `WorktreeCreate` hook added
+mid-session took over `EnterWorktree` (verified against the CLI, 2.1.294, `asdlc-openspec-gm86`).
+Claude Code's hooks documentation says such an edit is "normally" picked up, so a session that
+still behaves as it did before an edit is the one to restart. The hook budget is a few hundred
+milliseconds: an in-session hook may be unsound (a cached lint is) but must be fast, and a slower
+tier of the gate ladder never trusts a faster one.

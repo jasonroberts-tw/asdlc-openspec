@@ -154,11 +154,11 @@ check('absent path exits zero', absent.code === 0, `code=${absent.code} stderr=$
  * guard-git: the unprovisioned-worktree tripwire.
  *
  * The one failure the WorktreeCreate hook cannot catch is the one where no WorktreeCreate hook ran.
- * A session whose config snapshot predates the hook gets `EnterWorktree`'s native behaviour instead:
- * a `worktree-<name>` branch cut from `origin/main` rather than `agent/<name>` cut from
- * `origin/main`. Since both now use the same LOCATION, the branch name is the discriminator.
- * `guard-git.mjs` is a PreToolUse Bash hook, so it fires whatever the snapshot holds -- and this
- * asserts it does.
+ * A session whose settings file registers no WorktreeCreate hook gets `EnterWorktree`'s native
+ * behaviour instead: a `worktree-<name>` branch cut from `origin/main` rather than `agent/<name>` cut
+ * from `origin/main`. Since both now use the same LOCATION, the branch name is the discriminator.
+ * `guard-git.mjs` is a PreToolUse Bash hook, so it fires whether or not that hook is registered --
+ * and this asserts it does.
  *
  * Unlike the create-hook cases above, this one CAN provision real worktrees, because it builds a
  * throwaway repository in a temp directory. The header's "no real worktree" constraint is about

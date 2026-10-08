@@ -496,7 +496,7 @@ Nothing here needs remembering: each row fires on its trigger. The third column 
 wires it, and where this table and that file disagree, the file wins and the row is corrected.
 Every pre-push job with a glob also runs on a push that changes `tasks.toml`, which holds its
 command, whether or not its row names that file. The settings file registers `CNT-HOOKS` session
-hooks, and a session reads it once, at its start: restart the session after changing it.
+hooks, and a running session picks up an edit to it with no restart (`.claude/README.md` § The hooks).
 
 <!-- kit 3.1-5 · WRITE: one row per hook, job or workflow, added in the same change as its wiring.
      The kit lists only what it wired. -->
