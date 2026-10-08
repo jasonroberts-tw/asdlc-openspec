@@ -151,22 +151,25 @@ const absent = run(
 check('absent path exits zero', absent.code === 0, `code=${absent.code} stderr=${absent.stderr}`)
 
 /* --------------------------------------------------------------------------------------------- *
- * guard-git: the unprovisioned-worktree tripwire.
+ * guard-unprovisioned-worktree: the unprovisioned-worktree tripwire.
  *
  * The one failure the WorktreeCreate hook cannot catch is the one where no WorktreeCreate hook ran.
  * A session whose settings file registers no WorktreeCreate hook gets `EnterWorktree`'s native
  * behaviour instead: a `worktree-<name>` branch cut from `origin/main` rather than `agent/<name>` cut
  * from `origin/main`. Since both now use the same LOCATION, the branch name is the discriminator.
- * `guard-git.mjs` is a PreToolUse Bash hook, so it fires whether or not that hook is registered --
- * and this asserts it does.
+ * `guard-unprovisioned-worktree.mjs` is a PreToolUse Bash hook, so it fires whether or not that hook
+ * is registered -- and this asserts it does. Until 2026-10-08 the check lived in `guard-git.mjs`,
+ * which the high-risk floor holds; `guard-git.mjs` must now let the same command through, or the
+ * check would still be on the floor (`docs/decisions.md` § D-58).
  *
  * Unlike the create-hook cases above, this one CAN provision real worktrees, because it builds a
  * throwaway repository in a temp directory. The header's "no real worktree" constraint is about
  * `git worktree add` against THIS repository from an isolated session; a scratch repo is untouched
  * by it.
  * --------------------------------------------------------------------------------------------- */
-console.log('guard-git: the unprovisioned-worktree tripwire')
+console.log('guard-unprovisioned-worktree: the unprovisioned-worktree tripwire')
 const GUARD = join(HOOKS, 'guard-git.mjs')
+const PROVISION_GUARD = join(HOOKS, 'guard-unprovisioned-worktree.mjs')
 const repo = mkdtempSync(join(tmpdir(), 'wt-guard-'))
 const primary = join(repo, 'primary')
 
@@ -224,13 +227,14 @@ git(primary, 'worktree', 'add', '-q', '.claude/worktrees/ours', '-b', 'agent/our
  *
  * `payloadDir` moves the payload's `cwd` away from the process's directory, for the cases that show
  * which of the two decides; `null` leaves it out of the payload. `env` is added to the guard's
- * environment, for the cases an inherited `GIT_DIR` would mislead.
+ * environment, for the cases an inherited `GIT_DIR` would mislead. `hook` is the script run,
+ * `guard-git.mjs` unless a case names another Bash hook.
  */
-function guardFrom(dir, { command = 'echo hello', payloadDir = dir, env = {} } = {}) {
+function guardFrom(dir, { command = 'echo hello', payloadDir = dir, env = {}, hook = GUARD } = {}) {
   const payload = { tool_input: { command } }
   if (payloadDir !== null) payload.cwd = payloadDir
   try {
-    execFileSync('node', [GUARD], {
+    execFileSync('node', [hook], {
       input: JSON.stringify(payload),
       cwd: dir,
       env: { ...GIT_ENV, CLAUDE_PROJECT_DIR: primary, ...env },
@@ -243,12 +247,42 @@ function guardFrom(dir, { command = 'echo hello', payloadDir = dir, env = {} } =
   }
 }
 
-const native = guardFrom(join(primary, '.claude', 'worktrees', 'native'))
-check('a worktree-* branch is refused', native.code === 2, `code=${native.code}`)
+const nativeDir = join(primary, '.claude', 'worktrees', 'native')
+const PROVISION_RULE = 'not an agent/* branch'
+const native = guardFrom(nativeDir, { hook: PROVISION_GUARD })
+check(
+  'a worktree-* branch is refused, by its reason',
+  native.code === 2 && native.stderr.includes(PROVISION_RULE),
+  `code=${native.code} ${JSON.stringify(native.stderr.slice(0, 200))}`,
+)
 check(
   'the refusal names the branch',
   native.stderr.includes("'worktree-native'"),
   JSON.stringify(native.stderr.slice(0, 200)),
+)
+// The hook reads no command, so an unreadable payload changes only where it looks: the process's
+// directory, which is still the native worktree.
+const nativeNoCwd = guardFrom(nativeDir, { hook: PROVISION_GUARD, payloadDir: null })
+check(
+  "with no cwd in the payload, the process's directory decides, and it is refused",
+  nativeNoCwd.code === 2 && nativeNoCwd.stderr.includes(PROVISION_RULE),
+  `code=${nativeNoCwd.code} ${JSON.stringify(nativeNoCwd.stderr.slice(0, 200))}`,
+)
+// An inherited `GIT_DIR` naming the primary checkout's `.git` would make git answer for the primary
+// checkout, find no linked worktree and allow the command, as it did the guard until 2026-10-06
+// (asdlc-openspec-hn4x); the hook runs its git with no `GIT_*` variable, as the guard does.
+const nativeGitDir = guardFrom(nativeDir, { hook: PROVISION_GUARD, env: { GIT_DIR: join(primary, '.git') } })
+check(
+  'an inherited GIT_DIR naming the primary checkout does not move the checkout judged',
+  nativeGitDir.code === 2 && nativeGitDir.stderr.includes(PROVISION_RULE),
+  `code=${nativeGitDir.code} ${JSON.stringify(nativeGitDir.stderr.slice(0, 200))}`,
+)
+// The check left the floor's guard: the same command there passes it.
+const nativeByGuard = guardFrom(nativeDir)
+check(
+  'guard-git.mjs no longer refuses a command in a worktree-* worktree',
+  nativeByGuard.code === 0,
+  `code=${nativeByGuard.code} ${JSON.stringify(nativeByGuard.stderr.slice(0, 200))}`,
 )
 // The scratch worktree starts at origin/main, as a `fresh` fallback does while the default branch is
 // the trunk, so the refusal must claim neither a distance nor a base other than origin/main.
@@ -260,9 +294,9 @@ check(
 // Both controls matter: a tripwire that fires everywhere would block the whole repository. The
 // agent/* worktree sits at the SAME path shape as the refused one, so this also proves the check
 // keys on provenance rather than on location.
-const ours = guardFrom(join(primary, '.claude', 'worktrees', 'ours'))
+const ours = guardFrom(join(primary, '.claude', 'worktrees', 'ours'), { hook: PROVISION_GUARD })
 check('an agent/* worktree is allowed', ours.code === 0, `code=${ours.code} ${ours.stderr}`)
-const prim = guardFrom(primary)
+const prim = guardFrom(primary, { hook: PROVISION_GUARD })
 check('primary checkout is allowed', prim.code === 0, `code=${prim.code} ${prim.stderr}`)
 
 // THE GIT RULES, IN A WORKTREE THE SESSION HAS ENTERED. Each refusal is asserted by its reason. The
