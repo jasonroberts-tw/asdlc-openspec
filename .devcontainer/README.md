@@ -238,3 +238,4 @@ built from this directory, with Claude Code 2.1.291, logged both installs at its
 both plugins enabled at project scope, and logged no install at its second (`asdlc-openspec-owva.4`).
 A container that cloned into its volume logged both installs at its first start too
 (`asdlc-openspec-vvns`).
+
