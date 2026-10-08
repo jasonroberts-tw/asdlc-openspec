@@ -105,7 +105,7 @@ documentation, release notes, source, and calls to a service that change nothing
   compiler and the Git the hooks need, and npm exits 0 on a failed optional build.
 - **Number each trial** E1, E2 and on, keeping its commands and the output it rests on. A trial
   outranks a document where they disagree.
-- **A claim no container can test**, because it needs Claude Code's own settings, a GUI or a paid
+- **A claim no container can test**, because it needs Claude Code's own settings, a GUI, or a paid
   account no recording mock on an `--internal` Docker network can stand in for, is assessed from
   sources, and the brief names it as no trial checked.
 - **Remove only what the run made:** containers, images, networks and volumes absent from the first
