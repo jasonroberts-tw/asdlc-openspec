@@ -162,7 +162,7 @@ commits inside the change and never becomes an issue, so without the label no co
 
 The register holds the decisions and risks that no agent re-litigates. Each one after D-59 is a file
 of its own, `docs/decisions/<id>.md` (`docs/decisions.md` § How an entry is written), cited with
-`§ Decision`, since a bare path goes unchecked. `docs/decisions.md` is frozen, and only a pointer to
+`§ Decision`, the form the citations gate checks. `docs/decisions.md` is frozen, and only a pointer to
 a numbered entry, `D-NN` or `R-NN`, or to its rules for writing and changing an entry names it. An
 entry is never rewritten. A later decision adds a dated amendment under each entry it changes. When
 a document and the register disagree, the register wins. Retiring a file is a register decision

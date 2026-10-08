@@ -58,7 +58,8 @@ numbered one here opens with `### R-NN · <title>`.
 A record's **Builds on / amends** line names the entries it amends in a sentence that opens with
 "amends", and no other id there; an entry it only builds on goes in another sentence.
 `check:register:records` reads that sentence as the record's list of amendments, and holds each
-entry in it to its blockquote.
+entry in it to its blockquote, so an id there that the record only cites is asked for a blockquote
+it never needed.
 
 ## How an entry changes
 

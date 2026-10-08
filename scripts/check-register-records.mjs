@@ -103,7 +103,19 @@ function trackerPattern(root) {
   return pattern
 }
 
-/** The sentences of a Builds on / amends line, after its label. */
+/** A sentence that lists amendments: one that opens with "amends", in any case. */
+const AMENDS_RE = /^amends\b/i
+
+/** A record's Builds on / amends paragraph: its line and those after it up to the next blank line, or '' with none. */
+function buildsOnParagraph(lines) {
+  const at = lines.findIndex((line) => BUILDS_ON.re.test(line))
+  if (at < 0) return ''
+  let paragraph = ''
+  for (let index = at; index < lines.length && lines[index].trim() !== ''; index++) paragraph += `${lines[index]} `
+  return paragraph
+}
+
+/** The sentences of a Builds on / amends paragraph, after its label. */
 function sentencesOf(paragraph) {
   return paragraph
     .replace(BUILDS_ON.re, '')
@@ -188,7 +200,6 @@ export function runCheck(root) {
 
     // The skeleton's lines, each found at a line's start, in order.
     let previous = null
-    let buildsOnAt = -1
     for (const step of SKELETON) {
       const at = lines.findIndex((line) => step.re.test(line))
       if (at < 0) {
@@ -198,20 +209,14 @@ export function runCheck(root) {
       if (previous !== null && at < previous.at) {
         fail(`3. ${path}: its ${step.label} line (:${at + 1}) comes before its ${previous.label} line (:${previous.at + 1}). The skeleton's order is ${FROZEN} § How an entry is written.`)
       }
-      if (step === BUILDS_ON) buildsOnAt = at
       previous = { label: step.label, at }
     }
 
-    // The Builds on / amends paragraph: its line and those up to the next blank line.
-    let paragraph = ''
-    if (buildsOnAt >= 0) {
-      for (let index = buildsOnAt; index < lines.length && lines[index].trim() !== ''; index++) paragraph += `${lines[index]} `
-    }
     const amends = new Set()
     const numbered = new Set()
-    for (const sentence of sentencesOf(paragraph)) {
+    for (const sentence of sentencesOf(buildsOnParagraph(lines))) {
       for (const match of sentence.matchAll(NUMBERED_IDS_RE)) numbered.add(match[0])
-      if (/^(?:it\s+)?amends\b/i.test(sentence)) {
+      if (AMENDS_RE.test(sentence)) {
         for (const match of sentence.matchAll(NUMBERED_IDS_RE)) amends.add(match[0])
         for (const match of sentence.matchAll(trackerIdsRe())) amends.add(match[0])
       }
@@ -397,9 +402,8 @@ function context(dir) {
   for (const relative of fixtureFiles().filter((path) => path.startsWith(`${DIR}/`) && path !== README).sort()) {
     const text = readFileSync(join(dir, relative), 'utf8')
     const id = relative.slice(DIR.length + 1, -'.md'.length)
-    const line = text.split('\n').find((candidate) => BUILDS_ON.re.test(candidate)) ?? ''
-    const amended = sentencesOf(line)
-      .filter((sentence) => /^(?:it\s+)?amends\b/i.test(sentence))
+    const amended = sentencesOf(buildsOnParagraph(text.split('\n')))
+      .filter((sentence) => AMENDS_RE.test(sentence))
       .flatMap((sentence) => [...sentence.matchAll(NUMBERED_IDS_RE)].map((match) => match[0]))
     if (amended.length === 0) continue
     const other = headings.find((heading) => !amended.includes(heading))
@@ -497,7 +501,7 @@ function cases({ id, path, amended, other }) {
     },
     {
       name: 'refusal 4: an "amends" sentence names a tracker id that is no record',
-      doctor: (dir) => edit(dir, path, appendToBuildsOn(`It amends ${DEAD} too.`)),
+      doctor: (dir) => edit(dir, path, appendToBuildsOn(`Amends ${DEAD} too.`)),
       expect: new RegExp(`^4\\. ${escaped(path)}: its "amends" sentence names ${DEAD}, which is no record under docs/decisions/\\.`),
     },
     {
@@ -569,12 +573,15 @@ function selftest() {
       console.error('selftest: the undoctored copy does not pass, so no case below can be trusted:\n')
       for (const failure of control.failures) console.error(`  - ${failure}\n`)
       if (control.skipped !== null) console.error(`  - it skipped: ${control.skipped}\n`)
-      process.exit(1)
+      // A return, not an exit, so the `finally` below removes the fixtures.
+      process.exitCode = 1
+      return
     }
     const ctx = context(pristine)
     if (ctx === null || ctx.other === undefined) {
       console.error(`selftest: no record under ${DIR}/ amends a frozen entry, so the amendment cases have nothing to doctor.`)
-      process.exit(1)
+      process.exitCode = 1
+      return
     }
 
     for (const { name, doctor, expect } of cases(ctx)) {
@@ -611,6 +618,7 @@ function selftest() {
   } finally {
     rmSync(base, { recursive: true, force: true })
   }
+  if (process.exitCode === 1) return
 
   const failed = results.filter((result) => !result.ok)
   for (const { name, ok, detail } of results) console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${name} -- ${detail}`)
