@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `mise run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-57 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43, D-44, D-45, D-46, D-47, D-48, D-49, D-50, D-51 and D-52 added 2026-10-05; D-53 and D-54 added 2026-10-06; D-55 and D-56 added 2026-10-07; D-57 added 2026-10-08).**
+**Status: every decision from D-01 to D-58 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43, D-44, D-45, D-46, D-47, D-48, D-49, D-50, D-51 and D-52 added 2026-10-05; D-53 and D-54 added 2026-10-06; D-55 and D-56 added 2026-10-07; D-57 and D-58 added 2026-10-08).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-57` is checked by `mise run check:register`, which reads those headings, the table and each
+> `D-01 … D-58` is checked by `mise run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -113,6 +113,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-55** | `verify` runs the gates the floor holds in jobs of their own, after nothing off the floor, and its required check passes only when every job does | The four jobs of `.github/workflows/verify.yml`, `npm ci --ignore-scripts` in each; `prReviewFloorProductTasks`, and `npm-shrinkwrap.json` and `.npmrc` on the floor, in `tools/policy/pr-review.json`; `verifyProblems` and `policyProblems` in `scripts/pr-review.mjs`, held by `pr-review:check` and `pr-review:selftest`; D-38's and D-51's amendments |
 | **D-56** | A branch whose edit adds the rule a stored case tests validates that case against its own head | `args.ref` in `.claude/workflows/author-prompt-cases.js`, held by `workflows:selftest`; the rows of `.claude/README.md` and `.claude/prompt-cases/README.md`; the workflow's budget row; D-32's and D-50's amendments |
 | **D-57** | The pull-request reviewer approves a head off the high-risk floor and comments on one on it, and the trunk's ruleset requires that approval beside `verify`, with no status and no bypass | `.github/workflows/pr-review.yml`'s job with `pull-requests: write`; `reviewFor`, `latestReview`, `submitReview` and `forgeProblems` in `scripts/pr-review.mjs`, held by `pr-review:check` and `pr-review:selftest`; `prReviewApproverLogin` in `tools/policy/pr-review.json`; the approval rule of `scripts/hooks/guard-git.mjs` and the check's name in `guard-workflow-edit.mjs`, held by `worktree:selftest`; `CLAUDE.md`, `open-pr` and `change-finalize`; the ruleset and the Actions setting on GitHub, a person's; D-09's, D-21's, D-47's, D-51's, R-01's and R-02's amendments |
+| **D-58** | The unprovisioned-worktree check is a hook of its own, off the high-risk floor | `scripts/hooks/guard-unprovisioned-worktree.mjs`, registered in `.claude/settings.json` and held by `worktree:selftest`; `scripts/hooks/guard-git.mjs` without the check; `TRUNK` in `scripts/hooks/_shared.mjs`; `CNT-HOOKS`; the rows of `scripts/hooks/README.md`, `.claude/README.md` and `README.md` |
 
 ## Risks
 
@@ -2874,6 +2875,45 @@ Where it loses:
 - The last 20 merged pull requests, #158 to #178 but #167, each merged by `jasonroberts-tw` with no review: `gh pr list --state merged --limit 20 --json number,mergedBy,reviews`.
 - The Actions setting could not be read: `gh api repos/{owner}/{repo}/actions/permissions/workflow` answered 403.
 - `pr-review:selftest`: 172 of 172 cases hold after the change, `node scripts/pr-review.mjs --selftest`; `worktree:selftest`: every check passes, `node scripts/hooks/worktree-hooks.selftest.mjs`.
+
+### D-58 · The unprovisioned-worktree check is a hook of its own, off the high-risk floor
+
+**Recorded 2026-10-08**, carried by `asdlc-openspec-82jn`. The maintainer asked, in conversation, whether the floor could stop holding a person to a pull request that changes only comments in a script, with #181 as the example. The session showed #181 changes the check's message too, and recommended this split over that exemption, with the case where the split loses (#2 below); the maintainer chose it. The session chose which check moved, the hook's name and the trunk's one home.
+
+**Builds on / amends:** builds on D-37, whose floor took `scripts/hooks/guard-git.mjs` for its rule on the approval label, D-57's rule on an approval since, and keeps that path whole; and on D-38, whose floor names no other hook. Amends nothing: no entry decided this check, which came onto the floor with the file.
+
+**Decision.**
+
+1. **`scripts/hooks/guard-unprovisioned-worktree.mjs`, a `PreToolUse` hook on Bash, refuses every command in a linked worktree whose branch is not `agent/*`**, with the reason and message `guard-git.mjs` gave. It reads the payload's `cwd` and asks git with no inherited `GIT_*` variable, as the guard does. `.claude/settings.json` registers it beside the guard, and the guard holds the check no more.
+2. **`tools/policy/pr-review.json` does not name it**, so a pull request that changes it alone is approved by the reviewer, as one that changes `scripts/hooks/worktree-create.mjs` is.
+3. **The stray-directory check stays in `guard-git.mjs`.** It refuses only git calls, so it needs the guard's parser, which the approval refusal needs too.
+4. **`TRUNK` is exported from `scripts/hooks/_shared.mjs`**, and both hooks import it, so the hooks still write the trunk's name once.
+
+**Why.** The floor is decided by path alone (`classify` in `scripts/pr-review.mjs`), and `guard-git.mjs` is on it for its approval and merge rules. Pull request #181 changed only this check's reason and message in the guard, and the reviewer held it for a person for the guard alone. Replayed over pull requests #1 to #181 with the floor of this day, the guard was the only floor reason in 5: #2 reworded the base rule's reason, #8 the worktree rules' reasons, #78 added the stray-directory check, #83 changed the parser, and #181 changed this check. Only #181 merged after D-37 put the guard on the floor. Two alternatives lost:
+
+- **Exempting from the floor an edit that changes only comments, judged by syntax tree.** It would not have freed #181, whose message is a string. Replayed, it frees 1 of the 126 pull requests on the floor, #120, whose edit was the header that is the home of the test-inventory gate's rule. And the parser it needs would run in the job that holds the approving token, which installs no npm package.
+- **Moving the stray-directory check too, with the guard's parser, into `_shared.mjs`.** #78 would have needed no person either. But the approval refusal reads every command through that parser, so it stays on the floor, and the move rewrites most of the guard.
+
+Where it loses:
+
+- **A change that weakens the check merges without a person.** One that refused nothing would pass the floor; `worktree:selftest`, which runs the hook and asserts its reason, is what holds it.
+- **A reworded reason of the guard's own still waits for a person**, as #2's would: only this check left.
+- **Every Bash command starts one more Node process**, whose cost the hook's header gives.
+- **The hook repeats the guard's few lines of git plumbing** (`commandDir`, `gitOut`, `inLinkedWorktree`), so a later fix to the guard's could miss it. Its header points at the guard's reasons, and `worktree:selftest` runs it with an inherited `GIT_DIR` and with no `cwd`.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound.
+- **`scripts/hooks/guard-unprovisioned-worktree.mjs`:** new, items 1 and 2.
+- **`scripts/hooks/guard-git.mjs`:** without the check, and importing `TRUNK`. **`scripts/hooks/_shared.mjs`:** item 4.
+- **`.claude/settings.json`:** the registration.
+- **`scripts/hooks/worktree-hooks.selftest.mjs`:** the check's cases run the new hook, with three more: no `cwd` in the payload, an inherited `GIT_DIR`, and the guard passing the command the hook refuses.
+- **The rest:** `CNT-HOOKS` in `count-index.md`; the description of `worktree:selftest` in `tasks.toml`; the pointer in `scripts/hooks/worktree-create.mjs`; and the rows of `scripts/hooks/README.md`, `.claude/README.md` and `README.md`.
+
+**Figures.**
+
+- The floor replayed: 126 of the 181 pull requests #1 to #181 on it, the guard their only floor reason in 5, and the comment-only exemption freeing 1. A script that imports `floorAt` from `scripts/pr-review.mjs` and runs it over each pull request's final head from `gh pr list --state all`, with the trunk's policy of 2026-10-08; the pull request that carried this entry gives it.
+- `worktree:selftest`, `mise run worktree:selftest`: 7 checks failed with the selftest edited before the hook existed, 6 for the missing hook and 1 for the guard still refusing; every check passed after. A copy of the hook doctored to keep `GIT_*` variables let the `worktree-*` worktree through under the inherited `GIT_DIR`.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 

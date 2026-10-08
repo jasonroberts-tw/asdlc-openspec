@@ -30,7 +30,7 @@
  * expresses "origin/main". The default branch is a GitHub setting outside this repository: `main`
  * when checked on 2026-09-23, and free to change without a commit here. A hook names the trunk
  * itself. When this hook does NOT run, the fallback is silent and the branch name is the only
- * surviving evidence, which is what `guard-git.mjs` keys its unprovisioned-worktree tripwire on.
+ * surviving evidence, which is what `guard-unprovisioned-worktree.mjs` keys its tripwire on.
  *
  * CONTRACT (verified against the CLI, 2.1.241). stdin is JSON:
  *   { "hook_event_name": "WorktreeCreate", "name": "<worktree name>", "cwd": ..., "session_id": ... }

@@ -85,7 +85,7 @@
 import { spawnSync } from 'node:child_process'
 import { realpathSync } from 'node:fs'
 import { basename } from 'node:path'
-import { gitEnv, readHookInput } from './_shared.mjs'
+import { TRUNK, gitEnv, readHookInput } from './_shared.mjs'
 
 /* ============================================================================================= *
  * Are we in a linked worktree?
@@ -198,68 +198,6 @@ function strayDenial({ worktree, toplevel }) {
     'report that the worktree was removed; anything it held that was not pushed is only in this ' +
     'directory now.'
   )
-}
-
-/* ============================================================================================= *
- * Did the sanctioned provisioner actually make this worktree?
- * ============================================================================================= */
-
-/**
- * A description of how this worktree is wrong, or `null` if it looks properly provisioned.
- *
- * WHY THIS EXISTS. Worktrees live at `.claude/worktrees/<name>` -- the location the `EnterWorktree`
- * tool uses natively -- and `scripts/hooks/worktree-create.mjs` routes that tool through
- * `scripts/new-worktree.sh` so each one is cut from `origin/main` onto `agent/<name>` with a probed
- * port pair and a rendered briefing. Since the tool and the script now agree on WHERE, location
- * carries no information and this guard does not look at it.
- *
- * What the tool and the script still disagree about is everything the script does after choosing
- * the path. When the settings file a session loaded registers no WorktreeCreate hook, as in a
- * checkout whose `.claude/settings.json` predates it, `EnterWorktree` silently falls back to
- * its native behaviour: branch `worktree-<name>`, cut from whatever `worktree.baseRef` names
- * (`fresh`, the default, takes `origin/<default branch>`; `head` takes the local HEAD), and no
- * `.worktree/CONTEXT.md`, so the briefing CLAUDE.md @-imports is absent and the agent never reads
- * the rules of a shared repository. No `worktree.baseRef` value names `origin/main` itself: the
- * default branch is a GitHub setting outside this repository, `main` when checked on 2026-09-23,
- * which is the same reason the PR-base rule below will not infer it.
- *
- * Until 2026-10-08 (asdlc-openspec-gm86) this header said Claude Code snapshots hook configuration
- * at session start, so that any session begun before the hook was added fell back. It does not: a
- * WorktreeCreate hook added to the settings file mid-session took over `EnterWorktree` with no
- * restart, and `.claude/README.md` § The hooks gives that test and the version it ran on. The hooks
- * documentation says such an edit is "normally" picked up, which leaves an edit the file watcher
- * missed as the other way a session can lack the hook.
- *
- * No incident here yet. Were this check wrong, it would let an agent do real work in a worktree with
- * no briefing, on a branch CLAUDE.md § Git workflow does not provide for, cut from a base no file in
- * this repository chose.
- *
- * A WorktreeCreate hook cannot cover this, because the failure is that no WorktreeCreate hook ran.
- * This one is a PreToolUse Bash hook, so it fires on the agent's first command whether or not the
- * session's settings register a WorktreeCreate hook -- the only place left to catch it.
- *
- * THE SIGNAL IS THE BRANCH NAME. `new-worktree.sh` always names the branch `agent/<name>`; the
- * native fallback always names it `worktree-<name>`. The base cannot be the signal: while the
- * default branch is `main`, a `fresh` fallback starts from the same `origin/main` the script does,
- * and the two differ at most by how recently it was fetched. The name is cheap, needs no network,
- * and does not move as `origin/main` does. The base distance is measured only to put a number in
- * the message when there is one, and never decides, because a legitimately long-lived `agent/*`
- * branch may sit far behind `origin/main` for good reasons.
- */
-function unprovisionedWorktree(dir) {
-  const branch = gitOut(dir, ['rev-parse', '--abbrev-ref', 'HEAD'])
-  if (branch === null || branch === 'HEAD') return null // detached; not a shape we judge
-  if (branch.startsWith('agent/')) return null
-
-  // For the message only. `null` whenever git cannot answer -- offline, no origin/main, a shallow
-  // clone -- because the branch name has already decided and this must never be what blocks.
-  let behind = null
-  const counts = gitOut(dir, ['rev-list', '--left-right', '--count', `origin/${TRUNK}...HEAD`])
-  if (counts !== null) {
-    const [left] = counts.split(/\s+/)
-    if (/^\d+$/.test(left)) behind = Number(left)
-  }
-  return { branch, behind }
 }
 
 /* ============================================================================================= *
@@ -516,13 +454,7 @@ const nonOptions = (rest) => rest.filter((t) => !isOption(t) && t !== '')
  * Rules.
  * ============================================================================================= */
 
-/**
- * The repository's trunk -- the branch checked out in the primary worktree, the base every agent
- * branch is cut from, and the target of every pull request. Renaming trunk is this one line rather
- * than a dozen scattered string literals, and the only reason a rename
- * is cheap is that it is named once.
- */
-const TRUNK = 'main'
+/** The trunk as a remote-tracking ref. `TRUNK` itself is named once, in `_shared.mjs`. */
 const TRUNK_REMOTE = `origin/${TRUNK}`
 
 /**
@@ -855,29 +787,9 @@ const linked = inLinkedWorktree(dir)
 // Only where git found no linked worktree: in one, `--show-toplevel` is that worktree by definition.
 const stray = linked ? null : strayWorktreeDir(dir)
 
-// THE WORKTREE WAS NOT PROVISIONED BY THE SCRIPT. Refuse everything, not just git: the agent is
-// about to do real work against a commit it did not choose, and every command it runs deepens that.
-// Escaping does not need the shell -- `ExitWorktree` is a tool -- so refusing every Bash command
-// leaves a way out rather than a deadlock.
-const unprovisioned = linked ? unprovisionedWorktree(dir) : null
-if (unprovisioned !== null) {
-  const { branch, behind } = unprovisioned
-  // A distance of 0 or an unanswerable one says nothing: while the default branch is the trunk, a
-  // native fallback can start from the same commit the script would have.
-  const distance = behind !== null && behind > 0 ? `, ${behind} commit(s) behind ${TRUNK_REMOTE}` : ''
-  deny(
-    `this worktree is on '${branch}', not an agent/* branch${distance}. Every worktree here is ` +
-      `provisioned by scripts/new-worktree.sh, which cuts agent/<name> from ${TRUNK_REMOTE} and ` +
-      "renders the briefing .worktree/CONTEXT.md. A 'worktree-*' branch is the EnterWorktree " +
-      "tool's native fallback, which it uses when the settings file the session loaded registers " +
-      'no WorktreeCreate hook; it takes its base from the worktree.baseRef setting instead, and ' +
-      'renders no briefing. Do not work here; the checkout may not contain what you were sent to ' +
-      "see, and nothing in it states this repository's rules. Leave with ExitWorktree (action: " +
-      '"remove"), and re-enter once that settings file registers the hook: a running session ' +
-      'picks up a hook added to it with no restart (.claude/README.md § The hooks), and a restart ' +
-      're-reads it if the edit was missed.',
-  )
-}
+// A worktree the script did not provision is refused whole by `guard-unprovisioned-worktree.mjs`,
+// which runs beside this hook on every Bash command, off the high-risk floor (docs/decisions.md
+// § D-58).
 
 // FAILING CLOSED IS A WORKTREE RULE, NOT A GLOBAL ONE. Inside a linked worktree an unreadable
 // payload must not be waved through -- that was the original defect. In the primary checkout the

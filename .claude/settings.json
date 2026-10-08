@@ -9,6 +9,12 @@
             "command": "node \"$CLAUDE_PROJECT_DIR\"/scripts/hooks/guard-git.mjs",
             "timeout": 15,
             "statusMessage": "Checking the command against the worktree rules"
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/scripts/hooks/guard-unprovisioned-worktree.mjs",
+            "timeout": 15,
+            "statusMessage": "Checking the worktree was provisioned by the worktree script"
           }
         ]
       },
