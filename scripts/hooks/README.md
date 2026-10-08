@@ -11,6 +11,9 @@ settings file disagree, the settings file wins.
 The settings file registers `CNT-HOOKS` hooks.
 Every hook carries the same four-part header as a gate (`CLAUDE.md` § Standing rules for prompts and
 gates), and every one can be run by hand with empty input, where it exits clean with nothing to do.
+`check:prompts` holds the words of each file's string literals here, but a selftest's, to a budget in
+`tools/policy/prompt-budgets.json`, since a refusal is text the blocked session acts on
+(`docs/decisions.md` § D-59); a header is a comment, and keeps its incident.
 
 <!-- kit 3.1-1 · WRITE: one row per file, added in the same change as the file and its
      registration. The kit lists only what it laid down. -->

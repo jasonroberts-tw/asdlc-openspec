@@ -155,9 +155,9 @@ pre-push:
     # Every skill and agent opens with the line CLAUDE.md requires, read out of CLAUDE.md itself, and
     # every prompt is within its word budget in `tools/policy/prompt-budgets.json`: the skills and
     # agents, CLAUDE.md, AGENTS.md, the worktree briefing template, `.beads/PRIME.md` (what `bd prime`
-    # prints), and the string literals of each workflow. Reads those and the policy through its
-    # loader; 0.08 s wall through `node --run` (`/usr/bin/time -p`, two runs) on a macOS 26.7 laptop
-    # with Node 26.8.1, 2026-09-26.
+    # prints), and the string literals of each workflow and of each hook under `scripts/hooks/` but
+    # its selftests. Reads those and the policy through its loader; 0.08 s wall through `node --run`
+    # (`/usr/bin/time -p`, two runs) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-26.
     - name: check-prompts
       glob:
         - 'CLAUDE.md'
@@ -166,6 +166,7 @@ pre-push:
         - '.claude/skills/**'
         - '.claude/agents/**'
         - '.claude/workflows/**'
+        - 'scripts/hooks/**'
         - '.claude/worktree-CONTEXT.md.tmpl'
         - 'tools/policy/**'
         - 'tools/lib/policy.ts'

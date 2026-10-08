@@ -477,8 +477,8 @@ const WORKTREE = 'worktree management belongs to the orchestrator, not to a task
 const OBJECTS = 'the object store is shared with sibling worktrees currently in use.'
 const WORKTREE_PRUNE =
   '`git worktree prune` takes every record git reads as stale, and in a dev container on a ' +
-  "bind-mounted clone that is every worktree made on the host, whose path the container cannot see " +
-  '(asdlc-openspec-486e). `git worktree prune --dry-run` shows what it would take; the prune is a ' +
+  "bind-mounted clone that is every worktree made on the host, whose path the container cannot see. " +
+  '`git worktree prune --dry-run` shows what it would take; the prune is a ' +
   "person's, run where every record it names is really gone."
 
 /**

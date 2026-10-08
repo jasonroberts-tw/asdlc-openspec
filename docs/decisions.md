@@ -11,11 +11,11 @@ document and this register disagree, the register wins**, and the document is wh
      Recorded line; `mise run check:register` holds the two to each other), name the issue that
      carried the adoption, and delete this comment. Your own first decision is D-02. -->
 
-**Status: every decision from D-01 to D-58 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43, D-44, D-45, D-46, D-47, D-48, D-49, D-50, D-51 and D-52 added 2026-10-05; D-53 and D-54 added 2026-10-06; D-55 and D-56 added 2026-10-07; D-57 and D-58 added 2026-10-08).**
+**Status: every decision from D-01 to D-59 is recorded and applied (D-01 added 1970-01-01; D-02 and D-03 added 2026-09-23; D-04, D-05 and D-06 added 2026-09-24; D-07 added 2026-09-25; D-08, D-09, D-10, D-11 and D-12 added 2026-09-26; D-13, D-14, D-15 and D-16 added 2026-09-28; D-17 added 2026-09-29; D-18 added 2026-09-30; D-19, D-20, D-21, D-22 and D-23 added 2026-10-01; D-24, D-25, D-26, D-27 and D-28 added 2026-10-02; D-29, D-30, D-31, D-32 and D-33 added 2026-10-03; D-34, D-35, D-36, D-37, D-38, D-39, D-40 and D-41 added 2026-10-04; D-42, D-43, D-44, D-45, D-46, D-47, D-48, D-49, D-50, D-51 and D-52 added 2026-10-05; D-53 and D-54 added 2026-10-06; D-55 and D-56 added 2026-10-07; D-57, D-58 and D-59 added 2026-10-08).**
 
 > The status line and the table below are a summary of the `### D-` headings, never the reverse:
 > update them from the headings, and never delete a line to make the gate pass. The range
-> `D-01 … D-58` is checked by `mise run check:register`, which reads those headings, the table and each
+> `D-01 … D-59` is checked by `mise run check:register`, which reads those headings, the table and each
 > entry's Recorded line, in both directions. Adding a decision means a new heading, a new table row, a
 > new clause in the status line's parenthetical and a new bound in the two places above, in one change.
 > No other file states the range: a file that cites this register cites it without a bound, because a
@@ -114,6 +114,7 @@ reported as closed or met: it was withdrawn, and the entry says why.
 | **D-56** | A branch whose edit adds the rule a stored case tests validates that case against its own head | `args.ref` in `.claude/workflows/author-prompt-cases.js`, held by `workflows:selftest`; the rows of `.claude/README.md` and `.claude/prompt-cases/README.md`; the workflow's budget row; D-32's and D-50's amendments |
 | **D-57** | The pull-request reviewer approves a head off the high-risk floor and comments on one on it, and the trunk's ruleset requires that approval beside `verify`, with no status and no bypass | `.github/workflows/pr-review.yml`'s job with `pull-requests: write`; `reviewFor`, `latestReview`, `submitReview` and `forgeProblems` in `scripts/pr-review.mjs`, held by `pr-review:check` and `pr-review:selftest`; `prReviewApproverLogin` in `tools/policy/pr-review.json`; the approval rule of `scripts/hooks/guard-git.mjs` and the check's name in `guard-workflow-edit.mjs`, held by `worktree:selftest`; `CLAUDE.md`, `open-pr` and `change-finalize`; the ruleset and the Actions setting on GitHub, a person's; D-09's, D-21's, D-47's, D-51's, R-01's and R-02's amendments |
 | **D-58** | The unprovisioned-worktree check is a hook of its own, off the high-risk floor | `scripts/hooks/guard-unprovisioned-worktree.mjs`, registered in `.claude/settings.json` and held by `worktree:selftest`; `scripts/hooks/guard-git.mjs` without the check; `TRUNK` in `scripts/hooks/_shared.mjs`; `CNT-HOOKS`; the rows of `scripts/hooks/README.md`, `.claude/README.md` and `README.md` |
+| **D-59** | `check:prompts` holds the text of every hook to a word budget, counted on its literals as a workflow's is | `budgeted()` in `scripts/check-prompts.mjs`, held by `check:prompts:selftest`; a row per hook in `tools/policy/prompt-budgets.json`; `scripts/hooks/**` in the `check-prompts` job of `git-hooks.yml`; `guard-git.mjs`'s prune refusal without its tracker id; the rows of `scripts/README.md` and `scripts/hooks/README.md`; the model prompts and the branch reviewer's brief left to `asdlc-openspec-80ln` |
 
 ## Risks
 
@@ -2914,6 +2915,47 @@ Where it loses:
 
 - The floor replayed: 126 of the 181 pull requests #1 to #181 on it, the guard their only floor reason in 5, and the comment-only exemption freeing 1. A script that imports `floorAt` from `scripts/pr-review.mjs` and runs it over each pull request's final head from `gh pr list --state all`, with the trunk's policy of 2026-10-08; the pull request that carried this entry gives it.
 - `worktree:selftest`, `mise run worktree:selftest`: 7 checks failed with the selftest edited before the hook existed, 6 for the missing hook and 1 for the guard still refusing; every check passed after. A copy of the hook doctored to keep `GIT_*` variables let the `worktree-*` worktree through under the inherited `GIT_DIR`.
+
+### D-59 · `check:prompts` holds the text of every hook to a word budget, counted on its literals as a workflow's is
+
+**Recorded 2026-10-08**, carried by `asdlc-openspec-a7df`. The maintainer asked, in conversation, whether a rule that a script import its instruction text and never define it would help. The session showed where that rule fails and recommended this instead, with the case where this loses: #2, a reworded refusal of `guard-git.mjs`'s, still waits for a person here, where that rule beside a comment-only exemption would have freed it. The maintainer chose this, and asked for a scan of the other scripts. The session chose which files count, how they are counted, and the follow-up for the rest.
+
+**Builds on / amends:** builds on D-27, whose table keyed by path takes each hook's row; on D-12, by which each row is set to its count; on D-45, whose rule on a sentence about how Claude Code behaves now reaches a hook's literals; and on D-58, whose hook is among those held. Amends nothing.
+
+**Decision.**
+
+1. **Every `.mjs` file under `scripts/hooks/` but a `*.selftest.mjs` is a prompt to `check:prompts`**, counted and read in its string and template literals alone, as a workflow is. `_shared.mjs` is among them, since a hook prints the redirect text it holds. A header is a comment, so it is neither counted nor listed, and keeps its incident (`CLAUDE.md` § Standing rules for prompts and gates).
+2. **Each has a row in `tools/policy/prompt-budgets.json`, set to its count**, and a new hook is refused until it has one.
+3. **`node scripts/check-prompts.mjs --incidents` lists a hook's literal lines**, and `mise run prompts:incidents`, which judges every file the gate budgets, judges them too.
+4. **The model prompts in scripts and the branch reviewer's brief wait for `asdlc-openspec-80ln`.** The scan of every tracked JavaScript and TypeScript file found text a language model receives in `scripts/prompt-incidents.mjs`, `scripts/match-held-findings.mjs`, `scripts/judge-trace-clauses.mjs`, `tools/citations/support.ts` and the brief `scripts/pr-review.mjs brief --local` writes. Their literals mix that text with log lines, errors and fixtures, so each needs a choice of what counts.
+
+**Why.** `CLAUDE.md` § Guards has a session do what a refusal says, so a hook's refusal is an instruction. But the gate held none of it, so a hook's text had no budget and no listing, and nothing classed it as a prompt. The gate's first run over the hooks listed one line: a tracker id in `guard-git.mjs`'s refusal of a bare `git worktree prune`, which this change took out, since the guard's header keeps the incident. Two alternatives lost:
+
+- **A rule that a script import its instruction text from a file of its own, and never define it.** Replayed over pull requests #1 to #181, with every sentence-length string taken for instruction text, it frees at most 3 of the 126 on the floor, #2, #120 and #181, and then only beside an exemption for comment-only edits. An imported module off the floor would run inside the floor's guard that imports it, which `pr-review:check` would not see, since it holds the guards by a fixed list. And no rule a gate can hold tells an instruction from a string a program matches, such as the prefix "A person decides: ", which `scripts/pr-review.mjs wait` matches.
+- **Counting only a hook's refusal constants, or what it passes to its `deny`.** Fewer literals that no session reads would count. But each hook would need a convention a later message can miss, where counting every literal misses none.
+
+Where it loses:
+
+- **A budget counts what no session reads**: an import's specifier, the git and gh words a guard matches. So a hook's budget can rise for a change that adds no text a session reads.
+- **`prompts:incidents` sends runtime messages to the model**, which `asdlc-openspec-6nhx` found it reads as past events; that issue's decision on runtime messages covers the hooks too, as its note of this day says.
+- **A hook's refusal that says how Claude Code behaves falls under D-45's rule.** The one there is, in `guard-unprovisioned-worktree.mjs`'s refusal, says a session snapshots its hooks at its start, which #181 (`asdlc-openspec-gm86`) rewrites; this entry leaves that sentence to it.
+- **`guard-git.mjs` and `_shared.mjs` are on the floor**, and so is the budgets record, so a change to any of their rows waits for a person.
+
+**What changed.**
+
+- **This register:** this entry, its table row, the status line and the bound.
+- **`scripts/check-prompts.mjs`:** `budgeted()` and `inLiterals`, the header, and six selftest cases over a fixture hook and its selftest.
+- **`tools/policy/prompt-budgets.json`:** eight rows, `describes` and `provenance`.
+- **`scripts/hooks/guard-git.mjs`:** its refusal of a bare prune without the tracker id.
+- **`git-hooks.yml`:** `scripts/hooks/**` in the `check-prompts` job's glob, and its comment.
+- **The rest:** the description of `check:prompts` in `tasks.toml`, and the rows and lead of `scripts/README.md` and `scripts/hooks/README.md`.
+
+**Figures.**
+
+- Each hook's words, `node scripts/check-prompts.mjs --counts`: `_shared.mjs` 226, `block-generated-edit.mjs` 86, `gate-summary.mjs` 49, `guard-git.mjs` 638 (639 before the tracker id went), `guard-unprovisioned-worktree.mjs` 148, `guard-workflow-edit.mjs` 67, `worktree-create.mjs` 75 and `worktree-remove.mjs` 86. `@babel/parser`'s parse of the same literals gave the same eight counts.
+- `node scripts/check-prompts.mjs --incidents`: 1 line before the change to the guard, its refusal of a bare prune; none after.
+- `check:prompts:selftest`, `mise run check:prompts:selftest`: 45 of 45 cases hold. A copy of the gate doctored to skip the hooks fails at its control, by the fixture's row for the hook naming no prompt.
+- The replay, as D-58's figures say.
 
 ### R-01 · Anything holding a maintainer's credentials can approve a high-risk pull request
 
