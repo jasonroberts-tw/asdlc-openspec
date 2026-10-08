@@ -10,13 +10,16 @@
  * `promptWordBudgets` of `tools/policy/prompt-budgets.json`: every skill and every agent, `CLAUDE.md`,
  * `AGENTS.md`, `.claude/worktree-CONTEXT.md.tmpl` (the briefing `CLAUDE.md` imports in a worktree),
  * `.beads/PRIME.md` (what `bd prime` prints in place of its own text when the tracker's plugin runs it
- * at a session's start and before a compaction), and each workflow under `.claude/workflows/`. A
- * prompt over its budget is refused, and so is a prompt with none, so a new prompt gets one when it
- * lands. A word is a whitespace-separated token. A markdown prompt, the briefing and
- * `.beads/PRIME.md` are counted whole, frontmatter included. A workflow is counted on
- * the text of its string and template literals, cooked as the runtime cooks them, and on nothing
- * else: that text is what its agents receive, and what its caller reads back, whether a prompt is
- * written as one template literal or concatenated from pieces.
+ * at a session's start and before a compaction), each workflow under `.claude/workflows/`, and each
+ * hook under `scripts/hooks/` but its selftests (`docs/decisions.md` § D-59). A prompt over its
+ * budget is refused, and so is a prompt with none, so a new prompt gets one when it lands. A word is
+ * a whitespace-separated token. A markdown prompt, the briefing and `.beads/PRIME.md` are counted
+ * whole, frontmatter included. A workflow is counted on the text of its string and template
+ * literals, cooked as the runtime cooks them, and on nothing else: that text is what its agents
+ * receive, and what its caller reads back, whether a prompt is written as one template literal or
+ * concatenated from pieces. A hook is counted the same way, `_shared.mjs` among them: a refusal is
+ * text the blocked session reads and acts on (`CLAUDE.md` § Guards), and a hook prints the redirect
+ * text `_shared.mjs` holds, while its header, which keeps its incident, is a comment.
  *
  * A row is keyed by the prompt's repository-relative path and holds `words`, the budget, and
  * `means`, the reason it is that figure (`docs/decisions.md` § D-27). A budget rises only by an edit
@@ -35,7 +38,8 @@
  * line it starts on, so a dated incident in its header comment, where CLAUDE.md keeps a script's
  * incident, is not listed. Each row is `  <path>:<line>  dated: <marks>`, the form
  * `scripts/prompt-incidents.mjs` prints its rows in, `undated:` and a probability, for the paragraphs
- * a language model judges to tell an incident with none of these marks: the two read as one list.
+ * a language model judges to tell an incident with none of these marks: the two read as one list. A
+ * hook is read as a workflow is, in its literals alone, so its header's incident is not listed.
  *
  * THE FAILURE IT EXISTS TO PREVENT, one incident for each check.
  *
@@ -56,7 +60,8 @@
  * `bead` and `open-pr`) before it read its issue. On 2026-09-25 the maintainer asked for a way to
  * stop prompts growing without bound (asdlc-openspec-2wv). Nothing had refused any of that growth:
  * this gate read only a prompt's first line. Each figure is `git show <commit>:<path>` split on
- * whitespace.
+ * whitespace. The hooks came under the budget on 2026-10-08 (`docs/decisions.md` § D-59): until then
+ * nothing read the text a hook refuses with, though `CLAUDE.md` § Guards has a session do what it says.
  *
  * The incident list has no incident yet: on 2026-10-05, at 158b73e, `git grep` for a date, a
  * tracker id or a `#` and two digits over `CLAUDE.md`, the skills, the agents and the briefing found
@@ -65,7 +70,9 @@
  * no date, id or number, which `scripts/prompt-incidents.mjs` judges; a date spelled out, or "pull
  * request 147"; and a tracker id of another shape once the tracker's prefix moves and the policy key
  * does not. It would list, too, a line that holds such a mark for another reason, such as an example
- * of an id's form, which a reader sets aside.
+ * of an id's form, which a reader sets aside. Its first run over the hooks, on 2026-10-08, listed
+ * one line: a tracker id in `guard-git.mjs`'s refusal of a bare `git worktree prune`, taken out by
+ * the change that brought the hooks in, since the guard's header keeps that incident.
  *
  * INVOCATION.
  *
@@ -84,21 +91,25 @@
  * skipped. A prompt that should go without it is named in `.claude/README.md` with its reason and
  * added to a table here in the same change; there is none today. No prompt goes without a budget.
  *
- * A HEURISTIC, NOT A PARSER, reads a workflow. No JavaScript parser is a dependency here, and adding
- * one changes `package-lock.json`, which `prReviewHighRiskPaths` gives a person to merge. The
- * tokeniser below skips line and block comments, and skips a regular expression where a `/` stands
- * where an operand is expected, judged from the token before it as a JavaScript tokeniser judges it.
- * It follows a template literal into each substitution and back, so a string inside `${...}` is
- * counted too. The selftest pins its count of a fixture workflow to a count made by hand, with a
- * regular expression holding every quote mark and a comment holding quoted words.
+ * A HEURISTIC, NOT A PARSER, reads a workflow or a hook. No JavaScript parser is a dependency here,
+ * and adding one changes `package-lock.json`, which `prReviewHighRiskPaths` gives a person to merge.
+ * The tokeniser below skips line and block comments, and skips a regular expression where a `/`
+ * stands where an operand is expected, judged from the token before it as a JavaScript tokeniser
+ * judges it. It follows a template literal into each substitution and back, so a string inside
+ * `${...}` is counted too. The selftest pins its count of a fixture workflow and a fixture hook to
+ * counts made by hand, with a regular expression holding every quote mark and a comment holding
+ * quoted words. On 2026-10-08 its count of each of the eight hooks' literals equalled the count of
+ * the same literals that `@babel/parser`, which Stryker installs, gave.
  *
  * WHAT IS NOT CHECKED. A prompt's cost in tokens: code blocks, paths and commands cost more tokens
  * per word than prose, so a prompt that swaps prose for them stays under its budget while its cost
- * rises. A workflow's code, its comments, and any text it builds from other than a literal; a literal
- * that is not prompt text, such as a schema's type name, is counted anyway. A file beside a
+ * rises. A workflow's or a hook's code, its comments, and any text it builds from other than a
+ * literal; a literal that is not prompt text, such as a schema's type name, an import's specifier or a
+ * flag a guard matches, is counted anyway. A hook's selftest, which no session reads. A file beside a
  * `SKILL.md` in its skill's directory, of which none is tracked, and a `README.md` under
  * `.claude/agents/`, which describes the agents and is not one. The opening line of `CLAUDE.md`,
- * `AGENTS.md`, the briefing, `.beads/PRIME.md` and a workflow, none of which is a skill or an agent.
+ * `AGENTS.md`, the briefing, `.beads/PRIME.md`, a workflow and a hook, none of which is a skill or an
+ * agent.
  * A `Reviewed:` trailer is not refused here: prompts carry none since `docs/decisions.md` § D-05, and
  * review is what holds that.
  *
@@ -129,6 +140,8 @@ const ROOT = process.env.PROMPTS_CHECK_ROOT ?? REPO_ROOT
 const SKILLS_DIR = '.claude/skills'
 const AGENTS_DIR = '.claude/agents'
 const WORKFLOWS_DIR = '.claude/workflows'
+/** The Claude Code hooks, whose refusals a blocked session reads and acts on (docs/decisions.md § D-59). */
+const HOOKS_DIR = 'scripts/hooks'
 const TEMPLATE = '.claude/worktree-CONTEXT.md.tmpl'
 /** What `bd prime` prints in place of its own text, at every session start and compaction. */
 const PRIME = '.beads/PRIME.md'
@@ -177,16 +190,28 @@ function prompts(root) {
   return found.sort(byCodePoint)
 }
 
-/** Every prompt the budget covers under `root`: the skills and agents, the workflows, and the single files. */
+/**
+ * Every prompt the budget covers under `root`: the skills and agents, the workflows, the hooks but
+ * their selftests, and the single files.
+ */
 export function budgeted(root) {
   const found = prompts(root)
   const workflows = join(root, WORKFLOWS_DIR)
   if (existsSync(workflows)) {
     for (const name of readdirSync(workflows)) if (name.endsWith('.js')) found.push(`${WORKFLOWS_DIR}/${name}`)
   }
+  const hooks = join(root, HOOKS_DIR)
+  if (existsSync(hooks)) {
+    for (const name of readdirSync(hooks)) {
+      if (name.endsWith('.mjs') && !name.endsWith('.selftest.mjs')) found.push(`${HOOKS_DIR}/${name}`)
+    }
+  }
   for (const path of SINGLE_PROMPTS) if (existsSync(join(root, path))) found.push(path)
   return found.sort(byCodePoint)
 }
+
+/** Whether the prompt at `path` is code, counted and read in its string and template literals alone. */
+const inLiterals = (path) => path.startsWith(`${WORKFLOWS_DIR}/`) || path.startsWith(`${HOOKS_DIR}/`)
 
 /** Why `text` does not open with `line` after its frontmatter, or null when it does. */
 function openingProblem(text, line) {
@@ -355,10 +380,10 @@ export function literalSpans(source) {
   return texts
 }
 
-/** The words of the prompt at `path`: a workflow's literals, or any other prompt whole. */
+/** The words of the prompt at `path`: a workflow's or a hook's literals, or any other prompt whole. */
 function countWords(root, path) {
   const text = readFileSync(join(root, path), 'utf8')
-  return path.startsWith(`${WORKFLOWS_DIR}/`) ? words(literalTexts(text).join('\n')) : words(text)
+  return inLiterals(path) ? words(literalTexts(text).join('\n')) : words(text)
 }
 
 /* ------------------------------------------------------------------------------ the lines ----- */
@@ -378,13 +403,14 @@ function lineAt(starts, offset) {
 /**
  * The lines of the prompt at `path` as its agents read them, each `{ line, text, literal }`: every
  * line of a markdown prompt, frontmatter included, all of `literal` -1; and every line of each string
- * and template literal of a workflow, cooked, numbered by the source line its first character comes
- * from and carrying the literal's index, so a reader keeps two literals apart. A workflow's comments
- * and code give none. A line of a literal that is empty has `line` null, since no character places it.
+ * and template literal of a workflow or a hook, cooked, numbered by the source line its first
+ * character comes from and carrying the literal's index, so a reader keeps two literals apart. Their
+ * comments and code give none. A line of a literal that is empty has `line` null, since no character
+ * places it.
  */
 export function promptLines(root, path) {
   const source = readFileSync(join(root, path), 'utf8')
-  if (!path.startsWith(`${WORKFLOWS_DIR}/`)) {
+  if (!inLiterals(path)) {
     return source.split(/\r?\n/).map((text, i) => ({ line: i + 1, text, literal: -1 }))
   }
   const starts = [0]
@@ -505,7 +531,7 @@ function budgetProblems(root, { measured, table, unreadable }) {
       )
     }
     if (count > budget) {
-      const counted = path.startsWith(`${WORKFLOWS_DIR}/`) ? ' in its string and template literals' : ''
+      const counted = inLiterals(path) ? ' in its string and template literals' : ''
       problems.push(
         `${path}: ${count} words${counted}, over its budget of ${budget} (its row in ${BUDGETS}). ` +
           'Consolidate it first, as `.claude/agents/continuous-prompt-improvement.md` § How a prompt is consolidated says, ' +
@@ -664,6 +690,22 @@ const WORKFLOW = [
   '',
 ].join('\n')
 
+/**
+ * A hook whose literals hold 6 words, counted by hand: the import's specifier (1), the refusal (4),
+ * and the template's stretch before its substitution (1); the stretch after it is a newline. Its
+ * header, and the 'quotes' in it, hold none.
+ */
+const HOOK = [
+  '/**',
+  " * A hook's header: no word of it is counted, nor its 'quotes'.",
+  ' */',
+  "import { readHookInput } from './_shared.mjs'",
+  '',
+  "const REASON = 'Leave this worktree first.'",
+  'process.stderr.write(`BLOCKED: ${REASON}\\n`)',
+  '',
+].join('\n')
+
 /** Each budgeted fixture file's words, counted by hand, not by this gate. */
 const FIXTURE_BUDGETS = {
   '.beads/PRIME.md': 6,
@@ -674,6 +716,7 @@ const FIXTURE_BUDGETS = {
   '.claude/worktree-CONTEXT.md.tmpl': 7,
   'AGENTS.md': 2,
   'CLAUDE.md': 23,
+  'scripts/hooks/guard-epsilon.mjs': 6,
 }
 
 /** The fixture's budgets record, and a second record the gate reads past, as the live policy has. */
@@ -700,6 +743,9 @@ const FIXTURE = {
   '.claude/skills/beta/SKILL.md': `---\nname: beta\ndescription: second\n---\n\n${LINE}\n\nDo beta.\n`,
   '.claude/agents/gamma.md': `---\nname: gamma\ndescription: third\n---\n\n${LINE}\n\nBe gamma.\n`,
   '.claude/workflows/delta.js': WORKFLOW,
+  'scripts/hooks/guard-epsilon.mjs': HOOK,
+  // A hook's selftest is no prompt: it has no budget row, and the control passes with it here.
+  'scripts/hooks/guard-epsilon.selftest.mjs': "console.log('the hook refuses what it should, by its reason')\n",
   [BUDGETS]: `${JSON.stringify(FIXTURE_RECORD, null, 2)}\n`,
   [OTHER_RECORD]: `${JSON.stringify(OTHER_CONSTANTS, null, 2)}\n`,
 }
@@ -793,6 +839,7 @@ function cases() {
   const beta = '.claude/skills/beta/SKILL.md'
   const gamma = '.claude/agents/gamma.md'
   const delta = '.claude/workflows/delta.js'
+  const epsilon = 'scripts/hooks/guard-epsilon.mjs'
   const refusedOpening = (path) => new RegExp(`^${escaped(path)}: its first line after the frontmatter is `)
   return [
     {
@@ -800,7 +847,7 @@ function cases() {
       doctor: () => {},
       expect: 'pass',
       listed: [],
-      says: /^prompts --incidents: 0 line\(s\) in 0 of 8 prompt\(s\) hold a date, a tracker id, a pull request number or a workflow run id/,
+      says: /^prompts --incidents: 0 line\(s\) in 0 of 9 prompt\(s\) hold a date, a tracker id, a pull request number or a workflow run id/,
     },
     {
       name: 'a skill without the line',
@@ -901,6 +948,28 @@ function cases() {
       expect: 'pass',
     },
     {
+      name: "a word added to a hook's refusal, counted in its literals",
+      doctor: (dir) => edit(dir, epsilon, (t) => t.replace('worktree first.', 'worktree right away.')),
+      expect: new RegExp(`^${escaped(epsilon)}: 7 words in its string and template literals, over its budget of 6 `),
+    },
+    {
+      name: "words added to a hook's header are not counted, and it passes",
+      doctor: (dir) => edit(dir, epsilon, (t) => t.replace(" * A hook's header:", " * A hook's long header, with its incident:")),
+      expect: 'pass',
+    },
+    {
+      name: 'a new hook with no budget',
+      doctor: (dir) => writeTree(dir, { 'scripts/hooks/guard-zeta.mjs': "process.stderr.write('Stop here.')\n" }),
+      expect: /^scripts\/hooks\/guard-zeta\.mjs has no word budget: tools\/policy\/prompt-budgets\.json has no row for it\. Add one, set to the 2 word\(s\)/,
+    },
+    {
+      name: "a row for a hook's selftest names no prompt",
+      doctor: editTable((t) => {
+        t['scripts/hooks/guard-epsilon.selftest.mjs'] = { words: 8, means: 'The most words the selftest may hold.' }
+      }),
+      expect: /^tools\/policy\/prompt-budgets\.json `promptWordBudgets` has a row for scripts\/hooks\/guard-epsilon\.selftest\.mjs, which is no prompt this gate reads/,
+    },
+    {
       name: 'a new skill with no budget',
       doctor: (dir) => writeTree(dir, { '.claude/skills/epsilon/SKILL.md': `---\nname: epsilon\n---\n\n${LINE}\n` }),
       expect: /^\.claude\/skills\/epsilon\/SKILL\.md has no word budget: tools\/policy\/prompt-budgets\.json has no row for it\. Add one, set to the 14 word\(s\)/,
@@ -945,7 +1014,18 @@ function cases() {
       doctor: (dir) => edit(dir, alpha, (t) => t.replace('Do alpha.', 'Done 2026-09-23.')),
       expect: 'pass',
       listed: [`  ${alpha}:8  dated: 2026-09-23`],
-      says: /^prompts --incidents: 1 line\(s\) in 1 of 8 prompt\(s\) hold a date/,
+      says: /^prompts --incidents: 1 line\(s\) in 1 of 9 prompt\(s\) hold a date/,
+    },
+    {
+      name: "a tracker id in a hook's refusal is listed by its line",
+      doctor: (dir) => edit(dir, epsilon, (t) => t.replace('worktree first.', 'worktree first (fixture-486e).')),
+      listed: [`  ${epsilon}:6  dated: fixture-486e`],
+    },
+    {
+      name: "a dated incident in a hook's header is not listed, and is not counted",
+      doctor: (dir) => edit(dir, epsilon, (t) => t.replace(" * A hook's header:", " * A hook's header, from 2026-10-06 (fixture-486e):")),
+      expect: 'pass',
+      listed: [],
     },
     {
       name: "a tracker id in an agent, a child's dotted suffix and all, in the policy's shape",
