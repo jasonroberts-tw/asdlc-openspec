@@ -1,14 +1,15 @@
 /**
  * The pull-request reviewer's decision: whether a pull request's head is on the high-risk floor.
  * `.github/workflows/pr-review.yml` runs `review` once per pushed head, on `pull_request_target`, and
- * it sets the `pr-review` commit status on that head and nothing else. The decision is the floor
+ * it submits one pull-request review on that head and nothing else. The decision is the floor
  * alone. A pull request that adds, changes, deletes or renames a path `prReviewHighRiskPaths` names,
- * or changes a top-level key `prReviewHighRiskJsonKeys` names, fails the status, and a person merges
- * it; any other passes it, and GitHub's auto-merge, which the session that opened it enables once
- * `verify` passes too, merges it under the
- * trunk's ruleset (`docs/decisions.md` § D-47). The keys are those of `tools/policy/pr-review.json`,
- * read through `tools/lib/policy.ts`. No language model, no secret and no merge takes part. Whether a
- * pull request does what its issues ask is judged before its push, by the branch review
+ * or changes a top-level key `prReviewHighRiskJsonKeys` names, gets a comment review beginning
+ * "A person decides: ", and a person approves and merges it; any other gets the reviewer's approval,
+ * which the trunk's ruleset requires beside `verify`, and GitHub's auto-merge, which the session that
+ * opened it enables once `verify` passes too, merges it (`docs/decisions.md` § D-57, amending
+ * § D-47). The keys are those of `tools/policy/pr-review.json`, read through `tools/lib/policy.ts`.
+ * No language model, no secret, no commit status and no merge takes part. Whether a pull request
+ * does what its issues ask is judged before its push, by the branch review
  * `.claude/skills/open-pr/SKILL.md` § 5 runs (`.claude/agents/branch-reviewer.md`), from the brief
  * `brief --local` writes.
  *
@@ -20,8 +21,10 @@
  *
  *   PR=<n> SHA=<head> node scripts/pr-review.mjs review
  *                                       fetch pull request <n>'s head as git objects, decide it from
- *                                       the floor, set `pr-review` on <head>, and write the reasons to
- *                                       the job's summary; the workflow sets both from its event
+ *                                       the floor, review <head> (approve, or comment), and write the
+ *                                       reasons to the job's summary; the workflow sets both from its
+ *                                       event. A review that did not complete exits 1, so the job is
+ *                                       red and `gh run rerun <run> --failed` runs it again
  *   PR=<n> node scripts/pr-review.mjs wait
  *                                       read pull request <n> every `prReviewWaitPollSeconds` until it
  *                                       has merged, has closed, or nothing will merge it; print one
@@ -32,12 +35,12 @@
  *                                       before its pull request opens, the title and body read from
  *                                       files (`open-pr` § 5); no `gh`
  *   PR=<n> SHA=<head> node scripts/pr-review.mjs review --dry-run
- *                                       decide a head from any checkout with `gh`, print the status it
- *                                       would set, and write nothing to GitHub
+ *                                       decide a head from any checkout with `gh`, print the review it
+ *                                       would submit, and write nothing to GitHub
  *   mise run pr-review:check             the wiring gate: the workflow, `verify.yml`, the branch
  *                                       reviewer and the policy agree, the workflow runs no model and
- *                                       holds no grant but its two, no other workflow can forge the
- *                                       status (`forgeProblems`), the floor holds the gates
+ *                                       holds no grant but its two, no other workflow can forge an
+ *                                       approval or `verify` (`forgeProblems`), the floor holds the gates
  *                                       `prReviewFloorTasks` lists, and `verify.yml` runs each where
  *                                       nothing off the floor runs first (`verifyProblems`)
  *   mise run pr-review:selftest          every decision over fixtures, each asserting its reason,
@@ -80,11 +83,20 @@
  * open pull request's checks, comments, label events and labeller's permission to choose one action,
  * and merged with a token that could write contents, pull requests, issues, statuses and actions. By
  * then its decision was the floor alone, its approval label was on none of the 149 merged pull
- * requests, and the maintainer had merged 125 of them. So it sets one status per pushed head, with a
- * token that writes statuses alone, and GitHub merges. Where that loses is D-47's: a workflow that can
+ * requests, and the maintainer had merged 125 of them. So it set one status per pushed head, with a
+ * token that wrote statuses alone, and GitHub merged. Where that lost is D-47's: a workflow that can
  * write a status or a check sets `pr-review` green on its own head, which `forgeProblems` refuses here
  * and in `scripts/hooks/guard-workflow-edit.mjs`; nothing holds a merge while `main` is red; and a
  * floor the trunk widens reaches an open head only at its next push.
+ *
+ * And the bypass (asdlc-openspec-t2ly, 2026-10-08). Under D-47 a head on the floor failed `pr-review`,
+ * which the ruleset required, so its one way onto the trunk was a person's merge past the checks
+ * with the ruleset's bypass: the maintainer had merged #158 to #178, every one of the last 20, that
+ * way, none with a review, and the ruleset read that day listed no bypass actor at all. So the
+ * reviewer now submits a pull-request review in place of the status: an approval off the floor,
+ * which the ruleset counts as its one required approving review, and a comment on it, which a
+ * person's approval answers; the ruleset dismisses a stale approval when the head moves, since
+ * GitHub lets no non-admin dismiss a review on a protected branch (`docs/decisions.md` § D-57).
  *
  * The brief (asdlc-openspec-744, before it was local only): criteria marked unverifiable for a fact
  * a script could compute and a reader, who runs nothing, could not. A budget that equals its prompt's
@@ -97,11 +109,14 @@
  * later than a reader before the push would have. Since D-37 that reader is the only one.
  *
  * WHAT ELSE IT WOULD LET THROUGH. Wrong here, the trunk takes a merge nobody meant: a change on the
- * floor whose status passed, or a status set on a head other than the one decided; or the pull
- * request's own code, or code off the floor such as the harness's, run with the token that sets the
- * status. So `review` decides the head the event names and no other, reads the pull request only as
- * git objects, and the job installs Node and gh and no npm package and imports only files on the
- * floor. The derivation of a listed gate's files reads a task's command and the relative paths its
+ * floor that was approved, or an approval submitted on a head other than the one decided; or the
+ * pull request's own code, or code off the floor such as the harness's, run with the token that
+ * approves. So `review` decides the head the event names and no other, pins its review to that
+ * head's sha, reads the pull request only as git objects, and the job installs Node and gh and no
+ * npm package and imports only files on the floor. A workflow granted `pull-requests: write`
+ * approves its own pull request once the repository lets Actions approve, and one granted
+ * `checks: write` or `statuses: write`, or with a job named `verify`, passes the required check on
+ * its own head: `forgeProblems` refuses each. The derivation of a listed gate's files reads a task's command and the relative paths its
  * files write out, never one written with `${`, joined at run time or written without its extension,
  * so a gate weakened through a file it reaches only that way, through a file its tool reads by
  * convention that the floor does not name, or through a policy key it reads by a computed name,
@@ -113,18 +128,20 @@
  * shared job one that runs after; a job that runs a pull request's code can save a cache a later
  * run's floor job restores, once the trunk's for the key is evicted; and a listed gate that runs the
  * product's code left off `prReviewFloorProductTasks` is taken for one that reads it. Wrong the other
- * way, a pull request waits forever: a status never set, so auto-merge never fires. `wait` exists because no `gh` command waits for a merge: `gh pr checks
- * --watch` ends once the checks settle, and a verify failure, a conflict or auto-merge switched off
- * can leave a head unmerged after its status. Wrong, it lets a session close its issues and remove
- * its worktree for a pull request that never merged, or keeps one waiting on a head nothing will
- * merge. A verdict a person decides is a failure, so its head shows red until they merge it
- * (asdlc-openspec-b83l); `wait` tells it from any other failure by the description's prefix, and
- * waits on. It costs three of GitHub's API calls a read while the pull request is open.
- * `pr-review:check` holds the wiring; the selftest holds every decision above.
+ * way, a pull request waits forever: an approval never given, so auto-merge never fires. `wait`
+ * exists because no `gh` command waits for a merge: `gh pr checks --watch` ends once the checks
+ * settle, and a verify failure, a conflict or auto-merge switched off can leave a head unmerged
+ * after its review. Wrong, it lets a session close its issues and remove its worktree for a pull
+ * request that never merged, or keeps one waiting on a head nothing will merge. A verdict a person
+ * decides is a comment review whose body begins "A person decides: "; `wait` tells it from any other
+ * comment by that prefix, and waits on. It costs three of GitHub's API calls a read while the pull
+ * request is open. `pr-review:check` holds the wiring; the selftest holds every decision above.
  *
- * NEEDS. `review` and `wait` need `gh` with a token that can read pull requests, checks and commit
- * statuses, and for `review`, write commit statuses; from a session, that is the person's own `gh`
- * login. `review` needs git with `origin` fetchable and its whole history (`fetch-depth: 0`).
+ * NEEDS. `review` and `wait` need `gh` with a token that can read pull requests, their reviews and
+ * checks, and for `review`, write pull requests, and the repository's Actions setting "Allow GitHub
+ * Actions to create and approve pull requests" on, without which GitHub refuses the approval; from a
+ * session, that is the person's own `gh` login. `review` needs git with `origin` fetchable and its
+ * whole history (`fetch-depth: 0`).
  * `brief --local` needs git, `bd` with the tracker cloned, and the packages
  * `tools/harness/harness.ts` imports, `js-yaml` and `smol-toml`; it needs no `gh`. It loads those
  * packages only when it runs, so `review` needs none. All of them need the network, which is why none
@@ -173,7 +190,7 @@ const GIT_HELPER = 'tools/lib/git-env.ts'
 const GUARD = 'scripts/hooks/guard-git.mjs'
 /** The helper the guards import, through which a change could loosen what they refuse. */
 const GUARD_HELPER = 'scripts/hooks/_shared.mjs'
-/** The guard that refuses an edit letting another workflow forge the status (`forgeProblems`). */
+/** The guard that refuses an edit letting another workflow forge an approval or `verify` (`forgeProblems`). */
 const FORGE_GUARD = 'scripts/hooks/guard-workflow-edit.mjs'
 /** The skill whose § 5 runs the branch review before every push: dropped there, the review is gone. */
 const OPEN_PR = '.claude/skills/open-pr/SKILL.md'
@@ -195,12 +212,12 @@ const AGENT_TOOLS = ['Read', 'Grep', 'Glob']
 /** The one event the workflow runs on, and the kinds of it: each a head pushed, or one made reviewable. */
 const REVIEW_EVENT = 'pull_request_target'
 const REVIEW_TYPES = ['opened', 'ready_for_review', 'reopened', 'synchronize']
-/** All the workflow's one job may hold: the trunk read, and the status written (`docs/decisions.md` § D-47). */
-const JOB_PERMISSIONS = { contents: 'read', statuses: 'write' }
+/** All the workflow's one job may hold: the trunk read, and the review written (`docs/decisions.md` § D-57). */
+const JOB_PERMISSIONS = { contents: 'read', 'pull-requests': 'write' }
 /** The one command its `run:` step runs, the whole of it, and the variables that step may set. */
 const REVIEW_RUN = 'node scripts/pr-review.mjs review'
 const REVIEW_ENV = ['GH_TOKEN', 'PR', 'SHA']
-/** The tools its mise step installs: Node to run this script, gh for its one status. */
+/** The tools its mise step installs: Node to run this script, gh for its one review. */
 const REVIEW_TOOLS = ['gh', 'node']
 /** The actions a step may use, each with the inputs it may be given: `ref`, `mise_toml` and `bootstrap` are not among them. */
 const STEP_ACTIONS = { 'actions/checkout': ['fetch-depth'], 'jdx/mise-action': ['install_args', 'sha256', 'version'] }
@@ -223,16 +240,21 @@ const FLOOR_RUNNER = 'ubuntu-latest'
 const FLOOR_STEP_KEYS = ['name', 'run', 'uses', 'with']
 const FLOOR_STEP_ACTIONS = { 'actions/cache': ['key', 'path'], 'actions/checkout': ['fetch-depth'], 'jdx/mise-action': ['sha256', 'version'] }
 const FLOOR_INSTALL = 'npm ci --ignore-scripts'
-/** The scopes a workflow's token writes a commit status or a check run with. */
-const FORGING_SCOPES = ['checks', 'statuses']
-/** A GitHub status description is cut at 140 characters. */
-const STATUS_MAX = 140
 /**
- * How a verdict a person decides begins its status's description. That status is a failure, so the
- * head shows red until the person merges it (asdlc-openspec-b83l), and `waitOutcome` waits on a
- * failure only when its description begins with this, and ends on any other.
+ * The scopes a workflow's token approves a pull request with (`pull-requests`, once the repository
+ * lets Actions approve) or writes a check run or a commit status with (`checks`, `statuses`), either
+ * of which can pass the required check on its own head.
+ */
+const FORGING_SCOPES = ['checks', 'pull-requests', 'statuses']
+/**
+ * How a verdict a person decides begins its comment review's body. The head then waits for a
+ * person's approval (asdlc-openspec-t2ly), and `waitOutcome` waits on a comment only when its body
+ * begins with this, and ends on any other.
  */
 const PERSON_DECIDES = 'A person decides: '
+/** The reviewer's approval, and the mark a review that did not complete leaves. */
+const APPROVED_BODY = 'Off the high-risk floor: auto-merge can merge it once verify passes'
+const NOT_COMPLETED = 'The review did not complete: '
 
 const byCodePoint = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
 const short = (sha) => String(sha ?? '').slice(0, 7)
@@ -242,7 +264,7 @@ const short = (sha) => String(sha ?? '').slice(0, 7)
 /** Each `prReview*` key and the shape its value must have. */
 const POLICY_SHAPES = {
   prReviewIssuePattern: 'pattern',
-  prReviewStatusContext: 'string',
+  prReviewApproverLogin: 'string',
   prReviewRequiredCheck: 'string',
   prReviewContextPaths: 'strings',
   prReviewHighRiskPaths: 'reasons',
@@ -290,7 +312,7 @@ export function policyProblems(policy) {
   }
   if (problems.length > 0) return problems
   // The floor must cover the reviewer itself and what its job imports, or a pull request could change
-  // its own judge and merge; every workflow, any one of which could forge the status; the branch
+  // its own judge and merge; every workflow, any one of which could forge an approval or `verify`; the branch
   // reviewer, the one judge of correctness left, the skill that runs it, and the guards on a merge
   // past the checks and on a forging edit; the tasks every gate runs through, or one could point a
   // gate at a command that always passes (docs/decisions.md § D-38); the two records only a person
@@ -299,7 +321,7 @@ export function policyProblems(policy) {
   // installs it, or one could change what every shim, hook and session runs.
   const covered = [
     ...[WORKFLOW, SELF].map((path) => [path, 'part of the reviewer itself']),
-    [`${WORKFLOWS}/forge.yml`, 'a workflow, which could set the status the reviewer sets'],
+    [`${WORKFLOWS}/forge.yml`, 'a workflow, which could approve a pull request or pass `verify` on its own head'],
     [AGENT, 'the branch reviewer, the one review of correctness and maintainability'],
     [OPEN_PR, 'the skill whose § 5 runs the branch review before every push'],
     [TASKS, 'the command each gate runs, which verify.yml runs through mise'],
@@ -310,9 +332,9 @@ export function policyProblems(policy) {
     // And what npm reads before it installs what those gates load (docs/decisions.md § D-55).
     ['npm-shrinkwrap.json', 'a lockfile `npm ci` installs from in place of package-lock.json'],
     ['.npmrc', "npm's project config, which `npm ci` reads"],
-    [GUARD, "the guard that refuses a session's merge past the required checks"],
+    [GUARD, "the guard that refuses a session's approval and its merge past the required checks"],
     [GUARD_HELPER, 'the helper the guards import'],
-    [FORGE_GUARD, 'the guard that refuses an edit letting another workflow forge the status'],
+    [FORGE_GUARD, 'the guard that refuses an edit letting another workflow forge an approval or `verify`'],
     [POLICY, 'the record of what the reviewer decides by, this floor among it'],
     [BUDGETS, "the record of every prompt's word budget"],
     [LOADER, 'the loader this floor is read through'],
@@ -741,23 +763,27 @@ export function evidenceMarkdown({ base, reach, reachError, partners, partnersEr
  * auto-merge then merges once `verify` passes; failure for a verdict a person decides, so the head
  * shows red until that person merges it; and error when there is no decision.
  */
-export function statusFor(decision) {
+/**
+ * The review one decision submits: an approval off the floor, which the ruleset counts; a comment
+ * beginning `PERSON_DECIDES` on it, which a person's approval answers; and a comment beginning
+ * `NOT_COMPLETED` when the floor could not be computed, beside which the job fails.
+ */
+export function reviewFor(decision) {
   const first = decision.reasons[0] ?? ''
-  const clip = (text) => (text.length > STATUS_MAX ? `${text.slice(0, STATUS_MAX - 1)}…` : text)
-  if (decision.outcome === 'merge') return { state: 'success', description: `Off the high-risk floor: auto-merge can merge it once verify passes` }
-  if (decision.outcome === 'human') return { state: 'failure', description: clip(`${PERSON_DECIDES}${first}`) }
-  return { state: 'error', description: clip(`The review did not complete: ${first}`) }
+  if (decision.outcome === 'merge') return { event: 'APPROVE', body: APPROVED_BODY }
+  if (decision.outcome === 'human') return { event: 'COMMENT', body: `${PERSON_DECIDES}${first}` }
+  return { event: 'COMMENT', body: `${NOT_COMPLETED}${first}` }
 }
 
 const HEADLINE = {
   merge: 'off the high-risk floor, so auto-merge can merge it once `verify` passes',
-  human: 'on the high-risk floor, so a person merges it',
+  human: 'on the high-risk floor, so a person approves and merges it',
   error: 'the review did not complete',
 }
 
 /**
  * The job's summary for one head: the outcome, each reason, how many changed files are on the
- * floor, and who merges it. The status links to the run, so this is what a person reads behind it.
+ * floor, and who merges it. The review names the run, so this is what a person reads behind it.
  */
 export function summaryMarkdown({ pr, sha, decision, floor }) {
   const lines = [`### pr-review of #${pr} at \`${short(sha)}\`: ${HEADLINE[decision.outcome]}`, '']
@@ -766,34 +792,34 @@ export function summaryMarkdown({ pr, sha, decision, floor }) {
     const high = floor.files.filter((f) => f.highRisk)
     lines.push(`${floor.files.length} changed file${floor.files.length === 1 ? '' : 's'}, ${high.length} on the floor (\`prReviewHighRiskPaths\` and \`prReviewHighRiskJsonKeys\` in \`${POLICY}\`).`, '')
   }
-  if (decision.outcome === 'human') lines.push(`A person with write access merges it, with the ruleset's bypass. A push sets the status again.`)
-  else if (decision.outcome === 'merge') lines.push(`Once \`verify\` passes too, the session that opened it enables GitHub's auto-merge, which merges it. A push sets the status again.`)
+  if (decision.outcome === 'human') lines.push(`A person with write access approves it (\`gh pr review ${pr} --approve\`) and merges it. A push reviews it again.`)
+  else if (decision.outcome === 'merge') lines.push(`The reviewer approved this head. Once \`verify\` passes too, the session that opened it enables GitHub's auto-merge, which merges it. A push reviews it again.`)
   else lines.push('`gh run rerun <this run> --failed` runs the review again at this head; a push runs it at the new one.')
   return lines.join('\n')
 }
 
 /**
  * Whether `wait` stops, and the one line it prints; null while it waits. `pull` is pull request `pr`
- * as GitHub returns it, `status` the reviewer's status on its head or null, and `verify` the state of
- * the required check there, as `checkState` gives it. It waits while GitHub may still merge the head:
- * while a check is pending, while the reviewer's status passes and auto-merge is on, and on a verdict
- * a person decides, which they merge. It ends once nothing will: a failed `verify`, a conflict, a
- * status that is no verdict, no status once `verify` has passed, or a passing head with auto-merge
- * off. The session then acts on it as
+ * as GitHub returns it, `review` the reviewer's latest review on its head, as `latestReview` gives
+ * it, or null, and `verify` the state of the required check there, as `checkState` gives it. It
+ * waits while GitHub may still merge the head: while a check is pending, while the reviewer approved
+ * and auto-merge is on, and on a verdict a person decides, which they approve and merge. It ends
+ * once nothing will: a failed `verify`, a conflict, a comment that is no verdict, no review once
+ * `verify` has passed, or an approved head with auto-merge off. The session then acts on it as
  * `.claude/skills/open-pr/SKILL.md` § 7 says.
  */
-export function waitOutcome(pr, pull, status, verify, policy) {
+export function waitOutcome(pr, pull, review, verify, policy) {
   if (pull.merged_at) return { merged: true, line: `#${pr} merged at ${pull.merged_at} as ${short(pull.merge_commit_sha)}` }
   if (pull.state !== 'open') return { merged: false, line: `#${pr} was closed without a merge` }
   const head = short(pull.head.sha)
   const ends = (why) => ({ merged: false, line: `#${pr} is open, and ${why}` })
   if (verify === 'failure') return ends(`\`${policy.prReviewRequiredCheck}\` failed on ${head}`)
   if (pull.mergeable === false) return ends(`it conflicts with ${TRUNK}: rebase onto origin/${TRUNK} and push`)
-  if (status?.state === 'error' || (status?.state === 'failure' && !String(status.description ?? '').startsWith(PERSON_DECIDES))) {
-    return ends(`the reviewer's status on ${head} is ${status.state}: ${status.description}`)
+  if (review?.state === 'COMMENTED' && !String(review.body ?? '').startsWith(PERSON_DECIDES)) {
+    return ends(`the reviewer's review on ${head} is a comment: ${review.body}`)
   }
-  if (status === null && verify === 'success') return ends(`the reviewer set no status on ${head}: read its \`review\` run`)
-  if (status?.state === 'success' && verify === 'success' && !pull.auto_merge) {
+  if (review === null && verify === 'success') return ends(`the reviewer left no review on ${head}: read its \`review\` run`)
+  if (review?.state === 'APPROVED' && verify === 'success' && !pull.auto_merge) {
     return ends(`auto-merge is off, so nothing merges ${head}: \`gh pr merge ${pr} --auto --${policy.prReviewMergeMethod}\``)
   }
   return null
@@ -847,10 +873,17 @@ function checkState(repo, sha, name) {
   return latest.conclusion === 'success' ? 'success' : 'failure'
 }
 
-function currentStatus(repo, sha, context) {
-  const statuses = ghJson(`repos/${repo}/commits/${sha}/statuses?per_page=100`)
-  const mine = statuses.find((s) => s.context === context)
-  return mine ? { state: mine.state, description: mine.description ?? '' } : null
+/**
+ * The reviewer's latest review on `sha`: the newest of pull request `pr`'s reviews that `login`
+ * submitted on that commit, as `{ state, body }` (`APPROVED`, `COMMENTED` or `DISMISSED`), or null.
+ * A review on an earlier head, which the ruleset dismisses when the head moves, counts for nothing
+ * here: the push that moved it started a run that reviews the new head.
+ */
+export function latestReview(reviews, sha, login) {
+  const mine = reviews.filter((r) => r.user?.login === login && r.commit_id === sha)
+  if (mine.length === 0) return null
+  const latest = mine.reduce((a, b) => (Date.parse(b.submitted_at ?? 0) > Date.parse(a.submitted_at ?? 0) ? b : a))
+  return { state: latest.state, body: latest.body ?? '' }
 }
 
 function runUrl() {
@@ -858,12 +891,12 @@ function runUrl() {
   return server && repo && id ? `${server}/${repo}/actions/runs/${id}` : undefined
 }
 
-function setStatus(dryRun, repo, sha, policy, state, description, targetUrl = runUrl()) {
-  write(dryRun, `status ${state} on ${short(sha)}`, 'POST', `repos/${repo}/statuses/${sha}`, {
-    state,
-    context: policy.prReviewStatusContext,
-    description: description.slice(0, STATUS_MAX),
-    ...(targetUrl ? { target_url: targetUrl } : {}),
+/** Submit the review on `sha`, pinned to it, so a head pushed since the event is left to its own run. */
+function submitReview(dryRun, repo, pr, sha, event, body, url = runUrl()) {
+  write(dryRun, `review ${event} on ${short(sha)}`, 'POST', `repos/${repo}/pulls/${pr}/reviews`, {
+    commit_id: sha,
+    event,
+    body: url ? `${body}\n\n${url}` : body,
   })
 }
 
@@ -980,9 +1013,9 @@ function wait() {
   for (;;) {
     const pull = ghJson(`repos/${repo}/pulls/${pr}`)
     const open = pull.state === 'open' && !pull.merged_at
-    const status = open ? currentStatus(repo, pull.head.sha, policy.prReviewStatusContext) : null
+    const review = open ? latestReview(ghJson(`repos/${repo}/pulls/${pr}/reviews?per_page=100`), pull.head.sha, policy.prReviewApproverLogin) : null
     const verify = open ? checkState(repo, pull.head.sha, policy.prReviewRequiredCheck) : null
-    const outcome = waitOutcome(pr, pull, status, verify, policy)
+    const outcome = waitOutcome(pr, pull, review, verify, policy)
     if (outcome) {
       console.log(outcome.line)
       if (!outcome.merged) process.exitCode = 1
@@ -999,11 +1032,12 @@ function summarise(text) {
 }
 
 /**
- * Decide the head the event names, `SHA` of pull request `PR`, from its floor, set the reviewer's
- * status on it, and write the reasons to the job's summary. The head is fetched as git objects and
+ * Decide the head the event names, `SHA` of pull request `PR`, from its floor, submit the reviewer's
+ * review on it, and write the reasons to the job's summary. The head is fetched as git objects and
  * never checked out, so none of the pull request's code runs. A head that moved since the event is
  * left alone: the push that moved it started a run of its own, which decides the new head. A fetch,
- * a merge base or a diff that fails is an `error` status, which a re-run of the job retries.
+ * a merge base or a diff that fails is a comment saying the review did not complete, and the job
+ * fails, so a re-run of it retries.
  */
 function review({ dryRun }) {
   const policy = readPolicy(ROOT)
@@ -1028,10 +1062,11 @@ function review({ dryRun }) {
     floor = floorOf(ROOT, base, sha, policy)
     return floor
   })
-  const { state, description } = statusFor(decision)
-  setStatus(dryRun, repo, sha, policy, state, description)
+  const { event, body } = reviewFor(decision)
   summarise(summaryMarkdown({ pr, sha, decision, floor }))
+  submitReview(dryRun, repo, pr, sha, event, body)
   console.log(`#${pr} at ${short(sha)}: ${decision.outcome}${decision.reasons.length ? ` (${decision.reasons.join('; ')})` : ''}`)
+  if (decision.outcome === 'error') throw new Error(`the review of #${pr} at ${short(sha)} did not complete; \`gh run rerun <run> --failed\` runs it again`)
 }
 
 function readIssue(id) {
@@ -1241,17 +1276,20 @@ function stringsIn(value) {
 }
 
 /**
- * Why the workflow at `path`, parsed as `doc`, could set the reviewer's status green on a head
- * itself, one message per way; empty when it cannot. `context` is `prReviewStatusContext`. Since
- * D-47 GitHub merges a head once that status passes, so a workflow whose token writes a commit status
- * or a check run, through a grant of `statuses: write`, `checks: write` or `write-all` to every job
- * or to one, could turn it green on its own head after the reviewer set it red. A job named for the
- * context gives its check run that name, which the ruleset may read as the check it requires. The
- * repository's default token reads only (`gh api repos/{owner}/{repo}/actions/permissions/workflow`
- * gave `"read"` on 2026-10-05), so a workflow that grants nothing writes neither. `pr-review.yml`
- * alone may write a status, and only on `pull_request_target`, where the trunk's copy runs: on any
- * other event a branch's own copy runs with that grant, so it is refused here too, and `runCheck`
- * holds the rest of its job. A name an expression builds is not read. `scripts/hooks/guard-workflow-edit.mjs` runs this over an edit before it lands.
+ * Why the workflow at `path`, parsed as `doc`, could get a head merged itself, one message per way;
+ * empty when it cannot. `requiredCheck` is `prReviewRequiredCheck`. Since D-57 GitHub merges a head
+ * once one approving review stands and that check passes, so a workflow whose token approves a pull
+ * request, through a grant of `pull-requests: write` once the repository lets Actions approve, or
+ * writes a commit status or a check run, through `statuses: write` or `checks: write`, or holds
+ * `write-all`, to every job or to one, could approve its own pull request or pass the check on its
+ * own head. A job named for the check, in any workflow but `verify.yml`, gives its check run that
+ * name, which the ruleset may read as the check it requires. The repository's default token reads
+ * only (`gh api repos/{owner}/{repo}/actions/permissions/workflow` gave `"read"` on 2026-10-05), so
+ * a workflow that grants nothing does neither. `pr-review.yml` alone may write a pull request, and
+ * only on `pull_request_target`, where the trunk's copy runs: on any other event a branch's own copy
+ * runs with that grant, so it is refused here too, and `runCheck` holds the rest of its job. A name
+ * an expression builds is not read. `scripts/hooks/guard-workflow-edit.mjs` runs this over an edit
+ * before it lands.
  */
 /** The events a parsed workflow runs on, however its `on:` is spelt. */
 const eventsOf = (doc) => {
@@ -1259,15 +1297,15 @@ const eventsOf = (doc) => {
   return typeof on === 'string' ? [on] : Array.isArray(on) ? on.map(String) : Object.keys(on)
 }
 
-export function forgeProblems(path, doc, context) {
+export function forgeProblems(path, doc, requiredCheck) {
   if (path === WORKFLOW) {
     const other = eventsOf(doc).filter((event) => event !== REVIEW_EVENT)
     return other.length === 0
       ? []
-      : [`${WORKFLOW} runs on ${other.map((event) => `\`${event}\``).join(', ')}: on an event but \`${REVIEW_EVENT}\` a branch's own copy of it runs with \`statuses: write\` and sets \`${context}\` on its own head, so it runs on \`${REVIEW_EVENT}\` alone (docs/decisions.md § D-47).`]
+      : [`${WORKFLOW} runs on ${other.map((event) => `\`${event}\``).join(', ')}: on an event but \`${REVIEW_EVENT}\` a branch's own copy of it runs with \`pull-requests: write\` and approves its own pull request, so it runs on \`${REVIEW_EVENT}\` alone (docs/decisions.md § D-57).`]
   }
   const problems = []
-  const why = `only ${WORKFLOW} may write a commit status or a check run, since a workflow that can sets \`${context}\` green on its own head, and GitHub then merges a head the floor sends to a person (docs/decisions.md § D-47)`
+  const why = `only ${WORKFLOW} may approve a pull request or write a check run or a commit status, since a workflow that can approves its own pull request or passes \`${requiredCheck}\` on its own head, and GitHub then merges a head the floor sends to a person (docs/decisions.md § D-57)`
   const grants = (permissions) =>
     permissions === 'write-all'
       ? ['write-all']
@@ -1277,9 +1315,10 @@ export function forgeProblems(path, doc, context) {
   for (const grant of grants(doc?.permissions)) problems.push(`${path} grants \`${grant}\` to every job: ${why}.`)
   for (const [id, job] of Object.entries(isRecord(doc?.jobs) ? doc.jobs : {})) {
     for (const grant of grants(job?.permissions)) problems.push(`${path}'s \`${id}\` job requests \`${grant}\`: ${why}.`)
-    const named = [id, job?.name].find((name) => typeof name === 'string' && name.trim().toLowerCase() === String(context).toLowerCase())
+    if (path === VERIFY) continue
+    const named = [id, job?.name].find((name) => typeof name === 'string' && name.trim().toLowerCase() === String(requiredCheck).toLowerCase())
     if (named !== undefined) {
-      problems.push(`${path}'s \`${id}\` job is named \`${named.trim()}\`, so its check run carries \`${context}\`, the check the trunk's ruleset requires, and could pass it: name the job otherwise.`)
+      problems.push(`${path}'s \`${id}\` job is named \`${named.trim()}\`, so its check run carries \`${requiredCheck}\`, the check the trunk's ruleset requires, and could pass it: name the job otherwise.`)
     }
   }
   return problems
@@ -1295,9 +1334,10 @@ const PR_NUMBER_RE = /\$\{\{\s*github\.event\.pull_request\.number\s*\}\}/
  * to every job, and its one job holds `JOB_PERMISSIONS` alone, checks out the trunk's whole history
  * and no other ref, installs `REVIEW_TOOLS` and runs `REVIEW_RUN` with `REVIEW_ENV`, and only what
  * `STEP_ACTIONS` and `STEP_KEYS` allow, so no language model, no package and no command of a step's
- * own runs beside the token that sets the status; it reads no secret and interpolates no expression
- * into a shell; no other workflow can forge the status (`forgeProblems`); the branch reviewer is named
- * as the policy's floor expects and reads only; and `verify.yml` is split as `verifyProblems` says.
+ * own runs beside the token that approves; it reads no secret and interpolates no expression
+ * into a shell; no other workflow can forge an approval or the required check (`forgeProblems`); the
+ * branch reviewer is named as the policy's floor expects and reads only; and `verify.yml` is split
+ * as `verifyProblems` says.
  * Each value is read where it takes effect, so a comment counts for none.
  */
 export async function runCheck(root) {
@@ -1328,7 +1368,7 @@ export async function runCheck(root) {
   }
   const workflow = docs.get(WORKFLOW)
   const verify = docs.get(VERIFY)
-  const context = policy.prReviewStatusContext
+  const requiredCheck = policy.prReviewRequiredCheck
 
   // Every value below is read from the parsed workflow, where it takes effect, and never from the
   // file's text: on 2026-09-28 (asdlc-openspec-08a) a header comment naming `mark` passed this check
@@ -1346,7 +1386,7 @@ export async function runCheck(root) {
     const trigger = (isRecord(on) ? on[REVIEW_EVENT] : null) ?? {}
     const types = Array.isArray(trigger.types) ? trigger.types.map(String).sort(byCodePoint) : []
     if (JSON.stringify(types) !== JSON.stringify(REVIEW_TYPES)) {
-      fail(`${WORKFLOW}'s \`${REVIEW_EVENT}\` takes the kinds ${JSON.stringify(types)}, not ${JSON.stringify(REVIEW_TYPES)}: without each, a head a pull request is given goes without a status, and another kind runs it for no new head.`)
+      fail(`${WORKFLOW}'s \`${REVIEW_EVENT}\` takes the kinds ${JSON.stringify(types)}, not ${JSON.stringify(REVIEW_TYPES)}: without each, a head a pull request is given goes without a review, and another kind runs it for no new head.`)
     }
     const branches = Array.isArray(trigger.branches) ? trigger.branches.map(String) : []
     if (branches.length !== 1 || branches[0] !== TRUNK) {
@@ -1357,8 +1397,8 @@ export async function runCheck(root) {
     fail(`${WORKFLOW}'s \`run-name\` does not carry \`\${{ github.event.pull_request.number }}\`, so the Actions list cannot tell one pull request's run from another's.`)
   }
 
-  // Nothing here but this script, Node and gh, with the trunk read and one status written
-  // (docs/decisions.md § D-37 and § D-47), each held by allowlist: on 2026-10-04 the review of
+  // Nothing here but this script, Node and gh, with the trunk read and one review written
+  // (docs/decisions.md § D-37 and § D-57), each held by allowlist: on 2026-10-04 the review of
   // asdlc-openspec-qcqm passed `Anthropics/Claude-Code-Action`, a model run from a `run:` step,
   // `npm --ignore-scripts ci`, `npm it` and an install behind a quoted `#`, each through a check that
   // named what to refuse rather than what to allow.
@@ -1380,11 +1420,11 @@ export async function runCheck(root) {
     }
     const name = typeof job?.name === 'string' ? job.name : ''
     if (!PR_NUMBER_RE.test(name)) fail(`${where}'s \`name\` does not carry \`\${{ github.event.pull_request.number }}\`, so its check run cannot be told from another pull request's.`)
-    if ([id, name].some((n) => n.trim().toLowerCase() === context.toLowerCase())) {
-      fail(`${where} is named \`${context}\`: its check run would carry the context the reviewer's status does, and pass when that status fails.`)
+    if ([id, name].some((n) => n.trim().toLowerCase() === requiredCheck.toLowerCase())) {
+      fail(`${where} is named \`${requiredCheck}\`: its check run would carry the check the trunk's ruleset requires, and pass it on a head \`verify.yml\` failed.`)
     }
     if (held(job?.permissions) !== held(JOB_PERMISSIONS)) {
-      fail(`${where} holds ${held(job?.permissions)}: it holds ${held(JOB_PERMISSIONS)} alone, the trunk read and its one status written, so no token here merges, labels, comments or dispatches.`)
+      fail(`${where} holds ${held(job?.permissions)}: it holds ${held(JOB_PERMISSIONS)} alone, the trunk read and its one review written, so no token here merges, labels, sets a status or dispatches.`)
     }
     const steps = Array.isArray(job?.steps) ? job.steps : []
     let runs = 0
@@ -1434,7 +1474,7 @@ export async function runCheck(root) {
     fail(`${WORKFLOW} reads an Actions secret: the reviewer needs nothing beyond the run's own token, and a secret is a credential the pull request's event could be led to spend.`)
   }
 
-  for (const [path, doc] of docs) if (path !== WORKFLOW) failures.push(...forgeProblems(path, doc, context))
+  for (const [path, doc] of docs) if (path !== WORKFLOW) failures.push(...forgeProblems(path, doc, requiredCheck))
 
   // The branch reviewer, the one judge of correctness and maintainability left: named as the floor
   // and the open-pr skill name it, and given only tools that read.
@@ -1547,7 +1587,7 @@ export function verifyProblems(verify, policy) {
 async function check() {
   const failures = await runCheck(ROOT)
   if (failures.length === 0) {
-    console.log(`pr-review: ${POLICY}, the workflows, ${AGENT} and the floor agree: ${WORKFLOW} sets one status per head, no other workflow can forge it, and the floor holds the gates \`prReviewFloorTasks\` lists, which ${VERIFY} runs where nothing off the floor runs first.`)
+    console.log(`pr-review: ${POLICY}, the workflows, ${AGENT} and the floor agree: ${WORKFLOW} submits one review per head, no other workflow can approve or pass the required check, and the floor holds the gates \`prReviewFloorTasks\` lists, which ${VERIFY} runs where nothing off the floor runs first.`)
     process.exit(0)
   }
   console.error(`pr-review: ${failures.length} failure(s). ${SELF}.\n`)
@@ -1646,7 +1686,8 @@ function floorFixture(dir) {
 
 function helperCases(policy) {
   const pattern = policy.prReviewIssuePattern
-  const context = policy.prReviewStatusContext
+  const requiredCheck = policy.prReviewRequiredCheck
+  const login = policy.prReviewApproverLogin
   const REPO = 'owner/repo'
   const headSha = 'f'.repeat(40)
   /** The pull request `wait` reads: open, unmerged, mergeable and with auto-merge on, unless `extra` says otherwise. */
@@ -1661,15 +1702,18 @@ function helperCases(policy) {
     auto_merge: { merge_method: policy.prReviewMergeMethod },
     ...extra,
   })
-  const passes = statusFor({ outcome: 'merge', reasons: [] })
-  const person = statusFor({ outcome: 'human', reasons: ['why'] })
+  /** The reviewer's review as `latestReview` gives it, for each outcome. */
+  const passes = { state: 'APPROVED', body: APPROVED_BODY }
+  const person = { state: 'COMMENTED', body: `${PERSON_DECIDES}why` }
+  /** A review as GitHub lists it, by `login` on `headSha` unless `extra` says otherwise. */
+  const listed = (state, extra = {}) => ({ user: { login }, commit_id: headSha, state, body: '', submitted_at: '2026-10-08T12:00:00Z', ...extra })
   const sha = 'a'.repeat(40)
   const base = 'b'.repeat(40)
   const human = decide(classify([{ status: 'M', path: WORKFLOW }], [], policy))
   const reachRow = (path, extra = {}) => ({ path, globJobs: [], importJobs: [], steps: [], hooks: [], ...extra })
   /** A workflow as `forgeProblems` reads it: one job, reading the trunk, but for what `extra` and `job` change. */
   const flow = (extra = {}, job = {}) => ({ name: 'verify', permissions: { contents: 'read' }, jobs: { verify: { 'runs-on': 'ubuntu-latest', ...job } }, ...extra })
-  const forged = (doc, path = VERIFY) => forgeProblems(path, doc, context)
+  const forged = (doc, path = VERIFY) => forgeProblems(path, doc, requiredCheck)
   const h = (name, fn) => ({ name, run: fn })
   return [
     h('the ids in the parentheses that end a title are cited, and no others', () =>
@@ -1866,42 +1910,61 @@ function helperCases(policy) {
       const md = evidenceMarkdown({ base, reach: null, reachError: 'input: no such rev', partners: [{ path: 'a.js', partner: 'b.js', together: 3, jaccardPermille: 600 }], partnersError: null })
       return assertEqual([/Not computed: input: no such rev/.test(md), md.includes('| `a.js` | `b.js` | 3 | 600 |')], [true, true], 'halves')
     }),
-    h("statuses: a head off the floor passes the check, a person's verdict fails it, and a review that did not complete errors", () =>
+    h("reviews: a head off the floor is approved, a person's verdict is a comment saying so, and a review that did not complete a comment saying that", () =>
       assertEqual(
-        ['merge', 'human', 'error'].map((outcome) => statusFor({ outcome, reasons: ['why'] })),
+        ['merge', 'human', 'error'].map((outcome) => reviewFor({ outcome, reasons: ['why'] })),
         [
-          { state: 'success', description: 'Off the high-risk floor: auto-merge can merge it once verify passes' },
-          { state: 'failure', description: 'A person decides: why' },
-          { state: 'error', description: 'The review did not complete: why' },
+          { event: 'APPROVE', body: 'Off the high-risk floor: auto-merge can merge it once verify passes' },
+          { event: 'COMMENT', body: 'A person decides: why' },
+          { event: 'COMMENT', body: 'The review did not complete: why' },
         ],
-        'statuses',
+        'reviews',
       )),
-    h("statuses: a reason past GitHub's 140 characters is cut, with an ellipsis, inside them", () => {
-      const { description } = statusFor({ outcome: 'human', reasons: ['x'.repeat(300)] })
-      return assertEqual([description.length, description.endsWith('…'), description.startsWith(PERSON_DECIDES)], [STATUS_MAX, true, true], 'description')
+    h("reviews: a person's reason is kept whole, however long, since a review body is not cut as a status was", () => {
+      const { body } = reviewFor({ outcome: 'human', reasons: ['x'.repeat(300)] })
+      return assertEqual([body.length, body.startsWith(PERSON_DECIDES)], [PERSON_DECIDES.length + 300, true], 'body')
+    }),
+    h("reviews: the reviewer's latest review on the head, by its login and the head's sha; another's, an older head's, or none is null", () => {
+      const older = listed('APPROVED', { submitted_at: '2026-10-08T11:00:00Z' })
+      const newer = listed('COMMENTED', { body: `${PERSON_DECIDES}why`, submitted_at: '2026-10-08T12:00:00Z' })
+      return assertEqual(
+        [
+          latestReview([older, newer], headSha, login),
+          latestReview([newer, older], headSha, login),
+          latestReview([listed('APPROVED', { user: { login: 'someone' } })], headSha, login),
+          latestReview([listed('APPROVED', { commit_id: 'e'.repeat(40) })], headSha, login),
+          latestReview([], headSha, login),
+        ],
+        [person, person, null, null, null],
+        'latest',
+      )
     }),
     h('the summary prints the outcome, each reason, the floor and who merges, and no reach or co-change, which the branch review read', () => {
       const body = summaryMarkdown({ pr: 1, sha, decision: human, floor: classify([{ status: 'M', path: WORKFLOW }], [], policy) })
       return assertEqual(
         [
-          body.startsWith('### pr-review of #1 at `aaaaaaa`: on the high-risk floor, so a person merges it'),
+          body.startsWith('### pr-review of #1 at `aaaaaaa`: on the high-risk floor, so a person approves and merges it'),
           body.includes('- `.github/workflows/pr-review.yml` is the workflows'),
           body.includes('1 changed file, 1 on the floor'),
-          body.includes("with the ruleset's bypass"),
-          /Reach|co-change|[Ee]vidence/.test(body),
+          body.includes('`gh pr review 1 --approve`'),
+          /bypass|Reach|co-change|[Ee]vidence/.test(body),
         ],
         [true, true, true, true, false],
         'summary',
       )
     }),
-    h('a floor that cannot be computed is an error with why, an error status, and a summary that offers the review again', () => {
+    h('a floor that cannot be computed is an error with why, a comment saying the review did not complete, and a summary that offers the review again', () => {
       const d = floorDecision(() => {
         throw new Error('fatal: bad object')
       })
       const body = summaryMarkdown({ pr: 9, sha, decision: d, floor: null })
       return assertEqual(
-        [d, statusFor(d).state, body.includes('`gh run rerun <this run> --failed`')],
-        [{ outcome: 'error', reasons: ['the floor could not be computed: fatal: bad object'] }, 'error', true],
+        [d, reviewFor(d), body.includes('`gh run rerun <this run> --failed`')],
+        [
+          { outcome: 'error', reasons: ['the floor could not be computed: fatal: bad object'] },
+          { event: 'COMMENT', body: 'The review did not complete: the floor could not be computed: fatal: bad object' },
+          true,
+        ],
         'error',
       )
     }),
@@ -1913,68 +1976,71 @@ function helperCases(policy) {
         { merged: true, line: '#7 merged at 2026-10-05T15:00:00Z as eeeeeee' },
         'outcome',
       )),
-    h('wait: it waits while GitHub may still merge: checks pending, a head off the floor with auto-merge on, a person to decide, no status yet', () =>
+    h('wait: it waits while GitHub may still merge: checks pending, an approved head with auto-merge on, a person to decide, no review yet, an approval dismissed by a push', () =>
       assertEqual(
         [
           waitOutcome('7', waited(), passes, 'pending', policy),
           waitOutcome('7', waited(), passes, 'success', policy),
           waitOutcome('7', waited({ auto_merge: null }), person, 'success', policy),
           waitOutcome('7', waited({ mergeable: null }), null, 'missing', policy),
+          waitOutcome('7', waited(), { state: 'DISMISSED', body: APPROVED_BODY }, 'pending', policy),
         ],
-        [null, null, null, null],
+        [null, null, null, null, null],
         'outcomes',
       )),
     h('wait: a pull request closed without a merge ends the wait, by its reason', () =>
       assertEqual(waitOutcome('7', waited({ state: 'closed' }), null, null, policy), { merged: false, line: '#7 was closed without a merge' }, 'outcome')),
-    h('wait: it ends once nothing will merge the head, naming why: a red verify, a conflict, an error, another failure, no status once verify passed, or auto-merge off', () =>
+    h('wait: it ends once nothing will merge the head, naming why: a red verify, a conflict, a comment that is no verdict, no review once verify passed, or auto-merge off', () =>
       assertEqual(
         [
           waitOutcome('7', waited(), passes, 'failure', policy),
           waitOutcome('7', waited({ mergeable: false }), passes, 'success', policy),
-          waitOutcome('7', waited(), { state: 'error', description: 'The review did not complete: boom' }, 'success', policy),
-          waitOutcome('7', waited(), { state: 'failure', description: 'set by something else' }, 'pending', policy),
+          waitOutcome('7', waited(), { state: 'COMMENTED', body: 'The review did not complete: boom' }, 'success', policy),
+          waitOutcome('7', waited(), { state: 'COMMENTED', body: 'left by something else' }, 'pending', policy),
           waitOutcome('7', waited(), null, 'success', policy),
           waitOutcome('7', waited({ auto_merge: null }), passes, 'success', policy),
         ].map((outcome) => outcome?.line),
         [
           `#7 is open, and \`${policy.prReviewRequiredCheck}\` failed on fffffff`,
           `#7 is open, and it conflicts with ${TRUNK}: rebase onto origin/${TRUNK} and push`,
-          "#7 is open, and the reviewer's status on fffffff is error: The review did not complete: boom",
-          "#7 is open, and the reviewer's status on fffffff is failure: set by something else",
-          '#7 is open, and the reviewer set no status on fffffff: read its `review` run',
+          "#7 is open, and the reviewer's review on fffffff is a comment: The review did not complete: boom",
+          "#7 is open, and the reviewer's review on fffffff is a comment: left by something else",
+          '#7 is open, and the reviewer left no review on fffffff: read its `review` run',
           `#7 is open, and auto-merge is off, so nothing merges fffffff: \`gh pr merge 7 --auto --${policy.prReviewMergeMethod}\``,
         ],
         'lines',
       )),
-    h('forge, control: a workflow that reads the trunk, with a job named otherwise, cannot forge the status', () =>
-      assertEqual([forged(flow()), forged(flow({}, { permissions: { statuses: 'read', checks: 'read' } }))], [[], []], 'problems')),
-    h('forge: a grant of statuses or checks to every job, or of write-all, is refused by its reason', () =>
+    h('forge, control: a workflow that reads the trunk, with a job named otherwise, can neither approve nor pass the check', () =>
+      assertEqual([forged(flow()), forged(flow({}, { permissions: { statuses: 'read', checks: 'read', 'pull-requests': 'read' } }))], [[], []], 'problems')),
+    h('forge: a grant of pull-requests, statuses or checks to every job, or of write-all, is refused by its reason', () =>
       assertEqual(
         [
+          forged(flow({ permissions: { contents: 'read', 'pull-requests': 'write' } })),
           forged(flow({ permissions: { contents: 'read', statuses: 'write' } })),
           forged(flow({ permissions: { checks: 'write' } })),
           forged(flow({ permissions: 'write-all' })),
-        ].map((problems) => problems.map((p) => /grants `(.*?)` to every job: only \.github\/workflows\/pr-review\.yml may write a commit status or a check run/.exec(p)?.[1] ?? p)),
-        [['statuses: write'], ['checks: write'], ['write-all']],
+        ].map((problems) => problems.map((p) => /grants `(.*?)` to every job: only \.github\/workflows\/pr-review\.yml may approve a pull request or write a check run or a commit status/.exec(p)?.[1] ?? p)),
+        [['pull-requests: write'], ['statuses: write'], ['checks: write'], ['write-all']],
         'grants',
       )),
-    h("forge: a job's own grant of statuses, checks or write-all is refused by its reason, naming the job", () =>
+    h("forge: a job's own grant of pull-requests, statuses, checks or write-all is refused by its reason, naming the job", () =>
       assertEqual(
-        [{ statuses: 'write' }, { checks: 'write' }, 'write-all'].map((permissions) => forged(flow({}, { permissions })).map((p) => /^\.github\/workflows\/verify\.yml's `verify` job requests `(.*?)`/.exec(p)?.[1] ?? p)),
-        [['statuses: write'], ['checks: write'], ['write-all']],
+        [{ 'pull-requests': 'write' }, { statuses: 'write' }, { checks: 'write' }, 'write-all'].map((permissions) => forged(flow({}, { permissions })).map((p) => /^\.github\/workflows\/verify\.yml's `verify` job requests `(.*?)`/.exec(p)?.[1] ?? p)),
+        [['pull-requests: write'], ['statuses: write'], ['checks: write'], ['write-all']],
         'grants',
       )),
-    h('forge: a job whose id or name is the status context, in any case or with spaces round it, is refused by its reason', () => {
-      const byId = forgeProblems(`${WORKFLOWS}/forge.yml`, { jobs: { [context]: { 'runs-on': 'ubuntu-latest' } } }, context)
-      const byName = forged(flow({}, { name: ` ${context.toUpperCase()} ` }))
+    h('forge: a job whose id or name is the required check, in any case or with spaces round it, is refused by its reason in any workflow but verify.yml', () => {
+      const byId = forgeProblems(`${WORKFLOWS}/forge.yml`, { jobs: { [requiredCheck]: { 'runs-on': 'ubuntu-latest' } } }, requiredCheck)
+      const byName = forgeProblems(`${WORKFLOWS}/forge.yml`, { jobs: { x: { name: ` ${requiredCheck.toUpperCase()} ` } } }, requiredCheck)
+      const inVerify = forged(flow({}, { name: requiredCheck }))
       return assertEqual(
-        [byId.length === 1 && byId[0].includes(`job is named \`${context}\``), byName.length === 1 && byName[0].includes(`job is named \`${context.toUpperCase()}\``)],
-        [true, true],
+        [byId.length === 1 && byId[0].includes(`job is named \`${requiredCheck}\``), byName.length === 1 && byName[0].includes(`job is named \`${requiredCheck.toUpperCase()}\``), inVerify],
+        [true, true, []],
         'names',
       )
     }),
-    h("forge: the reviewer's own workflow may write the status on its one event, the rest of its job held by the wiring gate", () =>
-      assertEqual(forged(flow({ on: { [REVIEW_EVENT]: { types: REVIEW_TYPES } }, permissions: { statuses: 'write' } }, { name: context }), WORKFLOW), [], 'problems')),
+    h("forge: the reviewer's own workflow may write pull requests on its one event, the rest of its job held by the wiring gate", () =>
+      assertEqual(forged(flow({ on: { [REVIEW_EVENT]: { types: REVIEW_TYPES } }, permissions: { 'pull-requests': 'write' } }, { name: requiredCheck }), WORKFLOW), [], 'problems')),
     h("forge: the reviewer's own workflow run on another event, where a branch's own copy runs, is refused by its reason", () => {
       const problems = forged(flow({ on: { [REVIEW_EVENT]: {}, pull_request: {} } }), WORKFLOW)
       return problems.length === 1 && problems[0].startsWith(`${WORKFLOW} runs on \`pull_request\`: on an event but \`${REVIEW_EVENT}\` a branch's own copy`) ? null : `problems ${JSON.stringify(problems)}`
@@ -1996,7 +2062,8 @@ function wiringCases() {
   return [
     { name: 'control: the undoctored copy passes', doctor: () => {}, expect: 'pass' },
     { name: 'a prReview key goes missing', doctor: editPolicy((p) => delete p.prReviewMergeMethod), expect: /`prReviewMergeMethod` is missing/ },
-    { name: 'a prReview key loses its Means sibling', doctor: editPolicy((p) => delete p.prReviewStatusContextMeans), expect: /`prReviewStatusContext` has no `prReviewStatusContextMeans` sibling/ },
+    { name: 'a prReview key loses its Means sibling', doctor: editPolicy((p) => delete p.prReviewApproverLoginMeans), expect: /`prReviewApproverLogin` has no `prReviewApproverLoginMeans` sibling/ },
+    { name: "the reviewer's login is emptied, so wait could read no review as its own", doctor: editPolicy((p) => { p.prReviewApproverLogin = '' }), expect: /`prReviewApproverLogin` must be a non-empty string/ },
     { name: "wait's interval is no whole number of seconds", doctor: editPolicy((p) => { p.prReviewWaitPollSeconds = 0.5 }), expect: /`prReviewWaitPollSeconds` must be a whole number of seconds, at least 1/ },
     { name: "the floor stops covering the reviewer's own script", doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[SELF]), expect: /does not cover scripts\/pr-review\.mjs/ },
     { name: 'the floor stops covering the record of the prReview keys', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[POLICY]), expect: /does not cover tools\/policy\/pr-review\.json, the record of what the reviewer decides by/ },
@@ -2004,9 +2071,9 @@ function wiringCases() {
     { name: 'the floor stops covering the loader it is read through', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[LOADER]), expect: /does not cover tools\/lib\/policy\.ts, the loader this floor is read through/ },
     { name: "the floor stops covering the git helper the reviewer's job imports", doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[GIT_HELPER]), expect: /does not cover tools\/lib\/git-env\.ts, the git helper the reviewer's job imports/ },
     { name: 'the floor stops covering the branch reviewer', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[AGENT]), expect: /does not cover \.claude\/agents\/branch-reviewer\.md, the branch reviewer/ },
-    { name: 'the floor stops covering the guard on a merge past the checks', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[GUARD]), expect: /does not cover scripts\/hooks\/guard-git\.mjs, the guard that refuses a session's merge past the required checks/ },
-    { name: 'the floor stops covering the guard on a forging edit', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[FORGE_GUARD]), expect: /does not cover scripts\/hooks\/guard-workflow-edit\.mjs, the guard that refuses an edit letting another workflow forge the status/ },
-    { name: 'the floor stops covering a workflow it does not name', doctor: editPolicy((p) => { delete p.prReviewHighRiskPaths['.github/**']; p.prReviewHighRiskPaths[WORKFLOW] = 'the reviewer' }), expect: /does not cover \.github\/workflows\/forge\.yml, a workflow, which could set the status the reviewer sets/ },
+    { name: 'the floor stops covering the guard on an approval or a merge past the checks', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[GUARD]), expect: /does not cover scripts\/hooks\/guard-git\.mjs, the guard that refuses a session's approval and its merge past the required checks/ },
+    { name: 'the floor stops covering the guard on a forging edit', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[FORGE_GUARD]), expect: /does not cover scripts\/hooks\/guard-workflow-edit\.mjs, the guard that refuses an edit letting another workflow forge an approval or `verify`/ },
+    { name: 'the floor stops covering a workflow it does not name', doctor: editPolicy((p) => { delete p.prReviewHighRiskPaths['.github/**']; p.prReviewHighRiskPaths[WORKFLOW] = 'the reviewer' }), expect: /does not cover \.github\/workflows\/forge\.yml, a workflow, which could approve a pull request or pass `verify` on its own head/ },
     { name: 'the floor stops covering the helper the guards import', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths[GUARD_HELPER]), expect: /does not cover scripts\/hooks\/_shared\.mjs, the helper the guards import/ },
     { name: 'the floor stops covering mise.toml at any depth', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths['**/mise.toml']), expect: /does not cover mise\.toml, the one home of every tool version/ },
     { name: 'the floor stops covering a mise config directory', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths['**/.mise/**']), expect: /does not cover \.mise\/config\.toml, a mise config directory/ },
@@ -2089,7 +2156,7 @@ function wiringCases() {
     { name: 'a key the reviewer reads is defined in two records', doctor: (dir) => writeFileSync(join(dir, 'tools/policy/other.json'), JSON.stringify({ prReviewMergeMethod: 'merge' })), expect: /cannot be read: `prReviewMergeMethod` is defined in both tools\/policy\/other\.json and tools\/policy\/pr-review\.json/ },
     {
       name: 'comments carry a schedule, the model action, a secret, id-token and a status grant, and trip nothing',
-      doctor: comment("#   schedule:\n#     - cron: '*/15 * * * *'\n#   uses: anthropics/claude-code-action@v1\n#   key: ${{ secrets.ANTHROPIC_API_KEY }}\n#   id-token: write\n#   statuses: write\n#   run: npm ci"),
+      doctor: comment("#   schedule:\n#     - cron: '*/15 * * * *'\n#   uses: anthropics/claude-code-action@v1\n#   key: ${{ secrets.ANTHROPIC_API_KEY }}\n#   id-token: write\n#   statuses: write\n#   contents: write\n#   run: npm ci"),
       expect: 'pass',
     },
     { name: 'the schedule comes back', doctor: edit(WORKFLOW, /^on:\n/m, "on:\n  schedule:\n    - cron: '*/15 * * * *'\n"), expect: /runs on \["schedule","pull_request_target"\]: it runs on `pull_request_target` alone/ },
@@ -2099,30 +2166,30 @@ function wiringCases() {
     { name: 'a pull request against another branch is reviewed', doctor: edit(WORKFLOW, 'branches: [main]', 'branches: [main, release]'), expect: /takes the branches \["main","release"\], not \["main"\]/ },
     { name: "the run's name loses the pull request's number", doctor: edit(WORKFLOW, /^run-name: .*$/m, "run-name: 'pr-review'"), expect: /`run-name` does not carry/ },
     { name: "the job's name loses the pull request's number", doctor: edit(WORKFLOW, /^ {4}name: 'review #.*$/m, '    name: review'), expect: /`review` job's `name` does not carry/ },
-    { name: 'the job is named for the status it sets', doctor: edit(WORKFLOW, /^ {4}name: 'review #.*$/m, "    name: 'pr-review'"), expect: /`review` job is named `pr-review`: its check run would carry the context/ },
-    { name: 'the job may write contents, and so merge', doctor: edit(WORKFLOW, '      contents: read\n', '      contents: write\n'), expect: /`review` job holds \{"contents":"write","statuses":"write"\}: it holds \{"contents":"read","statuses":"write"\} alone/ },
-    { name: 'the job may write pull requests, and so label and comment', doctor: edit(WORKFLOW, '      statuses: write\n', '      statuses: write\n      pull-requests: write\n'), expect: /`review` job holds \{"contents":"read","pull-requests":"write","statuses":"write"\}/ },
-    { name: 'the job may write actions, and so dispatch', doctor: edit(WORKFLOW, '      statuses: write\n', '      statuses: write\n      actions: write\n'), expect: /`review` job holds \{"actions":"write","contents":"read","statuses":"write"\}/ },
-    { name: 'the job requests id-token', doctor: edit(WORKFLOW, '      statuses: write\n', '      statuses: write\n      id-token: write\n'), expect: /`review` job holds \{"contents":"read","id-token":"write","statuses":"write"\}/ },
+    { name: 'the job is named for the required check', doctor: edit(WORKFLOW, /^ {4}name: 'review #.*$/m, "    name: 'verify'"), expect: /`review` job is named `verify`: its check run would carry the check the trunk's ruleset requires/ },
+    { name: 'the job may write contents, and so merge', doctor: edit(WORKFLOW, '      contents: read\n', '      contents: write\n'), expect: /`review` job holds \{"contents":"write","pull-requests":"write"\}: it holds \{"contents":"read","pull-requests":"write"\} alone/ },
+    { name: 'the job may write statuses, and so pass the required check', doctor: edit(WORKFLOW, '      pull-requests: write\n', '      pull-requests: write\n      statuses: write\n'), expect: /`review` job holds \{"contents":"read","pull-requests":"write","statuses":"write"\}/ },
+    { name: 'the job may write actions, and so dispatch', doctor: edit(WORKFLOW, '      pull-requests: write\n', '      pull-requests: write\n      actions: write\n'), expect: /`review` job holds \{"actions":"write","contents":"read","pull-requests":"write"\}/ },
+    { name: 'the job requests id-token', doctor: edit(WORKFLOW, '      pull-requests: write\n', '      pull-requests: write\n      id-token: write\n'), expect: /`review` job holds \{"contents":"read","id-token":"write","pull-requests":"write"\}/ },
     { name: 'the job requests write-all, id-token among it', doctor: edit(WORKFLOW, /^ {4}permissions:\n(?: {6}.*\n)+/m, '    permissions: write-all\n'), expect: /`review` job holds "write-all": it holds/ },
     { name: 'the workflow grants id-token to every job', doctor: edit(WORKFLOW, /^permissions: \{\}$/m, 'permissions:\n  id-token: write'), expect: /grants \{"id-token":"write"\} to every job: it sets `permissions: \{\}`/ },
     { name: 'the workflow grants write-all to every job', doctor: edit(WORKFLOW, /^permissions: \{\}$/m, 'permissions: write-all'), expect: /grants "write-all" to every job/ },
-    { name: 'a second job beside the one that sets the status', doctor: edit(WORKFLOW, /^jobs:\n/m, 'jobs:\n  extra:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n'), expect: /has 2 jobs \(extra, review\): it has one/ },
+    { name: 'a second job beside the one that reviews', doctor: edit(WORKFLOW, /^jobs:\n/m, 'jobs:\n  extra:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n'), expect: /has 2 jobs \(extra, review\): it has one/ },
     { name: 'the run step runs the queue again', doctor: edit(WORKFLOW, 'run: node scripts/pr-review.mjs review', 'run: node scripts/pr-review.mjs next'), expect: /`review` job runs "node scripts\/pr-review\.mjs next": its one `run:` is `node scripts\/pr-review\.mjs review`/ },
     { name: 'the run step runs the brief, which is the branch reviewer\'s alone', doctor: edit(WORKFLOW, 'run: node scripts/pr-review.mjs review', 'run: node scripts/pr-review.mjs brief'), expect: /runs "node scripts\/pr-review\.mjs brief": its one `run:`/ },
     {
       name: 'a step runs the model action again',
-      doctor: edit(WORKFLOW, /^( {6})- name: decide the head from the floor and set its status$/m, '$1- uses: anthropics/claude-code-action@v1\n$1- name: decide the head from the floor and set its status'),
+      doctor: edit(WORKFLOW, /^( {6})- name: decide the head from the floor and review it$/m, '$1- uses: anthropics/claude-code-action@v1\n$1- name: decide the head from the floor and review it'),
       expect: /`review` job uses anthropics\/claude-code-action@v1: a step uses only actions\/checkout or jdx\/mise-action/,
     },
     {
       name: 'a step runs the model action spelt in another case',
-      doctor: edit(WORKFLOW, /^( {6})- name: decide the head from the floor and set its status$/m, '$1- uses: Anthropics/Claude-Code-Action@v1\n$1- name: decide the head from the floor and set its status'),
+      doctor: edit(WORKFLOW, /^( {6})- name: decide the head from the floor and review it$/m, '$1- uses: Anthropics/Claude-Code-Action@v1\n$1- name: decide the head from the floor and review it'),
       expect: /`review` job uses Anthropics\/Claude-Code-Action@v1: a step uses only actions\/checkout or jdx\/mise-action/,
     },
     {
       name: 'a step uses an action named for a key every object has',
-      doctor: edit(WORKFLOW, /^( {6})- name: decide the head from the floor and set its status$/m, '$1- uses: constructor@v1\n$1- name: decide the head from the floor and set its status'),
+      doctor: edit(WORKFLOW, /^( {6})- name: decide the head from the floor and review it$/m, '$1- uses: constructor@v1\n$1- name: decide the head from the floor and review it'),
       expect: /`review` job uses constructor@v1: a step uses only/,
     },
     {
@@ -2155,12 +2222,17 @@ function wiringCases() {
     { name: 'a step sets NODE_OPTIONS', doctor: edit(WORKFLOW, '          SHA: ${{ github.event.pull_request.head.sha }}', '          SHA: ${{ github.event.pull_request.head.sha }}\n          NODE_OPTIONS: --require ./x.js'), expect: /`review` job sets `NODE_OPTIONS` on a step: only its `run:` step sets variables, and only GH_TOKEN, PR, SHA/ },
     { name: 'the job runs in a container', doctor: edit(WORKFLOW, /^( {2}review:\n)/m, '$1    container: node:24\n'), expect: /`review` job sets `container`/ },
     { name: 'the workflow sets a variable for every job', doctor: edit(WORKFLOW, /^permissions: \{\}$/m, 'permissions: {}\n\nenv:\n  NODE_OPTIONS: --require ./x.js'), expect: /sets `env` for every job/ },
-    { name: 'verify grants itself statuses: write', doctor: edit(VERIFY, /^permissions:\n {2}contents: read$/m, 'permissions:\n  contents: read\n  statuses: write'), expect: /^\.github\/workflows\/verify\.yml grants `statuses: write` to every job: only \.github\/workflows\/pr-review\.yml may write/ },
-    { name: 'verify gains a job named for the status', doctor: edit(VERIFY, /^jobs:\n/m, 'jobs:\n  pr-review:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n'), expect: /verify\.yml's `pr-review` job is named `pr-review`, so its check run carries `pr-review`/ },
+    { name: 'verify grants itself statuses: write', doctor: edit(VERIFY, /^permissions:\n {2}contents: read$/m, 'permissions:\n  contents: read\n  statuses: write'), expect: /^\.github\/workflows\/verify\.yml grants `statuses: write` to every job: only \.github\/workflows\/pr-review\.yml may approve/ },
+    { name: 'verify grants itself pull-requests: write, and so could approve', doctor: edit(VERIFY, /^permissions:\n {2}contents: read$/m, 'permissions:\n  contents: read\n  pull-requests: write'), expect: /^\.github\/workflows\/verify\.yml grants `pull-requests: write` to every job: only \.github\/workflows\/pr-review\.yml may approve a pull request/ },
+    {
+      name: 'a new workflow whose job is named for the required check',
+      doctor: (dir) => writeFileSync(join(dir, WORKFLOWS, 'forge.yml'), 'name: forge\non: pull_request\njobs:\n  verify:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n'),
+      expect: /forge\.yml's `verify` job is named `verify`, so its check run carries `verify`/,
+    },
     {
       name: 'a new workflow whose job may write checks',
       doctor: (dir) => writeFileSync(join(dir, WORKFLOWS, 'forge.yml'), 'name: forge\non: pull_request\njobs:\n  x:\n    runs-on: ubuntu-latest\n    permissions:\n      checks: write\n    steps:\n      - run: echo hi\n'),
-      expect: /forge\.yml's `x` job requests `checks: write`: only \.github\/workflows\/pr-review\.yml may write/,
+      expect: /forge\.yml's `x` job requests `checks: write`: only \.github\/workflows\/pr-review\.yml may approve a pull request or write a check run/,
     },
     {
       name: 'a new workflow that reads only passes',

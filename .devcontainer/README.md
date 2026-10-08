@@ -113,7 +113,7 @@ nobody else (`docs/decisions.md` § D-51). So `devcontainer.json` mounts none of
 `~/.ssh`, `~/.claude` or `~/.claude.json`, and passes no `GH_TOKEN` through:
 
 - **Your `gh` login, or a `GH_TOKEN`**, would let a session merge past the trunk's ruleset with its
-  admin bypass, set the `pr-review` status that ruleset requires, or edit or delete the ruleset
+  admin bypass, approve the pull request that ruleset requires an approval on, or edit or delete the ruleset
   (`docs/decisions.md` § R-02). The App holds no bypass and no permission to do any of the three.
 - **Your `~/.ssh`**, or an SSH agent, would let `git` push as you.
 - **Your `~/.claude`**, mounted read-write, would let a session write a hook into your

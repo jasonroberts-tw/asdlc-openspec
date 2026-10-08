@@ -91,10 +91,10 @@ worktree and branch after it; a fix it asks for is made in the worktree.
 
 ## 7. Merge, through the reviewer
 
-GitHub's auto-merge merges it once `verify` and the reviewer's `pr-review` status pass, off the
-high-risk floor (`docs/decisions.md` § D-47). On the floor, that status names the changed path or
-key that puts it there, and the user merges it. Handed back unmerged, the epic stays open, and step
-9 reports why.
+GitHub's auto-merge merges it once `verify` passes and the reviewer approves, off the high-risk
+floor (`docs/decisions.md` § D-57). On the floor, the reviewer's comment names what puts it there,
+and the user approves and merges it. Handed back unmerged, the epic stays open, and step 9 reports
+why.
 
 `scripts/hooks/guard-git.mjs` refuses a merge from a worktree but auto-merge.
 

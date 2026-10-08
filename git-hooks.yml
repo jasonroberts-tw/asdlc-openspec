@@ -399,7 +399,7 @@ pre-push:
     # from outside the checkout, through a stand-in `node` that runs no hook, so the settings file is
     # in the glob, and renders the briefing template through a scratch copy of its renderer, so both
     # are in it too. It provisions twice through a scratch copy of `scripts/new-worktree.sh`, from a
-    # checkout that trails its remote, and the workflow-edit guard reads the status context and the gc
+    # checkout that trails its remote, and the workflow-edit guard reads the required check and the gc
     # sweep its `worktreeGcMinAgeHours` from `tools/policy/`, so the policy is in the glob too. That
     # guard judges edits to this checkout's workflows through `forgeProblems` in
     # `scripts/pr-review.mjs`, which imports `tools/lib/git-env.ts`, and parses them with the js-yaml
@@ -615,9 +615,9 @@ pre-push:
         - 'package-lock.json'
       run: mise run trace:clauses:selftest
     # The pull-request reviewer's wiring: the policy's `prReview*` keys whole, and `pr-review.yml`,
-    # `verify.yml` and the branch reviewer agreeing on status, check and agent, the reviewer's one job
-    # held to what its allowlist lets it run and hold, no secret, and no other workflow able to forge
-    # its status; and the floor holding every file the gates `prReviewFloorTasks` names run and import,
+    # `verify.yml` and the branch reviewer agreeing on review, check and agent, the reviewer's one job
+    # held to what its allowlist lets it run and hold, no secret, and no other workflow able to approve
+    # or pass `verify`; and the floor holding every file the gates `prReviewFloorTasks` names run and import,
     # derived from `tasks.toml` and their imports, and the policy keys those files name. The reviewer
     # itself reads a token and runs only as `pr-review.yml`. 0.10 s wall
     # (`/usr/bin/time -p node scripts/pr-review.mjs --check`, one run) on a macOS 26.7.1 laptop with

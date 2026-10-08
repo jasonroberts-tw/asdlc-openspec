@@ -67,7 +67,11 @@ the step that writes the run's analysis quotes each correction the user made, as
 GitHub deletes it when the pull request merges, by the maintainer's setting, as
 `.claude/skills/open-pr/SKILL.md` § 8 now says. Amended 2026-10-07 by `asdlc-openspec-8qfr`: the
 step that reports, the `RUN THESE YOURSELF` row and § 5's row for a refused command follow
-`CLAUDE.md` § Guards' four cases, and § 5 gains a row for a declined permission prompt.
+`CLAUDE.md` § Guards' four cases, and § 5 gains a row for a declined permission prompt. Amended
+2026-10-08 by `asdlc-openspec-t2ly`: the reviewer approves a head off the high-risk floor and
+comments that a person decides on one on it, in place of the `pr-review` status, and the trunk's
+ruleset requires that approval beside `verify`; a person approves and merges a head on the floor
+(`docs/decisions.md` § D-57).
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -123,7 +127,7 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 | policy file | `tools/policy.json`: every constant a prompt or a tool reads, each beside a `Means` sibling saying what it decides (`docs/decisions.md` § D-03). |
 | count key | A `CNT-*` key in `count-index.md`, written where the numeral would go (`count-index.md` § How to use it). |
 | prompt | `CLAUDE.md`, `AGENTS.md`, a skill, an agent, a workflow script's literals or the worktree briefing template, each held to a word budget in the policy file (the `check:prompts` task's `description` in `tasks.toml`). |
-| pull-request reviewer | `.github/workflows/pr-review.yml`: on each pushed head it sets the `pr-review` status by the high-risk floor, which GitHub's auto-merge waits for beside `verify`; a head on the floor a person merges (`docs/decisions.md` § D-47). |
+| pull-request reviewer | `.github/workflows/pr-review.yml`: on each pushed head it reviews by the high-risk floor, approving a head off it, the approval GitHub's auto-merge waits for beside `verify`, and commenting that a person decides on one on it, which a person approves and merges (`docs/decisions.md` § D-57). |
 | branch review | The `branch-reviewer` agent, run before each push: it holds the branch to the cited issues' acceptance criteria and the house rubrics (`.claude/skills/open-pr/SKILL.md` § 5). |
 | analysis | A run's account of itself, left as a note on the issue it worked, which a prompt review later reads (`.claude/skills/close-prompt-run/SKILL.md` § 1. Write the analysis, or none). |
 | prompt review | A background session that reads the pending analyses as one batch and proposes prompt edits as one pull request, which merges as any other does: by GitHub's auto-merge off the high-risk floor, by a person on it (`CLAUDE.md` § Prompt reviews). |
@@ -149,7 +153,7 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 | what a gate refuses, and why it exists | the gate's own header; `scripts/README.md` and `tools/README.md` list them |
 | what to regenerate after an input moves | the emitter's `:check` twin, which `mise run gates` runs |
 | what a worktree is for, and how to finish in it | `.worktree/CONTEXT.md` inside it, rendered from `.claude/worktree-CONTEXT.md.tmpl` |
-| what the reviewer said about a pull request | its `pr-review` status, and the summary of the run that status links to |
+| what the reviewer said about a pull request | its review on the head, an approval or a comment, and the summary of the run that review names |
 | why a prompt says what it says | the pull requests that changed it, found as `CLAUDE.md` § Standing rules for prompts and gates says |
 | what keeps needing a fix across runs | the label counts `.claude/skills/change-finalize/SKILL.md` § 9. Report prints |
 | what was retired, and how to recover it | `docs/retired/README.md`, and the register entry that retired it |
@@ -171,7 +175,7 @@ with any long prose passed from a file under `.scratch/` (`CLAUDE.md` § Bash co
 | 4.1 Pick and check | An issue is taken from the queue and its premise checked against the trunk | A claim; a note on the issue when the premise does not hold | Claimed; stopped with the evidence; or handed to the product route |
 | 4.2 The harness route | The work, in a worktree, gated before and after a rebase | Commits on `agent/<name>`; any found issues | Ready for a pull request; or a red gate, reported |
 | 4.3 The product route | The `change-*` stages, each in a fresh session, each stopping where a person decides | A proposal and delta specs, a design or a note ruling one out, child issues, commits, the archive | Ready for a pull request; stopped for review; or sent back to an earlier stage |
-| 4.4 The pull request | Opened, watched to the reviewer's verdict, and merged | A pull request and its `pr-review` verdict | Merged; left to a person; or a review that did not complete |
+| 4.4 The pull request | Opened, watched to the reviewer's verdict, and merged | A pull request and the reviewer's review on its head | Merged; left to a person; or a review that did not complete |
 | 4.5 Close and account | The issue closed, the run's analysis written, a prompt review launched if one is due | A closed issue whose reason names the pull request; an analysis note | Closed; or open, waiting on a person or on an issue |
 
 ### 4.1 Pick and check
@@ -391,10 +395,11 @@ Every pull request is opened with the `open-pr` skill, whoever opens it.
    to wait only if the watcher's exit wakes the session. Decided by:
    `.claude/skills/open-pr/SKILL.md` § 6. Watch it with one watcher.
 6. Act on the outcome. `verify` runs every gate that reads only committed files; beside it, the
-   reviewer sets `pr-review` on the head by the high-risk floor alone. Once both pass, enable
-   auto-merge with `gh pr merge <number> --auto --rebase`, the method `prReviewMergeMethod` names,
-   and GitHub merges it. The table of what each status asks is `.claude/skills/open-pr/SKILL.md` § 7.
-   Act on the outcome. Decided by: `scripts/pr-review.mjs`, under `docs/decisions.md` § D-47.
+   reviewer reviews the head by the high-risk floor alone, approving it off the floor. Once `verify`
+   passes and the reviewer has approved, enable auto-merge with
+   `gh pr merge <number> --auto --rebase`, the method `prReviewMergeMethod` names, and GitHub merges
+   it. The table of what each outcome asks is `.claude/skills/open-pr/SKILL.md` § 7. Act on the
+   outcome. Decided by: `scripts/pr-review.mjs`, under `docs/decisions.md` § D-57.
 7. Wait for the merge with `env PR=<number> node scripts/pr-review.mjs wait`, in the background, as
    the one watcher. Once it has merged, leave the worktree and run
    `mise run worktree:gc --dry-run --finished <worktree>`, then the real run once that names this
@@ -403,8 +408,8 @@ Every pull request is opened with the `open-pr` skill, whoever opens it.
 
 A person decides the merge when a changed path or JSON key is on the floor:
 `prReviewHighRiskPaths` and `prReviewHighRiskJsonKeys` in `tools/policy/pr-review.json`. The person
-merges it past the checks; an agent never does (`CLAUDE.md` § Git workflow, and `docs/decisions.md`
-§ R-01 for what that rule alone still holds).
+approves it and merges it; an agent never approves (`CLAUDE.md` § Git workflow, and
+`docs/decisions.md` § R-01 for what that rule alone still holds).
 
 ### 4.5 Close and account
 
@@ -455,8 +460,8 @@ proposes; only a person promotes).
 | `` `[<ID>]` heads 2 different scenarios `` or `` different NFR requirements `` from `openspec:check` | A reworded header kept its ID; a new header took an ID already in use; or two changes in flight took one ID, and this branch rebased onto the one that merged first. | Give the reworded or new header, and its tests, the next free ID the refusal names (the header of `scripts/check-openspec.mjs`). |
 | `change-verify` lists children that are not closed | The build has not finished. | Run `change-build` in a fresh session (`.claude/skills/change-verify/SKILL.md` § 2. Every task is closed). |
 | `gh pr checks --watch` exits at once with "no checks reported" | Nothing had registered yet. | Start the one watcher again; it is not a second one (`.claude/skills/open-pr/SKILL.md` § 6. Watch it with one watcher). |
-| `pr-review` fails, or says "A person decides" | The reviewer's verdict on this head. | The row for its words in `.claude/skills/open-pr/SKILL.md` § 7. Act on the outcome. |
-| `wait` exits 1: "is open, and the reviewer's status on … is …" | The head moved, conflicts with `main`, or failed `verify` after its verdict. | The row for that status in `.claude/skills/open-pr/SKILL.md` § 7. Act on the outcome, then wait again. |
+| The reviewer's comment says "A person decides", or "The review did not complete" | The reviewer's verdict on this head. | The row for its words in `.claude/skills/open-pr/SKILL.md` § 7. Act on the outcome. |
+| `wait` exits 1: "is open, and the reviewer's review on … is …" | The head moved, conflicts with `main`, or failed `verify` after its verdict. | The row for that review in `.claude/skills/open-pr/SKILL.md` § 7. Act on the outcome, then wait again. |
 | `bd dolt push` is rejected | The tracker's remote moved, or refused the write. | Report the exact command and its error; never force it (`CLAUDE.md` § The task store). |
 
 ## 6. Crib sheet

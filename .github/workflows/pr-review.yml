@@ -1,10 +1,11 @@
-# The pull-request reviewer: on each head a pull request against `main` is given, it sets the
-# `pr-review` commit status from the high-risk floor alone, and does nothing else. Off the floor the
-# status passes, and once `verify` passes too, the session that opened the pull request enables
-# GitHub's auto-merge, which merges it; on the floor it fails with "A person decides: …", and a person
-# merges it with the ruleset's bypass (`docs/decisions.md` § D-47, amending § D-07, § D-37 and
-# § D-46). `scripts/pr-review.mjs review` decides, by the `prReview*` keys of
-# `tools/policy/pr-review.json`; no language model, no secret and no merge takes part.
+# The pull-request reviewer: on each head a pull request against `main` is given, it submits one
+# pull-request review from the high-risk floor alone, and does nothing else. Off the floor it
+# approves the head, the one approving review the trunk's ruleset requires, and once `verify` passes
+# too, the session that opened the pull request enables GitHub's auto-merge, which merges it; on the
+# floor it comments "A person decides: …", and a person approves and merges it
+# (`docs/decisions.md` § D-57, amending § D-47). `scripts/pr-review.mjs review` decides, by the
+# `prReview*` keys of `tools/policy/pr-review.json`; no language model, no secret, no commit status
+# and no merge takes part.
 #
 # THE INCIDENT. Until 2026-10-05 (asdlc-openspec-3cp3) this workflow was the merge queue D-07 built.
 # It woke on every `verify` run, on a label, on a dispatch and on a 15-minute schedule, and each run
@@ -15,28 +16,39 @@
 # workflow_run, 50 schedule, 44 pull_request_target and 13 dispatch
 # (`gh run list --workflow pr-review.yml`). Before D-37 the job also held an Anthropic workload
 # identity, four Actions secrets and the tracker's CLI, each with an incident of its own
-# (`git log -- .github/workflows/pr-review.yml`).
+# (`git log -- .github/workflows/pr-review.yml`). From then to 2026-10-08 (asdlc-openspec-t2ly) it
+# set the `pr-review` commit status, which the ruleset required: a head on the floor failed it, and
+# its one way onto the trunk was a person's merge past the checks with the ruleset's bypass, which
+# the maintainer made for #158 to #178, every one of the last 20, none with a review, and which the
+# ruleset read that day no longer granted anyone. So it reviews instead, and a person approves.
 #
-# WHAT ELSE IT WOULD LET THROUGH IF IT WERE WRONG. GitHub merges a head once `verify` and this status
-# pass, so a status set wrong merges a head no person read: one set on a head other than the one
-# decided, or set by the pull request's own code. So the job checks out the trunk, the base
-# branch's copy of this file runs and never the pull request's, the head is read only as git
-# objects, and the job installs Node and gh and no npm package and imports only files on the floor.
-# Its token reads the trunk and writes commit statuses, and nothing else: it cannot merge, label,
-# comment or dispatch. A workflow that could write a status or a check would set this one green on
-# its own head, which `forgeProblems` in `scripts/pr-review.mjs` refuses, in `pr-review:check` and
-# in `scripts/hooks/guard-workflow-edit.mjs`; so would this file run on any other event, where a
-# branch's own copy of it runs with its grant, which both refuse too. `pr-review:check` holds every line of this file.
+# WHAT ELSE IT WOULD LET THROUGH IF IT WERE WRONG. GitHub merges a head once `verify` passes and one
+# approving review stands, so an approval given wrong merges a head no person read: one given on a
+# head other than the one decided, or given by the pull request's own code. So the job checks out
+# the trunk, the base branch's copy of this file runs and never the pull request's, the head is read
+# only as git objects, the review is pinned to the head's sha, and the job installs Node and gh and
+# no npm package and imports only files on the floor. Its token reads the trunk and writes pull
+# requests, and nothing else: it cannot merge, set a status or dispatch. A workflow that could write
+# pull requests would approve its own, and one that could write a status or a check, or named a job
+# `verify`, would pass the required check on its own head, which `forgeProblems` in
+# `scripts/pr-review.mjs` refuses, in `pr-review:check` and in
+# `scripts/hooks/guard-workflow-edit.mjs`; so would this file run on any other event, where a
+# branch's own copy of it runs with its grant, which both refuse too. An approval left on a head the
+# floor later catches is the ruleset's to dismiss when the head moves: GitHub lets no non-admin
+# dismiss a review on a protected branch. `pr-review:check` holds every line of this file.
 #
 # INVOCATION. It runs when a pull request against `main` is opened, reopened, made ready for review
-# or pushed to. A review that did not complete runs again with `gh run rerun <run> --failed`, and
-# from any checkout with `gh`, `PR=<n> SHA=<head> node scripts/pr-review.mjs review --dry-run`
-# prints the status it would set and writes nothing.
+# or pushed to. A review that did not complete fails the job and runs again with
+# `gh run rerun <run> --failed`, and from any checkout with `gh`,
+# `PR=<n> SHA=<head> node scripts/pr-review.mjs review --dry-run` prints the review it would submit
+# and writes nothing.
 #
 # NEEDS. Only the run's own `github.token`, the network to GitHub, and Node and gh at the versions
-# `mise.toml` pins. No job installs `bd` or an npm package. It reads a token and the network, so it is
-# neither a pre-push job nor a `verify.yml` step (`CLAUDE.md` § The gate ladder): `pr-review:check`
-# holds its wiring to the policy, and `pr-review:selftest` holds every decision, from those tiers.
+# `mise.toml` pins; and, on the repository, "Allow GitHub Actions to create and approve pull
+# requests", without which GitHub refuses the approval. No job installs `bd` or an npm package. It
+# reads a token and the network, so it is neither a pre-push job nor a `verify.yml` step
+# (`CLAUDE.md` § The gate ladder): `pr-review:check` holds its wiring to the policy, and
+# `pr-review:selftest` holds every decision, from those tiers.
 name: pr-review
 run-name: 'pr-review #${{ github.event.pull_request.number }}'
 
@@ -55,7 +67,7 @@ permissions: {}
 
 jobs:
   review:
-    # Never named `pr-review`: its check run would carry the status's context, and pass when it fails.
+    # Never named `verify`: its check run would carry the check the ruleset requires, and pass it.
     name: 'review #${{ github.event.pull_request.number }}'
     # A fork's head is decided by a person.
     if: github.event.pull_request.head.repo.full_name == github.repository
@@ -64,8 +76,8 @@ jobs:
     permissions:
       # The trunk checked out, and the pull request's head fetched as git objects.
       contents: read
-      # The `pr-review` status, the job's one write.
-      statuses: write
+      # The review on the head, the job's one write.
+      pull-requests: write
     steps:
       # The trunk with its whole history, so the merge base of the pull request's head is found.
       - uses: actions/checkout@v4
@@ -80,7 +92,7 @@ jobs:
           version: 2026.10.0
           sha256: 57ced973f968b8fbab07aa8e32bd7077d4a357e200a22356d98963c723c6de0a
           install_args: node gh
-      - name: decide the head from the floor and set its status
+      - name: decide the head from the floor and review it
         run: node scripts/pr-review.mjs review
         env:
           GH_TOKEN: ${{ github.token }}
