@@ -214,8 +214,8 @@ function strayDenial({ worktree, toplevel }) {
  * carries no information and this guard does not look at it.
  *
  * What the tool and the script still disagree about is everything the script does after choosing
- * the path. Claude Code snapshots hook configuration at session start, so a session that began
- * before the hook was added carries a config without it and `EnterWorktree` silently falls back to
+ * the path. When the settings file a session loaded registers no WorktreeCreate hook, as in a
+ * checkout whose `.claude/settings.json` predates it, `EnterWorktree` silently falls back to
  * its native behaviour: branch `worktree-<name>`, cut from whatever `worktree.baseRef` names
  * (`fresh`, the default, takes `origin/<default branch>`; `head` takes the local HEAD), and no
  * `.worktree/CONTEXT.md`, so the briefing CLAUDE.md @-imports is absent and the agent never reads
@@ -223,13 +223,20 @@ function strayDenial({ worktree, toplevel }) {
  * default branch is a GitHub setting outside this repository, `main` when checked on 2026-09-23,
  * which is the same reason the PR-base rule below will not infer it.
  *
+ * Until asdlc-openspec-gm86 this header said Claude Code snapshots hook configuration at session
+ * start, so that any session begun before the hook was added fell back. It does not: Claude Code
+ * re-reads the settings file when it changes, and a WorktreeCreate hook added to it mid-session took
+ * over `EnterWorktree` with no restart (verified against the CLI, 2.1.294). Its hooks documentation
+ * says such an edit is "normally" picked up, which leaves an edit the file watcher missed as the
+ * other way a session can lack the hook.
+ *
  * No incident here yet. Were this check wrong, it would let an agent do real work in a worktree with
  * no briefing, on a branch CLAUDE.md § Git workflow does not provide for, cut from a base no file in
  * this repository chose.
  *
  * A WorktreeCreate hook cannot cover this, because the failure is that no WorktreeCreate hook ran.
- * This one is a PreToolUse Bash hook, so it fires on the agent's first command whatever the
- * session's hook snapshot contains -- the only place left to catch it.
+ * This one is a PreToolUse Bash hook, so it fires on the agent's first command whether or not the
+ * session's settings register a WorktreeCreate hook -- the only place left to catch it.
  *
  * THE SIGNAL IS THE BRANCH NAME. `new-worktree.sh` always names the branch `agent/<name>`; the
  * native fallback always names it `worktree-<name>`. The base cannot be the signal: while the
@@ -862,12 +869,13 @@ if (unprovisioned !== null) {
     `this worktree is on '${branch}', not an agent/* branch${distance}. Every worktree here is ` +
       `provisioned by scripts/new-worktree.sh, which cuts agent/<name> from ${TRUNK_REMOTE} and ` +
       "renders the briefing .worktree/CONTEXT.md. A 'worktree-*' branch is the EnterWorktree " +
-      "tool's native fallback, which it uses when the WorktreeCreate hook is not registered -- " +
-      'Claude Code snapshots hook config at session start, so a session that began before the hook ' +
-      'was added never sees it, takes its base from the worktree.baseRef setting instead, and ' +
+      "tool's native fallback, which it uses when the settings file the session loaded registers " +
+      'no WorktreeCreate hook; it takes its base from the worktree.baseRef setting instead, and ' +
       'renders no briefing. Do not work here; the checkout may not contain what you were sent to ' +
       "see, and nothing in it states this repository's rules. Leave with ExitWorktree (action: " +
-      '"remove"), then re-enter -- restarting an old session re-reads the hook configuration.',
+      '"remove"), and re-enter once that settings file registers the hook: a running session ' +
+      'picks up an edit to it with no restart (verified against the CLI, 2.1.294), and a restart ' +
+      're-reads it if the edit was missed.',
   )
 }
 
