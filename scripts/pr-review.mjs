@@ -1070,12 +1070,13 @@ function review({ dryRun }) {
   summarise(summaryMarkdown({ pr, sha, decision, floor }))
   // The head is read again just before the write: an approval is a review of the pull request, not
   // of a commit, so one submitted after a push that moved the head onto the floor would stand on the
-  // new head until the ruleset dismisses it. The window left is the one write.
+  // new head until the ruleset dismisses it. The window left is the one write. A read that fails
+  // submits nothing, since a head it cannot see may have moved; the job fails, and a re-run retries.
   let latest
   try {
     latest = fetchPull(ROOT, pr)
-  } catch {
-    latest = sha
+  } catch (error) {
+    throw new Error(`the head of #${pr} could not be read again before the review, so none was submitted: ${error.message}; \`gh run rerun <run> --failed\` runs it again`)
   }
   if (latest !== sha) {
     console.log(`#${pr} moved to ${short(latest)} since ${short(sha)} was decided; the run that push started decides the new head, so no review is submitted.`)
@@ -1330,13 +1331,20 @@ export function forgeProblems(path, doc, requiredCheck) {
         ? FORGING_SCOPES.filter((scope) => permissions[scope] === 'write').map((scope) => `${scope}: write`)
         : []
   for (const grant of grants(doc?.permissions)) problems.push(`${path} grants \`${grant}\` to every job: ${why}.`)
+  const namedForCheck = []
   for (const [id, job] of Object.entries(isRecord(doc?.jobs) ? doc.jobs : {})) {
     for (const grant of grants(job?.permissions)) problems.push(`${path}'s \`${id}\` job requests \`${grant}\`: ${why}.`)
-    if (path === VERIFY) continue
     const named = [id, job?.name].find((name) => typeof name === 'string' && name.trim().toLowerCase() === String(requiredCheck).toLowerCase())
-    if (named !== undefined) {
+    if (named === undefined) continue
+    namedForCheck.push(id)
+    if (path !== VERIFY) {
       problems.push(`${path}'s \`${id}\` job is named \`${named.trim()}\`, so its check run carries \`${requiredCheck}\`, the check the trunk's ruleset requires, and could pass it: name the job otherwise.`)
     }
+  }
+  // `verify.yml` carries the check on one job, which `verifyProblems` holds to its shape; a second
+  // job of that name would give a second check run the ruleset could read as the check.
+  if (path === VERIFY && namedForCheck.length > 1) {
+    problems.push(`${path} has ${namedForCheck.length} jobs whose check is \`${requiredCheck}\` (${namedForCheck.map((id) => `\`${id}\``).join(', ')}): a second check run of that name could pass the check the trunk's ruleset requires on a head the first failed, so one job carries it.`)
   }
   return problems
 }
@@ -1526,11 +1534,9 @@ export function verifyProblems(verify, policy) {
     if (verify?.[key] !== undefined) fail(`${VERIFY} sets \`${key}\` for every job: it would reach the step of each gate the floor holds, and the \`verify\` job's, before it runs.`)
   }
   const required = policy.prReviewRequiredCheck
-  const named = Object.keys(jobs).filter((id) => String(jobs[id]?.name ?? id).trim().toLowerCase() === required.toLowerCase())
-  const [gatherId] = named
-  if (named.length > 1) {
-    fail(`${VERIFY} has ${named.length} jobs whose check is \`${required}\` (${named.map((id) => `\`${id}\``).join(', ')}): a second check run of that name could pass the check the trunk's ruleset requires on a head the first failed, so one job carries it.`)
-  } else if (gatherId === undefined) {
+  // A second job of that name is `forgeProblems`'s to refuse, which the workflow-edit guard runs too.
+  const gatherId = Object.keys(jobs).find((id) => String(jobs[id]?.name ?? id).trim().toLowerCase() === required.toLowerCase())
+  if (gatherId === undefined) {
     fail(`${VERIFY} has no job whose check is \`${required}\` (\`prReviewRequiredCheck\`); it has ${JSON.stringify(Object.entries(jobs).map(([id, job]) => job?.name ?? id))}.`)
   } else {
     const where = `${VERIFY}'s \`${gatherId}\` job`
@@ -2053,9 +2059,15 @@ function helperCases(policy) {
       const byId = forgeProblems(`${WORKFLOWS}/forge.yml`, { jobs: { [requiredCheck]: { 'runs-on': 'ubuntu-latest' } } }, requiredCheck)
       const byName = forgeProblems(`${WORKFLOWS}/forge.yml`, { jobs: { x: { name: ` ${requiredCheck.toUpperCase()} ` } } }, requiredCheck)
       const inVerify = forged(flow({}, { name: requiredCheck }))
+      const twiceInVerify = forged({ ...flow(), jobs: { ...flow().jobs, gates: { 'runs-on': 'ubuntu-latest', name: ` ${requiredCheck.toUpperCase()} ` } } })
       return assertEqual(
-        [byId.length === 1 && byId[0].includes(`job is named \`${requiredCheck}\``), byName.length === 1 && byName[0].includes(`job is named \`${requiredCheck.toUpperCase()}\``), inVerify],
-        [true, true, []],
+        [
+          byId.length === 1 && byId[0].includes(`job is named \`${requiredCheck}\``),
+          byName.length === 1 && byName[0].includes(`job is named \`${requiredCheck.toUpperCase()}\``),
+          inVerify,
+          twiceInVerify.length === 1 && twiceInVerify[0].startsWith(`${VERIFY} has 2 jobs whose check is \`${requiredCheck}\` (\`verify\`, \`gates\`)`),
+        ],
+        [true, true, [], true],
         'names',
       )
     }),
@@ -2264,7 +2276,7 @@ function wiringCases() {
     { name: 'the branch reviewer is given Bash', doctor: edit(AGENT, /^tools: Read, /m, 'tools: Bash, Read, '), expect: /branch-reviewer\.md gives Bash/ },
     { name: 'the branch reviewer loses its allowlist', doctor: edit(AGENT, /^tools: .*\n/m, ''), expect: /lists no `tools:`/ },
     { name: "verify's job no longer carries the required check's name", doctor: edit(VERIFY, /^  verify:$/m, '  all-gates:'), expect: /has no job whose check is `verify`/ },
-    { name: "a second verify.yml job named for the required check, which the name rule leaves to verifyProblems", doctor: edit(VERIFY, /^  gates:\n/m, '  gates:\n    name: VERIFY\n'), expect: /verify\.yml has 2 jobs whose check is `verify` \(`gates`, `verify`\): a second check run of that name/ },
+    { name: 'a second verify.yml job named for the required check', doctor: edit(VERIFY, /^  gates:\n/m, '  gates:\n    name: VERIFY\n'), expect: /verify\.yml has 2 jobs whose check is `verify` \(`gates`, `verify`\): a second check run of that name/ },
     // verify.yml's split (docs/decisions.md § D-55): the required check passes only when every job
     // did, every gate the floor holds runs, and runs where nothing the floor does not hold runs first.
     { name: 'the floor stops covering a shrinkwrap', doctor: editPolicy((p) => delete p.prReviewHighRiskPaths['npm-shrinkwrap.json']), expect: /does not cover npm-shrinkwrap\.json, a lockfile `npm ci` installs from in place of package-lock\.json/ },

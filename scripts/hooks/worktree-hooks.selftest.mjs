@@ -524,6 +524,7 @@ for (const [label, toolInput, reason] of [
   ['checks: write granted in verify.yml under replace_all', { file_path: VERIFY_FILE, old_string: GRANT, new_string: `${GRANT}  checks: write\n`, replace_all: true }, 'grants `checks: write` to every job'],
   ['a new workflow granting write-all', { file_path: FORGE_FILE, content: `permissions: write-all\n${jobNamed('x')}` }, 'grants `write-all` to every job'],
   ['a new workflow whose job is named for the required check', { file_path: FORGE_FILE, content: jobNamed(CHECK) }, `job is named \`${CHECK}\`, so its check run carries \`${CHECK}\``],
+  ['a second verify.yml job named for the required check', { file_path: VERIFY_FILE, old_string: STEPS, new_string: `  gates:\n    name: ${CHECK}\n${STEPS.slice('  gates:\n'.length)}` }, `verify.yml has 2 jobs whose check is \`${CHECK}\``],
   ['a workflow that will not parse', { file_path: FORGE_FILE, content: 'jobs: [unclosed\n' }, 'is a workflow, and this edit could not be judged'],
   ["the reviewer's own workflow given an event where a branch's copy runs", { file_path: REVIEW_FILE, old_string: TRIGGER, new_string: `  pull_request:\n${TRIGGER}` }, "runs on `pull_request`: on an event but `pull_request_target` a branch's own copy"],
 ]) {
