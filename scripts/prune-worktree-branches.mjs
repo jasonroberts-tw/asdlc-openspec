@@ -338,7 +338,8 @@ const mergedPrsArg = process.env.WORKTREE_GC_MERGED_PRS || null
  *  CLAUDE.md § Git workflow names, and a detached HEAD. */
 const PROTECTED = new Set(['main', 'release', 'HEAD'])
 /** Only worktree-provisioned branch names are in scope. `worktree-*` is EnterWorktree's native
- *  fallback shape, described in `scripts/hooks/guard-git.mjs`, and leaks the same two config keys. */
+ *  fallback shape, described in `scripts/hooks/guard-unprovisioned-worktree.mjs`, and leaks the same
+ *  two config keys. */
 const OWNED = (name) => name.startsWith('agent/') || name.startsWith('worktree-')
 
 /* ============================================================================================= *

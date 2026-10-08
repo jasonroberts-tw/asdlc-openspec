@@ -4,9 +4,9 @@
  * findings for a person to read and refuses nothing.
  *
  * WHAT IT DOES. Code reads every prompt `scripts/check-prompts.mjs` holds to a word budget, through
- * that gate's `promptLines`: a markdown prompt line by line, frontmatter included, and a workflow only
- * in its string and template literals. A paragraph is a run of non-blank lines, a workflow's within
- * one literal. A paragraph with a line `node scripts/check-prompts.mjs --incidents` lists is left to
+ * that gate's `promptLines`: a markdown prompt line by line, frontmatter included, and a workflow or,
+ * since `docs/decisions.md` § D-59, a hook only in its string and template literals. A paragraph is a
+ * run of non-blank lines, a workflow's or a hook's within one literal. A paragraph with a line `node scripts/check-prompts.mjs --incidents` lists is left to
  * that list, which names it already, and one of fewer than `promptIncidentMinWords` words is not
  * judged. For each prompt, ONE request asks TypeSafe one Noul per paragraph left, over a state that
  * holds the prompt's path and those paragraphs keyed by their first line: does this paragraph tell a

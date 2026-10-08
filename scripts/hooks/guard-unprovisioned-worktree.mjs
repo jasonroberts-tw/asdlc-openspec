@@ -57,8 +57,10 @@
  * `tools/policy/pr-review.json`), so a change to this check alone waited for a person though it
  * decides nothing about an approval or a merge: pull request #181 changed only this check's reason
  * and message, and the reviewer held it for `guard-git.mjs`. Here a change to it merges as
- * `worktree-create.mjs`'s does (`docs/decisions.md` § D-58). Where that loses: a change that
- * weakens this check merges without a person, and `worktree:selftest` is what holds it. It costs one
+ * `worktree-create.mjs`'s does (`docs/decisions.md` § D-58), but for one that moves the word count
+ * of its literals, whose budget row in `tools/policy/prompt-budgets.json` is on the floor
+ * (`docs/decisions.md` § D-59). Where that loses: a change that weakens this check merges without a
+ * person, and `worktree:selftest` is what holds it. It costs one
  * more Node process and three git calls on every Bash command, beside the guard's: a median of 84 ms
  * against the guard's 69 ms, 20 runs each on a payload from an `agent/*` worktree, Node 24.21.0 on a
  * macOS laptop, 2026-10-08.
