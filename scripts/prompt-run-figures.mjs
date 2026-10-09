@@ -2,33 +2,42 @@
  * Prompt-run figures: for each prompt-run analysis no review has read, what its session did, read
  * from Langfuse as figures and never as content, for the prompt review to read beside the analysis
  * (`docs/decisions/asdlc-openspec-ic9h.md` § Decision, item 5). An operator command, which the
- * review's workflow runs as a step before the model's, and never a gate.
+ * review's workflow is to run as a step before the model's (asdlc-openspec-ic9h.6), and never a gate.
  *
- * WHAT IT READS. First the pending analyses, as `node scripts/prompt-runs.mjs --only pending --json`
- * prints them, run as a child whose environment holds no variable `langfuseProjects` names and none
- * that opens with `LANGFUSE_`, so no code off the high-risk floor holds a key. Then, for each pending
- * analysis with a session id, and each project of `langfuseProjects` whose two variables are set,
- * every observation of that session in the run's window. It asks `langfuseObservationsPath` on
- * `langfuseBaseUrl` for the field groups `langfuseFieldGroups` names, `langfusePageLimit` to a page,
- * and follows `meta.cursor` until a page carries none. The window ends at the run id's time, since a
- * session works on after its analysis is written. It opens at the time of `previous`, that session's
- * earlier analysis, or `langfuseLookbackDays` before the end where there is none. Projects and runs
- * are read one request at a time, since the rate limit is the organisation's.
+ * WHAT IT READS. First the pending analyses, from the file `--pending` names: what
+ * `node scripts/prompt-runs.mjs --only pending --json` printed, in an earlier step that held no
+ * Langfuse key. It runs nothing itself, so the process that holds the keys runs this file and
+ * `tools/lib/policy.ts` alone, both on the high-risk floor: a child it started, as the same user,
+ * could read the keys from `/proc/<its pid>/environ` whatever environment it was given. Then, for
+ * each pending analysis with a session id, and each project of `langfuseProjects` whose two
+ * variables are set, every observation of that session in the run's window. It asks
+ * `langfuseObservationsPath` on `langfuseBaseUrl`, and refuses a path that opens with `//` or holds a
+ * backslash, which would resolve to another origin, for the field groups `langfuseFieldGroups` names, `langfusePageLimit` to a page, and follows
+ * `meta.cursor` until a page carries none. The window ends at the run id's time, since a session works
+ * on after its analysis is written. It opens at the time of `previous`, that session's earlier
+ * analysis, or `langfuseLookbackDays` before the end where there is none. Projects and runs are read
+ * one request at a time, since the rate limit is the organisation's.
  *
  * WHAT IT PRINTS, per run, from the observations of its window in every project that held any:
  *
  *   turns          the SPANs named `langfuseTurnName`, one per user prompt as the plugin opens them
  *   toolCalls      the TOOLs by name, `langfuseToolNamePrefix` taken off; a name without the prefix,
  *                  or of another shape than TOOL_NAME, counts under `(other)`
- *   tokens         each GENERATION's `usageDetails`, summed by `langfuseUsageBuckets` into `input`,
- *                  `cacheRead`, `cacheWrite` and `output`, and every other key into `unbucketed`
+ *   tokens         each GENERATION's `usageDetails`, summed by `langfuseUsageBuckets` into the input
+ *                  tokens, as `input`, `cacheRead` and `cacheWrite`, and the `output` tokens, and every
+ *                  other key into `unbucketed`
  *   unbucketedKeys the names of those other keys, a name of another shape than TOOL_NAME as `(other)`
  *   costUsd        the GENERATIONs' `totalCost` summed, or null when none gives a number
  *   wallSeconds    from the first observation's start to the last one's end, held to the window
  *   turnSeconds    the turns' durations summed, each end held to the window
- *   errors         the GENERATIONs and the TOOLs at level ERROR: a span takes the worst level of what
- *                  it holds, so a count of every observation would count one failure two or three times
+ *   errors         the observations at level ERROR, by type: `generations`, `tools` and `spans`. A
+ *                  span takes the worst level of what it holds, so `spans` repeats failures the other
+ *                  two already count, and is kept apart from them
  *   observations   how many observations the window held
+ *
+ * TOOL_NAME is an identifier's shape, letters, digits and `_.:-`, which holds no sentence. It does
+ * not stop a secret that is itself an identifier, such as a token, from printing as a tool's name or
+ * a usage key; those names come from Claude Code's tools and the plugin's own keys.
  *
  * Each run also carries `trace`, which is one of four values:
  *
@@ -46,39 +55,44 @@
  *
  *   - a prompt, a response or a tool's output, or a secret one of them carried, reaching the public
  *     tracker and the review's pull request;
- *   - a key sent to a host other than Langfuse's, or held by code no person reviews;
+ *   - a key sent to a host other than Langfuse's, or held by code no person reviews. The branch
+ *     review of asdlc-openspec-ic9h.4 found the first design, which ran `prompt-runs` as a child with
+ *     the keys taken out of its environment, still let that child read them from `/proc`; and its
+ *     adversarial review sent the keys to another host through a path of `//host`;
  *   - work a session did after a run's analysis counted as the run's, as the session that wrote
  *     asdlc-openspec-ic9h.2's analysis went on to work asdlc-openspec-ic9h.4;
  *   - a failed or half-answered read taken as a run with no trace, or as the whole run;
  *   - one failure counted at every span that holds it;
- *   - a server that ignored the session or time filter counted as the run.
+ *   - a server that ignored the session or time filter, or paged without end, counted as the run.
  *
  * INVOCATION.
  *
- *   mise run prompt-runs:figures             the figures, as text
- *   mise run prompt-runs:figures --json      the same, as one JSON object, which the workflow keeps
- *   mise run prompt-runs:figures --now <t>   pending at that UTC second, passed on to `prompt-runs`
- *   mise run prompt-runs:figures:selftest    the selftest (`--selftest`)
- *   PROMPT_RUN_FIGURES_ROOT=<dir> mise run prompt-runs:figures
- *                       the same over a doctored copy: the policy's records under `tools/policy/`,
- *                       and an `export.jsonl` that `prompt-runs` reads there as `PROMPT_RUNS_ROOT`
+ *   mise run prompt-runs:figures --pending <file>          the figures, as text
+ *   mise run prompt-runs:figures --pending <file> --json   the same, as one JSON object
+ *   mise run prompt-runs:figures:selftest                  the selftest (`--selftest`)
+ *   PROMPT_RUN_FIGURES_ROOT=<dir> mise run prompt-runs:figures --pending <file>
+ *                                 the same over a doctored copy's policy, under `tools/policy/`
+ *
+ * The file is what `node scripts/prompt-runs.mjs --only pending --json` printed. With no project's
+ * keys set, `--pending` may be left out.
  *
  * EXIT.
  *
  *   0  the figures; or no project's keys set, which it says, before it reads anything
- *   2  a bad flag
+ *   2  a bad flag, or no `--pending` beside a project's keys
  *   1  a failure, each named: a project with one of its two keys set; a policy key missing or wrong;
- *      `prompt-runs` failing; or a request refused, rate limited past `langfuseRetryLimit`, timed out
- *      or answered in another shape than this header reads, which is recorded for its run
+ *      a pending file it cannot read, or in another shape than `prompt-runs` prints; or a request
+ *      refused, rate limited past `langfuseRetryLimit`, timed out or answered in another shape than
+ *      this header reads, which is recorded for its run
  *
- * NEEDS. `bd` and the tracker, through `prompt-runs`. For each project it reads, that project's keys in
- * the environment and Langfuse's API over the network. Only the prompt review's workflow step holds
- * both projects' keys (docs/decisions/asdlc-openspec-ic9h.md, item 5). The selftest needs neither: it
- * serves the API from a stub on loopback holding two projects, over a fixture export, so it is a
- * pre-push job and a `verify.yml` step.
+ * NEEDS. The pending file. For each project it reads, that project's keys in the environment and
+ * Langfuse's API over the network. Only the prompt review's workflow step is to hold both projects'
+ * keys (docs/decisions/asdlc-openspec-ic9h.md, item 5). The selftest needs neither: it serves the API
+ * from a stub on loopback holding two projects, over a pending file it has `prompt-runs` write from a
+ * fixture export, so it is a pre-push job and a `verify.yml` step.
  */
 import { spawn } from 'node:child_process'
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -89,7 +103,6 @@ const SELF = fileURLToPath(import.meta.url)
 const REPO_ROOT = resolve(dirname(SELF), '..')
 const ROOT_ENV = 'PROMPT_RUN_FIGURES_ROOT'
 const RUNS_ROOT_ENV = 'PROMPT_RUNS_ROOT'
-const PROMPT_RUNS = join(REPO_ROOT, 'scripts', 'prompt-runs.mjs')
 const NAME = 'prompt-runs:figures'
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -97,13 +110,13 @@ const DAY_MS = 24 * 60 * 60 * 1000
 const RUN_ID = /^(\S+)@(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)$/
 /** A Claude Code session id, as `scripts/prompt-runs.mjs` reads one. */
 const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
-/** A name the figures may print: an identifier, which no prompt or output fits. */
+/** A name the figures may print: an identifier's shape, which holds no sentence (the header says what it does not stop). */
 const TOOL_NAME = /^[A-Za-z0-9_.:-]{1,100}$/
 /** What a name that is not of TOOL_NAME's shape counts under, which no tool's name can be. */
 const OTHER = '(other)'
 /** An environment variable's name, as `langfuseProjects` gives one. */
 const ENV_NAME = /^[A-Z][A-Z0-9_]*$/
-/** The field groups whose fields hold text, which no request may ask for; held here, not in the policy, so that no policy edit lifts it. */
+/** The field groups whose fields hold an observation's text (Langfuse's OpenAPI spec, `fields`, read 2026-10-09), which no request may ask for. */
 const TEXT_GROUPS = ['io', 'metadata']
 /** The field groups that hold every field the figures read. */
 const NEEDED_GROUPS = ['basic', 'core', 'usage']
@@ -154,8 +167,10 @@ function wrongOf(kind, value) {
       if (!bare) return "a URL's origin alone, with no path, query, fragment or credentials"
       return url.protocol === 'https:' || (url.protocol === 'http:' && LOOPBACK.includes(url.hostname)) ? null : 'an https URL, since the keys go with every request; http only to a loopback host'
     }
+    // One / and no backslash, since `new URL()` reads `//host` and `/\host` as another origin, which
+    // would take the keys past every check on `langfuseBaseUrl`.
     case 'path':
-      return typeof value === 'string' && /^\/[^?#\s]*$/.test(value) ? null : 'a path that opens with / and holds no query or fragment'
+      return typeof value === 'string' && /^\/(?!\/)[^?#\s\\]*$/.test(value) ? null : 'a path that opens with one / and holds no backslash, query or fragment'
     case 'groups': {
       const ok = Array.isArray(value) && value.length > 0 && value.every((g) => typeof g === 'string' && /^[a-z_]+$/.test(g)) && new Set(value).size === value.length
       if (!ok) return 'a list of distinct field groups'
@@ -226,47 +241,13 @@ export function projectsOf(policy, env) {
   return { read, absent, problems }
 }
 
-/** The environment `prompt-runs` runs in: `env` without a Langfuse key, and pointed at the override's root when there is one. */
-export function childEnv(env, policy, root, overridden) {
-  const out = { ...env }
-  for (const { publicKeyEnv, secretKeyEnv } of Object.values(policy.langfuseProjects)) {
-    delete out[publicKeyEnv]
-    delete out[secretKeyEnv]
-  }
-  for (const key of Object.keys(out)) if (key.toUpperCase().startsWith('LANGFUSE_')) delete out[key]
-  delete out[RUNS_ROOT_ENV]
-  if (overridden) out[RUNS_ROOT_ENV] = root
-  return out
-}
-
 /* --------------------------------------------------------------------------- the pending runs ----- */
 
-/** A child process, run without blocking: its status and what it printed. */
-function spawned(command, args, env) {
-  return new Promise((done) => {
-    const child = spawn(command, args, { env, stdio: ['ignore', 'pipe', 'pipe'] })
-    let stdout = ''
-    let stderr = ''
-    child.stdout.on('data', (data) => (stdout += data))
-    child.stderr.on('data', (data) => (stderr += data))
-    child.on('error', (error) => done({ status: null, stdout, stderr: `${stderr}${error.message}` }))
-    child.on('close', (status) => done({ status, stdout, stderr }))
-  })
-}
-
-/** The pending analyses, from `prompt-runs` run as a child in `env`, or a failure naming why there are none. */
-async function pendingRuns(env, now) {
-  const args = [PROMPT_RUNS, '--only', 'pending', '--json', ...(now ? ['--now', now] : [])]
-  const r = await spawned(process.execPath, args, env)
-  if (r.status !== 0) throw new Failure(`\`prompt-runs --only pending --json\` exited ${r.status}: ${r.stderr.trim().split('\n').join(' ').slice(0, 2000)}`)
-  return pendingFrom(r.stdout)
-}
-
 /** The pending analyses in what `prompt-runs --only pending --json` printed, or a failure when they are in another shape. */
-export function pendingFrom(stdout) {
+export function pendingFrom(text) {
   let analyses
   try {
-    analyses = JSON.parse(stdout).pending.analyses
+    analyses = JSON.parse(text).pending.analyses
   } catch {
     analyses = null
   }
@@ -276,7 +257,7 @@ export function pendingFrom(stdout) {
       (a) =>
         a && RUN_ID.test(a.run) && typeof a.issue === 'string' && (a.session === null || SESSION_ID.test(a.session)) && (a.previous === null || (RUN_ID.test(a.previous) && timeOf(a.previous) < timeOf(a.run))),
     )
-  if (!ok) throw new Failure('`prompt-runs --only pending --json` printed its pending analyses in another shape than this command reads: each a run id, an issue, a session id or null, and an earlier run id or null as `previous`')
+  if (!ok) throw new Failure('the pending file holds its pending analyses in another shape than `prompt-runs --only pending --json` prints: each a run id, an issue, a session id or null, and an earlier run id or null as `previous`')
   return analyses
 }
 
@@ -289,22 +270,26 @@ export function windowOf(analysis, policy) {
 /* --------------------------------------------------------------------------------- the reads ----- */
 
 const sleep = (ms) => new Promise((done) => setTimeout(done, ms))
+const timedOut = (policy) => new Failure(`the request timed out, past \`langfuseRequestTimeoutSeconds\` (${policy.langfuseRequestTimeoutSeconds})`)
+const isTimeout = (error) => error?.name === 'TimeoutError' || error?.cause?.name === 'TimeoutError'
 
 /** One page's body, as JSON, sent again after a 429 as the policy allows, or a failure naming why there is none. */
 async function getPage(url, authorization, policy) {
   for (let attempt = 0; ; attempt++) {
+    const signal = AbortSignal.timeout(policy.langfuseRequestTimeoutSeconds * 1000)
     let response
     try {
-      response = await fetch(url, { headers: { authorization, accept: 'application/json' }, redirect: 'error', signal: AbortSignal.timeout(policy.langfuseRequestTimeoutSeconds * 1000) })
+      response = await fetch(url, { headers: { authorization, accept: 'application/json' }, redirect: 'error', signal })
     } catch (error) {
-      if (error.name === 'TimeoutError') throw new Failure(`the request timed out, past \`langfuseRequestTimeoutSeconds\` (${policy.langfuseRequestTimeoutSeconds})`)
+      if (isTimeout(error)) throw timedOut(policy)
       throw new Failure(`the request did not complete: ${String(error.cause?.code ?? error.cause?.message ?? error.message).slice(0, 200)}`)
     }
     if (response.status === 429) {
       await response.body?.cancel()
-      const wait = Number(response.headers.get('retry-after') ?? Number.NaN)
+      const header = (response.headers.get('retry-after') ?? '').trim()
+      const wait = /^\d+$/.test(header) ? Number(header) : Number.NaN
       if (attempt >= policy.langfuseRetryLimit) throw new Failure(`rate limited (429) after \`langfuseRetryLimit\` (${policy.langfuseRetryLimit}) retries`)
-      if (!(Number.isInteger(wait) && wait >= 0)) throw new Failure('rate limited (429) with no Retry-After in whole seconds to wait out')
+      if (Number.isNaN(wait)) throw new Failure('rate limited (429) with no Retry-After in whole seconds to wait out')
       if (wait > policy.langfuseRetryMaxWaitSeconds) throw new Failure(`rate limited (429) for ${wait} seconds, past \`langfuseRetryMaxWaitSeconds\` (${policy.langfuseRetryMaxWaitSeconds})`)
       await sleep(wait * 1000)
       continue
@@ -317,7 +302,8 @@ async function getPage(url, authorization, policy) {
     }
     try {
       return await response.json()
-    } catch {
+    } catch (error) {
+      if (isTimeout(error) || signal.aborted) throw timedOut(policy)
       throw new Failure('the API answered with a body that is not JSON')
     }
   }
@@ -327,13 +313,15 @@ async function getPage(url, authorization, policy) {
 function rowOf(row, session, window) {
   const shape = (what) => new Failure(`the API answered with an observation ${what}, in another shape than the header of scripts/prompt-run-figures.mjs reads`)
   if (!(row && typeof row === 'object' && !Array.isArray(row))) throw shape('that is not an object')
-  const { type, name, level, startTime, endTime, sessionId, usageDetails, totalCost } = row
+  const { id, type, name, level, startTime, endTime, sessionId, usageDetails, totalCost } = row
   if (sessionId !== session) throw new Failure('the API answered with an observation of another session, so its sessionId filter cannot be trusted')
+  if (!(typeof id === 'string' && id !== '')) throw shape('with no id')
   if (!(typeof type === 'string' && /^[A-Z_]+$/.test(type))) throw shape('with no type')
   if (!LEVELS.includes(level)) throw shape(`whose level is none of ${LEVELS.join(', ')}`)
   const start = typeof startTime === 'string' ? Date.parse(startTime) : Number.NaN
   if (Number.isNaN(start)) throw shape('with no start time')
-  if (start < window.from || start >= window.to) throw new Failure('the API answered with an observation outside the window it was asked for, so its time filter cannot be trusted')
+  if (start < window.from) throw new Failure('the API answered with an observation that starts before the window it was asked for, so its time filter cannot be trusted')
+  if (start >= window.to) throw new Failure('the API answered with an observation that starts at or after the end of the window it was asked for, so its time filter cannot be trusted')
   const end = endTime === null || endTime === undefined ? start : typeof endTime === 'string' ? Date.parse(endTime) : Number.NaN
   if (Number.isNaN(end)) throw shape('whose end time is not a time')
   let usage = {}
@@ -347,14 +335,14 @@ function rowOf(row, session, window) {
     if (!(Number.isFinite(totalCost) && totalCost >= 0)) throw shape('whose totalCost is not a number of dollars')
     cost = totalCost
   }
-  return { type, name: typeof name === 'string' ? name : null, level, start, end: Math.max(start, end), usage, cost }
+  return { id, type, name: typeof name === 'string' ? name : null, level, start, end: Math.max(start, end), usage, cost }
 }
 
 /** Every observation of `session` in `window` that `project` holds, page after page, or a failure naming why not. */
 async function observationsOf(project, session, window, policy) {
   const authorization = `Basic ${Buffer.from(`${project.publicKey}:${project.secretKey}`).toString('base64')}`
   const rows = []
-  const seen = new Set()
+  const ids = new Set()
   let cursor = null
   for (;;) {
     const url = new URL(policy.langfuseObservationsPath, policy.langfuseBaseUrl)
@@ -368,12 +356,18 @@ async function observationsOf(project, session, window, policy) {
     if (!(body && typeof body === 'object' && Array.isArray(body.data) && body.meta && typeof body.meta === 'object' && !Array.isArray(body.meta))) {
       throw new Failure('the API answered without the `data` array and the `meta` object this command reads')
     }
-    for (const row of body.data) rows.push(rowOf(row, session, window))
+    for (const raw of body.data) {
+      const row = rowOf(raw, session, window)
+      if (ids.has(row.id)) throw new Failure('the API answered with one observation twice, so its pages cannot be trusted')
+      ids.add(row.id)
+      rows.push(row)
+    }
     const next = body.meta.cursor
     if (next === undefined || next === null || next === '') return rows
     if (typeof next !== 'string') throw new Failure('the API answered with a `meta.cursor` that is not a string')
-    if (seen.has(next)) throw new Failure('the API answered with a cursor it had given before, so its pages would never end')
-    seen.add(next)
+    // A page that gives no row and a cursor would page for ever, and so would a cursor given twice,
+    // which gives its rows twice, so the check of `ids` above ends that one.
+    if (body.data.length === 0) throw new Failure('the API answered with an empty page that carries a cursor, so its pages would never end')
     cursor = next
   }
 }
@@ -387,7 +381,7 @@ export function figuresOf(rows, window, policy) {
   const tools = new Map()
   const tokens = { input: 0, cacheRead: 0, cacheWrite: 0, output: 0, unbucketed: 0 }
   const unbucketedKeys = new Set()
-  const errors = { generations: 0, tools: 0 }
+  const errors = { generations: 0, tools: 0, spans: 0 }
   let turns = 0
   let turnMs = 0
   let cost = null
@@ -397,9 +391,12 @@ export function figuresOf(rows, window, policy) {
     const end = Math.min(row.end, window.to)
     first = Math.min(first, row.start)
     last = Math.max(last, end)
-    if (row.type === 'SPAN' && row.name === policy.langfuseTurnName) {
-      turns++
-      turnMs += end - row.start
+    if (row.type === 'SPAN') {
+      if (row.name === policy.langfuseTurnName) {
+        turns++
+        turnMs += end - row.start
+      }
+      if (row.level === 'ERROR') errors.spans++
     }
     if (row.type === 'TOOL') {
       const bare = row.name?.startsWith(prefix) ? row.name.slice(prefix.length) : null
@@ -474,7 +471,7 @@ export function render(report) {
     out.push(`    found in ${r.foundIn.join(' and ')}: ${f.observations} observations, ${f.turns} turn(s), ${f.wallSeconds} s wall, ${f.turnSeconds} s in turns`)
     out.push(`    tool calls: ${tools.length ? tools.join(', ') : 'none'}`)
     out.push(`    tokens: input ${f.tokens.input}, cache read ${f.tokens.cacheRead}, cache write ${f.tokens.cacheWrite}, output ${f.tokens.output}${f.tokens.unbucketed ? `, unbucketed ${f.tokens.unbucketed} (${f.unbucketedKeys.join(', ')})` : ''}`)
-    out.push(`    cost: ${f.costUsd === null ? 'none given' : `$${f.costUsd}`}; errors: ${f.errors.generations} generation(s), ${f.errors.tools} tool call(s)`)
+    out.push(`    cost: ${f.costUsd === null ? 'none given' : `$${f.costUsd}`}; at level ERROR: ${f.errors.generations} generation(s), ${f.errors.tools} tool call(s), ${f.errors.spans} span(s)`)
   }
   return out.join('\n')
 }
@@ -488,17 +485,11 @@ export async function main(argv, deps = {}) {
   const root = overridden ? resolve(env[ROOT_ENV]) : REPO_ROOT
 
   let json = false
-  let now = null
+  let pendingFile = null
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--json') json = true
-    else if (argv[i] === '--now' && argv[i + 1] && !argv[i + 1].startsWith('--')) {
-      now = argv[++i]
-      const at = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(now) ? Date.parse(now) : Number.NaN
-      if (Number.isNaN(at) || isoSecond(at) !== now) {
-        err(`${NAME}: --now takes a UTC second in the run-id spelling, such as 2026-10-09T12:00:00Z.`)
-        return 2
-      }
-    } else {
+    else if (argv[i] === '--pending' && argv[i + 1] && !argv[i + 1].startsWith('--')) pendingFile = argv[++i]
+    else {
       err(`${NAME}: unknown or incomplete flag ${JSON.stringify(argv[i])}. See the header of scripts/prompt-run-figures.mjs.`)
       return 2
     }
@@ -521,14 +512,24 @@ export async function main(argv, deps = {}) {
     const named = Object.entries(policy.langfuseProjects)
       .sort(([a], [b]) => byCodePoint(a, b))
       .map(([name, row]) => `${row.publicKeyEnv} and ${row.secretKeyEnv} for \`${name}\``)
-    const skip = `no Langfuse project's keys are set (${named.join('; ')}), so no request was made and the tracker was not read. Set a project's two keys and run again; their absence is never a failure.`
+    const skip = `no Langfuse project's keys are set (${named.join('; ')}), so no request was made and nothing was read. Set a project's two keys and run again; their absence is never a failure.`
     out(json ? JSON.stringify({ skip }) : `${NAME}: ${skip}`)
     return 0
+  }
+  if (pendingFile === null) {
+    err(`${NAME}: --pending <file> is required beside a project's keys: the file \`node scripts/prompt-runs.mjs --only pending --json\` wrote, in a step that held no Langfuse key. See the header of scripts/prompt-run-figures.mjs.`)
+    return 2
   }
 
   let pending
   try {
-    pending = await pendingRuns(childEnv(env, policy, root, overridden), now)
+    let text
+    try {
+      text = readFileSync(resolve(pendingFile), 'utf8')
+    } catch (error) {
+      throw new Failure(`the pending file ${pendingFile} cannot be read (${error.code ?? error.message})`)
+    }
+    pending = pendingFrom(text)
   } catch (error) {
     if (!(error instanceof Failure)) throw error
     err(`${NAME} FAILED: ${error.message}`)
@@ -544,6 +545,19 @@ export async function main(argv, deps = {}) {
 
 /* ------------------------------------------------------------------------------ the selftest ----- */
 
+/** A child process, run without blocking the stub it talks to: its status and what it printed. */
+function spawned(command, args, env) {
+  return new Promise((done) => {
+    const child = spawn(command, args, { env, stdio: ['ignore', 'pipe', 'pipe'] })
+    let stdout = ''
+    let stderr = ''
+    child.stdout.on('data', (data) => (stdout += data))
+    child.stderr.on('data', (data) => (stderr += data))
+    child.on('error', (error) => done({ status: null, stdout, stderr: `${stderr}${error.message}` }))
+    child.on('close', (status) => done({ status, stdout, stderr }))
+  })
+}
+
 const CANARY = 'CANARY-7f3a'
 const KEYS_OF = {
   container: { publicKey: 'pk-lf-canary-container', secretKey: 'sk-lf-canary-container' },
@@ -554,7 +568,7 @@ const KEYS_OF = {
  * A stub of Langfuse's observations API on loopback, holding a project for each key pair of `held`,
  * each with its observations. It filters and pages as the API does, ignores `fields` as a server
  * might, so every row carries the text fields a careless reader would print, and records each
- * request. `state.mode` breaks one thing at a time.
+ * request with the host it was sent to. `state.mode` breaks one thing at a time.
  */
 function stubLangfuse(path, held) {
   const state = { mode: {}, requests: [], served429: 0 }
@@ -570,6 +584,11 @@ function stubLangfuse(path, held) {
     state.requests.push({ project: name, path: url.pathname, query: Object.fromEntries(url.searchParams) })
     const { mode } = state
     if (mode.hangFirst && state.requests.length === 1) return
+    if (mode.trickleFirst && state.requests.length === 1) {
+      response.writeHead(200, { 'content-type': 'application/json' })
+      response.write('{"data":[')
+      return
+    }
     if (url.pathname !== path || mode.notFound) return send(404, { message: `no such route ${CANARY}` })
     if (!name || (mode.refuse ?? []).includes(name)) return send(401, { message: `Invalid credentials ${CANARY}` })
     if (mode.rateLimited && (mode.rateLimited.times === 'always' || state.served429 < mode.rateLimited.times)) {
@@ -577,22 +596,25 @@ function stubLangfuse(path, held) {
       return send(429, { message: 'rate limited' }, { 'retry-after': String(mode.rateLimited.retryAfter) })
     }
     if (mode.malformed) return send(200, { items: [] })
+    if (mode.endlessEmpty) return send(200, { data: [], meta: { cursor: `c${state.requests.length}` } })
     const q = url.searchParams
     const from = Date.parse(q.get('fromStartTime'))
     const to = Date.parse(q.get('toStartTime'))
     const rows = held[name]
       .filter((r) => mode.ignoreSession || r.sessionId === q.get('sessionId'))
-      .filter((r) => mode.ignoreTime || (Date.parse(r.startTime) >= from && Date.parse(r.startTime) < to))
+      .filter((r) => mode.ignoreFrom || Date.parse(r.startTime) >= from)
+      .filter((r) => mode.ignoreTo || Date.parse(r.startTime) < to)
       .sort((a, b) => byCodePoint(b.startTime, a.startTime) || byCodePoint(a.id, b.id))
     const limit = Number(q.get('limit'))
     const offset = q.get('cursor') ? JSON.parse(Buffer.from(q.get('cursor'), 'base64').toString('utf8')).offset : 0
+    const step = mode.overlap ? limit - 1 : limit
     const data = rows.slice(offset, offset + limit)
     const more = offset + limit < rows.length
-    const cursor = mode.repeatCursor ? Buffer.from(JSON.stringify({ offset: 0 })).toString('base64') : Buffer.from(JSON.stringify({ offset: offset + limit })).toString('base64')
+    const cursor = mode.repeatCursor ? Buffer.from(JSON.stringify({ offset: 0 })).toString('base64') : Buffer.from(JSON.stringify({ offset: offset + step })).toString('base64')
     const meta = more || mode.repeatCursor ? { cursor } : mode.nullCursorEnd ? { cursor: null } : {}
     return send(200, { data, meta })
   })
-  return new Promise((done) => server.listen(0, '127.0.0.1', () => done({ server, state, url: `http://127.0.0.1:${server.address().port}` })))
+  return new Promise((done) => server.listen(0, '127.0.0.1', () => done({ server, state, url: `http://127.0.0.1:${server.address().port}`, port: server.address().port })))
 }
 
 async function selftest() {
@@ -671,10 +693,10 @@ async function selftest() {
     costUsd: 0.001,
     wallSeconds: 3600,
     turnSeconds: 1200,
-    errors: { generations: 1, tools: 1 },
+    errors: { generations: 1, tools: 1, spans: 1 },
     observations: 7,
   }
-  const EXPECTED_C = { turns: 1, toolCalls: {}, tokens: { input: 3, cacheRead: 0, cacheWrite: 0, output: 4, unbucketed: 0 }, unbucketedKeys: [], costUsd: 0.5, wallSeconds: 50, turnSeconds: 50, errors: { generations: 0, tools: 0 }, observations: 2 }
+  const EXPECTED_C = { turns: 1, toolCalls: {}, tokens: { input: 3, cacheRead: 0, cacheWrite: 0, output: 4, unbucketed: 0 }, unbucketedKeys: [], costUsd: 0.5, wallSeconds: 50, turnSeconds: 50, errors: { generations: 0, tools: 0, spans: 0 }, observations: 2 }
 
   /** An analysis's notes in D-44's form, with a session line where `session` is given. */
   const analysis = (runId, session) => [`${A} ${runId}`, '', HEADING, `${PROMPT} abc1234`, '2.1.295 (Claude Code)', ...(session ? [`${LABEL} ${session}`] : []), '', 'What made the run slower or wrong: nothing.'].join('\n')
@@ -700,8 +722,8 @@ async function selftest() {
   const envOf = (names) => Object.assign({}, ...names.map((n) => ({ [policy.langfuseProjects[n].publicKeyEnv]: KEYS_OF[n].publicKey, [policy.langfuseProjects[n].secretKeyEnv]: KEYS_OF[n].secretKey })))
   const BOTH = envOf(['container', 'host'])
   let index = 0
-  /** A fixture root: the live policy pointed at the stub with pages of two, doctored by `change`, and the export. */
-  const fixture = (change, issues = ISSUES) => {
+  /** A fixture root: the live policy pointed at the stub with pages of two, doctored by `change`. */
+  const fixture = (change) => {
     const root = join(base, `case-${++index}`)
     copyPolicy(REPO_ROOT, root)
     editPolicy(root, (p) => {
@@ -709,29 +731,38 @@ async function selftest() {
       p.langfusePageLimit = 2
       change?.(p)
     })
-    writeFileSync(join(root, 'export.jsonl'), issues.map((i) => JSON.stringify(i)).join('\n') + '\n')
     return root
-  }
-  /** The command run whole, as a child, over a fixture: its status, what it printed, the report it gave and the requests the stub saw. */
-  const figures = async ({ change, issues, keys = BOTH, mode = {}, argv = ['--json', '--now', NOW] } = {}) => {
-    const root = fixture(change, issues)
-    Object.assign(stub.state, { mode, requests: [], served429: 0 })
-    const r = await spawned(process.execPath, [SELF, ...argv], { ...envBase, ...keys, [ROOT_ENV]: root })
-    let report = null
-    try {
-      report = argv.includes('--json') ? JSON.parse(r.stdout) : null
-    } catch {}
-    const all = `${r.stdout}${r.stderr}`
-    const leaked = [CANARY, ...Object.values(KEYS_OF).flatMap((k) => [k.publicKey, k.secretKey])].filter((t) => all.includes(t))
-    return { ...r, report, requests: [...stub.state.requests], leaked }
-  }
-  const runOf = (report, issue) => report?.runs?.find((r) => r.issue === issue)
-  const failedBy = (r, issue, project, reason) => {
-    const entry = runOf(r.report, issue)
-    return r.status === 1 && entry?.trace === 'failed' && entry.figures === null && entry.failures.some((f) => f.project === project && reason.test(f.reason))
   }
 
   try {
+    /* The pending file, as the workflow's earlier step is to write it: `prompt-runs` itself, over the fixture export, with no Langfuse key. */
+    const runsRoot = join(base, 'tracker')
+    copyPolicy(REPO_ROOT, runsRoot)
+    writeFileSync(join(runsRoot, 'export.jsonl'), ISSUES.map((i) => JSON.stringify(i)).join('\n') + '\n')
+    const made = await spawned(process.execPath, [join(REPO_ROOT, 'scripts', 'prompt-runs.mjs'), '--only', 'pending', '--json', '--now', NOW], { ...envBase, [RUNS_ROOT_ENV]: runsRoot })
+    const PENDING = join(base, 'pending.json')
+    writeFileSync(PENDING, made.stdout)
+    if (made.status !== 0) throw new Error(`prompt-runs did not write the pending file: ${made.stderr}`)
+
+    /** The command run whole, as a child, over a fixture: its status, what it printed, the report it gave and the requests the stub saw. */
+    const figures = async ({ change, keys = BOTH, mode = {}, argv = ['--json', '--pending', PENDING] } = {}) => {
+      const root = fixture(change)
+      Object.assign(stub.state, { mode, requests: [], served429: 0 })
+      const r = await spawned(process.execPath, [SELF, ...argv], { ...envBase, ...keys, [ROOT_ENV]: root })
+      let report = null
+      try {
+        report = argv.includes('--json') ? JSON.parse(r.stdout) : null
+      } catch {}
+      const all = `${r.stdout}${r.stderr}`
+      const leaked = [CANARY, ...Object.values(KEYS_OF).flatMap((k) => [k.publicKey, k.secretKey])].filter((t) => all.includes(t))
+      return { ...r, report, requests: [...stub.state.requests], leaked }
+    }
+    const runOf = (report, issue) => report?.runs?.find((r) => r.issue === issue)
+    const failedBy = (r, issue, project, reason) => {
+      const entry = runOf(r.report, issue)
+      return r.status === 1 && entry?.trace === 'failed' && entry.figures === null && entry.failures.some((f) => f.project === project && reason.test(f.reason))
+    }
+
     /* The control: both projects, the session's earlier analysis opening one window, paging, and no text or key in the output. */
     const c = await figures()
     const b = runOf(c.report, 'example-b')
@@ -747,7 +778,11 @@ async function selftest() {
     )
     ok('two projects: a session the container holds is found there, with its figures', runOf(c.report, 'example-c')?.trace === 'found' && JSON.stringify(runOf(c.report, 'example-c').foundIn) === '["container"]' && JSON.stringify(runOf(c.report, 'example-c').figures) === JSON.stringify(EXPECTED_C), JSON.stringify(runOf(c.report, 'example-c')))
     ok('the run the host holds is found in the host alone', JSON.stringify(b.foundIn) === '["host"]', JSON.stringify(b.foundIn))
-    ok('an analysis with no session line asks nothing and says so', runOf(c.report, 'example-d')?.trace === 'no session line' && !c.requests.some((q) => q.query.sessionId === undefined), JSON.stringify(runOf(c.report, 'example-d')))
+    ok(
+      'an analysis with no session line asks nothing and says so: every request names one of the three sessions',
+      runOf(c.report, 'example-d')?.trace === 'no session line' && c.requests.every((q) => [S1, S2, S3].includes(q.query.sessionId)),
+      `${JSON.stringify(runOf(c.report, 'example-d'))} ${JSON.stringify([...new Set(c.requests.map((q) => q.query.sessionId))])}`,
+    )
     ok('a session no project holds is "none", with no figures', runOf(c.report, 'example-e')?.trace === 'none' && runOf(c.report, 'example-e').figures === null, JSON.stringify(runOf(c.report, 'example-e')))
     ok('the read analysis is not pending, and so not read', !runOf(c.report, 'example-a'), JSON.stringify(c.report.runs.map((r) => r.issue)))
     ok(
@@ -761,14 +796,18 @@ async function selftest() {
       pagesOfB.length === 4 && pagesOfB[0].query.cursor === undefined && pagesOfB.slice(1).every((q) => typeof q.query.cursor === 'string') && pagesOfB.every((q) => q.query.limit === '2'),
       JSON.stringify(pagesOfB.map((q) => q.query)),
     )
-    ok('each request is bounded by the run\'s window', pagesOfB.every((q) => q.query.fromStartTime === new Date(T0).toISOString() && q.query.toStartTime === new Date(T1).toISOString()), JSON.stringify(pagesOfB[0]?.query))
+    ok("each request is bounded by the run's window", pagesOfB.every((q) => q.query.fromStartTime === new Date(T0).toISOString() && q.query.toStartTime === new Date(T1).toISOString()), JSON.stringify(pagesOfB[0]?.query))
     ok('each project is asked with its own keys, and both are asked for every run with a session', ['container', 'host'].every((p) => [S1, S2, S3].every((sid) => c.requests.some((q) => q.project === p && q.query.sessionId === sid))), JSON.stringify(c.requests.map((q) => [q.project, q.query.sessionId])))
     ok('control: the projects are both "read"', JSON.stringify(c.report.projects) === JSON.stringify({ container: 'read', host: 'read' }), JSON.stringify(c.report.projects))
 
-    const text = await figures({ argv: ['--now', NOW] })
-    ok('the text report names each run, its window, its figures and "no session line" and "none"', text.status === 0 && text.leaked.length === 0 && /example-b@\S+ {2}example-b {2}1{8}-/.test(text.stdout) && /found in host: 7 observations, 2 turn\(s\), 3600 s wall, 1200 s in turns/.test(text.stdout) && /\n {4}no session line\n/.test(text.stdout) && /\n {4}none(\n|$)/.test(text.stdout), text.stdout)
+    const text = await figures({ argv: ['--pending', PENDING] })
+    ok(
+      'the text report names each run, its window, its figures and "no session line" and "none"',
+      text.status === 0 && text.leaked.length === 0 && /example-b@\S+ {2}example-b {2}1{8}-/.test(text.stdout) && /found in host: 7 observations, 2 turn\(s\), 3600 s wall, 1200 s in turns/.test(text.stdout) && /\n {4}no session line\n/.test(text.stdout) && /\n {4}none(\n|$)/.test(text.stdout),
+      text.stdout,
+    )
 
-    /* The keys. */
+    /* The keys, and the pending file. */
     for (const [what, keys] of [
       ['no key at all', {}],
       ['blank keys', Object.fromEntries(Object.keys(BOTH).map((k) => [k, '   ']))],
@@ -776,8 +815,8 @@ async function selftest() {
       const r = await figures({ keys })
       ok(`${what}: exit 0, says why, and asks nothing`, r.status === 0 && r.requests.length === 0 && /^\{"skip":"no Langfuse project's keys are set \(/.test(r.stdout) && r.stderr === '', `${r.status} ${r.stdout} ${r.stderr}`)
     }
-    const textSkip = await figures({ keys: {}, argv: ['--now', NOW] })
-    ok('no key at all, as text: one line naming each project\'s two variables', textSkip.status === 0 && new RegExp(`^${NAME}: no Langfuse project's keys are set \\(.*${policy.langfuseProjects.host.secretKeyEnv} for \`host\``).test(textSkip.stdout), textSkip.stdout)
+    const textSkip = await figures({ keys: {}, argv: [] })
+    ok("no key at all and no pending file, as text: exit 0, one line naming each project's two variables", textSkip.status === 0 && new RegExp(`^${NAME}: no Langfuse project's keys are set \\(.*${policy.langfuseProjects.host.secretKeyEnv} for \`host\``).test(textSkip.stdout), textSkip.stdout)
     const hostOnly = await figures({ keys: envOf(['host']) })
     ok(
       'one project configured: the other is "not configured" and asked nothing, and a session only it holds is "none"',
@@ -786,45 +825,14 @@ async function selftest() {
     )
     const half = await figures({ keys: { ...envOf(['container']), [policy.langfuseProjects.host.publicKeyEnv]: KEYS_OF.host.publicKey } })
     ok('a project with its public key set and not its secret: exit 1, naming the missing variable, and asks nothing', half.status === 1 && half.requests.length === 0 && new RegExp(`the project \`host\` has ${policy.langfuseProjects.host.publicKeyEnv} set and not ${policy.langfuseProjects.host.secretKeyEnv}`).test(half.stderr), half.stderr)
-
-    /* What the API answers. */
-    const refused = await figures({ mode: { refuse: ['container'] } })
-    ok('a 401 from one project: exit 1, each run with a session failed in that project by its reason, with no figures, and no text of the answer printed', failedBy(refused, 'example-b', 'container', /^the project's keys were refused \(401\)$/) && refused.leaked.length === 0, `${refused.status} ${JSON.stringify(runOf(refused.report, 'example-b'))}`)
-    const once = await figures({ mode: { rateLimited: { times: 1, retryAfter: 0 } } })
-    ok('a 429 with Retry-After 0, once: sent again, and the figures are the control\'s, exit 0', once.status === 0 && JSON.stringify(runOf(once.report, 'example-b')?.figures) === JSON.stringify(EXPECTED_B) && once.requests.length === c.requests.length + 1, `${once.status} ${once.requests.length} ${c.requests.length}`)
-    const always = await figures({ change: (p) => (p.langfuseRetryLimit = 1), mode: { rateLimited: { times: 'always', retryAfter: 0 } } })
-    ok('a 429 at every try: failed by its reason after `langfuseRetryLimit` retries', failedBy(always, 'example-b', 'container', /^rate limited \(429\) after `langfuseRetryLimit` \(1\) retries$/), JSON.stringify(runOf(always.report, 'example-b')))
-    const long = await figures({ mode: { rateLimited: { times: 1, retryAfter: policy.langfuseRetryMaxWaitSeconds + 1 } } })
-    ok('a 429 asking for longer than `langfuseRetryMaxWaitSeconds`: failed by its reason, without the wait', failedBy(long, 'example-b', 'container', /^rate limited \(429\) for \d+ seconds, past `langfuseRetryMaxWaitSeconds`/), JSON.stringify(runOf(long.report, 'example-b')))
-    const missing = await figures({ mode: { notFound: true } })
-    ok('a 404: failed by its reason, never read as no trace', failedBy(missing, 'example-e', 'host', /^the API answered 404: no observations API v2/), JSON.stringify(runOf(missing.report, 'example-e')))
-    const down = await figures({ change: (p) => (p.langfuseBaseUrl = closed) })
-    ok('nothing listening: failed by its reason', failedBy(down, 'example-b', 'host', /^the request did not complete: ECONNREFUSED$/), JSON.stringify(runOf(down.report, 'example-b')))
-    const slow = await figures({ change: (p) => (p.langfuseRequestTimeoutSeconds = 1), mode: { hangFirst: true } })
-    ok('a request that never answers: failed by its reason once `langfuseRequestTimeoutSeconds` pass, and the other runs are read', failedBy(slow, 'example-b', 'container', /^the request timed out, past `langfuseRequestTimeoutSeconds` \(1\)$/) && runOf(slow.report, 'example-c')?.trace === 'found', JSON.stringify(slow.report?.runs.map((r) => r.trace)))
-    const malformed = await figures({ mode: { malformed: true } })
-    ok('an answer without `data` and `meta`: failed by its reason', failedBy(malformed, 'example-b', 'container', /^the API answered without the `data` array and the `meta` object/), JSON.stringify(runOf(malformed.report, 'example-b')))
-    const foreign = await figures({ mode: { ignoreSession: true } })
-    ok("an answer holding another session's observation: failed by its reason, so an ignored filter is never counted as the run", failedBy(foreign, 'example-e', 'host', /^the API answered with an observation of another session/), JSON.stringify(runOf(foreign.report, 'example-e')))
-    const outside = await figures({ mode: { ignoreTime: true } })
-    ok('an answer holding an observation outside the window: failed by its reason', failedBy(outside, 'example-b', 'host', /^the API answered with an observation outside the window/), JSON.stringify(runOf(outside.report, 'example-b')))
-    const nullEnd = await figures({ mode: { nullCursorEnd: true } })
-    ok('a last page whose `meta.cursor` is null ends the pages as one with none does', nullEnd.status === 0 && JSON.stringify(runOf(nullEnd.report, 'example-b')?.figures) === JSON.stringify(EXPECTED_B), `${nullEnd.status} ${nullEnd.stderr}`)
-    const loop = await figures({ mode: { repeatCursor: true } })
-    ok('a cursor given twice: failed by its reason, rather than paging for ever', failedBy(loop, 'example-e', 'host', /^the API answered with a cursor it had given before/), JSON.stringify(runOf(loop.report, 'example-e')))
-
-    /* The tracker, through `prompt-runs`. */
-    const broken = await figures({ issues: [...ISSUES, { id: 'example-x', notes: `${A}: not a run id` }] })
-    ok("`prompt-runs` failing on a line: exit 1, with prompt-runs' own reason, and asks nothing", broken.status === 1 && broken.requests.length === 0 && /`prompt-runs --only pending --json` exited 1: .*example-x: the line/.test(broken.stderr), broken.stderr)
-    const env = childEnv({ PATH: '/bin', [policy.langfuseProjects.host.secretKeyEnv]: 's', LANGFUSE_BASE_URL: 'u', langfuse_other: 'o', [RUNS_ROOT_ENV]: '/elsewhere' }, policy, '/root', true)
-    ok("`prompt-runs` runs with no Langfuse variable in its environment, and under the override's root", JSON.stringify(env) === JSON.stringify({ PATH: '/bin', [RUNS_ROOT_ENV]: '/root' }), JSON.stringify(env))
-    const named = { ...policy, langfuseProjects: { host: { publicKeyEnv: 'HOST_TRACES_PUBLIC', secretKeyEnv: 'HOST_TRACES_SECRET', why: 'a project whose variables do not open with LANGFUSE_' } } }
-    const env_ = childEnv({ PATH: '/bin', HOST_TRACES_PUBLIC: 'p', HOST_TRACES_SECRET: 's' }, named, '/root', false)
-    ok("`prompt-runs` runs without each project's two variables, whatever their names", JSON.stringify(env_) === JSON.stringify({ PATH: '/bin' }), JSON.stringify(env_))
+    const noPending = await figures({ argv: ['--json'] })
+    ok("keys set and no pending file: exit 2, naming the flag, and asks nothing", noPending.status === 2 && noPending.requests.length === 0 && /--pending <file> is required beside a project's keys/.test(noPending.stderr), noPending.stderr)
+    const missing = await figures({ argv: ['--json', '--pending', join(base, 'no-such-file.json')] })
+    ok('a pending file that cannot be read: exit 1, by its reason, and asks nothing', missing.status === 1 && missing.requests.length === 0 && /the pending file \S+ cannot be read \(ENOENT\)/.test(missing.stderr), missing.stderr)
     const one = { run: run('example-b', T1), issue: 'example-b', session: S1, previous: run('example-a', T0) }
     const printed = (analyses) => JSON.stringify({ pending: { analyses } })
     ok('pending as `prompt-runs` prints it is read', pendingFrom(printed([one])).length === 1)
-    for (const [what, text] of [
+    for (const [what, body] of [
       ['a session id that is not one', printed([{ ...one, session: 'not-a-session' }])],
       ["a `previous` after the run's own time", printed([{ ...one, previous: run('example-z', T2) }])],
       ['a run id that is not one', printed([{ ...one, run: 'example-b' }])],
@@ -832,12 +840,48 @@ async function selftest() {
     ]) {
       let reason = null
       try {
-        pendingFrom(text)
+        pendingFrom(body)
       } catch (error) {
         reason = error instanceof Failure ? error.message : `threw ${error.message}`
       }
-      ok(`pending with ${what} is refused, by its reason`, /printed its pending analyses in another shape than this command reads/.test(reason ?? ''), String(reason))
+      ok(`pending with ${what} is refused, by its reason`, /holds its pending analyses in another shape than `prompt-runs --only pending --json` prints/.test(reason ?? ''), String(reason))
     }
+
+    /* What the API answers. */
+    const refused = await figures({ mode: { refuse: ['container'] } })
+    ok('a 401 from one project: exit 1, each run with a session failed in that project by its reason, with no figures, and no text of the answer printed', failedBy(refused, 'example-b', 'container', /^the project's keys were refused \(401\)$/) && refused.leaked.length === 0, `${refused.status} ${JSON.stringify(runOf(refused.report, 'example-b'))}`)
+    const once = await figures({ mode: { rateLimited: { times: 1, retryAfter: 0 } } })
+    ok("a 429 with Retry-After 0, once: sent again, and the figures are the control's, exit 0", once.status === 0 && JSON.stringify(runOf(once.report, 'example-b')?.figures) === JSON.stringify(EXPECTED_B) && once.requests.length === c.requests.length + 1, `${once.status} ${once.requests.length} ${c.requests.length}`)
+    const always = await figures({ change: (p) => (p.langfuseRetryLimit = 1), mode: { rateLimited: { times: 'always', retryAfter: 0 } } })
+    ok('a 429 at every try: failed by its reason after `langfuseRetryLimit` retries', failedBy(always, 'example-b', 'container', /^rate limited \(429\) after `langfuseRetryLimit` \(1\) retries$/), JSON.stringify(runOf(always.report, 'example-b')))
+    const long = await figures({ mode: { rateLimited: { times: 1, retryAfter: policy.langfuseRetryMaxWaitSeconds + 1 } } })
+    ok('a 429 asking for longer than `langfuseRetryMaxWaitSeconds`: failed by its reason, without the wait', failedBy(long, 'example-b', 'container', /^rate limited \(429\) for \d+ seconds, past `langfuseRetryMaxWaitSeconds`/), JSON.stringify(runOf(long.report, 'example-b')))
+    const blank = await figures({ mode: { rateLimited: { times: 1, retryAfter: ' ' } } })
+    ok('a 429 with a blank Retry-After: failed by its reason, not sent again at once', failedBy(blank, 'example-b', 'container', /^rate limited \(429\) with no Retry-After in whole seconds/) && blank.requests.filter((q) => q.project === 'container' && q.query.sessionId === S1).length === 1, JSON.stringify(runOf(blank.report, 'example-b')))
+    const notFound = await figures({ mode: { notFound: true } })
+    ok('a 404: failed by its reason, never read as no trace', failedBy(notFound, 'example-e', 'host', /^the API answered 404: no observations API v2/), JSON.stringify(runOf(notFound.report, 'example-e')))
+    const down = await figures({ change: (p) => (p.langfuseBaseUrl = closed) })
+    ok('nothing listening: failed by its reason', failedBy(down, 'example-b', 'host', /^the request did not complete: ECONNREFUSED$/), JSON.stringify(runOf(down.report, 'example-b')))
+    const slow = await figures({ change: (p) => (p.langfuseRequestTimeoutSeconds = 1), mode: { hangFirst: true } })
+    ok('a request that never answers: failed by its reason once `langfuseRequestTimeoutSeconds` pass, and the other runs are read', failedBy(slow, 'example-b', 'container', /^the request timed out, past `langfuseRequestTimeoutSeconds` \(1\)$/) && runOf(slow.report, 'example-c')?.trace === 'found', JSON.stringify(slow.report?.runs.map((r) => r.trace)))
+    const trickle = await figures({ change: (p) => (p.langfuseRequestTimeoutSeconds = 1), mode: { trickleFirst: true } })
+    ok('a body that stalls past `langfuseRequestTimeoutSeconds`: failed as timed out, not as a body that is not JSON', failedBy(trickle, 'example-b', 'container', /^the request timed out, past `langfuseRequestTimeoutSeconds` \(1\)$/), JSON.stringify(runOf(trickle.report, 'example-b')))
+    const malformed = await figures({ mode: { malformed: true } })
+    ok('an answer without `data` and `meta`: failed by its reason', failedBy(malformed, 'example-b', 'container', /^the API answered without the `data` array and the `meta` object/), JSON.stringify(runOf(malformed.report, 'example-b')))
+    const foreign = await figures({ mode: { ignoreSession: true } })
+    ok("an answer holding another session's observation: failed by its reason, so an ignored filter is never counted as the run", failedBy(foreign, 'example-e', 'host', /^the API answered with an observation of another session/), JSON.stringify(runOf(foreign.report, 'example-e')))
+    const before = await figures({ mode: { ignoreFrom: true } })
+    ok("an answer holding an observation from before the window, the session's earlier run: failed by its reason", failedBy(before, 'example-b', 'host', /^the API answered with an observation that starts before the window/), JSON.stringify(runOf(before.report, 'example-b')))
+    const after = await figures({ mode: { ignoreTo: true } })
+    ok('an answer holding an observation from after the analysis: failed by its reason', failedBy(after, 'example-b', 'host', /^the API answered with an observation that starts at or after the end of the window/), JSON.stringify(runOf(after.report, 'example-b')))
+    const nullEnd = await figures({ mode: { nullCursorEnd: true } })
+    ok('a last page whose `meta.cursor` is null ends the pages as one with none does', nullEnd.status === 0 && JSON.stringify(runOf(nullEnd.report, 'example-b')?.figures) === JSON.stringify(EXPECTED_B), `${nullEnd.status} ${nullEnd.stderr}`)
+    const loop = await figures({ mode: { repeatCursor: true } })
+    ok('a cursor given twice, which gives its page twice: failed by its reason, rather than paging for ever', failedBy(loop, 'example-b', 'host', /^the API answered with one observation twice/), JSON.stringify(runOf(loop.report, 'example-b')))
+    const endless = await figures({ mode: { endlessEmpty: true } })
+    ok('empty pages each with a fresh cursor: failed by its reason at the first, rather than paging for ever', failedBy(endless, 'example-e', 'host', /^the API answered with an empty page that carries a cursor/) && endless.requests.length <= 10, `${endless.requests.length} ${JSON.stringify(runOf(endless.report, 'example-e'))}`)
+    const overlap = await figures({ mode: { overlap: true } })
+    ok('pages that overlap by a row: failed by its reason, rather than counting the row twice', failedBy(overlap, 'example-b', 'host', /^the API answered with one observation twice/), JSON.stringify(runOf(overlap.report, 'example-b')))
 
     /* The policy. */
     const policyCase = async (what, change, reason) => {
@@ -849,13 +893,16 @@ async function selftest() {
     await policyCase('field groups without usage', (p) => (p.langfuseFieldGroups = ['core', 'basic']), /`langfuseFieldGroups` is .*, where it must be a list naming basic, core, usage/)
     await policyCase('a base URL over http to a host that is not loopback', (p) => (p.langfuseBaseUrl = 'http://cloud.langfuse.example'), /`langfuseBaseUrl` is .*, where it must be an https URL/)
     await policyCase('a base URL with a path', (p) => (p.langfuseBaseUrl = 'https://us.cloud.langfuse.com/api'), /`langfuseBaseUrl` is .*, where it must be a URL's origin alone/)
+    await policyCase('a path of //host, which resolves to another host', (p) => (p.langfuseObservationsPath = `//127.0.0.1:${stub.port + 1}/elsewhere`), /`langfuseObservationsPath` is .*, where it must be a path that opens with one \//)
+    await policyCase('a path of /\\host, which resolves to another host', (p) => (p.langfuseObservationsPath = '/\\evil.example/elsewhere'), /`langfuseObservationsPath` is .*, where it must be a path that opens with one \//)
     await policyCase('a usage key in two buckets', (p) => p.langfuseUsageBuckets.output.push(p.langfuseUsageBuckets.input[0]), /`langfuseUsageBuckets` is .*, where it must be a table whose buckets each list usage keys, and no key in two/)
     await policyCase('two projects naming one variable', (p) => (p.langfuseProjects.container.secretKeyEnv = p.langfuseProjects.host.secretKeyEnv), /`langfuseProjects` is .*, where it must be a table whose rows name each environment variable once/)
     const flag = await figures({ argv: ['--everything'] })
     ok('an unknown flag: exit 2, naming it', flag.status === 2 && /unknown or incomplete flag "--everything"/.test(flag.stderr), flag.stderr)
   } catch (error) {
-    ok(`the selftest ran to its end`, false, error.message)
+    ok('the selftest ran to its end', false, error.message)
   } finally {
+    stub.server.closeAllConnections?.()
     stub.server.close()
     rmSync(base, { recursive: true, force: true })
   }
