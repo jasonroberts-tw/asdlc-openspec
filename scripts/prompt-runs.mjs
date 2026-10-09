@@ -63,11 +63,12 @@
  *             which shrinks the sample unseen by a run that reads `--only pending`, and how many
  *             notes opened a run id already counted.
  *   pending   each analysis no read line names, with the issue whose notes hold it and its session
- *             id where its analysis gives one; and whether a
- *             review is due: when `promptReviewDueCount` analyses or more are pending, or the oldest,
- *             by the time in its run id, is older than `promptReviewDueAgeDays` days. Whether a
- *             review may start beside one under way is not read here: `close-prompt-run` § 2 checks
- *             that.
+ *             id where its analysis gives one, and, under `--json`, as `previous`, the run id of
+ *             that session's latest earlier analysis, read or not, which
+ *             `scripts/prompt-run-figures.mjs` opens the run's window at; and whether a review is
+ *             due: when `promptReviewDueCount` analyses or more are pending, or the oldest, by the
+ *             time in its run id, is older than `promptReviewDueAgeDays` days. Whether a review may
+ *             start beside one under way is not read here: `close-prompt-run` § 2 checks that.
  *   held      each key a held or closed line names, with its file, the highest count its held lines
  *             give, the runs they name and the reason of its held line of the highest count, on a tie
  *             the line of the latest run; and its state: `held`, `closed` with the closed line that
@@ -538,7 +539,10 @@ export function pendingOf(parsed, policy, now) {
     : byAge
       ? `the oldest, ${oldest.run}, is ${ageDays.toFixed(1)} days old, past \`promptReviewDueAgeDays\` (${policy.promptReviewDueAgeDays})`
       : `${pending.length} pending, under \`promptReviewDueCount\` (${policy.promptReviewDueCount}), and ${oldest ? `the oldest ${ageDays.toFixed(1)} days old` : 'none old'}, within \`promptReviewDueAgeDays\` (${policy.promptReviewDueAgeDays})`
-  return { due: byCount || byAge, why, analyses: pending.map((a) => ({ run: a.run, issue: a.issue, session: a.session })) }
+  /** The run id of the latest analysis before `a` that its session wrote, read or not, or null. */
+  const previousOf = (a) =>
+    a.session === null ? null : (parsed.analyses.filter((b) => b.session === a.session && b.at < a.at).sort((x, y) => y.at - x.at || byCodePoint(y.run, x.run))[0]?.run ?? null)
+  return { due: byCount || byAge, why, analyses: pending.map((a) => ({ run: a.run, issue: a.issue, session: a.session, previous: previousOf(a) })) }
 }
 
 /** The carried lines' pull request URLs, each once, in code-point order: the ones whose state the held section reads. */
@@ -1031,6 +1035,17 @@ function selftest() {
         const r_ = run(fixture(`a session line with ${name}`, withLine(line)))
         ok(`a session line with ${name}, not the one space the header gives: exit 1, by its reason`, r_.code === 1 && /example-0: the analysis \S+ has a line after its version line that opens with `[^`]+` and holds no session id/.test(r_.err), r_.err)
       }
+      /* One session's analyses: a pending one names the latest earlier one, read or not, which `scripts/prompt-run-figures.mjs` opens its window at. */
+      const shared = controlIssues()
+      for (const i of [0, 2, 4]) shared[i].notes = shared[i].notes.replace(VERSION_LINE, `${VERSION_LINE}\n${LABEL} ${SESSION}`)
+      const runOf_ = (i) => shared[i].notes.split('\n')[0].split(' ')[1]
+      const p = run(fixture('three analyses of one session', shared))
+      ok("a pending analysis names its session's latest earlier analysis, read or not, as `previous`", p.code === 0 && pendingOf_(p.report, 'example-0')?.previous === runOf_(2), JSON.stringify(pendingOf_(p.report, 'example-0')))
+      ok(
+        'an analysis with no session line, or whose session has no earlier analysis, names none',
+        p.code === 0 && pendingOf_(p.report, 'example-1')?.previous === null && pendingOf_(r.report, 'example-0')?.previous === null,
+        `${JSON.stringify(pendingOf_(p.report, 'example-1'))} ${JSON.stringify(pendingOf_(r.report, 'example-0'))}`,
+      )
     }
 
     /* A path with no row is listed, and is no load of any row. */

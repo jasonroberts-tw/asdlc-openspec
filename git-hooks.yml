@@ -371,6 +371,23 @@ pre-push:
         - 'package.json'
         - 'package-lock.json'
       run: mise run prompt-runs:selftest
+    # The prompt runs' Langfuse figures, `prompt-runs:figures`, held to a stub of Langfuse's API on
+    # loopback holding two projects, over a fixture export it reads through `prompt-runs`: no `bd`, no
+    # network, no key. The command itself reads the tracker, two projects' keys and Langfuse, and runs
+    # in no job. 4.88 s wall through `mise run` (the shell's `time`, one run) in the dev container,
+    # Linux 6.6 on aarch64 with Node 24.21.0, 2026-10-09, one second of it a case that waits out its
+    # timeout. The glob is the script, the `prompt-runs` it runs as a child, the policy and launcher
+    # helpers they import and the policy they read.
+    - name: prompt-runs-figures-selftest
+      glob:
+        - 'scripts/prompt-run-figures.mjs'
+        - 'scripts/prompt-runs.mjs'
+        - 'tools/lib/**'
+        - 'tools/policy/**'
+        - 'tasks.toml'
+        - 'package.json'
+        - 'package-lock.json'
+      run: mise run prompt-runs:figures:selftest
     # The dev container's GitHub App helper, `scripts/github-app-token.mjs`, over a stub of GitHub's
     # endpoint on loopback and a key it makes: no network, and no key of the App's. The helper itself
     # reads the App's private key and GitHub's API, and runs in no job. It runs real `git` and `sh`
