@@ -284,45 +284,65 @@ plugin() {
 # 6). The keys are `langfuse.json` in the directory devcontainer.json mounts the App's key from,
 # which the maintainer chose on 2026-10-09 over a mount of its own that a host without it could not
 # start: scripts/github-app-token.mjs reads only that directory's `.pem` file, so the two sit side by
-# side. With no such file this logs that tracing is off and returns, so a host that gives no keys
-# starts as before. Otherwise it registers Langfuse's marketplace and installs its plugin at user
-# scope, each only when ~/.claude lacks it, as plugin() does, and pipes the file's three keys, and
-# nothing else of it, to `claude plugin configure --values-stdin`, which keeps the secret in
-# ~/.claude/.credentials.json, mode 600, where no keychain is (asdlc-openspec-ic9h.1, plugin 1.2.1,
-# verified against the CLI, 2.1.295). It prints no value of the file. It runs after credentials(),
-# which makes ~/.claude writable. The keys stay configured in the volume when the file goes, until
-# `claude plugin configure` clears them. scripts/github-app-token.mjs's selftest runs it against a
-# stub `claude`.
+# side. With no such file, or one it cannot read, it disables the plugin when it is installed and
+# enabled, since its configured values stay in the volume and an enabled plugin would go on sending
+# every session's prompts, and says so; with none installed it only says tracing is off. So a host
+# that gives no keys starts as before. Otherwise it registers Langfuse's marketplace and installs
+# its plugin at user scope, each only when ~/.claude lacks it, as plugin() does, enables a disabled
+# one, and pipes the file's three keys, and nothing else of it, to
+# `claude plugin configure --values-stdin`, which keeps the secret in ~/.claude/.credentials.json,
+# mode 600, where no keychain is (asdlc-openspec-ic9h.1, plugin 1.2.1, verified against the CLI,
+# 2.1.295). `claude plugin disable` set the plugin's `enabled` to false (verified against the CLI,
+# 2.1.295); `enable` is the one its help pairs with it (not verified against the CLI). It prints no
+# value of the file. It runs after credentials(), which makes ~/.claude writable.
+# scripts/github-app-token.mjs's selftest runs it against a stub `claude`.
 tracing() {
   local id='langfuse-observability@langfuse-observability' market='langfuse-observability' source='langfuse/Claude-Observability-Plugin'
-  local keys="${GITHUB_APP_KEY_DIR:-}/langfuse.json" values markets installed
+  local keys="${GITHUB_APP_KEY_DIR:-}/langfuse.json" values markets installed enabled
+  installed="$(claude plugin list --json 2>/dev/null)"
+  enabled="$(printf '%s' "$installed" | jq -r --arg id "$id" 'first(.[] | select(.id == $id and .scope == "user") | .enabled | tostring) // "absent"' 2>/dev/null)"
   if [ -z "${GITHUB_APP_KEY_DIR:-}" ] || [ ! -f "$keys" ]; then
-    log 'Langfuse tracing is off: no langfuse.json beside the App key (.devcontainer/README.md says how to turn it on)'
+    tracing_off log 'no langfuse.json beside the App key (.devcontainer/README.md says how to turn it on)' "$enabled" "$id"
     return 0
   fi
   if ! values="$(jq -ce 'select(type == "object" and ([.LANGFUSE_PUBLIC_KEY, .LANGFUSE_SECRET_KEY, .LANGFUSE_BASE_URL] | all(type == "string" and . != ""))) | {LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL}' "$keys" 2>/dev/null)"; then
-    warn "Langfuse tracing is off: $keys is not an object whose LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY and LANGFUSE_BASE_URL are each a string -- .devcontainer/README.md gives its form"
+    tracing_off warn "$keys is not an object whose LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY and LANGFUSE_BASE_URL are each a non-empty string (.devcontainer/README.md gives its form)" "$enabled" "$id"
     return 0
   fi
   markets="$(claude plugin marketplace list --json 2>/dev/null)"
-  installed="$(claude plugin list --json 2>/dev/null)"
   if ! printf '%s' "$markets" | jq -e --arg m "$market" 'any(.[]; .name == $m)' >/dev/null 2>&1; then
     if ! claude plugin marketplace add "$source" >/dev/null 2>&1; then
-      warn "Langfuse tracing is off: could not add the $market plugin marketplace -- \`claude plugin marketplace add $source\`"
+      warn "could not add the $market plugin marketplace, so nothing was installed or configured at this start -- \`claude plugin marketplace add $source\`"
       return 0
     fi
   fi
-  if ! printf '%s' "$installed" | jq -e --arg id "$id" 'any(.[]; .id == $id and .scope == "user")' >/dev/null 2>&1; then
+  if [ "$enabled" = absent ]; then
     log "installing the $id plugin, at user scope"
     if ! claude plugin install "$id" --scope user >/dev/null 2>&1; then
       warn "Langfuse tracing is off: could not install the $id plugin -- \`claude plugin install $id --scope user\`"
       return 0
     fi
+  elif [ "$enabled" = false ] && ! claude plugin enable "$id" --scope user >/dev/null 2>&1; then
+    warn "Langfuse tracing is off: the $id plugin is disabled and could not be enabled -- \`claude plugin enable $id --scope user\`"
+    return 0
   fi
   if printf '%s' "$values" | claude plugin configure "$id" --values-stdin >/dev/null 2>&1; then
     log "Langfuse tracing is on, to the project whose keys $keys holds"
   else
-    warn "Langfuse tracing is off: could not configure the $id plugin from $keys -- run \`claude plugin configure $id\` to see why"
+    warn "could not configure the $id plugin from $keys, so it keeps whatever it held before -- run \`claude plugin configure $id\` to see why"
+  fi
+}
+
+# tracing_off <log or warn> <why> <whether the plugin is enabled: true, false or absent> <its id>:
+# disable the plugin when it is enabled, so that the line saying tracing is off is true, and say so.
+tracing_off() {
+  local say="$1" why="$2" enabled="$3" id="$4"
+  if [ "$enabled" != true ]; then
+    "$say" "Langfuse tracing is off: $why"
+  elif claude plugin disable "$id" --scope user >/dev/null 2>&1; then
+    "$say" "Langfuse tracing is off: $why; the $id plugin is disabled"
+  else
+    warn "Langfuse tracing may still be on: $why, and the $id plugin could not be disabled -- \`claude plugin disable $id --scope user\`"
   fi
 }
 
@@ -352,7 +372,8 @@ statusline() {
 }
 
 # Sourced with ENTRYPOINT_FUNCTIONS_ONLY=1, as scripts/github-app-token.mjs's selftest sources it to
-# run commit_identity and statusline, this file defines its functions and runs none of its steps.
+# run clone, commit_identity, tracing and statusline, this file defines its functions and runs none
+# of its steps.
 if [ "${ENTRYPOINT_FUNCTIONS_ONLY:-}" = 1 ]; then
   return 0
 fi

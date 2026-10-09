@@ -75,7 +75,7 @@ registers their marketplaces, and `entrypoint.sh` installs each plugin for the c
 | `Dockerfile` | Every tool, as a layer. The base image's major tag is at the top; every other version is in the root `mise.toml`, installed through `mise.lock` by the mise the Dockerfile copies in (`docs/decisions.md` § D-31), and graphify's dependencies through its uv lock under `.mise/locks/` (§ D-35). After a pin moves, rebuild. It also makes `git` and `gh` act as the App, through the two files below, keeps `git gc` from pruning the host's worktrees (§ The host's worktrees, seen from the container), and carries `tools/policy/tool-settings.json`, which names the repository the entrypoint clones. |
 | `Dockerfile.dockerignore` | What the build may read from the repository's root, its context: `mise.toml`, `mise.lock`, the uv locks under `.mise/locks/`, `entrypoint.sh`, the two wrappers and `tools/policy/tool-settings.json`, and nothing else. |
 | `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, and no workspace mount. It mounts the App's key read-only, a volume for Claude Code's state and one for the container's clone. Its variables name the clone, the key's directory and that volume to what runs inside, and pass your terminal's `COLORTERM` in (§ Color and the status line). |
-| `entrypoint.sh` | At the first start, the container's clone, made in its volume. Then the three setup steps that read the clone, which does not exist at build time, and the App's bot account as git's commit identity, when none is set. Where either is missing, each plugin's marketplace and its project-scope install for the clone; and the status line, when Claude Code's settings set none. It warns while a tool `mise.toml` pins is missing from the image, while Vale cannot load `.vale.ini`, and while the App cannot mint a token. |
+| `entrypoint.sh` | At the first start, the container's clone, made in its volume. Then the three setup steps that read the clone, which does not exist at build time, and the App's bot account as git's commit identity, when none is set. Where either is missing, each plugin's marketplace and its project-scope install for the clone; Langfuse's plugin at user scope, configured from a `langfuse.json` beside the App's key when the host gives one, and disabled when it does not; and the status line, when Claude Code's settings set none. It warns while a tool `mise.toml` pins is missing from the image, while Vale cannot load `.vale.ini`, and while the App cannot mint a token. |
 | `gh` | `gh` as the App: ahead of mise's on PATH, it runs it with a token `scripts/github-app-token.mjs` mints, read for each command. |
 | `git-credential-github-app` | git's one credential helper for `https://github.com`, which hands git's request to `scripts/github-app-token.mjs`. |
 | `statusline.sh` | Claude Code's status line in the container: the project, its branch, the model, the effort, the context left, the cost and the tokens. Run from the clone, so an edit needs no rebuild. |
@@ -250,7 +250,7 @@ the container that project's keys. To turn it on:
 
 1. Create a project for the container in Langfuse Cloud, US region, and an API key pair for it.
 2. Put `langfuse.json` in `~/.asdlc-agent-j/`, beside the App's key, of mode 600, holding the three
-   values Langfuse's plugin takes and nothing else:
+   values Langfuse's plugin takes, each a non-empty string, and nothing else:
 
    ```json
    {"LANGFUSE_PUBLIC_KEY": "pk-lf-...", "LANGFUSE_SECRET_KEY": "sk-lf-...", "LANGFUSE_BASE_URL": "https://us.cloud.langfuse.com"}
@@ -264,18 +264,23 @@ the container that project's keys. To turn it on:
    - it registers Langfuse's plugin marketplace, `langfuse/Claude-Observability-Plugin`, when the
      volume's `~/.claude` lacks it;
    - it installs `langfuse-observability@langfuse-observability` at user scope, when no record
-     names it;
+     names it, and enables it when it is installed and disabled;
    - it passes the file's three values, and nothing else of the file, to
      `claude plugin configure --values-stdin`.
 
-   It logs whether tracing is on, and prints none of the values. With no file, it logs that tracing
-   is off and starts as before.
+   It logs whether tracing is on, and prints none of the values.
+
+With no file, or one it cannot read, the step disables the plugin when it is installed and enabled,
+and logs that tracing is off. The configured values stay in the volume, so an enabled plugin would
+go on tracing every session with them. A host that never gave the file has no plugin installed, and
+starts as before.
 
 Where the values land, in a container with no keychain: `configure` writes the secret key to
 `~/.claude/.credentials.json`, mode 600, and the public key and the base URL to
 `~/.claude/settings.json` (plugin 1.2.1, verified against the CLI, 2.1.295, by the probes of
-`asdlc-openspec-ic9h.1`). They stay in the volume when you remove `langfuse.json`, until
-`claude plugin configure langfuse-observability@langfuse-observability` clears them. The plugin's
-hook needs `uv` or Python 3.10 or newer, which mise's shims give a session in the clone. Whether a
+`asdlc-openspec-ic9h.1`). They stay there when you remove `langfuse.json`, and the next start
+disables the plugin. `claude plugin disable` set its `enabled` to false (verified against the CLI,
+2.1.295), and whether a disabled plugin's hook stops sending is not verified against the CLI. The
+plugin's hook needs `uv` or Python 3.10 or newer, which mise's shims give a session in the clone. Whether a
 container's session reaches Langfuse is the check of `asdlc-openspec-ic9h.12`, a person's step: no
 container has been built with the file yet.
