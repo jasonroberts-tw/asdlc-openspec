@@ -21,10 +21,10 @@ Any other run writes one analysis, as a note on the issue or epic it worked
 (`bd note <id> --file <file>`). A run that worked several issues writes one, on the first one its
 pull request's title carries. It opens in the form the header of `scripts/prompt-runs.mjs` gives:
 the marker line, its time the second the note is written; each of this repository's prompts the run
-loaded, and no other, with its commit; the line of `claude --version`; and the line of the run's
-session id, from `CLAUDE_CODE_SESSION_ID`. Then comes the analysis:
-what made the run slower or wrong, and each user correction, quoted, since a paraphrase can explain
-it away, each point with the prompt it concerns. It ends with the counts, so the reviewer can tell
+loaded, and no other, with its commit; the line of `claude --version`; and, if
+`CLAUDE_CODE_SESSION_ID` is set, its session line (verified against the CLI, 2.1.295). Then comes
+the analysis: what made the run slower or wrong, and each user correction, quoted, since a
+paraphrase can explain it away, each point with the prompt it concerns. It ends with the counts, so the reviewer can tell
 a finding that recurs from one seen once:
 `bd count -t epic -l spec-change --by-label` (`specChangeLabel`), `bd count --by-label`, and
 `bd count -l <label> --by-label` for each `foundAtLabels` label the second lists

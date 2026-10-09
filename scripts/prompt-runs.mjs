@@ -25,7 +25,7 @@
  *                  counted once, and the first line of the report says how many were. Then one
  *                  line holds what `claude --version` printed, opening with the version, such as
  *                  `2.1.289 (Claude Code)`. The line straight after it may hold the run's session
- *                  id: `promptReviewSessionLabel`, a space, and the id as `CLAUDE_CODE_SESSION_ID`
+ *                  id: `promptReviewSessionLabel`, one space, and the id as `CLAUDE_CODE_SESSION_ID`
  *                  holds it, a UUID in lower case, which joins the run to its trace in Langfuse. A
  *                  line there that opens with the label and holds no such id fails the command; a
  *                  line that does not open with it leaves the analysis with no session id. An
@@ -348,8 +348,9 @@ function readAnalysisBody(lines, heading, label) {
   if (!version) return { problem: `lists ${loads.length} prompt(s), and the line after them, ${JSON.stringify(lines[i] ?? '')}, is neither "<path> <commit>" nor what \`claude --version\` prints` }
   const next = (lines[i + 1] ?? '').trim()
   if (!next.startsWith(label)) return { form: 'loaded', loads, version: version[1], session: null }
-  const session = next.slice(label.length).trim()
-  if (!SESSION_ID.test(session)) return { problem: `has a line after its version line that opens with \`${label}\` and holds no session id: ${JSON.stringify(next)}` }
+  const rest = next.slice(label.length)
+  const session = rest.slice(1)
+  if (rest[0] !== ' ' || !SESSION_ID.test(session)) return { problem: `has a line after its version line that opens with \`${label}\` and holds no session id: ${JSON.stringify(next)}` }
   return { form: 'loaded', loads, version: version[1], session }
 }
 
@@ -1005,11 +1006,12 @@ function selftest() {
       const SESSION = '27fcf121-400e-4a07-b4a5-72ccf8a993ca'
       const LABEL = live.promptReviewSessionLabel
       const VERSION_LINE = '2.1.289 (Claude Code)'
-      const withSession = (id) => {
+      const withLine = (line) => {
         const issues = controlIssues()
-        issues[0].notes = issues[0].notes.replace(VERSION_LINE, `${VERSION_LINE}\n${LABEL} ${id}`)
+        issues[0].notes = issues[0].notes.replace(VERSION_LINE, `${VERSION_LINE}\n${line}`)
         return issues
       }
+      const withSession = (id) => withLine(`${LABEL} ${id}`)
       const pendingOf_ = (report, issue) => report?.pending.analyses.find((a) => a.issue === issue)
       const r = run(fixture('a session line', withSession(SESSION)))
       ok('a session line after the version line is read, and pending carries its id', r.code === 0 && pendingOf_(r.report, 'example-0')?.session === SESSION, `${r.err} ${JSON.stringify(r.report?.pending)}`)
@@ -1022,6 +1024,13 @@ function selftest() {
         bad.code === 1 && /example-0: the analysis \S+ has a line after its version line that opens with `[^`]+` and holds no session id: "[^"]*not-a-session"/.test(bad.err),
         bad.err,
       )
+      for (const [name, line] of [
+        ['no space after the label', `${LABEL}${SESSION}`],
+        ['two spaces after the label', `${LABEL}  ${SESSION}`],
+      ]) {
+        const r_ = run(fixture(`a session line with ${name}`, withLine(line)))
+        ok(`a session line with ${name}, not the one space the header gives: exit 1, by its reason`, r_.code === 1 && /example-0: the analysis \S+ has a line after its version line that opens with `[^`]+` and holds no session id/.test(r_.err), r_.err)
+      }
     }
 
     /* A path with no row is listed, and is no load of any row. */
