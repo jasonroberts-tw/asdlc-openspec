@@ -9,8 +9,7 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 This skill is the one home of when a review starts and of a review's name. The form of each line a
 run or a review writes in the tracker, the analysis's among them, and what is pending, are the
-header of `scripts/prompt-runs.mjs`. The `promptReview*` keys below are
-`tools/policy/agent-workflows.json`'s.
+header of `scripts/prompt-runs.mjs`.
 
 ## 1. Write the analysis, or none
 
@@ -34,8 +33,7 @@ quotes no secret.
 ## 2. Check whether a review is due
 
 After the tracker push, run `mise run prompt-runs --only pending`. It prints whether a review is
-due, by `promptReviewDueCount` and `promptReviewDueAgeDays`, and fails on a line in the tracker that
-does not parse, naming it: report that line and stop, since no review starts until a person fixes
+due, and fails on a line in the tracker that does not parse, naming it: report that line and stop, since no review starts until a person fixes
 it.
 
 None starts while a pull request from a
