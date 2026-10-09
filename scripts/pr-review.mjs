@@ -41,9 +41,9 @@
  *                                       reviewer and the policy agree, the workflow runs no model and
  *                                       holds no grant but its two, no other workflow can forge an
  *                                       approval or `verify`, or read the agents' App key but where
- *                                       the policy lets one (`forgeProblems`), the floor holds the gates
- *                                       `prReviewFloorTasks` lists, and `verify.yml` runs each where
- *                                       nothing off the floor runs first (`verifyProblems`)
+ *                                       the policy lets one (`forgeProblems`), the floor holds the
+ *                                       gates `prReviewFloorTasks` lists, and `verify.yml` runs each
+ *                                       where nothing off the floor runs first (`verifyProblems`)
  *   mise run pr-review:selftest          every decision over fixtures, each asserting its reason,
  *                                       and the wiring gate over doctored copies
  *   PR_REVIEW_ROOT=<dir> mise run pr-review:check
@@ -128,11 +128,12 @@
  * a branch's own copy runs on, and a read of the key outside a job naming its environment
  * (`appKeyProblems`). It reads expressions and `if:`, where GitHub evaluates them; a secret is
  * reachable no other way, but this gate runs a branch's own copy of itself, so the environment's
- * deployment rule on GitHub is what holds a branch's dispatch away from the key. The derivation of a listed gate's files reads a task's command and the relative paths its
- * files write out, never one written with `${`, joined at run time or written without its extension,
- * so a gate weakened through a file it reaches only that way, through a file its tool reads by
- * convention that the floor does not name, or through a policy key it reads by a computed name,
- * merges as any gate off the list does. Until 2026-10-07 the floor held a gate's files and not its
+ * deployment rule on GitHub is what holds a branch's dispatch away from the key. The derivation of
+ * a listed gate's files reads a task's command and the relative paths its files write out, never
+ * one written with `${`, joined at run time or written without its extension, so a gate weakened
+ * through a file it reaches only that way, through a file its tool reads by convention that the
+ * floor does not name, or through a policy key it reads by a computed name, merges as any gate off
+ * the list does. Until 2026-10-07 the floor held a gate's files and not its
  * run: `verify` ran the pull request's own code, `npm ci`'s `prepare` among it, before the listed
  * gates in one job, where it could rewrite a gate's file or set the variables of its step
  * (asdlc-openspec-64wd). `verifyProblems` now holds them to jobs of their own, and three ways stay
@@ -1310,28 +1311,31 @@ function stringsIn(value) {
   return []
 }
 
-/**
- * Why the workflow at `path`, parsed as `doc`, could get a head merged itself, one message per way;
- * empty when it cannot. `policy` is the reviewer's, which gives `prReviewRequiredCheck` and the
- * `prReviewAppKey*` keys, and the first messages are `appKeyProblems`', why it could read the agents'
- * App key, whose token approves (`forgeProblems`, below). Since D-57 GitHub merges a head
- * once one approving review stands and that check passes, so a workflow whose token approves a pull
- * request, through a grant of `pull-requests: write` once the repository lets Actions approve, or
- * writes a commit status or a check run, through `statuses: write` or `checks: write`, or holds
- * `write-all`, to every job or to one, could approve its own pull request or pass the check on its
- * own head. A job named for the check, in any workflow but `verify.yml`, gives its check run that
- * name, which the ruleset may read as the check it requires. The repository's default token reads
- * only (`gh api repos/{owner}/{repo}/actions/permissions/workflow` gave `"read"` on 2026-10-05), so
- * a workflow that grants nothing does neither. `pr-review.yml` alone may write a pull request, and
- * only on `pull_request_target`, where the trunk's copy runs: on any other event a branch's own copy
- * runs with that grant, so it is refused here too, and `runCheck` holds the rest of its job. A name
- * an expression builds is not read. `scripts/hooks/guard-workflow-edit.mjs` runs this over an edit
- * before it lands.
- */
 /** The events a parsed workflow runs on, however its `on:` is spelt. */
 const eventsOf = (doc) => {
   const on = doc?.on ?? doc?.[true] ?? {}
   return typeof on === 'string' ? [on] : Array.isArray(on) ? on.map(String) : Object.keys(on)
+}
+
+/**
+ * The text of each `${{ }}` expression in `text`, ended as GitHub's expression syntax ends one: at
+ * the first `}}` outside a single-quoted string, where `''` is a quote inside one. An expression
+ * with no end runs to the end of the text. Ended at the first `}}` alone, as the rule first was,
+ * `${{ format('}}', '') || secrets.X }}` hid `secrets.X` from it; where GitHub reads that line
+ * otherwise, this reads more than GitHub does, and refuses what reads nothing, never the reverse.
+ */
+function expressionsIn(text) {
+  const found = []
+  for (let at = text.indexOf('${{'); at >= 0; ) {
+    let end = at + 3
+    for (let quoted = false; end < text.length; end++) {
+      if (text[end] === "'") quoted = !quoted
+      else if (!quoted && text.startsWith('}}', end)) break
+    }
+    found.push(text.slice(at + 3, end))
+    at = text.indexOf('${{', end + 2)
+  }
+  return found
 }
 
 /**
@@ -1343,7 +1347,7 @@ const eventsOf = (doc) => {
  */
 function secretReaches(value, secret, key = null) {
   if (typeof value === 'string') {
-    const expressions = key === 'if' ? [value] : [...value.matchAll(/\$\{\{([\s\S]*?)\}\}/g)].map((m) => m[1])
+    const expressions = key === 'if' ? [value] : expressionsIn(value)
     return expressions.filter((expression) =>
       [...expression.matchAll(/\bsecrets\b/gi)].some((m) => {
         const named = /^\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)/.exec(expression.slice(m.index + m[0].length))
@@ -1362,10 +1366,11 @@ function secretReaches(value, secret, key = null) {
  * Why the workflow at `path`, parsed as `doc`, could read the agents' App key where the policy does
  * not let it, one message per way; empty when it cannot. A token minted from the key carries the
  * App's Pull requests write, so whatever reads it can approve a pull request the App did not open, a
- * floor head among them (the first loss of docs/decisions.md § D-57). Only `prReviewAppKeyWorkflow` may
- * read it, on the events `APP_KEY_EVENTS` names, in a job that names `prReviewAppKeyEnvironment`,
- * the environment that holds the secret and deploys from `main` alone; a read of it outside a job
- * would reach every job, the environment or not (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
+ * floor head among them (the first loss of docs/decisions.md § D-57). Only
+ * `prReviewAppKeyWorkflow` may read it, on the events `APP_KEY_EVENTS` names, in a job that names
+ * `prReviewAppKeyEnvironment`, the environment that holds the secret and deploys from `main` alone;
+ * a read of it outside a job would reach every job, the environment or not
+ * (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
  */
 function appKeyProblems(path, doc, policy) {
   const { prReviewAppKeySecret: secret, prReviewAppKeyWorkflow: allowed, prReviewAppKeyEnvironment: environment } = policy
@@ -1393,6 +1398,24 @@ function appKeyProblems(path, doc, policy) {
   return problems
 }
 
+/**
+ * Why the workflow at `path`, parsed as `doc`, could get a head merged itself, one message per way;
+ * empty when it cannot. `policy` is the reviewer's, which gives `prReviewRequiredCheck` and the
+ * `prReviewAppKey*` keys; among the messages are `appKeyProblems`', why it could read the agents'
+ * App key, whose token approves. Since D-57 GitHub merges a head once one approving review stands
+ * and that check passes, so a workflow whose token approves a pull request, through a grant of
+ * `pull-requests: write` once the repository lets Actions approve, or writes a commit status or a
+ * check run, through `statuses: write` or `checks: write`, or holds `write-all`, to every job or to
+ * one, could approve its own pull request or pass the check on its own head. A job named for the
+ * check, in any workflow but `verify.yml`, gives its check run that name, which the ruleset may read
+ * as the check it requires. The repository's default token reads only
+ * (`gh api repos/{owner}/{repo}/actions/permissions/workflow` gave `"read"` on 2026-10-05), so a
+ * workflow that grants nothing does neither. `pr-review.yml` alone may write a pull request, and
+ * only on `pull_request_target`, where the trunk's copy runs: on any other event a branch's own copy
+ * runs with that grant, so it is refused here too, and `runCheck` holds the rest of its job. A name
+ * an expression builds is not read. `scripts/hooks/guard-workflow-edit.mjs` runs this over an edit
+ * before it lands.
+ */
 export function forgeProblems(path, doc, policy) {
   const requiredCheck = policy.prReviewRequiredCheck
   const keyProblems = appKeyProblems(path, doc, policy)
@@ -2170,12 +2193,14 @@ function helperCases(policy) {
       const reviewByName = keyFlow({ on: ['schedule', 'workflow_dispatch'] }, { environment: { name: APP_ENV }, steps: [{ run: 'echo hi', env: { KEY: `\${{ secrets.${APP_KEY} }}` } }] })
       return assertEqual([keyed(other, `${WORKFLOWS}/other.yml`), keyed(review, APP_WORKFLOW), keyed(reviewByName, APP_WORKFLOW)], [[], [], []], 'problems')
     }),
-    h("app key: another workflow that could read the App's key, by its name in any case, by index, through toJSON, in an if, or through secrets: inherit, is refused by its reason", () => {
+    h("app key: another workflow that could read the App's key, by its name in any case, by index, through toJSON, as the bare context, past a quoted }}, in an if, or through secrets: inherit, is refused by its reason", () => {
       const spellings = [
         { steps: [{ run: 'echo hi', env: { KEY: `\${{ secrets.${APP_KEY} }}` } }] },
         { steps: [{ run: 'echo hi', env: { KEY: `\${{ secrets.${APP_KEY.toLowerCase()} }}` } }] },
         { steps: [{ run: 'echo hi', env: { KEY: `\${{ secrets['${APP_KEY}'] }}` } }] },
         { steps: [{ run: 'echo hi', env: { ALL: '${{ toJSON(secrets) }}' } }] },
+        { steps: [{ run: 'echo hi', env: { ALL: '${{ secrets }}' } }] },
+        { steps: [{ run: 'echo hi', env: { KEY: `\${{ format('}}', '') || secrets.${APP_KEY} }}` } }] },
         { if: `secrets.${APP_KEY} != 0` },
         { uses: './.github/workflows/other.yml', secrets: 'inherit', steps: undefined },
       ]
@@ -2218,6 +2243,7 @@ function wiringCases() {
   }
   const editPolicy = (change) => (dir) => editRecords(dir, change)
   const comment = (text) => edit(WORKFLOW, /^name: pr-review$/m, `${text}\nname: pr-review`)
+  const APP_KEY = livePolicy().prReviewAppKeySecret
   return [
     { name: 'control: the undoctored copy passes', doctor: () => {}, expect: 'pass' },
     { name: 'a prReview key goes missing', doctor: editPolicy((p) => delete p.prReviewMergeMethod), expect: /`prReviewMergeMethod` is missing/ },
@@ -2400,8 +2426,8 @@ function wiringCases() {
     },
     {
       name: "a new workflow that reads the agents' App key",
-      doctor: (dir) => writeFileSync(join(dir, WORKFLOWS, 'forge.yml'), 'name: forge\non: workflow_dispatch\npermissions:\n  contents: read\njobs:\n  x:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n        env:\n          KEY: ${{ secrets.AGENT_APP_PRIVATE_KEY }}\n'),
-      expect: /forge\.yml names the `secrets` context in a form that could read `AGENT_APP_PRIVATE_KEY`/,
+      doctor: (dir) => writeFileSync(join(dir, WORKFLOWS, 'forge.yml'), `name: forge\non: workflow_dispatch\npermissions:\n  contents: read\njobs:\n  x:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n        env:\n          KEY: \${{ secrets.${APP_KEY} }}\n`),
+      expect: new RegExp(`forge\\.yml names the \`secrets\` context in a form that could read \`${APP_KEY}\``),
     },
     { name: "the App key's secret goes missing from the policy", doctor: editPolicy((p) => { delete p.prReviewAppKeySecret; delete p.prReviewAppKeySecretMeans }), expect: /`prReviewAppKeySecret` is missing/ },
     { name: 'a new workflow that does not parse', doctor: (dir) => writeFileSync(join(dir, WORKFLOWS, 'broken.yml'), 'jobs: [unclosed\n'), expect: /^a workflow does not parse as YAML/ },
