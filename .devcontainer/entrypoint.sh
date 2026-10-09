@@ -26,6 +26,10 @@
 # container's own ~/.claude, a volume, and a project-scope install record names the clone's path,
 # which the image never sees.
 #
+# ...and Langfuse's Claude Code plugin, installed at user scope and configured from a langfuse.json
+# beside the App's key when the host gives one, for the same reasons: its keys come from the host,
+# and its record and its values live in that volume.
+#
 # ...and Claude Code's status line, .devcontainer/statusline.sh, set in the settings in that volume
 # when they set none, for the first reason: a volume made before the image changed keeps what it held.
 #
@@ -252,11 +256,13 @@ plugins() {
 # plugin <marketplace> <its source> <plugin id>: register the marketplace when ~/.claude lacks it,
 # then install the plugin at project scope when no record names this clone.
 #
-# The `--json` fields read below, a marketplace's `.name` and an installed plugin's `.id`, `.scope`
-# and `.projectPath`, are NOT VERIFIED against a real `claude` either, for the same reason, and only
-# `projectPath` has a source, Claude Code's plugin commands reference (§ plugin list), which
-# asdlc-openspec-xw8z cites. A field misnamed reads as absent, so each start would add the
-# marketplace again or reinstall the plugin and log it, which xw8z's second start would show.
+# Of the `--json` fields read below, a marketplace's `.name` and an installed plugin's `.id` and
+# `.scope` were read from a real `claude`, for a user-scope install of Langfuse's plugin under a
+# throwaway CLAUDE_CONFIG_DIR (verified against the CLI, 2.1.295, asdlc-openspec-ic9h.8). A
+# project-scope record's `.projectPath` is NOT VERIFIED against one: its one source is Claude Code's
+# plugin commands reference (§ plugin list), which asdlc-openspec-xw8z cites. A field misnamed reads
+# as absent, so each start would add the marketplace again or reinstall the plugin and log it, which
+# xw8z's second start would show.
 plugin() {
   local market="$1" source="$2" id="$3"
   if ! printf '%s' "$markets" | jq -e --arg m "$market" 'any(.[]; .name == $m)' >/dev/null 2>&1; then
@@ -270,6 +276,53 @@ plugin() {
     log "installing the $id plugin for this clone"
     claude plugin install "$id" --scope project >/dev/null 2>&1 \
       || warn "could not install the $id plugin -- run \`claude plugin install $id --scope project\` in $PWD"
+  fi
+}
+
+# Langfuse tracing of the container's sessions, to a Langfuse project of the container's own, whose
+# keys read none of the maintainer's traces (docs/decisions/asdlc-openspec-ic9h.md § Decision, item
+# 6). The keys are `langfuse.json` in the directory devcontainer.json mounts the App's key from,
+# which the maintainer chose on 2026-10-09 over a mount of its own that a host without it could not
+# start: scripts/github-app-token.mjs reads only that directory's `.pem` file, so the two sit side by
+# side. With no such file this logs that tracing is off and returns, so a host that gives no keys
+# starts as before. Otherwise it registers Langfuse's marketplace and installs its plugin at user
+# scope, each only when ~/.claude lacks it, as plugin() does, and pipes the file's three keys, and
+# nothing else of it, to `claude plugin configure --values-stdin`, which keeps the secret in
+# ~/.claude/.credentials.json, mode 600, where no keychain is (asdlc-openspec-ic9h.1, plugin 1.2.1,
+# verified against the CLI, 2.1.295). It prints no value of the file. It runs after credentials(),
+# which makes ~/.claude writable. The keys stay configured in the volume when the file goes, until
+# `claude plugin configure` clears them. scripts/github-app-token.mjs's selftest runs it against a
+# stub `claude`.
+tracing() {
+  local id='langfuse-observability@langfuse-observability' market='langfuse-observability' source='langfuse/Claude-Observability-Plugin'
+  local keys="${GITHUB_APP_KEY_DIR:-}/langfuse.json" values markets installed
+  if [ -z "${GITHUB_APP_KEY_DIR:-}" ] || [ ! -f "$keys" ]; then
+    log 'Langfuse tracing is off: no langfuse.json beside the App key (.devcontainer/README.md says how to turn it on)'
+    return 0
+  fi
+  if ! values="$(jq -ce 'select(type == "object" and ([.LANGFUSE_PUBLIC_KEY, .LANGFUSE_SECRET_KEY, .LANGFUSE_BASE_URL] | all(type == "string" and . != ""))) | {LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_BASE_URL}' "$keys" 2>/dev/null)"; then
+    warn "Langfuse tracing is off: $keys is not an object whose LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY and LANGFUSE_BASE_URL are each a string -- .devcontainer/README.md gives its form"
+    return 0
+  fi
+  markets="$(claude plugin marketplace list --json 2>/dev/null)"
+  installed="$(claude plugin list --json 2>/dev/null)"
+  if ! printf '%s' "$markets" | jq -e --arg m "$market" 'any(.[]; .name == $m)' >/dev/null 2>&1; then
+    if ! claude plugin marketplace add "$source" >/dev/null 2>&1; then
+      warn "Langfuse tracing is off: could not add the $market plugin marketplace -- \`claude plugin marketplace add $source\`"
+      return 0
+    fi
+  fi
+  if ! printf '%s' "$installed" | jq -e --arg id "$id" 'any(.[]; .id == $id and .scope == "user")' >/dev/null 2>&1; then
+    log "installing the $id plugin, at user scope"
+    if ! claude plugin install "$id" --scope user >/dev/null 2>&1; then
+      warn "Langfuse tracing is off: could not install the $id plugin -- \`claude plugin install $id --scope user\`"
+      return 0
+    fi
+  fi
+  if printf '%s' "$values" | claude plugin configure "$id" --values-stdin >/dev/null 2>&1; then
+    log "Langfuse tracing is on, to the project whose keys $keys holds"
+  else
+    warn "Langfuse tracing is off: could not configure the $id plugin from $keys -- run \`claude plugin configure $id\` to see why"
   fi
 }
 
@@ -307,6 +360,7 @@ fi
 setup || true
 credentials || true
 plugins || true
+tracing || true
 statusline || true
 
 # Last, so that anything above it reads as a warning about a container that is otherwise ready.

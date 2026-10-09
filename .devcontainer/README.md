@@ -141,12 +141,14 @@ What the container keeps of its own:
 
 ## Giving it the App's key
 
-The App's private key is the one credential the container holds. On the host:
+The App's private key is the one credential of GitHub's the container holds. The only other one is
+optional: the keys of a Langfuse project of the container's own (§ Langfuse tracing). On the host:
 
 1. Generate a private key on the App's settings page on GitHub. Its id and installation are
    `githubAppId` and `githubAppInstallationId` in `tools/policy/tool-settings.json`.
 2. Keep it in a directory of its own, `~/.asdlc-agent-j/`, of mode 700, holding that one `.pem`
-   file, of mode 600, outside `~/.config/gh`, `~/.claude` and the clone.
+   file, of mode 600, and nothing else but the optional `langfuse.json`, outside `~/.config/gh`,
+   `~/.claude` and the clone.
 3. Start the container. `devcontainer.json` mounts the directory read-only at
    `/home/vscode/.github-app`. `scripts/github-app-token.mjs` refuses a directory holding no `.pem`,
    or more than one, by its reason, and `entrypoint.sh` warns at start when no token mints.
@@ -238,3 +240,42 @@ built from this directory, with Claude Code 2.1.291, logged both installs at its
 both plugins enabled at project scope, and logged no install at its second (`asdlc-openspec-owva.4`).
 A container that cloned into its volume logged both installs at its first start too
 (`asdlc-openspec-vvns`).
+
+## Langfuse tracing
+
+Sessions in the container are traced to a Langfuse project of the container's own, never to the
+project your host's sessions trace to, so no container session holds a key that reads your own
+traces (`docs/decisions/asdlc-openspec-ic9h.md` § Decision, item 6). Tracing is off until you give
+the container that project's keys. To turn it on:
+
+1. Create a project for the container in Langfuse Cloud, US region, and an API key pair for it.
+2. Put `langfuse.json` in `~/.asdlc-agent-j/`, beside the App's key, of mode 600, holding the three
+   values Langfuse's plugin takes and nothing else:
+
+   ```json
+   {"LANGFUSE_PUBLIC_KEY": "pk-lf-...", "LANGFUSE_SECRET_KEY": "sk-lf-...", "LANGFUSE_BASE_URL": "https://us.cloud.langfuse.com"}
+   ```
+
+   `scripts/github-app-token.mjs` reads only the directory's `.pem` file, so the two sit side by side.
+   The maintainer chose that on 2026-10-09 over a directory of its own. Docker refuses to start a
+   container whose bind mount has no source, so a second mount would have stopped every host that
+   lacked it.
+3. Start the container. At each start, `entrypoint.sh`'s `tracing` step does three things:
+   - it registers Langfuse's plugin marketplace, `langfuse/Claude-Observability-Plugin`, when the
+     volume's `~/.claude` lacks it;
+   - it installs `langfuse-observability@langfuse-observability` at user scope, when no record
+     names it;
+   - it passes the file's three values, and nothing else of the file, to
+     `claude plugin configure --values-stdin`.
+
+   It logs whether tracing is on, and prints none of the values. With no file, it logs that tracing
+   is off and starts as before.
+
+Where the values land, in a container with no keychain: `configure` writes the secret key to
+`~/.claude/.credentials.json`, mode 600, and the public key and the base URL to
+`~/.claude/settings.json` (plugin 1.2.1, verified against the CLI, 2.1.295, by the probes of
+`asdlc-openspec-ic9h.1`). They stay in the volume when you remove `langfuse.json`, until
+`claude plugin configure langfuse-observability@langfuse-observability` clears them. The plugin's
+hook needs `uv` or Python 3.10 or newer, which mise's shims give a session in the clone. Whether a
+container's session reaches Langfuse is the check of `asdlc-openspec-ic9h.12`, a person's step: no
+container has been built with the file yet.
