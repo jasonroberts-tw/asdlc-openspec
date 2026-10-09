@@ -34,8 +34,8 @@ quotes no secret.
 ## 2. Check whether a review is due
 
 After the tracker push, run `mise run prompt-runs --only pending`. It prints whether a review is
-due, and fails on a line in the tracker that does not parse, naming it: report that line and stop, since no review starts until a person fixes
-it.
+due, and fails on a line that does not parse, naming it: report that line and stop, since no review
+starts until a person fixes it.
 
 None starts while a pull request from a
 branch `agent/review-prompts-*` is open (`gh pr list --state open --json headRefName`), or while
