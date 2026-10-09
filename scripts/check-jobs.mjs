@@ -238,6 +238,7 @@ const UNJOBBED_BY_KIND = [
       'hooks:install',
       'prompt-review:match',
       'prompt-runs',
+      'prompt-runs:figures',
       'prompts:incidents',
       'trace',
       'trace:clauses',

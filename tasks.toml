@@ -472,6 +472,24 @@ not parse fails it, naming its issue. It reads the tracker. Without it each read
 in prose its own way, and a prompt no run uses is never noticed.'''
 run = "node scripts/prompt-runs.mjs"
 
+["prompt-runs:figures"]
+description = '''
+An operator command, never a gate: prints, for each analysis `prompt-runs` lists as pending, what its
+session did up to the analysis, as figures read from Langfuse and never as content, for the prompt
+review to read beside the analysis (`docs/decisions/asdlc-openspec-ic9h.md` § Decision, item 5). It
+reads the tracker through `prompt-runs`, and the keys of each project `langfuseProjects` names and
+Langfuse's API over the network; with no project's keys set it says so and reads nothing. Without it
+the review reads only what each run wrote of itself.'''
+run = "node scripts/prompt-run-figures.mjs"
+
+["prompt-runs:figures:selftest"]
+description = '''
+Holds `prompt-runs:figures` over a stub of Langfuse's API on loopback holding two projects, and a
+fixture export: its figures, its paging, its windows, its skip with no key, each failure of a read by
+its reason beside a control, and an output that never carries an observation's text or a key. Needs
+no network, no key and no `bd`.'''
+run = "node scripts/prompt-run-figures.mjs --selftest"
+
 ["prompt-runs:selftest"]
 description = '''
 The prompt runs' parser and report, negative-tested over fixture exports and the live policy: the
