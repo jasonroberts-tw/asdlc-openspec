@@ -392,6 +392,8 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 
 > **Amended 2026-10-04 by D-37.** Item 2's last clause no longer holds: a review's pull request is decided by the high-risk floor like any other, so one off the floor merges without a person. One that changes a word budget, as a consolidation does, is on the floor and still waits for one.
 
+> **Amended 2026-10-09 by asdlc-openspec-ic9h.** Item 1, as D-08 amended it, no longer holds. No run launches a reviewer. `.github/workflows/prompt-review.yml` runs it in GitHub Actions over every pending analysis, on a nightly schedule and on a person's dispatch, so agent view shows no row for it, and the run's log is where it is watched (`docs/decisions/asdlc-openspec-ic9h.md` § Decision). Items 2, 4 and 5 stand, and item 3 as D-08 amended it.
+
 ### D-06 · The learning loop is retired; a run's labels in the tracker show what recurs
 
 **Recorded 2026-09-24**, carried by `asdlc-openspec-6dn`. The maintainer chose each part below on 2026-09-24, first from the recommendation that answered whether `asdlc-openspec-ri0` had happened for `add-calculator-web-app`, then from a second opinion on that recommendation.
@@ -532,6 +534,8 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 
 > **Amended 2026-10-05 by D-47.** Items 1, 5 and 8 no longer hold. Item 1: there is no queue. The reviewer sets one status per pushed head and merges nothing, and GitHub merges; the maintainer's ask that it handle one pull request at a time now holds for the merges, which GitHub makes one at a time, and for no review, since a review merges nothing. Item 5: an outcome is the `pr-review` status alone, success off the floor, failure on it and error when the floor cannot be computed, with no comment and no label, and nothing dispatches `verify.yml`, since auto-merge's merge starts its push run. Item 8: the approval label is gone, and an agent never merges past the checks the trunk's ruleset requires. Of the Why, the loss of GitHub's own approval as the person's gate stands, as the reason the ruleset requires no approval, and the loss of GitHub's default concurrency queue is moot.
 
+> **Amended 2026-10-09 by asdlc-openspec-ic9h.** Item 6, as D-37 amended it, no longer holds for every job. The job of `.github/workflows/prompt-review.yml` authenticates to Anthropic by workload identity federation, its rule's subject bound to an environment that only `main` deploys to, and it reads that environment's secrets. `pr-review.yml` still runs no model and reads no secret. The loss of a stored API key stands, since none is stored (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
+
 ### D-08 · A run leaves its analysis in the tracker, and one review reads every pending analysis as a batch
 
 **Recorded 2026-09-26**, carried by `asdlc-openspec-lzr`. The maintainer chose the note, the two thresholds, the one review over every analysis and the workflow script, items 1 to 4, on 2026-09-25, when the issue was filed. On 2026-09-26, when it was worked, they chose what checks the thresholds, the script's name, and items 5 to 8, each from a recommendation put with the case where it loses.
@@ -583,6 +587,8 @@ Two checks this decision rested on were run first, on 2026-09-26. A workflow age
 > **Amended 2026-10-04 by D-37.** It built on D-07 leaving a review's pull request, citing no issue, to a person; that pull request is now decided by the high-risk floor like any other. Its items stand.
 
 > **Amended 2026-10-05 by D-44.** Item 1's lines after the marker no longer name every prompt the run loaded. Under `promptReviewLoadedHeading`, each of this repository's prompts the run loaded takes a line of its own with its commit, a user-level or a plugin's skill is left out, and one line of `claude --version` follows.
+
+> **Amended 2026-10-09 by asdlc-openspec-ic9h.** Item 2 no longer holds: a scheduler does. `.github/workflows/prompt-review.yml` starts a review each night and on a person's dispatch, over whatever is pending, and `promptReviewDueCount` and `promptReviewDueAgeDays` retire. The scheduler, an alternative that lost, wins in its GitHub Actions form. Its reason for losing, that an Actions job would both run the model and write, is a loss the record accepts. Item 5's check of `claude agents --json`, which cannot see a run in Actions, gives way to the workflow's concurrency group, and its check for an open pull request stands (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
 
 ### D-09 · An in-session guard refuses a gh command that applies the approval label, from any checkout
 
@@ -963,6 +969,8 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 > **Amended 2026-10-03 by D-32.** Item 4 had the reviewer make a worktree only when a group formed. It now makes one when a group formed or a finding settled by a source seeds a stored decision case, since `.claude/workflows/author-prompt-cases.js` runs from it; with neither, it still makes none.
 
 > **Amended 2026-10-05 by D-48.** The analysis note's form, where an analysis ends and what is pending are no longer `close-prompt-run`'s, and the held line's form is no longer the agent's: the header of `scripts/prompt-runs.mjs` holds them all, and the skill's due check and the reviewer's collection run that command. The skill keeps when a review starts and the launch, and the agent what a review does and leaves.
+
+> **Amended 2026-10-09 by asdlc-openspec-ic9h.** Item 1, as D-48 amended it, no longer holds. `close-prompt-run` keeps the analysis alone, and the header of `.github/workflows/prompt-review.yml` holds when a review starts and the launch. Item 2's name stands, now given by the workflow. Its count of working sessions retires in favour of the workflow's concurrency group. Its loss closes, since a person starts a review by dispatching the workflow (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
 
 ### D-18 · RTK is removed, with the ripgrep step it needed and the guard's reading of its prefix
 
@@ -1704,6 +1712,8 @@ Where it loses:
 
 > **Amended 2026-10-08 by asdlc-openspec-1iak.** The last loss's reason, "Every gate runs from the clone", does not hold for a selftest whose tasks run in a fixture repository of its own, where mise resolves `node` from the fixture's `mise.toml`: `tests:fresh:selftest` met the loss in the dev container (`asdlc-openspec-locj`). Such a selftest gives its fixture the clone's node pin, or runs node by its path (`docs/decisions/asdlc-openspec-1iak.md` § Decision). The image still sets no global default.
 
+> **Amended 2026-10-09 by asdlc-openspec-ic9h.** Item 1's list of what is not in `mise.toml` gains two things. One is Langfuse's Claude Code plugin, which the dev container's entrypoint installs from its marketplace at its latest version. The other is the `langfuse` package, which the plugin's hook fetches through uv at run time. Neither is pinned (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
+
 ### D-32 · A prompt review answers each changed prompt's stored decision cases with its old text and its new, and a case that flips from right to wrong keeps the edit out
 
 **Recorded 2026-10-03**, carried by `asdlc-openspec-7c1`. The maintainer chose items 1 to 3 on 2026-09-26, item 3 their own proposal. On 2026-10-03 they confirmed item 3's shape, one author per lens in a workflow of its own, and chose items 4, 5 and 7, each the recommendation, from options put with the case where it loses. The session that built it chose items 6, 8 and 9.
@@ -1752,6 +1762,8 @@ Where it loses:
 - Word counts, each `node scripts/check-prompts.mjs --counts`: the literals of `review-prompts.js` 1,720 at `e8919c3`, 1,683 after its consolidation, and 2,058 with the cases' step; `continuous-prompt-improvement.md` 2,161, 2,076 and 2,262.
 
 > **Amended 2026-10-07 by D-56.** Item 4's text is the trunk's unless the session names a commit. `author-prompt-cases.js` takes `args.ref`, and a branch whose edit adds the rule a case tests validates that case against its own head and stores it in that branch. Item 4's bar, every answer choosing the expected option, stands. Where it loses: a head that changes after validation leaves the case tested against text that will not land, so the workflow's header has the session answer it again at the branch's last head before its push.
+
+> **Amended 2026-10-09 by asdlc-openspec-ic9h.** Item 8's last loss changes with where the review runs. The calling session now starts in a fresh checkout of `main` in GitHub Actions, so each agentType is the trunk's at the run. A headless run resolves one (verified against the CLI, 2.1.295, by the probes of `asdlc-openspec-ic9h.1`; `docs/decisions/asdlc-openspec-ic9h.md` § Decision).
 
 ### D-33 · `utils/install-dolt.sh` and `scripts/python.mjs` retire, made redundant by mise
 
@@ -2290,6 +2302,8 @@ Where it loses: an analysis no longer lists a user-level skill the run loaded, w
 
 > **Amended 2026-10-05 by D-48.** The decision put the form in `.claude/skills/close-prompt-run/SKILL.md` § 1; the header of `scripts/prompt-runs.mjs` now holds it, and § 1 points there. An analysis whose run id's time is before D-44 reached the trunk, `promptReviewLoadedSince`, is read as prose whatever it holds.
 
+> **Amended 2026-10-09 by asdlc-openspec-ic9h.** A line joins the form. After the `claude --version` line, one line holds the run's session id, taken from `CLAUDE_CODE_SESSION_ID`, so that a run can be joined to its Langfuse trace. The header of `scripts/prompt-runs.mjs` holds the line's form, and the line is required from a cut-off instant (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
+
 ### D-45 · A prompt's sentence on how Claude Code behaves names the version that verified it, or says none did, and each prompt review lists the stale ones
 
 **Recorded 2026-10-05**, carried by `asdlc-openspec-r6ha.4`, a child of `asdlc-openspec-r6ha`. On 2026-10-04 the maintainer chose to keep such sentences where they are read, each dated by the version that verified it (the parent's decision 4, with its loss). On 2026-10-05, at the claim, they chose item 2's second spelling for a sentence no session can verify, from a recommendation put with the case where it loses. The session that built it chose the inventory, each sentence's verdict and the evidence for it.
@@ -2464,6 +2478,8 @@ Where it loses: one malformed hand-edited line anywhere in the tracker fails the
 
 > **Amended 2026-10-05 by D-49.** Item 1's header ends an analysis at the next line that opens with any `promptReview…Marker` value, where it named three markers, and holds the closed line's form too; a line of a marker it gives no form fails the command. Its held section reads each carried line's pull request through `gh`, so the command needs the network there, and only there: `--only pending`, the due check of item 2, reads none.
 
+> **Amended 2026-10-09 by asdlc-openspec-ic9h.** Item 2's first reader changes. The pending step of `.github/workflows/prompt-review.yml` runs the command, not `close-prompt-run` § 2, which checks nothing once the due thresholds retire; the reviewer's runs of it stand. The loss's due check at every run's close is gone. One malformed line now fails the nightly run, until a person fixes it (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
+
 ### D-49 · A key the prompt review holds ends with a closed line: carried by a merged pull request, owned by an issue, or set aside by a person
 
 **Recorded 2026-10-05**, carried by `asdlc-openspec-r6ha.6`, a child of `asdlc-openspec-r6ha`. The issue's description set the three ways a key ends and what the review does with each. On 2026-10-05, at the claim, the maintainer chose which held keys the first closed lines close, from a recommendation that showed where each closing loses, and reworded the criterion that had put where an analysis ends in `close-prompt-run` § 2, since D-48 had moved that rule to the header of `scripts/prompt-runs.mjs`. The session that built it chose the line's form, that a later held line leaves a closed key closed, that the command reads a carried line's pull request through `gh`, and that a line of a marker with no form fails. The session's adversarial review, each of its three major findings upheld by its skeptic, and the branch review led to the rule for a tie, the held line beside each closed line, the narrower `settled`, and the failure clauses.
@@ -2503,6 +2519,8 @@ Where it loses: the held section of `mise run prompt-runs` needs `gh` and the ne
 - `mise run prompt-runs:selftest`: 70 of 70 checks, an undoctored control first; `mise run workflows:selftest`: 301 of 301 cases. With each of 26 checks broken in turn, 22 of the command's and 4 of the workflow's, one at a time, each break turned at least one case red. The first run of those breaks left one green: a merged group carrying a finding its agent set aside, which no case held until one was added.
 - The reviews' defects were each seen red before their fix: the tie on one issue and the three malformed closed lines, 66 of 70 checks, and the refused result with no `findingsCarried`, 300 of 301 cases.
 - The reviewer's agent, `node scripts/check-prompts.mjs --counts`: 2,273 at `2f630f1`, where the prompt review of #150 had set it, 2,250 after its consolidation and 2,414 at this entry's commit; the same steps from `fb66108`, before the rebase onto #150's merge, gave 2,274, 2,251 and 2,415. Its budget row's `means` gives them.
+
+> **Amended 2026-10-09 by asdlc-openspec-ic9h.** The loss's due check no longer runs at a run's close. A run that hand-writes a note line opening with the closed marker learns of it only when the nightly review fails on that line, in that run's log (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
 
 ### D-50 · A run's analysis quotes each correction the user made, and one that states a rule can settle a stored decision case
 
@@ -2598,6 +2616,14 @@ Where it loses:
 
 > **Amended 2026-10-08 by asdlc-openspec-pu8m.** Item 7's pull request rule, which required no approval, did not refuse a direct push of a commit already submitted in a pull request. The App's push of #167's head to `main` passed it, and the failing `pr-review` alone refused the push (rule suite 4390232975, 2026-10-06). So under that ruleset a head whose required checks passed could land by a push as well as by auto-merge (`docs/decisions/asdlc-openspec-pu8m.md` § Decision). The Why's route that D-47's ruleset closed, a fast-forward push, stayed closed for a head on the floor, whose `pr-review` failed. Under D-57's ruleset that is untried, and so is a push of a commit that is in no pull request; R-02 carries the open case, for `asdlc-openspec-zg4b` to settle.
 
+> **Amended 2026-10-09 by asdlc-openspec-ic9h.** Item 3 no longer covers every agent session.
+>
+> - The prompt review runs in GitHub Actions as the App, from a key of the App's kept for CI alone, in an environment that only `main` deploys to.
+> - The container gains a second credential: keys to a Langfuse project of its own, mounted read-only, which read none of the maintainer's traces.
+> - The second loss meets its first case, `.github/workflows/prompt-review.yml`, which the maintainer pushes. Whether the App holds the Workflows permission is still unchecked, and `asdlc-openspec-ic9h.11` reads it.
+>
+> (`docs/decisions/asdlc-openspec-ic9h.md` § Decision.)
+
 ### D-52 · `prompt-runs` follows each fix a merged prompt review carried through later runs, and reports the fix-recurrence rate
 
 **Recorded 2026-10-05**, carried by `asdlc-openspec-r6ha.8`, a child of `asdlc-openspec-r6ha`. The maintainer chose to wait for `asdlc-openspec-6yt.1`, so the first figures rest on keys that do not drift between reviews (the parent's decision 3, with its loss). On 2026-10-05, before the claim, they answered the issue's three questions, each from options that showed where the recommended one loses, recorded in its notes:
@@ -2658,6 +2684,8 @@ Where it loses:
 - The tracker on 2026-10-05, `mise run prompt-runs`: 1 fix, `.claude/skills/bead/SKILL.md#close-before-merge`, carried by #93, merged as `5b8d893`. It is awaiting review: 3 later runs read it, `asdlc-openspec-b83l`, `-m8hs` and `-3cp3`, and no review has read them. 0 exercised fixes is under the floor of 10, so no rate.
 - `mise run prompt-runs:selftest`: 93 of 93 checks, an undoctored control first. With each of 28 checks of the recurrence report broken in turn, one at a time, each break turned at least one case red.
 - The reviewer's agent, `node scripts/check-prompts.mjs --counts`: 2,440 at `9c33d95`, 2,422 at `cd6f203`, which consolidated it, and 2,445 at this entry's last commit.
+
+> **Amended 2026-10-09 by asdlc-openspec-ic9h.** The first loss holds in GitHub Actions too, where the review's checkout is a fresh clone. There, a run's commit counts for nothing when it is on no branch the clone fetches, such as one a rebase replaced before its branch was deleted (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
 
 ### D-53 · No prune this repository runs takes the record of a worktree its checkout cannot see, and the guard refuses a session's bare `git worktree prune` from any checkout
 
@@ -2903,6 +2931,14 @@ Where it loses:
 - The Actions setting could not be read: `gh api repos/{owner}/{repo}/actions/permissions/workflow` answered 403.
 - `pr-review:selftest`: 172 of 172 cases hold after the change, `node scripts/pr-review.mjs --selftest`; `worktree:selftest`: every check passes, `node scripts/hooks/worktree-hooks.selftest.mjs`.
 
+> **Amended 2026-10-09 by asdlc-openspec-ic9h.** Item 4 no longer closes every route.
+>
+> - `.github/workflows/prompt-review.yml` grants no `pull-requests: write`. But its job mints the App's token, which carries Pull requests write, so the job can approve a pull request the App did not open, as the first loss says of every container session.
+> - `forgeProblems` refuses any other workflow that reads the App's key, that workflow on any event but `schedule` or `workflow_dispatch`, and a job that reads the key outside its environment.
+> - The first loss now reaches an unattended run in CI.
+>
+> (`docs/decisions/asdlc-openspec-ic9h.md` § Decision.)
+
 ### D-58 · The unprovisioned-worktree check is a hook of its own, off the high-risk floor
 
 **Recorded 2026-10-08**, carried by `asdlc-openspec-82jn`. The maintainer asked, in conversation, whether the floor could stop holding a person to a pull request that changes only comments in a script, with #181 as the example. The session showed #181 changes the check's message too, and recommended this split over that exemption, with the case where the split loses (#2 below); the maintainer chose it. The branch review then found that D-59, in the same branch, holds to a person any change that moves this hook's word count, through its budget row; the maintainer kept both, with that loss recorded below. The session chose which check moved, the hook's name and the trunk's one home.
@@ -3010,6 +3046,8 @@ Where it loses:
 
 > **Amended 2026-10-08 by D-57.** The status route closes with the status, and the risk's first form returns: the trunk's ruleset requires one approving review, which any login with write can give on a pull request it did not open, so an agent holding the maintainer's credentials, or acting as D-51's App, which holds Pull requests write, can approve a high-risk pull request another login opened, and GitHub merges it once `verify` passes. `scripts/hooks/guard-git.mjs` refuses `gh pr review --approve` in a session only; an approval through `gh api`, curl or the web UI passes it. The App's route stays open in the container too, where D-51 had closed the status's, for every pull request but the App's own.
 
+> **Amended 2026-10-09 by asdlc-openspec-ic9h.** The App's route reaches GitHub Actions. The nightly prompt review's job holds the App's token while a model runs and reads the public tracker and pull requests. A text that led the model to approve a high-risk pull request another login opened would therefore meet nothing in CI that refuses it (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
+
 ### R-02 · Every session holds the maintainer's `ADMIN`, with which it can merge past the trunk's ruleset, set the status it requires, or edit or delete it
 
 **Recorded 2026-10-05**, carried by `asdlc-openspec-owva.1`, with D-51.
@@ -3039,3 +3077,5 @@ R-01's amendment by D-47 names the first two and the guard that refuses each in 
 > **Amended 2026-10-08 by D-57.** The second route is no longer a status: ruleset 24542312 requires one approving review and `verify`, and `pr-review` is set by nothing. In its place, anything with write can approve a pull request on the floor that it did not open, and `ADMIN` is not needed for it: a session holding the maintainer's credentials, through `gh pr review --approve`, which `scripts/hooks/guard-git.mjs` refuses, or through `gh api`, which it does not see; and a container session acting as D-51's App, which holds Pull requests write, by either, on a pull request the App did not open. The first and third routes stand as written, the first with no bypass actor granted on 2026-10-08. The pin to integration 15368 holds `verify` alone now.
 
 > **Amended 2026-10-08 by asdlc-openspec-pu8m.** The risk's first sentence does not hold as worded. On 2026-10-06, while 24542312's pull request rule required no approval, GitHub counted a commit already submitted in a pull request as meeting it, so a direct push of an open pull request's head to `main` was refused by the required check alone (rule suite 4390232975). Under D-57's ruleset that is untried, so this risk carries a fourth route until `asdlc-openspec-zg4b` settles it: if GitHub does not apply the pull request rule's approval to a direct push, anything with Contents write, the agents' App among them, can push a head on the floor that passed `verify` straight to `main`, with no person (`docs/decisions/asdlc-openspec-pu8m.md` § Decision).
+
+> **Amended 2026-10-09 by asdlc-openspec-ic9h.** The App's key gains a second home: a key of the App's kept for CI alone, as a secret of the `prompt-review` environment, which only `main` deploys to. Anything that can run a workflow on `main` with that environment can mint the App's tokens, and so reach every route this risk gives the App. `pr-review:check` refuses any workflow but the prompt review's that reads the key, and a change on the high-risk floor could undo that rule (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
