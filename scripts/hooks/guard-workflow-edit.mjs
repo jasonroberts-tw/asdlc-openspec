@@ -34,9 +34,9 @@
  * Needs `git`, which places the path in its checkout (`editedCheckout`), and `js-yaml`, resolved
  * from this file's own checkout. It reads the reviewer's keys from the policy of the checkout the
  * edit lands in, or of the one `GUARD_WORKFLOW_ROOT` names, so a by-hand run or the selftest can
- * point it at a doctored copy, and refuses a policy `policyProblems` refuses. Every path but a workflow exits 0 before any of that loads. On a
- * workflow it fails closed: a result that does not parse, or a policy or parser it cannot load,
- * refuses the edit with the reason.
+ * point it at a doctored copy, and refuses a policy `policyProblems` refuses. Every path but a
+ * workflow exits 0 before any of that loads. On a workflow it fails closed: a result that does not
+ * parse, or a policy or parser it cannot load, refuses the edit with the reason.
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
