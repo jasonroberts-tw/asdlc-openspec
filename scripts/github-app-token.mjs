@@ -417,10 +417,11 @@ const LANGFUSE_ID = 'langfuse-observability@langfuse-observability'
  * alone, with a key directory of the case's own that holds `keys` as `langfuse.json` when given, and
  * a stub `claude` first on PATH. The stub logs each call's arguments, a line each, answers
  * `plugin marketplace list --json` with `markets` and `plugin list --json` with `installed`, keeps
- * what `plugin configure` reads on stdin, and fails that call when `configureFails`. Returns the run,
+ * what `plugin configure` reads on stdin, and fails that call when `configureFails` and
+ * `plugin disable` when `disableFails`. Returns the run,
  * the calls, and what `configure` read, or null when it was not called.
  */
-async function tracingStep(ctx, { keys = null, markets = [], installed = [], configureFails = false } = {}) {
+async function tracingStep(ctx, { keys = null, markets = [], installed = [], configureFails = false, disableFails = false } = {}) {
   const keyDir = join(ctx.dir, 'tracing-keys')
   const bin = join(ctx.dir, 'tracing-bin')
   const calls = join(ctx.dir, 'claude-calls.log')
@@ -437,6 +438,7 @@ async function tracingStep(ctx, { keys = null, markets = [], installed = [], con
     `  'plugin marketplace list --json') cat '${join(ctx.dir, 'markets.json')}' ;;`,
     `  'plugin list --json') cat '${join(ctx.dir, 'installed.json')}' ;;`,
     `  'plugin configure '*) cat > '${stdin}'; ${configureFails ? 'exit 1' : 'exit 0'} ;;`,
+    `  'plugin disable '*) ${disableFails ? 'exit 1' : 'exit 0'} ;;`,
     'esac',
     '',
   ].join('\n')
@@ -893,11 +895,30 @@ function cases() {
       },
     },
     {
-      name: "the entrypoint's tracing, with no langfuse.json beside the App key, logs that tracing is off and calls no claude",
+      name: "the entrypoint's tracing, with no langfuse.json beside the App key and no plugin installed, logs that tracing is off and only lists the plugins",
       wrapper: true,
       check: async (ctx) => {
         const { r, calls } = await tracingStep(ctx)
-        return r.status === 0 && calls.length === 0 && /Langfuse tracing is off: no langfuse\.json beside the App key/.test(r.stdout) ? null : `${said(r)}; claude called ${JSON.stringify(calls)}`
+        return r.status === 0 && JSON.stringify(calls) === JSON.stringify(['plugin list --json']) && /Langfuse tracing is off: no langfuse\.json beside the App key/.test(r.stdout) ? null : `${said(r)}; claude called ${JSON.stringify(calls)}`
+      },
+    },
+    {
+      name: "the entrypoint's tracing, with no langfuse.json and the plugin installed and enabled, disables it, so the log that tracing is off is true",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r, calls } = await tracingStep(ctx, { installed: [{ id: LANGFUSE_ID, scope: 'user', enabled: true }] })
+        const want = ['plugin list --json', `plugin disable ${LANGFUSE_ID} --scope user`]
+        return r.status === 0 && JSON.stringify(calls) === JSON.stringify(want) && /Langfuse tracing is off: no langfuse\.json beside the App key[^;]*; the langfuse-observability@langfuse-observability plugin is disabled/.test(r.stdout)
+          ? null
+          : `${said(r)}; claude called ${JSON.stringify(calls)}`
+      },
+    },
+    {
+      name: "the entrypoint's tracing, with no langfuse.json and a disable that fails, warns that tracing may still be on",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r } = await tracingStep(ctx, { installed: [{ id: LANGFUSE_ID, scope: 'user', enabled: true }], disableFails: true })
+        return /Langfuse tracing may still be on: no langfuse\.json beside the App key[^,]*, and the langfuse-observability@langfuse-observability plugin could not be disabled/.test(r.stdout) && !/tracing is off/.test(r.stdout) ? null : said(r)
       },
     },
     {
@@ -905,7 +926,7 @@ function cases() {
       wrapper: true,
       check: async (ctx) => {
         const { r, calls, configured } = await tracingStep(ctx, { keys: { ...LANGFUSE_KEYS, EXTRA: 'not passed on' } })
-        const want = ['plugin marketplace list --json', 'plugin list --json', 'plugin marketplace add langfuse/Claude-Observability-Plugin', `plugin install ${LANGFUSE_ID} --scope user`, `plugin configure ${LANGFUSE_ID} --values-stdin`]
+        const want = ['plugin list --json', 'plugin marketplace list --json', 'plugin marketplace add langfuse/Claude-Observability-Plugin', `plugin install ${LANGFUSE_ID} --scope user`, `plugin configure ${LANGFUSE_ID} --values-stdin`]
         const read = configured === null ? null : JSON.parse(configured)
         return r.status === 0 && JSON.stringify(calls) === JSON.stringify(want) && JSON.stringify(read) === JSON.stringify(LANGFUSE_KEYS) && keepsKeys(r) && /Langfuse tracing is on/.test(r.stdout)
           ? null
@@ -916,28 +937,37 @@ function cases() {
       name: "the entrypoint's tracing, with the marketplace and the plugin already in ~/.claude, only configures it",
       wrapper: true,
       check: async (ctx) => {
-        const { r, calls, configured } = await tracingStep(ctx, { keys: LANGFUSE_KEYS, markets: [{ name: 'langfuse-observability' }], installed: [{ id: LANGFUSE_ID, scope: 'user' }] })
-        const want = ['plugin marketplace list --json', 'plugin list --json', `plugin configure ${LANGFUSE_ID} --values-stdin`]
+        const { r, calls, configured } = await tracingStep(ctx, { keys: LANGFUSE_KEYS, markets: [{ name: 'langfuse-observability' }], installed: [{ id: LANGFUSE_ID, scope: 'user', enabled: true }] })
+        const want = ['plugin list --json', 'plugin marketplace list --json', `plugin configure ${LANGFUSE_ID} --values-stdin`]
         return r.status === 0 && JSON.stringify(calls) === JSON.stringify(want) && configured !== null && keepsKeys(r) ? null : `${said(r)}; claude called ${JSON.stringify(calls)}`
       },
     },
     {
-      name: "the entrypoint's tracing, with a langfuse.json that lacks the secret key, configures nothing, warns, and prints no key",
+      name: "the entrypoint's tracing, with the file back and the plugin installed but disabled, enables it before it configures it",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r, calls, configured } = await tracingStep(ctx, { keys: LANGFUSE_KEYS, markets: [{ name: 'langfuse-observability' }], installed: [{ id: LANGFUSE_ID, scope: 'user', enabled: false }] })
+        const want = ['plugin list --json', 'plugin marketplace list --json', `plugin enable ${LANGFUSE_ID} --scope user`, `plugin configure ${LANGFUSE_ID} --values-stdin`]
+        return r.status === 0 && JSON.stringify(calls) === JSON.stringify(want) && configured !== null && /Langfuse tracing is on/.test(r.stdout) ? null : `${said(r)}; claude called ${JSON.stringify(calls)}`
+      },
+    },
+    {
+      name: "the entrypoint's tracing, with a langfuse.json that lacks the secret key and the plugin enabled, disables it, warns, and prints no key",
       wrapper: true,
       check: async (ctx) => {
         const { LANGFUSE_SECRET_KEY: _, ...noSecret } = LANGFUSE_KEYS
-        const { r, calls, configured } = await tracingStep(ctx, { keys: noSecret })
-        return calls.length === 0 && configured === null && keepsKeys(r) && /Langfuse tracing is off: .*langfuse\.json is not an object whose LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY and LANGFUSE_BASE_URL are each a string/.test(r.stdout)
+        const { r, calls, configured } = await tracingStep(ctx, { keys: noSecret, installed: [{ id: LANGFUSE_ID, scope: 'user', enabled: true }] })
+        return JSON.stringify(calls) === JSON.stringify(['plugin list --json', `plugin disable ${LANGFUSE_ID} --scope user`]) && configured === null && keepsKeys(r) && /Langfuse tracing is off: .*langfuse\.json is not an object whose LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY and LANGFUSE_BASE_URL are each a non-empty string[^;]*; the langfuse-observability@langfuse-observability plugin is disabled/.test(r.stdout)
           ? null
           : `${said(r)}; claude called ${JSON.stringify(calls)}`
       },
     },
     {
-      name: "the entrypoint's tracing, when configure fails, warns that tracing is off and prints no key",
+      name: "the entrypoint's tracing, when configure fails, warns that the plugin keeps what it held before, and prints no key",
       wrapper: true,
       check: async (ctx) => {
-        const { r, configured } = await tracingStep(ctx, { keys: LANGFUSE_KEYS, markets: [{ name: 'langfuse-observability' }], installed: [{ id: LANGFUSE_ID, scope: 'user' }], configureFails: true })
-        return configured !== null && keepsKeys(r) && /Langfuse tracing is off: could not configure the langfuse-observability@langfuse-observability plugin/.test(r.stdout) && !/tracing is on/.test(r.stdout) ? null : said(r)
+        const { r, configured } = await tracingStep(ctx, { keys: LANGFUSE_KEYS, markets: [{ name: 'langfuse-observability' }], installed: [{ id: LANGFUSE_ID, scope: 'user', enabled: true }], configureFails: true })
+        return configured !== null && keepsKeys(r) && /could not configure the langfuse-observability@langfuse-observability plugin from \S+, so it keeps whatever it held before/.test(r.stdout) && !/tracing is on/.test(r.stdout) ? null : said(r)
       },
     },
     {
