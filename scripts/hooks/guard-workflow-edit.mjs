@@ -3,9 +3,12 @@
  * `.github/workflows/pr-review.yml` able to approve a pull request itself, or to pass the check the
  * trunk's ruleset requires on its own head: a grant of `pull-requests: write`, `statuses: write`,
  * `checks: write` or `write-all`, to every job or to one, or, in any workflow but `verify.yml`, a
- * job whose id or name is that check's. The rule is `forgeProblems` in `scripts/pr-review.mjs`,
- * which `pr-review:check` also runs over every workflow at pre-push and in CI; this runs it over the
- * file as the edit would leave it, before the edit lands.
+ * job whose id or name is that check's. It refuses, too, an edit that would let a workflow other
+ * than `prReviewAppKeyWorkflow` read the agents' App key, whose token approves a pull request the App
+ * did not open, or let that one read it on another event or outside its environment
+ * (`docs/decisions/asdlc-openspec-ic9h.md` § Decision). The rule is `forgeProblems` in
+ * `scripts/pr-review.mjs`, which `pr-review:check` also runs over every workflow at pre-push and in
+ * CI; this runs it over the file as the edit would leave it, before the edit lands.
  *
  * WHAT IT WOULD LET THROUGH IF IT WERE WRONG. No incident yet. Since 2026-10-08 (asdlc-openspec-t2ly,
  * docs/decisions.md § D-57) GitHub merges a pull request once `verify` passes on its head and one
@@ -29,9 +32,9 @@
  *   printf '%s' '{"tool_input":{"file_path":".github/workflows/x.yml","content":"permissions: write-all\n"}}' | node scripts/hooks/guard-workflow-edit.mjs
  *
  * Needs `git`, which places the path in its checkout (`editedCheckout`), and `js-yaml`, resolved
- * from this file's own checkout. It reads `prReviewRequiredCheck` from the policy of the checkout
- * the edit lands in, or of the one `GUARD_WORKFLOW_ROOT` names, so a by-hand run or the selftest can
- * point it at a doctored copy. Every path but a workflow exits 0 before any of that loads. On a
+ * from this file's own checkout. It reads the reviewer's keys from the policy of the checkout the
+ * edit lands in, or of the one `GUARD_WORKFLOW_ROOT` names, so a by-hand run or the selftest can
+ * point it at a doctored copy, and refuses a policy `policyProblems` refuses. Every path but a workflow exits 0 before any of that loads. On a
  * workflow it fails closed: a result that does not parse, or a policy or parser it cannot load,
  * refuses the edit with the reason.
  */
@@ -74,10 +77,11 @@ let problems
 try {
   const { load } = await import('js-yaml')
   const { readPolicy } = await import('../../tools/lib/policy.ts')
-  const { forgeProblems } = await import('../pr-review.mjs')
-  const requiredCheck = readPolicy(process.env.GUARD_WORKFLOW_ROOT ?? root)?.prReviewRequiredCheck
-  if (typeof requiredCheck !== 'string' || requiredCheck === '') throw new Error('`prReviewRequiredCheck` could not be read from tools/policy/')
-  problems = forgeProblems(rel, load(text), requiredCheck)
+  const { forgeProblems, policyProblems } = await import('../pr-review.mjs')
+  const policy = readPolicy(process.env.GUARD_WORKFLOW_ROOT ?? root)
+  const unread = policyProblems(policy)
+  if (unread.length > 0) throw new Error(unread.join(' '))
+  problems = forgeProblems(rel, load(text), policy)
 } catch (error) {
   refuse(
     `${rel} is a workflow, and this edit could not be judged: ${error.message}. A workflow other than ` +
