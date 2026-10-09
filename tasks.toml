@@ -417,8 +417,11 @@ package beside the token that approves, and a command or shell of a step's own. 
 secret however it is read, any other grant, `write-all` and an OIDC token among them, an expression
 interpolated into a shell, and a shallow history. It refuses any other workflow that grants
 `pull-requests: write`, `statuses: write`, `checks: write` or `write-all`, or, outside `verify.yml`,
-names a job for the required check, and a `verify.yml` without that check. Without it a workflow
-could approve its own pull request or pass the check GitHub merges by, and a gate that holds the
+names a job for the required check, and a `verify.yml` without that check. It refuses any workflow
+but `prReviewAppKeyWorkflow` whose expressions could read `prReviewAppKeySecret`, the agents' App
+key, and that workflow on an event but `schedule` or `workflow_dispatch` or reading the key outside
+a job naming `prReviewAppKeyEnvironment`. Without it a workflow could approve its own pull request,
+or one the App did not open, or pass the check GitHub merges by, and a gate that holds the
 product can be weakened in the pull request it proves and merge without a person.'''
 run = "node scripts/pr-review.mjs --check"
 

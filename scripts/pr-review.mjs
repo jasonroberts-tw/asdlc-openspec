@@ -40,7 +40,8 @@
  *   mise run pr-review:check             the wiring gate: the workflow, `verify.yml`, the branch
  *                                       reviewer and the policy agree, the workflow runs no model and
  *                                       holds no grant but its two, no other workflow can forge an
- *                                       approval or `verify` (`forgeProblems`), the floor holds the gates
+ *                                       approval or `verify`, or read the agents' App key but where
+ *                                       the policy lets one (`forgeProblems`), the floor holds the gates
  *                                       `prReviewFloorTasks` lists, and `verify.yml` runs each where
  *                                       nothing off the floor runs first (`verifyProblems`)
  *   mise run pr-review:selftest          every decision over fixtures, each asserting its reason,
@@ -120,7 +121,14 @@
  * `pull-requests: write` approves its own pull request once the repository lets Actions approve,
  * and one granted `checks: write` or `statuses: write`, or with a job named `verify`, passes the
  * required check on its own head: `forgeProblems` refuses each, and `verifyProblems` a second job
- * of that name in `verify.yml`. The derivation of a listed gate's files reads a task's command and the relative paths its
+ * of that name in `verify.yml`. Since asdlc-openspec-ic9h.5 the agents' App key is an Actions secret
+ * (`docs/decisions/asdlc-openspec-ic9h.md` § Decision), and a token minted from it approves any pull
+ * request the App did not open, so `forgeProblems` refuses every workflow but
+ * `prReviewAppKeyWorkflow` whose expressions could read `prReviewAppKeySecret`, that one on an event
+ * a branch's own copy runs on, and a read of the key outside a job naming its environment
+ * (`appKeyProblems`). It reads expressions and `if:`, where GitHub evaluates them; a secret is
+ * reachable no other way, but this gate runs a branch's own copy of itself, so the environment's
+ * deployment rule on GitHub is what holds a branch's dispatch away from the key. The derivation of a listed gate's files reads a task's command and the relative paths its
  * files write out, never one written with `${`, joined at run time or written without its extension,
  * so a gate weakened through a file it reaches only that way, through a file its tool reads by
  * convention that the floor does not name, or through a policy key it reads by a computed name,
@@ -251,6 +259,12 @@ const FLOOR_INSTALL = 'npm ci --ignore-scripts'
  */
 const FORGING_SCOPES = ['checks', 'pull-requests', 'statuses']
 /**
+ * The events the one workflow that may read the agents' App key runs on: the trunk's schedule, and a
+ * person's dispatch, which the key's environment admits from `main` alone. On any other event, such
+ * as `pull_request`, a branch's own copy of it runs on that branch's push.
+ */
+const APP_KEY_EVENTS = ['schedule', 'workflow_dispatch']
+/**
  * How a verdict a person decides begins its comment review's body. The head then waits for a
  * person's approval (asdlc-openspec-t2ly), and `waitOutcome` waits on a comment only when its body
  * begins with this, and ends on any other.
@@ -270,6 +284,9 @@ const POLICY_SHAPES = {
   prReviewIssuePattern: 'pattern',
   prReviewApproverLogin: 'string',
   prReviewRequiredCheck: 'string',
+  prReviewAppKeySecret: 'string',
+  prReviewAppKeyWorkflow: 'string',
+  prReviewAppKeyEnvironment: 'string',
   prReviewContextPaths: 'strings',
   prReviewHighRiskPaths: 'reasons',
   prReviewHighRiskJsonKeys: 'jsonKeys',
@@ -1295,7 +1312,9 @@ function stringsIn(value) {
 
 /**
  * Why the workflow at `path`, parsed as `doc`, could get a head merged itself, one message per way;
- * empty when it cannot. `requiredCheck` is `prReviewRequiredCheck`. Since D-57 GitHub merges a head
+ * empty when it cannot. `policy` is the reviewer's, which gives `prReviewRequiredCheck` and the
+ * `prReviewAppKey*` keys, and the first messages are `appKeyProblems`', why it could read the agents'
+ * App key, whose token approves (`forgeProblems`, below). Since D-57 GitHub merges a head
  * once one approving review stands and that check passes, so a workflow whose token approves a pull
  * request, through a grant of `pull-requests: write` once the repository lets Actions approve, or
  * writes a commit status or a check run, through `statuses: write` or `checks: write`, or holds
@@ -1315,14 +1334,75 @@ const eventsOf = (doc) => {
   return typeof on === 'string' ? [on] : Array.isArray(on) ? on.map(String) : Object.keys(on)
 }
 
-export function forgeProblems(path, doc, requiredCheck) {
+/**
+ * The places in a parsed workflow value that could read the Actions secret `secret`, each as its
+ * text: an expression that names the `secrets` context in any form but `secrets.<another name>`,
+ * the index form, `toJSON(secrets)` and the bare context among them, and `secrets: inherit`, which
+ * hands a called workflow every secret. GitHub evaluates an expression inside `${{ }}`, and the
+ * whole of an `if:`, so a step's name that says "secrets" in words reads none.
+ */
+function secretReaches(value, secret, key = null) {
+  if (typeof value === 'string') {
+    const expressions = key === 'if' ? [value] : [...value.matchAll(/\$\{\{([\s\S]*?)\}\}/g)].map((m) => m[1])
+    return expressions.filter((expression) =>
+      [...expression.matchAll(/\bsecrets\b/gi)].some((m) => {
+        const named = /^\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)/.exec(expression.slice(m.index + m[0].length))
+        return !named || named[1].toUpperCase() === secret.toUpperCase()
+      }),
+    )
+  }
+  if (Array.isArray(value)) return value.flatMap((item) => secretReaches(item, secret))
+  if (isRecord(value)) {
+    return Object.entries(value).flatMap(([k, item]) => (k.toLowerCase() === 'secrets' && item === 'inherit' ? ['secrets: inherit'] : secretReaches(item, secret, k)))
+  }
+  return []
+}
+
+/**
+ * Why the workflow at `path`, parsed as `doc`, could read the agents' App key where the policy does
+ * not let it, one message per way; empty when it cannot. A token minted from the key carries the
+ * App's Pull requests write, so whatever reads it can approve a pull request the App did not open, a
+ * floor head among them (the first loss of docs/decisions.md § D-57). Only `prReviewAppKeyWorkflow` may
+ * read it, on the events `APP_KEY_EVENTS` names, in a job that names `prReviewAppKeyEnvironment`,
+ * the environment that holds the secret and deploys from `main` alone; a read of it outside a job
+ * would reach every job, the environment or not (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
+ */
+function appKeyProblems(path, doc, policy) {
+  const { prReviewAppKeySecret: secret, prReviewAppKeyWorkflow: allowed, prReviewAppKeyEnvironment: environment } = policy
+  const quoted = (reaches) => reaches.map((r) => JSON.stringify(r.trim())).join(', ')
+  if (path !== allowed) {
+    const reaches = secretReaches(doc, secret)
+    return reaches.length === 0
+      ? []
+      : [`${path} names the \`secrets\` context in a form that could read \`${secret}\` (${quoted(reaches)}): only ${allowed} may read the agents' App key, since a token minted from it can approve a pull request the App did not open, a floor head among them (docs/decisions/asdlc-openspec-ic9h.md § Decision).`]
+  }
+  const problems = []
+  const other = eventsOf(doc).filter((event) => !APP_KEY_EVENTS.includes(event))
+  if (other.length > 0) {
+    problems.push(`${path} runs on ${other.map((event) => `\`${event}\``).join(', ')}: it runs on ${APP_KEY_EVENTS.map((event) => `\`${event}\``).join(' and ')} alone, since another event, such as \`pull_request\`, runs a branch's own copy of it, which could mint the agents' App token (docs/decisions/asdlc-openspec-ic9h.md § Decision).`)
+  }
+  const { jobs, ...rest } = isRecord(doc) ? doc : {}
+  const why = `only a job that names \`environment: ${environment}\` may read it, since that environment holds the secret and deploys from \`main\` alone (docs/decisions/asdlc-openspec-ic9h.md § Decision)`
+  const outside = secretReaches(rest, secret)
+  if (outside.length > 0) problems.push(`${path} reads \`${secret}\` outside a job (${quoted(outside)}), which reaches every job: ${why}.`)
+  for (const [id, job] of Object.entries(isRecord(jobs) ? jobs : {})) {
+    const reaches = secretReaches(job, secret)
+    const named = isRecord(job?.environment) ? job.environment.name : job?.environment
+    if (reaches.length > 0 && named !== environment) problems.push(`${path}'s \`${id}\` job reads \`${secret}\` without \`environment: ${environment}\` (${quoted(reaches)}): ${why}.`)
+  }
+  return problems
+}
+
+export function forgeProblems(path, doc, policy) {
+  const requiredCheck = policy.prReviewRequiredCheck
+  const keyProblems = appKeyProblems(path, doc, policy)
   if (path === WORKFLOW) {
     const other = eventsOf(doc).filter((event) => event !== REVIEW_EVENT)
     return other.length === 0
-      ? []
-      : [`${WORKFLOW} runs on ${other.map((event) => `\`${event}\``).join(', ')}: on an event but \`${REVIEW_EVENT}\` a branch's own copy of it runs with \`pull-requests: write\` and approves its own pull request, so it runs on \`${REVIEW_EVENT}\` alone (docs/decisions.md § D-57).`]
+      ? keyProblems
+      : [`${WORKFLOW} runs on ${other.map((event) => `\`${event}\``).join(', ')}: on an event but \`${REVIEW_EVENT}\` a branch's own copy of it runs with \`pull-requests: write\` and approves its own pull request, so it runs on \`${REVIEW_EVENT}\` alone (docs/decisions.md § D-57).`, ...keyProblems]
   }
-  const problems = []
+  const problems = [...keyProblems]
   const why = `only ${WORKFLOW} may approve a pull request or write a check run or a commit status, since a workflow that can approves its own pull request or passes \`${requiredCheck}\` on its own head, and GitHub then merges a head the floor sends to a person (docs/decisions.md § D-57)`
   const grants = (permissions) =>
     permissions === 'write-all'
@@ -1499,7 +1579,7 @@ export async function runCheck(root) {
     fail(`${WORKFLOW} reads an Actions secret: the reviewer needs nothing beyond the run's own token, and a secret is a credential the pull request's event could be led to spend.`)
   }
 
-  for (const [path, doc] of docs) if (path !== WORKFLOW) failures.push(...forgeProblems(path, doc, requiredCheck))
+  for (const [path, doc] of docs) if (path !== WORKFLOW) failures.push(...forgeProblems(path, doc, policy))
 
   // The branch reviewer, the one judge of correctness and maintainability left: named as the floor
   // and the open-pr skill name it, and given only tools that read.
@@ -1739,7 +1819,14 @@ function helperCases(policy) {
   const reachRow = (path, extra = {}) => ({ path, globJobs: [], importJobs: [], steps: [], hooks: [], ...extra })
   /** A workflow as `forgeProblems` reads it: one job, reading the trunk, but for what `extra` and `job` change. */
   const flow = (extra = {}, job = {}) => ({ name: 'verify', permissions: { contents: 'read' }, jobs: { verify: { 'runs-on': 'ubuntu-latest', ...job } }, ...extra })
-  const forged = (doc, path = VERIFY) => forgeProblems(path, doc, requiredCheck)
+  const forged = (doc, path = VERIFY) => forgeProblems(path, doc, policy)
+  /** A workflow whose one job, `x`, carries `job`, beside the workflow's own `extra`: what the App key's rule reads. */
+  const keyFlow = (extra = {}, job = {}) => ({ name: 'x', on: { workflow_dispatch: {} }, permissions: { contents: 'read' }, jobs: { x: { 'runs-on': 'ubuntu-latest', steps: [{ run: 'echo hi' }], ...job } }, ...extra })
+  const keyed = (doc, path, p = policy) => forgeProblems(path, doc, p)
+  const APP_KEY = policy.prReviewAppKeySecret
+  const APP_WORKFLOW = policy.prReviewAppKeyWorkflow
+  const APP_ENV = policy.prReviewAppKeyEnvironment
+  const KEY_READ_RE = new RegExp(`^\\.github/workflows/other\\.yml names the \`secrets\` context in a form that could read \`${APP_KEY}\` \\(.*\\): only ${APP_WORKFLOW.replaceAll('.', '\\.')} may read the agents' App key`)
   const h = (name, fn) => ({ name, run: fn })
   return [
     h('the ids in the parentheses that end a title are cited, and no others', () =>
@@ -2056,8 +2143,8 @@ function helperCases(policy) {
         'grants',
       )),
     h('forge: a job whose id or name is the required check, in any case or with spaces round it, is refused by its reason in any workflow but verify.yml', () => {
-      const byId = forgeProblems(`${WORKFLOWS}/forge.yml`, { jobs: { [requiredCheck]: { 'runs-on': 'ubuntu-latest' } } }, requiredCheck)
-      const byName = forgeProblems(`${WORKFLOWS}/forge.yml`, { jobs: { x: { name: ` ${requiredCheck.toUpperCase()} ` } } }, requiredCheck)
+      const byId = forgeProblems(`${WORKFLOWS}/forge.yml`, { jobs: { [requiredCheck]: { 'runs-on': 'ubuntu-latest' } } }, policy)
+      const byName = forgeProblems(`${WORKFLOWS}/forge.yml`, { jobs: { x: { name: ` ${requiredCheck.toUpperCase()} ` } } }, policy)
       const inVerify = forged(flow({}, { name: requiredCheck }))
       const twiceInVerify = forged({ ...flow(), jobs: { ...flow().jobs, gates: { 'runs-on': 'ubuntu-latest', name: ` ${requiredCheck.toUpperCase()} ` } } })
       return assertEqual(
@@ -2076,6 +2163,46 @@ function helperCases(policy) {
     h("forge: the reviewer's own workflow run on another event, where a branch's own copy runs, is refused by its reason", () => {
       const problems = forged(flow({ on: { [REVIEW_EVENT]: {}, pull_request: {} } }), WORKFLOW)
       return problems.length === 1 && problems[0].startsWith(`${WORKFLOW} runs on \`pull_request\`: on an event but \`${REVIEW_EVENT}\` a branch's own copy`) ? null : `problems ${JSON.stringify(problems)}`
+    }),
+    h("app key, control: another workflow reading another secret, a step whose words name secrets, and the prompt review's job reading the key in its environment on its two events, all pass", () => {
+      const other = keyFlow({}, { if: 'secrets.OTHER_TOKEN != 0', steps: [{ name: 'the secrets are read below', run: 'echo hi', env: { TOKEN: '${{ secrets.OTHER_TOKEN }}' } }] })
+      const review = keyFlow({ on: { schedule: [{ cron: '17 6 * * *' }], workflow_dispatch: {} } }, { environment: APP_ENV, steps: [{ run: 'echo hi', env: { KEY: `\${{ secrets.${APP_KEY} }}` } }] })
+      const reviewByName = keyFlow({ on: ['schedule', 'workflow_dispatch'] }, { environment: { name: APP_ENV }, steps: [{ run: 'echo hi', env: { KEY: `\${{ secrets.${APP_KEY} }}` } }] })
+      return assertEqual([keyed(other, `${WORKFLOWS}/other.yml`), keyed(review, APP_WORKFLOW), keyed(reviewByName, APP_WORKFLOW)], [[], [], []], 'problems')
+    }),
+    h("app key: another workflow that could read the App's key, by its name in any case, by index, through toJSON, in an if, or through secrets: inherit, is refused by its reason", () => {
+      const spellings = [
+        { steps: [{ run: 'echo hi', env: { KEY: `\${{ secrets.${APP_KEY} }}` } }] },
+        { steps: [{ run: 'echo hi', env: { KEY: `\${{ secrets.${APP_KEY.toLowerCase()} }}` } }] },
+        { steps: [{ run: 'echo hi', env: { KEY: `\${{ secrets['${APP_KEY}'] }}` } }] },
+        { steps: [{ run: 'echo hi', env: { ALL: '${{ toJSON(secrets) }}' } }] },
+        { if: `secrets.${APP_KEY} != 0` },
+        { uses: './.github/workflows/other.yml', secrets: 'inherit', steps: undefined },
+      ]
+      return assertEqual(
+        spellings.map((job) => keyed(keyFlow({}, job), `${WORKFLOWS}/other.yml`).map((p) => (KEY_READ_RE.test(p) ? 'refused' : p))),
+        spellings.map(() => ['refused']),
+        'problems',
+      )
+    }),
+    h("app key: the secret's name comes from the policy, so a respelled key is the one refused and the old name then passes", () => {
+      const respelled = { ...policy, prReviewAppKeySecret: 'OTHER_KEY' }
+      const readsOld = keyFlow({}, { steps: [{ run: 'echo hi', env: { KEY: `\${{ secrets.${APP_KEY} }}` } }] })
+      const readsNew = keyFlow({}, { steps: [{ run: 'echo hi', env: { KEY: '${{ secrets.OTHER_KEY }}' } }] })
+      const refusedNew = keyed(readsNew, `${WORKFLOWS}/other.yml`, respelled)
+      return assertEqual([keyed(readsOld, `${WORKFLOWS}/other.yml`, respelled), refusedNew.length === 1 && refusedNew[0].includes('could read `OTHER_KEY`')], [[], true], 'problems')
+    }),
+    h("app key: the prompt review's workflow on an event but schedule or workflow_dispatch is refused by its reason", () => {
+      const problems = keyed(keyFlow({ on: { pull_request: {}, workflow_dispatch: {} } }, { environment: APP_ENV }), APP_WORKFLOW)
+      return problems.length === 1 && problems[0].startsWith(`${APP_WORKFLOW} runs on \`pull_request\`: it runs on \`schedule\` and \`workflow_dispatch\` alone`) ? null : `problems ${JSON.stringify(problems)}`
+    }),
+    h("app key: the prompt review's job reading the key without its environment, or in another, and a read outside any job, are each refused by its reason", () => {
+      const reads = { steps: [{ run: 'echo hi', env: { KEY: `\${{ secrets.${APP_KEY} }}` } }] }
+      const none = keyed(keyFlow({}, reads), APP_WORKFLOW)
+      const elsewhere = keyed(keyFlow({}, { ...reads, environment: 'production' }), APP_WORKFLOW)
+      const outside = keyed(keyFlow({ env: { KEY: `\${{ secrets.${APP_KEY} }}` } }, { environment: APP_ENV }), APP_WORKFLOW)
+      const inJob = (problems) => problems.length === 1 && problems[0].startsWith(`${APP_WORKFLOW}'s \`x\` job reads \`${APP_KEY}\` without \`environment: ${APP_ENV}\``)
+      return assertEqual([inJob(none), inJob(elsewhere), outside.length === 1 && outside[0].startsWith(`${APP_WORKFLOW} reads \`${APP_KEY}\` outside a job`)], [true, true, true], 'problems')
     }),
   ]
 }
@@ -2271,6 +2398,12 @@ function wiringCases() {
       doctor: (dir) => writeFileSync(join(dir, WORKFLOWS, 'quiet.yml'), 'name: quiet\non: pull_request\npermissions:\n  contents: read\njobs:\n  x:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n'),
       expect: 'pass',
     },
+    {
+      name: "a new workflow that reads the agents' App key",
+      doctor: (dir) => writeFileSync(join(dir, WORKFLOWS, 'forge.yml'), 'name: forge\non: workflow_dispatch\npermissions:\n  contents: read\njobs:\n  x:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo hi\n        env:\n          KEY: ${{ secrets.AGENT_APP_PRIVATE_KEY }}\n'),
+      expect: /forge\.yml names the `secrets` context in a form that could read `AGENT_APP_PRIVATE_KEY`/,
+    },
+    { name: "the App key's secret goes missing from the policy", doctor: editPolicy((p) => { delete p.prReviewAppKeySecret; delete p.prReviewAppKeySecretMeans }), expect: /`prReviewAppKeySecret` is missing/ },
     { name: 'a new workflow that does not parse', doctor: (dir) => writeFileSync(join(dir, WORKFLOWS, 'broken.yml'), 'jobs: [unclosed\n'), expect: /^a workflow does not parse as YAML/ },
     { name: 'the branch reviewer is renamed', doctor: edit(AGENT, /^name: branch-reviewer$/m, 'name: reviewer'), expect: /is named `reviewer`, not `branch-reviewer`/ },
     { name: 'the branch reviewer is given Bash', doctor: edit(AGENT, /^tools: Read, /m, 'tools: Bash, Read, '), expect: /branch-reviewer\.md gives Bash/ },

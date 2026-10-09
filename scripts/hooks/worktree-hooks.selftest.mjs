@@ -511,7 +511,9 @@ for (const [label, dir, command, reason] of [
  * to `verify.yml`, the reviewer's own workflow, the same grant outside the workflows, and an Edit
  * whose `old_string` the file does not hold: without them, a hook that refused every workflow edit
  * would pass. A doctored copy of the policy, with the check respelled, proves the hook reads it
- * from `tools/policy/` rather than writing it in.
+ * from `tools/policy/` rather than writing it in. A new workflow that reads the agents' App key is
+ * refused by its reason, and one that reads another secret is a control
+ * (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
  * --------------------------------------------------------------------------------------------- */
 console.log('guard-workflow-edit: an edit that would let a workflow approve, or forge the required check')
 const FORGE_HOOK = join(HOOKS, 'guard-workflow-edit.mjs')
@@ -519,6 +521,7 @@ const WORKFLOWS_DIR = join(POLICY_ROOT, '.github', 'workflows')
 const VERIFY_FILE = join(WORKFLOWS_DIR, 'verify.yml')
 const FORGE_FILE = join(WORKFLOWS_DIR, 'forge.yml')
 const CHECK = readPolicy(POLICY_ROOT).prReviewRequiredCheck
+const APP_KEY = readPolicy(POLICY_ROOT).prReviewAppKeySecret
 const FORGE_RULE = 'may approve a pull request or write a check run or a commit status'
 
 /** guard-workflow-edit on one Write or Edit, reading the policy under `root` when one is given. */
@@ -548,6 +551,7 @@ for (const [label, toolInput] of [
   ['the same grant outside the workflows', { file_path: join(POLICY_ROOT, 'docs', 'forge.yml'), content: 'permissions: write-all\n' }],
   ['an Edit whose old_string the file does not hold, which lands nothing', { file_path: VERIFY_FILE, old_string: 'no such text\n', new_string: 'permissions: write-all\n' }],
   ['a new workflow that reads only', { file_path: FORGE_FILE, content: `permissions:\n  contents: read\n${jobNamed('x')}` }],
+  ['a new workflow that reads a secret other than the App key', { file_path: FORGE_FILE, content: `${jobNamed('x')}        env:\n          KEY: \${{ secrets.OTHER_TOKEN }}\n` }],
 ]) {
   const r = forgeHook(toolInput)
   check(`control: the hook allows ${label}`, r.code === 0, why(r))
@@ -561,6 +565,7 @@ for (const [label, toolInput, reason] of [
   ['a second verify.yml job named for the required check', { file_path: VERIFY_FILE, old_string: STEPS, new_string: `  gates:\n    name: ${CHECK}\n${STEPS.slice('  gates:\n'.length)}` }, `verify.yml has 2 jobs whose check is \`${CHECK}\``],
   ['a workflow that will not parse', { file_path: FORGE_FILE, content: 'jobs: [unclosed\n' }, 'is a workflow, and this edit could not be judged'],
   ["the reviewer's own workflow given an event where a branch's copy runs", { file_path: REVIEW_FILE, old_string: TRIGGER, new_string: `  pull_request:\n${TRIGGER}` }, "runs on `pull_request`: on an event but `pull_request_target` a branch's own copy"],
+  ["a new workflow that reads the agents' App key", { file_path: FORGE_FILE, content: `${jobNamed('x')}        env:\n          KEY: \${{ secrets.${APP_KEY} }}\n` }, `names the \`secrets\` context in a form that could read \`${APP_KEY}\``],
 ]) {
   const r = forgeHook(toolInput)
   check(`${label} is refused, by its reason`, refusedFor(r, reason), why(r))

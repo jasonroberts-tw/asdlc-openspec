@@ -158,8 +158,8 @@
       "means": "The most words the string and template literals of `scripts/hooks/guard-unprovisioned-worktree.mjs` may hold (`mise run check:prompts`): its refusal of a worktree `scripts/new-worktree.sh` did not provision, moved from `guard-git.mjs` by D-58 (asdlc-openspec-82jn). First set to its size on 2026-10-08, 171, by D-59 (asdlc-openspec-a7df): 148 as moved, 8 more from #181's rewrite of the refusal (asdlc-openspec-gm86), which this branch carried in once rebased onto it, and 15 for the tags D-45 asks of its three clauses on how Claude Code behaves, now that a hook's text is a prompt; nothing was consolidated, since the row is new. A raise edits this value and says why here, and a person merges it."
     },
     "scripts/hooks/guard-workflow-edit.mjs": {
-      "words": 67,
-      "means": "The most words the string and template literals of `scripts/hooks/guard-workflow-edit.mjs` may hold (`mise run check:prompts`): its refusal of a workflow edit that could approve a pull request or pass the required check. First set to its size on 2026-10-08, 67, by D-59 (asdlc-openspec-a7df); a raise edits this value and says why here."
+      "words": 59,
+      "means": "The most words the string and template literals of `scripts/hooks/guard-workflow-edit.mjs` may hold (`mise run check:prompts`): its refusal of a workflow edit that could approve a pull request or pass the required check. First set to its size on 2026-10-08, 67, by D-59 (asdlc-openspec-a7df); a raise edits this value and says why here. Lowered 2026-10-09 from 67 to 59 by asdlc-openspec-ic9h.5: the error it threw when `prReviewRequiredCheck` could not be read gave way to `policyProblems` from `scripts/pr-review.mjs`, which names each reviewer key that is missing or of the wrong shape, the `prReviewAppKey*` keys the forge rule now reads among them; that took 8 words of its literals and added none, so the budget falls to the new count."
     },
     "scripts/hooks/worktree-create.mjs": {
       "words": 75,
