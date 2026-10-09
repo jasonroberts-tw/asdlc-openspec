@@ -54,7 +54,8 @@
  * loopback, and runs `git credential fill` and `.devcontainer/gh` through real `git` and `sh`, which
  * it skips, saying why, on Windows, where the container's wrappers never run. Since it is the
  * selftest that sources `.devcontainer/entrypoint.sh` and reads the Dockerfile, it also holds the
- * rest of the container's start that needs no image: the entrypoint's `statusline`,
+ * rest of the container's start that needs no image: the entrypoint's `tracing`, against a stub
+ * `claude` and a canary secret no output may carry, its `statusline`,
  * `.devcontainer/statusline.sh` through `sh`, and the Dockerfile's `NO_COLOR` for `bd` alone
  * (asdlc-openspec-ikr3, asdlc-openspec-07bm); and the entrypoint's `clone`, against a local
  * repository git reads as GitHub's address (asdlc-openspec-vvns).
@@ -406,6 +407,49 @@ async function statusLine(ctx, content) {
   return { r, after: readFileSync(settings, 'utf8'), tmp: existsSync(`${settings}.tmp`) }
 }
 const STATUS_LINE = { type: 'command', command: `sh '${join(REPO_ROOT, '.devcontainer', 'statusline.sh')}'` }
+
+/** The Langfuse keys a case's `langfuse.json` holds; the secret is a canary no output may carry. */
+const LANGFUSE_KEYS = { LANGFUSE_PUBLIC_KEY: 'pk-canary-public', LANGFUSE_SECRET_KEY: 'sk-canary-secret', LANGFUSE_BASE_URL: 'https://us.cloud.langfuse.com' }
+const LANGFUSE_ID = 'langfuse-observability@langfuse-observability'
+
+/**
+ * `.devcontainer/entrypoint.sh`'s `tracing`, run under bash with the file sourced for its functions
+ * alone, with a key directory of the case's own that holds `keys` as `langfuse.json` when given, and
+ * a stub `claude` first on PATH. The stub logs each call's arguments, a line each, answers
+ * `plugin marketplace list --json` with `markets` and `plugin list --json` with `installed`, keeps
+ * what `plugin configure` reads on stdin, and fails that call when `configureFails`. Returns the run,
+ * the calls, and what `configure` read, or null when it was not called.
+ */
+async function tracingStep(ctx, { keys = null, markets = [], installed = [], configureFails = false } = {}) {
+  const keyDir = join(ctx.dir, 'tracing-keys')
+  const bin = join(ctx.dir, 'tracing-bin')
+  const calls = join(ctx.dir, 'claude-calls.log')
+  const stdin = join(ctx.dir, 'claude-configure.stdin')
+  mkdirSync(keyDir, { recursive: true })
+  mkdirSync(bin, { recursive: true })
+  if (keys !== null) writeFileSync(join(keyDir, 'langfuse.json'), typeof keys === 'string' ? keys : JSON.stringify(keys))
+  writeFileSync(join(ctx.dir, 'markets.json'), JSON.stringify(markets))
+  writeFileSync(join(ctx.dir, 'installed.json'), JSON.stringify(installed))
+  const stub = [
+    '#!/usr/bin/env bash',
+    `printf '%s\\n' "$*" >> '${calls}'`,
+    `case "$*" in`,
+    `  'plugin marketplace list --json') cat '${join(ctx.dir, 'markets.json')}' ;;`,
+    `  'plugin list --json') cat '${join(ctx.dir, 'installed.json')}' ;;`,
+    `  'plugin configure '*) cat > '${stdin}'; ${configureFails ? 'exit 1' : 'exit 0'} ;;`,
+    'esac',
+    '',
+  ].join('\n')
+  writeFileSync(join(bin, 'claude'), stub, { mode: 0o755 })
+  const r = await run('bash', ['-c', 'ENTRYPOINT_FUNCTIONS_ONLY=1 . "$1" && tracing', 'tracing', ENTRYPOINT], {
+    env: { ...ctx.gitEnv, PATH: `${bin}:${ctx.gitEnv.PATH ?? process.env.PATH}`, GITHUB_APP_KEY_DIR: keyDir },
+    cwd: ctx.dir,
+  })
+  const logged = existsSync(calls) ? readFileSync(calls, 'utf8').split('\n').filter(Boolean) : []
+  return { r, calls: logged, configured: existsSync(stdin) ? readFileSync(stdin, 'utf8') : null }
+}
+/** True when nothing a run printed carries either key of the keys file. */
+const keepsKeys = (r) => ![LANGFUSE_KEYS.LANGFUSE_PUBLIC_KEY, LANGFUSE_KEYS.LANGFUSE_SECRET_KEY].some((key) => `${r.stdout}${r.stderr}`.includes(key))
 
 /**
  * `.devcontainer/entrypoint.sh`'s `clone`, run under bash with the file sourced for its functions
@@ -846,6 +890,54 @@ function cases() {
         const content = '{"model": "opus",'
         const { r, after, tmp } = await statusLine(ctx, content)
         return after === content && !tmp && /could not set the status line in .*is it valid JSON/.test(r.stdout) ? null : `${said(r)}; left ${JSON.stringify(after)}`
+      },
+    },
+    {
+      name: "the entrypoint's tracing, with no langfuse.json beside the App key, logs that tracing is off and calls no claude",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r, calls } = await tracingStep(ctx)
+        return r.status === 0 && calls.length === 0 && /Langfuse tracing is off: no langfuse\.json beside the App key/.test(r.stdout) ? null : `${said(r)}; claude called ${JSON.stringify(calls)}`
+      },
+    },
+    {
+      name: "the entrypoint's tracing adds the marketplace, installs the plugin at user scope, and configures it with the file's three keys alone on stdin, printing none of them",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r, calls, configured } = await tracingStep(ctx, { keys: { ...LANGFUSE_KEYS, EXTRA: 'not passed on' } })
+        const want = ['plugin marketplace list --json', 'plugin list --json', 'plugin marketplace add langfuse/Claude-Observability-Plugin', `plugin install ${LANGFUSE_ID} --scope user`, `plugin configure ${LANGFUSE_ID} --values-stdin`]
+        const read = configured === null ? null : JSON.parse(configured)
+        return r.status === 0 && JSON.stringify(calls) === JSON.stringify(want) && JSON.stringify(read) === JSON.stringify(LANGFUSE_KEYS) && keepsKeys(r) && /Langfuse tracing is on/.test(r.stdout)
+          ? null
+          : `${said(r)}; claude called ${JSON.stringify(calls)}; configure read ${configured === null ? 'nothing' : 'the wrong keys'}`
+      },
+    },
+    {
+      name: "the entrypoint's tracing, with the marketplace and the plugin already in ~/.claude, only configures it",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r, calls, configured } = await tracingStep(ctx, { keys: LANGFUSE_KEYS, markets: [{ name: 'langfuse-observability' }], installed: [{ id: LANGFUSE_ID, scope: 'user' }] })
+        const want = ['plugin marketplace list --json', 'plugin list --json', `plugin configure ${LANGFUSE_ID} --values-stdin`]
+        return r.status === 0 && JSON.stringify(calls) === JSON.stringify(want) && configured !== null && keepsKeys(r) ? null : `${said(r)}; claude called ${JSON.stringify(calls)}`
+      },
+    },
+    {
+      name: "the entrypoint's tracing, with a langfuse.json that lacks the secret key, configures nothing, warns, and prints no key",
+      wrapper: true,
+      check: async (ctx) => {
+        const { LANGFUSE_SECRET_KEY: _, ...noSecret } = LANGFUSE_KEYS
+        const { r, calls, configured } = await tracingStep(ctx, { keys: noSecret })
+        return calls.length === 0 && configured === null && keepsKeys(r) && /Langfuse tracing is off: .*langfuse\.json is not an object whose LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY and LANGFUSE_BASE_URL are each a string/.test(r.stdout)
+          ? null
+          : `${said(r)}; claude called ${JSON.stringify(calls)}`
+      },
+    },
+    {
+      name: "the entrypoint's tracing, when configure fails, warns that tracing is off and prints no key",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r, configured } = await tracingStep(ctx, { keys: LANGFUSE_KEYS, markets: [{ name: 'langfuse-observability' }], installed: [{ id: LANGFUSE_ID, scope: 'user' }], configureFails: true })
+        return configured !== null && keepsKeys(r) && /Langfuse tracing is off: could not configure the langfuse-observability@langfuse-observability plugin/.test(r.stdout) && !/tracing is on/.test(r.stdout) ? null : said(r)
       },
     },
     {
