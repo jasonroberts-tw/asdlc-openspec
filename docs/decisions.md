@@ -392,7 +392,7 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 
 > **Amended 2026-10-04 by D-37.** Item 2's last clause no longer holds: a review's pull request is decided by the high-risk floor like any other, so one off the floor merges without a person. One that changes a word budget, as a consolidation does, is on the floor and still waits for one.
 
-> **Amended 2026-10-09 by asdlc-openspec-ic9h.** Item 1, as D-08 amended it, no longer holds. No run launches a reviewer. `.github/workflows/prompt-review.yml` runs it in GitHub Actions over every pending analysis, on a nightly schedule and on a person's dispatch, so agent view shows no row for it, and the run's log is where it is watched (`docs/decisions/asdlc-openspec-ic9h.md` § Decision). Items 2, 4 and 5 stand, and item 3 as D-08 amended it.
+> **Amended 2026-10-09 by asdlc-openspec-ic9h.** Item 1, as D-08 amended it, no longer holds. No run launches a reviewer. `.github/workflows/prompt-review.yml` runs it in GitHub Actions over every pending analysis, on a nightly schedule and on a person's dispatch, so agent view shows no row for it, and the run's log is where it is watched (`docs/decisions/asdlc-openspec-ic9h.md` § Decision). Item 2 stands as D-37 amended it, item 3 as D-08 amended it, and items 4 and 5 as written.
 
 ### D-06 · The learning loop is retired; a run's labels in the tracker show what recurs
 
@@ -970,7 +970,7 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 
 > **Amended 2026-10-05 by D-48.** The analysis note's form, where an analysis ends and what is pending are no longer `close-prompt-run`'s, and the held line's form is no longer the agent's: the header of `scripts/prompt-runs.mjs` holds them all, and the skill's due check and the reviewer's collection run that command. The skill keeps when a review starts and the launch, and the agent what a review does and leaves.
 
-> **Amended 2026-10-09 by asdlc-openspec-ic9h.** Item 1, as D-48 amended it, no longer holds. `close-prompt-run` keeps the analysis alone, and the header of `.github/workflows/prompt-review.yml` holds when a review starts and the launch. Item 2's name stands, now given by the workflow. Its count of working sessions retires in favour of the workflow's concurrency group. Its loss closes, since a person starts a review by dispatching the workflow (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
+> **Amended 2026-10-09 by asdlc-openspec-ic9h.** Item 1, as D-48 amended it, no longer holds. `close-prompt-run` keeps the analysis alone, and the header of `.github/workflows/prompt-review.yml` holds when a review starts and the launch. Item 2's name stands, now given by the workflow. Its count of working sessions retires in favour of the workflow's concurrency group. Both halves of its loss change. Agent view shows no review at all, since each runs in Actions, whose list of the workflow's runs shows them instead. And a person who wants a review dispatches the workflow, so no review started by hand stops at once (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
 
 ### D-18 · RTK is removed, with the ripgrep step it needed and the guard's reading of its prefix
 
@@ -2620,7 +2620,7 @@ Where it loses:
 >
 > - The prompt review runs in GitHub Actions as the App, from a key of the App's kept for CI alone, in an environment that only `main` deploys to.
 > - The container gains a second credential: keys to a Langfuse project of its own, mounted read-only, which read none of the maintainer's traces.
-> - The second loss meets its first case, `.github/workflows/prompt-review.yml`, which the maintainer pushes. Whether the App holds the Workflows permission is still unchecked, and `asdlc-openspec-ic9h.11` reads it.
+> - The second loss meets another case, `.github/workflows/prompt-review.yml`, which the maintainer pushes. Whether the App holds the Workflows permission is still unchecked, and `asdlc-openspec-ic9h.11` reads it.
 >
 > (`docs/decisions/asdlc-openspec-ic9h.md` § Decision.)
 
@@ -2934,7 +2934,7 @@ Where it loses:
 > **Amended 2026-10-09 by asdlc-openspec-ic9h.** Item 4 no longer closes every route.
 >
 > - `.github/workflows/prompt-review.yml` grants no `pull-requests: write`. But its job mints the App's token, which carries Pull requests write, so the job can approve a pull request the App did not open, as the first loss says of every container session.
-> - `forgeProblems` refuses any other workflow that reads the App's key, that workflow on any event but `schedule` or `workflow_dispatch`, and a job that reads the key outside its environment.
+> - Once `asdlc-openspec-ic9h.5` lands, `forgeProblems` refuses any other workflow that reads the App's key, that workflow on any event but `schedule` or `workflow_dispatch`, and a job that reads the key outside its environment. Until then, no rule refuses any of the three.
 > - The first loss now reaches an unattended run in CI.
 >
 > (`docs/decisions/asdlc-openspec-ic9h.md` § Decision.)
@@ -3078,4 +3078,4 @@ R-01's amendment by D-47 names the first two and the guard that refuses each in 
 
 > **Amended 2026-10-08 by asdlc-openspec-pu8m.** The risk's first sentence does not hold as worded. On 2026-10-06, while 24542312's pull request rule required no approval, GitHub counted a commit already submitted in a pull request as meeting it, so a direct push of an open pull request's head to `main` was refused by the required check alone (rule suite 4390232975). Under D-57's ruleset that is untried, so this risk carries a fourth route until `asdlc-openspec-zg4b` settles it: if GitHub does not apply the pull request rule's approval to a direct push, anything with Contents write, the agents' App among them, can push a head on the floor that passed `verify` straight to `main`, with no person (`docs/decisions/asdlc-openspec-pu8m.md` § Decision).
 
-> **Amended 2026-10-09 by asdlc-openspec-ic9h.** The App's key gains a second home: a key of the App's kept for CI alone, as a secret of the `prompt-review` environment, which only `main` deploys to. Anything that can run a workflow on `main` with that environment can mint the App's tokens, and so reach every route this risk gives the App. `pr-review:check` refuses any workflow but the prompt review's that reads the key, and a change on the high-risk floor could undo that rule (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
+> **Amended 2026-10-09 by asdlc-openspec-ic9h.** The App's key gains a second home: a key of the App's kept for CI alone, as a secret of the `prompt-review` environment, which only `main` deploys to. Anything that can run a workflow on `main` with that environment can mint the App's tokens, and so reach every route this risk gives the App. Once `asdlc-openspec-ic9h.5` lands, `pr-review:check` refuses any workflow but the prompt review's that reads the key, and a change on the high-risk floor could undo that rule (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
