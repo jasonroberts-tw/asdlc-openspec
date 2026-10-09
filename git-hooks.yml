@@ -372,12 +372,12 @@ pre-push:
         - 'package-lock.json'
       run: mise run prompt-runs:selftest
     # The prompt runs' Langfuse figures, `prompt-runs:figures`, held to a stub of Langfuse's API on
-    # loopback holding two projects, over a fixture export it reads through `prompt-runs`: no `bd`, no
-    # network, no key. The command itself reads the tracker, two projects' keys and Langfuse, and runs
-    # in no job. 4.88 s wall through `mise run` (the shell's `time`, one run) in the dev container,
-    # Linux 6.6 on aarch64 with Node 24.21.0, 2026-10-09, one second of it a case that waits out its
-    # timeout. The glob is the script, the `prompt-runs` it runs as a child, the policy and launcher
-    # helpers they import and the policy they read.
+    # loopback holding two projects, over a pending file it has `prompt-runs` write from a fixture
+    # export: no `bd`, no network, no key. The command itself reads two projects' keys and Langfuse,
+    # and runs in no job. 5.60 s wall through `mise run` (the shell's `time`, one run) in the dev
+    # container, Linux 6.6 on aarch64 with Node 24.21.0, 2026-10-09, two seconds of it the two cases
+    # that wait out their timeout. The glob is the script, the `prompt-runs` its selftest runs to write
+    # the pending file, the policy and launcher helpers they import and the policy they read.
     - name: prompt-runs-figures-selftest
       glob:
         - 'scripts/prompt-run-figures.mjs'
