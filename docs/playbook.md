@@ -73,7 +73,10 @@ comments that a person decides on one on it, in place of the `pr-review` status,
 ruleset requires that approval beside `verify`; a person approves and merges a head on the floor
 (`docs/decisions.md` § D-57). Amended 2026-10-08 by `asdlc-openspec-vjgj`: the register is
 `docs/decisions.md`, frozen at D-59, and a record of its own under `docs/decisions/` for each entry
-after it (`docs/decisions/asdlc-openspec-vjgj.md` § Decision).
+after it (`docs/decisions/asdlc-openspec-vjgj.md` § Decision). Amended 2026-10-09 by
+`asdlc-openspec-ic9h.3`: the step that writes the run's analysis gives its session id after the
+version of Claude Code, as `.claude/skills/close-prompt-run/SKILL.md` § 1 now says
+(`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -426,8 +429,8 @@ approves it and merges it; an agent never approves (`CLAUDE.md` § Git workflow,
    `.claude/skills/change-finalize/SKILL.md` § 8. Check the epic's criteria, and close it.
 3. Write the run's analysis as a note on the issue it worked, from a file, inside a tracker bracket.
    It holds its marker line, the prompts the run loaded, one to a line with the commit it read each
-   at, the version of Claude Code it ran on, what made the run slower or wrong, each correction the
-   user made, quoted, and the counts across runs. Decided by:
+   at, the version of Claude Code it ran on, its session id, what made the run slower or wrong, each
+   correction the user made, quoted, and the counts across runs. Decided by:
    `.claude/skills/close-prompt-run/SKILL.md` § 1. Write the analysis, or none.
 4. Check whether a review of the pending analyses is due, and if one is, launch it in the
    background from the primary checkout, under a name of its own, without waiting for it. Decided

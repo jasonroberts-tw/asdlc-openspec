@@ -24,7 +24,12 @@
  *                  case. A run id one analysis already opened opens no second: the later note is
  *                  counted once, and the first line of the report says how many were. Then one
  *                  line holds what `claude --version` printed, opening with the version, such as
- *                  `2.1.289 (Claude Code)`. An analysis with no such heading, or whose run id's time
+ *                  `2.1.289 (Claude Code)`. The line straight after it may hold the run's session
+ *                  id: `promptReviewSessionLabel`, a space, and the id as `CLAUDE_CODE_SESSION_ID`
+ *                  holds it, a UUID in lower case, which joins the run to its trace in Langfuse. A
+ *                  line there that opens with the label and holds no such id fails the command; a
+ *                  line that does not open with it leaves the analysis with no session id. An
+ *                  analysis with no such heading, or whose run id's time
  *                  is before `promptReviewLoadedSince`, when D-44 reached the trunk, is in the form
  *                  before D-44, prose, and is listed as not counted, never as loading nothing: nine
  *                  analyses written before D-44 hold the heading's words as a prose label.
@@ -57,7 +62,8 @@
  *   the first line  how many analyses, how many in D-44's form, how many since the cut-off are not,
  *             which shrinks the sample unseen by a run that reads `--only pending`, and how many
  *             notes opened a run id already counted.
- *   pending   each analysis no read line names, with the issue whose notes hold it; and whether a
+ *   pending   each analysis no read line names, with the issue whose notes hold it and its session
+ *             id where its analysis gives one; and whether a
  *             review is due: when `promptReviewDueCount` analyses or more are pending, or the oldest,
  *             by the time in its run id, is older than `promptReviewDueAgeDays` days. Whether a
  *             review may start beside one under way is not read here: `close-prompt-run` § 2 checks
@@ -115,7 +121,9 @@
  * asdlc-openspec-r6ha.8 it would also let through a fix counted as holding when a later run showed it
  * again, exercised by a run that read the prompt before it merged, or by one no review had read, whose
  * showing it again no line yet records, so the rate reads better than the edits are; and a rate given
- * over a handful of fixes, which one bad review moves by tens of points.
+ * over a handful of fixes, which one bad review moves by tens of points. Since asdlc-openspec-ic9h.3
+ * it would also let through a session line whose id a hand edit broke, read as no session line, so
+ * the run is never joined to its trace and nothing says so.
  *
  * WHERE IT LOSES. One malformed line anywhere in the tracker fails it, exit 1, and with it the due
  * check of every run's close, until a person fixes the line; read as prose, the model read past one.
@@ -188,6 +196,8 @@ const WORD_GOES_ON = /[A-Za-z0-9_-]/
 const isoSecond = (ms) => new Date(ms).toISOString().replace('.000Z', 'Z')
 /** What `claude --version` prints: the version first. */
 const VERSION = /^(\d+\.\d+\.\d+)(?:\s.*)?$/
+/** A Claude Code session id, as `CLAUDE_CODE_SESSION_ID` holds it: a UUID in lower case. */
+const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 /** A policy key whose value is a marker, as the header says. */
 const MARKER_KEY = /^promptReview[A-Za-z]+Marker$/
 /** What follows a closed line's marker: run id, key, file, how it ended (with its pull request's URL and number, or its issue), and reason. */
@@ -202,6 +212,7 @@ const KEYS = [
   ['promptReviewHeldMarker', 'word'],
   ['promptReviewClosedMarker', 'word'],
   ['promptReviewLoadedHeading', 'text'],
+  ['promptReviewSessionLabel', 'text'],
   ['promptReviewLoadedSince', 'instant'],
   ['promptReviewDueCount', 'count'],
   ['promptReviewDueAgeDays', 'count'],
@@ -248,8 +259,8 @@ export function loadPolicy(root) {
   const markers = markerKeys.map((key) => raw[key])
   if (new Set(markers).size !== markers.length) throw new Error(`the ${markers.length} markers must differ, and are ${JSON.stringify(markers)}`)
   policy.markers = markers
-  if (markers.some((m) => policy.promptReviewLoadedHeading.startsWith(m))) {
-    throw new Error(`\`promptReviewLoadedHeading\` opens with a marker's word, so an analysis would end at it`)
+  for (const key of ['promptReviewLoadedHeading', 'promptReviewSessionLabel']) {
+    if (markers.some((m) => policy[key].startsWith(m))) throw new Error(`\`${key}\` opens with a marker's word, so an analysis would end at it`)
   }
   for (const [path, reason] of Object.entries(policy.promptReviewUnloadedPrompts)) {
     if (!Object.hasOwn(policy.promptWordBudgets, path)) throw new Error(`\`promptReviewUnloadedPrompts\` names ${path}, which has no row in \`promptWordBudgets\`: a stale entry hides nothing, and says what is not so`)
@@ -317,8 +328,11 @@ function markerOf(line, markers) {
   return null
 }
 
-/** An analysis's form, from the lines after its marker line: its loads and version, or a problem. */
-function readAnalysisBody(lines, heading) {
+/**
+ * An analysis's form, from the lines after its marker line: its loads, its version and its session
+ * id, null when the line after the version does not open with `label`, or a problem.
+ */
+function readAnalysisBody(lines, heading, label) {
   const start = lines.findIndex((line) => line.trim() === heading)
   if (start < 0) return { form: 'prose' }
   const loads = []
@@ -332,7 +346,11 @@ function readAnalysisBody(lines, heading) {
   if (!loads.length) return { problem: `has the line \`${heading}\` and no prompt under it in the form "<path> <commit>"; the first line under it is ${JSON.stringify(lines[start + 1] ?? '')}` }
   const version = VERSION.exec((lines[i] ?? '').trim())
   if (!version) return { problem: `lists ${loads.length} prompt(s), and the line after them, ${JSON.stringify(lines[i] ?? '')}, is neither "<path> <commit>" nor what \`claude --version\` prints` }
-  return { form: 'loaded', loads, version: version[1] }
+  const next = (lines[i + 1] ?? '').trim()
+  if (!next.startsWith(label)) return { form: 'loaded', loads, version: version[1], session: null }
+  const session = next.slice(label.length).trim()
+  if (!SESSION_ID.test(session)) return { problem: `has a line after its version line that opens with \`${label}\` and holds no session id: ${JSON.stringify(next)}` }
+  return { form: 'loaded', loads, version: version[1], session }
 }
 
 /** A held line's run id, key, file, count and reason, or null when what follows its marker is not one. */
@@ -440,7 +458,7 @@ export function afterMarker(line, marker) {
  * once, in `duplicates`. The forms are this file's header's.
  */
 export function parseTracker(issues, policy, now = Date.now()) {
-  const { promptReviewAnalysisMarker: A, promptReviewReadMarker: R, promptReviewHeldMarker: H, promptReviewClosedMarker: C, promptReviewLoadedHeading: heading } = policy
+  const { promptReviewAnalysisMarker: A, promptReviewReadMarker: R, promptReviewHeldMarker: H, promptReviewClosedMarker: C, promptReviewLoadedHeading: heading, promptReviewSessionLabel: label } = policy
   const since = Date.parse(policy.promptReviewLoadedSince)
   const analyses = []
   const reads = []
@@ -459,12 +477,12 @@ export function parseTracker(issues, policy, now = Date.now()) {
     let open = null
     const close = () => {
       if (!open) return
-      const body = open.at < since ? { form: 'prose' } : readAnalysisBody(open.lines, heading)
+      const body = open.at < since ? { form: 'prose' } : readAnalysisBody(open.lines, heading, label)
       if (body.problem) problems.push(`${id}: the analysis ${open.run} ${body.problem}`)
       else if (seen.has(open.run)) duplicates++
       else {
         seen.add(open.run)
-        analyses.push({ run: open.run, issue: id, at: open.at, form: body.form, loads: body.loads ?? [], version: body.version ?? null })
+        analyses.push({ run: open.run, issue: id, at: open.at, form: body.form, loads: body.loads ?? [], version: body.version ?? null, session: body.session ?? null })
       }
       open = null
     }
@@ -519,7 +537,7 @@ export function pendingOf(parsed, policy, now) {
     : byAge
       ? `the oldest, ${oldest.run}, is ${ageDays.toFixed(1)} days old, past \`promptReviewDueAgeDays\` (${policy.promptReviewDueAgeDays})`
       : `${pending.length} pending, under \`promptReviewDueCount\` (${policy.promptReviewDueCount}), and ${oldest ? `the oldest ${ageDays.toFixed(1)} days old` : 'none old'}, within \`promptReviewDueAgeDays\` (${policy.promptReviewDueAgeDays})`
-  return { due: byCount || byAge, why, analyses: pending.map((a) => ({ run: a.run, issue: a.issue })) }
+  return { due: byCount || byAge, why, analyses: pending.map((a) => ({ run: a.run, issue: a.issue, session: a.session })) }
 }
 
 /** The carried lines' pull request URLs, each once, in code-point order: the ones whose state the held section reads. */
@@ -679,7 +697,7 @@ export function render(report, only = null) {
   if (!only || only === 'pending') {
     out.push('')
     out.push(`pending: ${pending.analyses.length}; a review is ${pending.due ? 'due' : 'not due'}: ${pending.why}.`)
-    for (const a of pending.analyses) out.push(`  ${a.run}  ${a.issue}`)
+    for (const a of pending.analyses) out.push(`  ${a.run}  ${a.issue}${a.session ? `  ${a.session}` : ''}`)
   }
   if (!only || only === 'held') {
     out.push('')
@@ -980,6 +998,30 @@ function selftest() {
       after[0].notes = after[0].notes.replace(`${LOADED_ALWAYS} abc1234`, `- ${LOADED_ALWAYS}, read at abc1234, in prose.`)
       const strict = run(fixture('after the cut-off', after))
       ok('the same prose under the heading after the cut-off fails, by its reason', strict.code === 1 && /example-0: the analysis \S+ has the line `[^`]+` and no prompt under it/.test(strict.err), strict.err)
+    }
+
+    /* The session line, straight after the version line: pending carries its id, an analysis with none carries none, and one that holds no session id fails. */
+    {
+      const SESSION = '27fcf121-400e-4a07-b4a5-72ccf8a993ca'
+      const LABEL = live.promptReviewSessionLabel
+      const VERSION_LINE = '2.1.289 (Claude Code)'
+      const withSession = (id) => {
+        const issues = controlIssues()
+        issues[0].notes = issues[0].notes.replace(VERSION_LINE, `${VERSION_LINE}\n${LABEL} ${id}`)
+        return issues
+      }
+      const pendingOf_ = (report, issue) => report?.pending.analyses.find((a) => a.issue === issue)
+      const r = run(fixture('a session line', withSession(SESSION)))
+      ok('a session line after the version line is read, and pending carries its id', r.code === 0 && pendingOf_(r.report, 'example-0')?.session === SESSION, `${r.err} ${JSON.stringify(r.report?.pending)}`)
+      ok('an analysis with no session line carries none, and fails nothing', r.code === 0 && pendingOf_(r.report, 'example-1')?.session === null, JSON.stringify(pendingOf_(r.report, 'example-1')))
+      const t = run(fixture('a session line, text', withSession(SESSION)), ['--only', 'pending', '--now', NOW])
+      ok("the text report prints a pending analysis's session id", t.code === 0 && new RegExp(`\\n  example-0@\\S+  example-0  ${SESSION}\\n`).test(`${t.out}\n`), t.out)
+      const bad = run(fixture('a session line with no session id', withSession('not-a-session')))
+      ok(
+        'a session line with no session id: exit 1, by its reason',
+        bad.code === 1 && /example-0: the analysis \S+ has a line after its version line that opens with `[^`]+` and holds no session id: "[^"]*not-a-session"/.test(bad.err),
+        bad.err,
+      )
     }
 
     /* A path with no row is listed, and is no load of any row. */
@@ -1341,6 +1383,8 @@ function selftest() {
     policyCase('a window of 0 days', (p) => (p.promptReviewLoadWindowDays = 0), /`promptReviewLoadWindowDays` is 0, where it must be a whole number of at least 1/)
     policyCase('a table entry with no budget row', (p) => (p.promptReviewUnloadedPrompts = { ...p.promptReviewUnloadedPrompts, '.claude/skills/gone/SKILL.md': 'a reason' }), /names \.claude\/skills\/gone\/SKILL\.md, which has no row in `promptWordBudgets`/)
     policyCase('a heading that opens with a marker', (p) => (p.promptReviewLoadedHeading = `${A} loaded:`), /`promptReviewLoadedHeading` opens with a marker's word/)
+    policyCase('a policy without the session label', (p) => delete p.promptReviewSessionLabel, /the policy has no `promptReviewSessionLabel`/)
+    policyCase('a session label that opens with a marker', (p) => (p.promptReviewSessionLabel = `${A} session:`), /`promptReviewSessionLabel` opens with a marker's word/)
     policyCase('a share of 1.5', (p) => (p.promptReviewLoadNotViableShare = 1.5), /`promptReviewLoadNotViableShare` is 1\.5, where it must be a share above 0 and at most 1/)
     policyCase('a policy without the closed marker', (p) => delete p.promptReviewClosedMarker, /the policy has no `promptReviewClosedMarker`/)
     policyCase('a policy without the fix recurrence floor', (p) => delete p.promptReviewFixRecurrenceFloor, /the policy has no `promptReviewFixRecurrenceFloor`/)
