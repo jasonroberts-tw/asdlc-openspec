@@ -11,9 +11,10 @@
 # The only steps NOT in a layer are those that need the repository itself, which does not exist at
 # build time: the container's own clone, in a volume, which entrypoint.sh makes at the first start
 # and no host checkout is mounted over (docs/decisions.md § D-54). They are `npm ci`, the git hooks,
-# hydrating the issue database, installing those two plugins, whose project-scope install record
-# names the clone's path, the App's commit identity, read from the clone's policy, and the status
-# line, which runs a script in the clone.
+# hydrating the issue database, Vale's styles, which `vale sync` downloads into the clone,
+# installing those two plugins, whose project-scope install record names the clone's path, the App's
+# commit identity, read from the clone's policy, and the status line, which runs a script in the
+# clone.
 # Those live in entrypoint.sh, which this file copies in and wires to ENTRYPOINT -- so the setup is
 # still owned by the image, and devcontainer.json still has no lifecycle command in it.
 #
@@ -93,8 +94,9 @@ RUN git config --system --add safe.directory '*' \
     && git config --system gc.worktreePruneExpire never
 
 # --- workspace setup, deferred to container start ------------------------------------------------
-# npm ci, the git hooks, the issue database, the plugins' install records, the commit identity and
-# the status line all need the workspace, which arrives only when it is mounted, so they cannot be layers. ENTRYPOINT is how they stay in the
+# npm ci, the git hooks, the issue database, Vale's styles, the plugins' install records, the commit
+# identity and the status line all need the workspace, which arrives only when it is mounted, so they
+# cannot be layers. ENTRYPOINT is how they stay in the
 # image anyway: the devcontainer CLI replaces the container's *command* with a sleep, and leaves the
 # image's entrypoint alone.
 COPY .devcontainer/entrypoint.sh /usr/local/bin/workspace-entrypoint

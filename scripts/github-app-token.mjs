@@ -61,8 +61,9 @@
  * rest of the container's start that needs no image: the entrypoint's `tracing`, against a stub
  * `claude` and a canary secret no output may carry, its `statusline`,
  * `.devcontainer/statusline.sh` through `sh`, and the Dockerfile's `NO_COLOR` for `bd` alone
- * (asdlc-openspec-ikr3, asdlc-openspec-07bm); and the entrypoint's `clone`, against a local
- * repository git reads as GitHub's address (asdlc-openspec-vvns).
+ * (asdlc-openspec-ikr3, asdlc-openspec-07bm); the entrypoint's `clone`, against a local
+ * repository git reads as GitHub's address (asdlc-openspec-vvns); and its `vale_styles`, against a
+ * stub `vale` whose `ls-config` passes a missing style, as Vale's does (asdlc-openspec-c7kl).
  */
 import { spawn } from 'node:child_process'
 import { createPrivateKey, createSign, createVerify, generateKeyPairSync } from 'node:crypto'
@@ -489,6 +490,46 @@ async function cloneStep(ctx, { prepare } = {}) {
   return { r, workspace }
 }
 const headOf = (dir) => run('git', ['rev-parse', '--verify', '--quiet', 'HEAD'], { env: SCRATCH_GIT_ENV, cwd: dir })
+
+/**
+ * `.devcontainer/entrypoint.sh`'s `vale_styles`, run under bash with the file sourced for its
+ * functions alone, in a clone of the case's own that holds a `.vale.ini`, with a stub `vale` first on
+ * PATH. The stub logs each call's arguments, a line each, and answers `ls-config` with 0, as Vale
+ * 3.23.0 does with the styles missing. A lint exits 2, as Vale does on a style it lacks, until the
+ * clone holds `.vale-styles/Synced`, and `lintStatus` after; `synced` puts that directory there
+ * first. `sync` makes it and exits 0, unless `sync` is `fails`, which exits 1, or `useless`, which
+ * exits 0 and makes nothing. Returns the run, the calls, and whether the clone holds the styles.
+ */
+async function valeStep(ctx, { synced = false, sync = 'works', lintStatus = 0 } = {}) {
+  const bin = join(ctx.dir, 'vale-bin')
+  const calls = join(ctx.dir, 'vale-calls.log')
+  const workspace = join(ctx.dir, 'vale-clone')
+  const styles = join(workspace, '.vale-styles', 'Synced')
+  mkdirSync(bin, { recursive: true })
+  mkdirSync(synced ? styles : workspace, { recursive: true })
+  writeFileSync(join(workspace, '.vale.ini'), 'StylesPath = .vale-styles\n')
+  const stub = [
+    '#!/usr/bin/env bash',
+    `printf '%s\\n' "$*" >> '${calls}'`,
+    'case "$1" in',
+    '  ls-config) exit 0 ;;',
+    `  sync) ${{ works: 'mkdir -p .vale-styles/Synced; exit 0', fails: 'exit 1', useless: 'exit 0' }[sync]} ;;`,
+    'esac',
+    `if [ -d .vale-styles/Synced ]; then exit ${lintStatus}; fi`,
+    "echo \"E100 [loadStyles] Runtime error: style 'Voices' does not exist on StylesPath\" >&2",
+    'exit 2',
+    '',
+  ].join('\n')
+  writeFileSync(join(bin, 'vale'), stub, { mode: 0o755 })
+  const r = await run('bash', ['-c', 'ENTRYPOINT_FUNCTIONS_ONLY=1 . "$1" && workspace="$2" && vale_styles', 'vale-styles', ENTRYPOINT, workspace], {
+    env: { ...ctx.gitEnv, PATH: `${bin}:${ctx.gitEnv.PATH ?? process.env.PATH}` },
+    cwd: ctx.dir,
+  })
+  const logged = existsSync(calls) ? readFileSync(calls, 'utf8').split('\n').filter(Boolean) : []
+  return { r, calls: logged, styles: existsSync(styles) }
+}
+/** The one lint `vale_styles` runs to learn whether Vale loads every style `.vale.ini` names. */
+const VALE_LINT = '--ext=.md One line of prose.'
 const IMAGE_BIN = '/usr/local/lib/github-app/bin/'
 
 /**
@@ -1012,6 +1053,48 @@ function cases() {
       check: async (ctx) => {
         const { r, workspace } = await cloneStep(ctx)
         return r.status === 1 && !existsSync(join(workspace, '.git')) && /cannot clone: .* names no githubAppRepositoryOwner and githubAppTokenRepository/.test(r.stdout) ? null : said(r)
+      },
+    },
+    {
+      name: "the entrypoint's vale_styles, in a clone where a sample line lints, runs no vale sync and logs nothing",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r, calls } = await valeStep(ctx, { synced: true })
+        return r.status === 0 && JSON.stringify(calls) === JSON.stringify([VALE_LINT]) && r.stdout === '' ? null : `${said(r)}; vale called ${JSON.stringify(calls)}`
+      },
+    },
+    {
+      name: "the entrypoint's vale_styles reads a lint that finds alerts, exit 1, as styles that load, and runs no vale sync",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r, calls } = await valeStep(ctx, { synced: true, lintStatus: 1 })
+        return r.status === 0 && JSON.stringify(calls) === JSON.stringify([VALE_LINT]) && r.stdout === '' ? null : `${said(r)}; vale called ${JSON.stringify(calls)}`
+      },
+    },
+    {
+      name: "the entrypoint's vale_styles, in a clone with a style missing that `vale ls-config` passes, runs vale sync there, lints again, and logs the sync",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r, calls, styles } = await valeStep(ctx)
+        return r.status === 0 && JSON.stringify(calls) === JSON.stringify([VALE_LINT, 'sync', VALE_LINT]) && styles && /vale sync: fetching the styles \.vale\.ini names/.test(r.stdout) && !/Vale (still )?cannot|vale sync failed/.test(r.stdout)
+          ? null
+          : `${said(r)}; vale called ${JSON.stringify(calls)}; the clone ${styles ? 'holds' : 'lacks'} the styles`
+      },
+    },
+    {
+      name: "the entrypoint's vale_styles, when vale sync fails, as without the network, warns that no prose is checked and returns 0",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r, calls } = await valeStep(ctx, { sync: 'fails' })
+        return r.status === 0 && JSON.stringify(calls) === JSON.stringify([VALE_LINT, 'sync']) && /vale sync failed, so Vale checks no prose -- run `vale sync` in the clone once the network is back/.test(r.stdout) ? null : `${said(r)}; vale called ${JSON.stringify(calls)}`
+      },
+    },
+    {
+      name: "the entrypoint's vale_styles, when the styles still do not load after vale sync, warns that no prose is checked",
+      wrapper: true,
+      check: async (ctx) => {
+        const { r, calls } = await valeStep(ctx, { sync: 'useless' })
+        return r.status === 0 && JSON.stringify(calls) === JSON.stringify([VALE_LINT, 'sync', VALE_LINT]) && /Vale still cannot load \.vale\.ini after vale sync, so no prose is checked/.test(r.stdout) ? null : `${said(r)}; vale called ${JSON.stringify(calls)}`
       },
     },
     {

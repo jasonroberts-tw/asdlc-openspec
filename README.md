@@ -102,7 +102,7 @@ level above them. `apps/` and `openspec/` hold the product; every other path is 
 | `.vale.ini`, `.vale-styles/Layout/` | The configuration of Vale, the prose linter the `vale@agent-tools` hook runs on each edit of prose, and `Layout`, the one style this repository writes itself. |
 | `.github/workflows/verify.yml` | The slowest tier: every gate that reads only committed files, on every pull request and every push to `main`. |
 | `.github/workflows/pr-review.yml` | The pull-request reviewer: on each pushed head it submits one review, approving a head whose changes are off the high-risk floor, which GitHub's auto-merge then merges, and commenting that a person decides on the rest, with no model and no secret, in one job that installs no npm package and writes only the review. Each changed file's reach and co-change partners are in the branch review's brief, before the push; the review prints neither. |
-| `.devcontainer/` | A container that needs nothing from the network at create time. |
+| `.devcontainer/` | A container whose image holds every tool. Its start reaches the network only to clone the repository and fetch Vale's styles, and warns and goes on without it. |
 | `KIT-CHECKLIST.md` | What the starter kit's bootstrap laid down, step by step, and what is still to adapt. Deleted once it is worked through. |
 
 Some paths appear only on a working machine and are gitignored, each with its reason in
@@ -229,9 +229,10 @@ does not apply to your platform is absent from its list, not marked optional.
    `mise run hooks:install` once.
 1. Run `vale sync` in the clone. It downloads the styles `.vale.ini` names into the directory its
    `StylesPath` names, where git ignores all but `Layout`, the style this repository tracks, and it
-   needs the network. Then check that `vale ls-config`
-   loads: until the sync, it stops with E201, and the hook answers every edit with the same error. A
-   worktree cut by `scripts/new-worktree.sh` copies these styles from this checkout.
+   needs the network. Then check that `vale --ext=.md "One line of prose."` lints the line. Until
+   the sync, it stops with E100, and the hook answers every edit with the same error. `vale ls-config`
+   is no check, because it loads `.vale.ini` with a style missing. A worktree cut by
+   `scripts/new-worktree.sh` copies these styles from this checkout.
 1. Set `sync.remote` in `.beads/config.yaml` if it still holds a placeholder (`<protocol>` is
    `git+https` or `git+ssh`), run `chmod 700 .beads` (git does not carry the mode, and `bd` warns
    on every command without it) and `git config beads.role maintainer` (`contributor` on a fork;
@@ -271,7 +272,7 @@ does not apply to your platform is absent from its list, not marked optional.
 1. Clone, then run `mise trust` and `mise install` in the clone, as step 3 of macOS and Linux says.
    Check that `node -v` and `bd --version` answer from the shell you will work in.
 1. Run `npm ci` in the clone. If install scripts are blocked, run `mise run hooks:install` once.
-1. Run `vale sync` in the clone, then check that `vale ls-config` loads, as step 5 of macOS and
+1. Run `vale sync` in the clone, then check that Vale lints a sample line, as step 5 of macOS and
    Linux says.
 1. Set `sync.remote` in `.beads/config.yaml` if it still holds a placeholder (`<protocol>` is
    `git+https` or `git+ssh`), run `git config beads.role maintainer` (`contributor` on a fork),
@@ -304,19 +305,18 @@ once you set it (`docs/decisions/asdlc-openspec-llbi.md` § Decision).
    without `-a`, a stopped one does not show.
 1. Wait for the first build, which installs every tool `mise.toml` pins from `mise.lock`.
    `.devcontainer/entrypoint.sh` then runs the install, the git hooks and the tracker's hydration on
-   every start, registers each plugin marketplace and installs each plugin for the clone where one
-   is missing, sets the App's bot account as git's commit identity where none is set, and warns
-   rather than fails; read its output once (`docker logs` on the container
-   shows it). If it warns that a tool `mise.toml` pins is missing from the image, rebuild the
-   container; if it warns that the GitHub App could not mint a token, fix the key and start again.
+   every start, and runs `vale sync` while a lint finds one of Vale's styles missing. It registers
+   each plugin marketplace and installs each plugin for the clone where one is missing, sets the
+   App's bot account as git's commit identity where none is set, and warns rather than fails; read
+   its output once (`docker logs` on the container shows it). If it warns that a tool `mise.toml`
+   pins is missing from the image, rebuild the container. If it warns that the GitHub App could not
+   mint a token, fix the key and start again. If it warns that `vale sync` failed, start it again
+   once the network is back, or run `vale sync` in the container's clone.
 1. So that the container's sessions can call TypeSafe, set `DEVCONTAINER_TYPESAFE_API_KEY` to your
    key in the shell you run `devcontainer exec` from, as `.devcontainer/README.md` § TypeSafe's key
    says. Without it, each tool that calls TypeSafe skips there and says why.
 1. Run `devcontainer exec --workspace-folder <clone> claude`, and log in once: Claude Code keeps its
    state in a volume of the container's own.
-1. If it warned that Vale cannot load `.vale.ini`, run `vale sync` once in the container, then check
-   that `vale ls-config` loads. The image carries every tool `mise.toml` pins; the styles land in the
-   clone, so a rebuild keeps them.
 1. Check that `claude plugin list` in the container's clone shows both plugins, enabled, at project
    scope. If the entrypoint warned that it could not add a marketplace or install a plugin, run the
    command its warning names.
@@ -545,7 +545,7 @@ hooks, and a running session picks up a hook added to it with no restart
 | `git push` that changes `scripts/match-held-findings.mjs`, `tools/lib/`, `tools/policy/`, `tasks.toml`, `package.json` or `package-lock.json` | `prompt-review:match:selftest`: the prompt review's match of new findings to held ones, over a fixture export and a stubbed judge. The match itself reads a token, the tracker and the network, so it runs in no job. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `scripts/prompt-runs.mjs`, `tools/lib/`, `tools/policy/`, `tasks.toml`, `package.json` or `package-lock.json` | `prompt-runs:selftest`: the parser of the prompt review's lines and its report, over fixture exports. The command itself reads the tracker, so it runs in no job. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `scripts/prompt-run-figures.mjs`, `scripts/prompt-runs.mjs`, `tools/lib/`, `tools/policy/`, `tasks.toml`, `package.json` or `package-lock.json` | `prompt-runs:figures:selftest`: the prompt runs' Langfuse figures, over a stub of Langfuse's API on loopback and a pending file `prompt-runs` writes from a fixture export. The command itself reads two projects' keys and Langfuse over the network, so it runs in no job. | `git-hooks.yml` (`pre-push`) |
-| `git push` that changes `scripts/github-app-token.mjs`, `.devcontainer/gh`, `.devcontainer/git-credential-github-app`, `.devcontainer/Dockerfile`, `.devcontainer/entrypoint.sh`, `tools/policy/`, `tools/lib/policy.ts`, `tools/lib/git-env.ts` or `tasks.toml` | `github-app-token:selftest`: the dev container's GitHub App helper over a stub of GitHub's endpoint on loopback, the image's two wrappers through real `git` and `sh`, real `git` under the git config the Dockerfile writes, and the entrypoint's `commit_identity`, `tracing`, `statusline` and `clone` under bash. The helper itself reads the App's key and GitHub's API, so it runs in no job. | `git-hooks.yml` (`pre-push`) |
+| `git push` that changes `scripts/github-app-token.mjs`, `.devcontainer/gh`, `.devcontainer/git-credential-github-app`, `.devcontainer/Dockerfile`, `.devcontainer/entrypoint.sh`, `tools/policy/`, `tools/lib/policy.ts`, `tools/lib/git-env.ts` or `tasks.toml` | `github-app-token:selftest`: the dev container's GitHub App helper over a stub of GitHub's endpoint on loopback, the image's two wrappers through real `git` and `sh`, real `git` under the git config the Dockerfile writes, and the entrypoint's `commit_identity`, `tracing`, `statusline`, `clone` and `vale_styles` under bash. The helper itself reads the App's key and GitHub's API, so it runs in no job. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes a hook, a worktree script, `.vale.ini` or `.gitignore` | `worktree:selftest`: the worktree hooks and the guard, negative-tested. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes `.vale.ini`, `.vale-styles/Layout/` or its selftest | `vale:selftest`: the `Layout` style's rules over fixtures, and every styled section of `.vale.ini` applying it. It runs `vale`, which mise installs on the CI runner too, so it is a `.github/workflows/verify.yml` step as well. | `git-hooks.yml` (`pre-push`) |
 | `git push` that changes a hook, the citations gate, `tools/lib/` or what `check:jobs` reads | `gate-summary:selftest`: the Stop hook's verdict over untracked and ignored files, and the checkout it gates; and the checkout the edit hook places an edit in. | `git-hooks.yml` (`pre-push`) |
@@ -574,7 +574,7 @@ hooks, and a running session picks up a hook added to it with no restart
 | `git push` that changes anything under `scripts/` or `tools/`, a workflow, the branch reviewer, `tasks.toml`, `package.json` or the lockfile | `pr-review:check`: the reviewer's workflow, agent and policy agree, no other workflow can approve or pass `verify`, and the floor covers every file the gates `prReviewFloorTasks` lists run and import and every policy key those files name, which it derives (`docs/decisions.md` § D-38). It holds `.github/workflows/verify.yml` to running each of those gates in a job where nothing off the floor runs first (`docs/decisions.md` § D-55); `pr-review:selftest`: its decisions over fixtures, and the check over doctored copies. | `git-hooks.yml` (`pre-push`) |
 | A pull request, or a push to `main`, a merge among them | Every gate that reads only committed files, cheapest first. It trusts none of the faster tiers. | `.github/workflows/verify.yml` |
 | A pull request against `main` opened, reopened, made ready for review or pushed to | The reviewer reviews that head from the floor alone, approving it or commenting that a person decides, with a token that writes pull requests and nothing else, and writes the reasons to the run's summary. GitHub's auto-merge merges a head that is approved and whose `verify` passes. | `.github/workflows/pr-review.yml` |
-| The dev container starts | At the first start, the container's own clone, made in its volume; then `npm ci` when the lockfile moved, the git hooks, the tracker's hydration, and the App's bot account as git's commit identity where none is set; each step warns and carries on. It warns, too, while a tool `mise.toml` pins is missing from the image, which it never installs; while Vale cannot load `.vale.ini`, though it runs no `vale sync`; and while the GitHub App cannot mint a token. | `.devcontainer/entrypoint.sh` |
+| The dev container starts | At the first start, the container's own clone, made in its volume; then `npm ci` when the lockfile moved, the git hooks, the tracker's hydration, `vale sync` while a lint of a sample line finds one of Vale's styles missing, and the App's bot account as git's commit identity where none is set; each step warns and carries on. It warns, too, while a tool `mise.toml` pins is missing from the image, which it never installs, and while the GitHub App cannot mint a token. | `.devcontainer/entrypoint.sh` |
 | `git` or `gh` reaches GitHub in the dev container | `scripts/github-app-token.mjs` hands it a token of the agents' GitHub App, minting a fresh one once the kept one has less than `githubAppTokenRefreshSeconds` left, through the image's git credential helper and its `gh` wrapper. | `.devcontainer/Dockerfile` |
 
 ## What is still a placeholder
