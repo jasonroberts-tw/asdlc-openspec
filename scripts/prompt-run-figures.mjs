@@ -24,8 +24,10 @@
  *   toolCalls      the TOOLs by name, `langfuseToolNamePrefix` taken off; a name without the prefix,
  *                  or of another shape than TOOL_NAME, counts under `(other)`
  *   tokens         each GENERATION's `usageDetails`, summed by `langfuseUsageBuckets` into the input
- *                  tokens, as `input`, `cacheRead` and `cacheWrite`, and the `output` tokens, and every
- *                  other key into `unbucketed`, but `langfuseUsageTotalKey`, the sum Langfuse adds
+ *                  tokens, as `input`, `cacheRead` and `cacheWrite`, and the `output` tokens. Every
+ *                  other key goes into `unbucketed`, except `langfuseUsageTotalKey`, the sum of the
+ *                  other keys that Langfuse adds: only what it holds past them goes there, as a total
+ *                  sent alone does, and a total below them fails the run
  *   unbucketedKeys the names of those other keys, a name of another shape than TOOL_NAME as `(other)`
  *   costUsd        the GENERATIONs' `totalCost` summed, or null when none gives a number
  *   wallSeconds    from the first observation's start to the last one's end, held to the window
@@ -313,8 +315,11 @@ async function getPage(url, authorization, policy) {
   }
 }
 
+/** The sum of a usage table's counts, but the one under `key`. */
+const sumBut = (usage, key) => Object.entries(usage).reduce((n, [k, v]) => (k === key ? n : n + v), 0)
+
 /** One observation, as the figures read it, or a failure naming what is wrong with it; it keeps no other field. */
-function rowOf(row, session, window) {
+function rowOf(row, session, window, totalKey) {
   const shape = (what) => new Failure(`the API answered with an observation ${what}, in another shape than the header of scripts/prompt-run-figures.mjs reads`)
   if (!(row && typeof row === 'object' && !Array.isArray(row))) throw shape('that is not an object')
   const { id, type, name, level, startTime, endTime, sessionId, usageDetails, totalCost } = row
@@ -332,6 +337,7 @@ function rowOf(row, session, window) {
   if (type === 'GENERATION' && usageDetails !== undefined && usageDetails !== null) {
     const ok = typeof usageDetails === 'object' && !Array.isArray(usageDetails) && Object.values(usageDetails).every((v) => Number.isFinite(v) && v >= 0)
     if (!ok) throw shape('whose usageDetails is not a table of token counts')
+    if (Object.hasOwn(usageDetails, totalKey) && usageDetails[totalKey] < sumBut(usageDetails, totalKey)) throw shape('whose usage total is below the sum of its other keys')
     usage = usageDetails
   }
   let cost = null
@@ -361,7 +367,7 @@ async function observationsOf(project, session, window, policy) {
       throw new Failure('the API answered without the `data` array and the `meta` object this command reads')
     }
     for (const raw of body.data) {
-      const row = rowOf(raw, session, window)
+      const row = rowOf(raw, session, window, policy.langfuseUsageTotalKey)
       if (ids.has(row.id)) throw new Failure('the API answered with one observation twice, so its pages cannot be trusted')
       ids.add(row.id)
       rows.push(row)
@@ -410,7 +416,16 @@ export function figuresOf(rows, window, policy) {
     }
     if (row.type === 'GENERATION') {
       for (const [key, value] of Object.entries(row.usage)) {
-        if (key === policy.langfuseUsageTotalKey) continue
+        // Langfuse's total is the sum of the other keys, so only what it holds past them, as a total
+        // sent alone, is a token no other key counts; rowOf refuses a total below them.
+        if (key === policy.langfuseUsageTotalKey) {
+          const rest = value - sumBut(row.usage, key)
+          if (rest > 0) {
+            tokens.unbucketed += rest
+            unbucketedKeys.add(TOOL_NAME.test(key) ? key : OTHER)
+          }
+          continue
+        }
         const bucket = bucketOf.get(key)
         if (bucket) tokens[bucket] += value
         else {
@@ -585,8 +600,9 @@ function stubLangfuse(path, held) {
     const url = new URL(request.url, 'http://stub')
     const [, encoded] = /^Basic (.+)$/.exec(request.headers.authorization ?? '') ?? []
     const [publicKey, secretKey] = Buffer.from(encoded ?? '', 'base64').toString('utf8').split(':')
-    const name = Object.keys(held).find((n) => KEYS_OF[n].publicKey === publicKey && KEYS_OF[n].secretKey === secretKey) ?? null
-    state.requests.push({ project: name, path: url.pathname, query: Object.fromEntries(url.searchParams) })
+    const name = Object.keys(KEYS_OF).find((n) => held[n] && KEYS_OF[n].publicKey === publicKey && KEYS_OF[n].secretKey === secretKey) ?? null
+    const recordedRequest = { project: name, path: url.pathname, query: Object.fromEntries(url.searchParams), served: [] }
+    state.requests.push(recordedRequest)
     const { mode } = state
     if (mode.hangFirst && state.requests.length === 1) return
     if (mode.trickleFirst && state.requests.length === 1) {
@@ -609,12 +625,16 @@ function stubLangfuse(path, held) {
       .filter((r) => mode.ignoreSession || r.sessionId === q.get('sessionId'))
       .filter((r) => mode.ignoreFrom || Date.parse(r.startTime) >= from)
       .filter((r) => mode.ignoreTo || Date.parse(r.startTime) < to)
-      // Latest first, and on a tie by id, descending, as asdlc-openspec-ic9h.10's second read showed.
+      // Latest first, and on a tie by id, descending, as the one tie in asdlc-openspec-ic9h.10's second
+      // read ran: b81c… before 2b18… at the same instant. One tie fits that order and does not prove it.
       .sort((a, b) => byCodePoint(b.startTime, a.startTime) || byCodePoint(b.id, a.id))
     const limit = Number(q.get('limit'))
     const offset = q.get('cursor') ? JSON.parse(Buffer.from(q.get('cursor'), 'base64').toString('utf8')).offset : 0
     const step = mode.overlap ? limit - 1 : limit
-    const data = rows.slice(offset, offset + limit)
+    const total = held.totalKey
+    const lowered = (r) => (r.type === 'GENERATION' && Object.keys(r.usageDetails).length > 1 ? { ...r, usageDetails: { ...r.usageDetails, [total]: 0 } } : r)
+    const data = rows.slice(offset, offset + limit).map((r) => (mode.totalBelowSum ? lowered(r) : r))
+    recordedRequest.served = data.map((r) => r.id)
     const more = offset + limit < rows.length
     const cursor = mode.repeatCursor ? Buffer.from(JSON.stringify({ offset: 0 })).toString('base64') : Buffer.from(JSON.stringify({ offset: offset + step })).toString('base64')
     const meta = more || mode.repeatCursor ? { cursor } : mode.nullCursorEnd ? { cursor: null } : {}
@@ -672,7 +692,7 @@ async function selftest() {
   }
   /** One observation as the stub serves it: every core, basic and usage field, and the text fields a careless reader would print. */
   let id = 0
-  const obs = (session, type, name, start, end, { level = 'DEFAULT', usage, cost = null } = {}) => ({
+  const obs = (session, type, name, start, end, { level = 'DEFAULT', usage, cost = null, raw = {} } = {}) => ({
     id: `obs-${++id}`,
     traceId: `trace-${session}`,
     startTime: new Date(start).toISOString(),
@@ -700,8 +720,9 @@ async function selftest() {
     output: { role: 'assistant', content: `the reply ${CANARY}` },
     metadata: { cwd: `/home/${CANARY}` },
     ...usageFields(type, usage, cost),
+    ...raw,
   })
-  /** The host's observations of S1: one before its window, seven in it across four pages of two, one after. */
+  /** The host's observations of S1: one before its window, eight in it across four pages of two, one after. */
   const hostRows = [
     obs(S1, 'TOOL', `${TOOL}Bash`, T0 - 3600 * s, T0 - 3590 * s),
     obs(S1, 'SPAN', TURN, T1 - 3600 * s, T1 - 3000 * s),
@@ -709,7 +730,9 @@ async function selftest() {
     obs(S1, 'TOOL', `${TOOL}Read`, T1 - 3570 * s, T1 - 3569 * s),
     obs(S1, 'TOOL', `${TOOL}Bash`, T1 - 3560 * s, T1 - 3550 * s, { level: 'ERROR' }),
     obs(S1, 'TOOL', `${TOOL}cat ${CANARY} /etc`, T1 - 3540 * s, null),
-    obs(S1, 'GENERATION', 'Subagent LLM Call', T1 - 3500 * s, T1 - 3400 * s, { level: 'ERROR', usage: { [bucket('input')]: 1, [bucket('output')]: 2, [policy.langfuseUsageBuckets.cacheWrite.at(-1)]: 7, [`a key ${CANARY}`]: 3 } }),
+    obs(S1, 'GENERATION', 'Subagent LLM Call', T1 - 3500 * s, T1 - 3400 * s, { level: 'ERROR', usage: { [bucket('input')]: 1, [bucket('output')]: 2, [policy.langfuseUsageBuckets.cacheWrite.at(-1)]: 7, [`a key ${CANARY}`]: 3, total_tokens: 4 } }),
+    // A generation that carries Langfuse's total alone, as a client that reports one count would send it.
+    obs(S1, 'GENERATION', 'LLM Call', T1 - 3300 * s, T1 - 3290 * s, { raw: { usageDetails: { [TOTAL]: 5 }, totalUsage: 5 } }),
     obs(S1, 'SPAN', TURN, T1 - 600 * s, T1 + 600 * s, { level: 'ERROR' }),
     obs(S1, 'TOOL', `${TOOL}Edit`, T1 + 60 * s, T1 + 61 * s),
   ]
@@ -718,19 +741,19 @@ async function selftest() {
   const EXPECTED_B = {
     turns: 2,
     toolCalls: { [OTHER]: 1, Bash: 1, Read: 1 },
-    tokens: { input: 11, cacheRead: 100, cacheWrite: 57, output: 7, unbucketed: 3 },
-    unbucketedKeys: [OTHER],
+    tokens: { input: 11, cacheRead: 100, cacheWrite: 57, output: 7, unbucketed: 12 },
+    unbucketedKeys: [OTHER, TOTAL, 'total_tokens'],
     costUsd: 0.001,
     wallSeconds: 3600,
     turnSeconds: 1200,
     errors: { generations: 1, tools: 1, spans: 1 },
-    observations: 7,
+    observations: 8,
   }
   const EXPECTED_C = { turns: 1, toolCalls: {}, tokens: { input: 3, cacheRead: 0, cacheWrite: 0, output: 4, unbucketed: 0 }, unbucketedKeys: [], costUsd: 0.5, wallSeconds: 50, turnSeconds: 50, errors: { generations: 0, tools: 0, spans: 0 }, observations: 2 }
   /**
    * asdlc-openspec-ic9h.10's second read, row for row as Langfuse US answered it on 2026-10-10, but
-   * its project id: session RS's one turn, a host session of 2026-09-26, served three to a page as
-   * that read asked.
+   * its project id, which that issue's note of the same day holds as JSON: session RS's one turn, a
+   * host session of 2026-09-26, served three to a page as that read asked.
    */
   const RS = 'c3cfe0b4-feec-40ad-8ac9-cf9a064fec63'
   const RT = 'ca733b34d8e38db3c9a477802380f3da'
@@ -767,7 +790,7 @@ async function selftest() {
   ]
 
   const base = mkdtempSync(join(tmpdir(), 'prompt-run-figures-'))
-  const stub = await stubLangfuse(PATH, { container: containerRows, host: [...hostRows, ...RECORDED] })
+  const stub = await stubLangfuse(PATH, { container: containerRows, host: [...hostRows, ...RECORDED], totalKey: TOTAL })
   // A port that nothing listens on: bound once, then let go.
   const closed = await new Promise((done) => {
     const probe = createServer().listen(0, '127.0.0.1', () => {
@@ -867,11 +890,16 @@ async function selftest() {
       rec.status === 0 && rec.leaked.length === 0 && JSON.stringify(runOf(rec.report, 'example-p')?.figures) === JSON.stringify(EXPECTED_RECORDED) && recPages.length === 2 && recPages[0].query.cursor === undefined && typeof recPages[1].query.cursor === 'string',
       `${rec.status} ${rec.stderr} ${JSON.stringify(runOf(rec.report, 'example-p')?.figures)} ${recPages.length}`,
     )
+    ok(
+      "the stub served the second read's pages as Langfuse did: its three latest rows, the tied two by id descending, then the fourth",
+      JSON.stringify(recPages.map((q) => q.served)) === JSON.stringify([['9d9f3dd6aae45dac', '6d4fc6262cc10397', 'b81c6827068d716d'], ['2b1864431a231109']]),
+      JSON.stringify(recPages.map((q) => q.served)),
+    )
 
     const text = await figures({ argv: ['--pending', PENDING] })
     ok(
       'the text report names each run, its window, its figures and "no session line" and "none"',
-      text.status === 0 && text.leaked.length === 0 && /example-b@\S+ {2}example-b {2}1{8}-/.test(text.stdout) && /found in host: 7 observations, 2 turn\(s\), 3600 s wall, 1200 s in turns/.test(text.stdout) && /\n {4}no session line\n/.test(text.stdout) && /\n {4}none(\n|$)/.test(text.stdout),
+      text.status === 0 && text.leaked.length === 0 && /example-b@\S+ {2}example-b {2}1{8}-/.test(text.stdout) && /found in host: 8 observations, 2 turn\(s\), 3600 s wall, 1200 s in turns/.test(text.stdout) && /\n {4}no session line\n/.test(text.stdout) && /\n {4}none(\n|$)/.test(text.stdout),
       text.stdout,
     )
 
@@ -940,6 +968,8 @@ async function selftest() {
     ok("an answer holding another session's observation: failed by its reason, so an ignored filter is never counted as the run", failedBy(foreign, 'example-e', 'host', /^the API answered with an observation of another session/), JSON.stringify(runOf(foreign.report, 'example-e')))
     const before = await figures({ mode: { ignoreFrom: true } })
     ok("an answer holding an observation from before the window, the session's earlier run: failed by its reason", failedBy(before, 'example-b', 'host', /^the API answered with an observation that starts before the window/), JSON.stringify(runOf(before.report, 'example-b')))
+    const low = await figures({ mode: { totalBelowSum: true } })
+    ok("a generation whose Langfuse total is below the sum of its other keys: failed by its reason, since no figure could say which is right", failedBy(low, 'example-b', 'host', /whose usage total is below the sum of its other keys/), JSON.stringify(runOf(low.report, 'example-b')))
     const after = await figures({ mode: { ignoreTo: true } })
     ok('an answer holding an observation from after the analysis: failed by its reason', failedBy(after, 'example-b', 'host', /^the API answered with an observation that starts at or after the end of the window/), JSON.stringify(runOf(after.report, 'example-b')))
     const nullEnd = await figures({ mode: { nullCursorEnd: true } })
@@ -964,7 +994,11 @@ async function selftest() {
     await policyCase('a path of //host, which resolves to another host', (p) => (p.langfuseObservationsPath = `//127.0.0.1:${stub.port + 1}/elsewhere`), /`langfuseObservationsPath` is .*, where it must be a path that opens with one \//)
     await policyCase('a path of /\\host, which resolves to another host', (p) => (p.langfuseObservationsPath = '/\\evil.example/elsewhere'), /`langfuseObservationsPath` is .*, where it must be a path that opens with one \//)
     await policyCase('a usage key in two buckets', (p) => p.langfuseUsageBuckets.output.push(p.langfuseUsageBuckets.input[0]), /`langfuseUsageBuckets` is .*, where it must be a table whose buckets each list usage keys, and no key in two/)
-    await policyCase("Langfuse's total key put in a bucket", (p) => p.langfuseUsageBuckets.input.push(p.langfuseUsageTotalKey), /`langfuseUsageBuckets` holds `langfuseUsageTotalKey`, "total", the sum of the other keys/)
+    await policyCase(
+      "Langfuse's total key put in a bucket",
+      (p) => p.langfuseUsageBuckets.input.push(p.langfuseUsageTotalKey),
+      new RegExp(`\`langfuseUsageBuckets\` holds \`langfuseUsageTotalKey\`, ${JSON.stringify(TOTAL)}, the sum of the other keys`),
+    )
     await policyCase('two projects naming one variable', (p) => (p.langfuseProjects.container.secretKeyEnv = p.langfuseProjects.host.secretKeyEnv), /`langfuseProjects` is .*, where it must be a table whose rows name each environment variable once/)
     const flag = await figures({ argv: ['--everything'] })
     ok('an unknown flag: exit 2, naming it', flag.status === 2 && /unknown or incomplete flag "--everything"/.test(flag.stderr), flag.stderr)
