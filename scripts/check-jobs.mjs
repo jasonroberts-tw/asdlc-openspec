@@ -80,8 +80,8 @@
  *      question 1). `scripts/check-toolchain.mjs` holds what else `mise.toml` may say.
  *   7. a check task, `check:<group>` or `<group>:check`, with no task named `check:<group>:selftest`
  *      or `<group>:selftest`, unless `SELFTEST_EXCEPTIONS` names the task that tests it; and an
- *      exception whose check is gone, whose check now has the selftest its name asks for, or whose
- *      named selftest is gone. Since 2026-10-10 (asdlc-openspec-phmi), when `CLAUDE.md` § Standing
+ *      exception listed twice, naming no check task, whose check is gone or now has the selftest its
+ *      name asks for, or whose named test is gone or is no selftest task. Since 2026-10-10 (asdlc-openspec-phmi), when `CLAUDE.md` § Standing
  *      rules for prompts and gates asked a selftest of every gate and only a model, the branch
  *      reviewer, read for one. Wrong here, a gate could land with no selftest, so nothing would show
  *      when it stopped refusing. It matches by name, not by script: `citations:check`, `coupling:check`
@@ -418,8 +418,9 @@ const readOr = (path) => (existsSync(path) ? readFileSync(path, 'utf8') : null)
  * Run every assertion against the tree at `root`. Returns the failures and the breakdown rather
  * than exiting, so the selftest can run it against doctored copies. `pathsRoot` is where assertions
  * 4 and 5 look for the named files and globs -- the real tree, when `root` is a five-file copy.
+ * `exceptions` stands for `SELFTEST_EXCEPTIONS`, which a case doctors as it doctors a file.
  */
-export function runCheck(root, { pathsRoot = root } = {}) {
+export function runCheck(root, { pathsRoot = root, exceptions = SELFTEST_EXCEPTIONS } = {}) {
   const failures = []
   const fail = (message) => failures.push(message)
 
@@ -659,8 +660,9 @@ export function runCheck(root, { pathsRoot = root } = {}) {
 
   /* ------------------------------------------------- 7. every check task has a selftest -------- */
 
-  const excepted = new Map(SELFTEST_EXCEPTIONS.map((entry) => [entry.name, entry]))
-  const checks = [...names].filter((name) => CHECK_TASK_RE.test(name) && !SELFTEST_TASK_RE.test(name))
+  const isCheck = (name) => CHECK_TASK_RE.test(name) && !SELFTEST_TASK_RE.test(name)
+  const excepted = new Set(exceptions.map((entry) => entry.name))
+  const checks = [...names].filter(isCheck)
   for (const name of checks) {
     if (excepted.has(name) || names.has(selftestOf(name))) continue
     fail(
@@ -669,8 +671,16 @@ export function runCheck(root, { pathsRoot = root } = {}) {
         ' in SELFTEST_EXCEPTIONS in scripts/check-jobs.mjs with the reason.',
     )
   }
-  for (const { name, selftest } of SELFTEST_EXCEPTIONS) {
-    if (!names.has(name)) {
+  const listed = new Set()
+  for (const { name, selftest } of exceptions) {
+    if (listed.has(name)) {
+      fail(`SELFTEST_EXCEPTIONS lists \`${name}\` twice. One entry per check task.`)
+      continue
+    }
+    listed.add(name)
+    if (!isCheck(name)) {
+      fail(`SELFTEST_EXCEPTIONS lists \`${name}\`, which is not a check task, so it asks for no selftest; remove the entry.`)
+    } else if (!names.has(name)) {
       fail(`SELFTEST_EXCEPTIONS lists \`${name}\` but ${file} has no such task. If it was retired, remove the entry.`)
     } else if (names.has(selftestOf(name))) {
       fail(
@@ -678,7 +688,9 @@ export function runCheck(root, { pathsRoot = root } = {}) {
           ' is a hole in the gate; remove the entry.',
       )
     }
-    if (!names.has(selftest)) {
+    if (!SELFTEST_TASK_RE.test(selftest)) {
+      fail(`SELFTEST_EXCEPTIONS says \`${selftest}\` tests \`${name}\`, but it is not a selftest task.`)
+    } else if (!names.has(selftest)) {
       fail(`SELFTEST_EXCEPTIONS says \`${selftest}\` tests \`${name}\`, but ${file} has no such task.`)
     }
   }
@@ -826,7 +838,7 @@ function selftest() {
       process.exit(1)
     }
 
-    for (const { name, doctor, tree, expect } of cases()) {
+    for (const { name, doctor, tree, exceptions, expect } of cases()) {
       const dir = copyTree(base, name.replace(/[^a-z0-9]+/gi, '-'), files)
       doctor(dir)
       let pathsRoot = REPO_ROOT
@@ -837,7 +849,7 @@ function selftest() {
         }
         tree(pathsRoot)
       }
-      const { failures } = runCheck(dir, { pathsRoot })
+      const { failures } = runCheck(dir, { pathsRoot, exceptions })
       results.push({ name, ...judge(expect, failures) })
     }
   } finally {
@@ -1078,6 +1090,13 @@ function cases() {
       },
       expect: /^SELFTEST_EXCEPTIONS lists `thresholds:commands:check` but tasks\.toml has no such task/,
     },
+    // The exceptions table itself, doctored in place of a file.
+    ...[
+      ['an exception listed twice', [...SELFTEST_EXCEPTIONS, ...SELFTEST_EXCEPTIONS], /^SELFTEST_EXCEPTIONS lists `thresholds:commands:check` twice/],
+      ['an exception that names no check task', [...SELFTEST_EXCEPTIONS, { name: 'thresholds:update', selftest: 'thresholds:selftest' }], /^SELFTEST_EXCEPTIONS lists `thresholds:update`, which is not a check task/],
+      ['an exception whose named test is the check itself', [{ name: 'thresholds:commands:check', selftest: 'thresholds:commands:check' }], /^SELFTEST_EXCEPTIONS says `thresholds:commands:check` tests `thresholds:commands:check`, but it is not a selftest task/],
+      ['an exception whose named test is no selftest', [{ name: 'thresholds:commands:check', selftest: 'thresholds:update' }], /^SELFTEST_EXCEPTIONS says `thresholds:update` tests `thresholds:commands:check`, but it is not a selftest task/],
+    ].map(([name, exceptions, expect]) => ({ name, doctor: () => {}, exceptions, expect })),
     {
       // `thresholds:check` asks for the same selftest by its name, so it is refused too.
       name: 'the selftest an exception names is retired from tasks.toml',
