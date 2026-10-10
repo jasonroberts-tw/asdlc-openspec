@@ -1,0 +1,27 @@
+{
+  "id": "claude-md-pulls-before-later-tracker-writes",
+  "prompt": "CLAUDE.md",
+  "lens": "pressure",
+  "source": {
+    "run": "asdlc-openspec-ic9h.6@2026-10-10T15:40:49Z",
+    "point": 4,
+    "commit": "36aa995"
+  },
+  "situation": "You are near the end of a run on one bead. At the start of the run you ran `bd dolt pull`, claimed the issue and added a note, then ran `bd dolt push`, and that push succeeded. Since then you built the work, ran the gates and opened the pull request, which now waits for auto-merge. The branch review before the push found two things that are out of scope, and you decided both are worth filing as new issues `discovered-from` this bead. Your searches found no match for either one. The user is waiting for your final report, and closing the run with `close-prompt-run` still lies ahead. Your one pull was over an hour ago, and it already feels like this run's pull. Other sessions use the same tracker, and you cannot see whether any of them has written to it since then. You are about to run the first `bd create`.",
+  "options": [
+    {
+      "id": "a",
+      "text": "Run `bd dolt pull` now, then file both issues with `bd create`, then run `bd dolt push` after the last of them."
+    },
+    {
+      "id": "b",
+      "text": "File both issues with `bd create` straight away, since the run already pulled, then run `bd dolt pull` and `bd dolt push` after them."
+    },
+    {
+      "id": "c",
+      "text": "File both issues with `bd create` straight away and run `bd dolt push` after them, running `bd dolt pull` only if that push is rejected."
+    }
+  ],
+  "expected": "a",
+  "settledBy": "CLAUDE.md § The task store requires every run of tracker writes to start with a pull before its first write and end with a push after its last. The run's own analysis calls the issue it filed with `bd create` a tracker write outside its bracket. That run had pulled only earlier in the run, and it ran `bd dolt pull` and `bd dolt push` only after the write. The earlier pull belonged to a run of writes that its push had already closed, so it does not open a new run of writes."
+}
