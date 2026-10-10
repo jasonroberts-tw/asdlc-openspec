@@ -1,0 +1,235 @@
+# The prompt review: the `continuous-prompt-improvement` agent, run through
+# `anthropics/claude-code-action` over every prompt-run analysis no review has read, which opens one
+# pull request as the agents' App (`docs/decisions/asdlc-openspec-ic9h.md` § Decision). This header
+# is the home of when a review starts and of the review's name.
+#
+# WHEN A REVIEW STARTS. Each night at 03:17 UTC, on `schedule`, while the repository variable
+# `PROMPT_REVIEW_SCHEDULED` is `true`; and whenever a person dispatches this workflow on `main` with
+# `mode: review`, which is how a person starts a review at any time. A run reviews only while an
+# analysis is pending and no pull request from a branch `agent/review-prompts-*` is open; otherwise
+# its pending step says which, and the run ends before its model step. A run waits while another
+# holds the `prompt-review` concurrency group, and the run under way is never cancelled.
+#
+# THE REVIEW'S NAME. `review-prompts-` and the UTC date and time the pending step reads, as
+# `date -u +%Y%m%d-%H%M` prints them. The launch prompt ends with it, and the review names its
+# worktree and its branch by it.
+#
+# THE PROBE. `mode: probe`, a dispatch's default, runs every step but the review. In the review's place
+# its model step makes one turn through the same action and key, so a person tests each credential
+# before any review runs: the token minted and revoked, the tracker bootstrapped, the pending list,
+# the figures, and a model call authenticated with the key (asdlc-openspec-ic9h.11).
+#
+# WHAT IT WOULD LET THROUGH IF IT WERE WRONG. No incident yet: it came with asdlc-openspec-ic9h.6.
+# A token minted from the App's key carries the App's Pull requests write, so whatever holds it can
+# approve a pull request the App did not open, a floor head among them (the first loss of
+# `docs/decisions.md` § D-57). So this file runs on `schedule` and `workflow_dispatch` alone, where
+# the trunk's copy runs, and its one job names the `prompt-review` environment, which deploys from
+# `main` alone and holds every secret below; `pr-review:check` and
+# `scripts/hooks/guard-workflow-edit.mjs` refuse a read of the key anywhere else. The key is on the
+# runner only while one token is minted. The step then deletes it with the helper's kept copy of the
+# token, so the job holds that one token, which it revokes at its end. Each other secret sits on
+# the one step that uses it: the Langfuse keys on the figures step, whose reader runs nothing, and
+# `ANTHROPIC_API_KEY` and `TYPESAFE_API_KEY` on the model's.
+#
+# Where it loses, each a loss its record accepts:
+#   * The token's hour bounds the review. A review still running when the hour ends cannot push, open
+#     its pull request or write the tracker, and its analyses wait for the next night, so the review
+#     step stops at 50 minutes. The reviews took 17 to 129 minutes each (the Figures of
+#     `docs/decisions/asdlc-openspec-ic9h.md`). The maintainer chose that on 2026-10-10 over keeping
+#     the key on the runner, where a text that led the model to print the key file would put in the
+#     public log a key that mints tokens until a person revokes it (asdlc-openspec-ic9h.6).
+#   * The model's step holds the token, `ANTHROPIC_API_KEY` and `TYPESAFE_API_KEY`, and the run log
+#     is public (`docs/decisions/asdlc-openspec-ic9h.md` § Decision and
+#     `docs/decisions/asdlc-openspec-ic9h.13.md` § Decision).
+#   * The secrets' names are restated here, since an expression cannot read a policy record: the App
+#     key's is `prReviewAppKeySecret` in `tools/policy/pr-review.json`, and the Langfuse keys' are
+#     `langfuseProjects` in `tools/policy/tool-settings.json`. A name renamed there and not here
+#     reads as a secret not set.
+#
+# INVOCATION. `gh workflow run prompt-review.yml --ref main -f mode=probe`, or `-f mode=review`, and
+# `gh run watch` on the run it starts: the run's log is where a review is watched. A dispatch on any
+# other ref is refused by the environment's deployment rule.
+#
+# NEEDS. The `prompt-review` environment, deployable from `main` alone, with the App's CI key,
+# `ANTHROPIC_API_KEY`, `TYPESAFE_API_KEY` and the four Langfuse keys as its secrets
+# (asdlc-openspec-ic9h.9); the repository variable `PROMPT_REVIEW_SCHEDULED` for the schedule; and the
+# network to GitHub, Anthropic, Langfuse and TypeSafe. It reads secrets, the network and a language
+# model, so it is neither a pre-push job nor a `verify.yml` step (`CLAUDE.md` § The gate ladder):
+# `pr-review:check` holds its reads of the App's key, and `check:toolchain` the mise it pins.
+name: prompt-review
+run-name: "prompt-review: ${{ inputs.mode || 'review' }} on ${{ github.event_name }}"
+
+on:
+  # The trunk's copy alone runs on these two events, so no branch's copy of this file mints the token.
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'probe: every step but the review, and one model turn in its place. review: the review.'
+        type: choice
+        options: [probe, review]
+        default: probe
+
+permissions: {}
+
+jobs:
+  review:
+    name: prompt review
+    # A scheduled run reviews only once a person has turned the schedule on (asdlc-openspec-ic9h.11).
+    if: github.event_name == 'workflow_dispatch' || vars.PROMPT_REVIEW_SCHEDULED == 'true'
+    runs-on: ubuntu-latest
+    # The review step's 50 minutes, and the steps before and after it.
+    timeout-minutes: 75
+    # The environment holds every secret this job reads, and deploys from `main` alone.
+    environment: prompt-review
+    # One review at a time; a second run waits rather than cancel the one under way.
+    concurrency:
+      group: prompt-review
+      cancel-in-progress: false
+    permissions:
+      # The checkout. The App's token does every write: the review's branch, its pull request and the
+      # tracker.
+      contents: read
+    env:
+      # A scheduled run has no inputs, and reviews.
+      MODE: ${{ inputs.mode || 'review' }}
+    steps:
+      # The whole history, which the gates the review runs walk, and no credential left in the
+      # checkout's config: the App's token is the one the job writes with.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      # Every tool `mise.toml` pins, from `mise.lock`, since the review runs `mise run gates`. mise
+      # itself, the action's commit and its `sha256` are pinned as `verify.yml` says, which
+      # `mise run check:toolchain` holds.
+      - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
+        with:
+          version: 2026.10.0
+          sha256: 57ced973f968b8fbab07aa8e32bd7077d4a357e200a22356d98963c723c6de0a
+      # Before the mint, so the token's hour is spent on the review, and no package's install script
+      # runs while the key is on the runner. The hooks are installed by hand, since `prepare` skips
+      # them under `CI`, and the review's commits and push run the gates through them.
+      - name: the packages and the git hooks
+        run: |
+          npm ci
+          mise run hooks:install
+      # One token, and the key deleted once it is minted, with the helper's kept copy of the token,
+      # so the job holds that token alone (the header's first loss). git reaches github.com through a
+      # helper that answers with it, and the tracker's Dolt remote, an SSH address, through the
+      # rewrite to HTTPS that `.devcontainer/Dockerfile` makes. git's identity is the App's bot.
+      - name: one App token, from the environment's key, which is then deleted
+        id: token
+        env:
+          APP_KEY: ${{ secrets.AGENT_APP_PRIVATE_KEY }}
+        run: |
+          umask 077
+          dir="$(mktemp -d "$RUNNER_TEMP/github-app.XXXXXX")"
+          trap 'rm -rf "$dir"' EXIT
+          printf '%s\n' "$APP_KEY" > "$dir/app.pem"
+          token="$(GITHUB_APP_KEY_DIR="$dir" GITHUB_APP_TOKEN_CACHE="$dir/token.json" node scripts/github-app-token.mjs token)"
+          test -n "$token"
+          echo "::add-mask::$token"
+          echo "GH_TOKEN=$token" >> "$GITHUB_ENV"
+          git config --global credential.https://github.com.helper ''
+          git config --global --add credential.https://github.com.helper '!f() { if [ "$1" = get ]; then printf "username=x-access-token\npassword=%s\n" "$GH_TOKEN"; fi; }; f'
+          git config --global url.https://github.com/.insteadOf ssh://git@github.com/
+          git config --global --add url.https://github.com/.insteadOf git@github.com:
+          identity="$(node scripts/github-app-token.mjs identity)"
+          while IFS='=' read -r key value; do
+            git config --global "$key" "$value"
+            if [ "$key" = user.name ]; then echo "bot-login=$value" >> "$GITHUB_OUTPUT"; fi
+            if [ "$key" = user.email ]; then echo "bot-id=${value%%+*}" >> "$GITHUB_OUTPUT"; fi
+          done <<< "$identity"
+      # The tracker's database, from its Dolt remote, a ref of this repository, through the token.
+      - name: the tracker, bootstrapped
+        run: |
+          bd --version
+          bd bootstrap
+      # What is pending, read with no Langfuse key, kept for the figures step to read, since that step
+      # runs nothing. A review starts only with something pending and no review pull request open; a
+      # probe reads the figures of whatever is pending, open or not.
+      - name: what is pending, and whether a review may start
+        id: pending
+        run: |
+          mkdir -p .scratch
+          node scripts/prompt-runs.mjs --only pending --json > .scratch/pending.json
+          count="$(jq '.pending.analyses | length' .scratch/pending.json)"
+          open="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --json headRefName --jq '[.[] | select(.headRefName | startswith("agent/review-prompts-"))] | length')"
+          echo "$count analyses pending; $open review pull requests open."
+          figures=false
+          review=false
+          if [ "$count" -eq 0 ]; then
+            echo "Nothing is pending, so no review starts."
+          elif [ "$open" -gt 0 ]; then
+            echo "A review pull request is open, so no review starts: the pending analyses wait for it."
+            if [ "$MODE" = probe ]; then figures=true; fi
+          else
+            figures=true
+            review=true
+          fi
+          echo "figures=$figures" >> "$GITHUB_OUTPUT"
+          echo "review=$review" >> "$GITHUB_OUTPUT"
+          echo "name=review-prompts-$(date -u +%Y%m%d-%H%M)" >> "$GITHUB_OUTPUT"
+      # The two Langfuse projects' keys are on this step alone, under the names `langfuseProjects`
+      # gives in `tools/policy/tool-settings.json`. Its reader runs nothing, so no code off the floor
+      # runs beside them (the header of `scripts/prompt-run-figures.mjs`). A run whose read failed
+      # exits 1 with a report that names it, and the job goes on; any other failure stops the job.
+      - name: each pending run's Langfuse figures
+        if: steps.pending.outputs.figures == 'true'
+        env:
+          LANGFUSE_HOST_PUBLIC_KEY: ${{ secrets.LANGFUSE_HOST_PUBLIC_KEY }}
+          LANGFUSE_HOST_SECRET_KEY: ${{ secrets.LANGFUSE_HOST_SECRET_KEY }}
+          LANGFUSE_CONTAINER_PUBLIC_KEY: ${{ secrets.LANGFUSE_CONTAINER_PUBLIC_KEY }}
+          LANGFUSE_CONTAINER_SECRET_KEY: ${{ secrets.LANGFUSE_CONTAINER_SECRET_KEY }}
+        run: |
+          status=0
+          mise run prompt-runs:figures --json --pending .scratch/pending.json > .scratch/figures.json || status=$?
+          if [ "$status" -eq 1 ] && jq -e 'has("runs")' .scratch/figures.json > /dev/null; then
+            echo "::warning::A run's figures could not be read; .scratch/figures.json names each failure."
+          elif [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
+      # The probe's model call: one turn through the action and the environment's key, with no
+      # TypeSafe key, in place of the review.
+      - name: the model, probed with one turn
+        if: env.MODE == 'probe'
+        timeout-minutes: 10
+        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ env.GH_TOKEN }}
+          bot_name: ${{ steps.token.outputs.bot-login }}
+          bot_id: ${{ steps.token.outputs.bot-id }}
+          classify_inline_comments: 'false'
+          claude_args: --max-turns 1
+          prompt: Reply with the one word ok, and use no tool.
+      # The review. The action is a third party's, pinned by commit. It puts `github_token` in the
+      # checkout's remote, so git's fetches and pushes carry the job's one token, and commits as the
+      # App's bot. `TYPESAFE_API_KEY` is for `mise run prompt-review:match`, which runs inside the
+      # review's session; that a step's own `env` reaches the action's inner step is not verified,
+      # and the first review dispatch shows it.
+      - name: the review
+        if: env.MODE == 'review' && steps.pending.outputs.review == 'true'
+        timeout-minutes: 50
+        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1.0.248
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ env.GH_TOKEN }}
+          bot_name: ${{ steps.token.outputs.bot-login }}
+          bot_id: ${{ steps.token.outputs.bot-id }}
+          classify_inline_comments: 'false'
+          claude_args: --agent continuous-prompt-improvement --permission-mode auto
+          prompt: >-
+            .github/workflows/prompt-review.yml launched you on its ${{ github.event_name }} event, in
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}. Each
+            pending run's Langfuse figures are in .scratch/figures.json, read for the analyses in
+            .scratch/pending.json. Review the pending prompt-run analyses as
+            ${{ steps.pending.outputs.name }}.
+      # The job's one token, revoked whatever happened above.
+      - name: the token, revoked
+        if: always() && steps.token.outcome == 'success'
+        run: gh api --method DELETE /installation/token
