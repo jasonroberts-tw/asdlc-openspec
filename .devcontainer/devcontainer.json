@@ -6,6 +6,10 @@
 // The exceptions are the mounts, the terminal's COLORTERM and your TypeSafe key below, which cannot
 // be anywhere else: a bind mount names a path on YOUR machine, COLORTERM your terminal, the key your
 // account, and an image is shared by everyone.
+//
+// `init` is here too, though an image could carry an init of its own. Docker's init needs no package
+// and no rebuild, and the Dev Containers CLI, which .devcontainer/README.md says to start the
+// container with, reads it from this file (.devcontainer/README.md § PID 1).
 {
   "name": "Development container",
   // The repository's root is the build context, so the image can install the toolchain from
