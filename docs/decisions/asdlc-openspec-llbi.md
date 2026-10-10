@@ -85,8 +85,12 @@ Where it loses:
 
 - Five tools call TypeSafe: `git grep -l "import { createJudge }" -- scripts tools` lists six files,
   of which `tools/citations/support.selftest.ts` is a selftest, at this record's commit.
-- The CLI gives an unset `${localEnv:...}` as an empty string, and passes each `remoteEnv` value as
-  `docker exec -e NAME=value`: `hN` and the `exec` argument list in
-  `@devcontainers/cli/dist/spec-node/devContainersSpecCLI.js`, 0.89.0, read 2026-10-10.
+- The Dev Containers CLI, v0.89.0, read 2026-10-10 in its source and in its installed bundle:
+  - it gives an unset `${localEnv:...}` as an empty string (`lookupValue` in
+    `src/spec-common/variableSubstitution.ts`);
+  - it passes each `remoteEnv` value as `docker exec -e NAME=value` (`toDockerExecArgs` in
+    `src/spec-shutdown/dockerUtils.ts`);
+  - its metadata label holds the configuration from before substitution
+    (`getDevcontainerMetadataLabel` in `src/spec-node/imageMetadata.ts`).
 - A session on the maintainer's host runs with `TYPESAFE_API_KEY` set: read 2026-10-10 with
   `node -e`, which printed only whether it was set.
