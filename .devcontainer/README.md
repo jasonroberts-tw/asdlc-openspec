@@ -2,7 +2,7 @@
 
 **The "new machine setup" half of the root `README.md`, baked into a container that works in a clone
 of its own, in which an agent session acts as the agents' GitHub App and holds none of your
-logins.** With Docker and the Dev Containers CLI (`npm install -g @devcontainers/cli`), the
+logins, and no credential of yours but the TypeSafe key you choose to pass in.** With Docker and the Dev Containers CLI (`npm install -g @devcontainers/cli`), the
 prerequisites are a clone, for the configuration, and the App's key (§ Giving it the App's key):
 
 ```bash
@@ -74,7 +74,7 @@ registers their marketplaces, and `entrypoint.sh` installs each plugin for the c
 |---|---|
 | `Dockerfile` | Every tool, as a layer. The base image's major tag is at the top; every other version is in the root `mise.toml`, installed through `mise.lock` by the mise the Dockerfile copies in (`docs/decisions.md` § D-31), and graphify's dependencies through its uv lock under `.mise/locks/` (§ D-35). After a pin moves, rebuild. It also makes `git` and `gh` act as the App, through the two files below, keeps `git gc` from pruning the host's worktrees (§ The host's worktrees, seen from the container), and carries `tools/policy/tool-settings.json`, which names the repository the entrypoint clones. |
 | `Dockerfile.dockerignore` | What the build may read from the repository's root, its context: `mise.toml`, `mise.lock`, the uv locks under `.mise/locks/`, `entrypoint.sh`, the two wrappers and `tools/policy/tool-settings.json`, and nothing else. |
-| `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, and no workspace mount. It mounts the App's key read-only, a volume for Claude Code's state and one for the container's clone. Its variables name the clone, the key's directory and that volume to what runs inside, and pass your terminal's `COLORTERM` in (§ Color and the status line). |
+| `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, and no workspace mount. It mounts the App's key read-only, a volume for Claude Code's state and one for the container's clone. Its variables name the clone, the key's directory and that volume to what runs inside, and pass your terminal's `COLORTERM` in (§ Color and the status line), and your TypeSafe key once you set it (§ TypeSafe's key). |
 | `entrypoint.sh` | At the first start, the container's clone, made in its volume. Then the three setup steps that read the clone, which does not exist at build time, and the App's bot account as git's commit identity, when none is set. Where either is missing, each plugin's marketplace and its project-scope install for the clone; Langfuse's plugin at user scope, configured from a `langfuse.json` beside the App's key when the host gives one, and disabled when it does not; and the status line, when Claude Code's settings set none. It warns while a tool `mise.toml` pins is missing from the image, while Vale cannot load `.vale.ini`, and while the App cannot mint a token. |
 | `gh` | `gh` as the App: ahead of mise's on PATH, it runs it with a token `scripts/github-app-token.mjs` mints, read for each command. |
 | `git-credential-github-app` | git's one credential helper for `https://github.com`, which hands git's request to `scripts/github-app-token.mjs`. |
@@ -123,6 +123,10 @@ nobody else (`docs/decisions.md` § D-51). So `devcontainer.json` mounts none of
   (`asdlc-openspec-3901`). It also shared the host's `.git` and tracker database, the harms
   § The container's clone names. Since D-54 the container works in a clone of its own.
 
+One credential of yours does come in, once you set it: your TypeSafe key (§ TypeSafe's key). It
+reaches nothing of GitHub's. The maintainer chose on 2026-10-10 to pass the host's own key, over a
+key made for the container (`docs/decisions/asdlc-openspec-llbi.md` § Decision).
+
 What the container keeps of its own:
 
 - **Claude Code's state** lives in a volume of the container's own, `claude-code-<id>`, one per
@@ -141,8 +145,10 @@ What the container keeps of its own:
 
 ## Giving it the App's key
 
-The App's private key is the one credential of GitHub's the container holds. The only other one is
-optional: the keys of a Langfuse project of the container's own (§ Langfuse tracing). On the host:
+The App's private key is the one credential of GitHub's the container holds. The other two are
+optional: the keys of a Langfuse project of the container's own (§ Langfuse tracing), and your
+TypeSafe key, which comes from your terminal and not from this directory (§ TypeSafe's key). On the
+host:
 
 1. Generate a private key on the App's settings page on GitHub. Its id and installation are
    `githubAppId` and `githubAppInstallationId` in `tools/policy/tool-settings.json`.
@@ -284,3 +290,37 @@ disables the plugin. `claude plugin disable` set its `enabled` to false (verifie
 plugin's hook needs `uv` or Python 3.10 or newer, which mise's shims give a session in the clone. Whether a
 container's session reaches Langfuse is the check of `asdlc-openspec-ic9h.12`, a person's step: no
 container has been built with the file yet.
+
+## TypeSafe's key
+
+Every tool that calls TypeSafe reads `TYPESAFE_API_KEY` from its environment (`tools/lib/typesafe.ts`).
+In the container, `devcontainer.json`'s `remoteEnv` sets it from `DEVCONTAINER_TYPESAFE_API_KEY`, a
+variable of the container's own, in the terminal that runs `devcontainer exec`. Without it, each of
+those tools skips and says why, and `change-verify` runs without its clause check (`docs/decisions.md`
+§ D-42). To give the container your key:
+
+1. In the profile of the shell you run `devcontainer exec` from, after the line that sets
+   `TYPESAFE_API_KEY`, copy it into the container's variable. In PowerShell:
+
+   ```powershell
+   $env:DEVCONTAINER_TYPESAFE_API_KEY = $env:TYPESAFE_API_KEY
+   ```
+
+   In a POSIX shell: `export DEVCONTAINER_TYPESAFE_API_KEY="$TYPESAFE_API_KEY"`.
+2. Open a new terminal, and run `devcontainer exec` as before. A container needs no rebuild.
+
+How it behaves:
+
+- **It is read at each `devcontainer exec`**, from the terminal that runs it, as `COLORTERM` is
+  (§ Color and the status line). So a rotated key reaches the next session.
+- **A terminal without the variable starts a session with the key empty.** The CLI gives an unset
+  `${localEnv:...}` as an empty string (`hN` in the bundle of Dev Containers CLI 0.89.0), and the
+  client reads an empty key as none. To start a session with no key, run `devcontainer exec` from a
+  terminal where `DEVCONTAINER_TYPESAFE_API_KEY` is unset.
+- **The host shows the key while a command runs.** The CLI passes it as
+  `docker exec -e TYPESAFE_API_KEY=<the key>` (the same bundle), so the host's process list holds it
+  for as long as that session or shell runs.
+- **Every process an `exec` starts holds it**, a session's commands and hooks among them, so a
+  session that prints its environment prints the key.
+- **It is your host's own key**, as the maintainer chose on 2026-10-10: a leak from the container is
+  revoked on the key your host uses (`docs/decisions/asdlc-openspec-llbi.md` § Decision).

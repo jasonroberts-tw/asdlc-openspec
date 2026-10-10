@@ -3,8 +3,9 @@
 // over the network when a container is created. If you are about to add a setup step here, add a
 // layer to the Dockerfile instead.
 //
-// The exceptions are the mounts and the terminal's COLORTERM below, which cannot be anywhere else: a
-// bind mount names a path on YOUR machine, COLORTERM your terminal, and an image is shared by everyone.
+// The exceptions are the mounts, the terminal's COLORTERM and your TypeSafe key below, which cannot
+// be anywhere else: a bind mount names a path on YOUR machine, COLORTERM your terminal, the key your
+// account, and an image is shared by everyone.
 {
   "name": "Development container",
   // The repository's root is the build context, so the image can install the toolchain from
@@ -33,6 +34,8 @@
   // (docs/decisions.md § D-51), so this mounts none of your `~/.config/gh`, `~/.ssh`, `~/.claude` or
   // `~/.claude.json`, and passes no `GH_TOKEN` through: each would hand a session your identity, and
   // a writable `~/.claude` a way to run code in your next session on the host, through its hooks.
+  // The one credential of yours that comes in is your TypeSafe key, in `remoteEnv` below, and only
+  // once you set DEVCONTAINER_TYPESAFE_API_KEY (docs/decisions/asdlc-openspec-llbi.md § Decision).
   //
   // `${localEnv:HOME}${localEnv:USERPROFILE}` is one path, not two: exactly one of the pair is set
   // -- HOME on Linux and macOS, USERPROFILE on Windows -- so the empty one contributes nothing.
@@ -77,8 +80,15 @@
   // terminal's own (xterm-ghostty among them), and `less` and `clear` fail on one it lacks.
   // `remoteEnv`, not `containerEnv`, because it is read at each `devcontainer exec`, from the
   // terminal that runs it.
+  //
+  // Your TypeSafe key too, for every tool that calls TypeSafe (`tools/lib/typesafe.ts`), from
+  // DEVCONTAINER_TYPESAFE_API_KEY in that terminal: a name of the container's own, so that a host
+  // holding the key for other work passes nothing until someone sets it. Unset, it arrives empty, and
+  // each of those tools skips and says why. Read at each `exec`, so a rotated key needs no rebuild.
+  // .devcontainer/README.md § TypeSafe's key says how to set it, and where its value shows.
   "remoteEnv": {
-    "COLORTERM": "${localEnv:COLORTERM}"
+    "COLORTERM": "${localEnv:COLORTERM}",
+    "TYPESAFE_API_KEY": "${localEnv:DEVCONTAINER_TYPESAFE_API_KEY}"
   },
 
   "customizations": {

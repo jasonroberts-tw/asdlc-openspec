@@ -2628,6 +2628,8 @@ Where it loses:
 >
 > (`docs/decisions/asdlc-openspec-ic9h.md` § Decision.)
 
+> **Amended 2026-10-10 by asdlc-openspec-llbi.** Item 3's "no host credential reaches them" no longer holds for one credential: the host's own TypeSafe key, which `remoteEnv` in `.devcontainer/devcontainer.json` passes to each `devcontainer exec` from `DEVCONTAINER_TYPESAFE_API_KEY`, once the host sets it. It reaches nothing of GitHub's, so no route R-02 carries opens with it (`docs/decisions/asdlc-openspec-llbi.md` § Decision).
+
 ### D-52 · `prompt-runs` follows each fix a merged prompt review carried through later runs, and reports the fix-recurrence rate
 
 **Recorded 2026-10-05**, carried by `asdlc-openspec-r6ha.8`, a child of `asdlc-openspec-r6ha`. The maintainer chose to wait for `asdlc-openspec-6yt.1`, so the first figures rest on keys that do not drift between reviews (the parent's decision 3, with its loss). On 2026-10-05, before the claim, they answered the issue's three questions, each from options that showed where the recommended one loses, recorded in its notes:
