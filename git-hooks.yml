@@ -393,7 +393,8 @@ pre-push:
     # reads the App's private key and GitHub's API, and runs in no job. It runs real `git` and `sh`
     # through the image's two wrappers, `.devcontainer/gh` and `.devcontainer/git-credential-github-app`,
     # and real `git` under the git config `.devcontainer/Dockerfile` writes, read from it, and sources
-    # `.devcontainer/entrypoint.sh` under bash to run its `commit_identity`, `statusline` and `clone`.
+    # `.devcontainer/entrypoint.sh` under bash to run its `commit_identity`, `statusline`, `clone` and
+    # `vale_styles`.
     # It also runs `.devcontainer/statusline.sh` through `sh` and reads the Dockerfile for its
     # `NO_COLOR`, so all five are in the glob, with the policy it reads, the loader it reads it
     # through and the git helper it imports. 6.39 s wall for its 49 cases (`/usr/bin/time -p` on

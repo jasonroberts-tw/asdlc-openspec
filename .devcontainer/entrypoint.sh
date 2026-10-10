@@ -401,8 +401,8 @@ statusline() {
 }
 
 # Sourced with ENTRYPOINT_FUNCTIONS_ONLY=1, as scripts/github-app-token.mjs's selftest sources it to
-# run clone, commit_identity, tracing and statusline, this file defines its functions and runs none
-# of its steps.
+# run clone, vale_styles, commit_identity, tracing and statusline, this file defines its functions
+# and runs none of its steps.
 if [ "${ENTRYPOINT_FUNCTIONS_ONLY:-}" = 1 ]; then
   return 0
 fi

@@ -102,7 +102,7 @@ level above them. `apps/` and `openspec/` hold the product; every other path is 
 | `.vale.ini`, `.vale-styles/Layout/` | The configuration of Vale, the prose linter the `vale@agent-tools` hook runs on each edit of prose, and `Layout`, the one style this repository writes itself. |
 | `.github/workflows/verify.yml` | The slowest tier: every gate that reads only committed files, on every pull request and every push to `main`. |
 | `.github/workflows/pr-review.yml` | The pull-request reviewer: on each pushed head it submits one review, approving a head whose changes are off the high-risk floor, which GitHub's auto-merge then merges, and commenting that a person decides on the rest, with no model and no secret, in one job that installs no npm package and writes only the review. Each changed file's reach and co-change partners are in the branch review's brief, before the push; the review prints neither. |
-| `.devcontainer/` | A container whose image holds every tool. Its start reaches the network only to clone the repository and fetch Vale's styles, and warns and goes on without it. |
+| `.devcontainer/` | A container whose image holds every tool. Each step of its start that needs the network, such as the first start's clone or fetching Vale's styles, warns and goes on without it. |
 | `KIT-CHECKLIST.md` | What the starter kit's bootstrap laid down, step by step, and what is still to adapt. Deleted once it is worked through. |
 
 Some paths appear only on a working machine and are gitignored, each with its reason in
@@ -311,7 +311,8 @@ once you set it (`docs/decisions/asdlc-openspec-llbi.md` § Decision).
    its output once (`docker logs` on the container shows it). If it warns that a tool `mise.toml`
    pins is missing from the image, rebuild the container. If it warns that the GitHub App could not
    mint a token, fix the key and start again. If it warns that `vale sync` failed, start it again
-   once the network is back, or run `vale sync` in the container's clone.
+   once the network is back, or run `vale sync` in the container's clone. If it warns that Vale
+   still cannot load `.vale.ini` after the sync, run the command the warning names to see why.
 1. So that the container's sessions can call TypeSafe, set `DEVCONTAINER_TYPESAFE_API_KEY` to your
    key in the shell you run `devcontainer exec` from, as `.devcontainer/README.md` § TypeSafe's key
    says. Without it, each tool that calls TypeSafe skips there and says why.
