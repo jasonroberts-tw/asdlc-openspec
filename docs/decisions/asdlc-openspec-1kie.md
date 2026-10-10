@@ -72,7 +72,8 @@ Where it loses:
 - **`docs/decisions.md`:** the amendment under D-32.
 - **`docs/decisions/`:** this record.
 - **Added:** `scripts/grade-prose-cases.mjs`, the grader, as `mise run prompt-review:grade`, with
-  `PROMPT_REVIEW_GRADE_ROOT` as its root override.
+  `PROMPT_REVIEW_GRADE_ROOT` as its root override; `scripts/lib/fnv.mjs`, the checksum it and the
+  selftest share.
 - **`.claude/workflows/review-prompts.js`:** a prose case's refusals, its answer prompt with no
   options, `PROSE_SCHEMA`, `prose` in its result with each entry sealed, and `counts.prose` and
   `counts.proseAnswers`; its header's THE PROSE CASES, WHAT IT RETURNS and LABELS.
@@ -96,7 +97,7 @@ Where it loses:
 
 - Word counts, each `node scripts/check-prompts.mjs --counts` before this change and at its commit:
   the literals of `review-prompts.js` 2,048 and 2,086; `continuous-prompt-improvement.md` 2,445 and
-  2,482; `prompt-case-answerer.md` 237 and 262.
+  2,495; `prompt-case-answerer.md` 237 and 262.
 - `mise run workflows:selftest` at this entry's commit: 319 of 319 cases hold, 9 of them the
   grader's. The same selftest run against the trunk's `review-prompts.js`, through `WORKFLOWS_ROOT` on
   a copy of the trunk given this change's policy record, held 303 of 310, the 7 new review and bank

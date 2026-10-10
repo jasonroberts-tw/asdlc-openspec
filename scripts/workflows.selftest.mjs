@@ -153,6 +153,7 @@ import { fileURLToPath } from 'node:url'
 import { gitEnv, gitIn, SCRATCH_GIT_ENV } from '../tools/lib/git-env.ts'
 import { copyPolicy, editPolicy, POLICY_DIR, readPolicy } from '../tools/lib/policy.ts'
 import { ROOT_ENV as GRADE_ROOT_ENV, main as gradeMain, QUESTION as GRADE_QUESTION, UNGRADED } from './grade-prose-cases.mjs'
+import { fnv } from './lib/fnv.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ROOT = process.env.WORKFLOWS_ROOT ?? REPO_ROOT
@@ -426,15 +427,6 @@ const testFile = (extra = {}, id = 'EXA-001') => ({
 })
 const tests = (files = [testFile()]) => ({ files, complete: true, findings: [] })
 
-/** FNV-1a over UTF-16 code units, as the workflow's Setup command computes it. */
-function fnv(s) {
-  let h = 2166136261
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i)
-    h = Math.imul(h, 16777619) >>> 0
-  }
-  return h
-}
 const INPUT_FILES = [
   { path: 'openspec/changes/example-change/design.md', text: '# Design\n\nThe display shows what was pressed.\n' },
   { path: 'openspec/changes/example-change/specs/example/spec.md', text: '#### Scenario: [EXA-001] The display shows 1\n\n- WHEN 1 is pressed\n- THEN the display shows 1\n' },
@@ -4173,7 +4165,7 @@ function readBank(root) {
  * Why the bank under `root` is not one both workflows accept, or null: the authoring workflow validates
  * each choice case, and the review answers every case, holding each choice case and returning each prose
  * case for the grader. A prose case goes to no authoring run, since that workflow validates options
- * alone (`.claude/prompt-cases/README.md` § How a case is made, stored and judged).
+ * alone (`.claude/prompt-cases/README.md` § Prose cases).
  */
 async function bankProblem(root, authorBody, reviewBody, policy) {
   const bank = readBank(root)
