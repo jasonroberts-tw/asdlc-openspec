@@ -84,7 +84,8 @@ id, and drop one whose answer no source settles. Run it again with those as `cas
 With a group, run `.claude/workflows/review-prompts.js` with the groups of § 3, as `settled` each
 closed key § 3 held, as `<key>: <reason>`, and as `cases` every case whose `prompt` is a group's
 file, from `.claude/prompt-cases/` and those just validated. Pass the `prose` it returns, if any, to
-`mise run prompt-review:grade`, as that script's header says; its grades keep no branch out.
+`mise run prompt-review:grade`, as that script's header says, or a new text that drops what a prose
+case holds shows nowhere; its grades keep no branch out.
 
 ## 5. Merge, gate, and open one pull request
 

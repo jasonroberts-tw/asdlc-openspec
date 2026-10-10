@@ -619,6 +619,7 @@ pre-push:
         - 'scripts/workflows.selftest.mjs'
         - 'scripts/prompt-case-texts.mjs'
         - 'scripts/grade-prose-cases.mjs'
+        - 'scripts/lib/fnv.mjs'
         - 'scripts/judge-trace-clauses.mjs'
         - 'scripts/test-trace.mjs'
         - 'scripts/lib/bin-path.mjs'

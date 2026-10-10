@@ -52,9 +52,11 @@
  *              answer that has no text or was not graded
  *
  * EXIT. 0 with the grades printed, the key set or not; 2 on a bad flag or a bad input, a checksum that
- * does not match among them, which the session corrects by copying the workflow's `prose` again; 1 on a
- * failure: a policy key missing or wrong, or a TypeSafe call that failed or answered with no
- * probability. On 1 the session names the failure in the description in place of the counts.
+ * does not match among them, which the session corrects by copying the workflow's `prose` again, once:
+ * a second mismatch means the texts are too long to copy whole, and the session reports the prose cases
+ * as graded none, with this script's reason, rather than copying a third time; 1 on a failure: a policy
+ * key missing or wrong, or a TypeSafe call that failed or answered with no probability. On 1 the
+ * session names the failure in the description in place of the counts.
  *
  * NEEDS `TYPESAFE_API_KEY` and the network to grade, and `npm ci` for the SDK: one request per answer,
  * twice `promptReviewCaseRepetitions` for each case. Without the key it needs neither. Its selftest is
@@ -66,6 +68,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readPolicy } from '../tools/lib/policy.ts'
 import { createJudge } from '../tools/lib/typesafe.ts'
+import { fnv } from './lib/fnv.mjs'
 
 const SELF = fileURLToPath(import.meta.url)
 const REPO_ROOT = resolve(dirname(SELF), '..')
@@ -104,16 +107,6 @@ export function loadPolicy(root) {
     if (typeof raw[`${key}Means`] !== 'string') throw new Error(`the policy has \`${key}\` and no \`${key}Means\` saying what it decides`)
   }
   return Object.fromEntries(KEYS.map(([key]) => [key, raw[key]]))
-}
-
-/** FNV-1a over the UTF-16 code units of `s`, as `review-prompts.js` seals each entry of its `prose`. */
-export function fnv(s) {
-  let h = 2166136261
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i)
-    h = Math.imul(h, 16777619) >>> 0
-  }
-  return h
 }
 
 /** An entry's sealed fields, in the order `review-prompts.js` seals them, so a copy that reorders its keys still matches. */

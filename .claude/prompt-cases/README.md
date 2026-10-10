@@ -1,10 +1,11 @@
 # `.claude/prompt-cases/`
 
-**The bank of stored decision cases: each one a situation a session running a prompt meets, the
-options it could take there, and the one its source settles as right, which every prompt review
-answers with the old text and the new of each prompt it changes.** A case that the old text answers
-right and the new text answers wrong keeps the edit's branch out of the merge
-(`docs/decisions.md` § D-32). The rules each workflow holds a case to are in its header, and where
+**The bank of stored decision cases: each one a situation a session running a prompt meets and what
+its source settles as right there, one of the options it could take or, for a prose case, what the
+text it writes must do, which every prompt review answers with the old text and the new of each
+prompt it changes.** A choice case that the old text answers right and the new text answers wrong
+keeps the edit's branch out of the merge (`docs/decisions.md` § D-32); a prose case's grades are
+listed and keep nothing out (§ Prose cases). The rules each workflow holds a case to are in its header, and where
 this page and a header disagree, the header wins.
 
 ## How a case is made, stored and judged
@@ -22,7 +23,8 @@ this page and a header disagree, the header wins.
 3. **Stored.** One file here, named `<id>.json`, and one row below, in the pull request that adds it.
 4. **Judged.** `.claude/workflows/review-prompts.js` answers every case of each file an upheld
    branch changes with the old text and the new, as many times each. It keeps the branch out when a
-   case flips or goes unanswered.
+   choice case flips or goes unanswered. A prose case is written, answered and graded as § Prose
+   cases says.
 
 A review changes no stored case: its file agents may change only their prompts, and the reviewer
 writes only the cases it validated. Changing one's expected answer is a pull request of its own
