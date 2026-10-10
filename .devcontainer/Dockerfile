@@ -96,10 +96,9 @@ RUN git config --system --add safe.directory '*' \
 # --- workspace setup, deferred to container start ------------------------------------------------
 # npm ci, the git hooks, the issue database, Vale's styles, the plugins' install records, the commit
 # identity and the status line all need the workspace, which arrives only when it is mounted, so they
-# cannot be layers. ENTRYPOINT is how they stay in the
-# image anyway: the devcontainer CLI runs a shell of its own in the entrypoint's place, and that shell
-# runs this ENTRYPOINT and the CMD because devcontainer.json sets `overrideCommand` to false
-# (.devcontainer/README.md § PID 1).
+# cannot be layers. ENTRYPOINT is how they stay in the image anyway: the devcontainer CLI runs a
+# shell of its own in the entrypoint's place, and that shell runs this ENTRYPOINT and the CMD
+# because devcontainer.json sets `overrideCommand` to false (.devcontainer/README.md § PID 1).
 COPY .devcontainer/entrypoint.sh /usr/local/bin/workspace-entrypoint
 RUN chmod 0755 /usr/local/bin/workspace-entrypoint
 
