@@ -75,7 +75,7 @@ registers their marketplaces, and `entrypoint.sh` installs each plugin for the c
 |---|---|
 | `Dockerfile` | Every tool, as a layer. The base image's major tag is at the top; every other version is in the root `mise.toml`, installed through `mise.lock` by the mise the Dockerfile copies in (`docs/decisions.md` § D-31), and graphify's dependencies through its uv lock under `.mise/locks/` (§ D-35). After a pin moves, rebuild. It also makes `git` and `gh` act as the App, through the two files below, keeps `git gc` from pruning the host's worktrees (§ The host's worktrees, seen from the container), and carries `tools/policy/tool-settings.json`, which names the repository the entrypoint clones. |
 | `Dockerfile.dockerignore` | What the build may read from the repository's root, its context: `mise.toml`, `mise.lock`, the uv locks under `.mise/locks/`, `entrypoint.sh`, the two wrappers and `tools/policy/tool-settings.json`, and nothing else. |
-| `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, and no workspace mount. It mounts the App's key read-only, a volume for Claude Code's state and one for the container's clone. Its variables name the clone, the key's directory and that volume to what runs inside, and pass your terminal's `COLORTERM` in (§ Color and the status line), and your TypeSafe key once you set it (§ TypeSafe's key). |
+| `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, no workspace mount, and Docker's init as PID 1 (§ PID 1). It mounts the App's key read-only, a volume for Claude Code's state and one for the container's clone. Its variables name the clone, the key's directory and that volume to what runs inside, and pass your terminal's `COLORTERM` in (§ Color and the status line), and your TypeSafe key once you set it (§ TypeSafe's key). |
 | `entrypoint.sh` | At the first start, the container's clone, made in its volume. Then the three setup steps that read the clone, which does not exist at build time, and the App's bot account as git's commit identity, when none is set. Where either is missing, each plugin's marketplace and its project-scope install for the clone; Langfuse's plugin at user scope, configured from a `langfuse.json` beside the App's key when the host gives one, and disabled when it does not; and the status line, when Claude Code's settings set none. It warns while a tool `mise.toml` pins is missing from the image, while Vale cannot load `.vale.ini`, and while the App cannot mint a token. |
 | `gh` | `gh` as the App: ahead of mise's on PATH, it runs it with a token `scripts/github-app-token.mjs` mints, read for each command. |
 | `git-credential-github-app` | git's one credential helper for `https://github.com`, which hands git's request to `scripts/github-app-token.mjs`. |
@@ -106,6 +106,37 @@ the image cannot see at build time; `Layout`, the one style the clone tracks, co
 `vale sync` once in the container, for each new workspace volume: it needs the network, and the
 styles land in the clone, so a rebuild keeps them. `entrypoint.sh` does not run it. It warns at
 start while `vale ls-config` cannot load `.vale.ini`.
+
+## PID 1
+
+**PID 1 is Docker's init, `docker-init`, because `devcontainer.json` sets `init`.** A process whose
+parent exits is handed to PID 1. When that process exits in turn, PID 1 must reap it, or it stays a
+zombie.
+
+The Dev Containers CLI starts the container in four steps. They come from the `docker run` command
+the CLI, v0.89.0, logged on 2026-10-10, and from its bundled source:
+
+1. `docker run --init` puts `docker-init` at PID 1.
+2. `docker-init` starts the CLI's own shell, `/bin/sh -c '... exec "$@"'`, which the CLI runs in
+   place of the image's ENTRYPOINT.
+3. Because `overrideCommand` is false, the CLI hands that shell the image's ENTRYPOINT and CMD, so
+   the shell execs `entrypoint.sh` with `sleep infinity`.
+4. `entrypoint.sh` sets the clone up, then execs `sleep infinity`, which runs until the container
+   stops.
+
+Without `init`, step 1 does not happen. The shell is then PID 1, and its `exec` leaves `sleep` there,
+which reaps nothing. So every process a session killed or left behind stayed a zombie. On
+2026-10-10, 3,027 of the 3,029 processes in a container up for six hours were zombies, each a child
+of PID 1 (`asdlc-openspec-29nx`). Each zombie keeps its process id until the container stops. A
+check that signals a pid with `process.kill(pid, 0)` also reads a zombie as alive. So `alive` in
+`scripts/code-graph.mjs` reads the lock holder's state in `/proc` before it trusts the signal, as
+`pidRuns` does in the selftests of `scripts/git-hooks.mjs` and `scripts/fresh-run.mjs`.
+
+On 2026-10-10 a container made from this directory without `init` kept five orphaned processes as
+zombies once they exited. Made again with `init`, it showed `docker-init` at PID 1 and kept none
+(the notes of `asdlc-openspec-29nx`). A
+container made before `init` was set keeps `sleep` at PID 1 until it is made again with
+`--remove-existing-container`. `cat /proc/1/comm` in a container prints which it has.
 
 ## What the container no longer shares, and why
 
