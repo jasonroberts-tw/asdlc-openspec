@@ -439,6 +439,20 @@ gate over doctored copies with an undoctored control. Without it a change to the
 only in a merge nobody meant.'''
 run = "node scripts/pr-review.mjs --selftest"
 
+["prompt-review:grade"]
+description = '''
+An operator command, never a gate: the prompt review's session runs it after `review-prompts.js`
+(`.claude/agents/continuous-prompt-improvement.md` § 4) on the `prose` that workflow returns, and asks
+TypeSafe, with one Noul for each answer to a prose decision case, whether the text does what the
+case's `expected` says, at `promptReviewProseMinProbability` in `tools/policy/agent-workflows.json`.
+It prints each case's counts of answers that do, with the old text and the new, for the review's pull
+request, and its grades keep no branch out. It refuses an entry whose checksum does not match, so a
+copy the session changed is not graded. It reads `TYPESAFE_API_KEY` and the network; with no key it
+says so and grades nothing, and a call that fails fails. Without it a prose case's answers are read
+by no one, and a new text that drops what the case holds shows nowhere. Its selftest is
+`workflows:selftest`'s.'''
+run = "node scripts/grade-prose-cases.mjs"
+
 ["prompt-review:match"]
 description = '''
 An operator command, never a gate: the prompt review's session runs it before `review-prompts.js`
@@ -727,8 +741,11 @@ leaves one unanswered, and refuses a finding whose key the TypeSafe match's answ
 `match`, does not bear out. For its cases, `author-prompt-cases.js`: that it sends one author per lens,
 shown its own seed alone, stores a case only when every answer chose its expected option, and
 refuses a reader's copy its checksum does not match or a path other than where its command writes.
-Every case under `.claude/prompt-cases/` must pass both workflows, which give one case one answer
-prompt. Each workflow's reader must be given one plain run of `scripts/prompt-case-texts.mjs` that
+Every choice case under `.claude/prompt-cases/` must pass both workflows, which give one case one
+answer prompt, and every prose case the review. A prose case must keep no branch out, its answers
+returned in `prose`, sealed with a checksum; `scripts/grade-prose-cases.mjs`, run on that `prose`
+over a stubbed judge, must count an answer at `promptReviewProseMinProbability` as meeting the case,
+one under it as not, and refuse a copy whose checksum does not match. Each workflow's reader must be given one plain run of `scripts/prompt-case-texts.mjs` that
 names no git, which Claude Code runs in the review's worktree, and that command, run for real in a
 fixture repository, must send each author and answer to the text git holds at its ref.
 `prompt-case-author.md` and `prompt-case-answerer.md` may have no tool but Read and their structured

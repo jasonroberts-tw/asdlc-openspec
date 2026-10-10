@@ -1767,6 +1767,8 @@ Where it loses:
 
 > **Amended 2026-10-09 by asdlc-openspec-ic9h.** Item 8's last loss changes with where the review runs. The calling session now starts in a fresh checkout of `main` in GitHub Actions, so each agentType is the trunk's at the run. A headless run resolves one (verified against the CLI, 2.1.295, by the probes of `asdlc-openspec-ic9h.1`; `docs/decisions/asdlc-openspec-ic9h.md` § Decision).
 
+> **Amended 2026-10-10 by asdlc-openspec-1kie.** Item 5 no longer holds for every case. A stored case may be a prose case, whose `expected` says what a right text does: `review-prompts.js` answers it with the old text and the new, and `scripts/grade-prose-cases.mjs`, which the session runs, asks TypeSafe whether each answer does it. Item 2 does not hold for a prose case, whose counts are listed in the review's pull request and keep no branch out. Item 4 does not hold for one either, since a prose case is written and stored by hand and validated by no authoring run (`docs/decisions/asdlc-openspec-1kie.md` § Decision).
+
 ### D-33 · `utils/install-dolt.sh` and `scripts/python.mjs` retire, made redundant by mise
 
 **Recorded 2026-10-03**, carried by `asdlc-openspec-8juz.4`, a child of `asdlc-openspec-8juz`. The epic, as the maintainer agreed it on 2026-10-03, retires both: Dolt is not pinned in `mise.toml` because the tracker runs it embedded, and mise's shim gives every platform a `python`.

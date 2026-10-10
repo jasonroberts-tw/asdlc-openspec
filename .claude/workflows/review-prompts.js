@@ -99,8 +99,9 @@ export const meta = {
  *   settled   optional [string]: decided already, by the maintainer or an earlier review; no agent
  *             raises it again
  *   cases     optional [case]: every stored decision case, in the format
- *             `.claude/prompt-cases/README.md` gives, whose prompt is a file of a group, and each new
- *             one `.claude/workflows/author-prompt-cases.js` validated for this review
+ *             `.claude/prompt-cases/README.md` gives, whose prompt is a file of a group, prose cases
+ *             among them (THE PROSE CASES, below), and each new one
+ *             `.claude/workflows/author-prompt-cases.js` validated for this review
  *
  * THE THRESHOLD, checked before any agent runs. A finding meets it when its count is at least
  * `promptReviewRecurrenceCount` or its severity is in `promptReviewMajorSeverities`. The session holds
@@ -136,7 +137,7 @@ export const meta = {
  * session that copies an answer wrong is refused only when the copy contradicts the key or the count,
  * so one that drops a run from `held` and from `count` alike passes.
  *
- * WHAT IT RETURNS. { stopped, why, groups, merge, discard, discardDropped, runsRead, runsHeld, findingsHeld, findingsCarried, cases, counts }. Every
+ * WHAT IT RETURNS. { stopped, why, groups, merge, discard, discardDropped, runsRead, runsHeld, findingsHeld, findingsCarried, cases, prose, counts }. Every
  * count in it is computed here, never by an agent. `stopped` is one of:
  *
  *   refused     an argument did not hold; `why` names it, and no agent ran
@@ -245,7 +246,7 @@ export const meta = {
  * is not, `fixed` when only the new is, `failing` when neither is, and `unanswered` when an answer is
  * missing or out of range, or a text could not be read. A `flipped` or `unanswered` case makes its
  * group `regressed`; a `failing` one blocks nothing, since the trunk already answers it wrong, and is
- * returned for the session to report. `cases` lists each case answered, with its group, its
+ * returned for the session to report. `cases` lists each choice case answered, with its group, its
  * `outcome`, its `old` and `new` counts of right answers of `of`, and each answer's option and why.
  *
  *   `merge` lists the merging groups' branches in the order of `args.groups`. Each branch in `merge`
@@ -263,14 +264,29 @@ export const meta = {
  *   `scripts/prompt-runs.mjs` gives the line, `docs/decisions.md` § D-49). A finding of a group not
  *   upheld or regressed is never in it: its branch is not merged, so nothing carried it.
  *
+ * THE PROSE CASES. A stored case whose `kind` is `prose` has no options: its `expected` says what a
+ * right text does, and its answers are text the prompt has the session write, which no code here can
+ * judge. Each is answered as a choice case is, from the same reader's texts by the same agentType, with
+ * `PROSE_SCHEMA` and no options to turn, and its answers go into `prose`, one entry per case: its `id`,
+ * `prompt`, `group`, `situation`, `expected` and `of`, a `why` when no answer could be had, else null,
+ * and `answers`, each `{ side, text }`, the text null where the answerer returned none; then `fnv`,
+ * FNV-1a over those fields as `JSON.stringify` gives them in that order. The session passes `prose` to
+ * `scripts/grade-prose-cases.mjs`, which refuses an entry whose checksum does not match, so a copy the
+ * session did not make verbatim is not graded, asks TypeSafe of each answer whether it does what
+ * `expected` says, and prints each case's counts for the review's description
+ * (`docs/decisions/asdlc-openspec-1kie.md` § Decision). No prose case keeps a branch out, whatever its
+ * answers: this script has no Node API and cannot call TypeSafe (`docs/decisions.md` § D-42), and a
+ * grader's verdict informs a person and blocks nothing. Where it loses: a new text that drops what a
+ * prose case holds still merges, unless the person merging reads the counts.
+ *
  * LABELS. Each file agent is labelled `review <id>`, each skeptic of a change `skeptic <i>/<n> <id>:
  * <key>`, each skeptic of a consolidation `skeptic <i>/<n> <id>: consolidation of <file>`, each
  * skeptic of an unstated edit `skeptic <i>/<n> <id>: unstated edit to <file>`, each reader
- * `read <id>`, and each answer `answer <i>/<n> old <id>: <case>` or `answer <i>/<n> new <id>: <case>`.
- * scripts/workflows.selftest.mjs routes its stubbed agents by those labels: change one here and change
- * it there. `answerPrompt` is a copy of `.claude/workflows/author-prompt-cases.js`'s, and the selftest
- * holds the two to one answer prompt for one case and file, so a case is answered alike when it is
- * validated and when it is judged.
+ * `read <id>`, and each answer, to a choice case or a prose one, `answer <i>/<n> old <id>: <case>` or
+ * `answer <i>/<n> new <id>: <case>`. scripts/workflows.selftest.mjs routes its stubbed agents by those
+ * labels: change one here and change it there. For a choice case, `answerPrompt` gives what
+ * `.claude/workflows/author-prompt-cases.js`'s gives, and the selftest holds the two to one answer
+ * prompt for one case and file, so a case is answered alike when it is validated and when it is judged.
  *
  * NEEDS a review worktree, the Workflow tool, and a WorktreeCreate hook that cuts each agent's
  * worktree from `origin/main`: on 2026-09-26 a workflow agent's `isolation: 'worktree'` landed on
@@ -327,6 +343,8 @@ const KEYED_BY = ['model', 'reviewer', 'no-held-key']
 const [MODEL, REVIEWER] = KEYED_BY
 const NONE = 'none'
 const ANSWERER = 'prompt-case-answerer'
+/** The `kind` of a case whose answers are text for the grader, which keeps no branch out, as the header's THE PROSE CASES says. */
+const PROSE = 'prose'
 /** A case outcome that keeps its branch out, as the header says why. */
 const BLOCKING = ['flipped', 'unanswered']
 const DISPOSITIONS = ['kept', 'moved', 'deleted']
@@ -436,6 +454,7 @@ const VERDICT_SCHEMA = {
 }
 
 const ANSWER_SCHEMA = { type: 'object', properties: { choice: { type: 'integer' }, why: { type: 'string' } }, required: ['choice', 'why'] }
+const PROSE_SCHEMA = { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] }
 const READ_SCHEMA = { type: 'object', properties: { output: { type: 'string' } }, required: ['output'] }
 
 /* ------------------------------------------------------------------------ checking the input ----- */
@@ -500,6 +519,8 @@ function matchProblem(f) {
 function caseProblem(c, owner) {
   if (!isPlainObject(c) || !isText(c.id) || !/^[a-z0-9][a-z0-9-]*$/.test(c.id)) return 'it has no id of lower case letters, digits and dashes'
   if (!isText(c.prompt) || !/^[A-Za-z0-9._/-]+$/.test(c.prompt) || !owner.has(clean(c.prompt))) return `its prompt ${JSON.stringify(c.prompt)} is no group's file`
+  if (c.kind === PROSE) return isText(c.situation) && isText(c.expected) && c.options === undefined ? null : 'a prose case needs a situation, an expected text and no options'
+  if (c.kind !== undefined) return `its kind ${JSON.stringify(c.kind)} is not ${PROSE}`
   if (!isText(c.situation) || !Array.isArray(c.options) || c.options.length < 2 || c.options.length > 4) return 'it needs a situation and two to four options'
   const ids = c.options.map((o) => (isPlainObject(o) ? o.id : undefined))
   if (c.options.some((o) => !isPlainObject(o) || !isText(o.id) || !isText(o.text)) || new Set(ids).size !== ids.length) return 'its options need distinct ids and a text each'
@@ -725,7 +746,7 @@ function consolidationPrompt(k, i, n) {
 /** The case's options in the order the `r`th repetition shows them, so each takes each place in turn. */
 const rotated = (options, r) => options.slice(r % options.length).concat(options.slice(0, r % options.length))
 
-/** The prompt one answer to case `c` is given, with the version of its prompt under test at `path`. */
+/** The prompt one answer to case `c` is given, with the version of its prompt under test at `path`; a prose case's ends with no options, as the header's THE PROSE CASES says. */
 function answerPrompt(c, path, r) {
   return [
     `You are a session running \`${c.prompt}\`. Read its text, the version under test, from \`${path}\`, and no other file.`,
@@ -734,9 +755,7 @@ function answerPrompt(c, path, r) {
     '',
     c.situation,
     '',
-    '## The options',
-    '',
-    ...rotated(c.options, r).map((o, i) => `${i + 1}. ${o.text}`),
+    ...(c.kind === PROSE ? ['## What the session writes here, in `text`'] : ['## The options', '', ...rotated(c.options, r).map((o, i) => `${i + 1}. ${o.text}`)]),
   ].join('\n')
 }
 
@@ -905,7 +924,7 @@ const voteLine = (c) => `${c.upheld} upheld, ${c.refuted} refuted and ${c.skepti
 const badArgs = argsProblem()
 if (badArgs) {
   log(`Refused: ${badArgs}`)
-  return { stopped: 'refused', why: badArgs, groups: [], merge: [], discard: [], discardDropped: [], runsRead: [], runsHeld: [], findingsHeld: [], findingsCarried: [], cases: [], counts: null }
+  return { stopped: 'refused', why: badArgs, groups: [], merge: [], discard: [], discardDropped: [], runsRead: [], runsHeld: [], findingsHeld: [], findingsCarried: [], cases: [], prose: [], counts: null }
 }
 
 phase('Review')
@@ -1002,15 +1021,26 @@ function judgeCase(g, c, olds, news) {
   return { id: c.id, prompt: clean(c.prompt), group: g.id, outcome, old: o, new: w, of: reps }
 }
 
-/** Every answer to case `c` of group `g`, `reps` with its old text and `reps` with its new. */
+/** Prose case `c`'s entry of `prose` for group `g`, sealed with its checksum, as the header's THE PROSE CASES gives it. */
+function sealed(g, c, answers, why) {
+  const entry = { id: c.id, prompt: clean(c.prompt), group: g.id, situation: c.situation, expected: c.expected, of: reps, why, answers }
+  return { ...entry, fnv: fnv(JSON.stringify(entry)) }
+}
+
+/** Case `c`'s result for group `g` when none of its answers could be had, for the reason `why`. */
+const missed = (g, c, why) => (c.kind === PROSE ? sealed(g, c, [], why) : { ...judgeCase(g, c, [null], []), answers: [], why })
+
+/** Every answer to case `c` of group `g`, `reps` with its old text and `reps` with its new: a prose case's sealed for the grader, a choice case's judged. */
 async function answerCase(g, c, texts) {
   const file = clean(c.prompt)
+  const prose = c.kind === PROSE
   const [oldPath, newPath] = [texts.old(file), texts.new(file)]
-  if (oldPath === null || newPath === null) return { ...judgeCase(g, c, [null], []), answers: [], why: `git could not show ${file} at both texts` }
+  if (oldPath === null || newPath === null) return missed(g, c, `git could not show ${file} at both texts`)
   const asks = ['old', 'new'].flatMap((side) => Array.from({ length: reps }, (_, r) => ({ side, r, path: side === 'old' ? oldPath : newPath })))
   const replies = await parallel(
-    asks.map(({ side, r, path }) => () => agent(answerPrompt(c, path, r), { label: `answer ${r + 1}/${reps} ${side} ${g.id}: ${c.id}`, phase: 'Regress', schema: ANSWER_SCHEMA, agentType: ANSWERER })),
+    asks.map(({ side, r, path }) => () => agent(answerPrompt(c, path, r), { label: `answer ${r + 1}/${reps} ${side} ${g.id}: ${c.id}`, phase: 'Regress', schema: prose ? PROSE_SCHEMA : ANSWER_SCHEMA, agentType: ANSWERER })),
   )
+  if (prose) return sealed(g, c, asks.map(({ side }, i) => ({ side, text: isText(replies[i]?.text) ? replies[i].text : null })), null)
   const answers = asks.map(({ side, r }, i) => ({ side, option: replies[i] ? rotated(c.options, r)[replies[i].choice - 1]?.id ?? null : null, why: replies[i]?.why ?? 'the answerer returned nothing' }))
   const of = (side) => answers.filter((a) => a.side === side).map((a) => a.option)
   return { ...judgeCase(g, c, of('old'), of('new')), answers, why: null }
@@ -1022,7 +1052,7 @@ async function regress(g) {
   const mine = (A.cases || []).filter((c) => files.has(clean(c.prompt)))
   if (!mine.length) return []
   const head = g.head.trim()
-  const unread = (why) => mine.map((c) => ({ ...judgeCase(g, c, [null], []), answers: [], why }))
+  const unread = (why) => mine.map((c) => missed(g, c, why))
   if (!/^[0-9a-f]{40}$/.test(head)) return unread(`its head ${JSON.stringify(head)} is no commit hash, so its text cannot be read`)
   const reply = await agent(
     `Run this one command where you stand, and return in output the one line it prints, verbatim, even where it looks wrong. Change nothing else.\n\n${readCommand(head, [...new Set(mine.map((c) => clean(c.prompt)))])}`,
@@ -1030,16 +1060,20 @@ async function regress(g) {
   )
   const texts = reply ? readTexts(reply, head) : { problem: 'the reader returned nothing' }
   if (texts.problem) return unread(texts.problem)
-  return (await pipeline(mine, (c) => answerCase(g, c, texts))).map((r, i) => r || { ...judgeCase(g, mine[i], [null], []), answers: [], why: 'its answers could not be run' })
+  return (await pipeline(mine, (c) => answerCase(g, c, texts))).map((r, i) => r || missed(g, mine[i], 'its answers could not be run'))
 }
 
+/** The ids of the prose cases, whose results go into `prose` and keep no branch out. */
+const proseIds = new Set((A.cases || []).filter((c) => c.kind === PROSE).map((c) => c.id))
 const stillMerging = groups.filter((g) => g.status === 'merge')
 const caseResults = []
+const proseResults = []
 if (stillMerging.some((g) => (A.cases || []).some((c) => g.filesChanged.map(clean).includes(clean(c.prompt))))) {
   phase('Regress')
   const regressed = await pipeline(stillMerging, regress)
   stillMerging.forEach((g, i) => {
-    const mine = regressed[i] || []
+    const mine = (regressed[i] || []).filter((r) => !proseIds.has(r.id))
+    proseResults.push(...(regressed[i] || []).filter((r) => proseIds.has(r.id)))
     caseResults.push(...mine)
     const blocking = mine.filter((r) => BLOCKING.includes(r.outcome))
     if (blocking.length) {
@@ -1111,6 +1145,8 @@ const counts = {
   unanswered: caseResults.filter((r) => r.outcome === 'unanswered').length,
   answers: caseResults.reduce((n, r) => n + r.answers.length, 0),
   regressed: count('regressed'),
+  prose: proseResults.length,
+  proseAnswers: proseResults.reduce((n, r) => n + r.answers.filter((a) => a.text !== null).length, 0),
 }
 const merge = groups.filter((g) => g.status === 'merge').map((g) => g.branch.trim())
 /**
@@ -1150,11 +1186,12 @@ for (const d of named) {
 }
 if (discardDropped.length) log(`Not discarded: ${discardDropped.map((d) => `${d.branch} (${d.why})`).join('; ')}`)
 const cases = caseResults
+const prose = proseResults
 
 if (counts.died === counts.groups) {
   const why = 'every agent returned nothing'
   log(`Stopped (agent-died): ${why}`)
-  return { stopped: 'agent-died', why, groups, merge, discard, discardDropped, runsRead, runsHeld, findingsHeld, findingsCarried, cases, counts }
+  return { stopped: 'agent-died', why, groups, merge, discard, discardDropped, runsRead, runsHeld, findingsHeld, findingsCarried, cases, prose, counts }
 }
 /** The clause of `why` for the `of` items of one kind the skeptics judged, or none where there were none. */
 const judgedClause = (upheld, of, what, skeptics) => (of ? `; ${upheld} of ${of} ${what} upheld by ${skeptics} skeptic(s)` : '')
@@ -1163,6 +1200,7 @@ const unstatedClause = judgedClause(counts.unstatedUpheld, counts.unstated, 'uns
 const caseClause = counts.cases
   ? `; ${counts.flipped} of ${counts.cases} stored case(s) flipped and ${counts.unanswered} unanswered, by ${counts.answers} answer(s), ${counts.regressed} branch(es) kept out`
   : ''
-const why = `${counts.merge} to merge, ${counts.unchanged} unchanged, ${counts.notUpheld} not upheld, ${counts.refused} refused, ${counts.died} died; ${counts.upheld} of ${counts.changes} change(s) upheld by ${counts.skeptics} skeptic(s)${consolidationClause}${unstatedClause}${caseClause}; ${counts.runsRead} of ${counts.runs} run(s) read, ${counts.findingsHeld} finding(s) held`
+const proseClause = counts.prose ? `; ${counts.prose} prose case(s) answered ${counts.proseAnswers} time(s) for the grader, blocking nothing` : ''
+const why = `${counts.merge} to merge, ${counts.unchanged} unchanged, ${counts.notUpheld} not upheld, ${counts.refused} refused, ${counts.died} died; ${counts.upheld} of ${counts.changes} change(s) upheld by ${counts.skeptics} skeptic(s)${consolidationClause}${unstatedClause}${caseClause}${proseClause}; ${counts.runsRead} of ${counts.runs} run(s) read, ${counts.findingsHeld} finding(s) held`
 log(`Stopped (done): ${why}`)
-return { stopped: 'done', why, groups, merge, discard, discardDropped, runsRead, runsHeld, findingsHeld, findingsCarried, cases, counts }
+return { stopped: 'done', why, groups, merge, discard, discardDropped, runsRead, runsHeld, findingsHeld, findingsCarried, cases, prose, counts }

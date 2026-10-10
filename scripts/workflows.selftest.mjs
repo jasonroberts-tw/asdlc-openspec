@@ -22,8 +22,12 @@
  * repository built under the temporary directory: the command must be one plain run of that script
  * naming no git, each author and answer must be sent to the file holding the text git holds at its
  * ref, and a text git cannot show, a head with no merge base and an argument that climbs out of the
- * script's root must each be refused by its reason. Every stored case under `.claude/prompt-cases/`
- * goes through both, and the two must give one case and one file the same answer prompt; the two
+ * script's root must each be refused by its reason. Every stored choice case under `.claude/prompt-cases/`
+ * goes through both, and the two must give one case and one file the same answer prompt; every prose
+ * case goes through the review, which must keep no branch out for one and return its answers sealed,
+ * and `scripts/grade-prose-cases.mjs` runs on those answers in this process over a stubbed judge, and
+ * once through the real SDK to a closed loopback port, its cases asserting which answer meets a case,
+ * which copy it refuses and that with no key it grades nothing; the two
  * agents they run by agentType are held the same way to a `tools:` line of Read and StructuredOutput
  * alone. `verify-change-trace.js` runs with a
  * two-capability change built here and the policy's `verifyTrace*` keys, and its cases assert which
@@ -82,7 +86,11 @@
  * session where the model's answer met one; each check of the match, deleted in a copy, turned its
  * case red. Since the branch review of 2026-10-05 it also refuses a held key the model gave whose
  * count is not its runs and the runs that key's held lines name, counted once each, or that names no
- * such runs; the three cases were seen failing before the fix, 297 of 300 cases holding. For the
+ * such runs; the three cases were seen failing before the fix, 297 of 300 cases holding. Since
+ * asdlc-openspec-1kie it refuses a review that keeps a branch out for a prose case, or returns its
+ * answers unsealed, and a grader that grades a copy its checksum does not match or counts an answer
+ * under `promptReviewProseMinProbability`; against the trunk's workflow the new review and bank cases
+ * failed, 303 of 310 holding, and the grader's control with them. For the
  * trace (since asdlc-openspec-as9):
  * a scenario left out of every group, a group a tracer returned short or read at
  * another commit counted as traced, a row's gap taken from the tracer's words rather than its
@@ -122,11 +130,13 @@
  * NEEDS only committed files: the workflows, the records under `tools/policy/` read through
  * `tools/lib/policy.ts`, the three tool-less agents under `.claude/agents/`, the stored cases under
  * `.claude/prompt-cases/`, the trace renderers with `scripts/lib/trace.mjs`, and the clause check's
- * plan in `scripts/judge-trace-clauses.mjs` with the test reader it imports; each renderer runs
+ * plan in `scripts/judge-trace-clauses.mjs` with the test reader it imports, and the prose cases'
+ * grader, `scripts/grade-prose-cases.mjs`, with the TypeSafe client it imports; each renderer runs
  * twice as a child process. It needs git too, for the readers' fixture repository, which it builds
  * and runs `scripts/prompt-case-texts.mjs` in with no `GIT_*` key, so a hook's `GIT_DIR` cannot
  * point either at this repository. It
- * writes only under the temporary directory. No agent, no network. 0.27 s wall, both of two runs,
+ * writes only under the temporary directory. No agent, and no network beyond the grader's one call
+ * through the real SDK to a refused connection to 127.0.0.1, which needs `npm ci` for the SDK. 0.27 s wall, both of two runs,
  * through `node --run` (`/usr/bin/time -p`) on a macOS 26.7 laptop with Node 26.8.1, 2026-09-29, with
  * the test-builder and architect cases, much of it those four child processes; 0.63 s and 0.62 s on
  * 2026-10-03, with the stored prompt cases' suites, timed by a script around `node --run` on the same
@@ -141,7 +151,8 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gitEnv, gitIn, SCRATCH_GIT_ENV } from '../tools/lib/git-env.ts'
-import { POLICY_DIR, readPolicy } from '../tools/lib/policy.ts'
+import { copyPolicy, editPolicy, POLICY_DIR, readPolicy } from '../tools/lib/policy.ts'
+import { ROOT_ENV as GRADE_ROOT_ENV, main as gradeMain, QUESTION as GRADE_QUESTION, UNGRADED } from './grade-prose-cases.mjs'
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const ROOT = process.env.WORKFLOWS_ROOT ?? REPO_ROOT
@@ -155,6 +166,12 @@ const AUTHOR = `${WORKFLOWS}/author-prompt-cases.js`
 const CASES_DIR = '.claude/prompt-cases'
 /** The script each prompt workflow's reader agent runs to write the texts its cases are answered from. */
 const READER = 'scripts/prompt-case-texts.mjs'
+/** The script the session runs on the review's `prose`, which asks TypeSafe of each answer and blocks nothing. */
+const GRADER = 'scripts/grade-prose-cases.mjs'
+/** The key of the grader's threshold, a probability, as its header names it. */
+const PROSE_KEY = 'promptReviewProseMinProbability'
+/** The `kind` of a prose case, as `.claude/prompt-cases/README.md` gives it. */
+const PROSE = 'prose'
 /** The keys Setup's command prints, as `POLICY_KEYS` in `build-change-task.js` lists them: keep the two in agreement. */
 const POLICY_KEYS = [
   'buildReviewLenses', 'buildReviewSkeptics', 'buildReviewMaxRounds', 'buildReviewMajorSeverities', 'buildRedFirstKinds', 'assetLabels',
@@ -1549,6 +1566,21 @@ const storedCase = (policy, file, id, extra = {}) => ({
   ...extra,
 })
 
+/** A prose case on `file`, in the format `.claude/prompt-cases/README.md` gives: no options, and an expected text a grader judges. */
+const proseCase = (policy, file, id, extra = {}) => ({
+  id,
+  kind: PROSE,
+  prompt: file,
+  lens: policy.promptReviewCaseLenses[0],
+  source: { run: RUN_A, point: 2, commit: CASE_COMMIT },
+  situation: `A session running ${file} tells the user the gates passed, while two of the selftest's cases were skipped.`,
+  expected: 'It says that two cases were skipped.',
+  settledBy: "The user's correction asked that a skipped case always be named.",
+  ...extra,
+})
+/** What a prose answer stub writes for case `c` with the `side` text at repetition `i`: the side leads, so a stubbed judge can tell the two apart. */
+const proseText = (c, side, i) => `${side} answer ${i} to ${c.id}: the gates passed, and two cases were skipped.`
+
 /** The text of `file` at `ref`, as a reader stub writes it: only its length reaches the stub's output. */
 const textAt = (ref, file) => `The text of ${file} at ${ref}.`
 /** Where a reader stub says its command wrote the texts, as the real command's `root` would be. */
@@ -1590,7 +1622,8 @@ const reseal = (out, change) => {
  * `skeptic <i>/<n> <id>: <key>` is answered by `verdict(key, i, n)`, upheld by default. Each
  * `read <id>` is answered by `reader(prompt)`, the stub above by default, and each `answer <i>/<n>
  * <side> <id>: <case>` chooses the option `answers(case, side, i, n)` names, the expected one by
- * default.
+ * default; to a prose case it returns the text `answers` gives, `proseText`'s by default, and null
+ * returns nothing.
  */
 function reviewAnswer(args, reports = {}, verdict, answers, reader) {
   return (label, prompt) => {
@@ -1607,6 +1640,10 @@ function reviewAnswer(args, reports = {}, verdict, answers, reader) {
     m = /^answer (\d+)\/(\d+) (old|new) (\S+): (\S+)$/.exec(label)
     if (m) {
       const c = args.cases.find((x) => x.id === m[5])
+      if (c.kind === PROSE) {
+        const text = answers ? answers(c, m[3], Number(m[1]), Number(m[2])) : proseText(c, m[3], Number(m[1]))
+        return text === null ? null : { text }
+      }
       return choiceOf(prompt, c, answers ? answers(c, m[3], Number(m[1]), Number(m[2])) : c.expected)
     }
     throw new Error(`no stub answers the label "${label}"`)
@@ -2331,6 +2368,7 @@ function storedCaseCases(policy) {
   const reps = policy.promptReviewCaseRepetitions
   const HEAD_SHA = 'a'.repeat(40)
   const CASE = 'bead-stages-first'
+  const PROSE_CASE = 'bead-names-skipped-cases'
   const withCases = (cases, extra) => reviewArgs(policy, undefined, { cases, ...extra })
   const one = withCases([storedCase(policy, BEAD, CASE)])
   const caseOf = (result, id) => result.cases.find((r) => r.id === id)
@@ -2473,6 +2511,70 @@ function storedCaseCases(policy) {
       verdict: () => reviewVote('refuted'),
       expect: ['done', /^0 to merge, 1 unchanged, 1 not upheld, 0 refused, 0 died; 0 of 1 change\(s\) upheld by \d+ skeptic\(s\); 3 of 3 run\(s\) read, 2 finding\(s\) held$/],
       check: ({ options, result }) => (labelled(options, 'read ').length || labelled(options, 'answer ').length || result.cases.length ? 'a case of a branch kept out was answered' : null),
+    },
+    {
+      name: `a prose case of a changed file is answered ${reps} time(s) with each text by the tool-less answerer, shown no options and asked for its text, and goes into prose sealed for the grader; its branch merges`,
+      args: withCases([proseCase(policy, BEAD, PROSE_CASE)]),
+      reports: {},
+      expect: ['done', new RegExp(`^1 to merge, 1 unchanged, 0 not upheld, 0 refused, 0 died; 1 of 1 change\\(s\\) upheld by \\d+ skeptic\\(s\\); 1 prose case\\(s\\) answered ${2 * reps} time\\(s\\) for the grader, blocking nothing; 3 of 3 run\\(s\\) read, 1 finding\\(s\\) held$`)],
+      check: ({ result, options }) => {
+        const c = proseCase(policy, BEAD, PROSE_CASE)
+        const answers = labelled(options, 'answer ')
+        if (answers.length !== 2 * reps || answers.some((o) => o.agentType !== 'prompt-case-answerer')) return `ran ${answers.length} answer(s), not ${2 * reps} by the answerer`
+        if (answers.some((o) => o.prompt.includes('## The options') || !o.prompt.endsWith('## What the session writes here, in `text`'))) return 'a prose answer was shown options, or not asked for its text'
+        if (answers.some((o) => o.prompt.includes(c.expected) || o.prompt.includes(c.settledBy))) return "a prose answer's prompt carries the expected text or what settles it"
+        if (result.cases.length || result.prose?.length !== 1) return `cases is ${JSON.stringify(result.cases)} and prose ${JSON.stringify(result.prose)}`
+        const { fnv: seal, ...fields } = result.prose[0]
+        if (Object.keys(fields).join() !== 'id,prompt,group,situation,expected,of,why,answers') return `the entry's fields are ${Object.keys(fields).join()}`
+        if (seal !== fnv(JSON.stringify(fields))) return "the entry's checksum is not FNV-1a over its fields"
+        const texts = ['old', 'new'].flatMap((side) => Array.from({ length: reps }, (_, i) => proseText(c, side, i + 1)))
+        if (fields.of !== reps || fields.why !== null || fields.group !== 'bead' || fields.answers.map((a) => a.text).join('|') !== texts.join('|')) return `the entry came back ${JSON.stringify(fields)}`
+        return result.merge.join() === 'agent/wf_example-bead' ? null : `merge is ${result.merge.join(', ')}`
+      },
+    },
+    {
+      name: 'a prose case whose every answer with the new text returns nothing keeps no branch out: those texts are null in prose, and a choice case beside it still decides',
+      args: withCases([storedCase(policy, BEAD, CASE), proseCase(policy, BEAD, PROSE_CASE)]),
+      reports: {},
+      answers: (c, side, i) => (c.kind !== PROSE ? c.expected : side === 'new' ? null : proseText(c, side, i)),
+      expect: ['done', new RegExp(`^1 to merge, .*; 0 of 1 stored case\\(s\\) flipped and 0 unanswered, by ${2 * reps} answer\\(s\\), 0 branch\\(es\\) kept out; 1 prose case\\(s\\) answered ${reps} time\\(s\\) for the grader, blocking nothing; 3 of 3 run\\(s\\) read, 1 finding\\(s\\) held$`)],
+      check: ({ result }) => {
+        const p = result.prose?.[0]
+        if (!p || p.answers.filter((a) => a.side === 'new').some((a) => a.text !== null) || p.answers.filter((a) => a.side === 'old').some((a) => a.text === null)) return `the prose entry came back ${JSON.stringify(p)}`
+        if (caseOf(result, CASE)?.outcome !== 'held') return `the choice case came back ${JSON.stringify(caseOf(result, CASE))}`
+        return result.merge.join() === 'agent/wf_example-bead' ? null : `merge is ${result.merge.join(', ')}`
+      },
+    },
+    {
+      name: 'a prose case whose texts the reader could not give goes into prose with no answer and that reason, sealed, and keeps no branch out',
+      args: withCases([proseCase(policy, BEAD, PROSE_CASE)]),
+      reports: {},
+      reader: () => null,
+      expect: ['done', /^1 to merge, .*; 1 prose case\(s\) answered 0 time\(s\) for the grader, blocking nothing; 3 of 3 run\(s\) read, 1 finding\(s\) held$/],
+      check: ({ result, options }) => {
+        const { fnv: seal, ...fields } = result.prose?.[0] ?? {}
+        if (fields.answers?.length !== 0 || fields.why !== 'the reader returned nothing' || seal !== fnv(JSON.stringify(fields))) return `the prose entry came back ${JSON.stringify(result.prose)}`
+        if (labelled(options, 'answer ').length) return 'an answer ran with no text read'
+        return result.merge.join() === 'agent/wf_example-bead' ? null : `merge is ${result.merge.join(', ')}`
+      },
+    },
+    {
+      name: 'refused: a prose case that also has options, before any agent runs',
+      args: withCases([proseCase(policy, BEAD, PROSE_CASE, { options: storedCase(policy, BEAD, CASE).options })]),
+      expect: ['refused', /^args\.cases\[0\] cannot be answered: a prose case needs a situation, an expected text and no options$/],
+      check: ({ calls }) => (calls.length ? `ran ${calls.join(', ')} before refusing` : null),
+    },
+    {
+      name: 'refused: a prose case with no expected text',
+      args: withCases([proseCase(policy, BEAD, PROSE_CASE, { expected: ' ' })]),
+      expect: ['refused', /^args\.cases\[0\] cannot be answered: a prose case needs a situation, an expected text and no options$/],
+      check: ({ calls }) => (calls.length ? `ran ${calls.join(', ')} before refusing` : null),
+    },
+    {
+      name: 'refused: a case of a kind that is not prose, though its options would be answered',
+      args: withCases([storedCase(policy, BEAD, CASE, { kind: 'essay' })]),
+      expect: ['refused', /^args\.cases\[0\] cannot be answered: its kind "essay" is not prose$/],
+      check: ({ calls }) => (calls.length ? `ran ${calls.join(', ')} before refusing` : null),
     },
     {
       name: "refused: a stored case whose prompt is no group's file, before any agent runs",
@@ -4067,15 +4169,24 @@ function readBank(root) {
   return { cases }
 }
 
-/** Why the bank under `root` is not one both workflows accept, or null: the authoring workflow validates it, and the review answers every case. */
+/**
+ * Why the bank under `root` is not one both workflows accept, or null: the authoring workflow validates
+ * each choice case, and the review answers every case, holding each choice case and returning each prose
+ * case for the grader. A prose case goes to no authoring run, since that workflow validates options
+ * alone (`.claude/prompt-cases/README.md` § How a case is made, stored and judged).
+ */
 async function bankProblem(root, authorBody, reviewBody, policy) {
   const bank = readBank(root)
   if (bank.problem) return bank.problem
   if (!bank.cases.length) return null
-  const authored = await run(authorBody, { policy: promptPolicy(policy), cases: bank.cases }, authorAnswer({ cases: bank.cases }))
-  if (authored.problems.length) return authored.problems.join(' | ')
-  if (authored.result.stopped !== 'done') return `the authoring workflow ${authored.result.stopped} the bank: ${authored.result.why}`
-  if (authored.result.validated.length !== bank.cases.length) return `the authoring workflow validated ${authored.result.validated.length} of the bank's ${bank.cases.length} case(s)`
+  const choices = bank.cases.filter((c) => c.kind !== PROSE)
+  const proses = bank.cases.length - choices.length
+  if (choices.length) {
+    const authored = await run(authorBody, { policy: promptPolicy(policy), cases: choices }, authorAnswer({ cases: choices }))
+    if (authored.problems.length) return authored.problems.join(' | ')
+    if (authored.result.stopped !== 'done') return `the authoring workflow ${authored.result.stopped} the bank: ${authored.result.why}`
+    if (authored.result.validated.length !== choices.length) return `the authoring workflow validated ${authored.result.validated.length} of the bank's ${choices.length} choice case(s)`
+  }
   const files = [...new Set(bank.cases.map((c) => c.prompt))]
   const groups = files.map((file, i) => ({ id: `bank-${i + 1}`, files: [file], findings: [reviewFinding(policy, file, 'bank', [RUN_A])] }))
   const args = { policy: promptPolicy(policy), groups, cases: bank.cases }
@@ -4083,29 +4194,38 @@ async function bankProblem(root, authorBody, reviewBody, policy) {
   if (reviewed.problems.length) return reviewed.problems.join(' | ')
   if (reviewed.result.stopped !== 'done') return `the review ${reviewed.result.stopped} the bank: ${reviewed.result.why}`
   const held = reviewed.result.cases.filter((r) => r.outcome === 'held').length
-  return held === bank.cases.length ? null : `the review held ${held} of the bank's ${bank.cases.length} case(s)`
+  if (held !== choices.length) return `the review held ${held} of the bank's ${choices.length} choice case(s)`
+  const graded = reviewed.result.prose?.length ?? 0
+  return graded === proses ? null : `the review returned ${graded} of the bank's ${proses} prose case(s) for the grader`
 }
 
 /**
- * The tracked bank, which both workflows must accept, and a copy under the temporary directory with
- * one case's expected answer made none of its options, which must be refused by that reason.
+ * The tracked bank, which both workflows must accept; a copy under the temporary directory with one
+ * case's expected answer made none of its options, which must be refused by that reason; and a copy of
+ * the bank with a prose case beside its cases, which both must accept.
  */
 async function bankResults(authorBody, reviewBody, policy) {
   const bank = readBank(ROOT)
   const control = await bankProblem(ROOT, authorBody, reviewBody, policy)
   const root = mkdtempSync(join(tmpdir(), 'workflows-bank-'))
+  const proseRoot = mkdtempSync(join(tmpdir(), 'workflows-bank-prose-'))
   try {
     mkdirSync(join(root, CASES_DIR), { recursive: true })
-    const first = bank.cases?.[0] ?? storedCase(policy, BEAD, 'bead-stages-first')
+    const first = bank.cases?.find((c) => c.kind !== PROSE) ?? storedCase(policy, BEAD, 'bead-stages-first')
     writeFileSync(join(root, CASES_DIR, `${first.id}.json`), JSON.stringify({ ...first, expected: 'z' }))
     const doctored = await bankProblem(root, authorBody, reviewBody, policy)
     const refused = /^the authoring workflow refused the bank: args\.cases\[0\] is not a case as .* gives one: its expected answer "z" is none of its options$/.test(doctored ?? '')
+    mkdirSync(join(proseRoot, CASES_DIR), { recursive: true })
+    for (const c of [...(bank.cases ?? []), proseCase(policy, first.prompt, 'bank-prose-case')]) writeFileSync(join(proseRoot, CASES_DIR, `${c.id}.json`), JSON.stringify(c))
+    const withProse = await bankProblem(proseRoot, authorBody, reviewBody, policy)
     return [
       { file: CASES_DIR, name: `control: every stored case (${bank.cases?.length ?? 0}) is one the authoring workflow validates and the review answers, its file named for its id`, control: true, ok: control === null, detail: control ?? 'holds' },
       { file: CASES_DIR, name: 'a stored case whose expected answer is none of its options is refused, by its reason', control: false, ok: refused, detail: refused ? 'holds' : `reported ${JSON.stringify(doctored)}` },
+      { file: CASES_DIR, name: 'a prose case stored beside the bank goes to no authoring run, and the review returns it for the grader', control: false, ok: withProse === null, detail: withProse ?? 'holds' },
     ]
   } finally {
     rmSync(root, { recursive: true, force: true })
+    rmSync(proseRoot, { recursive: true, force: true })
   }
 }
 
@@ -4137,6 +4257,111 @@ async function parityResults(authorBody, reviewBody, policy) {
     { file: AUTHOR, name: `control: the authoring and review workflows give one case and text one answer prompt at each of ${reps} repetition(s)`, control: true, ok: control, detail: control ? 'holds' : 'the two answer prompts differ' },
     { file: AUTHOR, name: "a word changed in the review's answer prompt is seen", control: false, ok: !doctored, detail: !doctored ? 'holds' : 'the changed prompt still matched' },
   ]
+}
+
+/* -------------------------------------------------------------------------- the prose grader ----- */
+
+/**
+ * The grader of prose cases, `scripts/grade-prose-cases.mjs`, run in this process on the `prose` the
+ * review workflow returned for a prose case built here, so the two are held to one entry and one
+ * checksum. Its judge is a stub that gives each answer a probability by the side its text names, except
+ * in two cases: one makes no judge, since no key is set, and one goes through the real SDK to a closed
+ * loopback port. The control must grade every answer at the threshold as meeting the case and give it
+ * `held`; each other case breaks one thing and asserts the reason the run reports.
+ */
+async function graderResults(reviewBody, policy) {
+  const reps = policy.promptReviewCaseRepetitions
+  const threshold = policy[PROSE_KEY]
+  const under = Math.round((threshold - 0.001) * 1000) / 1000
+  const c = proseCase(policy, BEAD, 'bead-names-skipped-cases')
+  const reviewed = async (answers) => {
+    const a = reviewArgs(policy, undefined, { cases: [c] })
+    return (await run(reviewBody, a, reviewAnswer(a, {}, undefined, answers))).result?.prose
+  }
+  const prose = await reviewed()
+  const missing = await reviewed((x, side, i) => (side === 'new' && i === 1 ? null : proseText(x, side, i)))
+  const controlName = `control: the review's prose, graded at the threshold (${threshold}), meets the case with every answer and holds it`
+  if (!Array.isArray(prose) || prose.length !== 1 || !Array.isArray(missing)) return [{ file: GRADER, name: controlName, control: true, ok: false, detail: `the review returned prose ${JSON.stringify(prose)}` }]
+  const dir = mkdtempSync(join(tmpdir(), 'workflows-grader-'))
+  try {
+    const write = (name, data) => {
+      const path = join(dir, `${name}.json`)
+      writeFileSync(path, JSON.stringify(data))
+      return path
+    }
+    const good = write('good', { prose })
+    /** A judge giving each answer `p(side)`, the side its text opens with, and recording each question. */
+    const stub = (p) => {
+      const asked = []
+      const judge = {
+        async noul(q) {
+          asked.push(q)
+          return { meets: p(q.state.text.split(' ')[0]) }
+        },
+        async choose() {
+          throw new Error('the grader asked a Choice, where it asks a Noul')
+        },
+      }
+      return { asked, makeJudge: async () => ({ judge }) }
+    }
+    const grade = async (input, deps = {}) => {
+      const out = []
+      const err = []
+      const code = await gradeMain(['--input', input], { env: { TYPESAFE_API_KEY: 'selftest-not-a-key' }, out: (t) => out.push(t), err: (t) => err.push(t), ...deps })
+      let parsed = null
+      try {
+        parsed = out.length ? JSON.parse(out.join('\n')) : null
+      } catch {
+        parsed = 'not JSON'
+      }
+      return { code, out: parsed, err: err.join('\n'), first: parsed?.cases?.[0] }
+    }
+    const caseIs = (g, outcome, old, neu) => (g.code === 0 && g.first?.outcome === outcome && g.first.old === old && g.first.new === neu && g.first.of === reps ? null : `exited ${g.code}, the case ${JSON.stringify(g.first)}: ${g.err}`)
+    const failed = (g, code, reason) => (g.code === code && reason.test(g.err) && (code === 2 || g.out === null) ? null : `exited ${g.code}: ${g.err}`)
+
+    const atThreshold = stub(() => threshold)
+    const control = await (async () => {
+      const g = await grade(good, { makeJudge: atThreshold.makeJudge })
+      const wrong = caseIs(g, 'held', reps, reps)
+      if (wrong) return wrong
+      if (atThreshold.asked.length !== 2 * reps) return `asked ${atThreshold.asked.length} question(s), not ${2 * reps}`
+      if (atThreshold.asked.some((q) => q.questions.meets !== `${GRADE_QUESTION} ${c.expected}` || q.state.situation !== c.situation)) return "a question did not carry the case's situation and expected text"
+      if (g.out.threshold !== threshold || g.out.skip !== null || g.out.model !== policy.typesafeModel) return `the output's header is ${JSON.stringify({ ...g.out, cases: undefined })}`
+      return null
+    })()
+
+    const flipped = caseIs(await grade(good, { makeJudge: stub((side) => (side === 'new' ? under : 1)).makeJudge }), 'flipped', reps, 0)
+    const slipped = stub(() => 1)
+    const slip = await grade(write('slip', { prose: [{ ...prose[0], answers: prose[0].answers.map((a, i) => (i ? a : { ...a, text: `${a.text} ` })) }] }), { makeJudge: slipped.makeJudge })
+    const slipProblem = failed(slip, 2, /has the case bead-names-skipped-cases whose checksum does not match its fields, so it is not the workflow's `prose` copied verbatim/) ?? (slipped.asked.length ? 'it graded the changed copy' : null)
+    const reordered = caseIs(await grade(write('reordered', { prose: [Object.fromEntries(Object.entries(prose[0]).reverse())] }), { makeJudge: stub(() => 1).makeJudge }), 'held', reps, reps)
+    const unanswered = caseIs(await grade(write('missing', { prose: missing }), { makeJudge: stub(() => 1).makeJudge }), 'unanswered', reps, reps - 1)
+    const keyless = await grade(good, { env: {} })
+    const keylessProblem = keyless.code === 0 && keyless.first?.outcome === UNGRADED && keyless.first.old === null && /^TYPESAFE_API_KEY is not set/.test(keyless.out?.skip ?? '') ? null : `exited ${keyless.code}, ${JSON.stringify(keyless.out)}: ${keyless.err}`
+    const down = failed(await grade(good, { makeJudge: async () => ({ judge: { noul: async () => { throw new Error('503 service unavailable (request req_selftest)') } } }) }), 1, /FAILED: a TypeSafe call failed, so no case is graded: 503 service unavailable \(request req_selftest\)/)
+    const real = failed(await grade(good, { env: { TYPESAFE_API_KEY: 'selftest-not-a-key', TYPESAFE_BASE_URL: 'http://127.0.0.1:1' } }), 1, /FAILED: a TypeSafe call failed, so no case is graded/)
+    const policyRoot = join(dir, 'policy')
+    copyPolicy(ROOT, policyRoot)
+    editPolicy(policyRoot, (k) => {
+      delete k[PROSE_KEY]
+      delete k[`${PROSE_KEY}Means`]
+    })
+    const unpolicied = failed(await grade(good, { env: { TYPESAFE_API_KEY: 'selftest-not-a-key', [GRADE_ROOT_ENV]: policyRoot }, makeJudge: stub(() => 1).makeJudge }), 1, new RegExp(`FAILED: the policy's \`${PROSE_KEY}\` is undefined, where it must be a probability above 0 and at most 1`))
+
+    return [
+      { file: GRADER, name: controlName, control: true, ok: control === null, detail: control ?? 'holds' },
+      { file: GRADER, name: `every new answer a hair under the threshold (${under}) flips the case, which the grader reports and the review never blocks on`, control: false, ok: flipped === null, detail: flipped ?? 'holds' },
+      { file: GRADER, name: 'an answer the session did not copy verbatim fails the checksum, by its reason, and nothing is graded', control: false, ok: slipProblem === null, detail: slipProblem ?? 'holds' },
+      { file: GRADER, name: 'a copy whose keys are in another order is graded, the checksum taken over the fields in their sealed order', control: false, ok: reordered === null, detail: reordered ?? 'holds' },
+      { file: GRADER, name: 'an answer the answerer never returned leaves the case unanswered, never counted on the answers it has', control: false, ok: unanswered === null, detail: unanswered ?? 'holds' },
+      { file: GRADER, name: 'with no key no call is made, every case is ungraded, and the output says why', control: false, ok: keylessProblem === null, detail: keylessProblem ?? 'holds' },
+      { file: GRADER, name: 'a call that fails with a key set fails the run, by its reason, and prints no grades', control: false, ok: down === null, detail: down ?? 'holds' },
+      { file: GRADER, name: 'through the real SDK to a closed loopback port, the call fails the run', control: false, ok: real === null, detail: real ?? 'holds' },
+      { file: GRADER, name: `a policy without \`${PROSE_KEY}\` fails the run, by its reason`, control: false, ok: unpolicied === null, detail: unpolicied ?? 'holds' },
+    ]
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
 }
 
 /* -------------------------------------------------------------------------- the case readers ----- */
@@ -4307,7 +4532,7 @@ async function main() {
   } catch (error) {
     staticProblems.push(`${POLICY_DIR}/ could not be read: ${error.message}`)
   }
-  const missing = policy ? [...POLICY_KEYS, ...REVIEW_POLICY_KEYS, ...VERIFY_POLICY_KEYS].filter((k) => policy[k] === undefined) : []
+  const missing = policy ? [...POLICY_KEYS, ...REVIEW_POLICY_KEYS, ...VERIFY_POLICY_KEYS, PROSE_KEY].filter((k) => policy[k] === undefined) : []
   if (missing.length) staticProblems.push(`${POLICY_DIR}/ has no ${missing.join(', ')}`)
   if (staticProblems.length || suites.some((s) => !s.body)) {
     console.error(`workflows selftest: a workflow or the policy cannot be run.\n`)
@@ -4355,7 +4580,7 @@ async function main() {
     process.exit(1)
   }
   results.push(...clauses)
-  for (const extra of [await bankResults(suites[3].body, suites[1].body, policy), await parityResults(suites[3].body, suites[1].body, policy), await readerResults(suites[3].body, suites[1].body, policy)]) {
+  for (const extra of [await bankResults(suites[3].body, suites[1].body, policy), await parityResults(suites[3].body, suites[1].body, policy), await readerResults(suites[3].body, suites[1].body, policy), await graderResults(suites[1].body, policy)]) {
     if (!extra[0].ok) {
       console.error(`workflows selftest: ${extra[0].name} fails, so its refusal cannot be trusted: ${extra[0].detail}`)
       process.exit(1)
@@ -4366,7 +4591,7 @@ async function main() {
   const failed = results.filter((r) => !r.ok)
   for (const { file, name, ok, detail } of results) console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${file.split('/').pop()}: ${name} -- ${detail}`)
   const renderers = [...new Set(rendered.map((r) => r.file))]
-  const tally = [...suites.map((s) => s.file), ...renderers, ...TOOLLESS_AGENTS, CASES_DIR, READER, WORKFLOWS].map((file) => {
+  const tally = [...suites.map((s) => s.file), ...renderers, ...TOOLLESS_AGENTS, CASES_DIR, READER, GRADER, WORKFLOWS].map((file) => {
     const mine = results.filter((r) => r.file === file)
     const controls = mine.filter((r) => r.control).length
     return `${file === WORKFLOWS ? 'the unheld-file check' : file}: ${controls} control(s) and ${mine.length - controls} scenario(s)`

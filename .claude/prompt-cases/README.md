@@ -26,8 +26,27 @@ this page and a header disagree, the header wins.
 
 A review changes no stored case: its file agents may change only their prompts, and the reviewer
 writes only the cases it validated. Changing one's expected answer is a pull request of its own
-(`asdlc-openspec-a484` asks whether an edit's finding may do it). A case's expected answer is an
-option, never prose the prompt writes (`asdlc-openspec-1kie` asks whether that changes).
+(`asdlc-openspec-a484` asks whether an edit's finding may do it).
+
+## Prose cases
+
+A choice case holds what a session says it would do. A prose case holds what the prompt has it write:
+its `expected` says what a right text does, such as naming the two cases that were skipped
+(`docs/decisions/asdlc-openspec-1kie.md` § Decision).
+
+1. **Written and stored by hand**, in a pull request of its own, from a seed whose source settles what
+   the text must do. The authoring workflow neither writes nor validates one, since it judges options
+   alone.
+2. **Answered.** `review-prompts.js` answers it as it answers a choice case, with the old text and
+   the new, `promptReviewCaseRepetitions` times each, and returns the answers in its `prose`, each
+   entry sealed with a checksum.
+3. **Graded.** The reviewer runs `mise run prompt-review:grade` on that `prose`. The script asks
+   TypeSafe of each answer whether it does what `expected` says, at
+   `promptReviewProseMinProbability` (`tools/policy/agent-workflows.json`), and prints each case's
+   counts.
+4. **Listed, never blocking.** The counts go in the review's pull request, and keep no branch out:
+   a grader's verdict informs the person who merges. With no `TYPESAFE_API_KEY`, every case is
+   `ungraded` and the description says so.
 
 ## The format
 
@@ -38,11 +57,12 @@ workflows, and refuses one whose name is not its `id`.
 |---|---|
 | `id` | Lower case letters, digits and dashes; the file's name without `.json`. |
 | `prompt` | The repository-relative path of the prompt the case tests. |
+| `kind` | Absent for a choice case; `prose` for a prose case, which has no `options`. |
 | `lens` | One of `promptReviewCaseLenses`. A case drawn from a section takes no lens the authoring workflow marks as needing a run. |
 | `source` | Where the expected answer comes from: `{ "run", "point", "commit" }`, the run id, the point of its analysis and the commit it read the prompt at; or `{ "section" }`, the prompt's section, for a case written from the prompt's own rules. |
 | `situation` | The moment of the decision, in the session's terms. It quotes no sentence that decides it, and names no run, issue or test. |
-| `options` | Two to four `{ "id", "text" }`, ids `a` to `d`, each one thing a session could do there. Each answer sees them in an order turned by one place per repetition. |
-| `expected` | The id of the option the source settles. |
+| `options` | A choice case's two to four `{ "id", "text" }`, ids `a` to `d`, each one thing a session could do there. Each answer sees them in an order turned by one place per repetition. |
+| `expected` | A choice case's: the id of the option the source settles. A prose case's: one sentence saying what a right text does, which the grader asks of each answer. |
 | `settledBy` | What settles it: the run's action, a reviewer's finding, a later commit, the user's correction that states a rule, not a choice for that run alone, since a case holds every later run to it, or the section's sentence. A correction is a point of the run's analysis, which quotes it, so its case's `source` is that point's. |
 
 ## The cases

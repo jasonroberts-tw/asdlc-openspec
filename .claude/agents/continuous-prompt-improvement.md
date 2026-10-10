@@ -83,7 +83,8 @@ id, and drop one whose answer no source settles. Run it again with those as `cas
 
 With a group, run `.claude/workflows/review-prompts.js` with the groups of § 3, as `settled` each
 closed key § 3 held, as `<key>: <reason>`, and as `cases` every case whose `prompt` is a group's
-file, from `.claude/prompt-cases/` and those just validated.
+file, from `.claude/prompt-cases/` and those just validated. Pass the `prose` it returns, if any, to
+`mise run prompt-review:grade`, as that script's header says; its grades keep no branch out.
 
 ## 5. Merge, gate, and open one pull request
 
@@ -147,8 +148,9 @@ sections are the value.
    workflow returns it. Before a file's findings, its consolidation, if it has one: the table
    § How a prompt is consolidated asks for, and its skeptics' votes. After them, the stored cases:
    each the review workflow answered, from its `cases`, with its outcome and its right answers of
-   each text; each § 4 validated or turned away, with its counts; and the cost, the authors and
-   answers each workflow's `counts` gives.
+   each text; each prose case, with what the grader printed for it, or why it graded none; each § 4
+   validated or turned away, with its counts; and the cost, the authors and answers each workflow's
+   `counts` gives.
 4. **Corrections to the runs' own analyses.** Where a session's account of itself is wrong, say so,
    with the evidence.
 5. **What this review read and held.** The runs marked read; each run held with the group that held
