@@ -100,5 +100,12 @@
       "extensions": ["anthropic.claude-code"]
     }
   },
+
+  // Docker's init as PID 1, which reaps every orphan. Without it the Dockerfile's `sleep` ends up as
+  // PID 1, which reaps none, so every process a session kills or leaves behind stays a zombie
+  // (asdlc-openspec-29nx). .devcontainer/README.md § PID 1 says how the CLI starts the container.
+  "init": true,
+  // The CLI's own shell, which it runs in place of the image's ENTRYPOINT, runs that ENTRYPOINT and
+  // the CMD only while this is false.
   "overrideCommand": false
 }
