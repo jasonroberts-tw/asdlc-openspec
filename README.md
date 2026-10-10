@@ -93,6 +93,7 @@ level above them. `apps/` and `openspec/` hold the product; every other path is 
 | `openspec/` | The product's requirements, in OpenSpec's on-disk format: the living spec of each capability, the changes in flight against it, and the archive of those that landed. |
 | `apps/` | The product's code, one directory per app, each with its own `README.md`, its Binding Surface in `binding-surface.md` (what a test may depend on), and its tests beside it. `calculator/` is the first: plain ES modules, run as committed in a browser and under Node's test runner, with no build step. |
 | `count-index.md` | Every count that more than one file restates, under a `CNT-*` key, with the source it re-derives from. |
+| `CONTEXT.md` | The glossary: each word this repository gives a meaning of its own, with the file that decides it. |
 | `.beads/` | The configuration of `bd`, the issue tracker. Its database syncs through the git remote and is never committed; `bd bootstrap` hydrates it. `PRIME.md` is what `bd prime` prints in place of its own text when the tracker's plugin runs it at a session's start and before a compaction: it points at where each rule lives and states none. |
 | `git-hooks.yml` | The git-hook tiers: which gate runs at commit and at push, each with the glob that scopes it and a note of its measured cost. `scripts/git-hooks.mjs` runs it, called by the five `hook.asdlc-*` entries `mise run hooks:install` writes into the repository's config. |
 | `mise.toml`, `mise.lock` | The toolchain: every tool version the repository installs, and the lockfile that holds each one's download URL and checksum per platform, or, for a `pypi:` tool such as graphify, the path and digest of its uv lock. CI, the dev container and § Setup install from them (`docs/decisions.md` § D-31), and `mise run check:toolchain` holds them. |
@@ -489,6 +490,7 @@ proposes, and only a person promotes (`CLAUDE.md` § A program proposes; only a 
 | `docs/playbook.md` | The route one issue takes to the trunk, step by step, each step naming the file or command that decides it. |
 | `docs/plain-language-guide.md` | How work gets done here, for a reader who runs nothing. |
 | `docs/test-strategy.md` | The agentic test strategy the change process adopts, as supplied, with the register's amendments marked. |
+| `CONTEXT.md` | The glossary of the words this repository gives a meaning of its own. |
 | `count-index.md` | Every count describing the current measured state, under a key. |
 | `scripts/README.md` | The single-file gates and git-job scripts, one row each. |
 | `scripts/hooks/README.md` | The Claude Code hooks, one row each. |

@@ -11,7 +11,7 @@ enforces it, and a document points at that home rather than restating it.
 | `docs/decisions.md` | The register's numbered decisions (`D-NN`) and risks (`R-NN`), which nobody re-litigates, frozen at D-59. An entry is never rewritten; a later decision adds a dated amendment under each entry it changes. |
 | `docs/decisions/README.md` | The register's decisions and risks after D-59, a record each, named for its `bd` id, with no row per record: how one is written, cited and found. |
 | `docs/retired/README.md` | What has been retired, each file under a banner naming the decision that retired it. Kept as the evidence a decision was recorded from, never as guidance. |
-| `docs/playbook.md` | The route one issue takes to the trunk, by the harness route or the product route, with a glossary, a table of where the truth lives and a crib sheet. Dated, and a route rather than an authority: the file or command each step names wins a disagreement. |
+| `docs/playbook.md` | The route one issue takes to the trunk, by the harness route or the product route, with a table of where the truth lives and a crib sheet. Dated, and a route rather than an authority: the file or command each step names wins a disagreement. |
 | `docs/plain-language-guide.md` | How work gets done here, for a reader who runs nothing: the parts, the loop between them, who decides what, and what has not happened yet. Dated; any technical document wins a disagreement. |
 | `docs/test-strategy.md` | The agentic test strategy as the maintainer supplied it on 2026-09-28, with the answers of `docs/decisions.md` § D-13 marked where they amend it. A dated record, the home of no rule: the register, the gates and the skills win a disagreement. |
 
@@ -22,6 +22,7 @@ enforces it, and a document points at that home rather than restating it.
 | `CLAUDE.md` | Read first. The only home for a rule an agent must follow here. |
 | `AGENTS.md` | The pointer for an agent tool other than Claude Code that reads that name: it sends the reader to `CLAUDE.md` and holds no rule of its own. |
 | `README.md` | Setup, numbered per platform, and the table of what runs automatically. |
+| `CONTEXT.md` | The glossary: each word this repository gives a meaning of its own, with the file that decides it, which wins a disagreement. |
 | `count-index.md` | Every count describing the current measured state, under a key, with the source each value re-derives from. |
 | `openspec/README.md` | The product's requirements: the living spec of each capability, the changes in flight, the archive, and which of them wins. |
 | `.claude/README.md` | What Claude Code loads when a session starts here: the settings, the hooks, the skills and the agents. |
