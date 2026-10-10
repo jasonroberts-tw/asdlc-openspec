@@ -83,7 +83,7 @@ this repository deliberately does not contain. Do not edit `tasks.toml`, `packag
 
 1. Run the test suite (`npm ci` first, if you have not already this session).
 2. `git fetch origin`, then `git rebase origin/main`, each as its own command (Windows PowerShell has no `&&`).
-3. Run the suite again. A rebase that applies cleanly can still break the build — that is the failure this step exists to catch.
+3. Run the suite again as `CLAUDE.md` § The gate ladder says.
 4. Open the PR from `{{BRANCH}}` with the `open-pr` skill. It waits for the merge, then cleans up. In the description, list: what changed; shared interfaces, schemas, or config files touched; flags added; and what you deliberately left undone.
 5. Stop. Do not merge, do not pick up follow-up work, do not open a second task.
 

@@ -62,9 +62,10 @@ every other file points at that row.
 
 A question put to the user that recommends an option shows, for that option, at least one concrete
 case where it gives the worse result: the input or the situation, what the recommended option gives
-there, and what the other option gives. With `AskUserQuestion`, the case goes in the recommended
-option's description or preview. An example on which the recommendation wins, or on which every
-option agrees, answers the question for them.
+there, and what the other option gives. Before writing that case, read the losses the register
+records for each entry the option changes, or the question goes to the user twice. With
+`AskUserQuestion`, the case goes in the recommended option's description or preview. An example on
+which the recommendation wins, or on which every option agrees, answers the question for them.
 
 ## Bash command style
 
@@ -235,7 +236,8 @@ failure, never a skip.
 
 **`mise run gates` is the forced full suite.** Before opening or
 updating a pull request: regenerate every derived artifact, run `mise run gates`, fetch and rebase
-onto `origin/main`, and run it again.
+onto `origin/main`, and run it again if the rebase moved the branch, since a rebase that applies
+cleanly can still break the build.
 
 ## A workflow a session writes itself is bounded
 
