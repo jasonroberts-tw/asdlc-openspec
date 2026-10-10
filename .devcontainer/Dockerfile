@@ -11,9 +11,9 @@
 # The only steps NOT in a layer are those that need the repository itself, which does not exist at
 # build time: the container's own clone, in a volume, which entrypoint.sh makes at the first start
 # and no host checkout is mounted over (docs/decisions.md § D-54). They are `npm ci`, the git hooks,
-# hydrating the issue database, installing those two plugins, whose project-scope install record
-# names the clone's path, the App's commit identity, read from the clone's policy, and the status
-# line, which runs a script in the clone.
+# the tracker's mode and role, which git does not carry, hydrating the issue database, installing
+# those two plugins, whose project-scope install record names the clone's path, the App's commit
+# identity, read from the clone's policy, and the status line, which runs a script in the clone.
 # Those live in entrypoint.sh, which this file copies in and wires to ENTRYPOINT -- so the setup is
 # still owned by the image, and devcontainer.json still has no lifecycle command in it.
 #
