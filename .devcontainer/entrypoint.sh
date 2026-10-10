@@ -12,9 +12,9 @@
 #                                    which run scripts/git-hooks.mjs at each event.
 #   3. the beads issue database   -- a Dolt DB under .beads/embeddeddolt/, not in git.
 #
-# ...a warning when the image's tools lag `mise.toml`, since it installs none, and a warning when Vale
-# cannot load `.vale.ini`. Its styles are what `vale sync` downloads into the
-# repository, once, and a person runs it (.devcontainer/README.md): this script does not...
+# ...a warning when the image's tools lag `mise.toml`, since it installs none, and Vale's styles,
+# which `vale sync` downloads into the clone while a lint finds one missing, and which are here for
+# the same reason as the three: they land in the clone, which the image never sees...
 #
 # ...and a check that the agents' GitHub App, as which the container's `git` and `gh` act, can mint
 # a token, which is here for the same reason: it depends on the key devcontainer.json mounts from
@@ -166,13 +166,42 @@ setup() {
       || warn 'bd bootstrap failed -- once the GitHub App mints a token (a warning below says so if it cannot), run `bd bootstrap` (never `bd init`)'
   fi
 
-  # Vale's styles are downloaded into the clone by `vale sync`, which needs the network, so this
-  # warns rather than runs it. Without them the vale@agent-tools hook answers every edit with E201,
-  # which reads like a check that ran; `vale ls-config` fails the same way, and names no path here.
-  if command -v vale >/dev/null 2>&1 && [ -f .vale.ini ] && ! vale ls-config >/dev/null 2>&1; then
-    warn 'Vale cannot load .vale.ini, so no prose is checked -- run `vale sync` once (it needs the network)'
-  fi
+  vale_styles
+}
 
+# Vale's styles, fetched into the clone while a lint finds one missing. `.vale.ini` names packages
+# that `vale sync` downloads into its StylesPath, which git ignores but for the tracked Layout, so a
+# new clone holds Layout alone. Until 2026-10-10 this step only warned, and only while
+# `vale ls-config` failed, which with Vale 3.23.0 it does not on a missing style: a container started
+# on a new volume gave no warning, and the vale@agent-tools hook answered every edit with E100 while
+# it checked nothing (asdlc-openspec-c7kl). So it lints one sample line instead. Vale loads every
+# style any section names before it lints, and exits 2 on one it lacks, where 0 and 1 mean it
+# linted. On a 2 it runs `vale sync`, which needs the network, and lints again; a sync that fails
+# warns, and the container starts as before. scripts/new-worktree.sh copies the clone's styles into
+# each worktree cut after this. scripts/github-app-token.mjs's selftest runs it against a stub `vale`.
+vale_styles() {
+  if [ -z "$workspace" ] || ! cd "$workspace" 2>/dev/null; then
+    return 0
+  fi
+  if ! command -v vale >/dev/null 2>&1 || [ ! -f .vale.ini ]; then
+    return 0
+  fi
+  if vale_lints; then
+    return 0
+  fi
+  log 'vale sync: fetching the styles .vale.ini names'
+  if ! vale sync >/dev/null 2>&1; then
+    warn 'vale sync failed, so Vale checks no prose -- run `vale sync` in the clone once the network is back'
+    return 0
+  fi
+  vale_lints \
+    || warn 'Vale still cannot load .vale.ini after vale sync, so no prose is checked -- run `vale --ext=.md "One line of prose."` in the clone to see why'
+}
+
+# vale_lints: whether Vale loads every style `.vale.ini` names, from a lint of one sample line.
+vale_lints() {
+  vale --ext=.md 'One line of prose.' >/dev/null 2>&1
+  [ "$?" -le 1 ]
 }
 
 # The container's `git` and `gh` act as the agents' GitHub App, through the wrappers the Dockerfile
@@ -372,8 +401,8 @@ statusline() {
 }
 
 # Sourced with ENTRYPOINT_FUNCTIONS_ONLY=1, as scripts/github-app-token.mjs's selftest sources it to
-# run clone, commit_identity, tracing and statusline, this file defines its functions and runs none
-# of its steps.
+# run clone, vale_styles, commit_identity, tracing and statusline, this file defines its functions
+# and runs none of its steps.
 if [ "${ENTRYPOINT_FUNCTIONS_ONLY:-}" = 1 ]; then
   return 0
 fi

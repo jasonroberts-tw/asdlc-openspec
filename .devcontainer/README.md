@@ -76,7 +76,7 @@ registers their marketplaces, and `entrypoint.sh` installs each plugin for the c
 | `Dockerfile` | Every tool, as a layer. The base image's major tag is at the top; every other version is in the root `mise.toml`, installed through `mise.lock` by the mise the Dockerfile copies in (`docs/decisions.md` § D-31), and graphify's dependencies through its uv lock under `.mise/locks/` (§ D-35). After a pin moves, rebuild. It also makes `git` and `gh` act as the App, through the two files below, keeps `git gc` from pruning the host's worktrees (§ The host's worktrees, seen from the container), and carries `tools/policy/tool-settings.json`, which names the repository the entrypoint clones. |
 | `Dockerfile.dockerignore` | What the build may read from the repository's root, its context: `mise.toml`, `mise.lock`, the uv locks under `.mise/locks/`, `entrypoint.sh`, the two wrappers and `tools/policy/tool-settings.json`, and nothing else. |
 | `devcontainer.json` | Almost nothing: a pointer at the Dockerfile and its context, the `remoteUser`, and no workspace mount. It mounts the App's key read-only, a volume for Claude Code's state and one for the container's clone. Its variables name the clone, the key's directory and that volume to what runs inside, and pass your terminal's `COLORTERM` in (§ Color and the status line), and your TypeSafe key once you set it (§ TypeSafe's key). |
-| `entrypoint.sh` | At the first start, the container's clone, made in its volume. Then the three setup steps that read the clone, which does not exist at build time, and the App's bot account as git's commit identity, when none is set. Where either is missing, each plugin's marketplace and its project-scope install for the clone; Langfuse's plugin at user scope, configured from a `langfuse.json` beside the App's key when the host gives one, and disabled when it does not; and the status line, when Claude Code's settings set none. It warns while a tool `mise.toml` pins is missing from the image, while Vale cannot load `.vale.ini`, and while the App cannot mint a token. |
+| `entrypoint.sh` | At the first start, the container's clone, made in its volume. Then the three setup steps that read the clone, which does not exist at build time; Vale's styles, which `vale sync` fetches into the clone while a lint of a sample line finds one missing; and the App's bot account as git's commit identity, when none is set. Where either is missing, each plugin's marketplace and its project-scope install for the clone; Langfuse's plugin at user scope, configured from a `langfuse.json` beside the App's key when the host gives one, and disabled when it does not; and the status line, when Claude Code's settings set none. It warns while a tool `mise.toml` pins is missing from the image, when `vale sync` fails or leaves a style missing, and while the App cannot mint a token. |
 | `gh` | `gh` as the App: ahead of mise's on PATH, it runs it with a token `scripts/github-app-token.mjs` mints, read for each command. |
 | `git-credential-github-app` | git's one credential helper for `https://github.com`, which hands git's request to `scripts/github-app-token.mjs`. |
 | `statusline.sh` | Claude Code's status line in the container: the project, its branch, the model, the effort, the context left, the cost and the tokens. Run from the clone, so an edit needs no rebuild. |
@@ -95,17 +95,20 @@ Until then a shim installs the moved pin over the network at its first use, the 
 
 `entrypoint.sh` holds only what cannot be an image layer: the container's clone, `npm ci` (whose
 `node_modules` carries native binaries and so belongs to the container's platform), installing the
-git hooks' config entries, and hydrating the Dolt issue database. It is wired to `ENTRYPOINT` so
-`devcontainer.json` needs no lifecycle command, runs on every start, and is idempotent. **Nothing
-in it may fail the container**: this is the process that starts the shell you would use to fix a
-setup problem, so every step warns and carries on.
+git hooks' config entries, hydrating the Dolt issue database, and Vale's styles, which land in the
+clone (below). It is wired to `ENTRYPOINT` so `devcontainer.json` needs no lifecycle command, runs
+on every start, and is idempotent. **Nothing in it may fail the container**: this is the process
+that starts the shell you would use to fix a setup problem, so every step warns and carries on.
 
 **Vale's styles come from the clone, not the image.** The image carries `vale`, pinned in the root
 `mise.toml`. The packages `.vale.ini` names are what `vale sync` downloads into the clone, which
-the image cannot see at build time; `Layout`, the one style the clone tracks, comes with it. Run
-`vale sync` once in the container, for each new workspace volume: it needs the network, and the
-styles land in the clone, so a rebuild keeps them. `entrypoint.sh` does not run it. It warns at
-start while `vale ls-config` cannot load `.vale.ini`.
+the image cannot see at build time; `Layout`, the one style the clone tracks, comes with it. At each
+start, `entrypoint.sh` lints one sample line with Vale, and runs `vale sync` when that lint finds a
+style missing. So a new workspace volume gets the styles at its first start, and a rebuild keeps
+them, since they are in the clone. `vale ls-config` is no test of them, because it loads `.vale.ini`
+with a style missing (Vale 3.23.0). Without the network the sync fails, and the entrypoint warns
+that no prose is checked and goes on. The next start tries again, or `vale sync` in the clone does
+it by hand. `scripts/new-worktree.sh` copies the styles into each worktree cut after the sync.
 
 ## What the container no longer shares, and why
 
