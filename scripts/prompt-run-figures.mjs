@@ -969,8 +969,21 @@ async function selftest() {
       offBoth.status === 0 &&
         offBoth.requests.length === 0 &&
         /^no Langfuse project is read \(/.test(offBoth.report?.skip ?? '') &&
+        offBoth.report.skip.includes(`\`container\` not read: ${OFF}, the container`) &&
+        offBoth.report.skip.includes(`\`host\` not read: ${OFF}, the host`) &&
         JSON.stringify(offBoth.report?.projects) === JSON.stringify({ container: `not read: ${OFF}, the container`, host: `not read: ${OFF}, the host` }),
       `${offBoth.status} ${offBoth.stdout} ${offBoth.stderr}`,
+    )
+    const { publicKeyEnv: cPublic, secretKeyEnv: cSecret } = policy.langfuseProjects.container
+    const offMixed = await figures({ change: (p) => (p.langfuseProjects.host.offBecause = OFF), keys: {} })
+    ok(
+      'one project turned off and the other with no keys: exit 0, asks nothing, and the skip names the one by its reason and the other by its unset variables',
+      offMixed.status === 0 &&
+        offMixed.requests.length === 0 &&
+        offMixed.report?.skip?.includes(`\`container\` not configured: ${cPublic} and ${cSecret} unset`) &&
+        offMixed.report.skip.includes(`\`host\` not read: ${OFF}`) &&
+        JSON.stringify(offMixed.report.projects) === JSON.stringify({ container: 'not configured', host: `not read: ${OFF}` }),
+      `${offMixed.status} ${offMixed.stdout} ${offMixed.stderr}`,
     )
     const offHalf = await figures({ change: (p) => (p.langfuseProjects.host.offBecause = OFF), keys: { ...envOf(['container']), [policy.langfuseProjects.host.publicKeyEnv]: KEYS_OF.host.publicKey } })
     ok('a project turned off with one key of two set: no failure, since it is asked nothing', offHalf.status === 0 && offHalf.report?.projects.host === `not read: ${OFF}` && offHalf.requests.every((q) => q.project === 'container'), `${offHalf.status} ${offHalf.stderr}`)
