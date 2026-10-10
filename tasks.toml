@@ -78,7 +78,8 @@ every declaration is current and of the right kind. It also holds each task to t
 `tools/`, `scripts/` or `apps/` path exists as spelled, case included, and a glob matches a file.
 And it holds the tasks to one registry: `package.json` keeps `calculator:serve` and `prepare` and no
 other script, and `mise.toml` defines no task, includes `tasks.toml` and runs a task where it is
-called. Without it a gate can be unwired, a job can stay on a launcher that no longer finds its
+called. And it holds each check task to a selftest task of its name, or to one its exceptions name.
+Without it a gate can be unwired or untested, a job can stay on a launcher that no longer finds its
 task, or a task can name a file that is gone, and nothing says so.'''
 run = "node scripts/check-jobs.mjs"
 

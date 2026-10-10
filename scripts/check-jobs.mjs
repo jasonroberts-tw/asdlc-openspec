@@ -1,7 +1,7 @@
 /**
  * Job-to-task cross-check gate: the hooks and CI invoke only tasks that exist, through the launcher
  * that reads them, every task they do not invoke is of a kind this file declares, every file a task
- * names is there as it is spelled, and the tasks have one registry.
+ * names is there as it is spelled, the tasks have one registry, and every check task has a selftest.
  *
  *   mise run check:jobs             the gate; prints the re-derived breakdown on every run
  *   mise run check:jobs:selftest    its fixtures -- every assertion exercised on a doctored copy
@@ -78,6 +78,14 @@
  *      under which mise reads none of the tasks, or `dir = "{{cwd}}"`, under which a task a worktree
  *      borrows from the primary checkout runs on the primary's files (asdlc-openspec-8juz.1,
  *      question 1). `scripts/check-toolchain.mjs` holds what else `mise.toml` may say.
+ *   7. a check task, `check:<group>` or `<group>:check`, with no task named `check:<group>:selftest`
+ *      or `<group>:selftest`, unless `SELFTEST_EXCEPTIONS` names the task that tests it; and an
+ *      exception whose check is gone, whose check now has the selftest its name asks for, or whose
+ *      named selftest is gone. Since 2026-10-10 (asdlc-openspec-phmi), when `CLAUDE.md` § Standing
+ *      rules for prompts and gates asked a selftest of every gate and only a model, the branch
+ *      reviewer, read for one. Wrong here, a gate could land with no selftest, so nothing would show
+ *      when it stopped refusing. It matches by name, not by script: `citations:check`, `coupling:check`
+ *      and `trace:check` each run a script other than their selftest's.
  *
  * WHAT IS NOT CHECKED, deliberately: WHERE a jobbed script runs (pre-push, CI or both) -- that is
  * the README's Gate column, which a reviewer reads; whether a job's OTHER commands (`git diff`,
@@ -298,6 +306,26 @@ const UNJOBBED_BY_KIND = [
 ]
 
 const entryName = (entry) => (typeof entry === 'string' ? entry : entry.name)
+
+/** A check task (assertion 7): `check:<group>` or `<group>:check`, and not a selftest of one. */
+const CHECK_TASK_RE = /^check:|:check$/
+const SELFTEST_TASK_RE = /:(?:selftest|selfcheck)$/
+/** The selftest task a check task's name asks for: `check:<group>:selftest`, or `<group>:selftest`. */
+const selftestOf = (name) => (name.startsWith('check:') ? `${name}:selftest` : name.replace(/:check$/, ':selftest'))
+/**
+ * The check tasks whose selftest is not the one their name asks for, each with the task that tests
+ * it and why. Assertion 7 holds every claim: the check exists, the task named exists, and the
+ * check's own name still has no selftest.
+ */
+const SELFTEST_EXCEPTIONS = [
+  {
+    name: 'thresholds:commands:check',
+    selftest: 'thresholds:selftest',
+    why:
+      'a second mode of `scripts/check-thresholds.mjs`, `--commands`, whose refusals of the Commands\'' +
+      ' mutants `thresholds:selftest` runs beside the Routines\'.',
+  },
+]
 
 /**
  * `path` under `root` as the directory listings spell it, with whether that is exactly how `path`
@@ -629,6 +657,32 @@ export function runCheck(root, { pathsRoot = root } = {}) {
     }
   }
 
+  /* ------------------------------------------------- 7. every check task has a selftest -------- */
+
+  const excepted = new Map(SELFTEST_EXCEPTIONS.map((entry) => [entry.name, entry]))
+  const checks = [...names].filter((name) => CHECK_TASK_RE.test(name) && !SELFTEST_TASK_RE.test(name))
+  for (const name of checks) {
+    if (excepted.has(name) || names.has(selftestOf(name))) continue
+    fail(
+      `\`${name}\` is a check task and ${file} has no \`${selftestOf(name)}\` task. A gate with no` +
+        ' selftest can stop refusing and still pass; add the selftest, or name the task that tests it' +
+        ' in SELFTEST_EXCEPTIONS in scripts/check-jobs.mjs with the reason.',
+    )
+  }
+  for (const { name, selftest } of SELFTEST_EXCEPTIONS) {
+    if (!names.has(name)) {
+      fail(`SELFTEST_EXCEPTIONS lists \`${name}\` but ${file} has no such task. If it was retired, remove the entry.`)
+    } else if (names.has(selftestOf(name))) {
+      fail(
+        `SELFTEST_EXCEPTIONS lists \`${name}\`, which now has \`${selftestOf(name)}\`. A stale exception` +
+          ' is a hole in the gate; remove the entry.',
+      )
+    }
+    if (!names.has(selftest)) {
+      fail(`SELFTEST_EXCEPTIONS says \`${selftest}\` tests \`${name}\`, but ${file} has no such task.`)
+    }
+  }
+
   const byKind = UNJOBBED_BY_KIND.map((kind) => ({
     kind: kind.kind,
     count: kind.names.map(entryName).filter((name) => unjobbed.includes(name)).length,
@@ -647,6 +701,7 @@ export function runCheck(root, { pathsRoot = root } = {}) {
     pathNaming,
     appsPaths,
     globs,
+    checks: checks.length,
   }
   return { failures, report }
 }
@@ -666,6 +721,8 @@ function describe(report) {
       ` apps/ path, each held to its spelling on disk, case included; ${report.appsPaths} of those` +
       ` paths under apps/, and ${report.globs} a glob, held to matching a file rather than to` +
       ` existing.`,
+    `selftests: ${report.checks} check tasks, each with the selftest its name asks for or named in` +
+      ` SELFTEST_EXCEPTIONS (${SELFTEST_EXCEPTIONS.length}).`,
   ]
 }
 
@@ -677,7 +734,8 @@ function main() {
   if (failures.length === 0) {
     console.log(
       'jobs: every token resolves through its launcher, every un-jobbed script is declared, every' +
-        ' path exists as spelled, every glob matches a file, and the tasks have one registry.',
+        ' path exists as spelled, every glob matches a file, the tasks have one registry, and every' +
+        ' check task has a selftest.',
     )
     process.exit(0)
   }
@@ -983,13 +1041,56 @@ function cases() {
     },
     {
       // The doctored script names this gate, a file that exists whenever the selftest runs, so the
-      // missing job is the one thing wrong with it.
+      // missing job is the one thing wrong with it. A selftest, since a check would also lack one.
       name: 'a new gate-shaped task with no job',
       doctor: (dir) =>
         editTasks(dir, (tasks) => {
-          tasks['doctored:check'] = 'node scripts/check-jobs.mjs --doctored'
+          tasks['doctored:selftest'] = 'node scripts/check-jobs.mjs --doctored'
         }),
-      expect: /^`doctored:check` is gate-shaped and no job runs it/,
+      expect: /^`doctored:selftest` is gate-shaped and no job runs it/,
+    },
+    // 7. Every check task has a selftest. Each doctored task has a job, so a missing selftest is the
+    // one thing wrong with it.
+    ...[
+      ['a `<group>:check` task with no `<group>:selftest`', ['doctored:check'], /^`doctored:check` is a check task and tasks\.toml has no `doctored:selftest` task/],
+      ['a `check:<group>` task with no `check:<group>:selftest`', ['check:doctored'], /^`check:doctored` is a check task and tasks\.toml has no `check:doctored:selftest` task/],
+      ['a `<group>:check` task with its `<group>:selftest` passes', ['doctored:check', 'doctored:selftest'], 'pass'],
+      ['a `check:<group>` task with its `check:<group>:selftest` passes', ['check:doctored', 'check:doctored:selftest'], 'pass'],
+      ['an excepted check gains the selftest its name asks for', ['thresholds:commands:selftest'], /^SELFTEST_EXCEPTIONS lists `thresholds:commands:check`, which now has `thresholds:commands:selftest`\. A stale exception/],
+    ].map(([name, added, expect]) => ({
+      name,
+      doctor: (dir) => {
+        editTasks(dir, (tasks) => {
+          for (const task of added) tasks[task] = 'node scripts/check-jobs.mjs --doctored'
+        })
+        for (const task of added) edit(dir, HOOK_JOBS, appendJob(`doctored-${task}`, `mise run ${task}`))
+      },
+      expect,
+    })),
+    {
+      name: 'an excepted check is retired from tasks.toml',
+      doctor: (dir) => {
+        editTasks(dir, (tasks) => {
+          delete tasks['thresholds:commands:check']
+        })
+        // A CI step alone runs it; its `run:` goes with it, or the step would name a missing task.
+        edit(dir, VERIFY, (t) => t.replace(/^.*mise run thresholds:commands:check\n/m, ''))
+      },
+      expect: /^SELFTEST_EXCEPTIONS lists `thresholds:commands:check` but tasks\.toml has no such task/,
+    },
+    {
+      // `thresholds:check` asks for the same selftest by its name, so it is refused too.
+      name: 'the selftest an exception names is retired from tasks.toml',
+      doctor: (dir) => {
+        editTasks(dir, (tasks) => {
+          delete tasks['thresholds:selftest']
+        })
+        for (const file of JOB_FILES) edit(dir, file, (t) => t.replace(/^.*mise run thresholds:selftest\n/m, ''))
+      },
+      expect: [
+        /^`thresholds:check` is a check task and tasks\.toml has no `thresholds:selftest` task/,
+        /^SELFTEST_EXCEPTIONS says `thresholds:selftest` tests `thresholds:commands:check`, but tasks\.toml has no such task/,
+      ],
     },
     {
       name: 'a new task of no declared kind, with no job',
