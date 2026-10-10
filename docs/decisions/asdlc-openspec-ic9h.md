@@ -180,4 +180,4 @@ Where it loses:
   2026-10-09.
 - The probes' results and their commands: `asdlc-openspec-ic9h.1`'s Findings.
 
-> **Amended 2026-10-10 by asdlc-openspec-ic9h.13.** Item 2 no longer holds. The job authenticates to Anthropic with an API key, `ANTHROPIC_API_KEY`, a secret of the `prompt-review` environment, on the model's step alone, and no federation rule or service account is made. Item 3's grant is `contents: read` alone, with no `id-token: write`. The Why's point that the federation was deleted is answered by the key, and the loss of a stored key is that record's (`docs/decisions/asdlc-openspec-ic9h.13.md` § Decision).
+> **Amended 2026-10-10 by asdlc-openspec-ic9h.13.** Item 2 no longer holds. The job authenticates to Anthropic with an API key, `ANTHROPIC_API_KEY`, a secret of the `prompt-review` environment, on the model's step alone, and no federation rule or service account is made. Item 3's grant is `contents: read` alone, with no `id-token: write`. The Why's point that the federation was deleted is answered by the key, and the loss of a stored key is asdlc-openspec-ic9h.13's (`docs/decisions/asdlc-openspec-ic9h.13.md` § Decision).
