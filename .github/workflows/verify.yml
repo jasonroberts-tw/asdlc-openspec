@@ -267,6 +267,11 @@ jobs:
       # selftest.
       - name: the prompt runs' parser and report, negative-tested over fixture exports
         run: mise run prompt-runs:selftest
+      # The prompt runs' Langfuse figures over a stub of Langfuse's API on loopback, and a pending file
+      # `prompt-runs` writes from a fixture export. The command reads two projects' keys and Langfuse
+      # over the network, and runs here only as this selftest.
+      - name: the prompt runs' Langfuse figures, negative-tested over a stubbed Langfuse
+        run: mise run prompt-runs:figures:selftest        
       # Seconds (git-hooks.yml's `github-app-token-selftest` job has the measurement): the dev
       # container's GitHub App helper over a stub of GitHub's endpoint on loopback, and the image's two
       # wrappers through real git and sh. The helper itself reads the App's private key and GitHub's
