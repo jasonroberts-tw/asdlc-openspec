@@ -47,12 +47,11 @@ what it builds on a premise it knows is false is work someone later replaces.
 ## Stateful counts live in `count-index.md`, under a key
 
 Every count describing the current measured state of what this repository measures has a
-`CNT-*` key in `count-index.md`, with its value and the command or file it re-derives
-from. Prose writes the backticked key where the numeral would go, never both. A key is admitted only
-for a count that moves when the source is re-measured **and** is restated in more than one
-hand-maintained file; a number used once stays inline. A quotation keeps its numeral. A string an
-emitter writes interpolates what it measured at emit time or carries no figure. When two
-denominators exist, name the one you mean.
+`CNT-*` key in `count-index.md`. Prose writes the backticked key where the numeral would go, never
+both. A key is admitted only for a count that moves when the source is re-measured **and** is
+restated in more than one hand-maintained file; a number used once stays inline. A quotation keeps
+its numeral. A string an emitter writes interpolates what it measured at emit time or carries no
+figure. When two denominators exist, name the one you mean.
 
 **Reporting honesty.** Any rate a report computes declares a sample size below which the report
 prints the count and no rate. Every metric is defined once, in `count-index.md` § Rates and metrics;
@@ -127,8 +126,8 @@ a session works or notes it. Otherwise `bd ready` ranks by who filed it, and whe
 
 An issue a run files `discovered-from` the issue or epic it ran on also carries, from
 `tools/policy/vocabulary.json`, the `foundAtLabels` label for the stage that found it and one `assetLabels`
-label for each kind of file it would change. Those pairs are what `bd count` reads across runs
-(`.claude/skills/change-finalize/SKILL.md` § 9. Report).
+label for each kind of file it would change, or, if it changes no file, for what it would fix. Those
+pairs are what `bd count` reads across runs (`.claude/skills/change-finalize/SKILL.md` § 9. Report).
 
 Before filing an issue other than a change's epic or its tasks, search for it: titles with
 `bd search "<words>"` and descriptions with `bd list --all --desc-contains "<words>"`, closed issues
