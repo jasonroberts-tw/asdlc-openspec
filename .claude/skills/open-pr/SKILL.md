@@ -33,10 +33,10 @@ A shared file is not a conflict; a conflict this reports is.
 
 A sentence saying what changed, ending with the ids the branch carries as `CLAUDE.md` § Git
 workflow says, separated by commas. The branch review reads them from those parentheses and nowhere
-else, with `prReviewIssuePattern` in `tools/policy/pr-review.json`.
+else.
 
-A pull request that carries no issue, such as a prompt review's, ends with no parentheses. Never
-cite an issue the branch does not carry.
+A pull request that carries no issue ends with no parentheses. Never cite an issue the branch does
+not carry.
 
 ## 4. The body
 
@@ -73,14 +73,14 @@ Otherwise:
     gh pr checks <number> --watch
 
 Run it in the background, and no second watcher; end the turn to wait only if its exit wakes the
-session (verified against the CLI, 2.1.289). If it exits at once with "no checks reported", nothing
-had registered yet: that is not a failing check, and starting it again is not a second watcher.
+session (verified against the CLI, 2.1.289). If it exits at once with "no checks reported", that is
+not a failing check, and starting it again is not a second watcher.
 
 ## 7. Act on the outcome
 
 The watcher ends once `verify` and the `review #<number>` job have both settled. The reviewer's
-verdict is its review on the head (`gh pr view <number> --json reviews`), whose bodies
-`scripts/pr-review.mjs` sets (`reviewFor`); the run each names gives every reason.
+verdict is its review on the head (`gh pr view <number> --json reviews`); the run each names gives
+every reason.
 
 | What the checks and the review show | What it asks |
 |---|---|
@@ -88,10 +88,10 @@ verdict is its review on the head (`gh pr view <number> --json reviews`), whose 
 | The pull request conflicts with `main` | Fetch, rebase onto `origin/main`, gate, and push with `--force-with-lease`. |
 | `verify` passes and the reviewer approved: "Off the high-risk floor: auto-merge can merge it once verify passes" | Have GitHub merge it, with `prReviewMergeMethod` (`tools/policy/pr-review.json`): `gh pr merge <number> --auto --rebase`. Then wait (step 8). |
 | The reviewer commented "A person decides: …" | It waits for a person's approval, for the reason given; say so, and why, then wait (step 8). |
-| The reviewer commented "The review did not complete: …", or the `review #<number>` job fails | Read that run: `gh run view <run> --log-failed`. A cause in the reviewer's own workflow is not this branch's to fix: the caller files it as a defect found on the way, and the pull request waits on that issue. A cause that does not repeat, such as a network error, is the maintainer's (`docs/decisions.md` § D-51): give them `gh run rerun <run> --failed`, and the pull request waits on it. |
+| The reviewer commented "The review did not complete: …", or the `review #<number>` job fails | Read that run: `gh run view <run> --log-failed`. A cause in the reviewer's own workflow is not this branch's to fix: the caller files it as a defect found on the way, and the pull request waits on that issue. A cause that does not repeat is the maintainer's (`docs/decisions.md` § D-51): give them `gh run rerun <run> --failed`, and the pull request waits on it. |
 
-Never approve it, pass `--admin`, nor ask GitHub to merge a head not yet approved and passed: each
-merges a head no person read (`CLAUDE.md` § Git workflow).
+Never ask GitHub to merge a head not yet approved and passed: it merges a head no person read
+(`CLAUDE.md` § Git workflow).
 
 A push makes a new head, which the reviewer decides again: review it first unless the push only
 rebased, and watch it again (step 6).
