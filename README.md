@@ -285,7 +285,8 @@ holds platform-native binaries. Use one clone per platform.
 ### Dev container
 
 An agent session in the container acts as the agents' GitHub App and holds none of your logins
-(`docs/decisions.md` § D-51).
+(`docs/decisions.md` § D-51). Of your other credentials it holds only your TypeSafe key, and only
+once you set it (`docs/decisions/asdlc-openspec-llbi.md` § Decision).
 
 1. Install the Dev Containers CLI: `npm install -g @devcontainers/cli`. Start the container with it,
    not with VS Code's "Reopen in Container", which brings your git credentials and SSH agent in.
@@ -307,6 +308,9 @@ An agent session in the container acts as the agents' GitHub App and holds none 
    rather than fails; read its output once (`docker logs` on the container
    shows it). If it warns that a tool `mise.toml` pins is missing from the image, rebuild the
    container; if it warns that the GitHub App could not mint a token, fix the key and start again.
+1. So that the container's sessions can call TypeSafe, set `DEVCONTAINER_TYPESAFE_API_KEY` to your
+   key in the shell you run `devcontainer exec` from, as `.devcontainer/README.md` § TypeSafe's key
+   says. Without it, each tool that calls TypeSafe skips there and says why.
 1. Run `devcontainer exec --workspace-folder <clone> claude`, and log in once: Claude Code keeps its
    state in a volume of the container's own.
 1. If it warned that Vale cannot load `.vale.ini`, run `vale sync` once in the container, then check
