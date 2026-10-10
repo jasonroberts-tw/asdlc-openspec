@@ -303,11 +303,11 @@ once you set it (`docs/decisions/asdlc-openspec-llbi.md` § Decision).
    `docker ps -a --filter label=devcontainer.local_folder=<the clone's absolute path>` lists it;
    without `-a`, a stopped one does not show.
 1. Wait for the first build, which installs every tool `mise.toml` pins from `mise.lock`.
-   `.devcontainer/entrypoint.sh` then runs the install, the git hooks and the tracker's hydration on
-   every start, registers each plugin marketplace and installs each plugin for the clone where one
-   is missing, sets the App's bot account as git's commit identity where none is set, and warns
-   rather than fails; read its output once (`docker logs` on the container
-   shows it). If it warns that a tool `mise.toml` pins is missing from the image, rebuild the
+   `.devcontainer/entrypoint.sh` then runs the install, the git hooks, the tracker's mode and role
+   that step 6 of macOS and Linux sets, and the tracker's hydration on every start, registers each
+   plugin marketplace and installs each plugin for the clone where one is missing, sets the App's
+   bot account as git's commit identity where none is set, and warns rather than fails; read its
+   output once (`docker logs` on the container shows it). If it warns that a tool `mise.toml` pins is missing from the image, rebuild the
    container; if it warns that the GitHub App could not mint a token, fix the key and start again.
 1. So that the container's sessions can call TypeSafe, set `DEVCONTAINER_TYPESAFE_API_KEY` to your
    key in the shell you run `devcontainer exec` from, as `.devcontainer/README.md` § TypeSafe's key
@@ -574,7 +574,7 @@ hooks, and a running session picks up a hook added to it with no restart
 | `git push` that changes anything under `scripts/` or `tools/`, a workflow, the branch reviewer, `tasks.toml`, `package.json` or the lockfile | `pr-review:check`: the reviewer's workflow, agent and policy agree, no other workflow can approve or pass `verify`, and the floor covers every file the gates `prReviewFloorTasks` lists run and import and every policy key those files name, which it derives (`docs/decisions.md` § D-38). It holds `.github/workflows/verify.yml` to running each of those gates in a job where nothing off the floor runs first (`docs/decisions.md` § D-55); `pr-review:selftest`: its decisions over fixtures, and the check over doctored copies. | `git-hooks.yml` (`pre-push`) |
 | A pull request, or a push to `main`, a merge among them | Every gate that reads only committed files, cheapest first. It trusts none of the faster tiers. | `.github/workflows/verify.yml` |
 | A pull request against `main` opened, reopened, made ready for review or pushed to | The reviewer reviews that head from the floor alone, approving it or commenting that a person decides, with a token that writes pull requests and nothing else, and writes the reasons to the run's summary. GitHub's auto-merge merges a head that is approved and whose `verify` passes. | `.github/workflows/pr-review.yml` |
-| The dev container starts | At the first start, the container's own clone, made in its volume; then `npm ci` when the lockfile moved, the git hooks, the tracker's hydration, and the App's bot account as git's commit identity where none is set; each step warns and carries on. It warns, too, while a tool `mise.toml` pins is missing from the image, which it never installs; while Vale cannot load `.vale.ini`, though it runs no `vale sync`; and while the GitHub App cannot mint a token. | `.devcontainer/entrypoint.sh` |
+| The dev container starts | At the first start, the container's own clone, made in its volume; then `npm ci` when the lockfile moved, the git hooks, `.beads` at mode 700 and `beads.role` where none is set, the tracker's hydration, and the App's bot account as git's commit identity where none is set; each step warns and carries on. It warns, too, while a tool `mise.toml` pins is missing from the image, which it never installs; while Vale cannot load `.vale.ini`, though it runs no `vale sync`; and while the GitHub App cannot mint a token. | `.devcontainer/entrypoint.sh` |
 | `git` or `gh` reaches GitHub in the dev container | `scripts/github-app-token.mjs` hands it a token of the agents' GitHub App, minting a fresh one once the kept one has less than `githubAppTokenRefreshSeconds` left, through the image's git credential helper and its `gh` wrapper. | `.devcontainer/Dockerfile` |
 
 ## What is still a placeholder

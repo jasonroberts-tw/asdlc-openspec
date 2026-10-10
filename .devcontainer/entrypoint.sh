@@ -10,7 +10,9 @@
 #                                    and WSL.
 #   2. the git hooks              -- the five `hook.asdlc-*` entries in the repository's config,
 #                                    which run scripts/git-hooks.mjs at each event.
-#   3. the beads issue database   -- a Dolt DB under .beads/embeddeddolt/, not in git.
+#   3. the tracker                -- .beads at mode 700 and beads.role, neither of which git
+#                                    carries, then the Dolt DB under .beads/embeddeddolt/, not in
+#                                    git.
 #
 # ...a warning when the image's tools lag `mise.toml`, since it installs none, and a warning when Vale
 # cannot load `.vale.ini`. Its styles are what `vale sync` downloads into the
@@ -64,6 +66,12 @@ take_ownership() {
   fi
 }
 
+# The repository the policy names, as `<owner>/<name>`, or a failure when it names none. clone()
+# clones it, and tracker() reads a clone whose origin it is as the maintainer's.
+repository() {
+  jq -er 'select((.githubAppRepositoryOwner | type) == "string" and (.githubAppTokenRepository | type) == "string") | "\(.githubAppRepositoryOwner)/\(.githubAppTokenRepository)"' "$policy" 2>/dev/null
+}
+
 # The first start clones the repository into REPO_WORKSPACE, the workspace volume, over HTTPS with
 # no token, since the repository is public; later pushes go through the App's credential helper,
 # which runs from this clone. A start that finds a clone there, with a commit checked out, leaves it
@@ -84,7 +92,7 @@ clone() {
     return 1
   fi
   take_ownership "$repo"
-  if ! slug="$(jq -er 'select((.githubAppRepositoryOwner | type) == "string" and (.githubAppTokenRepository | type) == "string") | "\(.githubAppRepositoryOwner)/\(.githubAppTokenRepository)"' "$policy" 2>/dev/null)"; then
+  if ! slug="$(repository)"; then
     warn "cannot clone: $policy names no githubAppRepositoryOwner and githubAppTokenRepository -- rebuild the container"
     return 1
   fi
@@ -156,15 +164,7 @@ setup() {
       || warn 'installing the git hooks failed -- run `mise run hooks:install` to see why'
   fi
 
-  # The Dolt remote is already configured in .beads/config.yaml (refs/dolt/data on the GitHub
-  # remote), so hydrating needs the App's token, which git reaches through the image's credential
-  # helper. Until the App's key is mounted it cannot work, which is a hint and not an error. Never
-  # `bd init` -- that creates a new tracker rather than joining this one.
-  if [ ! -d .beads/embeddeddolt ]; then
-    log 'hydrating the beads issue database'
-    bd bootstrap >/dev/null 2>&1 \
-      || warn 'bd bootstrap failed -- once the GitHub App mints a token (a warning below says so if it cannot), run `bd bootstrap` (never `bd init`)'
-  fi
+  tracker
 
   # Vale's styles are downloaded into the clone by `vale sync`, which needs the network, so this
   # warns rather than runs it. Without them the vale@agent-tools hook answers every edit with E201,
@@ -173,6 +173,57 @@ setup() {
     warn 'Vale cannot load .vale.ini, so no prose is checked -- run `vale sync` once (it needs the network)'
   fi
 
+}
+
+# The tracker, run in the clone, in three steps. git carries neither of the first two, so a clone
+# lacks both, and `bd` warns of each until it is set; README.md § Setup, step 6, sets them by hand on
+# the native lists:
+#
+#   1. `.beads` at mode 700, where the clone left it at 755.
+#   2. `beads.role`, only while git's config holds none: `maintainer` when origin is the repository
+#      the policy names, as the clone clone() makes is, and `contributor` otherwise, as on a fork.
+#      origin is read in GitHub's three address forms, without case and without a trailing `.git`.
+#      With no repository in the policy, it sets none and warns.
+#   3. The database, hydrated. The Dolt remote is already configured in .beads/config.yaml
+#      (refs/dolt/data on the GitHub remote), so hydrating needs the App's token, which git reaches
+#      through the image's credential helper. Until the App's key is mounted it cannot work, which
+#      is a hint and not an error. Never `bd init` -- that creates a new tracker rather than joining
+#      this one.
+#
+# Until 2026-10-10 this ran step 3 alone, so every bd call in the container warned of .beads's mode
+# 0755, and bd list warned that beads.role was not configured (asdlc-openspec-ykbc).
+# scripts/github-app-token.mjs's selftest runs it against a stub `bd`.
+tracker() {
+  if [ -d .beads ] && [ -n "$(find .beads -prune ! -perm 700)" ]; then
+    log 'setting .beads to mode 700'
+    chmod 700 .beads || warn 'chmod 700 .beads failed, so every bd command warns of its mode'
+  fi
+
+  if [ -z "$(git config --get beads.role)" ]; then
+    local slug origin role=contributor
+    if slug="$(repository)"; then
+      slug="$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]')"
+      origin="$(git remote get-url origin 2>/dev/null | tr '[:upper:]' '[:lower:]')"
+      origin="${origin%/}"
+      origin="${origin%.git}"
+      case "$origin" in
+        "https://github.com/$slug" | "ssh://git@github.com/$slug" | "git@github.com:$slug") role=maintainer ;;
+      esac
+      if git config beads.role "$role"; then
+        log "beads.role set to $role"
+      else
+        warn "git config beads.role $role failed"
+      fi
+    else
+      warn "beads.role unset: $policy names no githubAppRepositoryOwner and githubAppTokenRepository -- run \`git config beads.role maintainer\` (\`contributor\` on a fork)"
+    fi
+  fi
+
+  if [ ! -d .beads/embeddeddolt ]; then
+    log 'hydrating the beads issue database'
+    bd bootstrap >/dev/null 2>&1 \
+      || warn 'bd bootstrap failed -- once the GitHub App mints a token (a warning below says so if it cannot), run `bd bootstrap` (never `bd init`)'
+  fi
 }
 
 # The container's `git` and `gh` act as the agents' GitHub App, through the wrappers the Dockerfile

@@ -61,12 +61,13 @@
  * rest of the container's start that needs no image: the entrypoint's `tracing`, against a stub
  * `claude` and a canary secret no output may carry, its `statusline`,
  * `.devcontainer/statusline.sh` through `sh`, and the Dockerfile's `NO_COLOR` for `bd` alone
- * (asdlc-openspec-ikr3, asdlc-openspec-07bm); and the entrypoint's `clone`, against a local
- * repository git reads as GitHub's address (asdlc-openspec-vvns).
+ * (asdlc-openspec-ikr3, asdlc-openspec-07bm); the entrypoint's `clone`, against a local
+ * repository git reads as GitHub's address (asdlc-openspec-vvns); and its `tracker`, against a stub
+ * `bd` (asdlc-openspec-ykbc).
  */
 import { spawn } from 'node:child_process'
 import { createPrivateKey, createSign, createVerify, generateKeyPairSync } from 'node:crypto'
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { homedir, tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
@@ -489,6 +490,42 @@ async function cloneStep(ctx, { prepare } = {}) {
   return { r, workspace }
 }
 const headOf = (dir) => run('git', ['rev-parse', '--verify', '--quiet', 'HEAD'], { env: SCRATCH_GIT_ENV, cwd: dir })
+
+/**
+ * `.devcontainer/entrypoint.sh`'s `tracker`, run under bash with the file sourced for its functions
+ * alone, in a clone of the case's own, named `name`, with the case's copy of the policy as the one
+ * the image carries and a stub `bd` first on PATH that logs each call's arguments, a line each.
+ * `origin` makes the clone's origin from the `<owner>/<name>` the policy gives; `.beads` starts at
+ * `mode`, 755 by default, as a clone leaves it; `role` presets `beads.role`; `hydrated` puts a
+ * database under `.beads`. Returns the run, the mode and role after it, and bd's calls.
+ */
+async function trackerStep(ctx, { name = 'clone', origin = (slug) => `https://github.com/${slug}.git`, mode = 0o755, role = null, hydrated = false } = {}) {
+  const policyFile = join(ctx.env.GITHUB_APP_TOKEN_ROOT, 'tools', 'policy', 'tool-settings.json')
+  const policy = JSON.parse(readFileSync(policyFile, 'utf8'))
+  const clone = join(ctx.dir, name)
+  const beads = join(clone, '.beads')
+  const bin = join(ctx.dir, 'tracker-bin')
+  const calls = join(ctx.dir, `bd-calls-${name}.log`)
+  const git = (args) => run('git', args, { env: SCRATCH_GIT_ENV, cwd: clone })
+  mkdirSync(beads, { recursive: true })
+  mkdirSync(bin, { recursive: true })
+  await git(['init', '-q'])
+  await git(['remote', 'add', 'origin', origin(`${policy.githubAppRepositoryOwner}/${policy.githubAppTokenRepository}`)])
+  if (role !== null) await git(['config', 'beads.role', role])
+  if (hydrated) mkdirSync(join(beads, 'embeddeddolt'))
+  chmodSync(beads, mode)
+  writeFileSync(join(bin, 'bd'), `#!/usr/bin/env bash\nprintf '%s\\n' "$*" >> '${calls}'\n`, { mode: 0o755 })
+  const r = await run('bash', ['-c', 'ENTRYPOINT_FUNCTIONS_ONLY=1 . "$1" && tracker', 'tracker', ENTRYPOINT], {
+    env: { ...ctx.gitEnv, PATH: `${bin}:${ctx.gitEnv.PATH ?? process.env.PATH}`, WORKSPACE_ENTRYPOINT_POLICY: policyFile },
+    cwd: clone,
+  })
+  return {
+    r,
+    mode: statSync(beads).mode & 0o777,
+    role: (await git(['config', '--get', 'beads.role'])).stdout.trim(),
+    calls: existsSync(calls) ? readFileSync(calls, 'utf8').split('\n').filter(Boolean) : [],
+  }
+}
 const IMAGE_BIN = '/usr/local/lib/github-app/bin/'
 
 /**
@@ -544,6 +581,7 @@ function cases() {
   const tokenRun = (ctx, extra) => helper(ctx, ['token'], extra)
   const get = (ctx, input = GITHUB, extra = {}) => helper(ctx, ['git-credential', 'get'], { ...extra, input })
   const said = (r) => `exited ${r.status}: ${`${r.stdout}${r.stderr}`.trim()}`
+  const trackerLeft = ({ r, mode, role, calls }) => `${said(r)}; left .beads at mode ${mode.toString(8)} and beads.role ${JSON.stringify(role)}; bd called ${JSON.stringify(calls)}`
   const refused = (r, pattern, ctx, calls = 0) =>
     r.status === 1 && pattern.test(r.stderr) && r.stdout === '' && ctx.stub.requests.length === calls && !existsSync(ctx.kept) ? null : `${said(r)}, after ${ctx.stub.requests.length} call(s) to GitHub, ${existsSync(ctx.kept) ? 'a token kept' : 'none kept'}`
   return [
@@ -1012,6 +1050,63 @@ function cases() {
       check: async (ctx) => {
         const { r, workspace } = await cloneStep(ctx)
         return r.status === 1 && !existsSync(join(workspace, '.git')) && /cannot clone: .* names no githubAppRepositoryOwner and githubAppTokenRepository/.test(r.stdout) ? null : said(r)
+      },
+    },
+    {
+      name: "the entrypoint's tracker sets .beads to mode 700, and beads.role to maintainer where origin is the repository the policy names, logs both, and hydrates a clone with no database",
+      wrapper: true,
+      check: async (ctx) => {
+        const left = await trackerStep(ctx)
+        const { r, mode, role, calls } = left
+        return r.status === 0 && mode === 0o700 && role === 'maintainer' && /setting \.beads to mode 700/.test(r.stdout) && /beads\.role set to maintainer/.test(r.stdout) && JSON.stringify(calls) === JSON.stringify(['bootstrap']) ? null : trackerLeft(left)
+      },
+    },
+    {
+      name: "the entrypoint's tracker reads origin's two SSH forms, and its HTTPS form in capitals with a trailing slash, as the repository the policy names",
+      wrapper: true,
+      check: async (ctx) => {
+        const forms = [(slug) => `git@github.com:${slug}.git`, (slug) => `ssh://git@github.com/${slug}`, (slug) => `https://github.com/${slug.toUpperCase()}/`]
+        for (const [index, origin] of forms.entries()) {
+          const left = await trackerStep(ctx, { name: `clone-${index}`, origin, hydrated: true })
+          if (left.role !== 'maintainer') return `origin ${origin('<owner>/<name>')}: ${trackerLeft(left)}`
+        }
+        return null
+      },
+    },
+    {
+      name: "the entrypoint's tracker sets beads.role to contributor where origin is a fork, another host, a name the repository's is a prefix of, or a path that ends in its address",
+      wrapper: true,
+      check: async (ctx) => {
+        const forms = [
+          (slug) => `https://github.com/someone-else/${slug.split('/')[1]}.git`,
+          (slug) => `https://gitlab.com/${slug}.git`,
+          (slug) => `https://github.com/${slug}-fork.git`,
+          (slug) => `https://example.invalid/github.com/${slug}.git`,
+        ]
+        for (const [index, origin] of forms.entries()) {
+          const left = await trackerStep(ctx, { name: `clone-${index}`, origin, hydrated: true })
+          if (left.role !== 'contributor' || !/beads\.role set to contributor/.test(left.r.stdout)) return `origin ${origin('<owner>/<name>')}: ${trackerLeft(left)}`
+        }
+        return null
+      },
+    },
+    {
+      name: "the entrypoint's tracker leaves .beads at mode 700, a role already set and a database already there as they were, and logs nothing",
+      wrapper: true,
+      check: async (ctx) => {
+        const left = await trackerStep(ctx, { mode: 0o700, role: 'contributor', hydrated: true })
+        const { r, mode, role, calls } = left
+        return r.status === 0 && r.stdout === '' && mode === 0o700 && role === 'contributor' && calls.length === 0 ? null : trackerLeft(left)
+      },
+    },
+    {
+      name: "the entrypoint's tracker, with a policy without `githubAppRepositoryOwner`, sets .beads's mode but no role, and warns",
+      wrapper: true,
+      doctor: (root) => editPolicy(root, (policy) => delete policy.githubAppRepositoryOwner),
+      check: async (ctx) => {
+        const left = await trackerStep(ctx, { hydrated: true })
+        const { mode, role } = left
+        return mode === 0o700 && role === '' && /beads\.role unset: .* names no githubAppRepositoryOwner and githubAppTokenRepository/.test(left.r.stdout) ? null : trackerLeft(left)
       },
     },
     {
