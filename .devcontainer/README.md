@@ -2,8 +2,9 @@
 
 **The "new machine setup" half of the root `README.md`, baked into a container that works in a clone
 of its own, in which an agent session acts as the agents' GitHub App and holds none of your
-logins, and no credential of yours but the TypeSafe key you choose to pass in.** With Docker and the Dev Containers CLI (`npm install -g @devcontainers/cli`), the
-prerequisites are a clone, for the configuration, and the App's key (§ Giving it the App's key):
+logins, and no credential of yours but the TypeSafe key you choose to pass in.** With Docker and the
+Dev Containers CLI (`npm install -g @devcontainers/cli`), the prerequisites are a clone, for the
+configuration, and the App's key (§ Giving it the App's key):
 
 ```bash
 git clone https://github.com/<owner>/<repository>.git
@@ -314,12 +315,16 @@ How it behaves:
 - **It is read at each `devcontainer exec`**, from the terminal that runs it, as `COLORTERM` is
   (§ Color and the status line). So a rotated key reaches the next session.
 - **A terminal without the variable starts a session with the key empty.** The CLI gives an unset
-  `${localEnv:...}` as an empty string (`hN` in the bundle of Dev Containers CLI 0.89.0), and the
-  client reads an empty key as none. To start a session with no key, run `devcontainer exec` from a
-  terminal where `DEVCONTAINER_TYPESAFE_API_KEY` is unset.
+  `${localEnv:...}` as an empty string (`lookupValue` in `src/spec-common/variableSubstitution.ts`
+  of the Dev Containers CLI, v0.89.0), and the client reads an empty key as none. To start a session
+  with no key, run `devcontainer exec` from a terminal where `DEVCONTAINER_TYPESAFE_API_KEY` is
+  unset.
 - **The host shows the key while a command runs.** The CLI passes it as
-  `docker exec -e TYPESAFE_API_KEY=<the key>` (the same bundle), so the host's process list holds it
-  for as long as that session or shell runs.
+  `docker exec -e TYPESAFE_API_KEY=<the key>` (`toDockerExecArgs` in
+  `src/spec-shutdown/dockerUtils.ts`), so the host's process list holds it for as long as that
+  session or shell runs. The metadata label the CLI writes, which `docker inspect` shows, holds the
+  configuration from before substitution, so it carries `${localEnv:...}` as written and not the key
+  (`getDevcontainerMetadataLabel` in `src/spec-node/imageMetadata.ts`).
 - **Every process an `exec` starts holds it**, a session's commands and hooks among them, so a
   session that prints its environment prints the key.
 - **It is your host's own key**, as the maintainer chose on 2026-10-10: a leak from the container is
