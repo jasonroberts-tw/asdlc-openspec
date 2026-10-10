@@ -57,6 +57,9 @@ commit. Fix each criterion it reports not met and each finding in a file the bra
 whatever its severity; commit, and gate as step 1 says. A doubt it leaves for a person goes to the
 user before the push, or, with no user, into the body. Do not review those fixes again.
 
+In the dev container, a branch that changes `.github/workflows/` is the user's to push, since the
+agents' App cannot (`docs/decisions.md` § D-51); once they have, run the create.
+
     git push -u origin <branch>
     gh pr create --base main --head <branch> --title "<title>" --body-file <file>
 
@@ -117,7 +120,7 @@ worktree cleans up once it leaves that one, naming each merged worktree with its
    (not verified against the CLI).
 2. Run `git fetch origin`, then `mise run worktree:gc --dry-run --finished <worktree>`. The sweep is
    not this worktree's alone (`scripts/prune-worktree-branches.mjs`). If the dry run names this
-   worktree alone, run it again without `--dry-run`; if it names others, only on the user's word,
+   worktree alone, run it again without `--dry-run`; if it names others, ask the user whether to,
    and with no user, report them. One that keeps this worktree is reported with the reason it gives.
 
 Hand the caller the pull request's number and URL, whether it merged, in `wait`'s line or the words
