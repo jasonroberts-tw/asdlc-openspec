@@ -536,6 +536,8 @@ Retirement checklist, the disposition *Delete it outright* of `docs/retired/READ
 
 > **Amended 2026-10-09 by asdlc-openspec-ic9h.** Item 6, as D-37 amended it, no longer holds for every job. The job of `.github/workflows/prompt-review.yml` authenticates to Anthropic by workload identity federation, its rule's subject bound to an environment that only `main` deploys to, and it reads that environment's secrets. `pr-review.yml` still runs no model and reads no secret. The loss of a stored API key stands, since none is stored (`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
 
+> **Amended 2026-10-10 by asdlc-openspec-ic9h.13.** The job of `.github/workflows/prompt-review.yml` authenticates to Anthropic with an API key, a secret of its `prompt-review` environment, and not by workload identity federation. So the last sentence of the amendment by asdlc-openspec-ic9h no longer holds: the lost alternative's loss of a stored API key applies to that job, as that record's Where it loses says. `pr-review.yml` still runs no model and reads no secret (`docs/decisions/asdlc-openspec-ic9h.13.md` § Decision).
+
 ### D-08 · A run leaves its analysis in the tracker, and one review reads every pending analysis as a batch
 
 **Recorded 2026-09-26**, carried by `asdlc-openspec-lzr`. The maintainer chose the note, the two thresholds, the one review over every analysis and the workflow script, items 1 to 4, on 2026-09-25, when the issue was filed. On 2026-09-26, when it was worked, they chose what checks the thresholds, the script's name, and items 5 to 8, each from a recommendation put with the case where it loses.
