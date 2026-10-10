@@ -126,8 +126,8 @@ a session works or notes it. Otherwise `bd ready` ranks by who filed it, and whe
 
 An issue a run files `discovered-from` the issue or epic it ran on also carries, from
 `tools/policy/vocabulary.json`, the `foundAtLabels` label for the stage that found it and one `assetLabels`
-label for each kind of file it would change. Those pairs are what `bd count` reads across runs
-(`.claude/skills/change-finalize/SKILL.md` § 9. Report).
+label for each kind of file it would change, or, if it changes no file, for what it would fix. Those
+pairs are what `bd count` reads across runs (`.claude/skills/change-finalize/SKILL.md` § 9. Report).
 
 Before filing an issue other than a change's epic or its tasks, search for it: titles with
 `bd search "<words>"` and descriptions with `bd list --all --desc-contains "<words>"`, closed issues
