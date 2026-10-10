@@ -30,7 +30,8 @@
 # the `review` job makes one turn through the same action and key, so a person tests each credential
 # before any review runs: the tracker bootstrapped, the pending list, the figures, the token minted
 # and revoked, and a model call authenticated with the key (asdlc-openspec-ic9h.11). The `figures`
-# job prints its report, so the log shows each project as read or not configured. With nothing
+# job prints its report, so the log shows each project as read, not configured, or not read with the
+# reason its row in `langfuseProjects` gives for turning it off. With nothing
 # pending it reads nothing, and the Langfuse keys go untested.
 #
 # WHAT IT WOULD LET THROUGH IF IT WERE WRONG. No incident yet: it came with asdlc-openspec-ic9h.6.
