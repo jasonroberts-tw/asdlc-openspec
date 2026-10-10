@@ -47,12 +47,11 @@ what it builds on a premise it knows is false is work someone later replaces.
 ## Stateful counts live in `count-index.md`, under a key
 
 Every count describing the current measured state of what this repository measures has a
-`CNT-*` key in `count-index.md`, with its value and the command or file it re-derives
-from. Prose writes the backticked key where the numeral would go, never both. A key is admitted only
-for a count that moves when the source is re-measured **and** is restated in more than one
-hand-maintained file; a number used once stays inline. A quotation keeps its numeral. A string an
-emitter writes interpolates what it measured at emit time or carries no figure. When two
-denominators exist, name the one you mean.
+`CNT-*` key in `count-index.md`. Prose writes the backticked key where the numeral would go, never
+both. A key is admitted only for a count that moves when the source is re-measured **and** is
+restated in more than one hand-maintained file; a number used once stays inline. A quotation keeps
+its numeral. A string an emitter writes interpolates what it measured at emit time or carries no
+figure. When two denominators exist, name the one you mean.
 
 **Reporting honesty.** Any rate a report computes declares a sample size below which the report
 prints the count and no rate. Every metric is defined once, in `count-index.md` § Rates and metrics;
