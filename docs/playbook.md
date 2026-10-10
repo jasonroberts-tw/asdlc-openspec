@@ -238,9 +238,10 @@ code back to its spec (`docs/decisions.md` § D-02, item 2).
    `.claude/skills/bead/SKILL.md` § 4. Implement, regenerate, gate.
 6. Commit, with the message passed from a file under `.scratch/`. Decided by: `CLAUDE.md` § Bash
    command style.
-7. `git fetch origin`, then `git rebase origin/main`, then `mise run gates` again. A rebase that
-   conflicts in a way you did not anticipate is stopped and reported. Decided by:
-   `.claude/skills/bead/SKILL.md` § 5. Rebase and gate again, and `CLAUDE.md` § The gate ladder.
+7. `git fetch origin`, then `git rebase origin/main`, then `mise run gates` again if the rebase
+   moved the branch. A rebase that conflicts in a way you did not anticipate is stopped and
+   reported. Decided by: `.claude/skills/bead/SKILL.md` § 5. Rebase and gate again, and
+   `CLAUDE.md` § The gate ladder.
 
 Then open the pull request (§ 4.4).
 

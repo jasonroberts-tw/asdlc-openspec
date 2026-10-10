@@ -57,8 +57,8 @@ commit. Fix each criterion it reports not met and each finding in a file the bra
 whatever its severity; commit, and gate as step 1 says. A doubt it leaves for a person goes to the
 user before the push, or, with no user, into the body. Do not review those fixes again.
 
-In the dev container, a branch that changes `.github/workflows/` is the user's to push, since the
-agents' App cannot (`docs/decisions.md` § D-51); once they have, run the create.
+In the dev container, the user pushes a branch that changes `.github/workflows/`, since GitHub
+refuses that push from the agents' App; once they have, run `gh pr create`.
 
     git push -u origin <branch>
     gh pr create --base main --head <branch> --title "<title>" --body-file <file>
