@@ -236,6 +236,7 @@ const UNJOBBED_BY_KIND = [
       'harness',
       'harness:graph',
       'hooks:install',
+      'prompt-review:grade',
       'prompt-review:match',
       'prompt-runs',
       'prompt-runs:figures',
