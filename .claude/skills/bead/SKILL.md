@@ -117,7 +117,7 @@ opens, so the pull request's body names the new id. File it with `foundIssueComm
 Before filing this or any follow-up, search for it as `CLAUDE.md` § The task store says. From a
 worktree, Claude Code can refuse quoted text naming git or a shell (not verified against the CLI),
 so a title or search words leave the name out. A follow-up's body carries the sections
-`bd lint --help` lists for its type.
+`foundIssueCommand` names when run with `--dry-run`.
 
 ## 5. Rebase and gate again
 
