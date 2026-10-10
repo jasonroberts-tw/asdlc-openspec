@@ -41,7 +41,7 @@
   "ciOnlyMarker": "no pre-push job",
   "ciOnlyMarkerMeans": "A regular expression, case-insensitive, that the comment above a CI step must match for its scripts to be declared CI-only, as `thresholds:commands:check`'s comment cites `docs/decisions.md` § D-04.",
 
-  "otherWorkflows": [".github/workflows/pr-review.yml"],
+  "otherWorkflows": [".github/workflows/pr-review.yml", ".github/workflows/prompt-review.yml"],
   "otherWorkflowsMeans": "Workflows besides the CI one whose `node <path>` and `mise run` lines are registrations: a script they run is reached. They hold no globs and are not set against the pre-push jobs.",
 
   "sessionSettings": ".claude/settings.json",

@@ -23,6 +23,10 @@
  * `githubAppBotLogin` as `user.name`, and `<githubAppBotUserId>+<githubAppBotLogin>@users.noreply.github.com`
  * as `user.email`, which `.devcontainer/entrypoint.sh` sets when none is. That needs no key or token.
  *
+ * `.github/workflows/prompt-review.yml` runs `token` and `identity` too. It names a directory of its
+ * own as `GITHUB_APP_KEY_DIR` and `GITHUB_APP_TOKEN_CACHE`, and deletes it once the one token is
+ * minted, so nothing there mints a second.
+ *
  * THE FAILURE IT EXISTS TO PREVENT. No incident yet: it came with the container that acts as the
  * App (asdlc-openspec-owva.4). Were it wrong, a session past its first hour would be refused its next
  * push or `gh` call, which reads as a network or permission fault rather than an expired token; a

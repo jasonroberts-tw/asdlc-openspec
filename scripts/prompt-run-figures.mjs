@@ -2,7 +2,8 @@
  * Prompt-run figures: for each prompt-run analysis no review has read, what its session did, read
  * from Langfuse as figures and never as content, for the prompt review to read beside the analysis
  * (`docs/decisions/asdlc-openspec-ic9h.md` § Decision, item 5). An operator command, which the
- * review's workflow is to run as a step before the model's (asdlc-openspec-ic9h.6), and never a gate.
+ * review's workflow, `.github/workflows/prompt-review.yml`, runs as a step before the model's, and
+ * never a gate.
  *
  * WHAT IT READS. First the pending analyses, from the file `--pending` names: what
  * `node scripts/prompt-runs.mjs --only pending --json` printed, in an earlier step that held no
@@ -88,8 +89,8 @@
  *      this header reads, which is recorded for its run
  *
  * NEEDS. The pending file. For each project it reads, that project's keys in the environment and
- * Langfuse's API over the network. Only the prompt review's workflow step is to hold both projects'
- * keys (docs/decisions/asdlc-openspec-ic9h.md, item 5). The selftest needs neither: it serves the API
+ * Langfuse's API over the network. Only the figures step of the prompt review's workflow holds both
+ * projects' keys (docs/decisions/asdlc-openspec-ic9h.md, item 5). The selftest needs neither: it serves the API
  * from a stub on loopback holding two projects, over a pending file it has `prompt-runs` write from a
  * fixture export, so it is a pre-push job and a `verify.yml` step.
  */
