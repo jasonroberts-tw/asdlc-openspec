@@ -81,8 +81,8 @@
  * recorded build, unreadable, with no graph.json beside it and made stale by a build, a build with
  * `--no-mcp` and a failing one that each warn the server may still be on a combined graph, an empty
  * lock, one whose holder has exited, one whose holder is a zombie (on Linux, where `/proc` is read)
- * and a live one, a missing or wrong-version graphify, a mise that
- * cannot say where graphify-mcp is, an MCP server without its tools, saved answers,
+ * and a live one, a missing or wrong-version graphify, a mise that cannot say where graphify-mcp is,
+ * an MCP server without its tools, saved answers,
  * graphify's own git hook, `--code-only --no-mcp` with no claude, two bad flag sets, and a run under
  * a hook's exported `GIT_DIR`. That last case is the selftest's own incident: on 2026-10-01, run by
  * the pre-push hook, it committed its fixture onto the branch being pushed, because git exports
@@ -708,6 +708,8 @@ async function selftest() {
   const base = mkdtempSync(join(tmpdir(), 'code-graph-selftest-'))
   const results = []
   const check = (name, ok, detail) => results.push({ name, ok: Boolean(ok), detail })
+  /** A case that cannot run here, printed with its reason, so it never reads as a pass. */
+  const skip = (name, why) => results.push({ name, ok: true, skipped: why })
   const origins = (graph) => Object.fromEntries([...graph.nodes.map((n) => [n.id, n._origin]), ...graph.links.map((l) => [`${l.source}->${l.target}`, l._origin])])
   try {
     // The control: an undoctored build, run with an API key exported that must not reach `claude -p`.
@@ -873,7 +875,7 @@ async function selftest() {
     {
       const name = 'a lock whose holder is a zombie is taken over, and released'
       if (process.platform !== 'linux') {
-        check(name, true, 'skipped off Linux: the reading is of /proc')
+        skip(name, 'off Linux, where no /proc is read')
       } else {
         // The exec'd sleep never reaps the child sh started in the background, which stays a zombie
         // wherever PID 1 reaps orphans too.
@@ -952,9 +954,14 @@ async function selftest() {
   } finally {
     rmSync(base, { recursive: true, force: true })
   }
-  for (const r of results) console.log(`  ${r.ok ? 'ok  ' : 'FAIL'} ${r.name}${r.ok ? '' : `\n       ${String(r.detail).trim().split('\n').join('\n       ')}`}`)
+  for (const r of results) {
+    const mark = r.skipped ? 'skip' : r.ok ? 'ok  ' : 'FAIL'
+    const detail = r.skipped ? ` -- ${r.skipped}` : r.ok ? '' : `\n       ${String(r.detail).trim().split('\n').join('\n       ')}`
+    console.log(`  ${mark} ${r.name}${detail}`)
+  }
   const failed = results.filter((r) => !r.ok).length
-  console.log(`code-graph selftest: ${results.length} checks, ${failed} failed`)
+  const skipped = results.filter((r) => r.skipped).length
+  console.log(`code-graph selftest: ${results.length} checks, ${failed} failed, ${skipped} skipped`)
   if (failed > 0) throw new Stop(1, 'selftest failed')
 }
 
