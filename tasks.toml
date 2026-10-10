@@ -328,7 +328,8 @@ rest of the container's start that needs no image: the entrypoint's `statusline`
 Code's status line only where none is, `.devcontainer/statusline.sh` through `sh`, the
 Dockerfile setting `NO_COLOR` for `bd` alone, and the entrypoint's `clone` making the container's
 clone in an empty workspace, leaving one with a commit alone and refusing an unfinished one, or a
-policy without the repository's owner. The helper itself
+policy without the repository's owner, and its `vale_styles` running `vale sync` only while a lint
+of a sample line finds a style missing, and warning when the sync fails. The helper itself
 reads the App's private key and GitHub's API, so this is the job and the step in its place. Without
 it a session in the container could lose `git` and `gh` an hour in, or hand the App's token to
 another host, and nothing would say so before it did.'''
