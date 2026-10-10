@@ -76,7 +76,9 @@ ruleset requires that approval beside `verify`; a person approves and merges a h
 after it (`docs/decisions/asdlc-openspec-vjgj.md` § Decision). Amended 2026-10-09 by
 `asdlc-openspec-ic9h.3`: the step that writes the run's analysis gives its session id after the
 version of Claude Code, as `.claude/skills/close-prompt-run/SKILL.md` § 1 now says
-(`docs/decisions/asdlc-openspec-ic9h.md` § Decision).
+(`docs/decisions/asdlc-openspec-ic9h.md` § Decision). Amended 2026-10-10 by
+`asdlc-openspec-phmi`: § 1's glossary moved to `CONTEXT.md`, which adds check, gate and guard, and
+§ 1 points there.
 
 **This is a route, not an authority.** Every step below names the file or the command that decides
 it. Where this page and that file disagree, the file wins, and this page is what needs correcting;
@@ -100,44 +102,7 @@ the product route, and its epic is `asdlc-openspec-zgh`.
 
 ## 1. Words you will meet
 
-| Word | What it means here |
-|---|---|
-| issue | One unit of work in the tracker, with an id such as `asdlc-openspec-zgh`; also called a bead. Every task is one, never a checklist (`CLAUDE.md` § The task store). |
-| `bd` | The tracker's command-line tool. Its database syncs through the git remote and is never committed (`README.md` § Setup). |
-| the queue | What `bd ready` lists: the open issues nothing blocks (`CLAUDE.md` § The task store). |
-| tracker bracket | `bd dolt pull` before a run's first tracker write and `bd dolt push` after its last; a rejected push is reported, never forced (`CLAUDE.md` § The task store). |
-| premise | What an issue claims is true of the repository, checked against the trunk before any work (`.claude/skills/bead/SKILL.md` § 1. Verify the premise before any work). |
-| found issue | An issue a run files `discovered-from` the one it worked, carrying a `foundAtLabels` label and `assetLabels` labels from `tools/policy/vocabulary.json` (`CLAUDE.md` § The task store). |
-| harness | Everything in this repository that runs the work: the rules, skills, agents, gates, hooks, tools and documents. A harness change takes the harness route (§ 4.2). |
-| product | What the work is done on: the demo calculator's code under `apps/` and its requirements under `openspec/` (`docs/decisions.md` § D-04). |
-| change | A product change: a change to what the product does, stated as requirements. One worktree, one pull request and one epic (`docs/decisions.md` § D-02). |
-| epic | The issue that carries a change. Its tasks are its children, and it carries the change label, `specChangeLabel` in `tools/policy.json`, which keeps them out of the general queue (`docs/decisions.md` § D-02). |
-| capability | One area of the product's behaviour with a living spec of its own, such as `calculator` (`openspec/README.md`). |
-| living spec | `openspec/specs/<capability>/spec.md`: what the product does now. It wins over any archived change (`openspec/README.md`). |
-| proposal | A change's `proposal.md`: why, what changes, the capabilities it touches, and its impact (`.claude/skills/change-propose/SKILL.md` § 5. Write the proposal). |
-| delta spec | A change's requirements added, modified, removed or renamed against the living spec, one file per capability (`.claude/skills/change-propose/SKILL.md` § 6. Write one delta spec per capability). |
-| requirement, scenario | A `### Requirement:` stated with SHALL or MUST, proved by `#### Scenario:` blocks of WHEN and THEN lines, each written so it can become a test (`.claude/skills/change-propose/SKILL.md` § 6. Write one delta spec per capability). |
-| design | A change's `design.md`, the how, written only when the change needs one (`.claude/skills/change-design/SKILL.md` § 2. Decide whether it needs a design). |
-| trace | One row per scenario, naming the proof that exercises it and its result as run (`.claude/skills/change-verify/SKILL.md` § 4. Every scenario is traced). |
-| verification report | What Verify found, from a fresh run of every test: the status of every ID, the gap analysis, the tests by layer, the thresholds and the verdict. It goes on the epic and into the pull request, never into a committed file (`scripts/lib/verify-report.mjs`). |
-| archive | The pinned OpenSpec CLI merging a change's deltas into the living spec and moving the change under `openspec/changes/archive/`, on the change's branch, before the merge (`.claude/skills/change-finalize/SKILL.md` § 3. Archive). |
-| send-back | A later stage reopening an earlier stage's work. The epic gets that stage's `rerouteLabels` label, because the rework lands as commits and never as an issue (`CLAUDE.md` § Product work runs as OpenSpec-format changes). |
-| trunk | `main`. The protected branches are `main` and `release`, and nothing is pushed to either from a worktree (`CLAUDE.md` § Git workflow). |
-| worktree | A checkout of its own under `.claude/worktrees/<name>`, on the branch `agent/<name>` cut from `origin/main`, made only through `scripts/new-worktree.sh` (`.claude/README.md`). |
-| primary checkout | The clone a session starts in. The premise is read from here, and a prompt review is launched from here (`.claude/skills/close-prompt-run/SKILL.md` § 3. Launch the review). |
-| gate | A check that refuses one thing. Its header names the failure it exists to prevent, and its `:selftest` proves it still refuses (`CLAUDE.md` § Standing rules for prompts and gates). |
-| gate ladder | The same checks in session, at commit, at push and in CI; a slower tier never trusts a faster one (`CLAUDE.md` § The gate ladder). |
-| `mise run gates` | The forced full pre-push suite, and the only way to run it by hand (`CLAUDE.md` § The gate ladder). |
-| register | The decisions and risks no agent re-argues, amended and never rewritten: the numbered ones (`D-NN`, `R-NN`) in `docs/decisions.md`, frozen at D-59, and a record each under `docs/decisions/` after it (`CLAUDE.md` § Decisions live in the register). |
-| policy file | `tools/policy.json`: every constant a prompt or a tool reads, each beside a `Means` sibling saying what it decides (`docs/decisions.md` § D-03). |
-| count key | A `CNT-*` key in `count-index.md`, written where the numeral would go (`count-index.md` § How to use it). |
-| prompt | `CLAUDE.md`, `AGENTS.md`, a skill, an agent, a workflow script's literals or the worktree briefing template, each held to a word budget in the policy file (the `check:prompts` task's `description` in `tasks.toml`). |
-| pull-request reviewer | `.github/workflows/pr-review.yml`: on each pushed head it reviews by the high-risk floor, approving a head off it, the approval GitHub's auto-merge waits for beside `verify`, and commenting that a person decides on one on it, which a person approves and merges (`docs/decisions.md` § D-57). |
-| branch review | The `branch-reviewer` agent, run before each push: it holds the branch to the cited issues' acceptance criteria and the house rubrics (`.claude/skills/open-pr/SKILL.md` § 5). |
-| analysis | A run's account of itself, left as a note on the issue it worked, which a prompt review later reads (`.claude/skills/close-prompt-run/SKILL.md` § 1. Write the analysis, or none). |
-| prompt review | A background session that reads the pending analyses as one batch and proposes prompt edits as one pull request, which merges as any other does: by GitHub's auto-merge off the high-risk floor, by a person on it (`CLAUDE.md` § Prompt reviews). |
-| `.scratch/` | The gitignored directory for commit messages, pull-request bodies and tracker notes, each passed to its tool by file (`CLAUDE.md` § Bash command style). |
-| `RUN THESE YOURSELF` | The block ending a report: in order, each refused command still needed on which no later work depended, with a comment above it saying why it should run and one below it saying the result to expect (`CLAUDE.md` § Guards). |
+The words this page uses are in the glossary, `CONTEXT.md`, each with the file that decides it.
 
 ## 2. Where the truth lives
 
