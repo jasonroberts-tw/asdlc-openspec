@@ -33,7 +33,7 @@ A key and one secret are the whole setup. Federation needs more before a first r
 
 - a service account;
 - a rule whose subject is the environment's OIDC subject exactly;
-- four ids as secrets.
+- four ids as secrets, the four `ANTHROPIC_*` secrets D-07's What changed names.
 
 A rule with a wrong subject shows only as a failed exchange in the Console's authentication history
 (D-07's What changed). The rule and the account of D-07 were deleted under `asdlc-openspec-wft3`, so
@@ -52,8 +52,8 @@ The alternative that lost:
 
 Where it loses:
 
-- **The key never expires.** Anyone could spend the organisation's credit until a person revokes it,
-  once a step printed the key or an action read it. The same holds once a text led the model to
+- **The key never expires.** Anyone could spend the workspace's credit, up to its spend limit, until
+  a person revokes it, once a step printed the key or an action read it. The same holds once a text led the model to
   print its environment. A federated token would have lapsed within its short life (D-07 item 6).
   The run log is public.
 - **The model's step holds a key that lasts**, as it holds `TYPESAFE_API_KEY` (asdlc-openspec-ic9h's
@@ -74,4 +74,9 @@ Where it loses:
 - **Outside this tree, in the tracker:** `asdlc-openspec-ic9h`, `.6`, `.9` and `.11` rewritten, each
   with a dated section naming what was dropped, and `asdlc-openspec-u36b` filed.
 
-**Figures.** None.
+**Figures.**
+
+- Four federation ids, each a secret: the four `ANTHROPIC_*` secrets the What changed of
+  `docs/decisions.md` § D-07 names, which
+  `git grep -n -o -E 'ANTHROPIC_(FEDERATION_RULE|ORGANIZATION|SERVICE_ACCOUNT|WORKSPACE)_ID' 6a629b0 -- docs/decisions.md`
+  prints, one line each.
