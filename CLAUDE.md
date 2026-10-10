@@ -189,7 +189,8 @@ table, since a row every entry appends conflicts. Every dated document opens wit
 line and, once something amends it, a `**Status:**` line naming what did; it stays true about its
 date and is superseded rather than refreshed. Every document that can
 disagree with another says, in one sentence, which wins. The documentation index and its
-conventions are `docs/README.md` § Conventions.
+conventions are `docs/README.md` § Conventions. The glossary is `CONTEXT.md`, and each term in it
+cites the file that decides it, or nothing shows when the term drifts from that file.
 
 ## Three kinds of file, and never a fourth
 
@@ -255,7 +256,7 @@ constraint raises none of it.
 
 Each of these holds from the first file it applies to, and for every one after it.
 
-- **The first line of every substantial skill and agent** is: "Read CLAUDE.md first. Everything
+- **The first line of every skill and agent** is: "Read CLAUDE.md first. Everything
   below is subordinate to it and points at it rather than restating it."
 - **A rule in a prompt states the failure it prevents in one clause, and carries no incident.** In
   `CLAUDE.md`, a skill or an agent, the dated incident behind a rule goes in the description of the
@@ -267,14 +268,13 @@ Each of these holds from the first file it applies to, and for every one after i
 - **A prompt's sentence on how Claude Code behaves says "verified against the CLI, <version>"**,
   the `claude --version` that checked it, or, unchecked, "not verified against the CLI": Claude Code
   is unpinned, so an update can make it false unseen.
-- **Every gate has a `--selftest` mode.** It copies the gate's inputs under the temporary directory,
+- **Every gate and every guard has a selftest.** It builds its inputs under the temporary directory,
   breaks exactly one thing per case, asserts the run fails **for that reason**, and keeps one
   undoctored control case that must pass, without which every other case could be failing on the
-  copy. It is exposed as `<name>:selftest` and runs as its own pre-push job.
+  copy. A case that only sees "refused" passes with the refusal deleted whenever something else
+  refuses first. A gate's is exposed as `<name>:selftest` and runs as its own pre-push job.
 - **Every gate has a root override**: an environment variable naming a doctored copy, so a by-hand
   run can point the gate at a fixture without editing it.
-- **A guard's selftest asserts the reason a refusal reports**, not the refusal alone: a check that
-  only sees "refused" passes with the guard deleted whenever something else refuses first.
 - **Every script under `scripts/`, every emitter under `tools/` and every hook under
   `scripts/hooks/` opens with a header of four parts, in this order.** They are: what it emits or
   checks; **the failure it exists to prevent**, as the incident that happened, dated, with the wrong

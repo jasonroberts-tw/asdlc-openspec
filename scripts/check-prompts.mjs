@@ -86,9 +86,10 @@
  *                                             `<path>:<line>`, in code-point order of path; it
  *                                             refuses nothing, and exits 0
  *
- * NO EXEMPTION. `CLAUDE.md` asks the line of every *substantial* prompt. This gate asks it of every
- * skill and agent, because the line costs one line and deciding what is substantial is how six were
- * skipped. A prompt that should go without it is named in `.claude/README.md` with its reason and
+ * NO EXEMPTION. `CLAUDE.md` asks the line of every skill and agent, and this gate asks it of each.
+ * Until 2026-10-10 (asdlc-openspec-phmi) the bullet asked it of every *substantial* one, while this
+ * gate already asked it of all, because the line costs one line and deciding what is substantial is
+ * how six were skipped. A prompt that should go without it is named in `.claude/README.md` with its reason and
  * added to a table here in the same change; there is none today. No prompt goes without a budget.
  *
  * A HEURISTIC, NOT A PARSER, reads a workflow or a hook. No JavaScript parser is a dependency here,
@@ -151,7 +152,7 @@ const BUDGETS = 'tools/policy/prompt-budgets.json'
 const TABLE = 'promptWordBudgets'
 const RULE_HOME = 'CLAUDE.md § Standing rules for prompts and gates'
 /** The bullet in `CLAUDE.md` that carries the sentence, up to the quotation mark that opens it. */
-const RULE_LEAD = '**The first line of every substantial skill and agent** is: "'
+const RULE_LEAD = '**The first line of every skill and agent** is: "'
 /** The prompts outside the three directories. */
 const SINGLE_PROMPTS = ['AGENTS.md', 'CLAUDE.md', TEMPLATE, PRIME]
 
@@ -654,7 +655,7 @@ const LINE = 'Read the rules first. Everything below is subordinate to them.'
 /** Wrapped across two lines on purpose, as the real bullet is. */
 const RULES = `# Rules
 
-- **The first line of every substantial skill and agent** is: "Read the rules first.
+- **The first line of every skill and agent** is: "Read the rules first.
   Everything below is subordinate to them."
 `
 
@@ -715,7 +716,7 @@ const FIXTURE_BUDGETS = {
   '.claude/workflows/delta.js': 17,
   '.claude/worktree-CONTEXT.md.tmpl': 7,
   'AGENTS.md': 2,
-  'CLAUDE.md': 23,
+  'CLAUDE.md': 22,
   'scripts/hooks/guard-epsilon.mjs': 6,
 }
 
@@ -881,7 +882,7 @@ function cases() {
     },
     {
       name: 'CLAUDE.md no longer states the line',
-      doctor: (dir) => edit(dir, 'CLAUDE.md', (t) => t.replace('substantial skill and agent', 'prompt')),
+      doctor: (dir) => edit(dir, 'CLAUDE.md', (t) => t.replace('every skill and agent', 'every prompt')),
       expect: /^CLAUDE\.md under .* states no first line for a prompt/,
     },
     {
@@ -910,7 +911,7 @@ function cases() {
     {
       name: 'CLAUDE.md one word over its budget',
       doctor: (dir) => edit(dir, 'CLAUDE.md', (t) => t.replace('# Rules', '# The rules')),
-      expect: refusedOver('CLAUDE.md', 24, 23),
+      expect: refusedOver('CLAUDE.md', 23, 22),
     },
     {
       name: 'AGENTS.md one word over its budget',

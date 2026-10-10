@@ -110,8 +110,8 @@ none rather than invent one. A clean branch has an empty list.
   copy.
 - **Its behaviour is proved**:
   - a change to what the product does has a test named for its scenario;
-  - a gate has a `--selftest` with an undoctored control that asserts each refusal's reason, and a
-    root override (`CLAUDE.md` § Standing rules for prompts and gates);
+  - a gate or a guard has the selftest, and a gate the root override, that `CLAUDE.md` § Standing
+    rules for prompts and gates asks for;
   - an emitter is deterministic and lands its `:check` twin (§ The script suffix contract).
 - **It is wired**:
   - a new task has its job and step, or its `UNJOBBED_BY_KIND` entry, and its `README.md` rows

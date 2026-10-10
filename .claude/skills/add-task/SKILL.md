@@ -7,8 +7,8 @@ Read CLAUDE.md first. Everything below is subordinate to it and points at it rat
 
 A task in `tasks.toml` is a public name. Prompts, tool headers, the READMEs and policy files
 cite it as prose, and **nothing in this repository gates those citations** — a renamed task
-leaves dead references behind that stay green forever. `mise run check:jobs` holds only the `run:`
-lines of `git-hooks.yml` and the CI workflow, and its own list of the tasks no job runs. Treat the
+leaves dead references behind that stay green forever. `mise run check:jobs` reads the job files
+and the tasks, never a citation in prose. Treat the
 name and the documentation as part of the change, not as follow-up.
 
 ## 1. Name it
