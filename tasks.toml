@@ -493,7 +493,8 @@ session did up to the analysis, as figures read from Langfuse and never as conte
 review to read beside the analysis (`docs/decisions/asdlc-openspec-ic9h.md` § Decision, item 5). It
 reads the pending analyses from the file `--pending` names, which `prompt-runs --only pending --json`
 writes in a step that holds no key, and it reads the keys of each project `langfuseProjects` names
-and Langfuse's API over the network; with no project's keys set it says so and reads nothing.
+and Langfuse's API over the network. A project whose row gives `offBecause` is reported as not
+read, with that reason, and asked nothing. With no project to read it says so and reads nothing.
 Without it the review reads only what each run wrote of itself.'''
 run = "node scripts/prompt-run-figures.mjs"
 
@@ -501,7 +502,7 @@ run = "node scripts/prompt-run-figures.mjs"
 description = '''
 Holds `prompt-runs:figures` over a stub of Langfuse's API on loopback holding two projects, and a
 pending file `prompt-runs` writes from a fixture export: its figures, its paging, its windows, its
-skip with no key, each failure of a read by its reason beside a control, and an output that never
+skip with no key, a project turned off, each failure of a read by its reason beside a control, and an output that never
 carries an observation's text or a key. Needs no network, no key and no `bd`.'''
 run = "node scripts/prompt-run-figures.mjs --selftest"
 

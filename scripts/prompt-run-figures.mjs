@@ -10,8 +10,8 @@
  * Langfuse key. It runs nothing itself, so the process that holds the keys runs this file and
  * `tools/lib/policy.ts` alone, both on the high-risk floor: a child it started, as the same user,
  * could read the keys from `/proc/<its pid>/environ` whatever environment it was given. Then, for
- * each pending analysis with a session id, and each project of `langfuseProjects` whose two
- * variables are set, every observation of that session in the run's window. It asks
+ * each pending analysis with a session id, and each project of `langfuseProjects` that is not turned
+ * off and whose two variables are set, every observation of that session in the run's window. It asks
  * `langfuseObservationsPath` on `langfuseBaseUrl`, and refuses a path that opens with `//` or holds a
  * backslash, which would resolve to another origin, for the field groups `langfuseFieldGroups` names, `langfusePageLimit` to a page, and follows
  * `meta.cursor` until a page carries none. The window ends at the run id's time, since a session works
@@ -50,6 +50,16 @@
  *   failed           each failure is listed with its project, and the run has no figures, since
  *                    figures from the projects that answered would read as the whole run
  *
+ * The report also gives each project's state, which is one of three values:
+ *
+ *   read                 both its variables are set, and it was asked for every run with a session
+ *   not configured       neither is set, so it was asked nothing
+ *   not read: <reason>   its row in `langfuseProjects` gives `offBecause`, the reason, so it was asked
+ *                        nothing whatever its variables hold. A person turns it back on by removing
+ *                        that field. While a project is off, a session only it holds reads as `none`
+ *
+ * When no project is read, it prints why, and each project's state, in place of runs.
+ *
  * It never prints an observation's input, output, metadata or status message, nor a key. It asks for
  * no field group that holds the first three, and keeps no field it does not count.
  *
@@ -76,14 +86,16 @@
  *   PROMPT_RUN_FIGURES_ROOT=<dir> mise run prompt-runs:figures --pending <file>
  *                                 the same over a doctored copy's policy, under `tools/policy/`
  *
- * The file is what `node scripts/prompt-runs.mjs --only pending --json` printed. With no project's
- * keys set, `--pending` may be left out.
+ * The file is what `node scripts/prompt-runs.mjs --only pending --json` printed. With no project to
+ * read, `--pending` may be left out.
  *
  * EXIT.
  *
- *   0  the figures; or no project's keys set, which it says, before it reads anything
+ *   0  the figures; or no project to read, since none is configured or every one configured is turned
+ *      off, which it says, before it reads anything
  *   2  a bad flag, or no `--pending` beside a project's keys
- *   1  a failure, each named: a project with one of its two keys set; a policy key missing or wrong;
+ *   1  a failure, each named: a project not turned off with one of its two keys set; a policy key
+ *      missing or wrong;
  *      a pending file it cannot read, or in another shape than `prompt-runs` prints; or a request
  *      refused, rate limited past `langfuseRetryLimit`, timed out or answered in another shape than
  *      this header reads, which is recorded for its run
@@ -196,6 +208,7 @@ function wrongOf(kind, value) {
       for (const [project, row] of Object.entries(value)) {
         if (!/^[a-z][a-z0-9-]*$/.test(project)) return 'a table keyed by lower-case project names'
         if (!(row && ENV_NAME.test(row.publicKeyEnv ?? '') && ENV_NAME.test(row.secretKeyEnv ?? '') && isText(row.why))) return `a table whose row for \`${project}\` names its \`publicKeyEnv\` and \`secretKeyEnv\` in capitals, and its \`why\``
+        if (row.offBecause !== undefined && !isText(row.offBecause)) return `a table whose row for \`${project}\` gives its \`offBecause\`, where it has one, as text`
         names.push(row.publicKeyEnv, row.secretKeyEnv)
       }
       return new Set(names).size === names.length ? null : 'a table whose rows name each environment variable once'
@@ -233,20 +246,35 @@ export function loadPolicy(root) {
 
 /* -------------------------------------------------------------------------------- the keys ------- */
 
-/** The projects whose two keys `env` sets, those it sets neither of, and a problem for each it sets one of. */
+/**
+ * The projects whose two keys `env` sets, those it sets neither of, and a problem for each it sets one
+ * of. A project whose row gives `offBecause` is turned off: it goes under `off` with that reason, and
+ * its keys are not looked at.
+ */
 export function projectsOf(policy, env) {
   const read = []
   const absent = []
+  const off = []
   const problems = []
   for (const name of Object.keys(policy.langfuseProjects).sort(byCodePoint)) {
-    const { publicKeyEnv, secretKeyEnv } = policy.langfuseProjects[name]
+    const { publicKeyEnv, secretKeyEnv, offBecause } = policy.langfuseProjects[name]
+    if (offBecause !== undefined) {
+      off.push({ name, reason: offBecause })
+      continue
+    }
     const publicKey = (env[publicKeyEnv] ?? '').trim()
     const secretKey = (env[secretKeyEnv] ?? '').trim()
     if (publicKey && secretKey) read.push({ name, publicKey, secretKey })
     else if (!publicKey && !secretKey) absent.push(name)
     else problems.push(`the project \`${name}\` has ${publicKey ? publicKeyEnv : secretKeyEnv} set and not ${publicKey ? secretKeyEnv : publicKeyEnv}, so it cannot be read`)
   }
-  return { read, absent, problems }
+  return { read, absent, off, problems }
+}
+
+/** Each project's state, by name in code-point order: `read`, `not configured`, or `not read: ` and the reason it is turned off. */
+function statesOf(projects) {
+  const states = [...projects.read.map((p) => [p.name, 'read']), ...projects.absent.map((name) => [name, 'not configured']), ...projects.off.map((p) => [p.name, `not read: ${p.reason}`])]
+  return Object.fromEntries(states.sort(([a], [b]) => byCodePoint(a, b)))
 }
 
 /* --------------------------------------------------------------------------- the pending runs ----- */
@@ -531,11 +559,11 @@ export async function main(argv, deps = {}) {
     return 1
   }
   if (projects.read.length === 0) {
-    const named = Object.entries(policy.langfuseProjects)
-      .sort(([a], [b]) => byCodePoint(a, b))
-      .map(([name, row]) => `${row.publicKeyEnv} and ${row.secretKeyEnv} for \`${name}\``)
-    const skip = `no Langfuse project's keys are set (${named.join('; ')}), so no request was made and nothing was read. Set a project's two keys and run again; their absence is never a failure.`
-    out(json ? JSON.stringify({ skip }) : `${NAME}: ${skip}`)
+    const rows = Object.entries(policy.langfuseProjects).sort(([a], [b]) => byCodePoint(a, b))
+    const skip = projects.off.length
+      ? `no Langfuse project is read (${rows.map(([name, row]) => (row.offBecause !== undefined ? `\`${name}\` not read: ${row.offBecause}` : `\`${name}\` not configured: ${row.publicKeyEnv} and ${row.secretKeyEnv} unset`)).join('; ')}), so no request was made and nothing was read. A person turns a project back on by removing its \`offBecause\` in \`langfuseProjects\`.`
+      : `no Langfuse project's keys are set (${rows.map(([name, row]) => `${row.publicKeyEnv} and ${row.secretKeyEnv} for \`${name}\``).join('; ')}), so no request was made and nothing was read. Set a project's two keys and run again; their absence is never a failure.`
+    out(json ? JSON.stringify({ skip, projects: statesOf(projects) }) : `${NAME}: ${skip}`)
     return 0
   }
   if (pendingFile === null) {
@@ -559,8 +587,7 @@ export async function main(argv, deps = {}) {
   }
   const runs = []
   for (const analysis of pending) runs.push(await runEntry(analysis, projects.read, policy))
-  const states = [...projects.read.map((p) => [p.name, 'read']), ...projects.absent.map((name) => [name, 'not configured'])].sort(([a], [b]) => byCodePoint(a, b))
-  const report = { projects: Object.fromEntries(states), runs, failed: runs.filter((r) => r.trace === 'failed').length }
+  const report = { projects: statesOf(projects), runs, failed: runs.filter((r) => r.trace === 'failed').length }
   out(json ? JSON.stringify(report) : render(report))
   return report.failed ? 1 : 0
 }
@@ -804,13 +831,15 @@ async function selftest() {
   const envOf = (names) => Object.assign({}, ...names.map((n) => ({ [policy.langfuseProjects[n].publicKeyEnv]: KEYS_OF[n].publicKey, [policy.langfuseProjects[n].secretKeyEnv]: KEYS_OF[n].secretKey })))
   const BOTH = envOf(['container', 'host'])
   let index = 0
-  /** A fixture root: the live policy pointed at the stub with pages of two, doctored by `change`. */
+  /** A fixture root: the live policy pointed at the stub with pages of two, every project turned on, doctored by `change`. */
   const fixture = (change) => {
     const root = join(base, `case-${++index}`)
     copyPolicy(REPO_ROOT, root)
     editPolicy(root, (p) => {
       p.langfuseBaseUrl = stub.url
       p.langfusePageLimit = 2
+      // The live policy may turn a project off; each case turns off only what it tests.
+      for (const row of Object.values(p.langfuseProjects)) delete row.offBecause
       change?.(p)
     })
     return root
@@ -921,6 +950,30 @@ async function selftest() {
       hostOnly.status === 0 && hostOnly.report?.projects.container === 'not configured' && hostOnly.requests.every((q) => q.project === 'host') && runOf(hostOnly.report, 'example-c')?.trace === 'none',
       `${hostOnly.status} ${hostOnly.stderr} ${JSON.stringify(hostOnly.report?.projects)}`,
     )
+    /* A project a person turned off, with `offBecause` in its row. */
+    const OFF = 'turned off for the case'
+    const offOne = await figures({ change: (p) => (p.langfuseProjects.container.offBecause = OFF) })
+    ok(
+      'one project turned off with both its keys set: it is "not read" with its reason and asked nothing, the other is read, and a session only it holds is "none"',
+      offOne.status === 0 && offOne.report?.projects.container === `not read: ${OFF}` && offOne.report?.projects.host === 'read' && offOne.requests.length > 0 && offOne.requests.every((q) => q.project === 'host') && runOf(offOne.report, 'example-c')?.trace === 'none',
+      `${offOne.status} ${offOne.stderr} ${JSON.stringify(offOne.report?.projects)} ${JSON.stringify([...new Set(offOne.requests.map((q) => q.project))])}`,
+    )
+    const offBoth = await figures({
+      change: (p) => {
+        p.langfuseProjects.container.offBecause = `${OFF}, the container`
+        p.langfuseProjects.host.offBecause = `${OFF}, the host`
+      },
+    })
+    ok(
+      "both projects turned off with their keys set: exit 0, asks nothing, and the skip names each project's reason",
+      offBoth.status === 0 &&
+        offBoth.requests.length === 0 &&
+        /^no Langfuse project is read \(/.test(offBoth.report?.skip ?? '') &&
+        JSON.stringify(offBoth.report?.projects) === JSON.stringify({ container: `not read: ${OFF}, the container`, host: `not read: ${OFF}, the host` }),
+      `${offBoth.status} ${offBoth.stdout} ${offBoth.stderr}`,
+    )
+    const offHalf = await figures({ change: (p) => (p.langfuseProjects.host.offBecause = OFF), keys: { ...envOf(['container']), [policy.langfuseProjects.host.publicKeyEnv]: KEYS_OF.host.publicKey } })
+    ok('a project turned off with one key of two set: no failure, since it is asked nothing', offHalf.status === 0 && offHalf.report?.projects.host === `not read: ${OFF}` && offHalf.requests.every((q) => q.project === 'container'), `${offHalf.status} ${offHalf.stderr}`)
     const half = await figures({ keys: { ...envOf(['container']), [policy.langfuseProjects.host.publicKeyEnv]: KEYS_OF.host.publicKey } })
     ok('a project with its public key set and not its secret: exit 1, naming the missing variable, and asks nothing', half.status === 1 && half.requests.length === 0 && new RegExp(`the project \`host\` has ${policy.langfuseProjects.host.publicKeyEnv} set and not ${policy.langfuseProjects.host.secretKeyEnv}`).test(half.stderr), half.stderr)
     const noPending = await figures({ argv: ['--json'] })
@@ -1001,6 +1054,7 @@ async function selftest() {
       (p) => p.langfuseUsageBuckets.input.push(p.langfuseUsageTotalKey),
       new RegExp(`\`langfuseUsageBuckets\` holds \`langfuseUsageTotalKey\`, ${JSON.stringify(TOTAL)}, the sum of the other keys`),
     )
+    await policyCase('a project turned off with a blank reason', (p) => (p.langfuseProjects.host.offBecause = ' '), /`langfuseProjects` is .*, where it must be a table whose row for `host` gives its `offBecause`, where it has one, as text/)
     await policyCase('two projects naming one variable', (p) => (p.langfuseProjects.container.secretKeyEnv = p.langfuseProjects.host.secretKeyEnv), /`langfuseProjects` is .*, where it must be a table whose rows name each environment variable once/)
     const flag = await figures({ argv: ['--everything'] })
     ok('an unknown flag: exit 2, naming it', flag.status === 2 && /unknown or incomplete flag "--everything"/.test(flag.stderr), flag.stderr)
