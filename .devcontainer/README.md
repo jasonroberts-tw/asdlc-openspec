@@ -133,7 +133,8 @@ check that signals a pid with `process.kill(pid, 0)` also reads a zombie as aliv
 `pidRuns` does in the selftests of `scripts/git-hooks.mjs` and `scripts/fresh-run.mjs`.
 
 On 2026-10-10 a container made from this directory without `init` kept five orphaned processes as
-zombies once they exited. Made again with `init`, it showed `docker-init` at PID 1 and kept none. A
+zombies once they exited. Made again with `init`, it showed `docker-init` at PID 1 and kept none
+(the notes of `asdlc-openspec-29nx`). A
 container made before `init` was set keeps `sleep` at PID 1 until it is made again with
 `--remove-existing-container`. `cat /proc/1/comm` in a container prints which it has.
 

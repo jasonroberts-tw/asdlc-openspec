@@ -717,10 +717,10 @@ async function main() {
 /**
  * Whether `pid` names a process that has not exited. A zombie has exited and waits on a parent to reap
  * it, and `process.kill(pid, 0)` still finds it; where PID 1 reaps no orphan, as in the dev container
- * until it ran Docker's init, a job the runner killed stays one, so on Linux its state in `/proc` decides (asdlc-openspec-c17k). A
- * `/proc` it cannot read leaves the signal's answer, so a job that runs on is never read as gone.
- * `scripts/fresh-run.mjs` holds the same reading for its selftest, and `alive` in
- * `scripts/code-graph.mjs` for its build lock (asdlc-openspec-29nx).
+ * until it ran Docker's init, a job the runner killed stays one, so on Linux its state in `/proc`
+ * decides (asdlc-openspec-c17k). A `/proc` it cannot read leaves the signal's answer, so a job that
+ * runs on is never read as gone. `scripts/fresh-run.mjs` holds the same reading for its selftest, and
+ * `alive` in `scripts/code-graph.mjs` for its build lock (asdlc-openspec-29nx).
  */
 function pidRuns(pid) {
   const signalled = () => {
