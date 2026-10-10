@@ -1,0 +1,27 @@
+{
+  "id": "bead-follow-up-sections-from-dry-run",
+  "prompt": ".claude/skills/bead/SKILL.md",
+  "lens": "recorded",
+  "source": {
+    "run": "asdlc-openspec-s5l3@2026-10-10T17:13:14Z",
+    "point": 3,
+    "commit": "36aa995"
+  },
+  "situation": "You are working a spike issue with the bead skill, inside its worktree. The spike leaves a question that only the maintainer can settle, so you are about to file a follow-up for it. You chose the type decision for it. You searched titles and descriptions, closed issues included, and found no match. The title and a draft body are in a file under .scratch/. The draft is a few paragraphs: the question, the options you see, and what each one costs. To learn which sections the body needs, you ran `bd lint --help`. It lists required sections for bug, task, feature, epic and chore. It lists none for decision, and none for spike. Nothing has been filed yet.",
+  "options": [
+    {
+      "id": "a",
+      "text": "File the decision now with the draft body as it stands, because `bd lint --help` names no sections for its type, and add sections afterwards only if bd create or bd lint complains."
+    },
+    {
+      "id": "b",
+      "text": "Before filing, run bd create with the title, `-t decision` and `--dry-run`, then write the body with the sections that dry run names, and file it."
+    },
+    {
+      "id": "c",
+      "text": "Before filing, open an existing decision issue with bd show and give the new body the same section headings that issue uses, then file it."
+    }
+  ],
+  "expected": "b",
+  "settledBy": "Settled by bd's own output and a reviewer's finding. The run asdlc-openspec-s5l3@2026-10-10T17:13:14Z (point 3) took option a. bd create then warned that the decision lacked ## Decision, ## Rationale and ## Alternatives Considered, and bd lint flagged the same three. The session then read an open decision for the convention and rewrote the body after filing, which is option c done late. The run asdlc-openspec-ic9h.11@2026-10-10T16:11:12Z (point 4) met the same thing with a spike, whose missing ## Goal and ## Findings bd create named. On 2026-10-10 the review ran bd create with `-t decision --dry-run`, and the dry run named those three sections before anything was filed. review-prompts-20261003-2052's skeptic upheld, 1 of 1, the edit that names bd create's dry run as the source."
+}
