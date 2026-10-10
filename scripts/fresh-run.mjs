@@ -947,11 +947,11 @@ const pause = (ms) => new Promise((done) => setTimeout(done, ms))
 
 /**
  * Whether `pid` names a process that has not exited. A zombie has exited and waits on a parent to reap
- * it, and `process.kill(pid, 0)` still finds it; where PID 1 reaps no orphan, as in the dev container,
- * a killed child stays one, so on Linux its state in `/proc` decides (asdlc-openspec-c17k). A `/proc`
+ * it, and `process.kill(pid, 0)` still finds it; where PID 1 reaps no orphan, as in the dev container
+ * until it ran Docker's init, a killed child stays one, so on Linux its state in `/proc` decides (asdlc-openspec-c17k). A `/proc`
  * it cannot read leaves the signal's answer, so a child that runs on is never read as gone.
  * `scripts/git-hooks.mjs` holds the same reading for its signal case, and `alive` in
- * `scripts/code-graph.mjs` still lacks it (asdlc-openspec-29nx).
+ * `scripts/code-graph.mjs` for its build lock (asdlc-openspec-29nx).
  */
 function pidRuns(pid) {
   const signalled = () => {

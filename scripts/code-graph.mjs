@@ -80,7 +80,8 @@
  * the graph's blob id against git's, a combined graph that is current, of another build, of no
  * recorded build, unreadable, with no graph.json beside it and made stale by a build, a build with
  * `--no-mcp` and a failing one that each warn the server may still be on a combined graph, an empty
- * lock, one whose holder has exited and a live one, a missing or wrong-version graphify, a mise that
+ * lock, one whose holder has exited, one whose holder is a zombie (on Linux, where `/proc` is read)
+ * and a live one, a missing or wrong-version graphify, a mise that
  * cannot say where graphify-mcp is, an MCP server without its tools, saved answers,
  * graphify's own git hook, `--code-only --no-mcp` with no claude, two bad flag sets, and a run under
  * a hook's exported `GIT_DIR`. That last case is the selftest's own incident: on 2026-10-01, run by
@@ -339,12 +340,35 @@ function refuseMemory(outDir) {
   }
 }
 
+/**
+ * Whether the lock's holder has not exited. A zombie has exited and waits on a parent to reap it, and
+ * `process.kill(pid, 0)` still finds it; where PID 1 reaps no orphan, a holder that died stays one and
+ * its lock is never taken over, so on Linux its state in `/proc` decides (asdlc-openspec-29nx). A
+ * `/proc` it cannot read leaves the signal's answer, so a holder that runs on is never read as gone.
+ * `pidRuns` in `scripts/git-hooks.mjs` and `scripts/fresh-run.mjs` holds the same reading.
+ */
 function alive(pid) {
+  const signalled = () => {
+    try {
+      process.kill(pid, 0)
+      return true
+    } catch {
+      return false
+    }
+  }
+  if (!signalled()) return false
+  if (process.platform !== 'linux') return true
+  const state = procState(pid)
+  return state === null ? signalled() : state !== 'Z'
+}
+
+/** The state `/proc/<pid>/stat` gives a process on Linux, `Z` for a zombie, or null where it cannot be read. */
+function procState(pid) {
   try {
-    process.kill(pid, 0)
-    return true
+    const stat = readFileSync(`/proc/${pid}/stat`, 'utf8')
+    return stat[stat.lastIndexOf(')') + 2]
   } catch {
-    return false
+    return null
   }
 }
 
@@ -845,6 +869,27 @@ async function selftest() {
       writeFileSync(join(c.outDir, '.code-graph.lock'), String(gone))
       const r = c.run(['--no-mcp'])
       check('a lock whose holder has exited is taken over, and released', r.status === 0 && !existsSync(join(c.outDir, '.code-graph.lock')), `${r.out}\npid ${gone}`)
+    }
+    {
+      const name = 'a lock whose holder is a zombie is taken over, and released'
+      if (process.platform !== 'linux') {
+        check(name, true, 'skipped off Linux: the reading is of /proc')
+      } else {
+        // The exec'd sleep never reaps the child sh started in the background, which stays a zombie
+        // wherever PID 1 reaps orphans too.
+        const parent = spawn('sh', ['-c', 'sleep 0 & echo $!; exec sleep 30'], { stdio: ['ignore', 'pipe', 'ignore'] })
+        try {
+          const zombie = await new Promise((done) => parent.stdout.once('data', (d) => done(Number(String(d).trim()))))
+          for (let i = 0; i < 40 && procState(zombie) !== 'Z'; i += 1) await new Promise((done) => setTimeout(done, 50))
+          const c = makeCase(base, 'zombie-lock', policy)
+          mkdirSync(c.outDir, { recursive: true })
+          writeFileSync(join(c.outDir, '.code-graph.lock'), String(zombie))
+          const r = c.run(['--no-mcp'])
+          check(name, procState(zombie) === 'Z' && r.status === 0 && !existsSync(join(c.outDir, '.code-graph.lock')), `${r.out}\npid ${zombie}, state ${procState(zombie)}`)
+        } finally {
+          parent.kill('SIGKILL')
+        }
+      }
     }
     {
       const c = makeCase(base, 'live-lock', policy)
