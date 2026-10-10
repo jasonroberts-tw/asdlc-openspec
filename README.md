@@ -307,8 +307,9 @@ once you set it (`docs/decisions/asdlc-openspec-llbi.md` § Decision).
    that step 6 of macOS and Linux sets, and the tracker's hydration on every start, registers each
    plugin marketplace and installs each plugin for the clone where one is missing, sets the App's
    bot account as git's commit identity where none is set, and warns rather than fails; read its
-   output once (`docker logs` on the container shows it). If it warns that a tool `mise.toml` pins is missing from the image, rebuild the
-   container; if it warns that the GitHub App could not mint a token, fix the key and start again.
+   output once (`docker logs` on the container shows it). If it warns that a tool `mise.toml` pins
+   is missing from the image, rebuild the container; if it warns that the GitHub App could not mint
+   a token, fix the key and start again.
 1. So that the container's sessions can call TypeSafe, set `DEVCONTAINER_TYPESAFE_API_KEY` to your
    key in the shell you run `devcontainer exec` from, as `.devcontainer/README.md` § TypeSafe's key
    says. Without it, each tool that calls TypeSafe skips there and says why.
