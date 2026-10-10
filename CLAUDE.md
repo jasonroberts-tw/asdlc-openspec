@@ -272,7 +272,7 @@ Each of these holds from the first file it applies to, and for every one after i
   breaks exactly one thing per case, asserts the run fails **for that reason**, and keeps one
   undoctored control case that must pass, without which every other case could be failing on the
   copy. A case that only sees "refused" passes with the refusal deleted whenever something else
-  refuses first. A gate's is exposed as `<name>:selftest` and runs as its own pre-push job.
+  refuses first. A gate's is a `:selftest` task of its name, run as its own pre-push job.
 - **Every gate has a root override**: an environment variable naming a doctored copy, so a by-hand
   run can point the gate at a fixture without editing it.
 - **Every script under `scripts/`, every emitter under `tools/` and every hook under
