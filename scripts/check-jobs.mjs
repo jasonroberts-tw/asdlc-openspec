@@ -81,11 +81,12 @@
  *   7. a check task, `check:<group>` or `<group>:check`, with no task named `check:<group>:selftest`
  *      or `<group>:selftest`, unless `SELFTEST_EXCEPTIONS` names the task that tests it; and an
  *      exception listed twice, naming no check task, whose check is gone or now has the selftest its
- *      name asks for, or whose named test is gone or is no selftest task. Since 2026-10-10 (asdlc-openspec-phmi), when `CLAUDE.md` § Standing
- *      rules for prompts and gates asked a selftest of every gate and only a model, the branch
- *      reviewer, read for one. Wrong here, a gate could land with no selftest, so nothing would show
- *      when it stopped refusing. It matches by name, not by script: `citations:check`, `coupling:check`
- *      and `trace:check` each run a script other than their selftest's.
+ *      name asks for, or whose named test is gone or is no selftest task. It holds since 2026-10-10
+ *      (asdlc-openspec-phmi). Before it, `CLAUDE.md` § Standing rules for prompts and gates asked a
+ *      selftest of every gate, and only a model, the branch reviewer, read for one. Wrong here, a gate
+ *      could land with no selftest, so nothing would show when it stopped refusing. It matches by
+ *      name, not by script: `citations:check`, `coupling:check` and `trace:check` each run a script
+ *      other than their selftest's.
  *
  * WHAT IS NOT CHECKED, deliberately: WHERE a jobbed script runs (pre-push, CI or both) -- that is
  * the README's Gate column, which a reviewer reads; whether a job's OTHER commands (`git diff`,

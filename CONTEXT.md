@@ -13,7 +13,7 @@ task is one, never a checklist (`CLAUDE.md` § The task store).
 
 **`bd`**:
 The tracker's command-line tool. Its database syncs through the git remote and is never committed
-(`README.md` § Setup).
+(`README.md` § How it is laid out).
 
 **the queue**:
 What `bd ready` lists: the open issues nothing blocks (`CLAUDE.md` § The task store).

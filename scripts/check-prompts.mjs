@@ -89,8 +89,9 @@
  * NO EXEMPTION. `CLAUDE.md` asks the line of every skill and agent, and this gate asks it of each.
  * Until 2026-10-10 (asdlc-openspec-phmi) the bullet asked it of every *substantial* one, while this
  * gate already asked it of all, because the line costs one line and deciding what is substantial is
- * how six were skipped. A prompt that should go without it is named in `.claude/README.md` with its reason and
- * added to a table here in the same change; there is none today. No prompt goes without a budget.
+ * how six were skipped. A prompt that should go without it is named in `.claude/README.md` with its
+ * reason and added to a table here in the same change; there is none today. No prompt goes without
+ * a budget.
  *
  * A HEURISTIC, NOT A PARSER, reads a workflow or a hook. No JavaScript parser is a dependency here,
  * and adding one changes `package-lock.json`, which `prReviewHighRiskPaths` gives a person to merge.
